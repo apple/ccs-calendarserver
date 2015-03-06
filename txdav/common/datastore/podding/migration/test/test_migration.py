@@ -72,6 +72,8 @@ class TestCompleteMigrationCycle(MultiStoreConduitTest):
         config.GroupAttendees.Enabled = True
         config.GroupAttendees.ReconciliationDelaySeconds = 0
         config.GroupAttendees.AutoUpdateSecondsFromNow = 0
+        config.AccountingCategories.migration = True
+        config.AccountingPrincipals = ["*"]
 
 
     @inlineCallbacks

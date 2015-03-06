@@ -32,7 +32,8 @@ from txdav.common.datastore.sql_directory import DelegateRecord, \
     ExternalDelegateGroupsRecord, DelegateGroupsRecord, GroupsRecord
 from txdav.common.datastore.sql_notification import NotificationCollection
 from txdav.common.datastore.sql_tables import schema, _HOME_STATUS_EXTERNAL, \
-    _BIND_MODE_READ, _HOME_STATUS_MIGRATING
+    _BIND_MODE_READ, _HOME_STATUS_MIGRATING, _HOME_STATUS_NORMAL, \
+    _HOME_STATUS_DISABLED
 from txdav.common.datastore.test.util import populateCalendarsFrom
 from txdav.who.delegates import Delegates
 from txweb2.http_headers import MimeType
@@ -979,6 +980,34 @@ END:VCALENDAR
             else:
                 self.fail("Notification uid {} not found".format(result.uid()))
         yield self.commitTransaction(1)
+
+
+    @inlineCallbacks
+    def test_disable_remote_home(self):
+        """
+        Test that L{disableRemoteHome} changes the remote status and prevents a normal state
+        home from being created.
+        """
+
+        # Create remote home - and add some fake notifications
+        yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        yield self.theTransactionUnderTest(0).notificationsWithUID("user01", create=True)
+        yield self.commitTransaction(0)
+
+        # Sync from remote side
+        syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
+        yield syncer.loadRecord()
+        yield syncer.prepareCalendarHome()
+        yield syncer.disableRemoteHome()
+
+        # It is disabled
+        home = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01")
+        self.assertTrue(home is None)
+        home = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", status=_HOME_STATUS_NORMAL)
+        self.assertTrue(home is None)
+        home = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", status=_HOME_STATUS_DISABLED)
+        self.assertTrue(home is not None)
+        yield self.commitTransaction(0)
 
 
 

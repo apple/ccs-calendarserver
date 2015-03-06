@@ -19,6 +19,7 @@ from functools import wraps
 from twext.python.log import Logger
 from twisted.internet.defer import returnValue, inlineCallbacks
 from twisted.python.failure import Failure
+from twistedcaldav.accounting import emitAccounting
 from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.podding.migration.sync_metadata import CalendarMigrationRecord, \
     CalendarObjectMigrationRecord, AttachmentMigrationRecord
@@ -30,9 +31,12 @@ from txdav.common.datastore.sql_tables import _HOME_STATUS_MIGRATING, _HOME_STAT
 from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
 
 from uuid import uuid4
+import datetime
 
 log = Logger()
 
+ACCOUNTING_TYPE = "migration"
+ACCOUNTING_LOG = "migration.log"
 
 def inTransactionWrapper(operation):
     """
@@ -85,7 +89,7 @@ class CrossPodHomeSync(object):
 
     BATCH_SIZE = 50
 
-    def __init__(self, store, diruid, final=False):
+    def __init__(self, store, diruid, final=False, uselog=None):
         """
         @param store: the data store
         @type store: L{CommonDataStore}
@@ -94,17 +98,26 @@ class CrossPodHomeSync(object):
         @param final: indicates whether this is in the final sync stage with the remote home
             already disabled
         @type final: L{bool}
+        @param uselog: additional logging written to this object
+        @type: L{File}
         """
 
         self.store = store
         self.diruid = diruid
         self.disabledRemote = final
+        self.uselog = uselog
         self.record = None
         self.homeId = None
 
 
     def label(self, detail):
         return "Cross-pod Migration Sync for {}: {}".format(self.diruid, detail)
+
+
+    def accounting(self, logstr):
+        emitAccounting(ACCOUNTING_TYPE, self.record, "{} {}\n".format(datetime.datetime.now().isoformat(), logstr), filename=ACCOUNTING_LOG)
+        if self.uselog is not None:
+            self.uselog.write("CrossPodHomeSync: {}\n".format(logstr))
 
 
     @inlineCallbacks
@@ -154,6 +167,7 @@ class CrossPodHomeSync(object):
         """
 
         yield self.loadRecord()
+        self.accounting("Starting: sync...")
         yield self.prepareCalendarHome()
 
         # Calendar list and calendar data
@@ -165,6 +179,8 @@ class CrossPodHomeSync(object):
         # Sync attachments
         yield self.syncAttachments()
 
+        self.accounting("Completed: sync.\n")
+
 
     @inlineCallbacks
     def finalSync(self):
@@ -174,6 +190,7 @@ class CrossPodHomeSync(object):
         """
 
         yield self.loadRecord()
+        self.accounting("Starting: finalSync...")
         yield self.prepareCalendarHome()
 
         # Link attachments to resources: ATTACHMENT_CALENDAR_OBJECT table
@@ -198,6 +215,8 @@ class CrossPodHomeSync(object):
         # TODO: work items
         pass
 
+        self.accounting("Completed: finalSync.\n")
+
 
     @inTransactionWrapper
     @inlineCallbacks
@@ -207,6 +226,7 @@ class CrossPodHomeSync(object):
         """
 
         yield self.loadRecord()
+        self.accounting("Starting: disableRemoteHome...")
         yield self.prepareCalendarHome()
 
         # Calendar home
@@ -219,6 +239,8 @@ class CrossPodHomeSync(object):
 
         self.disabledRemote = True
 
+        self.accounting("Completed: disableRemoteHome.\n")
+
 
     @inTransactionWrapper
     @inlineCallbacks
@@ -228,6 +250,7 @@ class CrossPodHomeSync(object):
         """
 
         yield self.loadRecord()
+        self.accounting("Starting: enableLocalHome...")
         yield self.prepareCalendarHome()
 
         # Disable any local external homes
@@ -249,6 +272,8 @@ class CrossPodHomeSync(object):
         # TODO: purge the old ones
         pass
 
+        self.accounting("Completed: enableLocalHome.\n")
+
 
     @inlineCallbacks
     def removeRemoteHome(self):
@@ -259,7 +284,10 @@ class CrossPodHomeSync(object):
         # TODO: implement API on CommonHome to purge the old data without
         # any side-effects (scheduling, sharing etc).
         yield self.loadRecord()
+        self.accounting("Starting: removeRemoteHome...")
         yield self.prepareCalendarHome()
+
+        self.accounting("Completed: removeRemoteHome.\n")
 
 
     @inlineCallbacks
@@ -290,6 +318,7 @@ class CrossPodHomeSync(object):
                     self.homeId = None
                 else:
                     home = yield txn.calendarHomeWithUID(self.diruid, status=_HOME_STATUS_MIGRATING, create=True)
+                    self.accounting("  Created new home collection to migrate into.")
             self.homeId = home.id() if home is not None else None
 
 
@@ -300,6 +329,7 @@ class CrossPodHomeSync(object):
         Make sure the home meta-data (alarms, default calendars) is properly sync'd
         """
 
+        self.accounting("Starting: syncCalendarHomeMetaData...")
         remote_home = yield self._remoteHome(txn)
         yield remote_home.readMetaData()
 
@@ -308,6 +338,8 @@ class CrossPodHomeSync(object):
 
         local_home = yield self._localHome(txn)
         yield local_home.copyMetadata(remote_home, calendarIDMap)
+
+        self.accounting("Completed: syncCalendarHomeMetaData.")
 
 
     @inlineCallbacks
@@ -350,11 +382,15 @@ class CrossPodHomeSync(object):
         Synchronize each owned calendar.
         """
 
+        self.accounting("Starting: syncCalendarList...")
+
         # Remote sync details
         remote_sync_state = yield self.getCalendarSyncList()
+        self.accounting("  Found {} remote calendars to sync.".format(len(remote_sync_state)))
 
         # Get local sync details from local DB
         local_sync_state = yield self.getSyncState()
+        self.accounting("  Found {} local calendars to sync.".format(len(local_sync_state)))
 
         # Remove local calendars no longer on the remote side
         yield self.purgeLocal(local_sync_state, remote_sync_state)
@@ -362,6 +398,8 @@ class CrossPodHomeSync(object):
         # Sync each calendar that matches on both sides
         for remoteID in remote_sync_state.keys():
             yield self.syncCalendar(remoteID, local_sync_state, remote_sync_state)
+
+        self.accounting("Completed: syncCalendarList.")
 
 
     @inTransactionWrapper
@@ -433,11 +471,12 @@ class CrossPodHomeSync(object):
         @type remote_sync_state: L{dict}
         """
         home = yield self._localHome(txn)
-        for remoteID in set(local_sync_state.keys()) - set(remote_sync_state.keys()):
-            calendar = yield home.childWithID(local_sync_state[remoteID].localResourceID)
+        for localID in set(local_sync_state.keys()) - set(remote_sync_state.keys()):
+            calendar = yield home.childWithID(local_sync_state[localID].localResourceID)
             if calendar is not None:
                 yield calendar.purge()
-            del local_sync_state[remoteID]
+            del local_sync_state[localID]
+            self.accounting("  Purged calendar local-id={} that no longer exists on the remote pod.".format(localID))
 
 
     @inlineCallbacks
@@ -454,6 +493,8 @@ class CrossPodHomeSync(object):
         @type remote_sync_state: L{dict}
         """
 
+        self.accounting("Starting: syncCalendar.")
+
         # See if we need to create the local one first
         if remoteID not in local_sync_state:
             localID = yield self.newCalendar()
@@ -463,6 +504,10 @@ class CrossPodHomeSync(object):
                 localResourceID=localID,
                 lastSyncToken=None,
             )
+            self.accounting("  Created new calendar local-id={}, remote-id={}.".format(localID, remoteID))
+        else:
+            localID = local_sync_state.get(remoteID).localResourceID
+            self.accounting("  Updating calendar local-id={}, remote-id={}.".format(localID, remoteID))
         local_record = local_sync_state.get(remoteID)
 
         remote_token = remote_sync_state[remoteID].lastSyncToken
@@ -471,11 +516,13 @@ class CrossPodHomeSync(object):
             yield self.syncCalendarMetaData(local_record)
 
             # Sync object resources
-            changed, deleted = yield self.findObjectsToSync(local_record)
-            yield self.purgeDeletedObjectsInBatches(local_record, deleted)
+            changed, removed = yield self.findObjectsToSync(local_record)
+            self.accounting("  Calendar objects changed={}, removed={}.".format(len(changed), len(removed)))
+            yield self.purgeDeletedObjectsInBatches(local_record, removed)
             yield self.updateChangedObjectsInBatches(local_record, changed)
 
         yield self.updateSyncState(local_record, remote_token)
+        self.accounting("Completed: syncCalendar.")
 
 
     @inTransactionWrapper
@@ -500,6 +547,7 @@ class CrossPodHomeSync(object):
         @param migrationRecord: current migration record
         @type localID: L{CalendarMigrationRecord}
         """
+
         # Remote changes
         remote_home = yield self._remoteHome(txn)
         remote_calendar = yield remote_home.childWithID(migrationRecord.remoteResourceID)
@@ -510,6 +558,7 @@ class CrossPodHomeSync(object):
         local_home = yield self._localHome(txn)
         local_calendar = yield local_home.childWithID(migrationRecord.localResourceID)
         yield local_calendar.copyMetadata(remote_calendar)
+        self.accounting("  Copied calendar meta-data for calendar local-id={0.localResourceID}, remote-id={0.remoteResourceID}.".format(migrationRecord))
 
 
     @inTransactionWrapper
@@ -592,6 +641,7 @@ class CrossPodHomeSync(object):
 
         for local_object in local_objects:
             yield local_object.purge()
+            self.accounting("  Purged calendar object local-id={}.".format(local_object.id()))
 
 
     @inlineCallbacks
@@ -660,6 +710,7 @@ class CrossPodHomeSync(object):
                 local_object = yield local_objects[obj_name]
                 yield local_object._setComponentInternal(remote_data, internal_state=ComponentUpdateState.RAW)
                 del local_objects[obj_name]
+                log_op = "Updated"
             else:
                 local_object = yield local_calendar._createCalendarObjectWithNameInternal(obj_name, remote_data, internal_state=ComponentUpdateState.RAW)
 
@@ -671,13 +722,16 @@ class CrossPodHomeSync(object):
                     remoteResourceID=remote_object.id(),
                     localResourceID=local_object.id()
                 )
+                log_op = "Created"
 
             # Sync meta-data such as schedule object, schedule tags, access mode etc
             yield local_object.copyMetadata(remote_object)
+            self.accounting("  {} calendar object local-id={}, remote-id={}.".format(log_op, local_object.id(), remote_object.id()))
 
         # Purge the ones that remain
         for local_object in local_objects.values():
             yield local_object.purge()
+            self.accounting("  Purged calendar object local-id={}.".format(local_object.id()))
 
 
     @inlineCallbacks
@@ -686,11 +740,16 @@ class CrossPodHomeSync(object):
         Sync attachments (both metadata and actual attachment data) for the home being migrated.
         """
 
+        self.accounting("Starting: syncAttachments...")
+
         # Two steps - sync the table first in one txn, then sync each attachment's data
         changed_ids, removed_ids = yield self.syncAttachmentTable()
+        self.accounting("  Attachments changed={}, removed={}".format(len(changed_ids), len(removed_ids)))
 
         for local_id in changed_ids:
             yield self.syncAttachmentData(local_id)
+
+        self.accounting("Completed: syncAttachments.")
 
         returnValue((changed_ids, removed_ids,))
 
@@ -772,6 +831,7 @@ class CrossPodHomeSync(object):
         if records:
             # Read the data from the conduit
             yield remote_home.readAttachmentData(records[0].remoteResourceID, attachment)
+            self.accounting("  Read attachment local-id={0.localResourceID}, remote-id={0.remoteResourceID}".format(records[0]))
 
 
     @inlineCallbacks
@@ -780,8 +840,11 @@ class CrossPodHomeSync(object):
         Link attachments to the calendar objects they belong to.
         """
 
+        self.accounting("Starting: linkAttachments...")
+
         # Get the map of links for the remote home
         links = yield self.getAttachmentLinks()
+        self.accounting("  Linking {} attachments".format(len(links)))
 
         # Get remote->local ID mappings
         attachmentIDMap, objectIDMap = yield self.getAttachmentMappings()
@@ -791,6 +854,8 @@ class CrossPodHomeSync(object):
         while links:
             yield self.makeAttachmentLinks(links[:50], attachmentIDMap, objectIDMap)
             links = links[50:]
+
+        self.accounting("Completed: linkAttachments.")
 
         returnValue(len_links)
 
@@ -854,9 +919,13 @@ class CrossPodHomeSync(object):
         a fake directory UID locally.
         """
 
+        self.accounting("Starting: delegateReconcile...")
+
         yield self.individualDelegateReconcile()
         yield self.groupDelegateReconcile()
         yield self.externalDelegateReconcile()
+
+        self.accounting("Completed: delegateReconcile.")
 
 
     @inTransactionWrapper
@@ -869,6 +938,8 @@ class CrossPodHomeSync(object):
         remote_records = yield txn.dumpIndividualDelegatesExternal(self.record)
         for record in remote_records:
             yield record.insert(txn)
+
+        self.accounting("  Found {} individual delegates".format(len(remote_records)))
 
 
     @inTransactionWrapper
@@ -885,6 +956,8 @@ class CrossPodHomeSync(object):
             delegator.groupID = local_group.groupID
             yield delegator.insert(txn)
 
+        self.accounting("  Found {} group delegates".format(len(remote_records)))
+
 
     @inTransactionWrapper
     @inlineCallbacks
@@ -897,6 +970,8 @@ class CrossPodHomeSync(object):
         for record in remote_records:
             yield record.insert(txn)
 
+        self.accounting("  Found {} external delegates".format(len(remote_records)))
+
 
     @inlineCallbacks
     def groupAttendeeReconcile(self):
@@ -904,14 +979,19 @@ class CrossPodHomeSync(object):
         Sync the remote group attendee links to the local store.
         """
 
+        self.accounting("Starting: groupAttendeeReconcile...")
+
         # Get remote data and local mapping information
         remote_group_attendees, objectIDMap = yield self.groupAttendeeData()
+        self.accounting("  Found {} group attendees".format(len(remote_group_attendees)))
 
         # Map each result to a local resource (in batches)
         number_of_links = len(remote_group_attendees)
         while remote_group_attendees:
             yield self.groupAttendeeProcess(remote_group_attendees[:50], objectIDMap)
             remote_group_attendees = remote_group_attendees[50:]
+
+        self.accounting("Completed: groupAttendeeReconcile.")
 
         returnValue(number_of_links)
 
@@ -957,13 +1037,17 @@ class CrossPodHomeSync(object):
         Sync all the existing L{NotificationObject} resources from the remote store.
         """
 
+        self.accounting("Starting: notificationsReconcile...")
         records = yield self.notificationRecords()
+        self.accounting("  Found {} notifications".format(len(records)))
 
         # Batch setting resources for the local home
         len_records = len(records)
         while records:
             yield self.makeNotifications(records[:50])
             records = records[50:]
+
+        self.accounting("Completed: notificationsReconcile.")
 
         returnValue(len_records)
 
@@ -998,7 +1082,8 @@ class CrossPodHomeSync(object):
         for record in records:
             # Do this via the "write" API so that sync revisions are updated properly, rather than just
             # inserting the records directly.
-            yield notifications.writeNotificationObject(record.notificationUID, record.notificationType, record.notificationData)
+            notification = yield notifications.writeNotificationObject(record.notificationUID, record.notificationType, record.notificationData)
+            self.accounting("  Added notification local-id={}.".format(notification.id()))
 
 
     @inlineCallbacks
@@ -1019,6 +1104,7 @@ class CrossPodHomeSync(object):
         A -> C        |  B -> C (new)                | (removed)
         """
 
+        self.accounting("Starting: sharedByCollectionsReconcile...")
         calendars = yield self.getSyncState()
 
         len_records = 0
@@ -1027,6 +1113,10 @@ class CrossPodHomeSync(object):
             if not records:
                 continue
             records = records.items()
+
+            self.accounting("  Found shared by calendar local-id={0.localResourceID}, remote-id={0.remoteResourceID} with {1} sharees".format(
+                calendar, len(records),
+            ))
 
             # Batch setting resources for the local home
             len_records += len(records)
@@ -1039,6 +1129,8 @@ class CrossPodHomeSync(object):
 
             # Update the remote pod to switch over the shares
             yield self.updatedRemoteSharedByCollections(calendar.remoteResourceID, bindUID)
+
+        self.accounting("Completed: sharedByCollectionsReconcile.")
 
         returnValue(len_records)
 
@@ -1093,12 +1185,14 @@ class CrossPodHomeSync(object):
                     calendarResourceID=calendar_id,
                     bindRevision=0,
                 )
+                self.accounting("    Updating existing sharee {}".format(shareeHome.uid()))
             else:
                 # Map the record resource ids and insert a new record
                 record.calendarHomeResourceID = shareeHome.id()
                 record.calendarResourceID = calendar_id
                 record.bindRevision = 0
                 yield record.insert(txn)
+                self.accounting("    Adding new sharee {}".format(shareeHome.uid()))
 
 
     @inTransactionWrapper
@@ -1116,6 +1210,7 @@ class CrossPodHomeSync(object):
             share.groupID = local_group.groupID
             share.calendarID = local_id
             yield share.insert(txn)
+            self.accounting("    Adding group sharee {}".format(local_group.groupUID))
 
 
     @inTransactionWrapper
@@ -1128,6 +1223,7 @@ class CrossPodHomeSync(object):
         remote_home = yield self._remoteHome(txn)
         remote_calendar = yield remote_home.childWithID(remote_id)
         records = yield remote_calendar.migrateBindRecords(bindUID)
+        self.accounting("    Updating remote records")
         returnValue(records)
 
 
@@ -1147,13 +1243,19 @@ class CrossPodHomeSync(object):
         B -> A        |  B -> B (modify existing)    | (removed)
         C -> A        |  C -> B (new)                | (removed)
         """
+
+        self.accounting("Starting: sharedToCollectionsReconcile...")
+
         records = yield self.sharedToCollectionRecords()
         records = records.items()
         len_records = len(records)
+        self.accounting("  Found {} shared to collections".format(len_records))
 
         while records:
             yield self.makeSharedToCollections(records[:50])
             records = records[50:]
+
+        self.accounting("Completed: sharedToCollectionsReconcile.")
 
         returnValue(len_records)
 
@@ -1198,6 +1300,7 @@ class CrossPodHomeSync(object):
                     yield oldrecord[0].update(
                         calendarHomeResourceID=self.homeId,
                     )
+                    self.accounting("  Updated existing local sharer record {}".format(sharerHome.uid()))
                 else:
                     raise AssertionError("An existing share must be present")
             else:
@@ -1217,6 +1320,7 @@ class CrossPodHomeSync(object):
                 if oldrecord:
                     # Map the record resource ids and insert a new record
                     calendar_id = oldrecord.calendarResourceID
+                    log_op = "Updated"
                 else:
                     sharerView = yield sharerHome.createCollectionForExternalShare(
                         ownerRecord.calendarResourceName,
@@ -1224,11 +1328,13 @@ class CrossPodHomeSync(object):
                         metadataRecord.supportedComponents,
                     )
                     calendar_id = sharerView.id()
+                    log_op = "Created"
 
                 shareeRecord.calendarHomeResourceID = self.homeId
                 shareeRecord.calendarResourceID = calendar_id
                 shareeRecord.bindRevision = 0
                 yield shareeRecord.insert(txn)
+                self.accounting("  {} remote sharer record {}".format(log_op, sharerHome.uid()))
 
                 yield self.updatedRemoteSharedToCollection(remote_id, txn=txn)
 
@@ -1243,4 +1349,5 @@ class CrossPodHomeSync(object):
         remote_home = yield self._remoteHome(txn)
         remote_calendar = yield remote_home.childWithID(remote_id)
         records = yield remote_calendar.migrateBindRecords(None)
+        self.accounting("    Updating remote records")
         returnValue(records)
