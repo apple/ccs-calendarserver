@@ -6162,6 +6162,8 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
     @inlineCallbacks
     def toTrash(self):
         # print("XYZZY collection toTrash")
+        yield self.ownerDeleteShare()
+
         for resource in (yield self.objectResources()):
             yield resource.toTrash()
         whenTrashed = datetime.datetime.utcnow()
@@ -7661,6 +7663,8 @@ class CommonObjectResource(FancyEqMixin, object):
         originalCollection = self._parentCollection._resourceID
         trash = yield self._parentCollection._home.childWithName("trash")
         newName = str(uuid4())
+        # FIXME: if the sharee is deleting this resource, it needs to move to
+        # the sharer's trash instead
         yield self.moveTo(trash, name=newName)
         yield self._updateToTrashQuery.on(
             self._txn, originalCollection=originalCollection, trashed=datetime.datetime.utcnow(), resourceID=self._resourceID

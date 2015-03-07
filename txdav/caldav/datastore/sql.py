@@ -5906,7 +5906,8 @@ class TrashCollection(Calendar):
         resources = []
         for (objectResourceID,) in results:
             resource = yield self.objectResourceWithID(objectResourceID)
-            resources.append(resource)
+            if resource is not None:
+                resources.append(resource)
         returnValue(resources)
 
 

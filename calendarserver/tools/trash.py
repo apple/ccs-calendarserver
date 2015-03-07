@@ -156,7 +156,6 @@ def listTrashedEventsForPrincipal(service, store, principalUID):
         print("No untrashed collections for:", prettyRecord(record))
         returnValue(None)
 
-    # print("Listing trashed collections for:", prettyRecord(record))
     for collection in untrashedCollections:
         displayName = displayNameForCollection(collection)
         children = yield trash.trashForCollection(collection._resourceID)
@@ -254,7 +253,6 @@ def emptyTrashForPrincipal(service, store, principalUID, days):
         returnValue(None)
 
     endTime = datetime.datetime.utcnow() - datetime.timedelta(days=-days)
-    # print("Listing trashed collections for:", prettyRecord(record))
     for collection in untrashedCollections:
         displayName = displayNameForCollection(collection)
         children = yield trash.trashForCollection(
@@ -278,32 +276,6 @@ def emptyTrashForPrincipal(service, store, principalUID, days):
 
     yield txn.commit()
 
-# @inlineCallbacks
-# def restoreFromTrash(store, directory, root, principals):
-
-#     for principalUID in principals:
-#         txn = store.newTransaction(label="Restore trashed events")
-#         home = yield txn.calendarHomeWithUID(principalUID)
-#         if home is None:
-#             continue
-#         trashedCollections = yield home.children(onlyInTrash=True)
-#         for collection in trashedCollections:
-#             displayName = displayNameForCollection(collection)
-#             print("Restoring collection", displayName, collection._resourceID)
-#             yield collection.fromTrash(restoreChildren=True)
-#         # This code is for untrashing all objects:
-#         # names = yield trash.listObjectResources()
-#         # for name in names:
-#         #     cobj = yield trash.calendarObjectWithName(name)
-#         #     print(name, cobj)
-
-#         #     if cobj is not None:
-#         #         # If it's still in the trash, restore it from trash
-#         #         if (yield cobj.isInTrash()):
-#         #             print("Restoring:", name)
-#         #             yield cobj.fromTrash()
-
-#         yield txn.commit()
 
 
 def displayNameForCollection(collection):
