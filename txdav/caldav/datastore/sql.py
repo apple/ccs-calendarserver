@@ -3928,7 +3928,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         sourceowner = self.calendar().viewerHome().uid()
         destowner = destination.viewerHome().uid()
 
-        if sourceowner != destowner:
+        if not destination.isTrash() and sourceowner != destowner:
             msg = "Calendar-to-calendar moves with different homes are not supported."
             log.debug(msg)
             raise InvalidResourceMove(msg)
