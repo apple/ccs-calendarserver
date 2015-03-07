@@ -1857,7 +1857,7 @@ class CommonHome(SharingHomeMixIn):
 
             if len(results) > 1:
                 # Pick the best one in order: normal, disabled and external
-                byStatus = dict([(result[cls.homeColumns().index(cls._homeSchema.STATUS)], result) for result in results])
+                byStatus = dict([(item[cls.homeColumns().index(cls._homeSchema.STATUS)], item) for item in results])
                 result = byStatus.get(_HOME_STATUS_NORMAL)
                 if result is None:
                     result = byStatus.get(_HOME_STATUS_DISABLED)

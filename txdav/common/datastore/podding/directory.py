@@ -272,7 +272,7 @@ class DirectoryPoddingConduitMixin(object):
 
         results = yield txn.dumpGroupDelegatesLocal(delegator.uid)
 
-        returnValue([[delegator.serialize(), group.serialize()] for delegator, group in results])
+        returnValue([[delegator_record.serialize(), group_record.serialize()] for delegator_record, group_record in results])
 
 
     @inlineCallbacks
