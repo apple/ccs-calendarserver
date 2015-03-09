@@ -225,6 +225,9 @@ script_entry_points = {
 
     "verify_data":
     ("calendarserver.tools.calverify", "main"),
+
+    "pod_migration":
+    ("calendarserver.tools.pod_migration", "main"),
 }
 
 for tool, (module, function) in script_entry_points.iteritems():

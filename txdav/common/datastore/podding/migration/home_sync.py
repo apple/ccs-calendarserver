@@ -269,6 +269,9 @@ class CrossPodHomeSync(object):
         if newnotifications:
             yield newnotifications.setStatus(_HOME_STATUS_NORMAL)
 
+        # TODO: remove migration state
+        pass
+
         # TODO: purge the old ones
         pass
 
