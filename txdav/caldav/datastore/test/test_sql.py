@@ -496,7 +496,7 @@ END:VCALENDAR
             )
 
         supported_components = set()
-        self.assertEqual(len(toCalendars), 3 + len(ical.allowedStoreComponents))
+        self.assertEqual(len(toCalendars), 2 + len(ical.allowedStoreComponents))
         for calendar in toCalendars:
             if calendar.name() in ("inbox", "trash"):
                 continue

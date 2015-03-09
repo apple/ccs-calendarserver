@@ -488,9 +488,14 @@ class CalendarHome(CommonHome):
     createCalendarWithName = CommonHome.createChildWithName
     removeCalendarWithName = CommonHome.removeChildWithName
     calendarWithName = CommonHome.childWithName
-    calendars = CommonHome.children
     listCalendars = CommonHome.listChildren
     loadCalendars = CommonHome.loadChildren
+
+
+    @inlineCallbacks
+    def calendars(self):
+        returnValue([c for c in (yield self.children()) if not c.isTrash()])
+
 
     @inlineCallbacks
     def remove(self):
@@ -1342,7 +1347,6 @@ class Calendar(CommonHomeChild):
         @param use_it: C{True} if used for free busy, C{False} otherwise
         @type use_it: C{bool}
         """
-
         self._transp = _TRANSP_OPAQUE if use_it and (not self.isInbox() and not self.isTrash()) else _TRANSP_TRANSPARENT
         cal = self._bindSchema
         yield Update(
