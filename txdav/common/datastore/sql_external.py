@@ -216,8 +216,8 @@ class CommonHomeChildExternal(CommonHomeChild):
 
     @classmethod
     @inlineCallbacks
-    def objectWith(cls, home, name=None, resourceID=None, externalID=None, accepted=True):
-        mapping = yield home._txn.store().conduit.send_homechild_objectwith(home, name, resourceID, externalID, accepted)
+    def objectWith(cls, home, name=None, resourceID=None, externalID=None, accepted=True, onlyInTrash=False):
+        mapping = yield home._txn.store().conduit.send_homechild_objectwith(home, name, resourceID, externalID, accepted, onlyInTrash)
 
         if mapping:
             child = yield cls.internalize(home, mapping)

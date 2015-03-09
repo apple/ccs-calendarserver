@@ -1204,7 +1204,7 @@ END:VCARD
 
     @classmethod
     @inlineCallbacks
-    def objectWithName(cls, home, name, accepted=True):
+    def objectWithName(cls, home, name, accepted=True, onlyInTrash=False):
         """
         Retrieve the child with the given C{name} contained in the given
         C{home}.
@@ -1232,7 +1232,7 @@ END:VCARD
 
     @classmethod
     @inlineCallbacks
-    def objectWithID(cls, home, resourceID, accepted=True):
+    def objectWithID(cls, home, resourceID, accepted=True, onlyInTrash=False):
         """
         Retrieve the child with the given C{resourceID} contained in the given
         C{home}.

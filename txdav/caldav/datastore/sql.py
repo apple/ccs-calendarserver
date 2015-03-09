@@ -3983,6 +3983,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         if isinbox: # bypass the trash
             yield super(CalendarObject, self).reallyRemove()
         else:
+            calendar = (yield self.componentForUser())
             status = calendar.mainComponent().getProperty("STATUS")
             if status is not None:
                 status = status.strvalue()

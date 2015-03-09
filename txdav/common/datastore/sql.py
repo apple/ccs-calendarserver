@@ -3464,7 +3464,7 @@ class CommonHome(SharingHomeMixIn):
 
         if not self._childrenLoaded:
             yield self.loadChildren()
-        names = [k for k in self._children[self._childrenKey(onlyInTrash)].keys() if isinstance(k, str)]
+        names = [k for k in self._children[self._childrenKey(onlyInTrash)].keys() if not isinstance(k, int)]
         returnValue(names)
 
 
@@ -3549,12 +3549,12 @@ class CommonHome(SharingHomeMixIn):
         child = yield self.childWithName(name)
         if child is None:
             raise NoSuchHomeChildError()
+        key = self._childrenKey(child.isInTrash())
         resourceID = child._resourceID
 
         yield child.remove()
-        for d in self._children:
-            d.pop(name, None)
-            d.pop(resourceID, None)
+        self._children[key].pop(name, None)
+        self._children[key].pop(resourceID, None)
 
 
     @inlineCallbacks
@@ -6250,7 +6250,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     def isInTrash(self):
-        return self._isInTrash
+        return getattr(self, "_isInTrash", False)
 
 
 

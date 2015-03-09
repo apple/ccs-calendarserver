@@ -70,7 +70,10 @@ class iCalSplitter(object):
 
         # Check recurring
         if not ical.isRecurring():
-            fullyInFuture = (ical.mainComponent().getStartDateUTC() >= now)
+            try:
+                fullyInFuture = (ical.mainComponent().getStartDateUTC() >= now)
+            except AttributeError:
+                fullyInFuture = False
             return (False, fullyInFuture)
 
         instances = ical.cacheExpandedTimeRanges(now)
