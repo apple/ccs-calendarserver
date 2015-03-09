@@ -3541,6 +3541,9 @@ class CommonHome(SharingHomeMixIn):
             raise HomeChildNameNotAllowedError(name)
 
         child = yield self._childClass.create(self, name, externalID=externalID)
+        key = self._childrenKey(False)
+        self._children[key][name] = child
+        self._children[key][child._resourceID] = child
         returnValue(child)
 
 
