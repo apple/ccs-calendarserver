@@ -73,7 +73,7 @@ from txdav.common.icommondatastore import (
     InvalidObjectResourceError, ObjectResourceNameNotAllowedError,
     ObjectResourceNameAlreadyExistsError, UIDExistsError,
     UIDExistsElsewhereError, InvalidUIDError, InvalidResourceMove,
-    InvalidComponentForStoreError
+    InvalidComponentForStoreError, HomeChildNameAlreadyExistsError
 )
 from txdav.idav import PropertyChangeNotAllowedError
 from txdav.who.wiki import RecordType as WikiRecordType
@@ -435,7 +435,12 @@ class _CommonHomeChildCollectionMixin(object):
         """
         Override C{createCollection} to actually do the work.
         """
-        self._newStoreObject = (yield self._newStoreParentHome.createChildWithName(self._name))
+        try:
+            self._newStoreObject = (yield self._newStoreParentHome.createChildWithName(self._name))
+        except HomeChildNameAlreadyExistsError:
+            # We already check for an existing child prior to this call so the only time this fails is if
+            # there is an unaccepted share with the same name
+            raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Unaccepted share exists"))
 
         # Re-initialize to get stuff setup again now we have a "real" object
         self._initializeWithHomeChild(self._newStoreObject, self._parentResource)
