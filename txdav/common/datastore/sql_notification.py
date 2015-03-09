@@ -683,6 +683,8 @@ class NotificationObject(FancyEqMixin, object):
              child._notificationType,
              child._created,
              child._modified,) = tuple(row)
+            child._created = parseSQLTimestamp(child._created)
+            child._modified = parseSQLTimestamp(child._modified)
             try:
                 child._notificationType = json.loads(child._notificationType)
             except ValueError:
@@ -733,6 +735,8 @@ class NotificationObject(FancyEqMixin, object):
              self._notificationType,
              self._created,
              self._modified,) = tuple(rows[0])
+            self._created = parseSQLTimestamp(self._created)
+            self._modified = parseSQLTimestamp(self._modified)
             try:
                 self._notificationType = json.loads(self._notificationType)
             except ValueError:
@@ -828,7 +832,11 @@ class NotificationObject(FancyEqMixin, object):
                 notificationType=json.dumps(self._notificationType),
                 notificationData=notificationtext, md5=self._md5
             )
-            self._resourceID, self._created, self._modified = rows[0]
+            self._resourceID, self._created, self._modified = (
+                rows[0][0],
+                parseSQLTimestamp(rows[0][1]),
+                parseSQLTimestamp(rows[0][2]),
+            )
             self._loadPropertyStore()
         else:
             rows = yield self._updateNotificationQuery.on(
@@ -836,7 +844,7 @@ class NotificationObject(FancyEqMixin, object):
                 notificationType=json.dumps(self._notificationType),
                 notificationData=notificationtext, md5=self._md5
             )
-            self._modified = rows[0][0]
+            self._modified = parseSQLTimestamp(rows[0][0])
         self._notificationData = notificationdata
 
     _notificationDataFromID = Select(
@@ -877,8 +885,8 @@ class NotificationObject(FancyEqMixin, object):
 
 
     def created(self):
-        return datetimeMktime(parseSQLTimestamp(self._created))
+        return datetimeMktime(self._created)
 
 
     def modified(self):
-        return datetimeMktime(parseSQLTimestamp(self._modified))
+        return datetimeMktime(self._modified)

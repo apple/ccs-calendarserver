@@ -160,11 +160,6 @@ class AttachmentStorageTransport(StorageTransportBase):
 
 
 
-def sqltime(value):
-    return datetimeMktime(parseSQLTimestamp(value))
-
-
-
 class AttachmentLink(object):
     """
     A binding between an L{Attachment} and an L{CalendarObject}.
@@ -306,6 +301,8 @@ class Attachment(object):
 
         for attr, value in zip(child._rowAttributes(), attachmentData):
             setattr(child, attr, value)
+        child._created = parseSQLTimestamp(child._created)
+        child._modified = parseSQLTimestamp(child._modified)
         child._contentType = MimeType.fromString(child._contentType)
 
         return child
@@ -404,6 +401,8 @@ class Attachment(object):
         the attributes may not match exactly and will need to be processed accordingly.
         """
         result = dict([(attr[1:], getattr(self, attr, None)) for attr in self._rowAttributes()])
+        result["created"] = result["created"].isoformat(" ")
+        result["modified"] = result["modified"].isoformat(" ")
         result["contentType"] = generateContentType(result["contentType"])
         return result
 
@@ -469,9 +468,9 @@ class Attachment(object):
 
         for attr, value in zip(self._rowAttributes(), rows[0]):
             setattr(self, attr, value)
+        self._created = parseSQLTimestamp(self._created)
+        self._modified = parseSQLTimestamp(self._modified)
         self._contentType = MimeType.fromString(self._contentType)
-        self._created = sqltime(self._created)
-        self._modified = sqltime(self._modified)
 
         returnValue(self)
 
@@ -636,11 +635,11 @@ class Attachment(object):
 
 
     def created(self):
-        return self._created
+        return datetimeMktime(self._created)
 
 
     def modified(self):
-        return self._modified
+        return datetimeMktime(self._modified)
 
 
 
@@ -680,8 +679,8 @@ class DropBoxAttachment(Attachment):
 
         row_iter = iter(rows[0])
         a_id = row_iter.next()
-        created = sqltime(row_iter.next())
-        modified = sqltime(row_iter.next())
+        created = parseSQLTimestamp(row_iter.next())
+        modified = parseSQLTimestamp(row_iter.next())
 
         attachment = cls(txn, a_id, dropboxID, name, ownerHomeID, True)
         attachment._created = created
@@ -754,7 +753,7 @@ class DropBoxAttachment(Attachment):
 
         att = self._attachmentSchema
         self._created, self._modified = map(
-            sqltime,
+            parseSQLTimestamp,
             (yield Update(
                 {
                     att.CONTENT_TYPE    : generateContentType(self._contentType),
@@ -845,8 +844,8 @@ class ManagedAttachment(Attachment):
 
         row_iter = iter(rows[0])
         a_id = row_iter.next()
-        created = sqltime(row_iter.next())
-        modified = sqltime(row_iter.next())
+        created = parseSQLTimestamp(row_iter.next())
+        modified = parseSQLTimestamp(row_iter.next())
 
         attachment = cls(txn, a_id, ".", None, ownerHomeID, True)
         attachment._managedID = managedID
@@ -1119,7 +1118,7 @@ class ManagedAttachment(Attachment):
         self._size = size
         att = self._attachmentSchema
         self._created, self._modified = map(
-            sqltime,
+            parseSQLTimestamp,
             (yield Update(
                 {
                     att.CONTENT_TYPE    : generateContentType(self._contentType),

@@ -73,6 +73,7 @@ from twext.enterprise.dal.syntax import Select, Parameter, Insert, Delete, \
     Update
 from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.enterprise.jobqueue import JobItem
+from twext.enterprise.util import parseSQLTimestamp
 
 import datetime
 import os
@@ -741,14 +742,14 @@ END:VCALENDAR
         txn = calendarStore.newTransaction()
         home = yield txn.homeWithUID(ECALENDARTYPE, "uid1", create=True)
         cal = yield home.calendarWithName("calendar")
-        cal._created = "2011-02-05 11:22:47"
-        cal._modified = "2011-02-06 11:22:47"
+        cal._created = parseSQLTimestamp("2011-02-05 11:22:47")
+        cal._modified = parseSQLTimestamp("2011-02-06 11:22:47")
         self.assertEqual(cal.created(), datetimeMktime(datetime.datetime(2011, 2, 5, 11, 22, 47)))
         self.assertEqual(cal.modified(), datetimeMktime(datetime.datetime(2011, 2, 6, 11, 22, 47)))
 
         obj = yield self.calendarObjectUnderTest()
-        obj._created = "2011-02-07 11:22:47"
-        obj._modified = "2011-02-08 11:22:47"
+        obj._created = parseSQLTimestamp("2011-02-07 11:22:47")
+        obj._modified = parseSQLTimestamp("2011-02-08 11:22:47")
         self.assertEqual(obj.created(), datetimeMktime(datetime.datetime(2011, 2, 7, 11, 22, 47)))
         self.assertEqual(obj.modified(), datetimeMktime(datetime.datetime(2011, 2, 8, 11, 22, 47)))
 

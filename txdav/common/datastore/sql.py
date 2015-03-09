@@ -29,6 +29,7 @@ from cStringIO import StringIO
 
 from pycalendar.datetime import DateTime
 
+from twext.enterprise.dal.parseschema import splitSQLString
 from twext.enterprise.dal.syntax import (
     Delete, utcNowSQL, Union, Insert, Len, Max, Parameter, SavepointAction,
     Select, Update, Count, ALL_COLUMNS, Sum,
@@ -48,7 +49,7 @@ from twisted.python.modules import getModule
 from twisted.python.util import FancyEqMixin
 
 from twistedcaldav.config import config
-from twistedcaldav.dateops import datetimeMktime, pyCalendarTodatetime
+from twistedcaldav.dateops import datetimeMktime, pyCalendarToSQLTimestamp
 
 from txdav.base.datastore.util import QueryCacher
 from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
@@ -64,7 +65,7 @@ from txdav.common.datastore.sql_imip import imipAPIMixin
 from txdav.common.datastore.sql_notification import NotificationCollection
 from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, _BIND_STATUS_ACCEPTED, \
     _HOME_STATUS_EXTERNAL, _HOME_STATUS_NORMAL, \
-    _HOME_STATUS_PURGING, schema, splitSQLString, _HOME_STATUS_MIGRATING, \
+    _HOME_STATUS_PURGING, schema, _HOME_STATUS_MIGRATING, \
     _HOME_STATUS_DISABLED
 from txdav.common.datastore.sql_util import _SharedSyncLogic
 from txdav.common.datastore.sql_sharing import SharingHomeMixIn, SharingMixIn
@@ -1058,7 +1059,7 @@ class CommonStoreTransaction(
             if cutoff < truncateLowerLimit:
                 raise ValueError("Cannot query events older than %s" % (truncateLowerLimit.getText(),))
 
-        kwds = {"CutOff": pyCalendarTodatetime(cutoff)}
+        kwds = {"CutOff": pyCalendarToSQLTimestamp(cutoff)}
         return self._oldEventsBase(batchSize).on(self, **kwds)
 
 
@@ -1171,7 +1172,7 @@ class CommonStoreTransaction(
 
         Returns a deferred to a list of (calendar_home_owner_uid, quota used, total old size, total old count) tuples.
         """
-        kwds = {"CutOff": pyCalendarTodatetime(cutoff)}
+        kwds = {"CutOff": pyCalendarToSQLTimestamp(cutoff)}
         if uuid:
             kwds["uuid"] = uuid
 
@@ -1213,7 +1214,7 @@ class CommonStoreTransaction(
         # TODO: see if there is a better way to import Attachment
         from txdav.caldav.datastore.sql import DropBoxAttachment
 
-        kwds = {"CutOff": pyCalendarTodatetime(cutoff)}
+        kwds = {"CutOff": pyCalendarToSQLTimestamp(cutoff)}
         if uuid:
             kwds["uuid"] = uuid
 
@@ -1258,7 +1259,7 @@ class CommonStoreTransaction(
 
         Returns a deferred to a list of (calendar_home_owner_uid, quota used, total old size, total old count) tuples.
         """
-        kwds = {"CutOff": pyCalendarTodatetime(cutoff)}
+        kwds = {"CutOff": pyCalendarToSQLTimestamp(cutoff)}
         if uuid:
             kwds["uuid"] = uuid
 
@@ -1301,7 +1302,7 @@ class CommonStoreTransaction(
         # TODO: see if there is a better way to import Attachment
         from txdav.caldav.datastore.sql import ManagedAttachment
 
-        kwds = {"CutOff": pyCalendarTodatetime(cutoff)}
+        kwds = {"CutOff": pyCalendarToSQLTimestamp(cutoff)}
         if uuid:
             kwds["uuid"] = uuid
 
@@ -1758,6 +1759,8 @@ class CommonHome(SharingHomeMixIn):
 
         for attr, value in zip(self.metadataAttributes(), data):
             setattr(self, attr, value)
+        self._created = parseSQLTimestamp(self._created)
+        self._modified = parseSQLTimestamp(self._modified)
 
 
     def serialize(self):
@@ -1766,7 +1769,10 @@ class CommonHome(SharingHomeMixIn):
         and reconstituted at the other end. Note that the other end may have a different schema so
         the attributes may not match exactly and will need to be processed accordingly.
         """
-        return dict([(attr[1:], getattr(self, attr, None)) for attr in self.metadataAttributes()])
+        data = dict([(attr[1:], getattr(self, attr, None)) for attr in self.metadataAttributes()])
+        data["created"] = data["created"].isoformat(" ")
+        data["modified"] = data["modified"].isoformat(" ")
+        return data
 
 
     def deserialize(self, mapping):
@@ -1776,6 +1782,8 @@ class CommonHome(SharingHomeMixIn):
 
         for attr in self.metadataAttributes():
             setattr(self, attr, mapping.get(attr[1:]))
+        self._created = parseSQLTimestamp(self._created)
+        self._modified = parseSQLTimestamp(self._modified)
 
 
     @classmethod
@@ -2568,11 +2576,11 @@ class CommonHome(SharingHomeMixIn):
 
 
     def created(self):
-        return datetimeMktime(parseSQLTimestamp(self._created)) if self._created else None
+        return datetimeMktime(self._created) if self._created else None
 
 
     def modified(self):
-        return datetimeMktime(parseSQLTimestamp(self._modified)) if self._modified else None
+        return datetimeMktime(self._modified) if self._modified else None
 
 
     @classmethod
@@ -2810,9 +2818,9 @@ class CommonHome(SharingHomeMixIn):
             returnValue(result)
 
         try:
-            self._modified = (
+            self._modified = parseSQLTimestamp((
                 yield self._txn.subtransaction(_bumpModified, retries=0, failureOK=True)
-            )[0][0]
+            )[0][0])
             yield self.invalidateQueryCache()
 
         except AllRetriesFailed:
@@ -2932,6 +2940,8 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         if metadataData:
             for attr, value in zip(child.metadataAttributes(), metadataData):
                 setattr(child, attr, value)
+            child._created = parseSQLTimestamp(child._created)
+            child._modified = parseSQLTimestamp(child._modified)
 
         # We have to re-adjust the property store object to account for possible shared
         # collections as previously we loaded them all as if they were owned
@@ -3199,7 +3209,8 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         resourceID = (yield cls._insertHomeChild.on(home._txn))[0][0]
 
         # Initialize this object
-        _created, _modified = (yield cls._insertHomeChildMetaData.on(home._txn, resourceID=resourceID))[0]
+        yield cls._insertHomeChildMetaData.on(home._txn, resourceID=resourceID)
+
         # Bind table needs entry
         yield cls._bindInsertQuery.on(
             home._txn, homeID=home._resourceID, resourceID=resourceID, bindUID=bindUID,
@@ -3267,6 +3278,8 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         data["bindData"] = dict([(attr[1:], getattr(self, attr, None)) for attr in self.bindAttributes()])
         data["additionalBindData"] = dict([(attr[1:], getattr(self, attr, None)) for attr in self.additionalBindAttributes()])
         data["metadataData"] = dict([(attr[1:], getattr(self, attr, None)) for attr in self.metadataAttributes()])
+        data["metadataData"]["created"] = data["metadataData"]["created"].isoformat(" ")
+        data["metadataData"]["modified"] = data["metadataData"]["modified"].isoformat(" ")
         return data
 
 
@@ -3930,11 +3943,11 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     def created(self):
-        return datetimeMktime(parseSQLTimestamp(self._created)) if self._created else None
+        return datetimeMktime(self._created) if self._created else None
 
 
     def modified(self):
-        return datetimeMktime(parseSQLTimestamp(self._modified)) if self._modified else None
+        return datetimeMktime(self._modified) if self._modified else None
 
 
     def addNotifier(self, factory_name, notifier):
@@ -4050,11 +4063,11 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             returnValue(result)
 
         try:
-            self._modified = (
+            self._modified = parseSQLTimestamp((
                 yield self._txn.subtransaction(
                     _bumpModified, retries=0, failureOK=True
                 )
-            )[0][0]
+            )[0][0])
 
             queryCacher = self._txn._queryCacher
             if queryCacher is not None:
@@ -4119,6 +4132,8 @@ class CommonObjectResource(FancyEqMixin, object):
 
         for attr, value in zip(child._rowAttributes(), objectData):
             setattr(child, attr, value)
+        child._created = parseSQLTimestamp(child._created)
+        child._modified = parseSQLTimestamp(child._modified)
 
         yield child._loadPropertyStore(propstore)
 
@@ -4520,7 +4535,10 @@ class CommonObjectResource(FancyEqMixin, object):
         and reconstituted at the other end. Note that the other end may have a different schema so
         the attributes may not match exactly and will need to be processed accordingly.
         """
-        return dict([(attr[1:], getattr(self, attr, None)) for attr in itertools.chain(self._rowAttributes(), self._otherSerializedAttributes())])
+        data = dict([(attr[1:], getattr(self, attr, None)) for attr in itertools.chain(self._rowAttributes(), self._otherSerializedAttributes())])
+        data["created"] = data["created"].isoformat(" ")
+        data["modified"] = data["modified"].isoformat(" ")
+        return data
 
 
     @classmethod
@@ -4757,11 +4775,11 @@ class CommonObjectResource(FancyEqMixin, object):
 
 
     def created(self):
-        return datetimeMktime(parseSQLTimestamp(self._created))
+        return datetimeMktime(self._created)
 
 
     def modified(self):
-        return datetimeMktime(parseSQLTimestamp(self._modified))
+        return datetimeMktime(self._modified)
 
 
     @classproperty

@@ -6,6 +6,7 @@
 		<project>CalDAVClientLibrary</project>
 		<project>cffi</project>
 		<project>kerberos</project>
+		<project>pg8000</project>
 		<project>psutil</project>
 		<project>pycalendar</project>
 		<project>pycparser</project>

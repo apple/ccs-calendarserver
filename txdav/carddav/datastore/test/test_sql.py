@@ -576,7 +576,7 @@ END:VCARD
 
         aboMembers = schema.ABO_MEMBERS
         memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers, Where=aboMembers.REMOVED == False).on(txn)
-        self.assertEqual(memberRows, [])
+        self.assertEqual(list(memberRows), [])
 
         aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
         foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
@@ -607,7 +607,7 @@ END:VCARD
         )
 
         foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
-        self.assertEqual(foreignMemberRows, [])
+        self.assertEqual(list(foreignMemberRows), [])
 
         yield subgroupObject.remove()
         memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID, aboMembers.REMOVED, aboMembers.REVISION], From=aboMembers).on(txn)

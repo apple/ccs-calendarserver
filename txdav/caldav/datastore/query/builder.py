@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.dateops import floatoffset, pyCalendarTodatetime
+from twistedcaldav.dateops import floatoffset, pyCalendarToSQLTimestamp
 
 from txdav.caldav.datastore.query.filter import ComponentFilter, PropertyFilter, TextMatch, TimeRange
 from txdav.common.datastore.query import expression
@@ -220,8 +220,8 @@ def getTimerangeArguments(timerange):
     endfloat = floatoffset(end, tzinfo) if end else None
 
     return (
-        pyCalendarTodatetime(start) if start else None,
-        pyCalendarTodatetime(end) if end else None,
-        pyCalendarTodatetime(startfloat) if startfloat else None,
-        pyCalendarTodatetime(endfloat) if endfloat else None,
+        pyCalendarToSQLTimestamp(start) if start else None,
+        pyCalendarToSQLTimestamp(end) if end else None,
+        pyCalendarToSQLTimestamp(startfloat) if startfloat else None,
+        pyCalendarToSQLTimestamp(endfloat) if endfloat else None,
     )

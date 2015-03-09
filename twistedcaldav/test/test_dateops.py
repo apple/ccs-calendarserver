@@ -19,11 +19,10 @@ from twisted.trial.unittest import SkipTest
 from pycalendar.datetime import DateTime
 
 from twistedcaldav.dateops import parseSQLTimestampToPyCalendar, \
-    parseSQLDateToPyCalendar, pyCalendarTodatetime, \
+    parseSQLDateToPyCalendar, pyCalendarToSQLTimestamp, \
     normalizeForExpand, normalizeForIndex, normalizeToUTC, timeRangesOverlap
 
-import datetime
-import dateutil
+from datetime import datetime, date
 from pycalendar.timezone import Timezone
 from twistedcaldav.timezones import TimezoneCache
 
@@ -249,17 +248,17 @@ class Dateops(twistedcaldav.test.util.TestCase):
         raise SkipTest("test unimplemented")
 
 
-    def test_pyCalendarTodatetime(self):
+    def test_pyCalendarToSQLTimestamp(self):
         """
-        dateops.pyCalendarTodatetime
+        dateops.pyCalendarToSQLTimestamp
         """
         tests = (
-            (DateTime(2012, 4, 4, 12, 34, 56), datetime.datetime(2012, 4, 4, 12, 34, 56, tzinfo=dateutil.tz.tzutc())),
-            (DateTime(2012, 12, 31), datetime.date(2012, 12, 31)),
+            (DateTime(2012, 4, 4, 12, 34, 56), datetime(2012, 4, 4, 12, 34, 56, tzinfo=None)),
+            (DateTime(2012, 12, 31), date(2012, 12, 31)),
         )
 
         for pycal, result in tests:
-            self.assertEqual(pyCalendarTodatetime(pycal), result)
+            self.assertEqual(pyCalendarToSQLTimestamp(pycal), result)
 
 
     def test_parseSQLTimestampToPyCalendar(self):
@@ -269,6 +268,8 @@ class Dateops(twistedcaldav.test.util.TestCase):
         tests = (
             ("2012-04-04 12:34:56", DateTime(2012, 4, 4, 12, 34, 56)),
             ("2012-12-31 01:01:01", DateTime(2012, 12, 31, 1, 1, 1)),
+            (datetime(2012, 4, 4, 12, 34, 56), DateTime(2012, 4, 4, 12, 34, 56)),
+            (datetime(2012, 12, 31, 1, 1, 1), DateTime(2012, 12, 31, 1, 1, 1)),
         )
 
         for sqlStr, result in tests:
@@ -283,6 +284,8 @@ class Dateops(twistedcaldav.test.util.TestCase):
         tests = (
             ("2012-04-04", DateTime(2012, 4, 4)),
             ("2012-12-31 00:00:00", DateTime(2012, 12, 31)),
+            (date(2012, 4, 4), DateTime(2012, 4, 4)),
+            (date(2012, 12, 31), DateTime(2012, 12, 31)),
         )
 
         for sqlStr, result in tests:

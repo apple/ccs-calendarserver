@@ -875,7 +875,7 @@ END:VCALENDAR
             self.transactionUnderTest(),
             resourceID=cobj._resourceID,
             groupID=group.groupID,
-            membershipHash=-1,
+            membershipHash="None",
         )
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "group01")
         self.assertEqual(len(wps), 1)
@@ -1034,7 +1034,7 @@ END:VCALENDAR
             self.transactionUnderTest(),
             resourceID=cobj._resourceID,
             groupID=group.groupID,
-            membershipHash=-1,
+            membershipHash="None",
         )
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "group01")
         self.assertEqual(len(wps), 1)

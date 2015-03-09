@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # #
+from twext.enterprise.util import parseSQLTimestamp
 
 
 """
@@ -1909,6 +1910,8 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
 
         for attr, value in zip(child._rowAttributes(), objectData):
             setattr(child, attr, value)
+        child._created = parseSQLTimestamp(child._created)
+        child._modified = parseSQLTimestamp(child._modified)
 
         yield child._loadPropertyStore(propstore)
 
@@ -2327,7 +2330,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
         if addressbook.owned() or addressbook.fullyShared():
             rows = yield super(AddressBookObject, cls)._allColumnsWithParentAndNames(addressbook, names)
             if addressbook.fullyShared() and addressbook._groupForSharedAddressBookName() in names:
-                rows.append(addressbook._groupForSharedAddressBookRow())
+                rows += (addressbook._groupForSharedAddressBookRow(),)
         else:
             acceptedGroupIDs = yield addressbook.acceptedGroupIDs()
             allowedObjectIDs = yield addressbook.expandGroupIDs(addressbook._txn, acceptedGroupIDs)
@@ -2622,6 +2625,8 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
                     dataVersion=self._currentDataVersion,
                 )
             )[0]
+            self._created = parseSQLTimestamp(self._created)
+            self._modified = parseSQLTimestamp(self._modified)
 
             # delete foreign members table rows for this object
             groupIDRows = yield Delete(
@@ -2653,7 +2658,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
                 )
 
         else:
-            self._modified = (yield Update(
+            self._modified = parseSQLTimestamp((yield Update(
                 {
                     abo.VCARD_TEXT: self._objectText,
                     abo.MD5: self._md5,
@@ -2661,7 +2666,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
                     abo.MODIFIED: utcNowSQL,
                 },
                 Where=abo.RESOURCE_ID == self._resourceID,
-                Return=abo.MODIFIED).on(self._txn))[0][0]
+                Return=abo.MODIFIED).on(self._txn))[0][0])
 
         if self._kind == _ABO_KIND_GROUP:
 

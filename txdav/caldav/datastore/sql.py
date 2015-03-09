@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twext.enterprise.util import parseSQLTimestamp
 
 
 """
@@ -47,7 +48,7 @@ from twistedcaldav import customxml, ical
 from twistedcaldav.stdconfig import config
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.dateops import normalizeForIndex, \
-    pyCalendarTodatetime, parseSQLDateToPyCalendar
+    pyCalendarToSQLTimestamp, parseSQLDateToPyCalendar
 from twistedcaldav.ical import Component, InvalidICalendarDataError, Property
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.timezones import TimezoneException
@@ -1622,8 +1623,8 @@ class Calendar(CommonHomeChild):
         returnValue([row[0] for row in (
             yield self._notExpandedWithinQuery.on(
                 self._txn,
-                minDate=pyCalendarTodatetime(normalizeForIndex(minDate)) if minDate is not None else None,
-                maxDate=pyCalendarTodatetime(normalizeForIndex(maxDate)),
+                minDate=pyCalendarToSQLTimestamp(normalizeForIndex(minDate)) if minDate is not None else None,
+                maxDate=pyCalendarToSQLTimestamp(normalizeForIndex(maxDate)),
                 resourceID=self._resourceID))]
         )
 
@@ -3674,8 +3675,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # Only needed if indexing being changed
             if instanceIndexingRequired:
-                values[co.RECURRANCE_MIN] = pyCalendarTodatetime(normalizeForIndex(recurrenceLowerLimit)) if recurrenceLowerLimit else None
-                values[co.RECURRANCE_MAX] = pyCalendarTodatetime(normalizeForIndex(recurrenceLimit)) if recurrenceLimit else None
+                values[co.RECURRANCE_MIN] = pyCalendarToSQLTimestamp(normalizeForIndex(recurrenceLowerLimit)) if recurrenceLowerLimit else None
+                values[co.RECURRANCE_MAX] = pyCalendarToSQLTimestamp(normalizeForIndex(recurrenceLimit)) if recurrenceLimit else None
 
             if inserting:
                 self._resourceID, self._created, self._modified = (
@@ -3684,15 +3685,17 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                         Return=(co.RESOURCE_ID, co.CREATED, co.MODIFIED)
                     ).on(txn)
                 )[0]
+                self._created = parseSQLTimestamp(self._created)
+                self._modified = parseSQLTimestamp(self._modified)
             else:
                 values[co.MODIFIED] = utcNowSQL
-                self._modified = (
+                self._modified = parseSQLTimestamp((
                     yield Update(
                         values,
                         Where=co.RESOURCE_ID == self._resourceID,
                         Return=co.MODIFIED,
                     ).on(txn)
-                )[0][0]
+                )[0][0])
 
                 # Need to wipe the existing time-range for this and rebuild if required
                 if instanceIndexingRequired:
@@ -3703,8 +3706,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         else:
             # Keep MODIFIED the same when doing an index-only update
             values = {
-                co.RECURRANCE_MIN : pyCalendarTodatetime(normalizeForIndex(recurrenceLowerLimit)) if recurrenceLowerLimit else None,
-                co.RECURRANCE_MAX : pyCalendarTodatetime(normalizeForIndex(recurrenceLimit)) if recurrenceLimit else None,
+                co.RECURRANCE_MIN : pyCalendarToSQLTimestamp(normalizeForIndex(recurrenceLowerLimit)) if recurrenceLowerLimit else None,
+                co.RECURRANCE_MAX : pyCalendarToSQLTimestamp(normalizeForIndex(recurrenceLimit)) if recurrenceLimit else None,
                 co.MODIFIED : self._modified,
             }
 
@@ -3788,8 +3791,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             tr.CALENDAR_RESOURCE_ID        : self._calendar._resourceID,
             tr.CALENDAR_OBJECT_RESOURCE_ID : self._resourceID,
             tr.FLOATING                    : floating,
-            tr.START_DATE                  : pyCalendarTodatetime(start),
-            tr.END_DATE                    : pyCalendarTodatetime(end),
+            tr.START_DATE                  : pyCalendarToSQLTimestamp(start),
+            tr.END_DATE                    : pyCalendarToSQLTimestamp(end),
             tr.FBTYPE                      : icalfbtype_to_indexfbtype.get(fbtype, icalfbtype_to_indexfbtype["FREE"]),
             tr.TRANSPARENT                 : transp,
         }, Return=tr.INSTANCE_ID).on(txn))[0][0]
@@ -3801,9 +3804,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
                 def _adjustDateTime(dt, adjustment, add_duration):
                     if isinstance(adjustment, Duration):
-                        return pyCalendarTodatetime((dt + adjustment) if add_duration else (dt - adjustment))
+                        return pyCalendarToSQLTimestamp((dt + adjustment) if add_duration else (dt - adjustment))
                     elif isinstance(adjustment, DateTime):
-                        return pyCalendarTodatetime(normalizeForIndex(adjustment))
+                        return pyCalendarToSQLTimestamp(normalizeForIndex(adjustment))
                     else:
                         return None
 

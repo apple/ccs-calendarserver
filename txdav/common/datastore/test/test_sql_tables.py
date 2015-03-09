@@ -31,8 +31,9 @@ from twisted.trial.unittest import TestCase
 from twext.enterprise.dal.syntax import SchemaSyntax
 
 from txdav.common.datastore.sql_tables import schema, _translateSchema
-from txdav.common.datastore.sql_tables import SchemaBroken, splitSQLString
+from txdav.common.datastore.sql_tables import SchemaBroken
 
+from twext.enterprise.dal.parseschema import splitSQLString
 from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
 
 from textwrap import dedent
