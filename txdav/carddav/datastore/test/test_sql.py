@@ -911,3 +911,119 @@ END:VCARD
         obj = yield self.addressbookObjectUnderTest(name="data1.ics", addressbook_name="addressbook")
         self.assertEqual(obj._dataversion, obj._currentDataVersion)
         yield self.commit()
+
+
+    @inlineCallbacks
+    def test_updateAfterRevisionCleanup(self):
+        """
+        Make sure L{AddressBookObject}'s can be updated or removed after revision cleanup
+        removes their revision table entry..
+        """
+        person = """BEGIN:VCARD
+VERSION:3.0
+N:Thompson;Default1;;;
+FN:Default1 Thompson
+EMAIL;type=INTERNET;type=WORK;type=pref:lthompson1@example.com
+TEL;type=WORK;type=pref:1-555-555-5555
+TEL;type=CELL:1-444-444-4444
+item1.ADR;type=WORK;type=pref:;;1245 Test;Sesame Street;California;11111;USA
+item1.X-ABADR:us
+UID:uid-person
+X-ADDRESSBOOKSERVER-KIND:person
+END:VCARD
+"""
+        group = """BEGIN:VCARD
+VERSION:3.0
+N:Group;Fancy;;;
+FN:Fancy Group
+UID:uid-group
+X-ADDRESSBOOKSERVER-KIND:group
+X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:uid-person
+END:VCARD
+"""
+        group_update = """BEGIN:VCARD
+VERSION:3.0
+N:Group2;Fancy;;;
+FN:Fancy Group2
+UID:uid-group
+X-ADDRESSBOOKSERVER-KIND:group
+X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:uid-person
+END:VCARD
+"""
+
+        yield self.homeUnderTest()
+        adbk = yield self.addressbookUnderTest(name="addressbook")
+        yield adbk.createAddressBookObjectWithName("person.vcf", VCard.fromString(person))
+        yield adbk.createAddressBookObjectWithName("group.vcf", VCard.fromString(group))
+        yield self.commit()
+
+        # Remove the revision
+        adbk = yield self.addressbookUnderTest(name="addressbook")
+        yield adbk.syncToken()
+        yield self.transactionUnderTest().deleteRevisionsBefore(adbk._syncTokenRevision + 1)
+        yield self.commit()
+
+        # Update the object
+        obj = yield self.addressbookObjectUnderTest(name="group.vcf", addressbook_name="addressbook")
+        yield obj.setComponent(VCard.fromString(group_update))
+        yield self.commit()
+
+        obj = yield self.addressbookObjectUnderTest(name="group.vcf", addressbook_name="addressbook")
+        self.assertTrue(obj is not None)
+        obj = yield self.addressbookObjectUnderTest(name="person.vcf", addressbook_name="addressbook")
+        self.assertTrue(obj is not None)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_removeAfterRevisionCleanup(self):
+        """
+        Make sure L{AddressBookObject}'s can be updated or removed after revision cleanup
+        removes their revision table entry..
+        """
+        person = """BEGIN:VCARD
+VERSION:3.0
+N:Thompson;Default1;;;
+FN:Default1 Thompson
+EMAIL;type=INTERNET;type=WORK;type=pref:lthompson1@example.com
+TEL;type=WORK;type=pref:1-555-555-5555
+TEL;type=CELL:1-444-444-4444
+item1.ADR;type=WORK;type=pref:;;1245 Test;Sesame Street;California;11111;USA
+item1.X-ABADR:us
+UID:uid-person
+X-ADDRESSBOOKSERVER-KIND:person
+END:VCARD
+"""
+        group = """BEGIN:VCARD
+VERSION:3.0
+N:Group;Fancy;;;
+FN:Fancy Group
+UID:uid-group
+X-ADDRESSBOOKSERVER-KIND:group
+X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:uid-person
+END:VCARD
+"""
+
+        yield self.homeUnderTest()
+        adbk = yield self.addressbookUnderTest(name="addressbook")
+        yield adbk.createAddressBookObjectWithName("person.vcf", VCard.fromString(person))
+        yield adbk.createAddressBookObjectWithName("group.vcf", VCard.fromString(group))
+        yield self.commit()
+
+        # Remove the revision
+        adbk = yield self.addressbookUnderTest(name="addressbook")
+        yield adbk.syncToken()
+        yield self.transactionUnderTest().deleteRevisionsBefore(adbk._syncTokenRevision + 1)
+        yield self.commit()
+
+        # Remove the object
+        obj = yield self.addressbookObjectUnderTest(name="group.vcf", addressbook_name="addressbook")
+        self.assertTrue(obj is not None)
+        yield obj.remove()
+        yield self.commit()
+
+        obj = yield self.addressbookObjectUnderTest(name="group.vcf", addressbook_name="addressbook")
+        self.assertTrue(obj is None)
+        obj = yield self.addressbookObjectUnderTest(name="person.vcf", addressbook_name="addressbook")
+        self.assertTrue(obj is not None)
+        yield self.commit()

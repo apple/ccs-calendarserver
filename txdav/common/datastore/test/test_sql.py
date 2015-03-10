@@ -337,7 +337,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         token = yield homeChild.syncToken()
         yield homeChild._changeRevision("delete", "E")
         changed = yield homeChild.resourceNamesSinceToken(token)
-        self.assertEqual(changed, ([], [], [],))
+        self.assertEqual(changed, ([], ["E"], [],))
 
         yield txn.abort()
 
