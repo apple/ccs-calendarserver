@@ -53,7 +53,7 @@ def version():
     Compute the version number.
     """
 
-    base_version = "6.1"
+    base_version = "7.0"
 
     branches = tuple(
         branch.format(
@@ -225,6 +225,9 @@ script_entry_points = {
 
     "verify_data":
     ("calendarserver.tools.calverify", "main"),
+
+    "pod_migration":
+    ("calendarserver.tools.pod_migration", "main"),
 }
 
 for tool, (module, function) in script_entry_points.iteritems():

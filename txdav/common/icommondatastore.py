@@ -41,6 +41,12 @@ __all__ = [
     "AlreadyInTrashError",
 ]
 
+# Constants for top-level store types
+ECALENDARTYPE = 0
+EADDRESSBOOKTYPE = 1
+ENOTIFICATIONTYPE = 2
+
+
 #
 # Exceptions
 #
@@ -236,6 +242,7 @@ class NonExistentExternalShare(CommonStoreError):
     """
 
 
+
 class AlreadyInTrashError(CommonStoreError):
     """
     An object resource being removed is already in the trash.
@@ -355,7 +362,7 @@ class ICommonTransaction(ITransaction):
         @param token: The device token of the subscriber
         @type token: C{str}
 
-        @return: tuples of (key, timestamp, guid)
+        @return: list of L{Record}
         """
 
     def apnSubscriptionsByKey(key): #@NoSelf
@@ -365,7 +372,7 @@ class ICommonTransaction(ITransaction):
         @param key: The push key
         @type key: C{str}
 
-        @return: tuples of (token, guid)
+        @return: list of L{Record}
         """
 
     def apnSubscriptionsBySubscriber(guid): #@NoSelf
@@ -375,7 +382,7 @@ class ICommonTransaction(ITransaction):
         @param guid: The GUID of the subscribed principal
         @type guid: C{str}
 
-        @return: tuples of (token, key, timestamp, userAgent, ipAddr)
+        @return: list of L{Record}
         """
 
     def imipCreateToken(organizer, attendee, icaluid, token=None): #@NoSelf
@@ -397,8 +404,8 @@ class ICommonTransaction(ITransaction):
         """
         Returns the organizer, attendee, and icaluid corresponding to the token
 
-        @param token: the token to look up
-        @type token: C{str}
+        @param token: the token record
+        @type token: L{Record}
         """
 
     def imipGetToken(organizer, attendee, icaluid): #@NoSelf

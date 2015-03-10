@@ -26,11 +26,15 @@ import signal
 from hashlib import md5
 from pipes import quote as shell_quote
 
-import pgdb as postgres
+if True:
+    import pgdb as postgres
+else:
+    import pg8000 as postgres
 
 from twisted.python.procutils import which
 from twisted.internet.protocol import ProcessProtocol
 
+from twext.enterprise.dal.parseschema import splitSQLString
 from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath
 
@@ -38,6 +42,7 @@ from twisted.protocols.basic import LineReceiver
 from twisted.internet.defer import Deferred
 from txdav.base.datastore.dbapiclient import DBAPIConnector
 from txdav.base.datastore.dbapiclient import postgresPreflight
+from txdav.common.icommondatastore import InternalDataStoreError
 
 from twisted.application.service import MultiService
 
@@ -48,10 +53,12 @@ log = Logger()
 _MAGIC_READY_COOKIE = "database system is ready to accept connections"
 
 
-class _PostgresMonitor(ProcessProtocol):
+
+class PostgresMonitor(ProcessProtocol):
     """
     A monitoring protocol which watches the postgres subprocess.
     """
+    log = Logger()
 
     def __init__(self, svc=None):
         self.lineReceiver = LineReceiver()
@@ -77,18 +84,22 @@ class _PostgresMonitor(ProcessProtocol):
 
 
     def outReceived(self, out):
-        log.warn("received postgres stdout {out!r}", out=out)
+        for line in out.split("\n"):
+            if line:
+                self.log.info("{message}", message=line)
         # self.lineReceiver.dataReceived(out)
 
 
     def errReceived(self, err):
-        log.warn("received postgres stderr {err}", err=err)
+        for line in err.split("\n"):
+            if line:
+                self.log.error("{message}", message=line)
         self.lineReceiver.dataReceived(err)
 
 
     def processEnded(self, reason):
-        log.warn(
-            "postgres process ended with status {status}",
+        self.log.info(
+            "pg_ctl process ended with status={status}",
             status=reason.value.status
         )
         # If pg_ctl exited with zero, we were successful in starting postgres
@@ -98,7 +109,7 @@ class _PostgresMonitor(ProcessProtocol):
         if reason.value.status == 0:
             self.completionDeferred.callback(None)
         else:
-            log.warn("Could not start postgres; see postgres.log")
+            self.log.error("Could not start postgres; see postgres.log")
             self.completionDeferred.errback(reason)
 
 
@@ -161,7 +172,7 @@ class CapturingProcessProtocol(ProcessProtocol):
         """
         The process is over, fire the Deferred with the output.
         """
-        self.deferred.callback(''.join(self.output))
+        self.deferred.callback("".join(self.output))
 
 
 
@@ -179,7 +190,6 @@ class PostgresService(MultiService):
         testMode=False,
         uid=None, gid=None,
         spawnedDBUser="caldav",
-        importFileName=None,
         pgCtl="pg_ctl",
         initDB="initdb",
         reactor=None,
@@ -196,9 +206,6 @@ class PostgresService(MultiService):
 
         @param spawnedDBUser: the postgres role
         @type spawnedDBUser: C{str}
-        @param importFileName: path to SQL file containing previous data to
-            import
-        @type importFileName: C{str}
         """
 
         # FIXME: By default there is very little (4MB) shared memory available,
@@ -262,12 +269,20 @@ class PostgresService(MultiService):
         self.uid = uid
         self.gid = gid
         self.spawnedDBUser = spawnedDBUser
-        self.importFileName = importFileName
         self.schema = schema
         self.monitor = None
         self.openConnections = []
-        self._pgCtl = pgCtl
-        self._initdb = initDB
+
+        def locateCommand(name, cmd):
+            for found in which(cmd):
+                return found
+
+            raise InternalDataStoreError(
+                "Unable to locate {} command: {}".format(name, cmd)
+            )
+
+        self._pgCtl = locateCommand("pg_ctl", pgCtl)
+        self._initdb = locateCommand("initdb", initDB)
         self._reactor = reactor
         self._postgresPid = None
 
@@ -280,33 +295,22 @@ class PostgresService(MultiService):
         return self._reactor
 
 
-    def pgCtl(self):
-        """
-        Locate the path to pg_ctl.
-        """
-        return which(self._pgCtl)[0]
-
-
-    def initdb(self):
-        return which(self._initdb)[0]
-
-
     def activateDelayedShutdown(self):
         """
         Call this when starting database initialization code to
         protect against shutdown.
 
-        Sets the delayedShutdown flag to True so that if reactor
-        shutdown commences, the shutdown will be delayed until
-        deactivateDelayedShutdown is called.
+        Sets the delayedShutdown flag to True so that if reactor shutdown
+        commences, the shutdown will be delayed until deactivateDelayedShutdown
+        is called.
         """
         self.delayedShutdown = True
 
 
     def deactivateDelayedShutdown(self):
         """
-        Call this when database initialization code has completed so
-        that the reactor can shutdown.
+        Call this when database initialization code has completed so that the
+        reactor can shutdown.
         """
         self.delayedShutdown = False
         if self.shutdownDeferred:
@@ -317,29 +321,98 @@ class PostgresService(MultiService):
         if databaseName is None:
             databaseName = self.databaseName
 
+        m = getattr(self, "_connectorFor_{}".format(postgres.__name__), None)
+        if m is None:
+            raise InternalDataStoreError(
+                "Unknown Postgres DBM module: {}".format(postgres)
+            )
+
+        return m(databaseName)
+
+
+    def _connectorFor_pgdb(self, databaseName):
+        dsn = "{}:dbname={}".format(self.host, databaseName)
+
         if self.spawnedDBUser:
-            dsn = "{}:dbname={}:{}".format(
-                self.host, databaseName, self.spawnedDBUser
-            )
+            dsn = "{}:{}".format(dsn, self.spawnedDBUser)
         elif self.uid is not None:
-            dsn = "{}:dbname={}:{}".format(
-                self.host, databaseName, pwd.getpwuid(self.uid).pw_name
-            )
-        else:
-            dsn = "{}:dbname={}".format(self.host, databaseName)
+            dsn = "{}:{}".format(dsn, pwd.getpwuid(self.uid).pw_name)
 
         kwargs = {}
         if self.port:
             kwargs["host"] = "{}:{}".format(self.host, self.port)
 
+        log.info(
+            "Connecting to Postgres with dsn={dsn!r} args={args}",
+            dsn=dsn, args=kwargs
+        )
+
         return DBAPIConnector(postgres, postgresPreflight, dsn, **kwargs)
+
+
+    def _connectorFor_pg8000(self, databaseName):
+        kwargs = dict(database=databaseName)
+
+        if self.host.startswith("/"):
+            # We're using a socket file
+            socketFP = CachingFilePath(self.host)
+
+            if socketFP.isdir():
+                # We have been given the directory, not the actual socket file
+                socketFP = socketFP.child(
+                    ".s.PGSQL.{}".format(self.port if self.port else 5432)
+                )
+
+            if not socketFP.isSocket():
+                raise InternalDataStoreError(
+                    "No such socket file: {}".format(socketFP.path)
+                )
+
+            kwargs["host"] = None
+            kwargs["unix_sock"] = socketFP.path
+        else:
+            kwargs["host"] = self.host
+            kwargs["unix_sock"] = None
+
+        if self.port:
+            kwargs["port"] = self.port
+
+        if self.spawnedDBUser:
+            kwargs["user"] = self.spawnedDBUser
+        elif self.uid is not None:
+            kwargs["user"] = pwd.getpwuid(self.uid).pw_name
+
+        log.info("Connecting to Postgres with args={args}", args=kwargs)
+
+        return DBAPIConnector(postgres, postgresPreflight, **kwargs)
 
 
     def produceConnection(self, label="<unlabeled>", databaseName=None):
         """
         Produce a DB-API 2.0 connection pointed at this database.
         """
-        return self._connectorFor(databaseName).connect(label)
+        connection = self._connectorFor(databaseName).connect(label)
+
+        if postgres.__name__ == "pg8000":
+            # Patch pg8000 behavior to match what we need wrt text processing
+
+            def my_text_out(v):
+                return v.encode("utf-8") if isinstance(v, unicode) else str(v)
+            connection.realConnection.py_types[str] = (705, postgres.core.FC_TEXT, my_text_out)
+            connection.realConnection.py_types[postgres.six.text_type] = (705, postgres.core.FC_TEXT, my_text_out)
+
+            def my_text_recv(data, offset, length):
+                return str(data[offset: offset + length])
+            connection.realConnection.default_factory = lambda: (postgres.core.FC_TEXT, my_text_recv)
+            connection.realConnection.pg_types[19] = (postgres.core.FC_BINARY, my_text_recv)
+            connection.realConnection.pg_types[25] = (postgres.core.FC_BINARY, my_text_recv)
+            connection.realConnection.pg_types[705] = (postgres.core.FC_BINARY, my_text_recv)
+            connection.realConnection.pg_types[829] = (postgres.core.FC_TEXT, my_text_recv)
+            connection.realConnection.pg_types[1042] = (postgres.core.FC_BINARY, my_text_recv)
+            connection.realConnection.pg_types[1043] = (postgres.core.FC_BINARY, my_text_recv)
+            connection.realConnection.pg_types[2275] = (postgres.core.FC_BINARY, my_text_recv)
+
+        return connection
 
 
     def ready(self, createDatabaseConn, createDatabaseCursor):
@@ -348,7 +421,6 @@ class PostgresService(MultiService):
         If the database has not been created and there is a dump file,
         then the dump file is imported.
         """
-
         if self.resetSchema:
             try:
                 createDatabaseCursor.execute(
@@ -364,24 +436,20 @@ class PostgresService(MultiService):
             )
         except:
             # database already exists
-            executeSQL = False
+            sqlToExecute = None
         else:
             # database does not yet exist; if dump file exists, execute it,
             # otherwise execute schema
-            executeSQL = True
             sqlToExecute = self.schema
-            if self.importFileName:
-                importFilePath = CachingFilePath(self.importFileName)
-                if importFilePath.exists():
-                    sqlToExecute = importFilePath.getContent()
 
         createDatabaseCursor.close()
         createDatabaseConn.close()
 
-        if executeSQL:
+        if sqlToExecute is not None:
             connection = self.produceConnection()
             cursor = connection.cursor()
-            cursor.execute(sqlToExecute)
+            for statement in splitSQLString(sqlToExecute):
+                cursor.execute(statement)
             connection.commit()
             connection.close()
 
@@ -419,7 +487,6 @@ class PostgresService(MultiService):
         """
         Start the database and initialize the subservice.
         """
-
         def createConnection():
             try:
                 createDatabaseConn = self.produceConnection(
@@ -427,16 +494,26 @@ class PostgresService(MultiService):
                 )
             except postgres.DatabaseError as e:
                 log.error(
-                    "Unable to connect to database for schema creation: {error}",
+                    "Unable to connect to database for schema creation:"
+                    " {error}",
                     error=e
                 )
                 raise
+
             createDatabaseCursor = createDatabaseConn.cursor()
-            createDatabaseCursor.execute("commit")
+
+            if postgres.__name__ == "pg8000":
+                createDatabaseConn.realConnection.autocommit = True
+            elif postgres.__name__ == "pgdb":
+                createDatabaseCursor.execute("commit")
+            else:
+                raise InternalDataStoreError(
+                    "Unknown Postgres DBM module: {}".format(postgres)
+                )
+
             return createDatabaseConn, createDatabaseCursor
 
-        monitor = _PostgresMonitor(self)
-        pgCtl = self.pgCtl()
+        monitor = PostgresMonitor(self)
         # check consistency of initdb and postgres?
 
         options = []
@@ -446,7 +523,7 @@ class PostgresService(MultiService):
         )
         if self.socketDir:
             options.append(
-                "-k {}"
+                "-c unix_socket_directories={}"
                 .format(shell_quote(self.socketDir.path))
             )
         if self.port:
@@ -477,23 +554,17 @@ class PostgresService(MultiService):
         if self.testMode:
             options.append("-c log_statement=all")
 
-        log.warn(
-            "Requesting postgres start via {cmd} {opts}",
-            cmd=pgCtl, opts=options
-        )
+        args = [
+            self._pgCtl, "start",
+            "--log={}".format(self.logFile),
+            "--timeout=86400",  # Plenty of time for a long cluster upgrade
+            "-w",  # Wait for startup to complete
+            "-o", " ".join(options),  # Options passed to postgres
+        ]
+
+        log.info("Requesting postgres start via: {args}", args=args)
         self.reactor.spawnProcess(
-            monitor, pgCtl,
-            [
-                pgCtl,
-                "start",
-                "-l", self.logFile,
-                "-t 86400",  # Give plenty of time for a long cluster upgrade
-                "-w",
-                # XXX what are the quoting rules for '-o'?  do I need to repr()
-                # the path here?
-                "-o",
-                " ".join(options),
-            ],
+            monitor, self._pgCtl, args,
             env=self.env, path=self.workingDir.path,
             uid=self.uid, gid=self.gid,
         )
@@ -517,12 +588,12 @@ class PostgresService(MultiService):
             We started postgres; we're responsible for stopping it later.
             Call pgCtl status to get the pid.
             """
-            log.warn("{cmd} exited", cmd=pgCtl)
+            log.info("{cmd} exited", cmd=self._pgCtl)
             self.shouldStopDatabase = True
             d = Deferred()
             statusMonitor = CapturingProcessProtocol(d, None)
             self.reactor.spawnProcess(
-                statusMonitor, pgCtl, [pgCtl, "status"],
+                statusMonitor, self._pgCtl, [self._pgCtl, "status"],
                 env=self.env, path=self.workingDir.path,
                 uid=self.uid, gid=self.gid,
             )
@@ -537,7 +608,7 @@ class PostgresService(MultiService):
             d = Deferred()
             statusMonitor = CapturingProcessProtocol(d, None)
             self.reactor.spawnProcess(
-                statusMonitor, pgCtl, [pgCtl, "status"],
+                statusMonitor, self._pgCtl, [self._pgCtl, "status"],
                 env=self.env, path=self.workingDir.path,
                 uid=self.uid, gid=self.gid,
             )
@@ -548,7 +619,10 @@ class PostgresService(MultiService):
             We can't start postgres or connect to a running instance.  Shut
             down.
             """
-            log.failure("Can't start or connect to postgres", f)
+            log.critical(
+                "Can't start or connect to postgres: {failure.value}",
+                failure=f
+            )
             self.deactivateDelayedShutdown()
             self.reactor.stop()
 
@@ -565,11 +639,10 @@ class PostgresService(MultiService):
         env.update(PGDATA=clusterDir.path,
                    PGHOST=self.host,
                    PGUSER=self.spawnedDBUser)
-        initdb = self.initdb()
 
         if self.socketDir:
             if not self.socketDir.isdir():
-                log.warn("Creating {dir}", dir=self.socketDir.path)
+                log.info("Creating {dir}", dir=self.socketDir.path)
                 self.socketDir.createDirectory()
 
             if self.uid and self.gid:
@@ -578,11 +651,11 @@ class PostgresService(MultiService):
             os.chmod(self.socketDir.path, 0770)
 
         if not self.dataStoreDirectory.isdir():
-            log.warn("Creating {dir}", dir=self.dataStoreDirectory.path)
+            log.info("Creating {dir}", dir=self.dataStoreDirectory.path)
             self.dataStoreDirectory.createDirectory()
 
         if not self.workingDir.isdir():
-            log.warn("Creating {dir}", dir=self.workingDir.path)
+            log.info("Creating {dir}", dir=self.workingDir.path)
             self.workingDir.createDirectory()
 
         if self.uid and self.gid:
@@ -591,11 +664,12 @@ class PostgresService(MultiService):
 
         if not clusterDir.isdir():
             # No cluster directory, run initdb
-            log.warn("Running initdb for {dir}", dir=clusterDir.path)
+            log.info("Running initdb for {dir}", dir=clusterDir.path)
             dbInited = Deferred()
             self.reactor.spawnProcess(
                 CapturingProcessProtocol(dbInited, None),
-                initdb, [initdb, "-E", "UTF8", "-U", self.spawnedDBUser],
+                self._initdb,
+                [self._initdb, "-E", "UTF8", "-U", self.spawnedDBUser],
                 env=env, path=self.workingDir.path,
                 uid=self.uid, gid=self.gid,
             )
@@ -603,7 +677,7 @@ class PostgresService(MultiService):
             def doCreate(result):
                 if result.find("FATAL:") != -1:
                     log.error(result)
-                    raise RuntimeError(
+                    raise InternalDataStoreError(
                         "Unable to initialize postgres database: {}"
                         .format(result)
                     )
@@ -612,7 +686,7 @@ class PostgresService(MultiService):
             dbInited.addCallback(doCreate)
 
         else:
-            log.warn("Cluster already exists at {dir}", dir=clusterDir.path)
+            log.info("Cluster already exists at {dir}", dir=clusterDir.path)
             self.startDatabase()
 
 
@@ -633,12 +707,11 @@ class PostgresService(MultiService):
             # If pg_ctl's startup wasn't successful, don't bother to stop the
             # database.  (This also happens in command-line tools.)
             if self.shouldStopDatabase:
-                monitor = _PostgresMonitor()
-                pgCtl = self.pgCtl()
+                monitor = PostgresMonitor()
                 # FIXME: why is this 'logfile' and not self.logfile?
                 self.reactor.spawnProcess(
-                    monitor, pgCtl,
-                    [pgCtl, "-l", "logfile", "stop"],
+                    monitor, self._pgCtl,
+                    [self._pgCtl, "-l", "logfile", "stop"],
                     env=self.env, path=self.workingDir.path,
                     uid=self.uid, gid=self.gid,
                 )

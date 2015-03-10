@@ -150,7 +150,6 @@ def pgServiceFromConfig(config, subServiceFactory, uid=None, gid=None):
         options=config.Postgres.Options,
         uid=uid, gid=gid,
         spawnedDBUser=config.SpawnedDBUser,
-        importFileName=config.DBImportFile,
         pgCtl=config.Postgres.Ctl,
         initDB=config.Postgres.Init,
     )
@@ -161,8 +160,8 @@ def pgConnectorFromConfig(config):
     """
     Create a postgres DB-API connector from the given configuration.
     """
-    import pgdb
-    return DBAPIConnector(pgdb, postgresPreflight, config.DSN).connect
+    from txdav.base.datastore.subpostgres import postgres
+    return DBAPIConnector(postgres, postgresPreflight, config.DSN).connect
 
 
 

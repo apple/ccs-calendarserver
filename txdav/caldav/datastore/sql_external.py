@@ -18,12 +18,15 @@
 SQL backend for CalDAV storage when resources are external.
 """
 
-from twisted.internet.defer import succeed, inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twext.python.log import Logger
 
 from txdav.caldav.datastore.sql import CalendarHome, Calendar, CalendarObject
+from txdav.caldav.datastore.sql_attachment import Attachment, AttachmentLink
+from txdav.caldav.datastore.sql_directory import GroupAttendeeRecord, GroupShareeRecord
 from txdav.caldav.icalendarstore import ComponentUpdateState, ComponentRemoveState
+from txdav.common.datastore.sql_directory import GroupsRecord
 from txdav.common.datastore.sql_external import CommonHomeExternal, CommonHomeChildExternal, \
     CommonObjectResourceExternal
 
@@ -34,10 +37,10 @@ class CalendarHomeExternal(CommonHomeExternal, CalendarHome):
     Wrapper for a CalendarHome that is external and only supports a limited set of operations.
     """
 
-    def __init__(self, transaction, ownerUID, resourceID):
+    def __init__(self, transaction, homeData):
 
-        CalendarHome.__init__(self, transaction, ownerUID)
-        CommonHomeExternal.__init__(self, transaction, ownerUID, resourceID)
+        CalendarHome.__init__(self, transaction, homeData)
+        CommonHomeExternal.__init__(self, transaction, homeData)
 
 
     def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, mode):
@@ -61,6 +64,36 @@ class CalendarHomeExternal(CommonHomeExternal, CalendarHome):
         raise AssertionError("CommonHomeExternal: not supported")
 
 
+    @inlineCallbacks
+    def getAllAttachments(self):
+        """
+        Return all the L{Attachment} objects associated with this calendar home.
+        Needed during migration.
+        """
+        raw_results = yield self._txn.store().conduit.send_home_get_all_attachments(self)
+        returnValue([Attachment.deserialize(self._txn, attachment) for attachment in raw_results])
+
+
+    @inlineCallbacks
+    def readAttachmentData(self, remote_id, attachment):
+        """
+        Read the data associated with an attachment associated with this calendar home.
+        Needed during migration only.
+        """
+        stream = attachment.store(attachment.contentType(), attachment.name(), migrating=True)
+        yield self._txn.store().conduit.send_get_attachment_data(self, remote_id, stream)
+
+
+    @inlineCallbacks
+    def getAttachmentLinks(self):
+        """
+        Read the attachment<->calendar object mapping data associated with this calendar home.
+        Needed during migration only.
+        """
+        raw_results = yield self._txn.store().conduit.send_home_get_attachment_links(self)
+        returnValue([AttachmentLink.deserialize(self._txn, attachment) for attachment in raw_results])
+
+
     def getAllDropboxIDs(self):
         """
         No children.
@@ -82,11 +115,15 @@ class CalendarHomeExternal(CommonHomeExternal, CalendarHome):
         raise AssertionError("CommonHomeExternal: not supported")
 
 
-    def createdHome(self):
+    @inlineCallbacks
+    def getAllGroupAttendees(self):
         """
-        No children - make this a no-op.
+        Return a list of L{GroupAttendeeRecord},L{GroupRecord} for each group attendee referenced in calendar data
+        owned by this home.
         """
-        return succeed(None)
+
+        raw_results = yield self._txn.store().conduit.send_home_get_all_group_attendees(self)
+        returnValue([(GroupAttendeeRecord.deserialize(item[0]), GroupsRecord.deserialize(item[1]),) for item in raw_results])
 
 
     def splitCalendars(self):
@@ -157,7 +194,13 @@ class CalendarExternal(CommonHomeChildExternal, Calendar):
     """
     SQL-based implementation of L{ICalendar}.
     """
-    pass
+
+    @inlineCallbacks
+    def groupSharees(self):
+        results = yield self._txn.store().conduit.send_homechild_group_sharees(self)
+        results["groups"] = [GroupsRecord.deserialize(items) for items in results["groups"]]
+        results["sharees"] = [GroupShareeRecord.deserialize(items) for items in results["sharees"]]
+        returnValue(results)
 
 
 

@@ -50,7 +50,7 @@ from txdav.common.datastore.query.filegenerator import sqllitegenerator
 from txdav.common.icommondatastore import SyncTokenValidException, \
     ReservationError, IndexedSearchException
 
-from twistedcaldav.dateops import pyCalendarTodatetime
+from twistedcaldav.dateops import pyCalendarToSQLTimestamp
 from twistedcaldav.ical import Component
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.sql import db_prefix
@@ -658,7 +658,7 @@ class CalendarIndex (AbstractCalendarIndex):
         Gives all resources which have not been expanded beyond a given date
         in the index
         """
-        return self._db_values_for_sql("select NAME from RESOURCE where RECURRANCE_MAX < :1", pyCalendarTodatetime(minDate))
+        return self._db_values_for_sql("select NAME from RESOURCE where RECURRANCE_MAX < :1", pyCalendarToSQLTimestamp(minDate))
 
 
     def reExpandResource(self, name, expand_until):
@@ -747,7 +747,7 @@ class CalendarIndex (AbstractCalendarIndex):
             """
             insert into RESOURCE (NAME, UID, TYPE, RECURRANCE_MAX, ORGANIZER)
             values (:1, :2, :3, :4, :5)
-            """, name, uid, calendar.resourceType(), pyCalendarTodatetime(recurrenceLimit) if recurrenceLimit else None, organizer
+            """, name, uid, calendar.resourceType(), pyCalendarToSQLTimestamp(recurrenceLimit) if recurrenceLimit else None, organizer
         )
         resourceid = self.lastrowid
 
@@ -785,8 +785,8 @@ class CalendarIndex (AbstractCalendarIndex):
                     """,
                     resourceid,
                     float,
-                    pyCalendarTodatetime(start),
-                    pyCalendarTodatetime(end),
+                    pyCalendarToSQLTimestamp(start),
+                    pyCalendarToSQLTimestamp(end),
                     icalfbtype_to_indexfbtype.get(instance.component.getFBType(), 'F'),
                     transp
                 )
@@ -811,7 +811,7 @@ class CalendarIndex (AbstractCalendarIndex):
                     """
                     insert into TIMESPAN (RESOURCEID, FLOAT, START, END, FBTYPE, TRANSPARENT)
                     values (:1, :2, :3, :4, :5, :6)
-                    """, resourceid, float, pyCalendarTodatetime(start), pyCalendarTodatetime(end), '?', '?'
+                    """, resourceid, float, pyCalendarToSQLTimestamp(start), pyCalendarToSQLTimestamp(end), '?', '?'
                 )
                 instanceid = self.lastrowid
                 peruserdata = calendar.perUserData(None)

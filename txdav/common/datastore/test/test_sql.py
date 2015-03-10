@@ -31,8 +31,9 @@ from txdav.common.datastore.sql import (
     log, CommonStoreTransactionMonitor,
     CommonHome, CommonHomeChild, ECALENDARTYPE
 )
-from txdav.common.datastore.sql import fixUUIDNormalization
 from txdav.common.datastore.sql_tables import schema
+from txdav.common.datastore.sql_util import _normalizeColumnUUIDs, \
+    fixUUIDNormalization
 from txdav.common.datastore.test.util import CommonCommonTests
 from txdav.common.icommondatastore import AllRetriesFailed
 from txdav.xml import element as davxml
@@ -74,9 +75,9 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         txn = self.transactionUnderTest()
         cs = schema.CALENDARSERVER
         version = (yield Select(
-            [cs.VALUE, ],
+            [cs.VALUE],
             From=cs,
-            Where=cs.NAME == 'VERSION',
+            Where=cs.NAME == "VERSION",
         ).on(txn))
         self.assertNotEqual(version, None)
         self.assertEqual(len(version), 1)
@@ -349,7 +350,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         token = yield homeChild.syncToken()
         yield homeChild._changeRevision("delete", "E")
         changed = yield homeChild.resourceNamesSinceToken(token)
-        self.assertEqual(changed, ([], [], [],))
+        self.assertEqual(changed, ([], ["E"], [],))
 
         yield txn.abort()
 
@@ -374,7 +375,6 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
             rp.VIEWER_UID: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}
         ).on(txn)
         # test
-        from txdav.common.datastore.sql import _normalizeColumnUUIDs
         yield _normalizeColumnUUIDs(txn, rp.VIEWER_UID)
         self.assertEqual(
             map(

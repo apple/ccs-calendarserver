@@ -155,6 +155,7 @@ class ManagePrincipalsTestCase(TestCase):
         self.assertTrue("group2" in results)
         self.assertTrue("group3" in results)
 
+
     @inlineCallbacks
     def test_addRemove(self):
         results = yield self.runCommand(

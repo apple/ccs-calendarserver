@@ -82,6 +82,7 @@ class ImportException(Exception):
     """
 
 
+
 class ImportOptions(Options):
     """
     Command-line options for 'calendarserver_import'
@@ -131,6 +132,7 @@ class ImportOptions(Options):
             return open(self.inputName, 'r')
 
 
+
 # These could probably live on the collection class:
 
 def setCollectionPropertyValue(collection, element, value):
@@ -138,6 +140,7 @@ def setCollectionPropertyValue(collection, element, value):
     collectionProperties[PropertyName.fromElement(element)] = (
         element.fromString(value)
     )
+
 
 
 def getCollectionPropertyValue(collection, element):
@@ -148,7 +151,6 @@ def getCollectionPropertyValue(collection, element):
     else:
         return None
 
-#
 
 
 @inlineCallbacks
@@ -286,6 +288,7 @@ def importCollectionComponent(store, component):
             yield txn.commit()
 
 
+
 @inlineCallbacks
 def storeComponentInHomeAndCalendar(
     store, component, homeUID, collectionResourceName, objectResourceName,
@@ -340,7 +343,6 @@ class ImporterService(WorkerService, object):
         self._directory = self.store.directoryService()
 
         TimezoneCache.create()
-
 
 
     @inlineCallbacks
@@ -411,6 +413,7 @@ def main(argv=sys.argv, reactor=None):
         options.parseOptions(argv[1:])
     except UsageError, e:
         usage(e)
+
 
     def makeService(store):
         from twistedcaldav.config import config

@@ -88,6 +88,7 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         yield txn.addAPNSubscription(token, key2, timestamp2, uid, userAgent, ipAddr)
 
         subscriptions = (yield txn.apnSubscriptionsBySubscriber(uid))
+        subscriptions = [[record.token, record.resourceKey, record.modified, record.userAgent, record.ipAddr] for record in subscriptions]
         self.assertTrue([token, key1, timestamp1, userAgent, ipAddr] in subscriptions)
         self.assertTrue([token, key2, timestamp2, userAgent, ipAddr] in subscriptions)
         self.assertTrue([token2, key1, timestamp1, userAgent, ipAddr] in subscriptions)
@@ -98,9 +99,11 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         uid2 = "D8FFB335-9D36-4CE8-A3B9-D1859E38C0DA"
         yield txn.addAPNSubscription(token, key2, timestamp3, uid2, userAgent, ipAddr)
         subscriptions = (yield txn.apnSubscriptionsBySubscriber(uid))
+        subscriptions = [[record.token, record.resourceKey, record.modified, record.userAgent, record.ipAddr] for record in subscriptions]
         self.assertTrue([token, key1, timestamp1, userAgent, ipAddr] in subscriptions)
         self.assertFalse([token, key2, timestamp3, userAgent, ipAddr] in subscriptions)
         subscriptions = (yield txn.apnSubscriptionsBySubscriber(uid2))
+        subscriptions = [[record.token, record.resourceKey, record.modified, record.userAgent, record.ipAddr] for record in subscriptions]
         self.assertTrue([token, key2, timestamp3, userAgent, ipAddr] in subscriptions)
         # Change it back
         yield txn.addAPNSubscription(token, key2, timestamp2, uid, userAgent, ipAddr)
@@ -284,10 +287,10 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         txn = self._sqlCalendarStore.newTransaction()
         subscriptions = (yield txn.apnSubscriptionsByToken(token))
         yield txn.commit()
-        self.assertEquals(
-            subscriptions,
-            [["/CalDAV/calendars.example.com/user02/calendar/", 3000, "D2256BCC-48E2-42D1-BD89-CBA1E4CCDFFB"]]
-        )
+        self.assertEquals(len(subscriptions), 1)
+        self.assertEqual(subscriptions[0].resourceKey, "/CalDAV/calendars.example.com/user02/calendar/")
+        self.assertEqual(subscriptions[0].modified, 3000)
+        self.assertEqual(subscriptions[0].subscriberGUID, "D2256BCC-48E2-42D1-BD89-CBA1E4CCDFFB")
 
         # Verify processError removes associated subscriptions and history
         # First find the id corresponding to token2
@@ -326,7 +329,7 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         subscriptions = (yield txn.apnSubscriptionsByToken(token2))
         yield txn.commit()
         self.assertEquals(len(subscriptions), 1)
-        self.assertEquals(subscriptions[0][0], key2)
+        self.assertEquals(subscriptions[0].resourceKey, key2)
 
         service.stopService()
 

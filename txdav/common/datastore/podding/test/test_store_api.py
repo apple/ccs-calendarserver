@@ -104,8 +104,8 @@ END:VCALENDAR
 
         from txdav.caldav.datastore.sql_external import CalendarHomeExternal
         recipient = yield txn.store().directoryService().recordWithUID(uid)
-        resourceID = yield txn.store().conduit.send_home_resource_id(self, recipient)
-        home = CalendarHomeExternal(txn, recipient.uid, resourceID) if resourceID is not None else None
+        resourceID = yield txn.store().conduit.send_home_resource_id(txn, recipient)
+        home = CalendarHomeExternal.makeSyntheticExternalHome(txn, recipient.uid, resourceID) if resourceID is not None else None
         if home:
             home._childClass = home._childClass._externalClass
         returnValue(home)

@@ -202,8 +202,6 @@ DEFAULT_CONFIG = {
 
     "SpawnedDBUser": "caldav", # The username to use when DBType is empty
 
-    "DBImportFile": "", # File path to SQL file to import at startup (includes schema)
-
     "DSN": "", # Data Source Name.  Used to connect to an external
                # database if DBType is non-empty.  Format varies
                # depending on database type.
@@ -407,6 +405,7 @@ DEFAULT_CONFIG = {
         "Implicit Errors": False,
         "AutoScheduling": False,
         "iSchedule": False,
+        "migration": False,
     },
     "AccountingPrincipals": [],
     "AccountingLogRoot"   : "accounting",
@@ -581,9 +580,9 @@ DEFAULT_CONFIG = {
     "EnableTrashCollection": False,  # Enable Trash Collection
 
     "ParallelUpgrades": False, # Perform upgrades - currently only the
-                                # database -> filesystem migration - but in
-                                # the future, hopefully all relevant
-                                # upgrades - in parallel in subprocesses.
+                               # database -> filesystem migration - but in
+                               # the future, hopefully all relevant
+                               # upgrades - in parallel in subprocesses.
 
     "MergeUpgrades": False, # During the upgrade phase of startup, rather than
                             # skipping homes found both on the filesystem and in

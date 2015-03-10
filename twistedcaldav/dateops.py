@@ -32,7 +32,7 @@ from pycalendar.datetime import DateTime
 from pycalendar.timezone import Timezone
 from pycalendar.period import Period
 
-import datetime
+from datetime import date, datetime
 import dateutil.tz
 
 import calendar
@@ -269,19 +269,19 @@ def clipPeriod(period, clipPeriod):
 
 
 
-def pyCalendarTodatetime(pydt):
+def pyCalendarToSQLTimestamp(pydt):
 
     if pydt.isDateOnly():
-        return datetime.date(year=pydt.getYear(), month=pydt.getMonth(), day=pydt.getDay())
+        return date(year=pydt.getYear(), month=pydt.getMonth(), day=pydt.getDay())
     else:
-        return datetime.datetime(
+        return datetime(
             year=pydt.getYear(),
             month=pydt.getMonth(),
             day=pydt.getDay(),
             hour=pydt.getHours(),
             minute=pydt.getMinutes(),
             second=pydt.getSeconds(),
-            tzinfo=dateutil.tz.tzutc()
+            tzinfo=None
         )
 
 
@@ -295,15 +295,25 @@ def parseSQLTimestampToPyCalendar(ts):
     @return: L{DateTime} result
     """
 
-    # Format is "%Y-%m-%d %H:%M:%S"
-    return DateTime(
-        year=int(ts[0:4]),
-        month=int(ts[5:7]),
-        day=int(ts[8:10]),
-        hours=int(ts[11:13]),
-        minutes=int(ts[14:16]),
-        seconds=int(ts[17:19])
-    )
+    if isinstance(ts, datetime):
+        return DateTime(
+            year=ts.year,
+            month=ts.month,
+            day=ts.day,
+            hours=ts.hour,
+            minutes=ts.minute,
+            seconds=ts.second
+        )
+    else:
+        # Format is "%Y-%m-%d %H:%M:%S"
+        return DateTime(
+            year=int(ts[0:4]),
+            month=int(ts[5:7]),
+            day=int(ts[8:10]),
+            hours=int(ts[11:13]),
+            minutes=int(ts[14:16]),
+            seconds=int(ts[17:19])
+        )
 
 
 
@@ -316,18 +326,25 @@ def parseSQLDateToPyCalendar(ts):
     @return: L{DateTime} result
     """
 
-    # Format is "%Y-%m-%d", though Oracle may add zero time which we ignore
-    return DateTime(
-        year=int(ts[0:4]),
-        month=int(ts[5:7]),
-        day=int(ts[8:10])
-    )
+    if isinstance(ts, date):
+        return DateTime(
+            year=ts.year,
+            month=ts.month,
+            day=ts.day,
+        )
+    else:
+        # Format is "%Y-%m-%d", though Oracle may add zero time which we ignore
+        return DateTime(
+            year=int(ts[0:4]),
+            month=int(ts[5:7]),
+            day=int(ts[8:10])
+        )
 
 
 
 def datetimeMktime(dt):
 
-    assert isinstance(dt, datetime.date)
+    assert isinstance(dt, date)
 
     if dt.tzinfo is None:
         dt.replace(tzinfo=dateutil.tz.tzutc())

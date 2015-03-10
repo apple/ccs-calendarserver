@@ -82,7 +82,7 @@ class SchemaUpgradeWithDataTests(TestCase):
         startTxn = self.store.newTransaction("test_dbUpgrades")
         yield startTxn.execSQL("create schema test_dbUpgrades;")
         yield startTxn.execSQL("set search_path to test_dbUpgrades;")
-        yield startTxn.execSQL(path.getContent())
+        yield startTxn.execSQLBlock(path.getContent())
         yield startTxn.commit()
 
         self.addCleanup(self.cleanUp)

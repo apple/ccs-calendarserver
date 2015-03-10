@@ -191,3 +191,126 @@ class DirectoryPoddingConduitMixin(object):
         delegators = yield Delegates._delegatedToUIDs(txn, delegate, request["read-write"], onlyThisServer=True)
 
         returnValue(list(delegators))
+
+
+    @inlineCallbacks
+    def send_dump_individual_delegates(self, txn, delegator):
+        """
+        Get L{DelegateRecords} from another pod.
+
+        @param txn: transaction to use
+        @type txn: L{CommonStoreTransaction}
+        @param delegator: delegate to lookup
+        @type delegator: L{DirectoryRecord}
+        @param readWrite: if True, read and write access delegates are returned;
+            read-only access otherwise
+        """
+        if delegator.thisServer():
+            raise FailedCrossPodRequestError("Cross-pod destination on this server: {}".format(delegator.uid))
+
+        request = {
+            "action": "dump-individual-delegates",
+            "uid": delegator.uid,
+        }
+        response = yield self.sendRequestToServer(txn, delegator.server(), request)
+        returnValue(response)
+
+
+    @inlineCallbacks
+    def recv_dump_individual_delegates(self, txn, request):
+        """
+        Process an delegators cross-pod request. Request arguments as per L{send_dump_individual_delegates}.
+
+        @param request: request arguments
+        @type request: C{dict}
+        """
+
+        delegator = yield txn.directoryService().recordWithUID(request["uid"])
+        if delegator is None or not delegator.thisServer():
+            raise FailedCrossPodRequestError("Cross-pod delegate missing or on this server: {}".format(delegator.uid))
+
+        delegates = yield txn.dumpIndividualDelegatesLocal(delegator.uid)
+
+        returnValue(self._to_serialize_list(delegates))
+
+
+    @inlineCallbacks
+    def send_dump_group_delegates(self, txn, delegator):
+        """
+        Get L{DelegateGroupsRecord},L{GroupsRecord} from another pod.
+
+        @param txn: transaction to use
+        @type txn: L{CommonStoreTransaction}
+        @param delegator: delegate to lookup
+        @type delegator: L{DirectoryRecord}
+        @param readWrite: if True, read and write access delegates are returned;
+            read-only access otherwise
+        """
+        if delegator.thisServer():
+            raise FailedCrossPodRequestError("Cross-pod destination on this server: {}".format(delegator.uid))
+
+        request = {
+            "action": "dump-group-delegates",
+            "uid": delegator.uid,
+        }
+        response = yield self.sendRequestToServer(txn, delegator.server(), request)
+        returnValue(response)
+
+
+    @inlineCallbacks
+    def recv_dump_group_delegates(self, txn, request):
+        """
+        Process an delegators cross-pod request. Request arguments as per L{send_dump_group_delegates}.
+
+        @param request: request arguments
+        @type request: C{dict}
+        """
+
+        delegator = yield txn.directoryService().recordWithUID(request["uid"])
+        if delegator is None or not delegator.thisServer():
+            raise FailedCrossPodRequestError("Cross-pod delegate missing or on this server: {}".format(delegator.uid))
+
+        results = yield txn.dumpGroupDelegatesLocal(delegator.uid)
+
+        returnValue([[delegator_record.serialize(), group_record.serialize()] for delegator_record, group_record in results])
+
+
+    @inlineCallbacks
+    def send_dump_external_delegates(self, txn, delegator):
+        """
+        Get L{ExternalDelegateGroupsRecord} from another pod.
+
+        @param txn: transaction to use
+        @type txn: L{CommonStoreTransaction}
+        @param delegator: delegate to lookup
+        @type delegator: L{DirectoryRecord}
+        @param readWrite: if True, read and write access delegates are returned;
+            read-only access otherwise
+        """
+        if delegator.thisServer():
+            raise FailedCrossPodRequestError("Cross-pod destination on this server: {}".format(delegator.uid))
+
+        request = {
+            "action": "dump-external-delegates",
+            "uid": delegator.uid,
+        }
+        response = yield self.sendRequestToServer(txn, delegator.server(), request)
+        returnValue(response)
+
+
+    @inlineCallbacks
+    def recv_dump_external_delegates(self, txn, request):
+        """
+        Process an delegators cross-pod request. Request arguments as per L{send_dump_external_delegates}.
+
+        @param request: request arguments
+        @type request: C{dict}
+        """
+
+        delegator = yield txn.directoryService().recordWithUID(request["uid"])
+        if delegator is None or not delegator.thisServer():
+            raise FailedCrossPodRequestError("Cross-pod delegate missing or on this server: {}".format(delegator.uid))
+
+        delegates = yield txn.dumpExternalDelegatesLocal(delegator.uid)
+
+        returnValue(self._to_serialize_list(delegates))

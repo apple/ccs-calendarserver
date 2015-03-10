@@ -73,6 +73,7 @@ from twext.enterprise.dal.syntax import Select, Parameter, Insert, Delete, \
     Update
 from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.enterprise.jobqueue import JobItem
+from twext.enterprise.util import parseSQLTimestamp
 
 import datetime
 import os
@@ -741,14 +742,14 @@ END:VCALENDAR
         txn = calendarStore.newTransaction()
         home = yield txn.homeWithUID(ECALENDARTYPE, "uid1", create=True)
         cal = yield home.calendarWithName("calendar")
-        cal._created = "2011-02-05 11:22:47"
-        cal._modified = "2011-02-06 11:22:47"
+        cal._created = parseSQLTimestamp("2011-02-05 11:22:47")
+        cal._modified = parseSQLTimestamp("2011-02-06 11:22:47")
         self.assertEqual(cal.created(), datetimeMktime(datetime.datetime(2011, 2, 5, 11, 22, 47)))
         self.assertEqual(cal.modified(), datetimeMktime(datetime.datetime(2011, 2, 6, 11, 22, 47)))
 
         obj = yield self.calendarObjectUnderTest()
-        obj._created = "2011-02-07 11:22:47"
-        obj._modified = "2011-02-08 11:22:47"
+        obj._created = parseSQLTimestamp("2011-02-07 11:22:47")
+        obj._modified = parseSQLTimestamp("2011-02-08 11:22:47")
         self.assertEqual(obj.created(), datetimeMktime(datetime.datetime(2011, 2, 7, 11, 22, 47)))
         self.assertEqual(obj.modified(), datetimeMktime(datetime.datetime(2011, 2, 8, 11, 22, 47)))
 
@@ -767,13 +768,13 @@ END:VCALENDAR
         txn2 = calendarStore.newTransaction()
 
         notification_uid1_1 = yield txn1.notificationsWithUID(
-            "uid1",
+            "uid1", create=True
         )
 
         @inlineCallbacks
         def _defer_notification_uid1_2():
             notification_uid1_2 = yield txn2.notificationsWithUID(
-                "uid1",
+                "uid1", create=True
             )
             yield txn2.commit()
             returnValue(notification_uid1_2)
@@ -2220,6 +2221,36 @@ END:VCALENDAR
         self.assertTrue("mailto:user01@example.com" not in txt)
         self.assertTrue("urn:x-uid:user01" in txt)
         self.assertEqual(obj._dataversion, obj._currentDataVersion)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_removeAfterRevisionCleanup(self):
+        """
+        Make sure L{Calendar}'s can be renamed after revision cleanup
+        removes their revision table entry..
+        """
+        yield self.homeUnderTest(name="user01", create=True)
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        self.assertTrue(cal is not None)
+        yield self.commit()
+
+        # Remove the revision
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield cal.syncToken()
+        yield self.transactionUnderTest().deleteRevisionsBefore(cal._syncTokenRevision + 1)
+        yield self.commit()
+
+        # Rename the calendar
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        self.assertTrue(cal is not None)
+        yield cal.rename("calendar_renamed")
+        yield self.commit()
+
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        self.assertTrue(cal is None)
+        cal = yield self.calendarUnderTest(home="user01", name="calendar_renamed")
+        self.assertTrue(cal is not None)
         yield self.commit()
 
 

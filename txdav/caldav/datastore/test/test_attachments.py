@@ -29,7 +29,8 @@ from twisted.trial import unittest
 from twistedcaldav.config import config
 from twistedcaldav.ical import Property, Component
 
-from txdav.caldav.datastore.sql import CalendarStoreFeatures, DropBoxAttachment, \
+from txdav.caldav.datastore.sql import CalendarStoreFeatures
+from txdav.caldav.datastore.sql_attachment import DropBoxAttachment, \
     ManagedAttachment
 from txdav.caldav.datastore.test.common import CaptureProtocol
 from txdav.caldav.icalendarstore import IAttachmentStorageTransport, IAttachment, \

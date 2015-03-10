@@ -67,27 +67,24 @@ class GroupCacherTest(StoreTestCase):
         record = yield self.directory.recordWithUID(u"__top_group_1__")
         yield self.groupCacher.refreshGroup(txn, record.uid)
 
-        (
-            groupID, _ignore_name, membershipHash, _ignore_modified,
-            extant
-        ) = (yield txn.groupByUID(record.uid))
+        group = (yield txn.groupByUID(record.uid))
 
-        self.assertEquals(extant, True)
-        self.assertEquals(membershipHash, "553eb54e3bbb26582198ee04541dbee4")
+        self.assertEquals(group.extant, True)
+        self.assertEquals(group.membershipHash, "553eb54e3bbb26582198ee04541dbee4")
 
-        groupUID, name, membershipHash, extant = (yield txn.groupByID(groupID))
-        self.assertEquals(groupUID, record.uid)
-        self.assertEquals(name, u"Top Group 1")
-        self.assertEquals(membershipHash, "553eb54e3bbb26582198ee04541dbee4")
-        self.assertEquals(extant, True)
+        group = yield txn.groupByID(group.groupID)
+        self.assertEquals(group.groupUID, record.uid)
+        self.assertEquals(group.name, u"Top Group 1")
+        self.assertEquals(group.membershipHash, "553eb54e3bbb26582198ee04541dbee4")
+        self.assertEquals(group.extant, True)
 
-        members = (yield txn.groupMemberUIDs(groupID))
+        members = (yield txn.groupMemberUIDs(group.groupID))
         self.assertEquals(
             set([u'__cdaboo1__', u'__glyph1__', u'__sagen1__', u'__wsanchez1__']),
             members
         )
 
-        records = (yield self.groupCacher.cachedMembers(txn, groupID))
+        records = (yield self.groupCacher.cachedMembers(txn, group.groupID))
         self.assertEquals(
             set([r.uid for r in records]),
             set([u'__cdaboo1__', u'__glyph1__', u'__sagen1__', u'__wsanchez1__'])
@@ -116,10 +113,7 @@ class GroupCacherTest(StoreTestCase):
         # Refresh the group so it's assigned a group_id
         uid = u"__top_group_1__"
         yield self.groupCacher.refreshGroup(txn, uid)
-        (
-            groupID, name, _ignore_membershipHash, _ignore_modified,
-            _ignore_extant
-        ) = yield txn.groupByUID(uid)
+        group = yield txn.groupByUID(uid)
 
         # Remove two members, and add one member
         newSet = set()
@@ -133,12 +127,12 @@ class GroupCacherTest(StoreTestCase):
             newSet.add(record.uid)
         added, removed = (
             yield self.groupCacher.synchronizeMembers(
-                txn, groupID, newSet
+                txn, group.groupID, newSet
             )
         )
         self.assertEquals(added, set(["__dre1__", ]))
         self.assertEquals(removed, set(["__glyph1__", "__sagen1__", ]))
-        records = (yield self.groupCacher.cachedMembers(txn, groupID))
+        records = (yield self.groupCacher.cachedMembers(txn, group.groupID))
         self.assertEquals(
             set([r.shortNames[0] for r in records]),
             set(["wsanchez1", "cdaboo1", "dre1"])
@@ -146,11 +140,11 @@ class GroupCacherTest(StoreTestCase):
 
         # Remove all members
         added, removed = (
-            yield self.groupCacher.synchronizeMembers(txn, groupID, set())
+            yield self.groupCacher.synchronizeMembers(txn, group.groupID, set())
         )
         self.assertEquals(added, set())
         self.assertEquals(removed, set(["__wsanchez1__", "__cdaboo1__", "__dre1__", ]))
-        records = (yield self.groupCacher.cachedMembers(txn, groupID))
+        records = (yield self.groupCacher.cachedMembers(txn, group.groupID))
         self.assertEquals(len(records), 0)
 
         yield txn.commit()
@@ -168,12 +162,12 @@ class GroupCacherTest(StoreTestCase):
         uid = u"__top_group_1__"
         hash = "553eb54e3bbb26582198ee04541dbee4"
         yield self.groupCacher.refreshGroup(txn, uid)
-        (
-            groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
-            _ignore_extant
-        ) = yield txn.groupByUID(uid)
-        results = yield txn.groupByID(groupID)
-        self.assertEquals((uid, u"Top Group 1", hash, True), results)
+        group = yield txn.groupByUID(uid)
+        group = yield txn.groupByID(group.groupID)
+        self.assertEqual(group.groupUID, uid)
+        self.assertEqual(group.name, u"Top Group 1")
+        self.assertEqual(group.membershipHash, hash)
+        self.assertEqual(group.extant, True)
 
         yield txn.commit()
 
@@ -683,31 +677,25 @@ class DynamicGroupTest(StoreTestCase):
 
             txn = store.newTransaction()
             yield self.groupCacher.refreshGroup(txn, uid)
-            (
-                _ignore_groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
-                extant
-            ) = (yield txn.groupByUID(uid))
+            group = yield txn.groupByUID(uid)
             yield txn.commit()
 
-            self.assertTrue(extant)
+            self.assertTrue(group.extant)
 
             # Remove the group
             yield self.directory.removeRecords([uid])
 
             txn = store.newTransaction()
             yield self.groupCacher.refreshGroup(txn, uid)
-            (
-                groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
-                extant
-            ) = (yield txn.groupByUID(uid))
+            group = (yield txn.groupByUID(uid))
             yield txn.commit()
 
             # Extant = False
-            self.assertFalse(extant)
+            self.assertFalse(group.extant)
 
             # The list of members stored in the DB for this group is now empty
             txn = store.newTransaction()
-            members = yield txn.groupMemberUIDs(groupID)
+            members = yield txn.groupMemberUIDs(group.groupID)
             yield txn.commit()
             self.assertEquals(members, set())
 
@@ -732,18 +720,15 @@ class DynamicGroupTest(StoreTestCase):
 
             txn = store.newTransaction()
             yield self.groupCacher.refreshGroup(txn, uid)
-            (
-                groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
-                extant
-            ) = (yield txn.groupByUID(uid))
+            group = (yield txn.groupByUID(uid))
             yield txn.commit()
 
             # Extant = True
-            self.assertTrue(extant)
+            self.assertTrue(group.extant)
 
             # The list of members stored in the DB for this group has 100 users
             txn = store.newTransaction()
-            members = yield txn.groupMemberUIDs(groupID)
+            members = yield txn.groupMemberUIDs(group.groupID)
             yield txn.commit()
             self.assertEquals(len(members), 100 if uid == u"testgroup" else 0)
 
@@ -760,27 +745,27 @@ class DynamicGroupTest(StoreTestCase):
 
             txn = store.newTransaction()
             yield self.groupCacher.refreshGroup(txn, uid)
-            groupID = (yield txn.groupByUID(uid, create=False))[0]
+            group = yield txn.groupByUID(uid, create=False)
             yield txn.commit()
 
-            self.assertNotEqual(groupID, None)
+            self.assertNotEqual(group, None)
 
             txn = store.newTransaction()
             yield self.groupCacher.update(txn)
-            groupID = (yield txn.groupByUID(uid, create=False))[0]
+            group = yield txn.groupByUID(uid, create=False)
             yield txn.commit()
 
-            self.assertEqual(groupID, None)
+            self.assertEqual(group, None)
 
         # delegate groups not deleted
         for uid in (u"testgroup", u"emptygroup",):
 
             txn = store.newTransaction()
-            groupID = (yield txn.groupByUID(uid))[0]
-            yield txn.addDelegateGroup(delegator=u"sagen", delegateGroupID=groupID, readWrite=True)
+            group = yield txn.groupByUID(uid)
+            yield txn.addDelegateGroup(delegator=u"sagen", delegateGroupID=group.groupID, readWrite=True)
             yield txn.commit()
 
-            self.assertNotEqual(groupID, None)
+            self.assertNotEqual(group, None)
 
             txn = store.newTransaction()
             yield self.groupCacher.update(txn)
@@ -788,21 +773,21 @@ class DynamicGroupTest(StoreTestCase):
             yield JobItem.waitEmpty(store.newTransaction, reactor, 60)
 
             txn = store.newTransaction()
-            groupID = (yield txn.groupByUID(uid, create=False))[0]
+            group = yield txn.groupByUID(uid, create=False)
             yield txn.commit()
 
-            self.assertNotEqual(groupID, None)
+            self.assertNotEqual(group, None)
 
         # delegate group is deleted. unused group is deleted
         txn = store.newTransaction()
-        testGroupID = (yield txn.groupByUID(u"testgroup", create=False))[0]
-        yield txn.removeDelegateGroup(delegator=u"sagen", delegateGroupID=testGroupID, readWrite=True)
-        testGroupID = (yield txn.groupByUID(u"testgroup", create=False))[0]
-        emptyGroupID = (yield txn.groupByUID(u"emptygroup", create=False))[0]
+        testGroup = yield txn.groupByUID(u"testgroup", create=False)
+        yield txn.removeDelegateGroup(delegator=u"sagen", delegateGroupID=testGroup.groupID, readWrite=True)
+        testGroup = yield txn.groupByUID(u"testgroup", create=False)
+        emptyGroup = yield txn.groupByUID(u"emptygroup", create=False)
         yield txn.commit()
 
-        self.assertNotEqual(testGroupID, None)
-        self.assertNotEqual(emptyGroupID, None)
+        self.assertNotEqual(testGroup, None)
+        self.assertNotEqual(emptyGroup, None)
 
         txn = store.newTransaction()
         yield self.groupCacher.update(txn)
@@ -810,12 +795,12 @@ class DynamicGroupTest(StoreTestCase):
         yield JobItem.waitEmpty(store.newTransaction, reactor, 60)
 
         txn = store.newTransaction()
-        testGroupID = (yield txn.groupByUID(u"testgroup", create=False))[0]
-        emptyGroupID = (yield txn.groupByUID(u"emptygroup", create=False))[0]
+        testGroup = yield txn.groupByUID(u"testgroup", create=False)
+        emptyGroup = yield txn.groupByUID(u"emptygroup", create=False)
         yield txn.commit()
 
-        self.assertEqual(testGroupID, None)
-        self.assertNotEqual(emptyGroupID, None)
+        self.assertEqual(testGroup, None)
+        self.assertNotEqual(emptyGroup, None)
 
 
     @inlineCallbacks
@@ -831,42 +816,33 @@ class DynamicGroupTest(StoreTestCase):
 
             config.AutomaticPurging.GroupPurgeIntervalSeconds = oldGroupPurgeIntervalSeconds
             txn = store.newTransaction()
-            groupID = (yield txn.groupByUID(uid))[0]
-            yield txn.addDelegateGroup(delegator=u"sagen", delegateGroupID=groupID, readWrite=True)
-            (
-                groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
-                extant
-            ) = yield txn.groupByUID(uid, create=False)
+            group = yield txn.groupByUID(uid)
+            yield txn.addDelegateGroup(delegator=u"sagen", delegateGroupID=group.groupID, readWrite=True)
+            group = yield txn.groupByUID(uid, create=False)
             yield txn.commit()
 
-            self.assertTrue(extant)
-            self.assertNotEqual(groupID, None)
+            self.assertNotEqual(group, None)
+            self.assertTrue(group.extant)
 
             # Remove the group, still cached
             yield self.directory.removeRecords([uid])
             txn = store.newTransaction()
             yield self.groupCacher.update(txn)
-            (
-                groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
-                extant
-            ) = yield txn.groupByUID(uid, create=False)
+            group = yield txn.groupByUID(uid, create=False)
             yield txn.commit()
             yield JobItem.waitEmpty(store.newTransaction, reactor, 60)
 
             txn = store.newTransaction()
-            (
-                groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
-                extant
-            ) = yield txn.groupByUID(uid, create=False)
+            group = yield txn.groupByUID(uid, create=False)
             yield txn.commit()
-            self.assertNotEqual(groupID, None)
-            self.assertFalse(extant)
+            self.assertNotEqual(group, None)
+            self.assertFalse(group.extant)
 
             # delete the group
             config.AutomaticPurging.GroupPurgeIntervalSeconds = "0.0"
 
             txn = store.newTransaction()
             yield self.groupCacher.update(txn)
-            groupID = (yield txn.groupByUID(uid, create=False))[0]
+            group = yield txn.groupByUID(uid, create=False)
             yield txn.commit()
-            self.assertEqual(groupID, None)
+            self.assertEqual(group, None)

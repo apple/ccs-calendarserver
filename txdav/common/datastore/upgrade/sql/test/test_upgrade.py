@@ -163,7 +163,7 @@ class SchemaUpgradeTests(TestCase):
             startTxn = store.newTransaction("test_dbUpgrades")
             yield startTxn.execSQL("create schema test_dbUpgrades;")
             yield startTxn.execSQL("set search_path to test_dbUpgrades;")
-            yield startTxn.execSQL(path.getContent())
+            yield startTxn.execSQLBlock(path.getContent())
             yield startTxn.commit()
 
         @inlineCallbacks
@@ -269,7 +269,7 @@ class SchemaUpgradeTests(TestCase):
             startTxn = store.newTransaction("test_dbUpgrades")
             yield startTxn.execSQL("create schema test_dbUpgrades;")
             yield startTxn.execSQL("set search_path to test_dbUpgrades;")
-            yield startTxn.execSQL(path.getContent())
+            yield startTxn.execSQLBlock(path.getContent())
             yield startTxn.execSQL("update CALENDARSERVER set VALUE = '%s' where NAME = '%s';" % (oldVersion, versionKey,))
             yield startTxn.commit()
 

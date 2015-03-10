@@ -123,7 +123,8 @@ init_build () {
 
   if find_cmd openssl > /dev/null; then
     if [ -z "${hash}" ]; then hash="md5"; fi;
-    md5 () { "$(find_cmd openssl)" dgst -md5 "$@"; }
+    # remove "(stdin)= " from the front which openssl emits on some platforms
+    md5 () { "$(find_cmd openssl)" dgst -md5 "$@" | sed 's/^.* //'; }
   elif find_cmd md5 > /dev/null; then
     if [ -z "${hash}" ]; then hash="md5"; fi;
     md5 () { "$(find_cmd md5)" "$@"; }

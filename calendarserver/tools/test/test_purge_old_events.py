@@ -25,6 +25,7 @@ from calendarserver.tools.purge import (
 )
 from pycalendar.datetime import DateTime
 from twext.enterprise.dal.syntax import Update, Delete
+from twext.enterprise.util import parseSQLTimestamp
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, Deferred
 from twistedcaldav.config import config
@@ -458,19 +459,19 @@ class PurgeOldEventsTests(StoreTestCase):
         self.assertEquals(
             sorted(results),
             sorted([
-                ['home1', 'calendar1', 'old.ics', '1901-01-01 01:00:00'],
-                ['home1', 'calendar1', 'oldattachment1.ics', '1901-01-01 01:00:00'],
-                ['home1', 'calendar1', 'oldattachment2.ics', '1901-01-01 01:00:00'],
-                ['home1', 'calendar1', 'oldmattachment1.ics', '1901-01-01 01:00:00'],
-                ['home1', 'calendar1', 'oldmattachment2.ics', '1901-01-01 01:00:00'],
-                ['home2', 'calendar3', 'repeating_awhile.ics', '1901-01-01 01:00:00'],
-                ['home2', 'calendar2', 'recent.ics', '%s-03-04 22:15:00' % (now,)],
-                ['home2', 'calendar2', 'oldattachment1.ics', '1901-01-01 01:00:00'],
-                ['home2', 'calendar2', 'oldattachment3.ics', '1901-01-01 01:00:00'],
-                ['home2', 'calendar2', 'oldattachment4.ics', '1901-01-01 01:00:00'],
-                ['home2', 'calendar2', 'oldmattachment1.ics', '1901-01-01 01:00:00'],
-                ['home2', 'calendar2', 'oldmattachment3.ics', '1901-01-01 01:00:00'],
-                ['home2', 'calendar2', 'oldmattachment4.ics', '1901-01-01 01:00:00'],
+                ['home1', 'calendar1', 'old.ics', parseSQLTimestamp('1901-01-01 01:00:00')],
+                ['home1', 'calendar1', 'oldattachment1.ics', parseSQLTimestamp('1901-01-01 01:00:00')],
+                ['home1', 'calendar1', 'oldattachment2.ics', parseSQLTimestamp('1901-01-01 01:00:00')],
+                ['home1', 'calendar1', 'oldmattachment1.ics', parseSQLTimestamp('1901-01-01 01:00:00')],
+                ['home1', 'calendar1', 'oldmattachment2.ics', parseSQLTimestamp('1901-01-01 01:00:00')],
+                ['home2', 'calendar3', 'repeating_awhile.ics', parseSQLTimestamp('1901-01-01 01:00:00')],
+                ['home2', 'calendar2', 'recent.ics', parseSQLTimestamp('%s-03-04 22:15:00' % (now,))],
+                ['home2', 'calendar2', 'oldattachment1.ics', parseSQLTimestamp('1901-01-01 01:00:00')],
+                ['home2', 'calendar2', 'oldattachment3.ics', parseSQLTimestamp('1901-01-01 01:00:00')],
+                ['home2', 'calendar2', 'oldattachment4.ics', parseSQLTimestamp('1901-01-01 01:00:00')],
+                ['home2', 'calendar2', 'oldmattachment1.ics', parseSQLTimestamp('1901-01-01 01:00:00')],
+                ['home2', 'calendar2', 'oldmattachment3.ics', parseSQLTimestamp('1901-01-01 01:00:00')],
+                ['home2', 'calendar2', 'oldmattachment4.ics', parseSQLTimestamp('1901-01-01 01:00:00')],
             ])
         )
 
@@ -497,7 +498,7 @@ class PurgeOldEventsTests(StoreTestCase):
         count = (yield txn.removeOldEvents(cutoff))
         self.assertEquals(count, 12)
         results = (yield txn.eventsOlderThan(cutoff))
-        self.assertEquals(results, [])
+        self.assertEquals(list(results), [])
 
         # Remove oldest events (none left)
         count = (yield txn.removeOldEvents(cutoff))

@@ -23,7 +23,7 @@ from txweb2 import responsecode
 from txweb2.client.http import HTTPClientProtocol, ClientRequest
 from txweb2.dav.util import allDataFromStream
 from txweb2.http_headers import Headers, MimeType
-from txweb2.stream import MemoryStream
+from txweb2.stream import MemoryStream, readStream
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.protocol import Factory
@@ -50,11 +50,12 @@ class ConduitRequest(object):
     case the JSON data is sent in an HTTP header.
     """
 
-    def __init__(self, server, data, stream=None, stream_type=None):
+    def __init__(self, server, data, stream=None, stream_type=None, writeStream=None):
         self.server = server
         self.data = json.dumps(data)
         self.stream = stream
         self.streamType = stream_type
+        self.writeStream = writeStream
 
 
     @inlineCallbacks
@@ -72,7 +73,28 @@ class ConduitRequest(object):
                 self.loggedResponse = yield self.logResponse(response)
                 emitAccounting("xPod", "", self.loggedRequest + "\n" + self.loggedResponse, "POST")
 
-            if response.code in (responsecode.OK, responsecode.BAD_REQUEST,):
+            if response.code == responsecode.OK:
+                if self.writeStream is None:
+                    data = (yield allDataFromStream(response.stream))
+                    data = json.loads(data)
+                else:
+                    yield readStream(response.stream, self.writeStream.write)
+                    content_type = response.headers.getHeader("content-type")
+                    if content_type is None:
+                        content_type = MimeType("application", "octet-stream")
+                    content_disposition = response.headers.getHeader("content-disposition")
+                    if content_disposition is None or "filename" not in content_disposition.params:
+                        filename = ""
+                    else:
+                        filename = content_disposition.params["filename"]
+                    self.writeStream.resetDetails(content_type, filename)
+                    yield self.writeStream.loseConnection()
+                    data = {
+                        "result": "ok",
+                        "content-type": content_type,
+                        "name": filename,
+                    }
+            elif response.code == responsecode.BAD_REQUEST:
                 data = (yield allDataFromStream(response.stream))
                 data = json.loads(data)
             else:

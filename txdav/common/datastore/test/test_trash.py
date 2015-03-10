@@ -34,6 +34,7 @@ class TrashTests(StoreTestCase):
     def _homeForUser(self, txn, userName):
         return txn.calendarHomeWithUID(userName, create=True)
 
+
     @inlineCallbacks
     def _collectionForUser(self, txn, userName, collectionName, create=False, onlyInTrash=False):
         home = yield txn.calendarHomeWithUID(userName, create=True)
@@ -210,7 +211,6 @@ END:VCALENDAR
         yield txn.commit()
 
 
-
     @inlineCallbacks
     def test_trashScheduledFullyInFuture(self):
 
@@ -357,7 +357,6 @@ END:VCALENDAR
         self.assertTrue("PARTSTAT=NEEDS-ACTION" in data)
 
         yield txn.commit()
-
 
 
     @inlineCallbacks
@@ -831,7 +830,6 @@ END:VCALENDAR
         yield txn.commit()
 
 
-
     @inlineCallbacks
     def test_trashScheduledFullyInFutureAttendeeTrashedThenPutBack(self):
 
@@ -997,7 +995,6 @@ END:VCALENDAR
         self.assertTrue("PARTSTAT=ACCEPTED" in data)
 
         yield txn.commit()
-
 
 
     @inlineCallbacks
@@ -1299,7 +1296,6 @@ END:VCALENDAR
         self.assertTrue("PARTSTAT=TENTATIVE" in data)
 
         yield txn.commit()
-
 
 
     @inlineCallbacks
@@ -1786,7 +1782,6 @@ END:VCALENDAR
         self.assertEqual(len(resourceNames), 1)
 
         yield txn.commit()
-
 
 
     @inlineCallbacks

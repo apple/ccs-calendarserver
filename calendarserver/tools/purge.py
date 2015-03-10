@@ -992,7 +992,7 @@ class PurgePrincipalService(WorkerService):
 
         if not self.dryrun:
             yield storeCalHome.removeUnacceptedShares()
-            notificationHome = yield txn.notificationsWithUID(storeCalHome.uid(), create=False)
+            notificationHome = yield txn.notificationsWithUID(storeCalHome.uid())
             if notificationHome is not None:
                 yield notificationHome.remove()
 

@@ -60,7 +60,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import usage
 from twisted.python.usage import Options
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
-from twistedcaldav.dateops import pyCalendarTodatetime
+from twistedcaldav.dateops import pyCalendarToSQLTimestamp
 from twistedcaldav.ical import Component, InvalidICalendarDataError, Property, PERUSER_COMPONENT
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from twistedcaldav.timezones import TimezoneCache
@@ -530,8 +530,8 @@ class CalVerifyService(WorkerService, object):
         ch = schema.CALENDAR_HOME
         tr = schema.TIME_RANGE
         kwds = {
-            "Start" : pyCalendarTodatetime(start),
-            "Max"   : pyCalendarTodatetime(DateTime(1900, 1, 1, 0, 0, 0))
+            "Start" : pyCalendarToSQLTimestamp(start),
+            "Max"   : pyCalendarToSQLTimestamp(DateTime(1900, 1, 1, 0, 0, 0))
         }
         rows = (yield Select(
             [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED],
@@ -583,8 +583,8 @@ class CalVerifyService(WorkerService, object):
         ch = schema.CALENDAR_HOME
         tr = schema.TIME_RANGE
         kwds = {
-            "Start" : pyCalendarTodatetime(start),
-            "Max"   : pyCalendarTodatetime(DateTime(1900, 1, 1, 0, 0, 0)),
+            "Start" : pyCalendarToSQLTimestamp(start),
+            "Max"   : pyCalendarToSQLTimestamp(DateTime(1900, 1, 1, 0, 0, 0)),
             "UUID" : uuid,
         }
         rows = (yield Select(
@@ -613,8 +613,8 @@ class CalVerifyService(WorkerService, object):
             cb.CALENDAR_RESOURCE_NAME != "inbox")
 
         kwds = {
-            "Start" : pyCalendarTodatetime(start),
-            "Max"   : pyCalendarTodatetime(DateTime(1900, 1, 1, 0, 0, 0)),
+            "Start" : pyCalendarToSQLTimestamp(start),
+            "Max"   : pyCalendarToSQLTimestamp(DateTime(1900, 1, 1, 0, 0, 0)),
             "UUID" : uuid,
         }
         rows = (yield Select(
@@ -2159,7 +2159,7 @@ class DoubleBookingService(CalVerifyService):
         tr = schema.TIME_RANGE
         kwds = {
             "uuid": uuid,
-            "Start" : pyCalendarTodatetime(start),
+            "Start" : pyCalendarToSQLTimestamp(start),
         }
         rows = (yield Select(
             [co.RESOURCE_ID, ],

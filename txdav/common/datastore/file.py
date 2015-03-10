@@ -44,7 +44,8 @@ from txdav.common.datastore.sql_tables import _BIND_MODE_OWN
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     InternalDataStoreError, ObjectResourceNameNotAllowedError, \
-    ObjectResourceNameAlreadyExistsError, NoSuchObjectResourceError
+    ObjectResourceNameAlreadyExistsError, NoSuchObjectResourceError, \
+    ECALENDARTYPE, EADDRESSBOOKTYPE
 from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
@@ -63,16 +64,6 @@ import json
 import uuid
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
 import os
-
-ECALENDARTYPE = 0
-EADDRESSBOOKTYPE = 1
-
-# Labels used to identify the class of resource being modified, so that
-# notification systems can target the correct application
-NotifierPrefixes = {
-    ECALENDARTYPE : "CalDAV",
-    EADDRESSBOOKTYPE : "CardDAV",
-}
 
 TOPPATHS = (
     "calendars",
@@ -343,15 +334,15 @@ class CommonStoreTransaction(DataStoreTransaction):
         CommonStoreTransaction._homeClass[EADDRESSBOOKTYPE] = AddressBookHome
 
 
-    def calendarHomeWithUID(self, uid, create=False):
-        return self.homeWithUID(ECALENDARTYPE, uid, create=create)
+    def calendarHomeWithUID(self, uid, status=None, create=False):
+        return self.homeWithUID(ECALENDARTYPE, uid, status=status, create=create)
 
 
-    def addressbookHomeWithUID(self, uid, create=False):
-        return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create)
+    def addressbookHomeWithUID(self, uid, status=None, create=False):
+        return self.homeWithUID(EADDRESSBOOKTYPE, uid, status=status, create=create)
 
 
-    def _determineMemo(self, storeType, uid, create=False):
+    def _determineMemo(self, storeType, uid, status=None, create=False):
         """
         Determine the memo dictionary to use for homeWithUID.
         """
@@ -374,7 +365,7 @@ class CommonStoreTransaction(DataStoreTransaction):
 
 
     @memoizedKey("uid", _determineMemo, deferredResult=False)
-    def homeWithUID(self, storeType, uid, create=False):
+    def homeWithUID(self, storeType, uid, status=None, create=False):
         if uid.startswith("."):
             return None
 
@@ -385,7 +376,7 @@ class CommonStoreTransaction(DataStoreTransaction):
 
 
     @memoizedKey("uid", "_notificationHomes", deferredResult=False)
-    def notificationsWithUID(self, uid, home=None):
+    def notificationsWithUID(self, uid, home=None, create=False):
 
         if home is None:
             home = self.homeWithUID(self._notificationHomeType, uid, create=True)

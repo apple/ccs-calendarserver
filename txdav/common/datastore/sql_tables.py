@@ -23,13 +23,11 @@ from twisted.python.modules import getModule
 from twext.enterprise.dal.syntax import SchemaSyntax, QueryGenerator
 from twext.enterprise.dal.model import NO_DEFAULT
 from twext.enterprise.dal.model import Sequence, ProcedureCall
+from twext.enterprise.dal.parseschema import schemaFromPath
 from twext.enterprise.dal.syntax import FixedPlaceholder
 from twext.enterprise.ienterprise import ORACLE_DIALECT, POSTGRES_DIALECT
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.ienterprise import ORACLE_TABLE_NAME_MAX
-from twext.enterprise.dal.parseschema import schemaFromPath, significant
-from sqlparse import parse
-from re import compile
 import hashlib
 import itertools
 
@@ -187,6 +185,19 @@ _homeStatus = _schemaConstants(
 _HOME_STATUS_NORMAL = _homeStatus('normal')
 _HOME_STATUS_EXTERNAL = _homeStatus('external')
 _HOME_STATUS_PURGING = _homeStatus('purging')
+_HOME_STATUS_MIGRATING = _homeStatus('migrating')
+_HOME_STATUS_DISABLED = _homeStatus('disabled')
+
+_childType = _schemaConstants(
+    schema.CHILD_TYPE.DESCRIPTION,
+    schema.CHILD_TYPE.ID
+)
+
+
+_CHILD_TYPE_NORMAL = _childType('normal')
+_CHILD_TYPE_INBOX = _childType('inbox')
+_CHILD_TYPE_TRASH = _childType('trash')
+
 
 _bindStatus = _schemaConstants(
     schema.CALENDAR_BIND_STATUS.DESCRIPTION,
@@ -432,44 +443,6 @@ def _translateSchema(out, schema=schema):
     # the output.
     for function in schema.model.functions:
         out.write("-- Skipped Function {}\n".format(function.name))
-
-
-
-def splitSQLString(sqlString):
-    """
-    Strings which mix zero or more sql statements with zero or more pl/sql
-    statements need to be split into individual sql statements for execution.
-    This function was written to allow execution of pl/sql during Oracle schema
-    upgrades.
-    """
-    aggregated = ''
-    inPlSQL = None
-    parsed = parse(sqlString)
-    for stmt in parsed:
-        while stmt.tokens and not significant(stmt.tokens[0]):
-            stmt.tokens.pop(0)
-        if not stmt.tokens:
-            continue
-        if inPlSQL is not None:
-            agg = str(stmt).strip()
-            if "end;".lower() in agg.lower():
-                inPlSQL = None
-                aggregated += agg
-                rex = compile("\n +")
-                aggregated = rex.sub('\n', aggregated)
-                yield aggregated.strip()
-                continue
-            aggregated += agg
-            continue
-        if inPlSQL is None:
-            # if 'begin'.lower() in str(stmt).split()[0].lower():
-            if str(stmt).lower().strip().startswith('begin'):
-                inPlSQL = True
-                aggregated += str(stmt)
-                continue
-        else:
-            continue
-        yield str(stmt).rstrip().rstrip(";")
 
 
 if __name__ == '__main__':

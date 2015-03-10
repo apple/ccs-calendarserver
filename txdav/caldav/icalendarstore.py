@@ -906,7 +906,7 @@ class ComponentUpdateState(Names):
                             is done (more than RAW).
 
     RAW                   - store the supplied data as-is without any processing or validation. This is used
-                            for unit testing purposes only.
+                            for unit testing purposes only, or during migration.
     """
 
     NORMAL = NamedConstant()

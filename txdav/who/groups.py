@@ -20,13 +20,15 @@ Group membership caching
 """
 
 from twext.enterprise.dal.record import fromTable
-from twext.enterprise.dal.syntax import Delete, Select, Parameter
+from twext.enterprise.dal.syntax import Select
 from twext.enterprise.jobqueue import AggregatedWorkItem, RegeneratingWorkItem
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed, \
     DeferredList
 from twistedcaldav.config import config
 from txdav.caldav.datastore.sql import CalendarStoreFeatures
+from txdav.caldav.datastore.sql_directory import GroupAttendeeRecord
+from txdav.common.datastore.sql_directory import GroupsRecord
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 import datetime
 import itertools
@@ -85,7 +87,7 @@ class GroupCacherPollingWork(
 
 class GroupRefreshWork(AggregatedWorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
 
-    group = property(lambda self: (self.table.GROUP_UID == self.groupUid))
+    group = property(lambda self: (self.table.GROUP_UID == self.groupUID))
 
     @inlineCallbacks
     def doWork(self):
@@ -94,27 +96,27 @@ class GroupRefreshWork(AggregatedWorkItem, fromTable(schema.GROUP_REFRESH_WORK))
 
             try:
                 yield groupCacher.refreshGroup(
-                    self.transaction, self.groupUid.decode("utf-8")
+                    self.transaction, self.groupUID.decode("utf-8")
                 )
             except Exception, e:
                 log.error(
                     "Failed to refresh group {group} {err}",
-                    group=self.groupUid, err=e
+                    group=self.groupUID, err=e
                 )
 
         else:
             log.debug(
                 "Rescheduling group refresh for {group}: {when}",
-                group=self.groupUid,
+                group=self.groupUID,
                 when=datetime.datetime.utcnow() + datetime.timedelta(seconds=10)
             )
-            yield self.reschedule(self.transaction, 10, groupUID=self.groupUid)
+            yield self.reschedule(self.transaction, 10, groupUID=self.groupUID)
 
 
 
 class GroupDelegateChangesWork(AggregatedWorkItem, fromTable(schema.GROUP_DELEGATE_CHANGES_WORK)):
 
-    delegator = property(lambda self: (self.table.DELEGATOR_UID == self.delegatorUid))
+    delegator = property(lambda self: (self.table.DELEGATOR_UID == self.delegatorUID))
 
     @inlineCallbacks
     def doWork(self):
@@ -124,14 +126,14 @@ class GroupDelegateChangesWork(AggregatedWorkItem, fromTable(schema.GROUP_DELEGA
             try:
                 yield groupCacher.applyExternalAssignments(
                     self.transaction,
-                    self.delegatorUid.decode("utf-8"),
-                    self.readDelegateUid.decode("utf-8"),
-                    self.writeDelegateUid.decode("utf-8")
+                    self.delegatorUID.decode("utf-8"),
+                    self.readDelegateUID.decode("utf-8"),
+                    self.writeDelegateUID.decode("utf-8")
                 )
             except Exception, e:
                 log.error(
                     "Failed to apply external delegates for {uid} {err}",
-                    uid=self.delegatorUid, err=e
+                    uid=self.delegatorUID, err=e
                 )
 
 
@@ -182,8 +184,8 @@ class GroupShareeReconciliationWork(
             homeID = rows[0][0]
             home = yield self.transaction.calendarHomeWithResourceID(homeID)
             calendar = yield home.childWithID(self.calendarID)
-            groupUID = ((yield self.transaction.groupByID(self.groupID)))[0]
-            yield calendar.reconcileGroupSharee(groupUID)
+            group = (yield self.transaction.groupByID(self.groupID))
+            yield calendar.reconcileGroupSharee(group.groupUID)
 
 
 
@@ -268,33 +270,28 @@ class GroupCacher(object):
         #     "Groups to refresh: {g}", g=groupUIDs
         # )
 
-        gr = schema.GROUPS
         if config.AutomaticPurging.Enabled and groupUIDs:
             # remove unused groups and groups that have not been seen in a while
             dateLimit = (
                 datetime.datetime.utcnow() -
                 datetime.timedelta(seconds=float(config.AutomaticPurging.GroupPurgeIntervalSeconds))
             )
-            rows = yield Delete(
-                From=gr,
-                Where=(
-                    (gr.EXTANT == 0).And(gr.MODIFIED < dateLimit)
+            rows = yield GroupsRecord.deletesome(
+                txn,
+                (
+                    (GroupsRecord.extant == 0).And(GroupsRecord.modified < dateLimit)
                 ).Or(
-                    gr.GROUP_UID.NotIn(
-                        Parameter("groupUIDs", len(groupUIDs))
-                    )
-                ) if groupUIDs else None,
-                Return=[gr.GROUP_UID]
-            ).on(txn, groupUIDs=groupUIDs)
+                    GroupsRecord.groupUID.NotIn(groupUIDs)
+                ),
+                returnCols=GroupsRecord.groupUID,
+            )
         else:
             # remove unused groups
-            rows = yield Delete(
-                From=gr,
-                Where=gr.GROUP_UID.NotIn(
-                    Parameter("groupUIDs", len(groupUIDs))
-                ) if groupUIDs else None,
-                Return=[gr.GROUP_UID]
-            ).on(txn, groupUIDs=groupUIDs)
+            rows = yield GroupsRecord.deletesome(
+                txn,
+                GroupsRecord.groupUID.NotIn(groupUIDs) if groupUIDs else None,
+                returnCols=GroupsRecord.groupUID,
+            )
         deletedGroupUIDs = [row[0] for row in rows]
         if deletedGroupUIDs:
             self.log.debug("Deleted old or unused groups {d}", d=deletedGroupUIDs)
@@ -302,7 +299,7 @@ class GroupCacher(object):
         # For each of those groups, create a per-group refresh work item
         for groupUID in set(groupUIDs) - set(deletedGroupUIDs):
             self.log.debug("Enqueuing group refresh for {u}", u=groupUID)
-            yield GroupRefreshWork.reschedule(txn, 0, groupUid=groupUID)
+            yield GroupRefreshWork.reschedule(txn, 0, groupUID=groupUID)
 
 
     @inlineCallbacks
@@ -335,9 +332,9 @@ class GroupCacher(object):
                     )
                 else:
                     yield GroupDelegateChangesWork.reschedule(
-                        txn, 0, delegatorUid=delegatorUID,
-                        readDelegateUid=readDelegateUID,
-                        writeDelegateUid=writeDelegateUID
+                        txn, 0, delegatorUID=delegatorUID,
+                        readDelegateUID=readDelegateUID,
+                        writeDelegateUID=writeDelegateUID
                     )
         if removed:
             for delegatorUID in removed:
@@ -351,8 +348,8 @@ class GroupCacher(object):
                     )
                 else:
                     yield GroupDelegateChangesWork.reschedule(
-                        txn, 0, delegatorUid=delegatorUID,
-                        readDelegateUid="", writeDelegateUid=""
+                        txn, 0, delegatorUID=delegatorUID,
+                        readDelegateUID="", writeDelegateUID=""
                     )
 
 
@@ -367,26 +364,20 @@ class GroupCacher(object):
         readDelegateGroupID = writeDelegateGroupID = None
 
         if readDelegateUID:
-            (
-                readDelegateGroupID, _ignore_name, _ignore_hash,
-                _ignore_modified, _ignore_extant
-            ) = (
-                yield txn.groupByUID(readDelegateUID)
-            )
-            if readDelegateGroupID is None:
+            readDelegateGroup = yield txn.groupByUID(readDelegateUID)
+            if readDelegateGroup is None:
                 # The group record does not actually exist
                 readDelegateUID = None
+            else:
+                readDelegateGroupID = readDelegateGroup.groupID
 
         if writeDelegateUID:
-            (
-                writeDelegateGroupID, _ignore_name, _ignore_hash,
-                _ignore_modified, _ignore_extant
-            ) = (
-                yield txn.groupByUID(writeDelegateUID)
-            )
-            if writeDelegateGroupID is None:
+            writeDelegateGroup = yield txn.groupByUID(writeDelegateUID)
+            if writeDelegateGroup is None:
                 # The group record does not actually exist
                 writeDelegateUID = None
+            else:
+                writeDelegateGroupID = writeDelegateGroup.groupID
 
         yield txn.assignExternalDelegates(
             delegatorUID, readDelegateGroupID, writeDelegateGroupID,
@@ -411,45 +402,36 @@ class GroupCacher(object):
         else:
             self.log.debug("Got group record: {u}", u=record.uid)
 
-        (
-            groupID, cachedName, cachedMembershipHash, _ignore_modified,
-            cachedExtant
-        ) = yield txn.groupByUID(
-            groupUID,
-            create=(record is not None)
-        )
+        group = yield txn.groupByUID(groupUID, create=(record is not None))
 
-        if groupID:
-            membershipChanged, addedUIDs, removedUIDs = yield txn.refreshGroup(
-                groupUID, record, groupID,
-                cachedName, cachedMembershipHash, cachedExtant
-            )
+        if group:
+            membershipChanged, addedUIDs, removedUIDs = yield txn.refreshGroup(group, record)
 
             if membershipChanged:
                 self.log.info(
                     "Membership changed for group {uid} {name}:\n\tadded {added}\n\tremoved {removed}",
-                    uid=groupUID,
-                    name=cachedName,
+                    uid=group.groupUID,
+                    name=group.name,
                     added=",".join(addedUIDs),
                     removed=",".join(removedUIDs),
                 )
 
                 # Send cache change notifications
                 if self.cacheNotifier is not None:
-                    self.cacheNotifier.changed(groupUID)
+                    self.cacheNotifier.changed(group.groupUID)
                     for uid in itertools.chain(addedUIDs, removedUIDs):
                         self.cacheNotifier.changed(uid)
 
                 # Notifier other store APIs of changes
-                wpsAttendee = yield self.scheduleGroupAttendeeReconciliations(txn, groupID)
-                wpsShareee = yield self.scheduleGroupShareeReconciliations(txn, groupID)
+                wpsAttendee = yield self.scheduleGroupAttendeeReconciliations(txn, group.groupID)
+                wpsShareee = yield self.scheduleGroupShareeReconciliations(txn, group.groupID)
 
                 returnValue(wpsAttendee + wpsShareee)
             else:
                 self.log.debug(
                     "No membership change for group {uid} {name}",
-                    uid=groupUID,
-                    name=cachedName
+                    uid=group.groupUID,
+                    name=group.name
                 )
 
         returnValue(tuple())
@@ -480,19 +462,15 @@ class GroupCacher(object):
         work items for them.
         returns: WorkProposal
         """
-        ga = schema.GROUP_ATTENDEE
-        rows = yield Select(
-            [ga.RESOURCE_ID, ],
-            From=ga,
-            Where=ga.GROUP_ID == groupID,
-        ).on(txn)
+
+        records = yield GroupAttendeeRecord.querysimple(txn, groupID=groupID)
 
         wps = []
-        for [eventID] in rows:
+        for record in records:
             wp = yield GroupAttendeeReconciliationWork.reschedule(
                 txn,
                 seconds=float(config.GroupAttendees.ReconciliationDelaySeconds),
-                resourceID=eventID,
+                resourceID=record.resourceID,
                 groupID=groupID,
             )
             wps.append(wp)
@@ -546,20 +524,15 @@ class GroupCacher(object):
             )
 
         # Get groupUIDs for all group attendees
-        ga = schema.GROUP_ATTENDEE
-        gr = schema.GROUPS
-        rows = yield Select(
-            [gr.GROUP_UID],
-            From=gr,
-            Where=gr.GROUP_ID.In(
-                Select(
-                    [ga.GROUP_ID],
-                    From=ga,
-                    Distinct=True
-                )
-            )
-        ).on(txn)
-        attendeeGroupUIDs = frozenset([row[0] for row in rows])
+        groups = yield GroupsRecord.query(
+            txn,
+            GroupsRecord.groupID.In(GroupAttendeeRecord.queryExpr(
+                expr=None,
+                attributes=(GroupAttendeeRecord.groupID,),
+                distinct=True,
+            ))
+        )
+        attendeeGroupUIDs = frozenset([group.groupUID for group in groups])
         self.log.info(
             "There are {count} group attendees", count=len(attendeeGroupUIDs)
         )

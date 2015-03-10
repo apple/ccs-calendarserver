@@ -157,13 +157,13 @@ class WorkEventsResource(EventSourceResource):
                     if workType == PushNotificationWork:
                         attrs += ("pushID", "priority")
                     elif workType == ScheduleOrganizerWork:
-                        attrs += ("icalendarUid", "attendeeCount")
+                        attrs += ("icalendarUID", "attendeeCount")
                     elif workType == ScheduleRefreshWork:
-                        attrs += ("icalendarUid", "attendeeCount")
+                        attrs += ("icalendarUID", "attendeeCount")
                     elif workType == ScheduleReplyWork:
-                        attrs += ("icalendarUid",)
+                        attrs += ("icalendarUID",)
                     elif workType == ScheduleAutoReplyWork:
-                        attrs += ("icalendarUid",)
+                        attrs += ("icalendarUID",)
                     elif workType == GroupCacherPollingWork:
                         attrs += ()
                     elif workType == IMIPPollingWork:

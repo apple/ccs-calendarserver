@@ -353,13 +353,8 @@ class CachingDelegates(object):
 
         if delegate.recordType == BaseRecordType.group:
             # find the groupID
-            (
-                groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
-                _ignore_extant
-            ) = yield txn.groupByUID(
-                delegate.uid
-            )
-            yield txn.addDelegateGroup(delegator.uid, groupID, readWrite)
+            group = yield txn.groupByUID(delegate.uid)
+            yield txn.addDelegateGroup(delegator.uid, group.groupID, readWrite)
         else:
             yield txn.addDelegate(delegator.uid, delegate.uid, readWrite)
 
@@ -393,13 +388,8 @@ class CachingDelegates(object):
 
         if delegate.recordType == BaseRecordType.group:
             # find the groupID
-            (
-                groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
-                _ignore_extant
-            ) = yield txn.groupByUID(
-                delegate.uid
-            )
-            yield txn.removeDelegateGroup(delegator.uid, groupID, readWrite)
+            group = yield txn.groupByUID(delegate.uid)
+            yield txn.removeDelegateGroup(delegator.uid, group.groupID, readWrite)
         else:
             yield txn.removeDelegate(delegator.uid, delegate.uid, readWrite)
 

@@ -70,9 +70,11 @@ create table JOB (
 
 create table CALENDAR_HOME (
   RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  OWNER_UID        varchar(255) not null unique,                                -- implicit index
+  OWNER_UID        varchar(255) not null,                		                -- implicit index
   STATUS           integer      default 0 not null,                             -- enum HOME_STATUS
-  DATAVERSION      integer      default 0 not null
+  DATAVERSION      integer      default 0 not null,
+  
+  unique (OWNER_UID, STATUS)	-- implicit index
 );
 
 -- Enumeration of statuses
@@ -85,6 +87,8 @@ create table HOME_STATUS (
 insert into HOME_STATUS values (0, 'normal' );
 insert into HOME_STATUS values (1, 'external');
 insert into HOME_STATUS values (2, 'purging');
+insert into HOME_STATUS values (3, 'migrating');
+insert into HOME_STATUS values (4, 'disabled');
 
 
 --------------
@@ -130,13 +134,40 @@ create index CALENDAR_HOME_METADATA_DEFAULT_POLLS on
 create table CALENDAR_METADATA (
   RESOURCE_ID           integer      primary key references CALENDAR on delete cascade, -- implicit index
   SUPPORTED_COMPONENTS  varchar(255) default null,
-  CREATED               timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  MODIFIED              timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  CHILD_TYPE            varchar(10)  default null, -- None, inbox, trash (FIXME: convert this to enumeration)
+  CHILD_TYPE            integer      default 0 not null,                             	-- enum CHILD_TYPE
   TRASHED               timestamp    default null,
-  IS_IN_TRASH           boolean      default false not null -- collection is in the trash
-
+  IS_IN_TRASH           boolean      default false not null, -- collection is in the trash
+  CREATED               timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED              timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
+
+-- Enumeration of child type
+
+create table CHILD_TYPE (
+  ID          integer     primary key,
+  DESCRIPTION varchar(16) not null unique
+);
+
+insert into CHILD_TYPE values (0, 'normal');
+insert into CHILD_TYPE values (1, 'inbox');
+insert into CHILD_TYPE values (2, 'trash');
+
+
+------------------------
+-- Calendar Migration --
+------------------------
+
+create table CALENDAR_MIGRATION (
+  CALENDAR_HOME_RESOURCE_ID		integer references CALENDAR_HOME on delete cascade,
+  REMOTE_RESOURCE_ID			integer not null,
+  LOCAL_RESOURCE_ID				integer	references CALENDAR on delete cascade,
+  LAST_SYNC_TOKEN				varchar(255),
+   
+  primary key (CALENDAR_HOME_RESOURCE_ID, REMOTE_RESOURCE_ID) -- implicit index
+);
+
+create index CALENDAR_MIGRATION_LOCAL_RESOURCE_ID on
+  CALENDAR_MIGRATION(LOCAL_RESOURCE_ID);
 
 
 ---------------------------
@@ -145,9 +176,11 @@ create table CALENDAR_METADATA (
 
 create table NOTIFICATION_HOME (
   RESOURCE_ID integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  OWNER_UID   varchar(255) not null unique,                                -- implicit index
+  OWNER_UID   varchar(255) not null,	                                   -- implicit index
   STATUS      integer      default 0 not null,                             -- enum HOME_STATUS
-  DATAVERSION integer      default 0 not null
+  DATAVERSION integer      default 0 not null,
+    
+  unique (OWNER_UID, STATUS)	-- implicit index
 );
 
 create table NOTIFICATION (
@@ -176,11 +209,11 @@ create index NOTIFICATION_NOTIFICATION_HOME_RESOURCE_ID on
 create table CALENDAR_BIND (
   CALENDAR_HOME_RESOURCE_ID integer      not null references CALENDAR_HOME,
   CALENDAR_RESOURCE_ID      integer      not null references CALENDAR on delete cascade,
-  EXTERNAL_ID               integer      default null,
   CALENDAR_RESOURCE_NAME    varchar(255) not null,
   BIND_MODE                 integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS               integer      not null, -- enum CALENDAR_BIND_STATUS
   BIND_REVISION             integer      default 0 not null,
+  BIND_UID                  varchar(36)  default null,
   MESSAGE                   text,
   TRANSP                    integer      default 0 not null, -- enum CALENDAR_TRANSP
   ALARM_VEVENT_TIMED        text         default null,
@@ -259,11 +292,11 @@ create table CALENDAR_OBJECT (
   SCHEDULE_ETAGS       text         default null,
   PRIVATE_COMMENTS     boolean      default false not null,
   MD5                  char(32)     not null,
+  TRASHED              timestamp    default null,
+  ORIGINAL_COLLECTION  integer      default null, -- calendar_resource_id prior to trash
   CREATED              timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED             timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   DATAVERSION          integer      default 0 not null,
-  TRASHED              timestamp    default null,
-  ORIGINAL_COLLECTION  integer      default null, -- calendar_resource_id prior to trash
 
   unique (CALENDAR_RESOURCE_ID, RESOURCE_NAME) -- implicit index
 
@@ -369,6 +402,24 @@ create table PERUSER (
 );
 
 
+-------------------------------
+-- Calendar Object Migration --
+-------------------------------
+
+create table CALENDAR_OBJECT_MIGRATION (
+  CALENDAR_HOME_RESOURCE_ID		integer references CALENDAR_HOME on delete cascade,
+  REMOTE_RESOURCE_ID			integer not null,
+  LOCAL_RESOURCE_ID				integer	references CALENDAR_OBJECT on delete cascade,
+   
+  primary key (CALENDAR_HOME_RESOURCE_ID, REMOTE_RESOURCE_ID) -- implicit index
+);
+
+create index CALENDAR_OBJECT_MIGRATION_HOME_LOCAL on
+  CALENDAR_OBJECT_MIGRATION(CALENDAR_HOME_RESOURCE_ID, LOCAL_RESOURCE_ID);
+create index CALENDAR_OBJECT_MIGRATION_LOCAL_RESOURCE_ID on
+  CALENDAR_OBJECT_MIGRATION(LOCAL_RESOURCE_ID);
+
+
 ----------------
 -- Attachment --
 ----------------
@@ -406,6 +457,24 @@ create table ATTACHMENT_CALENDAR_OBJECT (
 create index ATTACHMENT_CALENDAR_OBJECT_CALENDAR_OBJECT_RESOURCE_ID on
   ATTACHMENT_CALENDAR_OBJECT(CALENDAR_OBJECT_RESOURCE_ID);
 
+-----------------------------------
+-- Calendar Attachment Migration --
+-----------------------------------
+
+create table ATTACHMENT_MIGRATION (
+  CALENDAR_HOME_RESOURCE_ID		integer references CALENDAR_HOME on delete cascade,
+  REMOTE_RESOURCE_ID			integer not null,
+  LOCAL_RESOURCE_ID				integer	references ATTACHMENT on delete cascade,
+   
+  primary key (CALENDAR_HOME_RESOURCE_ID, REMOTE_RESOURCE_ID) -- implicit index
+);
+
+create index ATTACHMENT_MIGRATION_HOME_LOCAL on
+  ATTACHMENT_MIGRATION(CALENDAR_HOME_RESOURCE_ID, LOCAL_RESOURCE_ID);
+create index ATTACHMENT_MIGRATION_LOCAL_RESOURCE_ID on
+  ATTACHMENT_MIGRATION(LOCAL_RESOURCE_ID);
+
+
 -----------------------
 -- Resource Property --
 -----------------------
@@ -427,9 +496,11 @@ create table RESOURCE_PROPERTY (
 create table ADDRESSBOOK_HOME (
   RESOURCE_ID                   integer         primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
   ADDRESSBOOK_PROPERTY_STORE_ID integer         default nextval('RESOURCE_ID_SEQ') not null,    -- implicit index
-  OWNER_UID                     varchar(255)    not null unique,                                -- implicit index
+  OWNER_UID                     varchar(255)    not null,
   STATUS                        integer         default 0 not null,                             -- enum HOME_STATUS
-  DATAVERSION                   integer         default 0 not null
+  DATAVERSION                   integer         default 0 not null,
+    
+  unique (OWNER_UID, STATUS)	-- implicit index
 );
 
 
@@ -454,11 +525,11 @@ create table ADDRESSBOOK_HOME_METADATA (
 create table SHARED_ADDRESSBOOK_BIND (
   ADDRESSBOOK_HOME_RESOURCE_ID          integer         not null references ADDRESSBOOK_HOME,
   OWNER_HOME_RESOURCE_ID                integer         not null references ADDRESSBOOK_HOME on delete cascade,
-  EXTERNAL_ID                           integer         default null,
   ADDRESSBOOK_RESOURCE_NAME             varchar(255)    not null,
   BIND_MODE                             integer         not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS                           integer         not null, -- enum CALENDAR_BIND_STATUS
   BIND_REVISION                         integer         default 0 not null,
+  BIND_UID                              varchar(36)     default null,
   MESSAGE                               text,                     -- FIXME: xml?
 
   primary key (ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_HOME_RESOURCE_ID), -- implicit index
@@ -481,11 +552,11 @@ create table ADDRESSBOOK_OBJECT (
   VCARD_UID                     varchar(255)    not null,
   KIND                          integer         not null,  -- enum ADDRESSBOOK_OBJECT_KIND
   MD5                           char(32)        not null,
+  TRASHED                       timestamp       default null,
+  IS_IN_TRASH                   boolean         default false not null,
   CREATED                       timestamp       default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                      timestamp       default timezone('UTC', CURRENT_TIMESTAMP),
   DATAVERSION                   integer         default 0 not null,
-  TRASHED                       timestamp       default null,
-  IS_IN_TRASH                   boolean         default false not null,
 
   unique (ADDRESSBOOK_HOME_RESOURCE_ID, RESOURCE_NAME), -- implicit index
   unique (ADDRESSBOOK_HOME_RESOURCE_ID, VCARD_UID)      -- implicit index
@@ -557,11 +628,11 @@ create index ABO_FOREIGN_MEMBERS_ADDRESSBOOK_ID on
 create table SHARED_GROUP_BIND (
   ADDRESSBOOK_HOME_RESOURCE_ID      integer      not null references ADDRESSBOOK_HOME,
   GROUP_RESOURCE_ID                 integer      not null references ADDRESSBOOK_OBJECT on delete cascade,
-  EXTERNAL_ID                       integer      default null,
   GROUP_ADDRESSBOOK_NAME            varchar(255) not null,
   BIND_MODE                         integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS                       integer      not null, -- enum CALENDAR_BIND_STATUS
   BIND_REVISION                     integer      default 0 not null,
+  BIND_UID                          varchar(36)  default null,
   MESSAGE                           text,                  -- FIXME: xml?
 
   primary key (ADDRESSBOOK_HOME_RESOURCE_ID, GROUP_RESOURCE_ID), -- implicit index
@@ -881,7 +952,7 @@ create table DELEGATE_GROUPS (
   DELEGATOR                     varchar(255) not null,
   GROUP_ID                      integer      not null references GROUPS on delete cascade,
   READ_WRITE                    integer      not null, -- 1 = ReadWrite, 0 = ReadOnly
-  IS_EXTERNAL                   integer      not null, -- 1 = ReadWrite, 0 = ReadOnly
+  IS_EXTERNAL                   integer      not null, -- 1 = External, 0 = Internal
 
   primary key (DELEGATOR, READ_WRITE, GROUP_ID)
 );
@@ -1158,7 +1229,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '52');
+insert into CALENDARSERVER values ('VERSION', '53');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

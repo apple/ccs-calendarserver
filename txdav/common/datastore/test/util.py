@@ -30,7 +30,7 @@ from hashlib import md5
 
 from pycalendar.datetime import DateTime
 
-from random import Random
+from random import Random, randint
 
 from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath as FilePath
@@ -108,8 +108,11 @@ class SQLStoreBuilder(object):
     def __init__(self, count=0):
         self.sharedService = None
         self.currentTestID = None
-        self.sharedDBPath = "_test_sql_db" + str(os.getpid()) + ("-{}".format(count) if count else "")
         self.ampPort = config.WorkQueue.ampPort + count
+
+        self.sharedDBPath = "_test_sql_db-{}-{}".format(
+            os.getpid(), count
+        )
 
 
     def createService(self, serviceFactory):
@@ -157,7 +160,10 @@ class SQLStoreBuilder(object):
         return cds
 
 
-    def buildStore(self, testCase, notifierFactory, directoryService=None, homes=None, enableJobProcessing=True):
+    def buildStore(
+        self, testCase, notifierFactory,
+        directoryService=None, homes=None, enableJobProcessing=True,
+    ):
         """
         Do the necessary work to build a store for a particular test case.
 
@@ -169,34 +175,45 @@ class SQLStoreBuilder(object):
         # The directory will be given to us later via setDirectoryService
         if self.sharedService is None:
             ready = Deferred()
+
             def getReady(connectionFactory, storageService):
                 self.makeAndCleanStore(
-                    testCase, notifierFactory, directoryService, attachmentRoot, enableJobProcessing
+                    testCase, notifierFactory, directoryService,
+                    attachmentRoot, enableJobProcessing
                 ).chainDeferred(ready)
                 return Service()
+
             self.sharedService = self.createService(getReady)
             self.sharedService.startService()
+
             def startStopping():
                 log.info("Starting stopping.")
                 self.sharedService.unpauseMonitor()
                 return self.sharedService.stopService()
-            reactor.addSystemEventTrigger(#@UndefinedVariable
+
+            reactor.addSystemEventTrigger(
                 "before", "shutdown", startStopping)
             result = ready
         else:
             result = self.makeAndCleanStore(
-                testCase, notifierFactory, directoryService, attachmentRoot, enableJobProcessing
+                testCase, notifierFactory, directoryService,
+                attachmentRoot, enableJobProcessing
             )
+
         def cleanUp():
             def stopit():
                 self.sharedService.pauseMonitor()
             return deferLater(reactor, 0.1, stopit)
+
         testCase.addCleanup(cleanUp)
         return result
 
 
     @inlineCallbacks
-    def makeAndCleanStore(self, testCase, notifierFactory, directoryService, attachmentRoot, enableJobProcessing=True):
+    def makeAndCleanStore(
+        self, testCase, notifierFactory, directoryService,
+        attachmentRoot, enableJobProcessing=True
+    ):
         """
         Create a L{CommonDataStore} specific to the given L{TestCase}.
 
@@ -213,14 +230,19 @@ class SQLStoreBuilder(object):
         attachmentRoot.createDirectory()
 
         currentTestID = testCase.id()
-        cp = ConnectionPool(self.sharedService.produceConnection, maxConnections=4)
+        cp = ConnectionPool(
+            self.sharedService.produceConnection, maxConnections=4
+        )
         quota = deriveQuota(testCase)
         store = CommonDataStore(
             cp.connection,
             {"push": notifierFactory} if notifierFactory is not None else {},
             directoryService,
             attachmentRoot,
-            "https://example.com/calendars/__uids__/%(home)s/attachments/%(name)s",
+            (
+                "https://example.com/calendars/__uids__/"
+                "%(home)s/attachments/%(name)s"
+            ),
             quota=quota
         )
         store.label = currentTestID
@@ -279,24 +301,33 @@ class SQLStoreBuilder(object):
         # table' statements are issued, so it's not possible to reference a
         # later table.  Therefore it's OK to drop them in the (reverse) order
         # that they happen to be in.
-        tables = [t.name for t in schema.model.tables #@UndefinedVariable
-                  # All tables with rows _in_ the schema are populated
-                  # exclusively _by_ the schema and shouldn't be manipulated
-                  # while the server is running, so we leave those populated.
-                  if not t.schemaRows][::-1]
+        tables = [
+            t.name for t in schema.model.tables #@UndefinedVariable
+            # All tables with rows _in_ the schema are populated
+            # exclusively _by_ the schema and shouldn't be manipulated
+            # while the server is running, so we leave those populated.
+            if not t.schemaRows
+        ][::-1]
 
         for table in tables:
             try:
                 yield cleanupTxn.execSQL("delete from " + table, [])
             except:
                 log.failure("delete table {table} failed", table=table)
+
+        # Change the starting values of sequences to random values
+        for sequence in schema.model.sequences: #@UndefinedVariable
+            try:
+                curval = (yield cleanupTxn.execSQL("select nextval('{}')".format(sequence.name), []))[0][0]
+                yield cleanupTxn.execSQL("select setval('{}', {})".format(sequence.name, curval + randint(1, 10000)), [])
+            except:
+                log.failure("setval sequence '{}' failed", sequence=sequence.name)
+        yield cleanupTxn.execSQL("update CALENDARSERVER set VALUE = '1' where NAME = 'MIN-VALID-REVISION'", [])
+
         yield cleanupTxn.commit()
 
         # Deal with memcached items that must be cleared
-        from txdav.caldav.datastore.sql import CalendarHome
-        CalendarHome._cacher.flushAll()
-        from txdav.carddav.datastore.sql import AddressBookHome
-        AddressBookHome._cacher.flushAll()
+        storeToClean.queryCacher.flushAll()
         from txdav.base.propertystore.sql import PropertyStore
         PropertyStore._cacher.flushAll()
 
@@ -439,32 +470,40 @@ def populateCalendarsFrom(requirements, store, migrating=False):
         populateTxn._migrating = True
     for homeUID in requirements:
         calendars = requirements[homeUID]
-        home = yield populateTxn.calendarHomeWithUID(homeUID, True)
+        home = yield populateTxn.calendarHomeWithUID(homeUID, create=True)
         if calendars is not None:
             # We don't want the default calendar or inbox to appear unless it's
             # explicitly listed.
             try:
                 if config.RestrictCalendarsToOneComponentType:
                     for name in ical.allowedStoreComponents:
-                        yield home.removeCalendarWithName(home._componentCalendarName[name])
+                        yield home.removeCalendarWithName(
+                            home._componentCalendarName[name]
+                        )
                 else:
                     yield home.removeCalendarWithName("calendar")
                 yield home.removeCalendarWithName("inbox")
                 yield home.removeCalendarWithName("trash")
             except NoSuchHomeChildError:
                 pass
+
             for calendarName in calendars:
                 calendarObjNames = calendars[calendarName]
+
                 if calendarObjNames is not None:
                     # XXX should not be yielding!  this SQL will be executed
                     # first!
                     yield home.createCalendarWithName(calendarName)
                     calendar = yield home.calendarWithName(calendarName)
+
                     for objectName in calendarObjNames:
                         objData, metadata = calendarObjNames[objectName]
+
                         yield calendar._createCalendarObjectWithNameInternal(
                             objectName,
-                            VComponent.fromString(updateToCurrentYear(objData)),
+                            VComponent.fromString(
+                                updateToCurrentYear(objData)
+                            ),
                             internal_state=ComponentUpdateState.RAW,
                             options=metadata,
                         )
@@ -475,7 +514,8 @@ def populateCalendarsFrom(requirements, store, migrating=False):
 
 def updateToCurrentYear(data):
     """
-    Update the supplied iCalendar data so that all dates are updated to the current year.
+    Update the supplied iCalendar data so that all dates are updated to the
+    current year.
     """
 
     nowYear = DateTime.getToday().getYear()
@@ -487,7 +527,8 @@ relativeDateSubstitutions = {}
 
 def componentUpdate(data):
     """
-    Update the supplied iCalendar data so that all dates are updated to the current year.
+    Update the supplied iCalendar data so that all dates are updated to the
+    current year.
     """
 
     if len(relativeDateSubstitutions) == 0:
@@ -525,7 +566,7 @@ def resetCalendarMD5s(md5s, store):
     for homeUID in md5s:
         calendars = md5s[homeUID]
         if calendars is not None:
-            home = yield populateTxn.calendarHomeWithUID(homeUID, True)
+            home = yield populateTxn.calendarHomeWithUID(homeUID, create=True)
             for calendarName in calendars:
                 calendarObjNames = calendars[calendarName]
                 if calendarObjNames is not None:
@@ -534,10 +575,12 @@ def resetCalendarMD5s(md5s, store):
                     calendar = yield home.calendarWithName(calendarName)
                     for objectName in calendarObjNames:
                         md5 = calendarObjNames[objectName]
-                        obj = yield calendar.calendarObjectWithName(
-                            objectName,
+                        obj = (
+                            yield calendar.calendarObjectWithName(objectName)
                         )
-                        obj.properties()[md5key] = TwistedGETContentMD5.fromString(md5)
+                        obj.properties()[md5key] = (
+                            TwistedGETContentMD5.fromString(md5)
+                        )
     yield populateTxn.commit()
 
 
@@ -556,7 +599,7 @@ def populateAddressBooksFrom(requirements, store):
     for homeUID in requirements:
         addressbooks = requirements[homeUID]
         if addressbooks is not None:
-            home = yield populateTxn.addressbookHomeWithUID(homeUID, True)
+            home = yield populateTxn.addressbookHomeWithUID(homeUID, create=True)
             # We don't want the default addressbook
             try:
                 yield home.removeAddressBookWithName("addressbook")
@@ -568,7 +611,9 @@ def populateAddressBooksFrom(requirements, store):
                     # XXX should not be yielding!  this SQL will be executed
                     # first!
                     yield home.createAddressBookWithName(addressbookName)
-                    addressbook = yield home.addressbookWithName(addressbookName)
+                    addressbook = (
+                        yield home.addressbookWithName(addressbookName)
+                    )
                     for objectName in addressbookObjNames:
                         objData = addressbookObjNames[objectName]
                         yield addressbook.createAddressBookObjectWithName(
@@ -593,19 +638,23 @@ def resetAddressBookMD5s(md5s, store):
     for homeUID in md5s:
         addressbooks = md5s[homeUID]
         if addressbooks is not None:
-            home = yield populateTxn.addressbookHomeWithUID(homeUID, True)
+            home = yield populateTxn.addressbookHomeWithUID(homeUID, create=True)
             for addressbookName in addressbooks:
                 addressbookObjNames = addressbooks[addressbookName]
                 if addressbookObjNames is not None:
                     # XXX should not be yielding!  this SQL will be executed
                     # first!
-                    addressbook = yield home.addressbookWithName(addressbookName)
+                    addressbook = (
+                        yield home.addressbookWithName(addressbookName)
+                    )
                     for objectName in addressbookObjNames:
                         md5 = addressbookObjNames[objectName]
                         obj = yield addressbook.addressbookObjectWithName(
                             objectName,
                         )
-                        obj.properties()[md5key] = TwistedGETContentMD5.fromString(md5)
+                        obj.properties()[md5key] = (
+                            TwistedGETContentMD5.fromString(md5)
+                        )
     yield populateTxn.commit()
 
 
@@ -628,8 +677,8 @@ def assertProvides(testCase, interface, provider):
 
 
 def buildTestDirectory(
-    store, dataRoot, accounts=None, resources=None, augments=None, proxies=None,
-    serversDB=None, cacheSeconds=0
+    store, dataRoot, accounts=None, resources=None, augments=None,
+    proxies=None, serversDB=None, cacheSeconds=0,
 ):
     """
     @param store: the store for the directory to use
@@ -739,7 +788,8 @@ class CommonCommonTests(object):
     @inlineCallbacks
     def buildStoreAndDirectory(
         self, accounts=None, resources=None, augments=None, proxies=None,
-        extraUids=None, serversDB=None, cacheSeconds=0, storeBuilder=theStoreBuilder
+        extraUids=None, serversDB=None, cacheSeconds=0,
+        storeBuilder=theStoreBuilder,
     ):
 
         self.serverRoot = self.mktemp()
@@ -792,10 +842,12 @@ class CommonCommonTests(object):
         if not os.path.exists(config.LogRoot):
             os.makedirs(config.LogRoot)
 
-        # Work queues for implicit scheduling slow down tests a lot and require them all to add
-        # "waits" for work to complete. Rewriting all the current tests to do that is not practical
-        # right now, so we will turn this off by default. Instead we will have a set of tests dedicated
-        # to work queue-based scheduling which will patch this option to True.
+        # Work queues for implicit scheduling slow down tests a lot and require
+        # them all to add "waits" for work to complete.
+        # Rewriting all the current tests to do that is not practical right
+        # now, so we will turn this off by default.
+        # Instead we will have a set of tests dedicated to work queue-based
+        # scheduling which will patch this option to True.
         config.Scheduling.Options.WorkQueues.Enabled = False
 
         self.config = config
@@ -829,20 +881,25 @@ class CommonCommonTests(object):
         """
         if self.savedStore is None:
             self.savedStore = self.storeUnderTest()
+
         self.counter += 1
+
         if txn is None:
             txn = self.savedStore.newTransaction(
                 self.id() + " #" + str(self.counter)
             )
         else:
             txn._label = self.id() + " #" + str(self.counter)
+
         @inlineCallbacks
         def maybeCommitThis():
             try:
                 yield txn.commit()
             except AlreadyFinishedError:
                 pass
+
         self.addCleanup(maybeCommitThis)
+
         return txn
 
 
@@ -873,34 +930,38 @@ class CommonCommonTests(object):
         return self.store
 
 
-    @inlineCallbacks
-    def homeUnderTest(self, txn=None, name="home1", create=False):
+    def homeUnderTest(self, txn=None, name="home1", status=None, create=False):
         """
         Get the calendar home detailed by C{requirements['home1']}.
         """
         if txn is None:
             txn = self.transactionUnderTest()
-        returnValue((yield txn.calendarHomeWithUID(name, create=create)))
+        return txn.calendarHomeWithUID(name, status=status, create=create)
 
 
     @inlineCallbacks
-    def calendarUnderTest(self, txn=None, name="calendar_1", home="home1"):
+    def calendarUnderTest(self, txn=None, name="calendar_1", home="home1", status=None):
         """
         Get the calendar detailed by C{requirements['home1']['calendar_1']}.
         """
-        returnValue((
-            yield (yield self.homeUnderTest(txn, home)).calendarWithName(name)
-        ))
+        home = yield self.homeUnderTest(txn, home, status=status)
+        calendar = yield home.calendarWithName(name)
+        returnValue(calendar)
 
 
     @inlineCallbacks
-    def calendarObjectUnderTest(self, txn=None, name="1.ics", calendar_name="calendar_1", home="home1"):
+    def calendarObjectUnderTest(
+        self, txn=None, name="1.ics", calendar_name="calendar_1", home="home1", status=None
+    ):
         """
         Get the calendar detailed by
         C{requirements[home][calendar_name][name]}.
         """
-        returnValue((yield (yield self.calendarUnderTest(txn, name=calendar_name, home=home))
-                     .calendarObjectWithName(name)))
+        calendar = yield self.calendarUnderTest(
+            txn, name=calendar_name, home=home, status=status
+        )
+        object = yield calendar.calendarObjectWithName(name)
+        returnValue(object)
 
 
     def addressbookHomeUnderTest(self, txn=None, name="home1"):
@@ -915,52 +976,66 @@ class CommonCommonTests(object):
     @inlineCallbacks
     def addressbookUnderTest(self, txn=None, name="addressbook", home="home1"):
         """
-        Get the addressbook detailed by C{requirements['home1']['addressbook']}.
+        Get the addressbook detailed by
+        C{requirements['home1']['addressbook']}.
         """
-        returnValue((
-            yield (yield self.addressbookHomeUnderTest(txn=txn, name=home)).addressbookWithName(name)
-        ))
+        home = yield self.addressbookHomeUnderTest(txn=txn, name=home)
+        addressbook = yield home.addressbookWithName(name)
+        returnValue(addressbook)
 
 
     @inlineCallbacks
-    def addressbookObjectUnderTest(self, txn=None, name="1.vcf", addressbook_name="addressbook", home="home1"):
+    def addressbookObjectUnderTest(
+        self, txn=None, name="1.vcf",
+        addressbook_name="addressbook", home="home1",
+    ):
         """
         Get the addressbook detailed by
         C{requirements['home1']['addressbook']['1.vcf']}.
         """
-        returnValue((yield (yield self.addressbookUnderTest(txn=txn, name=addressbook_name, home=home))
-                    .addressbookObjectWithName(name)))
+        addressBook = yield self.addressbookUnderTest(
+            txn=txn, name=addressbook_name, home=home
+        )
+        object = yield addressBook.addressbookObjectWithName(name)
+        returnValue(object)
 
 
-    @inlineCallbacks
+    def notificationCollectionUnderTest(self, txn=None, name="home1", status=None, create=False):
+        if txn is None:
+            txn = self.transactionUnderTest()
+        return txn.notificationsWithUID(name, status=status, create=create)
+
+
     def userRecordWithShortName(self, shortname):
-        record = yield self.directory.recordWithShortName(self.directory.recordType.user, shortname)
-        returnValue(record)
+        return self.directory.recordWithShortName(
+            self.directory.recordType.user, shortname
+        )
 
 
     @inlineCallbacks
     def userUIDFromShortName(self, shortname):
-        record = yield self.directory.recordWithShortName(self.directory.recordType.user, shortname)
+        record = yield self.directory.recordWithShortName(
+            self.directory.recordType.user, shortname
+        )
         returnValue(record.uid if record is not None else None)
 
 
-    @inlineCallbacks
     def addRecordFromFields(self, fields):
         updatedRecord = DirectoryRecord(self.directory, fields)
-        yield self.directory.updateRecords((updatedRecord,), create=True)
+        return self.directory.updateRecords((updatedRecord,), create=True)
 
 
-    @inlineCallbacks
     def removeRecord(self, uid):
-        yield self.directory.removeRecords([uid])
+        return self.directory.removeRecords([uid])
 
 
-    @inlineCallbacks
-    def changeRecord(self, record, fieldname, value):
+    def changeRecord(self, record, fieldname, value, directory=None):
+        if directory is None:
+            directory = self.directory
         fields = record.fields.copy()
         fields[fieldname] = value
-        updatedRecord = DirectoryRecord(self.directory, fields)
-        yield self.directory.updateRecords((updatedRecord,))
+        updatedRecord = DirectoryRecord(directory, fields)
+        return directory.updateRecords((updatedRecord,))
 
 
 

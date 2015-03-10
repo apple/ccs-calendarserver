@@ -375,7 +375,7 @@ class CommonTests(CommonCommonTests):
     @inlineCallbacks
     def notificationUnderTest(self):
         txn = self.transactionUnderTest()
-        notifications = yield txn.notificationsWithUID("home1")
+        notifications = yield txn.notificationsWithUID("home1", create=True)
         yield notifications.writeNotificationObject(
             "abc",
             json.loads("{\"notification-type\":\"invite-notification\"}"),
@@ -402,7 +402,7 @@ class CommonTests(CommonCommonTests):
         objects changed or deleted since
         """
         txn = self.transactionUnderTest()
-        coll = yield txn.notificationsWithUID("home1")
+        coll = yield txn.notificationsWithUID("home1", create=True)
         yield coll.writeNotificationObject(
             "1",
             json.loads("{\"notification-type\":\"invite-notification\"}"),
@@ -435,7 +435,7 @@ class CommonTests(CommonCommonTests):
         overwrite the notification object.
         """
         notifications = yield self.transactionUnderTest().notificationsWithUID(
-            "home1"
+            "home1", create=True
         )
         yield notifications.writeNotificationObject(
             "abc",
@@ -462,7 +462,7 @@ class CommonTests(CommonCommonTests):
         """
         # Prime the home collection first
         yield self.transactionUnderTest().notificationsWithUID(
-            "home1"
+            "home1", create=True
         )
         yield self.commit()
 
@@ -512,7 +512,7 @@ class CommonTests(CommonCommonTests):
         overwrite the notification object.
         """
         notifications = yield self.transactionUnderTest().notificationsWithUID(
-            "home1"
+            "home1", create=True
         )
         yield notifications.writeNotificationObject(
             "abc",
@@ -555,7 +555,7 @@ class CommonTests(CommonCommonTests):
         L{INotificationCollection} that the object was retrieved from.
         """
         txn = self.transactionUnderTest()
-        collection = yield txn.notificationsWithUID("home1")
+        collection = yield txn.notificationsWithUID("home1", create=True)
         notification = yield self.notificationUnderTest()
         self.assertIdentical(collection, notification.notificationCollection())
 
