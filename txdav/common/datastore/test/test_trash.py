@@ -1853,4 +1853,20 @@ END:VCALENDAR
         self.assertEquals(len(names), 0)
         names = yield self._getResourceNames(txn, "user02", calendarName2)
         self.assertEquals(len(names), 0)
+
+        resource = yield self._getResource(txn, "user01", "trash", "")
+        yield resource.fromTrash()
+
+        yield txn.commit()
+
+        txn = self.store.newTransaction()
+        names = yield self._getResourceNames(txn, "user01", "trash")
+        self.assertEquals(len(names), 0)
+        names = yield self._getResourceNames(txn, "user01", "calendar")
+        self.assertEquals(len(names), 1)
+        names = yield self._getResourceNames(txn, "user02", "trash")
+        self.assertEquals(len(names), 0)
+        names = yield self._getResourceNames(txn, "user02", calendarName2)
+        self.assertEquals(len(names), 1)
+
         yield txn.commit()
