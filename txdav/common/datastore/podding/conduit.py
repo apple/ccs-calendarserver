@@ -265,8 +265,8 @@ class PoddingConduit(
         except (KeyError, TypeError) as e:
             log.error(
                 "JSON data must have an object as its root with an "
-                "'action' attribute: {ex}\n{json}",
-                ex=e, json=data
+                "'action' attribute: {error}\n{json}",
+                error=e, json=data
             )
             raise FailedCrossPodRequestError(
                 "JSON data must have an object as its root with an "
@@ -289,7 +289,9 @@ class PoddingConduit(
         except Exception as e:
             # Send the exception over to the other side
             yield txn.abort()
-            log.error("Failed action: {action}, {ex}", action=action, ex=e)
+            log.error(
+                "Failed action: {action}, {error}", action=action, error=e
+            )
             result = {
                 "result": "exception",
                 "class": ".".join((
