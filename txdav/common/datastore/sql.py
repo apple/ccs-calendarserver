@@ -1043,6 +1043,7 @@ class CommonStoreTransaction(
         )
 
 
+    @inlineCallbacks
     def eventsOlderThan(self, cutoff, batchSize=None):
         """
         Return up to the oldest batchSize events which exist completely earlier
@@ -1060,7 +1061,8 @@ class CommonStoreTransaction(
                 raise ValueError("Cannot query events older than %s" % (truncateLowerLimit.getText(),))
 
         kwds = {"CutOff": pyCalendarToSQLTimestamp(cutoff)}
-        return self._oldEventsBase(batchSize).on(self, **kwds)
+        rows = yield self._oldEventsBase(batchSize).on(self, **kwds)
+        returnValue([[row[0], row[1], row[2], parseSQLTimestamp(row[3])] for row in rows])
 
 
     @inlineCallbacks
