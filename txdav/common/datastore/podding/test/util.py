@@ -50,11 +50,12 @@ class FakeConduitRequest(ConduitRequest):
     @classmethod
     def addServerStore(cls, server, store):
         """
-        Add a store mapped to a server. These mappings are used to "deliver" conduit
-        requests to the appropriate store.
+        Add a store mapped to a server. These mappings are used to "deliver"
+        conduit requests to the appropriate store.
 
         @param uri: the server
         @type uri: L{Server}
+
         @param store: the store
         @type store: L{ICommonDataStore}
         """
@@ -62,8 +63,9 @@ class FakeConduitRequest(ConduitRequest):
         cls.storeMap[server.details()] = store
 
 
-    def __init__(self, server, data, stream=None, stream_type=None, writeStream=None):
-
+    def __init__(
+        self, server, data, stream=None, stream_type=None, writeStream=None
+    ):
         self.server = server
         self.data = json.dumps(data)
         self.stream = stream
@@ -88,15 +90,20 @@ class FakeConduitRequest(ConduitRequest):
         try:
             if store.conduit.isStreamAction(j):
                 stream = ProducerStream()
+
                 class StreamProtocol(Protocol):
                     def connectionMade(self):
                         stream.registerProducer(self.transport, False)
+
                     def dataReceived(self, data):
                         stream.write(data)
+
                     def connectionLost(self, reason):
                         stream.finish()
 
-                result = yield store.conduit.processRequestStream(j, StreamProtocol())
+                result = yield store.conduit.processRequestStream(
+                    j, StreamProtocol()
+                )
 
                 try:
                     ct, name = result
@@ -104,7 +111,9 @@ class FakeConduitRequest(ConduitRequest):
                     code = responsecode.BAD_REQUEST
                 else:
                     headers = {"content-type": MimeType.fromString(ct)}
-                    headers["content-disposition"] = MimeDisposition("attachment", params={"filename": name})
+                    headers["content-disposition"] = MimeDisposition(
+                        "attachment", params={"filename": name}
+                    )
                     returnValue(Response(responsecode.OK, headers, stream))
             else:
                 result = yield store.conduit.processRequest(j)
@@ -113,7 +122,10 @@ class FakeConduitRequest(ConduitRequest):
             # Send the exception over to the other side
             result = {
                 "result": "exception",
-                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
+                "class": ".".join((
+                    e.__class__.__module__,
+                    e.__class__.__name__,
+                )),
                 "details": str(e),
             }
             code = responsecode.BAD_REQUEST
@@ -136,7 +148,9 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
     def __init__(self, methodName='runTest'):
         txweb2.dav.test.util.TestCase.__init__(self, methodName)
         while len(self.theStoreBuilders) < self.numberOfStores:
-            self.theStoreBuilders.append(SQLStoreBuilder(count=len(self.theStoreBuilders)))
+            self.theStoreBuilders.append(
+                SQLStoreBuilder(count=len(self.theStoreBuilders))
+            )
         self.theStores = [None] * self.numberOfStores
         self.activeTransactions = [None] * self.numberOfStores
 
@@ -151,7 +165,9 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
             for j in range(self.numberOfStores):
                 letter = chr(ord("A") + j)
                 port = 8008 + 100 * j
-                server = Server(letter, "http://127.0.0.1:{}".format(port), letter, j == i)
+                server = Server(
+                    letter, "http://127.0.0.1:{}".format(port), letter, j == i
+                )
                 serversDB.addServer(server)
 
             if i == 0:
@@ -163,7 +179,9 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
                 )
                 self.theStores[i] = self.store
             else:
-                self.theStores[i] = yield self.buildStore(self.theStoreBuilders[i])
+                self.theStores[i] = yield self.buildStore(
+                    self.theStoreBuilders[i]
+                )
                 directory = buildTestDirectory(
                     self.theStores[i],
                     self.mktemp(),
@@ -176,7 +194,9 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
             self.theStores[i].queryCacher = None     # Cannot use query caching
             self.theStores[i].conduit = self.makeConduit(self.theStores[i])
 
-            FakeConduitRequest.addServerStore(serversDB.getServerById(chr(ord("A") + i)), self.theStores[i])
+            FakeConduitRequest.addServerStore(
+                serversDB.getServerById(chr(ord("A") + i)), self.theStores[i]
+            )
 
 
     def configure(self):
@@ -230,7 +250,9 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
     @inlineCallbacks
     def waitAllEmpty(self):
         for i in range(self.numberOfStores):
-            yield JobItem.waitEmpty(self.theStoreUnderTest(i).newTransaction, reactor, 60.0)
+            yield JobItem.waitEmpty(
+                self.theStoreUnderTest(i).newTransaction, reactor, 60.0
+            )
 
 
     def makeConduit(self, store):
@@ -240,15 +262,23 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
 
 
     @inlineCallbacks
-    def createShare(self, ownerGUID="user01", shareeGUID="puser02", name="calendar"):
+    def createShare(
+        self, ownerGUID="user01", shareeGUID="puser02", name="calendar"
+    ):
 
-        home = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name=ownerGUID, create=True)
+        home = yield self.homeUnderTest(
+            txn=self.theTransactionUnderTest(0), name=ownerGUID, create=True
+        )
         calendar = yield home.calendarWithName(name)
-        yield calendar.inviteUIDToShare(shareeGUID, _BIND_MODE_WRITE, "shared", shareName="shared-calendar")
+        yield calendar.inviteUIDToShare(
+            shareeGUID, _BIND_MODE_WRITE, "shared", shareName="shared-calendar"
+        )
         yield self.commitTransaction(0)
 
         # ACK: home2 is None
-        home2 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=shareeGUID)
+        home2 = yield self.homeUnderTest(
+            txn=self.theTransactionUnderTest(1), name=shareeGUID
+        )
         yield home2.acceptShare("shared-calendar")
         yield self.commitTransaction(1)
 
@@ -256,9 +286,13 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
 
 
     @inlineCallbacks
-    def removeShare(self, ownerGUID="user01", shareeGUID="puser02", name="calendar"):
+    def removeShare(
+        self, ownerGUID="user01", shareeGUID="puser02", name="calendar"
+    ):
 
-        home = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name=ownerGUID)
+        home = yield self.homeUnderTest(
+            txn=self.theTransactionUnderTest(0), name=ownerGUID
+        )
         calendar = yield home.calendarWithName(name)
         yield calendar.uninviteUIDFromShare(shareeGUID)
         yield self.commitTransaction(0)
