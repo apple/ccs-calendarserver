@@ -18,7 +18,6 @@
 SQL data store.
 """
 
-from twext.internet.decorate import memoizedKey
 from twext.python.log import Logger
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
@@ -122,7 +121,6 @@ class CommonHomeExternal(CommonHome):
         raise AssertionError("CommonHomeExternal: not supported")
 
 
-    @memoizedKey("name", "_children")
     @inlineCallbacks
     def createChildWithName(self, name, bindUID=None):
         """
