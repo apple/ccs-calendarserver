@@ -436,13 +436,13 @@ class AddressBookSharingMixIn(SharingMixIn):
             if 0 == previouslyAcceptedCount:
                 yield self._initSyncToken()
                 yield self._initBindRevision()
-                self._home._children[self._name] = self
-                self._home._children[self._resourceID] = self
+                self._home._children[self._home._childrenKey(False)][self._name] = self
+                self._home._children[self._home._childrenKey(False)][self._resourceID] = self
         elif self._bindStatus == _BIND_STATUS_DECLINED:
             if 1 == previouslyAcceptedCount:
                 yield self._deletedSyncToken(sharedRemoval=True)
-                self._home._children.pop(self._name, None)
-                self._home._children.pop(self._resourceID, None)
+                self._home._children[self._home._childrenKey(False)].pop(self._name, None)
+                self._home._children[self._home._childrenKey(False)].pop(self._resourceID, None)
 
 
 
@@ -1717,14 +1717,14 @@ class AddressBookObjectSharingMixIn(SharingMixIn):
                 if shareeView._bindStatus == _BIND_STATUS_ACCEPTED:
                     if 0 == previouslyAcceptedBindCount:
                         yield shareeView.addressbook()._initSyncToken()
-                        shareeView.viewerHome()._children[self.addressbook().ownerHome().uid()] = shareeView.addressbook()
-                        shareeView.viewerHome()._children[shareeView._resourceID] = shareeView.addressbook()
+                        shareeView.viewerHome()._children[self._home._childrenKey(False)][self.addressbook().ownerHome().uid()] = shareeView.addressbook()
+                        shareeView.viewerHome()._children[self._home._childrenKey(False)][shareeView._resourceID] = shareeView.addressbook()
                     yield shareeView._initBindRevision()
                 elif shareeView._bindStatus == _BIND_STATUS_DECLINED:
                     if 1 == previouslyAcceptedBindCount:
                         yield shareeView.addressbook()._deletedSyncToken(sharedRemoval=True)
-                        shareeView.viewerHome()._children.pop(self.addressbook().ownerHome().uid(), None)
-                        shareeView.viewerHome()._children.pop(shareeView._resourceID, None)
+                        shareeView.viewerHome()._children[self._home._childrenKey(False)].pop(self.addressbook().ownerHome().uid(), None)
+                        shareeView.viewerHome()._children[self._home._childrenKey(False)].pop(shareeView._resourceID, None)
                     else:
                         # update revision in all remaining bind table rows for this address book
                         yield shareeView.addressbook().notifyPropertyChanged()
@@ -1777,8 +1777,8 @@ class AddressBookObjectSharingMixIn(SharingMixIn):
             acceptedBindCount += len(groupBindRows)
             if acceptedBindCount == 1:
                 yield addressbookAsShared._deletedSyncToken(sharedRemoval=True)
-                shareeHome._children.pop(self.ownerHome().uid(), None)
-                shareeHome._children.pop(addressbookAsShared._resourceID, None)
+                shareeHome._children[self._home._childrenKey(False)].pop(self.ownerHome().uid(), None)
+                shareeHome._children[self._home._childrenKey(False)].pop(addressbookAsShared._resourceID, None)
             else:
                 yield addressbookAsShared.notifyPropertyChanged()
                 # update revision in all remaining bind table rows for this address book
