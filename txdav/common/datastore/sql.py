@@ -3482,6 +3482,7 @@ class CommonHome(SharingHomeMixIn):
             child = yield self._childClass.objectWithName(self, name, onlyInTrash=onlyInTrash)
             if child is not None:
                 self._children[childrenKey][name] = child
+                self._children[childrenKey][child._resourceID] = child
         returnValue(self._children[childrenKey].get(name, None))
 
 
@@ -3510,6 +3511,7 @@ class CommonHome(SharingHomeMixIn):
             child = yield self._childClass.objectWithID(self, resourceID, onlyInTrash=onlyInTrash)
             if child is not None:
                 self._children[childrenKey][resourceID] = child
+                self._children[childrenKey][child._name] = child
         returnValue(self._children[childrenKey].get(resourceID, None))
 
 
