@@ -3448,8 +3448,9 @@ class CommonHome(SharingHomeMixIn):
         results = (yield self._childClass.loadAllObjects(self))
         for result in results:
             key = self._childrenKey(result.isInTrash())
-            self._children[key][result.name()] = result
-            self._children[key][result._resourceID] = result
+            if result.name() not in self._children[key]:
+                self._children[key][result.name()] = result
+                self._children[key][result._resourceID] = result
         self._childrenLoaded = True
         returnValue(results)
 
