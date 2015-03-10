@@ -135,6 +135,10 @@ install-python:: build
 	$(_v) perl -i -pe "s|#PATH|export PYTHON=$(CS_VIRTUALENV)/bin/python;|" "$(DSTROOT)$(CS_VIRTUALENV)/bin/caldavd";
 	@echo "Stripping binaries...";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -name "*.so" -print0 | xargs -0 $(STRIP) -Sx;
+	@echo "Updating install location of Python library...";
+	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)/bin" -type f -name "python*" -print0 | \
+	          xargs -0 -n 1 install_name_tool -change "@executable_path/../.Python" "$(CS_VIRTUALENV)/.Python";
+	$(_v) install_name_tool -id "$(CS_VIRTUALENV)/.Python" "$(DSTROOT)$(CS_VIRTUALENV)/.Python";
 	@echo "Putting comments into empty files...";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -name "*.py" -exec sh -c 'printf "# empty\n" > {}' ";";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -name "*.h" -exec sh -c 'printf "/* empty */\n" > {}' ";";
