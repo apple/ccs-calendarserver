@@ -303,7 +303,6 @@ class Config(object):
         self._cachedSyncToken = None
 
 
-
     def getKeyPath(self, keyPath):
         """
         Allows the getting of arbitrary nested dictionary keys via a single
@@ -380,6 +379,7 @@ class Config(object):
             return "{}/{}".format(dataToken, configToken)
         else:
             return dataToken
+
 
 
 def mergeData(oldData, newData):

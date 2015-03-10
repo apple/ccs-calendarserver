@@ -118,6 +118,7 @@ class CommonHomeResourceTests(TestCase):
         self.assertEquals(resource._mergeSyncTokens("1_4", "1_3"), "1_4")
 
 
+
 class OwnershipTests(TestCase):
     """
     L{CalDAVResource.isOwner} determines if the authenticated principal of the
