@@ -21,9 +21,9 @@ from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.icommondatastore import AllRetriesFailed, NotFoundError
+from txdav.who.delegates import Delegates
 import datetime
 import hashlib
-from txdav.who.delegates import Delegates
 
 log = Logger()
 

@@ -95,7 +95,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                False,
+                (False, False),
             ),
             (
                 "#1.2 Large, old, non-recurring component",
@@ -135,7 +135,7 @@ ATTENDEE:mailto:user25@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                False,
+                (False, False),
             ),
             (
                 "#2.1 Small, old, simple recurring component",
@@ -153,7 +153,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                False,
+                (False, False),
             ),
             (
                 "#2.2 Large, old, simple recurring component",
@@ -194,7 +194,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                False,
+                (False, False),
             ),
             (
                 "#2.3 Small, more than a year in the future, simple recurring component",
@@ -212,7 +212,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                False,
+                (False, True),
             ),
             (
                 "#2.4 Small, all cancelled, simple recurring component",
@@ -232,7 +232,7 @@ RRULE:FREQ=DAILY;COUNT=2
 END:VEVENT
 END:VCALENDAR
 """,
-                False,
+                (False, True),
             ),
             (
                 "#3.1 Small, old, recurring with future override",
@@ -259,7 +259,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                False,
+                (False, False),
             ),
             (
                 "#3.2 Large, old, recurring component with future override",
@@ -309,7 +309,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                False,
+                (False, False),
             ),
             (
                 "#4.1 Small, old, recurring with past override",
@@ -336,7 +336,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                False,
+                (False, False),
             ),
             (
                 "#4.2 Large, old, recurring component with one past override",
@@ -386,7 +386,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                False,
+                (False, False),
             ),
             (
                 "#4.2 Large, old, recurring component with two past overrides",
@@ -445,7 +445,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                True,
+                (True, False),
             ),
             (
                 "#5.1 Small, old, limited recurring with past override",
@@ -472,7 +472,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                False,
+                (False, False),
             ),
             (
                 "#5.2 Large, old, limited recurring component with past override",
@@ -522,7 +522,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                False,
+                (False, False),
             ),
             (
                 "#6.1 Small, old, limited future recurring with past override",
@@ -549,7 +549,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                False,
+                (False, False),
             ),
             (
                 "#6.2 Large, old, limited future recurring component with two past overrides",
@@ -608,7 +608,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                True,
+                (True, False),
             ),
         )
 
@@ -616,8 +616,8 @@ END:VCALENDAR
             ical = Component.fromString(calendar % self.subs)
 
             splitter = iCalSplitter(1024, 14)
-            will_split = splitter.willSplit(ical)
-            self.assertEqual(will_split, result, msg="Failed: %s" % (description,))
+            willSplitResult = splitter.willSplit(ical)
+            self.assertEqual(willSplitResult, result, msg="Failed: %s" % (description,))
 
 
     def test_split(self):
@@ -2211,7 +2211,7 @@ END:VCALENDAR
             ical = Component.fromString(calendar % self.subs)
             splitter = iCalSplitter(1024, 14)
             if title[0] == "1":
-                self.assertTrue(splitter.willSplit(ical), "Failed will split: %s" % (title,))
+                self.assertTrue(splitter.willSplit(ical)[0], "Failed will split: %s" % (title,))
             icalOld, icalNew = splitter.split(ical)
             relsubs = dict(self.subs)
             relsubs["uid"] = icalOld.resourceUID()
@@ -2220,8 +2220,8 @@ END:VCALENDAR
             self.assertEqual(str(icalOld).replace("\r\n ", ""), split_past.replace("\n", "\r\n") % relsubs, "Failed past: %s" % (title,))
 
             # Make sure new items won't split again
-            self.assertFalse(splitter.willSplit(icalNew), "Failed future will split: %s" % (title,))
-            self.assertFalse(splitter.willSplit(icalOld), "Failed past will split: %s" % (title,))
+            self.assertFalse(splitter.willSplit(icalNew)[0], "Failed future will split: %s" % (title,))
+            self.assertFalse(splitter.willSplit(icalOld)[0], "Failed past will split: %s" % (title,))
 
 
     def test_split_negative_count(self):
@@ -2318,7 +2318,7 @@ END:VCALENDAR
             ical = Component.fromString(calendar % self.subs)
             splitter = iCalSplitter(100, 0)
             if title[0] == "1":
-                self.assertTrue(splitter.willSplit(ical), "Failed will split: %s" % (title,))
+                self.assertTrue(splitter.willSplit(ical)[0], "Failed will split: %s" % (title,))
             icalOld, icalNew = splitter.split(ical)
             relsubs = dict(self.subs)
             relsubs["uid"] = icalOld.resourceUID()
@@ -2497,8 +2497,8 @@ END:VCALENDAR
             self.assertEqual(str(icalOld).replace("\r\n ", ""), split_past.replace("\n", "\r\n") % relsubs, "Failed past: %s" % (title,))
 
             # Make sure new items won't split again
-            self.assertFalse(splitter.willSplit(icalNew), "Failed future will split: %s" % (title,))
-            self.assertFalse(splitter.willSplit(icalOld), "Failed past will split: %s" % (title,))
+            self.assertFalse(splitter.willSplit(icalNew)[0], "Failed future will split: %s" % (title,))
+            self.assertFalse(splitter.willSplit(icalOld)[0], "Failed past will split: %s" % (title,))
 
             ical = Component.fromString(calendar % self.subs)
             splitter = iCalSplitter(1024, 14)
@@ -2510,5 +2510,5 @@ END:VCALENDAR
             self.assertEqual(str(icalOld).replace("\r\n ", ""), split_past.replace("\n", "\r\n") % relsubs, "Failed past: %s" % (title,))
 
             # Make sure new items won't split again
-            self.assertFalse(splitter.willSplit(icalNew), "Failed future will split: %s" % (title,))
-            self.assertFalse(splitter.willSplit(icalOld), "Failed past will split: %s" % (title,))
+            self.assertFalse(splitter.willSplit(icalNew)[0], "Failed future will split: %s" % (title,))
+            self.assertFalse(splitter.willSplit(icalOld)[0], "Failed past will split: %s" % (title,))

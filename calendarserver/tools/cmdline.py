@@ -33,13 +33,14 @@ import sys
 from calendarserver.tap.util import getRootResource
 from errno import ENOENT, EACCES
 from twext.enterprise.jobqueue import NonPerformingQueuer
+from twistedcaldav.timezones import TimezoneCache
 
 # TODO: direct unit tests for these functions.
 
 
 def utilityMain(
     configFileName, serviceClass, reactor=None, serviceMaker=None,
-    patchConfig=None, onShutdown=None, verbose=False
+    patchConfig=None, onShutdown=None, verbose=False, loadTimezones=False
 ):
     """
     Shared main-point for utilities.
@@ -123,6 +124,10 @@ def utilityMain(
         reactor.addSystemEventTrigger("before", "shutdown", service.stopService)
         if onShutdown is not None:
             reactor.addSystemEventTrigger("before", "shutdown", onShutdown)
+
+        if loadTimezones:
+            TimezoneCache.create()
+
 
     except (ConfigurationError, OSError), e:
         sys.stderr.write("Error: %s\n" % (e,))

@@ -927,15 +927,16 @@ class SharingMixIn(object):
 
     @inlineCallbacks
     def _changedStatus(self, previouslyAcceptedCount):
+        key = self._home._childrenKey(self.isInTrash())
         if self._bindStatus == _BIND_STATUS_ACCEPTED:
             yield self._initSyncToken()
             yield self._initBindRevision()
-            self._home._children[self._name] = self
-            self._home._children[self._resourceID] = self
+            self._home._children[key][self.name()] = self
+            self._home._children[key][self.id()] = self
         elif self._bindStatus in (_BIND_STATUS_INVITED, _BIND_STATUS_DECLINED):
             yield self._deletedSyncToken(sharedRemoval=True)
-            self._home._children.pop(self._name, None)
-            self._home._children.pop(self._resourceID, None)
+            self._home._children[key].pop(self.name(), None)
+            self._home._children[key].pop(self.id(), None)
 
 
     @inlineCallbacks
@@ -950,12 +951,13 @@ class SharingMixIn(object):
 
         @return: a L{Deferred} which will fire with the previous shareUID
         """
+        key = self._home._childrenKey(self.isInTrash())
 
         # remove sync tokens
         shareeHome = shareeView.viewerHome()
         yield shareeView._deletedSyncToken(sharedRemoval=True)
-        shareeHome._children.pop(shareeView._name, None)
-        shareeHome._children.pop(shareeView._resourceID, None)
+        shareeHome._children[key].pop(shareeView._name, None)
+        shareeHome._children[key].pop(shareeView._resourceID, None)
 
         # Must send notification to ensure cache invalidation occurs
         yield self.notifyPropertyChanged()

@@ -13,29 +13,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.common.datastore.sql_util import _normalizeColumnUUIDs, \
-    fixUUIDNormalization
 
 """
 Tests for L{txdav.common.datastore.sql}.
 """
 
-from twext.enterprise.dal.syntax import Select
-from twext.enterprise.dal.syntax import Insert
+from uuid import UUID
 
+from twext.enterprise.dal.syntax import Insert
+from twext.enterprise.dal.syntax import Select
+from twisted.internet.defer import Deferred
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.task import Clock
 from twisted.trial.unittest import TestCase
-from twisted.internet.defer import Deferred
-
-from txdav.common.datastore.sql import log, CommonStoreTransactionMonitor, \
+# from twistedcaldav.vcard import Component as VCard
+from txdav.common.datastore.sql import (
+    log, CommonStoreTransactionMonitor,
     CommonHome, CommonHomeChild, ECALENDARTYPE
+)
 from txdav.common.datastore.sql_tables import schema
+from txdav.common.datastore.sql_util import _normalizeColumnUUIDs, \
+    fixUUIDNormalization
 from txdav.common.datastore.test.util import CommonCommonTests
 from txdav.common.icommondatastore import AllRetriesFailed
 from txdav.xml import element as davxml
 
-from uuid import UUID
+
 
 exampleUID = UUID("a" * 32)
 denormalizedUID = unicode(exampleUID)

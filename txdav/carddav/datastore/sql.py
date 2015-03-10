@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # #
-from twext.enterprise.util import parseSQLTimestamp
 
 
 """
@@ -32,6 +31,7 @@ from copy import deepcopy
 from twext.enterprise.dal.syntax import Delete, Insert, Len, Parameter, \
     Update, Union, Max, Select, utcNowSQL
 from twext.enterprise.locking import NamedLock
+from twext.enterprise.util import parseSQLTimestamp
 from twext.python.clsprop import classproperty
 from txweb2.http import HTTPError
 from txweb2.http_headers import MimeType
@@ -426,13 +426,13 @@ class AddressBookSharingMixIn(SharingMixIn):
             if 0 == previouslyAcceptedCount:
                 yield self._initSyncToken()
                 yield self._initBindRevision()
-                self._home._children[self._name] = self
-                self._home._children[self._resourceID] = self
+                self._home._children[self._home._childrenKey(False)][self._name] = self
+                self._home._children[self._home._childrenKey(False)][self._resourceID] = self
         elif self._bindStatus == _BIND_STATUS_DECLINED:
             if 1 == previouslyAcceptedCount:
                 yield self._deletedSyncToken(sharedRemoval=True)
-                self._home._children.pop(self._name, None)
-                self._home._children.pop(self._resourceID, None)
+                self._home._children[self._home._childrenKey(False)].pop(self._name, None)
+                self._home._children[self._home._childrenKey(False)].pop(self._resourceID, None)
 
 
 
@@ -990,6 +990,8 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
             _ABO_KIND_GROUP,  # obj.KIND,
             "1",  # obj.MD5, non-zero temporary value; set to correct value when known
             "1",  # Len(obj.TEXT), non-zero temporary value; set to correct value when known
+            None,
+            False,
             self._created,  # obj.CREATED,
             self._modified,  # obj.CREATED,
         ]
@@ -1211,7 +1213,7 @@ END:VCARD
 
     @classmethod
     @inlineCallbacks
-    def objectWithName(cls, home, name, accepted=True):
+    def objectWithName(cls, home, name, accepted=True, onlyInTrash=False):
         """
         Retrieve the child with the given C{name} contained in the given
         C{home}.
@@ -1239,7 +1241,7 @@ END:VCARD
 
     @classmethod
     @inlineCallbacks
-    def objectWithID(cls, home, resourceID, accepted=True):
+    def objectWithID(cls, home, resourceID, accepted=True, onlyInTrash=False):
         """
         Retrieve the child with the given C{resourceID} contained in the given
         C{home}.
@@ -1724,14 +1726,14 @@ class AddressBookObjectSharingMixIn(SharingMixIn):
                 if shareeView._bindStatus == _BIND_STATUS_ACCEPTED:
                     if 0 == previouslyAcceptedBindCount:
                         yield shareeView.addressbook()._initSyncToken()
-                        shareeView.viewerHome()._children[self.addressbook().ownerHome().uid()] = shareeView.addressbook()
-                        shareeView.viewerHome()._children[shareeView._resourceID] = shareeView.addressbook()
+                        shareeView.viewerHome()._children[self._home._childrenKey(False)][self.addressbook().ownerHome().uid()] = shareeView.addressbook()
+                        shareeView.viewerHome()._children[self._home._childrenKey(False)][shareeView._resourceID] = shareeView.addressbook()
                     yield shareeView._initBindRevision()
                 elif shareeView._bindStatus == _BIND_STATUS_DECLINED:
                     if 1 == previouslyAcceptedBindCount:
                         yield shareeView.addressbook()._deletedSyncToken(sharedRemoval=True)
-                        shareeView.viewerHome()._children.pop(self.addressbook().ownerHome().uid(), None)
-                        shareeView.viewerHome()._children.pop(shareeView._resourceID, None)
+                        shareeView.viewerHome()._children[self._home._childrenKey(False)].pop(self.addressbook().ownerHome().uid(), None)
+                        shareeView.viewerHome()._children[self._home._childrenKey(False)].pop(shareeView._resourceID, None)
                     else:
                         # update revision in all remaining bind table rows for this address book
                         yield shareeView.addressbook().notifyPropertyChanged()
@@ -1784,8 +1786,8 @@ class AddressBookObjectSharingMixIn(SharingMixIn):
             acceptedBindCount += len(groupBindRows)
             if acceptedBindCount == 1:
                 yield addressbookAsShared._deletedSyncToken(sharedRemoval=True)
-                shareeHome._children.pop(self.ownerHome().uid(), None)
-                shareeHome._children.pop(addressbookAsShared._resourceID, None)
+                shareeHome._children[self._home._childrenKey(False)].pop(self.ownerHome().uid(), None)
+                shareeHome._children[self._home._childrenKey(False)].pop(addressbookAsShared._resourceID, None)
             else:
                 yield addressbookAsShared.notifyPropertyChanged()
                 # update revision in all remaining bind table rows for this address book
@@ -2150,7 +2152,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
                     removed=True,
                 )
 
-        yield super(AddressBookObject, self).remove()
+        yield super(AddressBookObject, self).reallyRemove() # FIXME: carddav trash?
         self._kind = None
         self._ownerAddressBookResourceID = None
         self._objectText = None
@@ -2267,6 +2269,8 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
             obj.KIND,
             obj.MD5,
             Len(obj.TEXT),
+            obj.TRASHED,
+            obj.IS_IN_TRASH,
             obj.CREATED,
             obj.MODIFIED,
             obj.DATAVERSION,
@@ -2283,6 +2287,8 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
             "_kind",
             "_md5",
             "_size",
+            "_trashed",
+            "_is_in_trash",
             "_created",
             "_modified",
             "_dataversion",

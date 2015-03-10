@@ -73,7 +73,8 @@ from txdav.common.icommondatastore import (
     InvalidObjectResourceError, ObjectResourceNameNotAllowedError,
     ObjectResourceNameAlreadyExistsError, UIDExistsError,
     UIDExistsElsewhereError, InvalidUIDError, InvalidResourceMove,
-    InvalidComponentForStoreError, HomeChildNameAlreadyExistsError
+    InvalidComponentForStoreError, AlreadyInTrashError,
+    HomeChildNameAlreadyExistsError
 )
 from txdav.idav import PropertyChangeNotAllowedError
 from txdav.who.wiki import RecordType as WikiRecordType
@@ -1105,6 +1106,8 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
             return customxml.ResourceType.sharedownercalendar
         elif self.isShareeResource():
             return customxml.ResourceType.sharedcalendar
+        elif self._newStoreObject.isTrash():
+            return customxml.ResourceType.trash
         else:
             return caldavxml.ResourceType.calendar
 
@@ -2706,6 +2709,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         DuplicatePrivateCommentsError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "no-duplicate-private-comments",),),
         LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
         UnknownTimezone: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-timezone"),),
+        AlreadyInTrashError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "not-in-trash",),),
     }
 
     StoreMoveExceptionsErrors = {

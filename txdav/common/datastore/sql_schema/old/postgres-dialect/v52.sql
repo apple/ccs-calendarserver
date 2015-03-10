@@ -134,23 +134,9 @@ create index CALENDAR_HOME_METADATA_DEFAULT_POLLS on
 create table CALENDAR_METADATA (
   RESOURCE_ID           integer      primary key references CALENDAR on delete cascade, -- implicit index
   SUPPORTED_COMPONENTS  varchar(255) default null,
-  CHILD_TYPE            integer      default 0 not null,                             	-- enum CHILD_TYPE
-  TRASHED               timestamp    default null,
-  IS_IN_TRASH           boolean      default false not null, -- collection is in the trash
   CREATED               timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED              timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
-
--- Enumeration of child type
-
-create table CHILD_TYPE (
-  ID          integer     primary key,
-  DESCRIPTION varchar(16) not null unique
-);
-
-insert into CHILD_TYPE values (0, 'normal');
-insert into CHILD_TYPE values (1, 'inbox');
-insert into CHILD_TYPE values (2, 'trash');
 
 
 ------------------------
@@ -292,8 +278,6 @@ create table CALENDAR_OBJECT (
   SCHEDULE_ETAGS       text         default null,
   PRIVATE_COMMENTS     boolean      default false not null,
   MD5                  char(32)     not null,
-  TRASHED              timestamp    default null,
-  ORIGINAL_COLLECTION  integer      default null, -- calendar_resource_id prior to trash
   CREATED              timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED             timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   DATAVERSION          integer      default 0 not null,
@@ -397,7 +381,7 @@ create table PERUSER (
   TRANSPARENT                 boolean      not null,
   ADJUSTED_START_DATE         timestamp    default null,
   ADJUSTED_END_DATE           timestamp    default null,
-
+  
   primary key (TIME_RANGE_INSTANCE_ID, USER_ID)    -- implicit index
 );
 
@@ -552,8 +536,6 @@ create table ADDRESSBOOK_OBJECT (
   VCARD_UID                     varchar(255)    not null,
   KIND                          integer         not null,  -- enum ADDRESSBOOK_OBJECT_KIND
   MD5                           char(32)        not null,
-  TRASHED                       timestamp       default null,
-  IS_IN_TRASH                   boolean         default false not null,
   CREATED                       timestamp       default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                      timestamp       default timezone('UTC', CURRENT_TIMESTAMP),
   DATAVERSION                   integer         default 0 not null,
@@ -662,7 +644,7 @@ create table CALENDAR_OBJECT_REVISIONS (
   REVISION                  integer      default nextval('REVISION_SEQ') not null,
   DELETED                   boolean      not null,
   MODIFIED                  timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-
+  
   unique(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID, CALENDAR_NAME, RESOURCE_NAME)    -- implicit index
 );
 
@@ -689,7 +671,7 @@ create table ADDRESSBOOK_OBJECT_REVISIONS (
   REVISION                      integer      default nextval('REVISION_SEQ') not null,
   DELETED                       boolean      not null,
   MODIFIED                      timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-
+  
   unique(ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_HOME_RESOURCE_ID, ADDRESSBOOK_NAME, RESOURCE_NAME)    -- implicit index
 );
 
@@ -1229,7 +1211,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '53');
+insert into CALENDARSERVER values ('VERSION', '52');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

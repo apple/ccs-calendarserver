@@ -15,8 +15,8 @@
 ##
 
 from twext.enterprise.dal.record import Record, fromTable
-from txdav.common.datastore.sql_tables import schema
 from twext.enterprise.dal.syntax import Parameter, Delete
+from txdav.common.datastore.sql_tables import schema
 from twisted.internet.defer import inlineCallbacks
 
 """

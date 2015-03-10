@@ -14,17 +14,18 @@
 # limitations under the License.
 ##
 
-import twistedcaldav.test.util
-from twisted.trial.unittest import SkipTest
+from datetime import datetime, date
+
 from pycalendar.datetime import DateTime
+from pycalendar.timezone import Timezone
+
+from twisted.trial.unittest import SkipTest
 
 from twistedcaldav.dateops import parseSQLTimestampToPyCalendar, \
     parseSQLDateToPyCalendar, pyCalendarToSQLTimestamp, \
     normalizeForExpand, normalizeForIndex, normalizeToUTC, timeRangesOverlap
-
-from datetime import datetime, date
-from pycalendar.timezone import Timezone
 from twistedcaldav.timezones import TimezoneCache
+import twistedcaldav.test.util
 
 class Dateops(twistedcaldav.test.util.TestCase):
     """

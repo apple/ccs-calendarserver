@@ -29,7 +29,7 @@ class iCalSplitter(object):
 
     uuid_namespace = uuid.UUID("1F50F5E1-3E10-4A85-A8B4-3906DA3B8C52")
 
-    def __init__(self, threshold, past):
+    def __init__(self, threshold=-1, past=1):
         """
         @param threshold: the size in bytes that will trigger a split
         @type threshold: C{int}
@@ -54,37 +54,54 @@ class iCalSplitter(object):
         @param ical: the iCalendar object to examine
         @type ical: L{Component}
 
-        @return: C{True} if a split is require, C{False} otherwise
-        @rtype: C{bool}
+        @return: A tuple of two booleans:
+            C{True} if a split is required
+            C{True} if event is fully in future
+            The second boolean's value is undefined if the first is True or
+            threshold != -1
+        @rtype: C{tuple} of two C{bool}
         """
 
-        # Must be recurring
-        if not ical.isRecurring():
-            return False
+        fullyInFuture = False
 
         # Look for past/future (cacheExpandedTimeRanges will go one year in the future by default)
         now = self.now.duplicate()
         now.offsetDay(1)
+
+        # Check recurring
+        if not ical.isRecurring():
+            try:
+                fullyInFuture = (ical.mainComponent().getStartDateUTC() >= now)
+            except AttributeError:
+                fullyInFuture = False
+            return (False, fullyInFuture)
+
         instances = ical.cacheExpandedTimeRanges(now)
         instances = sorted(instances.instances.values(), key=lambda x: x.start)
         if len(instances) <= 1 or instances[0].start >= self.past or instances[-1].start < self.now:
-            return False
+            # Event is either fully in past or in future
+            fullyInFuture = (len(instances) == 0 or instances[0].start >= now)
+            return (False, fullyInFuture)
 
-        # Make sure there are some overridden components in the past - as splitting only makes sense when
-        # overrides are present
-        past_count = 0
-        for instance in instances:
-            if instance.start >= self.past:
-                break
-            elif instance.component.hasProperty("RECURRENCE-ID"):
-                past_count += 1
+        if self.threshold != -1:
+            # Make sure there are some overridden components in the past - as splitting only makes sense when
+            # overrides are present
+            past_count = 0
+            for instance in instances:
+                if instance.start >= self.past:
+                    break
+                elif instance.component.hasProperty("RECURRENCE-ID"):
+                    past_count += 1
 
-        # Only split when there is more than one past override to split off
-        if past_count < 2:
-            return False
+            # Only split when there is more than one past override to split off
+            if past_count < 2:
+                return (False, False)
 
-        # Now see if overall size exceeds our threshold
-        return len(str(ical)) > self.threshold
+            # Now see if overall size exceeds our threshold
+            return (len(str(ical)) > self.threshold, False)
+
+        else:
+            return (True, False)
 
 
     def whereSplit(self, ical, break_point=None, allow_past_the_end=True):

@@ -188,6 +188,17 @@ _HOME_STATUS_PURGING = _homeStatus('purging')
 _HOME_STATUS_MIGRATING = _homeStatus('migrating')
 _HOME_STATUS_DISABLED = _homeStatus('disabled')
 
+_childType = _schemaConstants(
+    schema.CHILD_TYPE.DESCRIPTION,
+    schema.CHILD_TYPE.ID
+)
+
+
+_CHILD_TYPE_NORMAL = _childType('normal')
+_CHILD_TYPE_INBOX = _childType('inbox')
+_CHILD_TYPE_TRASH = _childType('trash')
+
+
 _bindStatus = _schemaConstants(
     schema.CALENDAR_BIND_STATUS.DESCRIPTION,
     schema.CALENDAR_BIND_STATUS.ID

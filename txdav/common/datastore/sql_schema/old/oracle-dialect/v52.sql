@@ -67,21 +67,10 @@ create table CALENDAR_HOME_METADATA (
 create table CALENDAR_METADATA (
     "RESOURCE_ID" integer primary key references CALENDAR on delete cascade,
     "SUPPORTED_COMPONENTS" nvarchar2(255) default null,
-    "CHILD_TYPE" integer default 0 not null,
-    "TRASHED" timestamp default null,
-    "IS_IN_TRASH" integer default 0 not null,
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 
-create table CHILD_TYPE (
-    "ID" integer primary key,
-    "DESCRIPTION" nvarchar2(16) unique
-);
-
-insert into CHILD_TYPE (DESCRIPTION, ID) values ('normal', 0);
-insert into CHILD_TYPE (DESCRIPTION, ID) values ('inbox', 1);
-insert into CHILD_TYPE (DESCRIPTION, ID) values ('trash', 2);
 create table CALENDAR_MIGRATION (
     "CALENDAR_HOME_RESOURCE_ID" integer references CALENDAR_HOME on delete cascade,
     "REMOTE_RESOURCE_ID" integer not null,
@@ -177,8 +166,6 @@ create table CALENDAR_OBJECT (
     "SCHEDULE_ETAGS" nclob default null,
     "PRIVATE_COMMENTS" integer default 0 not null,
     "MD5" nchar(32),
-    "TRASHED" timestamp default null,
-    "ORIGINAL_COLLECTION" integer default null,
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "DATAVERSION" integer default 0 not null, 
@@ -312,8 +299,6 @@ create table ADDRESSBOOK_OBJECT (
     "VCARD_UID" nvarchar2(255),
     "KIND" integer not null,
     "MD5" nchar(32),
-    "TRASHED" timestamp default null,
-    "IS_IN_TRASH" integer default 0 not null,
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "DATAVERSION" integer default 0 not null, 
@@ -649,7 +634,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '53');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '52');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');

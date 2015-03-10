@@ -204,7 +204,8 @@ class NotifierFactory(object):
 
 
     def pushKeyForId(self, prefix, id):
-        return "/%s/%s/%s/" % (prefix, self.hostname, id)
+        key = "/%s/%s/%s/" % (prefix, self.hostname, id)
+        return key[:255]
 
 
 

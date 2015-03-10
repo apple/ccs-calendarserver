@@ -483,6 +483,7 @@ def populateCalendarsFrom(requirements, store, migrating=False):
                 else:
                     yield home.removeCalendarWithName("calendar")
                 yield home.removeCalendarWithName("inbox")
+                yield home.removeCalendarWithName("trash")
             except NoSuchHomeChildError:
                 pass
 

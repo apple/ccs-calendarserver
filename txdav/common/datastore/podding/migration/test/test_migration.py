@@ -551,7 +551,7 @@ END:VCALENDAR
         calnames = dict([(calendar.name(), calendar) for calendar in calendars])
         self.assertEqual(
             set(calnames.keys()),
-            set(("calendar", "tasks", "inbox", self.stash["sharename_user02_to_user01"], self.stash["sharename_puser02_to_user01"],))
+            set(("calendar", "tasks", "inbox", "trash", self.stash["sharename_user02_to_user01"], self.stash["sharename_puser02_to_user01"],))
         )
 
         # Check shared-by user01 on new pod
