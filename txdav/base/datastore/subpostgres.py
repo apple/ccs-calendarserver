@@ -26,10 +26,7 @@ import signal
 from hashlib import md5
 from pipes import quote as shell_quote
 
-if True:
-    import pgdb as postgres
-else:
-    import pg8000 as postgres
+import pg8000 as postgres
 
 from twisted.python.procutils import which
 from twisted.internet.protocol import ProcessProtocol
