@@ -1103,7 +1103,7 @@ class Component (object):
         """
 
         if isinstance(property, str):
-            for property in self.properties(property):
+            for property in tuple(self.properties(property)):
                 self.removeProperty(property)
         else:
             self._pycalendar.removeProperty(property._pycalendar)
@@ -1120,7 +1120,7 @@ class Component (object):
         @type pname: C{str}
         """
 
-        for property in self.properties(pname):
+        for property in tuple(self.properties(pname)):
             self.removeProperty(property)
 
         for component in self.subcomponents():

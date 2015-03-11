@@ -2518,6 +2518,123 @@ END:VCALENDAR
 
 
     @inlineCallbacks
+    def test_setComponent_structuredLocation_Multiple(self):
+        """
+        Verify multiple ROOM attendees result in multiple X-APPLE-STRUCTURED-LOCATION properties
+        added, as well as updated multi-valued LOCATION properties.
+        """
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//Mac OS X 10.9.1//EN
+BEGIN:VEVENT
+UID:561F5DBB-3F38-4B3A-986F-DD05CBAF554F
+DTSTART:20131211T164500Z
+DURATION:PT1H
+ATTENDEE;CN=Conference Room One;CUTYPE=ROOM;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICIPAN
+ T;SCHEDULE-STATUS=2.0:urn:x-uid:room-addr-1
+ATTENDEE;CN=Conference Room Two;CUTYPE=ROOM;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICIPAN
+ T;SCHEDULE-STATUS=2.0:urn:x-uid:room-addr-2
+ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL;EMAIL=user01@example.com;PARTSTAT=AC
+ CEPTED:urn:x-uid:user01
+CREATED:20131211T221854Z
+DTSTAMP:20131211T230632Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+RRULE:FREQ=DAILY;COUNT=5
+SEQUENCE:8
+SUMMARY:locations
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:561F5DBB-3F38-4B3A-986F-DD05CBAF554F
+RECURRENCE-ID:20131214T164500Z
+DTSTART:20131214T160000Z
+DURATION:PT1H
+ATTENDEE;CN=Conference Room Two;CUTYPE=ROOM;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICIPAN
+ T;SCHEDULE-STATUS=2.0:urn:x-uid:room-addr-2
+ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL;EMAIL=user01@example.com;PARTSTAT=AC
+ CEPTED:urn:x-uid:user01
+CREATED:20131211T221854Z
+DTSTAMP:20131211T230632Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+SEQUENCE:8
+SUMMARY:locations
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        yield calendar.createCalendarObjectWithName(
+            "structured.ics",
+            Component.fromString(data)
+        )
+
+        yield self.commit()
+
+        cobj = yield self.calendarObjectUnderTest(
+            name="structured.ics",
+            calendar_name="calendar",
+            home="user01"
+        )
+        comp = yield cobj.component()
+        components = list(comp.subcomponents())
+
+        # Check first component
+        locProp = components[0].getProperty("LOCATION")
+        self.assertEquals(
+            locProp.value(),
+            "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014; Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014"
+        )
+        structProps = tuple(components[0].properties("X-APPLE-STRUCTURED-LOCATION"))
+        self.assertEqual(len(structProps), 2)
+        self.assertEquals(
+            set([structProp.value() for structProp in structProps]),
+            set(("geo:37.331741,-122.030333", "geo:37.332633,-122.030502",))
+        )
+
+        # Check second component
+        locProp = components[1].getProperty("LOCATION")
+        self.assertEquals(
+            locProp.value(),
+            "Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014"
+        )
+        structProps = tuple(components[1].properties("X-APPLE-STRUCTURED-LOCATION"))
+        self.assertEqual(len(structProps), 1)
+        self.assertEquals(
+            structProps[0].value(),
+            "geo:37.332633,-122.030502"
+        )
+
+        yield self.commit()
+
+        cal = yield self.calendarUnderTest(
+            name="calendar",
+            home="room-addr-1"
+        )
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 1)
+        comp = yield cobjs[0].component()
+        components = list(comp.subcomponents())
+
+        # Check first component
+        locProp = components[0].getProperty("LOCATION")
+        self.assertEquals(
+            locProp.value(),
+            "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014; Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014"
+        )
+        structProps = tuple(components[0].properties("X-APPLE-STRUCTURED-LOCATION"))
+        self.assertEqual(len(structProps), 2)
+        self.assertEquals(
+            set([structProp.value() for structProp in structProps]),
+            set(("geo:37.331741,-122.030333", "geo:37.332633,-122.030502",))
+        )
+
+        yield self.commit()
+
+
+    @inlineCallbacks
     def test_setComponent_externalPrincipal(self):
         """
         Verify attendees who are not locally hosted have X-APPLE-HOSTED-STATUS=EXTERNAL

@@ -3139,37 +3139,60 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         X-APPLE-STRUCTURED-LOCATION property and update the LOCATION property
         to contain the name and street address.
         """
+
+        cache = {}
         dir = self.directoryService()
         for sub in component.subcomponents():
+            locations = []
+            removed = False
             for attendee in sub.getAllAttendeeProperties():
                 if attendee.parameterValue("CUTYPE") == "ROOM":
                     value = attendee.value()
-                    loc = yield dir.recordWithCalendarUserAddress(value)
-                    if loc is not None:
-                        uid = getattr(loc, "associatedAddress", "")
-                        if uid:
-                            addr = yield dir.recordWithUID(uid)
-                            if addr is not None:
-                                street = getattr(addr, "streetAddress", "")
-                                geo = getattr(addr, "geographicLocation", "")
-                                if street and geo:
-                                    title = attendee.parameterValue("CN")
-                                    params = {
-                                        "X-ADDRESS": street,
-                                        "X-APPLE-RADIUS": "71",
-                                        "X-TITLE": title,
-                                    }
-                                    structured = Property(
-                                        "X-APPLE-STRUCTURED-LOCATION",
-                                        geo.encode("utf-8"), params=params,
-                                        valuetype=Value.VALUETYPE_URI
-                                    )
-                                    sub.replaceProperty(structured)
-                                    newLocProperty = Property(
-                                        "LOCATION",
-                                        "{0}\n{1}".format(title, street.encode("utf-8"))
-                                    )
-                                    sub.replaceProperty(newLocProperty)
+
+                    # Cache record based data once per-attendee
+                    if value not in cache:
+                        cache[value] = None
+                        loc = yield dir.recordWithCalendarUserAddress(value)
+                        if loc is not None:
+                            uid = getattr(loc, "associatedAddress", "")
+                            if uid:
+                                addr = yield dir.recordWithUID(uid)
+                                if addr is not None:
+                                    street = getattr(addr, "streetAddress", "")
+                                    geo = getattr(addr, "geographicLocation", "")
+                                    if street and geo:
+                                        title = attendee.parameterValue("CN")
+                                        cache[value] = (street, geo, title,)
+
+                    # Use the cached data if present
+                    entry = cache[value]
+                    if entry is not None:
+                        street, geo, title = entry
+                        params = {
+                            "X-ADDRESS": street,
+                            "X-APPLE-RADIUS": "71",
+                            "X-TITLE": title,
+                        }
+                        structured = Property(
+                            "X-APPLE-STRUCTURED-LOCATION",
+                            geo.encode("utf-8"), params=params,
+                            valuetype=Value.VALUETYPE_URI
+                        )
+
+                        # The first time we have any X- prop, remove all existing ones
+                        if not removed:
+                            sub.removeProperty("X-APPLE-STRUCTURED-LOCATION")
+                            removed = True
+                        sub.addProperty(structured)
+                        locations.append("{0}\n{1}".format(title, street.encode("utf-8")))
+
+            # Update the LOCATION if X-'s were added
+            if locations:
+                newLocProperty = Property(
+                    "LOCATION",
+                    "; ".join(locations)
+                )
+                sub.replaceProperty(newLocProperty)
 
 
     @inlineCallbacks
@@ -3234,6 +3257,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 component,
                 internal_request=is_internal,
             ))
+
+            # Structured locations for organizer non-splits only
+            if scheduler.state == "organizer" and internal_state != ComponentUpdateState.SPLIT_OWNER:
+                yield self.addStructuredLocation(component)
 
             # Group attendees - though not during a split
             if scheduler.state == "organizer" and internal_state != ComponentUpdateState.SPLIT_OWNER:
@@ -3477,9 +3504,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # Default/duplicate alarms
             self.processAlarms(component, inserting)
-
-            # Process structured location
-            yield self.addStructuredLocation(component)
 
             # Process hosted status
             if config.HostedStatus.Enabled:
