@@ -288,7 +288,7 @@ extras_requirements = {
     "LDAP": ["twextpy[LDAP]"],
     "OpenDirectory": ["twextpy[OpenDirectory]"],
     "Oracle": ["twextpy[Oracle]", "cx_Oracle"],
-    "Postgres": ["twextpy[Postgres]", "PyGreSQL"],
+    "Postgres": ["twextpy[Postgres]", "pg8000"],
 }
 
 
