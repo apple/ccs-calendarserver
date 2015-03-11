@@ -112,13 +112,16 @@ def report_DAV__sync_collection(self, request, sync_collection):
     for child, child_uri in ok_resources:
         href = element.HRef.fromString(child_uri)
         try:
-            yield responseForHref(
-                request,
-                responses,
-                href,
-                child,
-                functools.partial(_namedPropertiesForResource, dataAllowed=False, forbidden=False) if propertyreq else None,
-                propertyreq)
+            if propertyreq:
+                yield responseForHref(
+                    request,
+                    responses,
+                    href,
+                    child,
+                    functools.partial(_namedPropertiesForResource, dataAllowed=False, forbidden=False),
+                    propertyreq)
+            else:
+                responses.append(element.StatusResponse(element.HRef.fromString(href), element.Status.fromResponseCode(responsecode.OK)))
         except ConcurrentModification:
             # This can happen because of a race-condition between the
             # time we determine which resources exist and the deletion
@@ -130,13 +133,16 @@ def report_DAV__sync_collection(self, request, sync_collection):
     for child, child_uri in forbidden_resources:
         href = element.HRef.fromString(child_uri)
         try:
-            yield responseForHref(
-                request,
-                responses,
-                href,
-                child,
-                functools.partial(_namedPropertiesForResource, dataAllowed=False, forbidden=True) if propertyreq else None,
-                propertyreq)
+            if propertyreq:
+                yield responseForHref(
+                    request,
+                    responses,
+                    href,
+                    child,
+                    functools.partial(_namedPropertiesForResource, dataAllowed=False, forbidden=True),
+                    propertyreq)
+            else:
+                responses.append(element.StatusResponse(element.HRef.fromString(href), element.Status.fromResponseCode(responsecode.OK)))
         except ConcurrentModification:
             # This can happen because of a race-condition between the
             # time we determine which resources exist and the deletion
