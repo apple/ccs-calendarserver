@@ -52,12 +52,11 @@ def version():
     """
     Compute the version number.
     """
-
     base_version = "7.0"
 
     branches = tuple(
         branch.format(
-            project="twext",
+            project="CalendarServer",
             version=base_version,
         )
         for branch in (
@@ -69,7 +68,6 @@ def version():
 
     source_root = dirname(abspath(__file__))
 
-    full_version = base_version
 
     for branch in branches:
         cmd = ["svnversion", "-n", source_root, branch]
@@ -86,11 +84,6 @@ def version():
         if "S" in svn_revision:
             continue
 
-        if branch == "trunk":
-            full_version += "b.trunk"
-        elif branch.endswith("-dev"):
-            full_version += "c.dev"
-
         if svn_revision in ("exported", "Unversioned directory"):
             svn_revision_filename = joinpath(
                 dirname(__file__), "svnversion.txt"
@@ -101,15 +94,36 @@ def version():
             except (IOError, OSError):
                 svn_revision = None
 
-        break
-    else:
-        full_version = base_version
-        full_version += "a.unknown"
+        # If there are uncommitted changes, append "+modified"
+        if svn_revision.endswith("M"):
+            local_version = "+modified"
+            svn_revision = svn_revision[:-1]
+        else:
+            local_version = ""
 
-    if svn_revision is None:
-        full_version += "-unknown"
+        if branch.startswith("tags/release/"):
+            full_version = "{}{}".format(base_version, local_version)
+
+        elif branch == "trunk":
+            if svn_revision is not None:
+                full_version = "{}a{}".format(base_version, svn_revision)
+            else:
+                full_version = "{}a".format(base_version)
+
+            full_version += local_version
+
+        elif branch.endswith("-dev"):
+            full_version = "{}b{}".format(base_version, svn_revision)
+
+            full_version += local_version
+
+        else:
+            raise Exception("??")
+
+        break
+
     else:
-        full_version += "-r{revision}".format(revision=svn_revision)
+        full_version = "{}a.dev{}+unknown".format(base_version, svn_revision)
 
     return full_version
 
