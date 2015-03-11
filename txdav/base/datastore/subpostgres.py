@@ -372,7 +372,7 @@ class PostgresService(MultiService):
             kwargs["unix_sock"] = None
 
         if self.port:
-            kwargs["port"] = self.port
+            kwargs["port"] = int(self.port)
 
         if self.spawnedDBUser:
             kwargs["user"] = self.spawnedDBUser
