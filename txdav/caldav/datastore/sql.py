@@ -749,8 +749,6 @@ class CalendarHome(CommonHome):
         inbox = yield self.createCalendarWithName("inbox")
         yield inbox.setUsedForFreeBusy(False)
 
-        yield self.createTrash()
-
 
     @inlineCallbacks
     def splitCalendars(self):
