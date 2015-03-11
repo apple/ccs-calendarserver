@@ -19,6 +19,14 @@
 ---------------------------------------------------
 
 -- New columns
+alter table CALENDAR_HOME_METADATA
+  add column TRASH integer default null references CALENDAR on delete set null;
+
+create index CALENDAR_HOME_METADATA_TRASH on
+  CALENDAR_HOME_METADATA(TRASH);
+
+  
+-- New columns
 alter table CALENDAR_METADATA
   add column CHILD_TYPE     integer      default 0 not null,
   add column TRASHED        timestamp    default null,

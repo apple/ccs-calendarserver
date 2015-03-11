@@ -91,6 +91,7 @@ def main():
     )
 
 
+
 @inlineCallbacks
 def listTrashedCollectionsForPrincipal(service, store, principalUID):
     directory = store.directoryService()
@@ -99,40 +100,46 @@ def listTrashedCollectionsForPrincipal(service, store, principalUID):
         print("No record found for:", principalUID)
         returnValue(None)
 
-    txn = store.newTransaction(label="List trashed collections")
-    home = yield txn.calendarHomeWithUID(principalUID)
-    if home is None:
-        print("No home for principal")
-        returnValue(None)
 
-    trash = yield home.childWithName("trash")
+    @inlineCallbacks
+    def doIt(txn):
+        home = yield txn.calendarHomeWithUID(principalUID)
+        if home is None:
+            print("No home for principal")
+            returnValue(None)
 
-    trashedCollections = yield home.children(onlyInTrash=True)
-    if len(trashedCollections) == 0:
-        print("No trashed collections for:", prettyRecord(record))
-        returnValue(None)
+        trash = yield home.getTrash()
+        if trash is None:
+            print("No trash available")
+            returnValue(None)
 
-    print("Listing trashed collections for:", prettyRecord(record))
-    for collection in trashedCollections:
-        displayName = displayNameForCollection(collection)
-        print(
-            "Collection = \"{}\", trashed = {}, id = {}".format(
-                displayName.encode("utf-8"), collection.whenTrashed(),
-                collection._resourceID
+        trashedCollections = yield home.children(onlyInTrash=True)
+        if len(trashedCollections) == 0:
+            print("No trashed collections for:", prettyRecord(record))
+            returnValue(None)
+
+        print("Listing trashed collections for:", prettyRecord(record))
+        for collection in trashedCollections:
+            displayName = displayNameForCollection(collection)
+            print(
+                "Collection = \"{}\", trashed = {}, id = {}".format(
+                    displayName.encode("utf-8"), collection.whenTrashed(),
+                    collection._resourceID
+                )
             )
-        )
-        startTime = collection.whenTrashed() - datetime.timedelta(minutes=5)
-        children = yield trash.trashForCollection(
-            collection._resourceID, start=startTime
-        )
-        print(" ...containing events:")
-        for child in children:
-            component = yield child.component()
-            summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
-            whenTrashed = yield child.whenTrashed()
-            print(" \"{}\", trashed = {}".format(summary.encode("utf-8"), whenTrashed))
+            startTime = collection.whenTrashed() - datetime.timedelta(minutes=5)
+            children = yield trash.trashForCollection(
+                collection._resourceID, start=startTime
+            )
+            print(" ...containing events:")
+            for child in children:
+                component = yield child.component()
+                summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
+                whenTrashed = yield child.whenTrashed()
+                print(" \"{}\", trashed = {}".format(summary.encode("utf-8"), whenTrashed))
 
-    yield txn.commit()
+    yield store.inTransaction(label="List trashed collections", operation=doIt)
+
 
 
 @inlineCallbacks
@@ -143,37 +150,43 @@ def listTrashedEventsForPrincipal(service, store, principalUID):
         print("No record found for:", principalUID)
         returnValue(None)
 
-    txn = store.newTransaction(label="List trashed collections")
-    home = yield txn.calendarHomeWithUID(principalUID)
-    if home is None:
-        print("No home for principal")
-        returnValue(None)
 
-    trash = yield home.childWithName("trash")
+    @inlineCallbacks
+    def doIt(txn):
+        home = yield txn.calendarHomeWithUID(principalUID)
+        if home is None:
+            print("No home for principal")
+            returnValue(None)
 
-    untrashedCollections = yield home.children(onlyInTrash=False)
-    if len(untrashedCollections) == 0:
-        print("No untrashed collections for:", prettyRecord(record))
-        returnValue(None)
+        trash = yield home.getTrash()
+        if trash is None:
+            print("No trash available")
+            returnValue(None)
 
-    for collection in untrashedCollections:
-        displayName = displayNameForCollection(collection)
-        children = yield trash.trashForCollection(collection._resourceID)
-        if len(children) == 0:
-            continue
+        untrashedCollections = yield home.children(onlyInTrash=False)
+        if len(untrashedCollections) == 0:
+            print("No untrashed collections for:", prettyRecord(record))
+            returnValue(None)
 
-        print("Collection = \"{}\"".format(displayName.encode("utf-8")))
-        for child in children:
-            component = yield child.component()
-            summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
-            whenTrashed = yield child.whenTrashed()
-            print(
-                " \"{}\", trashed = {}, id = {}".format(
-                    summary.encode("utf-8"), whenTrashed, child._resourceID
+        for collection in untrashedCollections:
+            displayName = displayNameForCollection(collection)
+            children = yield trash.trashForCollection(collection._resourceID)
+            if len(children) == 0:
+                continue
+
+            print("Collection = \"{}\"".format(displayName.encode("utf-8")))
+            for child in children:
+                component = yield child.component()
+                summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
+                whenTrashed = yield child.whenTrashed()
+                print(
+                    " \"{}\", trashed = {}, id = {}".format(
+                        summary.encode("utf-8"), whenTrashed, child._resourceID
+                    )
                 )
-            )
 
-    yield txn.commit()
+    yield store.inTransaction(label="List trashed events", operation=doIt)
+
 
 
 @inlineCallbacks
@@ -184,22 +197,25 @@ def restoreTrashedCollection(service, store, principalUID, resourceID):
         print("No record found for:", principalUID)
         returnValue(None)
 
-    txn = store.newTransaction(label="Restore trashed collection")
-    home = yield txn.calendarHomeWithUID(principalUID)
-    if home is None:
-        print("No home for principal")
-        returnValue(None)
 
-    collection = yield home.childWithID(resourceID, onlyInTrash=True)
-    if collection is None:
-        print("Collection {} is not in the trash".format(resourceID))
-        returnValue(None)
+    @inlineCallbacks
+    def doIt(txn):
+        home = yield txn.calendarHomeWithUID(principalUID)
+        if home is None:
+            print("No home for principal")
+            returnValue(None)
 
-    yield collection.fromTrash(
-        restoreChildren=True, delta=datetime.timedelta(minutes=5), verbose=True
-    )
+        collection = yield home.childWithID(resourceID, onlyInTrash=True)
+        if collection is None:
+            print("Collection {} is not in the trash".format(resourceID))
+            returnValue(None)
 
-    yield txn.commit()
+        yield collection.fromTrash(
+            restoreChildren=True, delta=datetime.timedelta(minutes=5), verbose=True
+        )
+
+    yield store.inTransaction(label="Restore trashed collection", operation=doIt)
+
 
 
 @inlineCallbacks
@@ -210,24 +226,30 @@ def restoreTrashedEvent(service, store, principalUID, resourceID):
         print("No record found for:", principalUID)
         returnValue(None)
 
-    txn = store.newTransaction(label="Restore trashed collection")
-    home = yield txn.calendarHomeWithUID(principalUID)
-    if home is None:
-        print("No home for principal")
-        returnValue(None)
 
-    trash = yield home.childWithName("trash")
-    child = yield trash.objectResourceWithID(resourceID)
-    if child is None:
-        print("Event not found")
-        returnValue(None)
+    @inlineCallbacks
+    def doIt(txn):
+        home = yield txn.calendarHomeWithUID(principalUID)
+        if home is None:
+            print("No home for principal")
+            returnValue(None)
 
-    component = yield child.component()
-    summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
-    print("Restoring \"{}\"".format(summary.encode("utf-8")))
-    yield child.fromTrash()
+        trash = yield home.getTrash()
+        if trash is None:
+            print("No trash available")
+            returnValue(None)
 
-    yield txn.commit()
+        child = yield trash.objectResourceWithID(resourceID)
+        if child is None:
+            print("Event not found")
+            returnValue(None)
+
+        component = yield child.component()
+        summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
+        print("Restoring \"{}\"".format(summary.encode("utf-8")))
+        yield child.fromTrash()
+
+    yield store.inTransaction(label="Restore trashed event", operation=doIt)
 
 
 
@@ -239,42 +261,47 @@ def emptyTrashForPrincipal(service, store, principalUID, days):
         print("No record found for:", principalUID)
         returnValue(None)
 
-    txn = store.newTransaction(label="List trashed collections")
-    home = yield txn.calendarHomeWithUID(principalUID)
-    if home is None:
-        print("No home for principal")
-        returnValue(None)
 
-    trash = yield home.childWithName("trash")
+    @inlineCallbacks
+    def doIt(txn):
+        home = yield txn.calendarHomeWithUID(principalUID)
+        if home is None:
+            print("No home for principal")
+            returnValue(None)
 
-    untrashedCollections = yield home.children(onlyInTrash=False)
-    if len(untrashedCollections) == 0:
-        print("No untrashed collections for:", prettyRecord(record))
-        returnValue(None)
+        trash = yield home.getTrash()
+        if trash is None:
+            print("No trash available")
+            returnValue(None)
 
-    endTime = datetime.datetime.utcnow() - datetime.timedelta(days=-days)
-    for collection in untrashedCollections:
-        displayName = displayNameForCollection(collection)
-        children = yield trash.trashForCollection(
-            collection._resourceID, end=endTime
-        )
-        if len(children) == 0:
-            continue
+        untrashedCollections = yield home.children(onlyInTrash=False)
+        if len(untrashedCollections) == 0:
+            print("No untrashed collections for:", prettyRecord(record))
+            returnValue(None)
 
-        print("Collection = \"{}\"".format(displayName.encode("utf-8")))
-        for child in children:
-            component = yield child.component()
-            summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
-            whenTrashed = yield child.whenTrashed()
-            print(
-                " \"{}\", trashed = {}, id = {}".format(
-                    summary.encode("utf-8"), whenTrashed, child._resourceID
-                )
+        endTime = datetime.datetime.utcnow() - datetime.timedelta(days=-days)
+        for collection in untrashedCollections:
+            displayName = displayNameForCollection(collection)
+            children = yield trash.trashForCollection(
+                collection._resourceID, end=endTime
             )
-            print("Removing...")
-            yield child.reallyRemove()
+            if len(children) == 0:
+                continue
 
-    yield txn.commit()
+            print("Collection = \"{}\"".format(displayName.encode("utf-8")))
+            for child in children:
+                component = yield child.component()
+                summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
+                whenTrashed = yield child.whenTrashed()
+                print(
+                    " \"{}\", trashed = {}, id = {}".format(
+                        summary.encode("utf-8"), whenTrashed, child._resourceID
+                    )
+                )
+                print("Removing...")
+                yield child.reallyRemove()
+
+    yield store.inTransaction(label="Empty trash", operation=doIt)
 
 
 

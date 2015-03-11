@@ -478,6 +478,7 @@ class CalendarHome(CommonHome):
 
         default_collections = tuple([cls._componentDefaultColumn[name] for name in sorted(cls._componentDefaultColumn.keys())])
         return default_collections + (
+            cls._homeMetaDataSchema.TRASH,
             cls._homeMetaDataSchema.ALARM_VEVENT_TIMED,
             cls._homeMetaDataSchema.ALARM_VEVENT_ALLDAY,
             cls._homeMetaDataSchema.ALARM_VTODO_TIMED,
@@ -500,6 +501,7 @@ class CalendarHome(CommonHome):
 
         default_attributes = tuple([cls._componentDefaultAttribute[name] for name in sorted(cls._componentDefaultAttribute.keys())])
         return default_attributes + (
+            "_trash",
             "_alarm_vevent_timed",
             "_alarm_vevent_allday",
             "_alarm_vtodo_timed",
@@ -541,7 +543,7 @@ class CalendarHome(CommonHome):
         values = {}
         for attr, col in zip(self.metadataAttributes(), self.metadataColumns()):
             value = getattr(other, attr)
-            if attr in self._componentDefaultAttribute.values():
+            if attr in self._componentDefaultAttribute.values() + ["_trash", ]:
                 value = calendarIDMap.get(value)
             setattr(self, attr, value)
             values[col] = value

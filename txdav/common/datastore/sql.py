@@ -2320,8 +2320,37 @@ class CommonHome(SharingHomeMixIn):
 
 
     @inlineCallbacks
-    def createTrash(self):
-        child = yield self._trashClass.create(self, "trash")
+    def getTrash(self, create=False):
+        child = None
+        if hasattr(self, "_trash"):
+            if self._trash:
+                child = yield self.childWithID(self._trash)
+            elif create:
+                schema = self._homeMetaDataSchema
+
+                # Use a lock to prevent others from creating at the same time
+                yield Select(
+                    From=schema,
+                    Where=(schema.RESOURCE_ID == self.id()),
+                    ForUpdate=True,
+                ).on(self._txn)
+
+                # Re-check to see if someone else created it whilst we were trying to lock
+                self._trash = (yield Select(
+                    [schema.TRASH],
+                    From=schema,
+                    Where=(schema.RESOURCE_ID == self.id()),
+                ).on(self._txn))[0][0]
+                if self._trash:
+                    child = yield self.childWithID(self._trash)
+                else:
+                    child = yield self._trashClass.create(self, str(uuid4()))
+                    self._trash = child.id()
+                    schema = self._homeMetaDataSchema
+                    yield Update(
+                        {schema.TRASH: self._trash},
+                        Where=(schema.RESOURCE_ID == self.id())
+                    ).on(self._txn)
         returnValue(child)
 
 
@@ -3475,7 +3504,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
     @inlineCallbacks
     def toTrash(self):
-        # print("XYZZY collection toTrash")
         yield self.ownerDeleteShare()
 
         for resource in (yield self.objectResources()):
@@ -3542,17 +3570,18 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         self._home._children[self._home._childrenKey(False)][self._resourceID] = self
 
         if restoreChildren:
-            trash = yield self._home.childWithName("trash")
-            childrenToRestore = yield trash.trashForCollection(
-                self._resourceID, start=startTime
-            )
-            for child in childrenToRestore:
-                if verbose:
-                    component = yield child.component()
-                    summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
-                    print("Recovering \"{}\"".format(summary.encode("utf-8")))
+            trash = yield self._home.getTrash()
+            if trash is not None:
+                childrenToRestore = yield trash.trashForCollection(
+                    self._resourceID, start=startTime
+                )
+                for child in childrenToRestore:
+                    if verbose:
+                        component = yield child.component()
+                        summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
+                        print("Recovering \"{}\"".format(summary.encode("utf-8")))
 
-                yield child.fromTrash()
+                    yield child.fromTrash()
 
 
     @classproperty
@@ -4980,7 +5009,7 @@ class CommonObjectResource(FancyEqMixin, object):
     @inlineCallbacks
     def toTrash(self):
         originalCollection = self._parentCollection._resourceID
-        trash = yield self._parentCollection.ownerHome().childWithName("trash")
+        trash = yield self._parentCollection.ownerHome().getTrash(create=True)
         newName = str(uuid4())
         yield self.moveTo(trash, name=newName)
         yield self._updateToTrashQuery.on(

@@ -52,6 +52,7 @@ create table CALENDAR (
 create table CALENDAR_HOME_METADATA (
     "RESOURCE_ID" integer primary key references CALENDAR_HOME on delete cascade,
     "QUOTA_USED_BYTES" integer default 0 not null,
+    "TRASH" integer default null references CALENDAR on delete set null,
     "DEFAULT_EVENTS" integer default null references CALENDAR on delete set null,
     "DEFAULT_TASKS" integer default null references CALENDAR on delete set null,
     "DEFAULT_POLLS" integer default null references CALENDAR on delete set null,
@@ -654,6 +655,10 @@ insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
 insert into CALENDARSERVER (NAME, VALUE) values ('MIN-VALID-REVISION', '1');
+create index CALENDAR_HOME_METADAT_475de898 on CALENDAR_HOME_METADATA (
+    TRASH
+);
+
 create index CALENDAR_HOME_METADAT_3cb9049e on CALENDAR_HOME_METADATA (
     DEFAULT_EVENTS
 );

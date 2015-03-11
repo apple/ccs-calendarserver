@@ -136,7 +136,7 @@ END:VCALENDAR
 
         home = yield txn.calendarHomeWithUID("user01", create=True)
         collection = yield home.childWithName("calendar")
-        trash = yield home.childWithName("trash")
+        trash = yield home.getTrash(create=True)
 
         # No objects
         objects = yield collection.listObjectResources()
@@ -170,7 +170,7 @@ END:VCALENDAR
         txn = self.store.newTransaction()
 
         # Verify it's in the trash
-        resource = yield self._getResource(txn, "user01", "trash", newName)
+        resource = yield self._getResource(txn, "user01", trash.name(), newName)
         self.assertTrue((yield resource.isInTrash()))
         trashed = yield resource.whenTrashed()
         self.assertFalse(trashed is None)
@@ -180,7 +180,7 @@ END:VCALENDAR
         self.assertEqual(len(resourceNames), 0)
 
         # One object in trash
-        resourceNames = yield self._getResourceNames(txn, "user01", "trash")
+        resourceNames = yield self._getResourceNames(txn, "user01", trash.name())
         self.assertEqual(len(resourceNames), 1)
 
         # Put back from trash
@@ -192,7 +192,7 @@ END:VCALENDAR
         txn = self.store.newTransaction()
 
         # Not in trash
-        resource = yield self._getResource(txn, "user01", "trash", "")
+        resource = yield self._getResource(txn, "user01", trash.name(), "")
         self.assertTrue(resource is None)
 
 
@@ -205,7 +205,7 @@ END:VCALENDAR
         self.assertTrue(trashed is None)
 
         # No objects in trash
-        resourceNames = yield self._getResourceNames(txn, "user01", "trash")
+        resourceNames = yield self._getResourceNames(txn, "user01", trash.name())
         self.assertEqual(len(resourceNames), 0)
 
         yield txn.commit()
@@ -305,17 +305,19 @@ END:VCALENDAR
         txn = self.store.newTransaction()
         resource = yield self._getResource(txn, "user01", "calendar", "test.ics")
         yield resource.remove()
+        home1 = yield self._homeForUser(txn, "user01")
+        trash1 = yield home1.getTrash()
         yield txn.commit()
 
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
 
         # user01's copy is in the trash, still with user02 accepted
         txn = self.store.newTransaction()
-        resource = yield self._getResource(txn, "user01", "trash", "")
+        resource = yield self._getResource(txn, "user01", trash1.name(), "")
         self.assertTrue((yield resource.isInTrash()))
         trashed = yield resource.whenTrashed()
         self.assertFalse(trashed is None)
-        data = yield self._getResourceData(txn, "user01", "trash", "")
+        data = yield self._getResourceData(txn, "user01", trash1.name(), "")
         self.assertTrue("PARTSTAT=ACCEPTED" in data)
         yield txn.commit()
 
@@ -329,14 +331,15 @@ END:VCALENDAR
         self.assertTrue("STATUS:CANCELLED" in data)
         resource = yield self._getResource(txn, "user02", "calendar", "")
         yield resource.remove()
-        data = yield self._getResource(txn, "user02", "trash", "")
-        self.assertEquals(data, None)
+        home2 = yield self._homeForUser(txn, "user02")
+        trash2 = yield home2.getTrash()
+        self.assertEquals(trash2, None)
         yield txn.commit()
 
         # user01 restores event from the trash
         txn = self.store.newTransaction()
-        resource = yield self._getResource(txn, "user01", "trash", "")
-        data = yield self._getResourceData(txn, "user01", "trash", "")
+        resource = yield self._getResource(txn, "user01", trash1.name(), "")
+        data = yield self._getResourceData(txn, "user01", trash1.name(), "")
         yield resource.fromTrash()
         yield txn.commit()
 
@@ -491,6 +494,8 @@ END:VCALENDAR
         txn = self.store.newTransaction()
         resource = yield self._getResource(txn, "user02", "calendar", "")
         yield resource.remove()
+        home2 = yield self._homeForUser(txn, "user02")
+        trash2 = yield home2.getTrash()
 
         yield txn.commit()
 
@@ -510,7 +515,7 @@ END:VCALENDAR
 
 
         # user02's copy is in the trash only, and still has ACCEPTED
-        resourceNames = yield self._getResourceNames(txn, "user02", "trash")
+        resourceNames = yield self._getResourceNames(txn, "user02", trash2.name())
         self.assertEqual(len(resourceNames), 1)
 
         resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
@@ -519,7 +524,7 @@ END:VCALENDAR
         resourceNames = yield self._getResourceNames(txn, "user02", "inbox")
         self.assertEqual(len(resourceNames), 0)
 
-        data = yield self._getResourceData(txn, "user02", "trash", "")
+        data = yield self._getResourceData(txn, "user02", trash2.name(), "")
         self.assertTrue("PARTSTAT=ACCEPTED" in data)
 
         # result = yield txn.execSQL("select * from calendar_object", [])
@@ -543,7 +548,7 @@ END:VCALENDAR
 
         txn = self.store.newTransaction()
 
-        resourceNames = yield self._getResourceNames(txn, "user02", "trash")
+        resourceNames = yield self._getResourceNames(txn, "user02", trash2.name())
         self.assertEqual(len(resourceNames), 0)
 
         resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
@@ -597,7 +602,7 @@ END:VCALENDAR
 
         txn = self.store.newTransaction()
 
-        resourceNames = yield self._getResourceNames(txn, "user02", "trash")
+        resourceNames = yield self._getResourceNames(txn, "user02", trash2.name())
         self.assertEqual(len(resourceNames), 1)
 
         resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
@@ -742,6 +747,8 @@ END:VCALENDAR
         txn = self.store.newTransaction()
         resource = yield self._getResource(txn, "user02", "calendar", "")
         yield resource.remove()
+        home2 = yield self._homeForUser(txn, "user02")
+        trash2 = yield home2.getTrash()
 
         yield txn.commit()
 
@@ -760,7 +767,7 @@ END:VCALENDAR
         yield resource.remove()
 
         # user02's copy is in the trash only, and still has ACCEPTED
-        resourceNames = yield self._getResourceNames(txn, "user02", "trash")
+        resourceNames = yield self._getResourceNames(txn, "user02", trash2.name())
         self.assertEqual(len(resourceNames), 1)
 
         resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
@@ -769,7 +776,7 @@ END:VCALENDAR
         resourceNames = yield self._getResourceNames(txn, "user02", "inbox")
         self.assertEqual(len(resourceNames), 0)
 
-        data = yield self._getResourceData(txn, "user02", "trash", "")
+        data = yield self._getResourceData(txn, "user02", trash2.name(), "")
         self.assertTrue("PARTSTAT=ACCEPTED" in data)
         yield txn.commit()
 
@@ -778,7 +785,7 @@ END:VCALENDAR
 
         txn = self.store.newTransaction()
 
-        resource = yield self._getResource(txn, "user02", "trash", "")
+        resource = yield self._getResource(txn, "user02", trash2.name(), "")
         yield resource.reallyRemove()
 
         yield txn.commit()
@@ -794,7 +801,7 @@ END:VCALENDAR
 
         txn = self.store.newTransaction()
 
-        resourceNames = yield self._getResourceNames(txn, "user02", "trash")
+        resourceNames = yield self._getResourceNames(txn, "user02", trash2.name())
         self.assertEqual(len(resourceNames), 0)
 
         resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
@@ -815,7 +822,7 @@ END:VCALENDAR
 
         txn = self.store.newTransaction()
 
-        resourceNames = yield self._getResourceNames(txn, "user02", "trash")
+        resourceNames = yield self._getResourceNames(txn, "user02", trash2.name())
         self.assertEqual(len(resourceNames), 0)
 
         resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
@@ -926,6 +933,8 @@ END:VCALENDAR
         txn = self.store.newTransaction()
         resource = yield self._getResource(txn, "user02", "calendar", "")
         yield resource.remove()
+        home2 = yield self._homeForUser(txn, "user02")
+        trash2 = yield home2.getTrash()
 
         yield txn.commit()
 
@@ -948,7 +957,7 @@ END:VCALENDAR
         #     print("ROW", row)
 
         # user02's copy is in the trash only, and still has ACCEPTED
-        resourceNames = yield self._getResourceNames(txn, "user02", "trash")
+        resourceNames = yield self._getResourceNames(txn, "user02", trash2.name())
         self.assertEqual(len(resourceNames), 1)
 
         resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
@@ -957,14 +966,14 @@ END:VCALENDAR
         resourceNames = yield self._getResourceNames(txn, "user02", "inbox")
         self.assertEqual(len(resourceNames), 0)
 
-        data = yield self._getResourceData(txn, "user02", "trash", "")
+        data = yield self._getResourceData(txn, "user02", trash2.name(), "")
         self.assertTrue("PARTSTAT=ACCEPTED" in data)
 
         yield txn.commit()
 
         # user02 moves it from trash
         txn = self.store.newTransaction()
-        resource = yield self._getResource(txn, "user02", "trash", "")
+        resource = yield self._getResource(txn, "user02", trash2.name(), "")
         yield resource.fromTrash()
         yield txn.commit()
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
@@ -982,7 +991,7 @@ END:VCALENDAR
         yield resource.remove()
 
         # user02 has nothing in trash
-        resourceNames = yield self._getResourceNames(txn, "user02", "trash")
+        resourceNames = yield self._getResourceNames(txn, "user02", trash2.name())
         self.assertEqual(len(resourceNames), 0)
 
         resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
@@ -1089,13 +1098,15 @@ END:VCALENDAR
         txn = self.store.newTransaction()
         resource = yield self._getResource(txn, "user01", "calendar", "test.ics")
         yield resource.remove()
+        home1 = yield self._homeForUser(txn, "user01")
+        trash1 = yield home1.getTrash()
         yield txn.commit()
 
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
 
         # user01's copy is in the trash, still with user02 partstat
         txn = self.store.newTransaction()
-        data = yield self._getResourceData(txn, "user01", "trash", "")
+        data = yield self._getResourceData(txn, "user01", trash1.name(), "")
         self.assertTrue("PARTSTAT=TENTATIVE" in data)
         yield txn.commit()
 
@@ -1109,14 +1120,15 @@ END:VCALENDAR
         self.assertTrue("STATUS:CANCELLED" in data)
         resource = yield self._getResource(txn, "user02", "calendar", "")
         yield resource.remove()
-        data = yield self._getResource(txn, "user02", "trash", "")
-        self.assertEquals(data, None)
+        home2 = yield self._homeForUser(txn, "user02")
+        trash2 = yield home2.getTrash()
+        self.assertEquals(trash2, None)
         yield txn.commit()
 
         # user01 restores event from the trash
         txn = self.store.newTransaction()
-        resource = yield self._getResource(txn, "user01", "trash", "")
-        data = yield self._getResourceData(txn, "user01", "trash", "")
+        resource = yield self._getResource(txn, "user01", trash1.name(), "")
+        data = yield self._getResourceData(txn, "user01", trash1.name(), "")
         yield resource.fromTrash()
         yield txn.commit()
 
@@ -1232,6 +1244,8 @@ END:VCALENDAR
         txn = self.store.newTransaction()
         resource = yield self._getResource(txn, "user02", "calendar", "")
         yield resource.remove()
+        home2 = yield self._homeForUser(txn, "user02")
+        trash2 = yield home2.getTrash()
         yield txn.commit()
 
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
@@ -1249,7 +1263,7 @@ END:VCALENDAR
         yield resource.remove()
 
         # user02's copy is in the trash only, and still has TENTATIVE
-        resourceNames = yield self._getResourceNames(txn, "user02", "trash")
+        resourceNames = yield self._getResourceNames(txn, "user02", trash2.name())
         self.assertEqual(len(resourceNames), 1)
 
         resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
@@ -1258,14 +1272,14 @@ END:VCALENDAR
         resourceNames = yield self._getResourceNames(txn, "user02", "inbox")
         self.assertEqual(len(resourceNames), 0)
 
-        data = yield self._getResourceData(txn, "user02", "trash", "")
+        data = yield self._getResourceData(txn, "user02", trash2.name(), "")
         self.assertTrue("PARTSTAT=TENTATIVE" in data)
 
         yield txn.commit()
 
         # user02 moves it from trash
         txn = self.store.newTransaction()
-        resource = yield self._getResource(txn, "user02", "trash", "")
+        resource = yield self._getResource(txn, "user02", trash2.name(), "")
         yield resource.fromTrash()
         yield txn.commit()
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
@@ -1283,7 +1297,7 @@ END:VCALENDAR
         yield resource.remove()
 
         # user02 has nothing in trash
-        resourceNames = yield self._getResourceNames(txn, "user02", "trash")
+        resourceNames = yield self._getResourceNames(txn, "user02", trash2.name())
         self.assertEqual(len(resourceNames), 0)
 
         resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
@@ -1392,13 +1406,15 @@ END:VCALENDAR
         txn = self.store.newTransaction()
         resource = yield self._getResource(txn, "user01", "calendar", "test.ics")
         yield resource.remove()
+        home1 = yield self._homeForUser(txn, "user01")
+        trash1 = yield home1.getTrash()
         yield txn.commit()
 
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
 
         # user01's copy is in the trash, still with user02 accepted
         txn = self.store.newTransaction()
-        data = yield self._getResourceData(txn, "user01", "trash", "")
+        data = yield self._getResourceData(txn, "user01", trash1.name(), "")
         self.assertTrue("PARTSTAT=ACCEPTED" in data)
         yield txn.commit()
 
@@ -1412,13 +1428,14 @@ END:VCALENDAR
         self.assertTrue("STATUS:CANCELLED" in data)
         resource = yield self._getResource(txn, "user02", "calendar", "")
         yield resource.remove()
-        data = yield self._getResource(txn, "user02", "trash", "")
-        self.assertEquals(data, None)
+        home2 = yield self._homeForUser(txn, "user02")
+        trash2 = yield home2.getTrash()
+        self.assertEquals(trash2, None)
         yield txn.commit()
 
         # user01 restores event from the trash
         txn = self.store.newTransaction()
-        resource = yield self._getResource(txn, "user01", "trash", "")
+        resource = yield self._getResource(txn, "user01", trash1.name(), "")
         trashedName = yield resource.fromTrash()
         yield txn.commit()
 
@@ -1427,7 +1444,7 @@ END:VCALENDAR
         txn = self.store.newTransaction()
 
         # user01's trash should be empty
-        resourceNames = yield self._getResourceNames(txn, "user01", "trash")
+        resourceNames = yield self._getResourceNames(txn, "user01", trash1.name())
         self.assertEquals(len(resourceNames), 0)
 
         # user01 should have two .ics
@@ -1451,8 +1468,9 @@ END:VCALENDAR
 
         resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
         self.assertEquals(len(resourceNames), 1)
-        resourceNames = yield self._getResourceNames(txn, "user02", "trash")
-        self.assertEquals(len(resourceNames), 0)
+        home2 = yield self._homeForUser(txn, "user02")
+        trash2 = yield home2.getTrash()
+        self.assertEquals(trash2, None)
 
         data = yield self._getResourceData(txn, "user02", "calendar", "")
         self.assertTrue("PARTSTAT=NEEDS-ACTION" in data)
@@ -1554,6 +1572,8 @@ END:VCALENDAR
         txn = self.store.newTransaction()
         resource = yield self._getResource(txn, "user02", "calendar", "")
         yield resource.remove()
+        home2 = yield self._homeForUser(txn, "user02")
+        trash2 = yield home2.getTrash()
         yield txn.commit()
 
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
@@ -1573,7 +1593,7 @@ END:VCALENDAR
         yield resource.remove()
 
         # user02's copy is in the trash only, and still has ACCEPTED
-        resourceNames = yield self._getResourceNames(txn, "user02", "trash")
+        resourceNames = yield self._getResourceNames(txn, "user02", trash2.name())
         self.assertEqual(len(resourceNames), 1)
 
         resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
@@ -1582,13 +1602,13 @@ END:VCALENDAR
         resourceNames = yield self._getResourceNames(txn, "user02", "inbox")
         self.assertEqual(len(resourceNames), 0)
 
-        data = yield self._getResourceData(txn, "user02", "trash", "")
+        data = yield self._getResourceData(txn, "user02", trash2.name(), "")
         self.assertTrue("PARTSTAT=ACCEPTED" in data)
 
         yield txn.commit()
         # user02 moves it from trash
         txn = self.store.newTransaction()
-        resource = yield self._getResource(txn, "user02", "trash", "")
+        resource = yield self._getResource(txn, "user02", trash2.name(), "")
         yield resource.fromTrash()
         yield txn.commit()
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
@@ -1606,7 +1626,7 @@ END:VCALENDAR
         yield resource.remove()
 
         # user02 has nothing in trash
-        resourceNames = yield self._getResourceNames(txn, "user02", "trash")
+        resourceNames = yield self._getResourceNames(txn, "user02", trash2.name())
         self.assertEqual(len(resourceNames), 0)
 
         resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
@@ -1733,7 +1753,9 @@ END:VCALENDAR
         self.assertEquals(len(objects), 1)
 
         # No objects in trash
-        trash = yield self._collectionForUser(txn, "user01", "trash")
+        home1 = yield self._homeForUser(txn, "user01")
+        trash1 = yield home1.getTrash(create=True)
+        trash = yield self._collectionForUser(txn, "user01", trash1.name())
         objects = yield trash.listObjectResources()
         self.assertEquals(len(objects), 0)
 
@@ -1755,7 +1777,7 @@ END:VCALENDAR
 
         txn = self.store.newTransaction()
         # One object in trash
-        trash = yield self._collectionForUser(txn, "user01", "trash")
+        trash = yield self._collectionForUser(txn, "user01", trash1.name())
         objects = yield trash.listObjectResources()
         self.assertEquals(len(objects), 1)
 
@@ -1837,30 +1859,34 @@ END:VCALENDAR
         txn = self.store.newTransaction()
         resource2 = yield self._getResource(txn, "user02", calendarName2, "test.ics")
         yield resource2.remove()
+        home1 = yield self._homeForUser(txn, "user01")
+        trash1 = yield home1.getTrash()
         yield txn.commit()
 
         txn = self.store.newTransaction()
-        names = yield self._getResourceNames(txn, "user01", "trash")
+        names = yield self._getResourceNames(txn, "user01", trash1.name())
         self.assertEquals(len(names), 1)
         names = yield self._getResourceNames(txn, "user01", "calendar")
         self.assertEquals(len(names), 0)
-        names = yield self._getResourceNames(txn, "user02", "trash")
-        self.assertEquals(len(names), 0)
+        home2 = yield self._homeForUser(txn, "user02")
+        trash2 = yield home2.getTrash()
+        self.assertEquals(trash2, None)
         names = yield self._getResourceNames(txn, "user02", calendarName2)
         self.assertEquals(len(names), 0)
 
-        resource = yield self._getResource(txn, "user01", "trash", "")
+        resource = yield self._getResource(txn, "user01", trash1.name(), "")
         yield resource.fromTrash()
 
         yield txn.commit()
 
         txn = self.store.newTransaction()
-        names = yield self._getResourceNames(txn, "user01", "trash")
+        names = yield self._getResourceNames(txn, "user01", trash1.name())
         self.assertEquals(len(names), 0)
         names = yield self._getResourceNames(txn, "user01", "calendar")
         self.assertEquals(len(names), 1)
-        names = yield self._getResourceNames(txn, "user02", "trash")
-        self.assertEquals(len(names), 0)
+        home2 = yield self._homeForUser(txn, "user02")
+        trash2 = yield home2.getTrash()
+        self.assertEquals(trash2, None)
         names = yield self._getResourceNames(txn, "user02", calendarName2)
         self.assertEquals(len(names), 1)
 

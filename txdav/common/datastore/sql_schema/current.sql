@@ -107,6 +107,7 @@ create table CALENDAR (
 create table CALENDAR_HOME_METADATA (
   RESOURCE_ID              integer     primary key references CALENDAR_HOME on delete cascade, -- implicit index
   QUOTA_USED_BYTES         integer     default 0 not null,
+  TRASH                    integer     default null references CALENDAR on delete set null,
   DEFAULT_EVENTS           integer     default null references CALENDAR on delete set null,
   DEFAULT_TASKS            integer     default null references CALENDAR on delete set null,
   DEFAULT_POLLS            integer     default null references CALENDAR on delete set null,
@@ -119,6 +120,8 @@ create table CALENDAR_HOME_METADATA (
   MODIFIED                 timestamp   default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
+create index CALENDAR_HOME_METADATA_TRASH on
+  CALENDAR_HOME_METADATA(TRASH);
 create index CALENDAR_HOME_METADATA_DEFAULT_EVENTS on
   CALENDAR_HOME_METADATA(DEFAULT_EVENTS);
 create index CALENDAR_HOME_METADATA_DEFAULT_TASKS on
