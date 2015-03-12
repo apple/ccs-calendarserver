@@ -55,7 +55,7 @@ def svn_info(wc_path):
     Look up info on a Subversion working copy.
     """
     try:
-        svn_info_xml = subprocess.check_output(
+        info_xml = subprocess.check_output(
             ["svn", "info", "--xml", wc_path]
         )
     except OSError as e:
@@ -65,7 +65,7 @@ def svn_info(wc_path):
     except subprocess.CalledProcessError:
         return None
 
-    info = ElementTree.fromstring(svn_info_xml)
+    info = ElementTree.fromstring(info_xml)
     assert info.tag == "info"
 
     entry = info.find("entry")
@@ -81,19 +81,45 @@ def svn_info(wc_path):
     )
 
 
+def svn_status(wc_path):
+    """
+    Look up status on a Subversion working copy.
+    Complies with PEP 440: https://www.python.org/dev/peps/pep-0440/
+
+    Examples:
+        C{6.0} (release tag)
+        C{6.1.b2.dev14564} (release branch)
+        C{7.0.b1.dev14564} (trunk)
+        C{6.0.a1.dev14441+branches.pg8000} (other branch)
+    """
+    try:
+        status_xml = subprocess.check_output(
+            ["svn", "status", "--xml", wc_path]
+        )
+    except OSError as e:
+        if e.errno == errno.ENOENT:
+            return
+        raise
+    except subprocess.CalledProcessError:
+        return
+
+    status = ElementTree.fromstring(status_xml)
+    assert status.tag == "status"
+
+    target = status.find("target")
+
+    for entry in target.findall("entry"):
+        # entry_status = entry.find("wc-status")
+        path = entry.attrib["path"]
+        if wc_path != ".":
+            path = path.lstrip(wc_path)
+        yield dict(path=path)
+
+
 def version():
     """
     Compute the version number.
     """
-    # branches = tuple(
-    #     branch.format(project=project_name, version=base_version)
-    #     for branch in (
-    #         "tags/release/{project}-{version}",
-    #         "branches/release/{project}-{version}-dev",
-    #         "trunk",
-    #     )
-    # )
-
     source_root = dirname(abspath(__file__))
 
     info = svn_info(source_root)
@@ -107,6 +133,16 @@ def version():
         .format(info["project"], project_name)
     )
 
+    status = svn_status(source_root)
+
+    for entry in status:
+        # We have modifications.
+        modified = "+modified"
+        break
+    else:
+        modified = ""
+
+
     if info["branch"].startswith("tags/release/"):
         project_version = info["branch"].lstrip("tags/release/")
         project, version = project_version.split("-")
@@ -117,7 +153,7 @@ def version():
             "Tagged version {!r} != {!r}".format(version, base_version)
         )
         # This is a correctly tagged release of this project.
-        return "{}".format(base_version)
+        return "{}{}".format(base_version, modified)
 
     if info["branch"].startswith("branches/release/"):
         project_version = info["branch"].lstrip("branches/release/")
@@ -133,16 +169,19 @@ def version():
         )
         # This is a release branch of this project.
         # Designate this as beta2, dev version based on svn revision.
-        return "{}.b2.dev{}".format(base_version, info["revision"])
+        return "{}.b2.dev{}{}".format(base_version, info["revision"], modified)
 
     if info["branch"].startswith("trunk"):
         # This is trunk.
         # Designate this as beta1, dev version based on svn revision.
-        return "{}.b1.dev{}".format(base_version, info["revision"])
+        return "{}.b1.dev{}{}".format(base_version, info["revision"], modified)
 
     # This is some unknown branch or tag...
-    return "{}.a1.dev{}+{}".format(
-        base_version, info["revision"], info["branch"]
+    return "{}.a1.dev{}+{}{}".format(
+        base_version,
+        info["revision"],
+        info["branch"].replace("/", "."),
+        modified.replace("+", "."),
     )
 
 
