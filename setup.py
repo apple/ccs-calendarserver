@@ -56,7 +56,8 @@ def svn_info(wc_path):
     """
     try:
         info_xml = subprocess.check_output(
-            ["svn", "info", "--xml", wc_path]
+            ["svn", "info", "--xml", wc_path],
+            stderr=subprocess.STDOUT,
         )
     except OSError as e:
         if e.errno == errno.ENOENT:
