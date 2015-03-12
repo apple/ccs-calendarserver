@@ -23,6 +23,9 @@ from setuptools import setup, find_packages as setuptools_find_packages
 import errno
 import os
 import subprocess
+from xml.etree import ElementTree
+
+base_version = "7.0"
 
 
 #
@@ -47,85 +50,100 @@ def find_packages():
     return modules
 
 
+def svn_info(wc_path):
+    """
+    Look up info on a Subversion working copy.
+    """
+    try:
+        svn_info_xml = subprocess.check_output(
+            ["svn", "info", "--xml", wc_path]
+        )
+    except OSError as e:
+        if e.errno == errno.ENOENT:
+            return None
+        raise
+    except subprocess.CalledProcessError:
+        return None
+
+    info = ElementTree.fromstring(svn_info_xml)
+    assert info.tag == "info"
+
+    entry = info.find("entry")
+    url = entry.find("url")
+    root = entry.find("repository").find("root")
+    location = url.text.lstrip(root.text)
+    project, branch = location.split("/", 1)
+
+    return dict(
+        root=root.text,
+        project=project, branch=branch,
+        revision=info.find("entry").attrib["revision"],
+    )
+
 
 def version():
     """
     Compute the version number.
     """
-    base_version = "7.0"
-
-    branches = tuple(
-        branch.format(
-            project="CalendarServer",
-            version=base_version,
-        )
-        for branch in (
-            "tags/release/{project}-{version}",
-            "branches/release/{project}-{version}-dev",
-            "trunk",
-        )
-    )
+    # branches = tuple(
+    #     branch.format(project=project_name, version=base_version)
+    #     for branch in (
+    #         "tags/release/{project}-{version}",
+    #         "branches/release/{project}-{version}-dev",
+    #         "trunk",
+    #     )
+    # )
 
     source_root = dirname(abspath(__file__))
 
+    info = svn_info(source_root)
 
-    for branch in branches:
-        cmd = ["svnversion", "-n", source_root, branch]
+    if info is None:
+        # We don't have Subversion info...
+        return "{}.a1+unknown".format(base_version)
 
-        try:
-            svn_revision = subprocess.check_output(cmd)
+    assert info["project"] == project_name, (
+        "Subversion project {!r} != {!r}"
+        .format(info["project"], project_name)
+    )
 
-        except OSError as e:
-            if e.errno == errno.ENOENT:
-                svn_revision = None
-                break
-            raise
+    if info["branch"].startswith("tags/release/"):
+        project_version = info["branch"].lstrip("tags/release/")
+        project, version = project_version.split("-")
+        assert project == project_name, (
+            "Tagged project {!r} != {!r}".format(project, project_name)
+        )
+        assert version == base_version, (
+            "Tagged version {!r} != {!r}".format(version, base_version)
+        )
+        # This is a correctly tagged release of this project.
+        return "{}".format(base_version)
 
-        if "S" in svn_revision:
-            continue
+    if info["branch"].startswith("branches/release/"):
+        project_version = info["branch"].lstrip("branches/release/")
+        project, version, dev = project_version.split("-")
+        assert project == project_name, (
+            "Branched project {!r} != {!r}".format(project, project_name)
+        )
+        assert version == base_version, (
+            "Branched version {!r} != {!r}".format(version, base_version)
+        )
+        assert dev == "dev", (
+            "Branch name doesn't end in -dev: {!r}".format(info["branch"])
+        )
+        # This is a release branch of this project.
+        # Designate this as beta2, dev version based on svn revision.
+        return "{}.b2.dev{}".format(base_version, info["revision"])
 
-        if svn_revision in ("exported", "Unversioned directory"):
-            svn_revision_filename = joinpath(
-                dirname(__file__), "svnversion.txt"
-            )
-            try:
-                svn_revision_file = file(svn_revision_filename)
-                svn_revision = svn_revision_file.read().strip()
-            except (IOError, OSError):
-                svn_revision = None
+    if info["branch"].startswith("trunk"):
+        # This is trunk.
+        # Designate this as beta1, dev version based on svn revision.
+        return "{}.b1.dev{}".format(base_version, info["revision"])
 
-        # If there are uncommitted changes, append "+modified"
-        if svn_revision.endswith("M"):
-            local_version = "+modified"
-            svn_revision = svn_revision[:-1]
-        else:
-            local_version = ""
-
-        if branch.startswith("tags/release/"):
-            full_version = "{}{}".format(base_version, local_version)
-
-        elif branch == "trunk":
-            if svn_revision is not None:
-                full_version = "{}a{}".format(base_version, svn_revision)
-            else:
-                full_version = "{}a".format(base_version)
-
-            full_version += local_version
-
-        elif branch.endswith("-dev"):
-            full_version = "{}b{}".format(base_version, svn_revision)
-
-            full_version += local_version
-
-        else:
-            raise Exception("??")
-
-        break
-
-    else:
-        full_version = "{}a.dev{}+unknown".format(base_version, svn_revision)
-
-    return full_version
+    # This is some unknown branch or tag...
+    return "{}.a1.dev{}+{}".format(
+        base_version, info["revision"], info["branch"]
+    )
 
 
 
@@ -133,7 +151,7 @@ def version():
 # Options
 #
 
-name = "CalendarServer"
+project_name = "CalendarServer"
 
 description = "Calendar and Contacts Server"
 
@@ -320,7 +338,7 @@ def doSetup():
         version_file.close()
 
     dist = setup(
-        name=name,
+        name=project_name,
         version=version_string,
         description=description,
         long_description=long_description,
