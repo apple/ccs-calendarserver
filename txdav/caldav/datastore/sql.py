@@ -5159,6 +5159,8 @@ class TrashCollection(Calendar):
                 obj.ORIGINAL_COLLECTION == Parameter("resourceID")).And(
                 obj.TRASHED >= Parameter("start")).And(
                 obj.TRASHED <= Parameter("end")),
+            OrderBy=obj.TRASHED,
+            Ascending=False
         )
 
 
