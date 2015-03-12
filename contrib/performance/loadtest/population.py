@@ -16,13 +16,12 @@
 #
 ##
 from __future__ import print_function
+from __future__ import division
 
 """
 Tools for generating a population of CalendarServer users based on
 certain usage parameters.
 """
-
-from __future__ import division
 
 from tempfile import mkdtemp
 from itertools import izip
