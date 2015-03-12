@@ -254,11 +254,12 @@ def restoreTrashedEvent(service, store, principalUID, resourceID):
 
 
 @inlineCallbacks
-def emptyTrashForPrincipal(service, store, principalUID, days):
+def emptyTrashForPrincipal(service, store, principalUID, days, txn=None, verbose=True):
     directory = store.directoryService()
     record = yield directory.recordWithUID(principalUID)
     if record is None:
-        print("No record found for:", principalUID)
+        if verbose:
+            print("No record found for:", principalUID)
         returnValue(None)
 
 
@@ -266,17 +267,20 @@ def emptyTrashForPrincipal(service, store, principalUID, days):
     def doIt(txn):
         home = yield txn.calendarHomeWithUID(principalUID)
         if home is None:
-            print("No home for principal")
+            if verbose:
+                print("No home for principal")
             returnValue(None)
 
         trash = yield home.getTrash()
         if trash is None:
-            print("No trash available")
+            if verbose:
+                print("No trash available")
             returnValue(None)
 
         untrashedCollections = yield home.children(onlyInTrash=False)
         if len(untrashedCollections) == 0:
-            print("No untrashed collections for:", prettyRecord(record))
+            if verbose:
+                print("No untrashed collections for:", prettyRecord(record))
             returnValue(None)
 
         endTime = datetime.datetime.utcnow() - datetime.timedelta(days=-days)
@@ -288,20 +292,25 @@ def emptyTrashForPrincipal(service, store, principalUID, days):
             if len(children) == 0:
                 continue
 
-            print("Collection = \"{}\"".format(displayName.encode("utf-8")))
+            if verbose:
+                print("Collection = \"{}\"".format(displayName.encode("utf-8")))
             for child in children:
                 component = yield child.component()
                 summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
                 whenTrashed = yield child.whenTrashed()
-                print(
-                    " \"{}\", trashed = {}, id = {}".format(
-                        summary.encode("utf-8"), whenTrashed, child._resourceID
+                if verbose:
+                    print(
+                        " \"{}\", trashed = {}, id = {}".format(
+                            summary.encode("utf-8"), whenTrashed, child._resourceID
+                        )
                     )
-                )
-                print("Removing...")
+                    print("Removing...")
                 yield child.reallyRemove()
 
-    yield store.inTransaction(label="Empty trash", operation=doIt)
+    if txn is None:
+        yield store.inTransaction(label="Empty trash", operation=doIt)
+    else:
+        yield doIt(txn)
 
 
 

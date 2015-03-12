@@ -18,6 +18,7 @@
 Trash-specific tests for L{txdav.common.datastore.sql}.
 """
 
+from calendarserver.tools.trash import emptyTrashForPrincipal
 from pycalendar.datetime import DateTime
 from twext.enterprise.jobqueue import JobItem
 from twisted.internet import reactor
@@ -25,7 +26,6 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav.ical import Component
 from twistedcaldav.test.util import StoreTestCase
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
-
 
 
 class TrashTests(StoreTestCase):
@@ -1890,4 +1890,64 @@ END:VCALENDAR
         names = yield self._getResourceNames(txn, "user02", calendarName2)
         self.assertEquals(len(names), 1)
 
+        yield txn.commit()
+
+
+    @inlineCallbacks
+    def test_tool_emptyTrashForPrincipal(self):
+
+        from twistedcaldav.stdconfig import config
+        self.patch(config, "EnableTrashCollection", True)
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:5CE3B280-DBC9-4E8E-B0B2-996754020E5F
+DTSTART;TZID=America/Los_Angeles:20141108T093000
+DTEND;TZID=America/Los_Angeles:20141108T103000
+CREATED:20141106T192546Z
+DTSTAMP:20141106T192546Z
+RRULE:FREQ=DAILY
+SEQUENCE:0
+SUMMARY:repeating event
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:5CE3B280-DBC9-4E8E-B0B2-996754020E5F
+RECURRENCE-ID;TZID=America/Los_Angeles:20141111T093000
+DTSTART;TZID=America/Los_Angeles:20141111T110000
+DTEND;TZID=America/Los_Angeles:20141111T120000
+CREATED:20141106T192546Z
+DTSTAMP:20141106T192546Z
+SEQUENCE:0
+SUMMARY:repeating event
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+"""
+
+        txn = self.store.newTransaction()
+        calendar = yield self._collectionForUser(txn, "user01", "calendar")
+
+        yield calendar.createObjectResourceWithName(
+            "test.ics",
+            Component.allFromString(data1)
+        )
+        yield txn.commit()
+
+        txn = self.store.newTransaction()
+        resource = yield self._getResource(txn, "user01", "calendar", "test.ics")
+        yield resource.remove()
+        home = yield self._homeForUser(txn, "user01")
+        trash = yield home.getTrash()
+        trashName = trash.name()
+        yield txn.commit()
+
+        txn = self.store.newTransaction()
+        names = yield self._getResourceNames(txn, "user01", trashName)
+        self.assertEquals(len(names), 1)
+        yield emptyTrashForPrincipal(None, self.store, "user01", 0, txn=txn, verbose=False)
+        names = yield self._getResourceNames(txn, "user01", trashName)
+        self.assertEquals(len(names), 0)
         yield txn.commit()
