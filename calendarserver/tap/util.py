@@ -1243,6 +1243,7 @@ def preFlightChecks(config):
             return False
 
         else:
+            print(reason)
             sys.exit(1)
 
     return True
