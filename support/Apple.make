@@ -114,14 +114,26 @@ install-python:: build
 	              --pre --allow-all-external --no-index                   \
 	              --find-links="file://$(Sources)/.develop/pip_downloads" \
 	              --log=$(OBJROOT)/pip.log                                \
-	              cffi
-	@echo "Installing Python packages...";
+	              cffi;
+
+	@# Install Twisted with --ignore-installed so that we don't use the
+	@# system-provided Twisted.
+	@echo "Installing Twisted...";
 	$(_v) $(Environment)                                                  \
 	          "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install                \
 	              --pre --allow-all-external --no-index                   \
 	              --find-links="file://$(Sources)/.develop/pip_downloads" \
 	              --log=$(OBJROOT)/pip.log                                \
-	              CalendarServer[OpenDirectory,Postgres]
+	              --ignore-installed                                      \
+	              Twisted;
+
+	@echo "Installing CalendarServer and remaining dependancies...";
+	$(_v) $(Environment)                                                  \
+	          "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install                \
+	              --pre --allow-all-external --no-index                   \
+	              --find-links="file://$(Sources)/.develop/pip_downloads" \
+	              --log=$(OBJROOT)/pip.log                                \
+	              CalendarServer[OpenDirectory,Postgres];
 	@#
 	@# Make the virtualenv relocatable
 	@#
