@@ -782,14 +782,12 @@ create index GROUP_DELEGATE_CHANGES_WORK_DELEGATOR_UID on
 create table GROUPS (
   GROUP_ID                      integer      primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
   NAME                          varchar(255) not null,
-  GROUP_UID                     varchar(255) not null unique,
+  GROUP_UID                     varchar(255) not null unique,    -- implicit index
   MEMBERSHIP_HASH               varchar(255) not null,
   EXTANT                        integer default 1,
   CREATED                       timestamp default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                      timestamp default timezone('UTC', CURRENT_TIMESTAMP)
 );
-create index GROUPS_GROUP_UID on
-  GROUPS(GROUP_UID);
 
 create table GROUP_MEMBERSHIP (
   GROUP_ID                     integer not null references GROUPS on delete cascade,
@@ -995,9 +993,6 @@ create table SCHEDULE_REFRESH_ATTENDEES (
 
   primary key (RESOURCE_ID, ATTENDEE)
 );
-
-create index SCHEDULE_REFRESH_ATTENDEES_RESOURCE_ID_ATTENDEE on
-  SCHEDULE_REFRESH_ATTENDEES(RESOURCE_ID, ATTENDEE);
 
 ------------------------------
 -- Schedule Auto Reply Work --
