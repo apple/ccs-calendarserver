@@ -110,7 +110,11 @@ def svn_status(wc_path):
     target = status.find("target")
 
     for entry in target.findall("entry"):
-        # entry_status = entry.find("wc-status")
+        entry_status = entry.find("wc-status")
+        if entry_status is not None:
+            item = entry_status.attrib["item"]
+            if item == "unversioned":
+                continue
         path = entry.attrib["path"]
         if wc_path != ".":
             path = path.lstrip(wc_path)
