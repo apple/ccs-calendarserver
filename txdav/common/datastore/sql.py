@@ -4756,6 +4756,8 @@ class CommonObjectResource(FancyEqMixin, object):
         the attributes may not match exactly and will need to be processed accordingly.
         """
         data = dict([(attr[1:], getattr(self, attr, None)) for attr in itertools.chain(self._rowAttributes(), self._otherSerializedAttributes())])
+        if data["trashed"]:
+            data["trashed"] = data["trashed"].isoformat(" ")
         data["created"] = data["created"].isoformat(" ")
         data["modified"] = data["modified"].isoformat(" ")
         return data

@@ -1189,6 +1189,16 @@ class Calendar(CommonHomeChild):
         return self._home
 
 
+    def serialize(self):
+        """
+        Override to map one column specific to this class.
+        """
+        data = super(Calendar, self).serialize()
+        if data["metadataData"]["trashed"]:
+            data["metadataData"]["trashed"] = data["metadataData"]["trashed"].isoformat(" ")
+        return data
+
+
     @inlineCallbacks
     def copyMetadata(self, other):
         """

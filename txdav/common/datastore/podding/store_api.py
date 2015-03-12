@@ -21,6 +21,7 @@ from txdav.common.datastore.podding.util import UtilityConduitMixin
 from txdav.common.datastore.sql_tables import _HOME_STATUS_DISABLED
 
 from twistedcaldav.caldavxml import TimeRange
+from datetime import datetime
 
 
 class StoreAPIConduitMixin(object):
@@ -157,6 +158,16 @@ class StoreAPIConduitMixin(object):
         """
         return dict([(k, UtilityConduitMixin._to_serialize_list(v),) for k, v in value.items()])
 
+
+    @staticmethod
+    def _to_serialize_search_value(value):
+        """
+        Convert the value to the external (JSON-based) representation.
+        """
+        def _convert(item):
+            return map(lambda x: x.isoformat(" ") if isinstance(x, datetime) else x, item)
+        return map(_convert, value)
+
 # These are the actions on store objects we need to expose via the conduit api
 
 # Calls on L{CommonHome} objects
@@ -173,7 +184,7 @@ UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_moveher
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_moveaway", "moveObjectResourceAway")
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_synctokenrevision", "syncTokenRevision")
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_resourcenamessincerevision", "resourceNamesSinceRevision", transform_send_result=UtilityConduitMixin._to_tuple)
-UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_search", "search")
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_search", "search", transform_recv_result=StoreAPIConduitMixin._to_serialize_search_value)
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_sharing_records", "sharingBindRecords", transform_recv_result=StoreAPIConduitMixin._to_serialize_dict_value)
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_migrate_sharing_records", "migrateBindRecords")
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_group_sharees", "groupSharees", transform_recv_result=StoreAPIConduitMixin._to_serialize_dict_list_serialized_value)

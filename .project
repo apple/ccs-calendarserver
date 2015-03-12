@@ -6,15 +6,13 @@
 		<project>CalDAVClientLibrary</project>
 		<project>cffi</project>
 		<project>kerberos</project>
+		<project>pg8000</project>
 		<project>psutil</project>
 		<project>pycalendar</project>
 		<project>pycparser</project>
 		<project>pycrypto</project>
-		<project>PyGreSQL</project>
 		<project>pyOpenSSL</project>
-		<project>python-ldap</project>
 		<project>service_identity</project>
-		<project>sqlparse</project>
 		<project>twextpy</project>
 		<project>Twisted</project>
 		<project>zope.interface-4.0.3</project>
