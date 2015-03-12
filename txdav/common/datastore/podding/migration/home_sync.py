@@ -212,6 +212,9 @@ class CrossPodHomeSync(object):
         # Notifications
         yield self.notificationsReconcile()
 
+        # TODO: iMIP tokens
+        pass
+
         # TODO: work items
         pass
 
@@ -285,7 +288,8 @@ class CrossPodHomeSync(object):
         """
 
         # TODO: implement API on CommonHome to purge the old data without
-        # any side-effects (scheduling, sharing etc).
+        # any side-effects (scheduling, sharing etc). Also purge associated
+        # data such as iMIP tokens, delegates etc
         yield self.loadRecord()
         self.accounting("Starting: removeRemoteHome...")
         yield self.prepareCalendarHome()
