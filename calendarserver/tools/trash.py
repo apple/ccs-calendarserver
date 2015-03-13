@@ -119,25 +119,30 @@ def listTrashedCollectionsForPrincipal(service, store, principalUID):
             print("No trashed collections for:", prettyRecord(record))
             returnValue(None)
 
-        print("Listing trashed collections for:", prettyRecord(record))
+        print("Trashed collections for:", prettyRecord(record))
+
+        nowDT = datetime.datetime.utcnow()
+
         for collection in trashedCollections:
             displayName = displayNameForCollection(collection)
+            whenTrashed = collection.whenTrashed()
+            ago = nowDT - whenTrashed
+            print()
+            print("   Trashed {}:".format(agoString(ago)))
             print(
-                "Collection = \"{}\", trashed = {}, id = {}".format(
-                    displayName.encode("utf-8"), collection.whenTrashed(),
-                    collection._resourceID
+                "      \"{}\" (collection)  Recovery ID = {}".format(
+                    displayName.encode("utf-8"), collection._resourceID
                 )
             )
-            startTime = collection.whenTrashed() - datetime.timedelta(minutes=5)
+            startTime = whenTrashed - datetime.timedelta(minutes=5)
             children = yield trash.trashForCollection(
                 collection._resourceID, start=startTime
             )
-            print(" ...containing events:")
+            print("         ...containing events:")
             for child in children:
                 component = yield child.component()
                 summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
-                whenTrashed = yield child.whenTrashed()
-                print(" \"{}\", trashed = {}".format(summary.encode("utf-8"), whenTrashed))
+                print("            \"{}\"".format(summary.encode("utf-8")))
 
     yield store.inTransaction(label="List trashed collections", operation=doIt)
 
@@ -175,6 +180,58 @@ def locationString(component):
 
 
 @inlineCallbacks
+def printEventDetails(event):
+    nowPyDT = DateTime.getNowUTC()
+    nowDT = datetime.datetime.utcnow()
+    oneYearInFuture = DateTime.getNowUTC()
+    oneYearInFuture.offsetDay(365)
+
+    component = yield event.component()
+    mainSummary = component.mainComponent().propertyValue("SUMMARY", u"<no title>")
+    whenTrashed = yield event.whenTrashed()
+    ago = nowDT - whenTrashed
+    print("   Trashed {}:".format(agoString(ago)))
+
+    if component.isRecurring():
+        print(
+            "      \"{}\" (repeating)  Recovery ID = {}".format(
+                mainSummary, event._resourceID
+            )
+        )
+        print("         ...upcoming instances:")
+        instances = component.cacheExpandedTimeRanges(oneYearInFuture)
+        instances = sorted(instances.instances.values(), key=lambda x: x.start)
+        limit = 3
+        count = 0
+        for instance in instances:
+            if instance.start >= nowPyDT:
+                summary = instance.component.propertyValue("SUMMARY", u"<no title>")
+                location = locationString(instance.component)
+                tzid = instance.component.getProperty("DTSTART").parameterValue("TZID", None)
+                dtstart = instance.start
+                if tzid is not None:
+                    timezone = Timezone(tzid=tzid)
+                    dtstart.adjustTimezone(timezone)
+                print("            \"{}\" {} {}".format(summary, startString(dtstart), location))
+                count += 1
+                limit -= 1
+            if limit == 0:
+                break
+        if not count:
+            print("            (none)")
+
+    else:
+        print(
+            "      \"{}\" (non-repeating)  Recovery ID = {}".format(
+                mainSummary, event._resourceID
+            )
+        )
+        dtstart = component.mainComponent().propertyValue("DTSTART")
+        location = locationString(component.mainComponent())
+        print("         {} {}".format(startString(dtstart), location))
+
+
+@inlineCallbacks
 def listTrashedEventsForPrincipal(service, store, principalUID):
     directory = store.directoryService()
     record = yield directory.recordWithUID(principalUID)
@@ -200,12 +257,6 @@ def listTrashedEventsForPrincipal(service, store, principalUID):
             print("No untrashed collections for:", prettyRecord(record))
             returnValue(None)
 
-        oneYearInFuture = DateTime.getNowUTC()
-        oneYearInFuture.offsetDay(365)
-
-        nowPyDT = DateTime.getNowUTC()
-
-        nowDT = datetime.datetime.utcnow()
 
         for collection in untrashedCollections:
             displayName = displayNameForCollection(collection)
@@ -216,51 +267,8 @@ def listTrashedEventsForPrincipal(service, store, principalUID):
             print("Trashed events in calendar \"{}\":".format(displayName.encode("utf-8")))
             for child in children:
                 print()
-                component = yield child.component()
-
-                mainSummary = component.mainComponent().propertyValue("SUMMARY", u"<no title>")
-                whenTrashed = yield child.whenTrashed()
-                ago = nowDT - whenTrashed
-                print("   Trashed {}:".format(agoString(ago)))
-
-                if component.isRecurring():
-                    print(
-                        "      \"{}\" (repeating)  Recovery ID = {}".format(
-                            mainSummary, child._resourceID
-                        )
-                    )
-                    print("         ...upcoming instances:")
-                    instances = component.cacheExpandedTimeRanges(oneYearInFuture)
-                    instances = sorted(instances.instances.values(), key=lambda x: x.start)
-                    limit = 3
-                    count = 0
-                    for instance in instances:
-                        if instance.start >= nowPyDT:
-                            summary = instance.component.propertyValue("SUMMARY", u"<no title>")
-                            location = locationString(instance.component)
-                            tzid = instance.component.getProperty("DTSTART").parameterValue("TZID", None)
-                            dtstart = instance.start
-                            if tzid is not None:
-                                timezone = Timezone(tzid=tzid)
-                                dtstart.adjustTimezone(timezone)
-                            print("            \"{}\" {} {}".format(summary, startString(dtstart), location))
-                            count += 1
-                            limit -= 1
-                        if limit == 0:
-                            break
-                    if not count:
-                        print("            (none)")
-
-                else:
-                    print(
-                        "      \"{}\" (non-repeating)  Recovery ID = {}".format(
-                            mainSummary, child._resourceID
-                        )
-                    )
-                    dtstart = component.mainComponent().propertyValue("DTSTART")
-                    location = locationString(component.mainComponent())
-                    print("         {} {}".format(startString(dtstart), location))
-
+                yield printEventDetails(child)
+            print()
 
     yield store.inTransaction(label="List trashed events", operation=doIt)
 
@@ -370,19 +378,14 @@ def emptyTrashForPrincipal(service, store, principalUID, days, txn=None, verbose
                 continue
 
             if verbose:
-                print("Collection = \"{}\"".format(displayName.encode("utf-8")))
+                print("Collection \"{}\":".format(displayName.encode("utf-8")))
             for child in children:
                 component = yield child.component()
                 summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
-                whenTrashed = yield child.whenTrashed()
                 if verbose:
-                    print(
-                        " \"{}\", trashed = {}, id = {}".format(
-                            summary.encode("utf-8"), whenTrashed, child._resourceID
-                        )
-                    )
-                    print("Removing...")
+                    print("   Removing \"{}\"...".format(summary))
                 yield child.reallyRemove()
+            print()
 
     if txn is None:
         yield store.inTransaction(label="Empty trash", operation=doIt)
