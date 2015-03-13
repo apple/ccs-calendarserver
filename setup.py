@@ -18,11 +18,12 @@
 
 from __future__ import print_function
 
-from os.path import dirname, basename, abspath, join as joinpath, normpath
-from setuptools import setup, find_packages as setuptools_find_packages
-import errno
 import os
+from os.path import dirname, basename, abspath, join as joinpath, normpath
 import subprocess
+
+import errno
+from setuptools import setup, find_packages as setuptools_find_packages
 from xml.etree import ElementTree
 
 base_version = "7.0"
@@ -72,8 +73,11 @@ def svn_info(wc_path):
     entry = info.find("entry")
     url = entry.find("url")
     root = entry.find("repository").find("root")
-    location = url.text.lstrip(root.text)
-    project, branch = location.split("/", 1)
+    if url.text.startswith(root.text):
+        location = url.text[len(root.text):].strip("/")
+    else:
+        location = url.text.strip("/")
+    project, branch = location.split("/")
 
     return dict(
         root=root.text,
