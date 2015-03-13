@@ -921,9 +921,6 @@ create table SCHEDULE_REFRESH_ATTENDEES (
   primary key (RESOURCE_ID, ATTENDEE)
 );
 
-create index SCHEDULE_REFRESH_ATTENDEES_RESOURCE_ID_ATTENDEE on
-  SCHEDULE_REFRESH_ATTENDEES(RESOURCE_ID, ATTENDEE);
-
 ------------------------------
 -- Schedule Auto Reply Work --
 ------------------------------

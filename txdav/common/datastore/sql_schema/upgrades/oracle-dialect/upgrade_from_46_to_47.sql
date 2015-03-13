@@ -33,6 +33,7 @@ create index GROUP_DELEGATE_CHANGE_8bf9e6d8 on GROUP_DELEGATE_CHANGES_WORK (
 
 
 -- Add "unique" to GROUPS.GROUP_UID
+drop index GROUPS_GROUP_UID_b35cce23;
 alter table GROUPS add unique (GROUP_UID);
 
 

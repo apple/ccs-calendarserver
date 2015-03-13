@@ -424,7 +424,7 @@ def _translateSchema(out, schema=schema):
         out.write(
             'create index %s on %s (\n    ' % (shortIndexName, shortTableName)
         )
-        out.write(',\n    '.join([column.name for column in index.columns]))
+        out.write(',\n    '.join(["\"{}\"".format(column.name) for column in index.columns]))
         out.write('\n);\n\n')
 
     # Functions are skipped as they likely use dialect specific syntax. Instead, functions
