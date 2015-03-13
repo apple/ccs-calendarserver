@@ -46,7 +46,7 @@ class CalDAVSQLQueryGenerator(SQLQueryGenerator):
         @type freebusy: C{bool}
         """
         super(CalDAVSQLQueryGenerator, self).__init__(expr, collection, whereid)
-        self.userid = userid if userid else ""
+        self.userid = userid if userid else "."
         self.freebusy = freebusy
         self.usedtimerange = False
 

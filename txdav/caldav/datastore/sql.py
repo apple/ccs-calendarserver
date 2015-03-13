@@ -3135,7 +3135,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # See if default exists and add using appropriate logic
         alarm = self.calendar().getDefaultAlarm(vevent, timed)
-        if alarm is None:
+        if not alarm:
             alarm = self.calendar().viewerHome().getDefaultAlarm(vevent, timed)
         if alarm and alarm != "empty" and component.addAlarms(alarm):
             self._componentChanged = True
@@ -3913,7 +3913,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 if usertransp != transp or adjusted_start is not None or adjusted_end is not None:
                     (yield Insert({
                         tpy.TIME_RANGE_INSTANCE_ID : instanceid,
-                        tpy.USER_ID                : useruid,
+                        tpy.USER_ID                : useruid if useruid else ".",
                         tpy.TRANSPARENT            : usertransp,
                         tpy.ADJUSTED_START_DATE    : _adjustDateTime(start, adjusted_start, add_duration=False),
                         tpy.ADJUSTED_END_DATE      : _adjustDateTime(end, adjusted_end, add_duration=True),

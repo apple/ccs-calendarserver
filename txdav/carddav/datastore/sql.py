@@ -338,7 +338,7 @@ class AddressBookHome(CommonHome):
         # If the collection name is None that means we have a change to the owner's default address book,
         # so substitute in the name of that. If collection name is not None, then we have a revision
         # for the owned or a shared address book itself.
-        result = [[row[0] if row[0] is not None else self.addressbook().name()] + row for row in rows]
+        result = [[row[0] if row[0] else self.addressbook().name()] + row for row in rows]
         returnValue(result)
 
 
@@ -2635,12 +2635,17 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
             self._modified = parseSQLTimestamp(self._modified)
 
             # delete foreign members table rows for this object
-            groupIDRows = yield Delete(
-                aboForeignMembers,
+            groupIDRows = yield Select(
+                [aboForeignMembers.GROUP_ID],
+                From=aboForeignMembers,
                 Where=aboForeignMembers.MEMBER_ADDRESS == "urn:uuid:" + self._uid,
-                Return=aboForeignMembers.GROUP_ID
             ).on(self._txn)
             groupIDs = set([groupIDRow[0] for groupIDRow in groupIDRows])
+            if groupIDs:
+                yield Delete(
+                    From=aboForeignMembers,
+                    Where=aboForeignMembers.MEMBER_ADDRESS == "urn:uuid:" + self._uid,
+                ).on(self._txn)
 
             # add this object to shared groups
             if partiallyShared:
