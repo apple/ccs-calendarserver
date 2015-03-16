@@ -53,7 +53,7 @@ alter table CALENDAR_OBJECT
 
 -- New columns
 alter table ADDRESSBOOK_OBJECT
-  add ("TRASHED" timestamp default null),
+  add ("TRASHED" timestamp default null)
   add ("IS_IN_TRASH" integer default 0 not null);
 
 

@@ -24,20 +24,22 @@
 drop table GROUP_ATTENDEE_RECONCILE_WORK;
 
 create table GROUP_ATTENDEE_RECONCILE_WORK (
-  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
-  JOB_ID                        integer not null references JOB,
-  RESOURCE_ID                   integer not null references CALENDAR_OBJECT on delete cascade,
-  GROUP_ID                      integer not null references GROUPS on delete cascade
+    "WORK_ID" integer primary key not null,
+    "JOB_ID" integer not null references JOB,
+    "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
+    "GROUP_ID" integer not null references GROUPS on delete cascade
 );
 
-create index GROUP_ATTENDEE_RECONCILE_WORK_JOB_ID on GROUP_ATTENDEE_RECONCILE_WORK(
-	JOB_ID
+create index GROUP_ATTENDEE_RECONC_da73d3c2 on GROUP_ATTENDEE_RECONCILE_WORK (
+    JOB_ID
 );
-create index GROUP_ATTENDEE_RECONCILE_WORK_RESOURCE_ID on GROUP_ATTENDEE_RECONCILE_WORK(
-	RESOURCE_ID
+
+create index GROUP_ATTENDEE_RECONC_b894ee7a on GROUP_ATTENDEE_RECONCILE_WORK (
+    RESOURCE_ID
 );
-create index GROUP_ATTENDEE_RECONCILE_WORK_GROUP_ID on GROUP_ATTENDEE_RECONCILE_WORK(
-	GROUP_ID
+
+create index GROUP_ATTENDEE_RECONC_5eabc549 on GROUP_ATTENDEE_RECONCILE_WORK (
+    GROUP_ID
 );
 
   
@@ -49,34 +51,35 @@ insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('group_write', 7);
 
 
 create table GROUP_SHAREE_RECONCILE_WORK (
-  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
-  JOB_ID                        integer not null references JOB,
-  CALENDAR_ID                   integer	not null references CALENDAR on delete cascade,
-  GROUP_ID                      integer not null references GROUPS on delete cascade
+    "WORK_ID" integer primary key not null,
+    "JOB_ID" integer not null references JOB,
+    "CALENDAR_ID" integer not null references CALENDAR on delete cascade,
+    "GROUP_ID" integer not null references GROUPS on delete cascade
 );
 
-create index GROUP_SHAREE_RECONCILE_WORK_JOB_ID on GROUP_SHAREE_RECONCILE_WORK(
-	JOB_ID
+create index GROUP_SHAREE_RECONCIL_9aad0858 on GROUP_SHAREE_RECONCILE_WORK (
+    JOB_ID
 );
-create index GROUP_SHAREE_RECONCILE_WORK_CALENDAR_ID on GROUP_SHAREE_RECONCILE_WORK(
-	CALENDAR_ID
+
+create index GROUP_SHAREE_RECONCIL_4dc60f78 on GROUP_SHAREE_RECONCILE_WORK (
+    CALENDAR_ID
 );
-create index GROUP_SHAREE_RECONCILE_WORK_GROUP_ID on GROUP_SHAREE_RECONCILE_WORK(
-	GROUP_ID
+
+create index GROUP_SHAREE_RECONCIL_1d14c921 on GROUP_SHAREE_RECONCILE_WORK (
+    GROUP_ID
 );
 
 
 create table GROUP_SHAREE (
-  GROUP_ID                      integer not null references GROUPS on delete cascade,
-  CALENDAR_ID      				integer not null references CALENDAR on delete cascade,
-  GROUP_BIND_MODE               integer not null, -- enum CALENDAR_BIND_MODE
-  MEMBERSHIP_HASH               varchar(255) not null,
-  
-  primary key (GROUP_ID, CALENDAR_ID) -- implicit index
+    "GROUP_ID" integer not null references GROUPS on delete cascade,
+    "CALENDAR_ID" integer not null references CALENDAR on delete cascade,
+    "GROUP_BIND_MODE" integer not null,
+    "MEMBERSHIP_HASH" nvarchar2(255), 
+    primary key ("GROUP_ID", "CALENDAR_ID")
 );
 
-create index GROUP_SHAREE_CALENDAR_ID on GROUP_SHAREE(
-	CALENDAR_ID
+create index GROUP_SHAREE_CALENDAR_28a88850 on GROUP_SHAREE (
+    CALENDAR_ID
 );
 
 

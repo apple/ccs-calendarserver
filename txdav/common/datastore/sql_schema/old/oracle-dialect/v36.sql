@@ -662,7 +662,7 @@ create index IMIP_TOKENS_TOKEN_e94b918f on IMIP_TOKENS (
     TOKEN
 );
 
-create index GROUPS_GROUP_UID_ebf7a1d4 on GROUPS (
+create index GROUPS_GROUP_UID_b35cce23 on GROUPS (
     GROUP_UID
 );
 

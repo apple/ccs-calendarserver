@@ -18,12 +18,6 @@
 -- Upgrade database schema from VERSION 43 to 44 --
 ---------------------------------------------------
 
------------------
--- Job Changes --
------------------
-
-drop function next_job;
-
 -- The scheduling work schema has changed a lot - to avoid a complex migration process this
 -- script just drops all the existing tables and adds back the new set
 

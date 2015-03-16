@@ -40,15 +40,18 @@ alter table NOTIFICATION_HOME
 
 -- Change columns
 alter table CALENDAR_BIND
-	drop column EXTERNAL_ID
+	drop column EXTERNAL_ID;
+alter table CALENDAR_BIND
 	add ("BIND_UID" nvarchar2(36) default null);
 
 alter table SHARED_ADDRESSBOOK_BIND
-	drop column EXTERNAL_ID
+	drop column EXTERNAL_ID;
+alter table SHARED_ADDRESSBOOK_BIND
 	add ("BIND_UID" nvarchar2(36) default null);
 
 alter table SHARED_GROUP_BIND
-	drop column EXTERNAL_ID
+	drop column EXTERNAL_ID;
+alter table SHARED_GROUP_BIND
 	add ("BIND_UID" nvarchar2(36) default null);
 
 

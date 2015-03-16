@@ -45,6 +45,8 @@ create index CALENDAR_OBJECT_SPLIT_af71dcda on CALENDAR_OBJECT_SPLITTER_WORK (
     RESOURCE_ID
 );
 
+alter index ADDRESSBOOK_OBJECT_RE_40cc2d73 rename to ADDRESSBOOK_OBJECT_RE_2bfcf757;
+
 -- Now update the version
 -- No data upgrades
 update CALENDARSERVER set VALUE = '24' where NAME = 'VERSION';

@@ -31,7 +31,6 @@ begin
         execute immediate 'alter table SCHEDULE_REPLY_WORK drop constraint '|| i.constraint_name;
     end loop;
 end;
-alter table SCHEDULE_REPLY_WORK modify ("RESOURCE_ID" null);
 
 -- Copy over items from existing table about to be dropped
 insert into SCHEDULE_REPLY_WORK

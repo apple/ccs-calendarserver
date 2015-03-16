@@ -851,18 +851,3 @@ create index PRINCIPAL_PURGE_HOME__967e4480 on PRINCIPAL_PURGE_HOME_WORK (
     HOME_RESOURCE_ID
 );
 
--- Skipped Function next_job
-
--- Extras
-
-create or replace function next_job return integer is
-declare
-  cursor c1 is select JOB_ID from JOB for update skip locked;
-  result integer;
-begin
-  open c1;
-  fetch c1 into result;
-  select JOB_ID from JOB where ID = result for update;
-  return result;
-end;
-/

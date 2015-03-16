@@ -23,8 +23,10 @@ from twext.enterprise.ienterprise import ORACLE_DIALECT, POSTGRES_DIALECT
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.modules import getModule
 from twisted.trial.unittest import TestCase
+from txdav.base.datastore.suboracle import cleanDatabase
 from txdav.common.datastore.sql_dump import dumpSchema
-from txdav.common.datastore.test.util import theStoreBuilder, StubNotifierFactory
+from txdav.common.datastore.test.util import StubNotifierFactory, SQLStoreBuilder, \
+    DB_TYPE, theStoreBuilder
 from txdav.common.datastore.upgrade.sql.upgrade import (
     UpgradeDatabaseSchemaStep, UpgradeDatabaseAddressBookDataStep, UpgradeDatabaseCalendarDataStep, NotAllowedToUpgrade)
 import re
@@ -33,6 +35,14 @@ class SchemaUpgradeTests(TestCase):
     """
     Tests for L{UpgradeDatabaseSchemaStep}.
     """
+
+    def __init__(self, methodName='runTest'):
+        super(SchemaUpgradeTests, self).__init__(methodName)
+        if DB_TYPE[0] == POSTGRES_DIALECT:
+            self.testStoreBuilder = theStoreBuilder
+        else:
+            self.testStoreBuilder = SQLStoreBuilder(dsnUser="test_dbUpgrades", noCleanup=True)
+
 
     @staticmethod
     def _getRawSchemaVersion(fp, versionKey):
@@ -121,7 +131,7 @@ class SchemaUpgradeTests(TestCase):
             upgrader = UpgradeDatabaseSchemaStep(None)
             files = upgrader.scanForUpgradeFiles(dialect)
 
-            current_version = self._getSchemaVersion(upgrader.schemaLocation.child("current.sql"), "VERSION")
+            current_version = self._getSchemaVersion(upgrader.schemaLocation.child(DB_TYPE[2]), "VERSION")
 
             for child in upgrader.schemaLocation.child("old").child(dialect).globChildren("*.sql"):
                 old_version = self._getSchemaVersion(child, "VERSION")
@@ -150,7 +160,7 @@ class SchemaUpgradeTests(TestCase):
         postgres.
         """
 
-        store = yield theStoreBuilder.buildStore(
+        store = yield self.testStoreBuilder.buildStore(
             self, {"push": StubNotifierFactory()}, enableJobProcessing=False
         )
 
@@ -161,15 +171,16 @@ class SchemaUpgradeTests(TestCase):
             in postgres that we can quickly wipe clean afterwards.
             """
             startTxn = store.newTransaction("test_dbUpgrades")
-            yield startTxn.execSQL("create schema test_dbUpgrades;")
-            yield startTxn.execSQL("set search_path to test_dbUpgrades;")
+            if startTxn.dialect == POSTGRES_DIALECT:
+                yield startTxn.execSQL("create schema test_dbUpgrades")
+                yield startTxn.execSQL("set search_path to test_dbUpgrades")
             yield startTxn.execSQLBlock(path.getContent())
             yield startTxn.commit()
 
         @inlineCallbacks
         def _loadVersion():
             startTxn = store.newTransaction("test_dbUpgrades")
-            new_version = yield startTxn.execSQL("select value from calendarserver where name = 'VERSION';")
+            new_version = yield startTxn.execSQL("select value from calendarserver where name = 'VERSION'")
             yield startTxn.commit()
             returnValue(int(new_version[0][0]))
 
@@ -183,21 +194,27 @@ class SchemaUpgradeTests(TestCase):
         @inlineCallbacks
         def _unloadOldSchema():
             startTxn = store.newTransaction("test_dbUpgrades")
-            yield startTxn.execSQL("set search_path to public;")
-            yield startTxn.execSQL("drop schema test_dbUpgrades cascade;")
+            if startTxn.dialect == POSTGRES_DIALECT:
+                yield startTxn.execSQL("set search_path to public")
+                yield startTxn.execSQL("drop schema test_dbUpgrades cascade")
+            elif startTxn.dialect == ORACLE_DIALECT:
+                yield cleanDatabase(startTxn)
             yield startTxn.commit()
 
         @inlineCallbacks
         def _cleanupOldSchema():
             startTxn = store.newTransaction("test_dbUpgrades")
-            yield startTxn.execSQL("set search_path to public;")
-            yield startTxn.execSQL("drop schema if exists test_dbUpgrades cascade;")
+            if startTxn.dialect == POSTGRES_DIALECT:
+                yield startTxn.execSQL("set search_path to public")
+                yield startTxn.execSQL("drop schema if exists test_dbUpgrades cascade")
+            elif startTxn.dialect == ORACLE_DIALECT:
+                yield cleanDatabase(startTxn)
             yield startTxn.commit()
 
         self.addCleanup(_cleanupOldSchema)
 
         test_upgrader = UpgradeDatabaseSchemaStep(None)
-        expected_version = self._getSchemaVersion(test_upgrader.schemaLocation.child("current.sql"), "VERSION")
+        expected_version = self._getSchemaVersion(test_upgrader.schemaLocation.child(DB_TYPE[2]), "VERSION")
 
         # Upgrade allowed
         upgrader = UpgradeDatabaseSchemaStep(store)
@@ -207,7 +224,7 @@ class SchemaUpgradeTests(TestCase):
 
         # Compare the upgraded schema with the expected current schema
         new_schema = yield _loadSchemaFromDatabase()
-        currentSchema = schemaFromPath(test_upgrader.schemaLocation.child("current.sql"))
+        currentSchema = schemaFromPath(test_upgrader.schemaLocation.child(DB_TYPE[2]))
         mismatched = currentSchema.compare(new_schema)
         # These are special case exceptions
         for i in (
@@ -256,7 +273,7 @@ class SchemaUpgradeTests(TestCase):
         store.
         """
 
-        store = yield theStoreBuilder.buildStore(
+        store = yield self.testStoreBuilder.buildStore(
             self, {"push": StubNotifierFactory()}, enableJobProcessing=False
         )
 
@@ -267,41 +284,48 @@ class SchemaUpgradeTests(TestCase):
             in postgres that we can quickly wipe clean afterwards.
             """
             startTxn = store.newTransaction("test_dbUpgrades")
-            yield startTxn.execSQL("create schema test_dbUpgrades;")
-            yield startTxn.execSQL("set search_path to test_dbUpgrades;")
+            if startTxn.dialect == POSTGRES_DIALECT:
+                yield startTxn.execSQL("create schema test_dbUpgrades")
+                yield startTxn.execSQL("set search_path to test_dbUpgrades")
             yield startTxn.execSQLBlock(path.getContent())
-            yield startTxn.execSQL("update CALENDARSERVER set VALUE = '%s' where NAME = '%s';" % (oldVersion, versionKey,))
+            yield startTxn.execSQL("update CALENDARSERVER set VALUE = '%s' where NAME = '%s'" % (oldVersion, versionKey,))
             yield startTxn.commit()
 
         @inlineCallbacks
         def _loadVersion():
             startTxn = store.newTransaction("test_dbUpgrades")
-            new_version = yield startTxn.execSQL("select value from calendarserver where name = '%s';" % (versionKey,))
+            new_version = yield startTxn.execSQL("select value from calendarserver where name = '%s'" % (versionKey,))
             yield startTxn.commit()
             returnValue(int(new_version[0][0]))
 
         @inlineCallbacks
         def _unloadOldData():
             startTxn = store.newTransaction("test_dbUpgrades")
-            yield startTxn.execSQL("set search_path to public;")
-            yield startTxn.execSQL("drop schema test_dbUpgrades cascade;")
+            if startTxn.dialect == POSTGRES_DIALECT:
+                yield startTxn.execSQL("set search_path to public")
+                yield startTxn.execSQL("drop schema test_dbUpgrades cascade")
+            elif startTxn.dialect == ORACLE_DIALECT:
+                yield cleanDatabase(startTxn)
             yield startTxn.commit()
 
         @inlineCallbacks
         def _cleanupOldData():
             startTxn = store.newTransaction("test_dbUpgrades")
-            yield startTxn.execSQL("set search_path to public;")
-            yield startTxn.execSQL("drop schema if exists test_dbUpgrades cascade;")
+            if startTxn.dialect == POSTGRES_DIALECT:
+                yield startTxn.execSQL("set search_path to public")
+                yield startTxn.execSQL("drop schema if exists test_dbUpgrades cascade")
+            elif startTxn.dialect == ORACLE_DIALECT:
+                yield cleanDatabase(startTxn)
             yield startTxn.commit()
 
         self.addCleanup(_cleanupOldData)
 
         test_upgrader = UpgradeDatabaseSchemaStep(None)
-        expected_version = self._getSchemaVersion(test_upgrader.schemaLocation.child("current.sql"), versionKey)
+        expected_version = self._getSchemaVersion(test_upgrader.schemaLocation.child(DB_TYPE[2]), versionKey)
 
         oldVersion = version
         upgrader = upgraderClass(store)
-        yield _loadOldData(test_upgrader.schemaLocation.child("current.sql"), oldVersion)
+        yield _loadOldData(test_upgrader.schemaLocation.child(DB_TYPE[2]), oldVersion)
         yield upgrader.databaseUpgrade()
         new_version = yield _loadVersion()
         yield _unloadOldData()
@@ -311,15 +335,17 @@ class SchemaUpgradeTests(TestCase):
 
 test_upgrader = UpgradeDatabaseSchemaStep(None)
 
+DIALECT = DB_TYPE[0]
+
 # Bind test methods for each schema version
-for child in test_upgrader.schemaLocation.child("old").child(POSTGRES_DIALECT).globChildren("*.sql"):
+for child in test_upgrader.schemaLocation.child("old").child(DIALECT).globChildren("*.sql"):
     def f(self, lchild=child):
         return self._dbSchemaUpgrades(lchild)
     setattr(SchemaUpgradeTests, "test_dbSchemaUpgrades_%s" % (child.basename().split(".", 1)[0],), f)
 
 # Bind test methods for each addressbook data version
 versions = set()
-for child in test_upgrader.schemaLocation.child("old").child(POSTGRES_DIALECT).globChildren("*.sql"):
+for child in test_upgrader.schemaLocation.child("old").child(DIALECT).globChildren("*.sql"):
     version = SchemaUpgradeTests._getRawSchemaVersion(child, "ADDRESSBOOK-DATAVERSION")
     versions.add(version if version else 1)
 for version in sorted(versions):
@@ -329,7 +355,7 @@ for version in sorted(versions):
 
 # Bind test methods for each calendar data version
 versions = set()
-for child in test_upgrader.schemaLocation.child("old").child(POSTGRES_DIALECT).globChildren("*.sql"):
+for child in test_upgrader.schemaLocation.child("old").child(DIALECT).globChildren("*.sql"):
     version = SchemaUpgradeTests._getRawSchemaVersion(child, "CALENDAR-DATAVERSION")
     versions.add(version if version else 1)
 for version in sorted(versions):

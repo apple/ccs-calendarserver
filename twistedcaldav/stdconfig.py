@@ -421,7 +421,7 @@ DEFAULT_CONFIG = {
         "LabelsInSQL"            : False,
         "Statistics"             : False,
         "StatisticsLogFile"      : "sqlstats.log",
-        "SQLStatements"          : False,
+        "SQLStatements"          : True,
         "TransactionWaitSeconds" : 0,
     },
 

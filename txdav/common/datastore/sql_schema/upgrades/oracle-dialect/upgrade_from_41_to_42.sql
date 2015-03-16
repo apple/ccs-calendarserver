@@ -23,11 +23,13 @@
 -----------------
 
 alter table JOB
-  modify ("NOT_BEFORE" timestamp not null)
+  modify ("NOT_BEFORE" timestamp not null);
+
+alter table JOB
   add ("FAILED" integer default 0);
 
 alter table JOB
-  rename column NOT_AFTER to ASSIGNED;
+  rename column "NOT_AFTER" to "ASSIGNED";
 
 -- update the version
 update CALENDARSERVER set VALUE = '42' where NAME = 'VERSION';

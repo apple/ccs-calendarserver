@@ -973,7 +973,8 @@ class CommonStoreTransaction(
         for regular SQL operations - only upgrades.
         """
         for stmt in splitSQLString(sql):
-            yield self.execSQL(stmt)
+            if not stmt.startswith("--"):
+                yield self.execSQL(stmt)
 
 
     def commit(self):

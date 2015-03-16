@@ -35,7 +35,8 @@ from random import Random, randint
 from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.enterprise.adbapi2 import ConnectionPool
-from twext.enterprise.ienterprise import AlreadyFinishedError
+from twext.enterprise.ienterprise import AlreadyFinishedError, POSTGRES_DIALECT, \
+    ORACLE_DIALECT
 from twext.enterprise.jobqueue import PeerConnectionPool, JobItem
 from twext.who.directory import DirectoryRecord
 
@@ -54,6 +55,7 @@ from twistedcaldav.vcard import Component as ABComponent
 
 from txdav.base.datastore.dbapiclient import DiagnosticConnectionWrapper
 from txdav.base.datastore.subpostgres import PostgresService
+from txdav.base.datastore.suboracle import OracleService
 from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.sql import CommonDataStore, current_sql_schema
@@ -70,6 +72,8 @@ from zope.interface.verify import verifyObject
 import gc
 
 
+DB_TYPE = (POSTGRES_DIALECT, "pyformat", "current.sql",)
+#DB_TYPE = (ORACLE_DIALECT, "numeric", "current-oracle-dialect.sql",)
 
 log = Logger()
 
@@ -105,7 +109,7 @@ class SQLStoreBuilder(object):
     """
     Test-fixture-builder which can construct a PostgresStore.
     """
-    def __init__(self, count=0):
+    def __init__(self, count=0, **options):
         self.sharedService = None
         self.currentTestID = None
         self.ampPort = config.WorkQueue.ampPort + count
@@ -114,26 +118,35 @@ class SQLStoreBuilder(object):
             os.getpid(), count
         )
 
+        self.options = options
+
 
     def createService(self, serviceFactory):
         """
         Create a L{PostgresService} to use for building a store.
         """
         dbRoot = FilePath(self.sharedDBPath)
-        return PostgresService(
-            dbRoot, serviceFactory, current_sql_schema, resetSchema=True,
-            databaseName="caldav",
-            options=[
-                "-c log_lock_waits=TRUE",
-                "-c log_statement=all",
-                "-c log_line_prefix='%p.%x '",
-                "-c fsync=FALSE",
-                "-c synchronous_commit=off",
-                "-c full_page_writes=FALSE",
-                "-c client-min-messages=warning",
-            ],
-            testMode=True
-        )
+        if DB_TYPE[0] == POSTGRES_DIALECT:
+            return PostgresService(
+                dbRoot, serviceFactory, current_sql_schema, resetSchema=True,
+                databaseName="caldav",
+                options=[
+                    "-c log_lock_waits=TRUE",
+                    "-c log_statement=all",
+                    "-c log_line_prefix='%p.%x '",
+                    "-c fsync=FALSE",
+                    "-c synchronous_commit=off",
+                    "-c full_page_writes=FALSE",
+                    "-c client-min-messages=warning",
+                ],
+                testMode=True
+            )
+        elif DB_TYPE[0] == ORACLE_DIALECT:
+            return OracleService(
+                dbRoot, serviceFactory,
+                testMode=True,
+                dsnUser=self.options.get("dsnUser"),
+            )
 
 
     def childStore(self):
@@ -146,7 +159,12 @@ class SQLStoreBuilder(object):
         attachmentRoot = (FilePath(self.sharedDBPath).child("attachments"))
         stubsvc = self.createService(lambda cf: Service())
 
-        cp = ConnectionPool(stubsvc.produceConnection, maxConnections=1)
+        cp = ConnectionPool(
+            stubsvc.produceConnection,
+            maxConnections=1,
+            dialect=DB_TYPE[0],
+            paramstyle=DB_TYPE[1],
+        )
         # Attach the service to the running reactor.
         cp.startService()
         reactor.addSystemEventTrigger("before", "shutdown", cp.stopService)
@@ -231,7 +249,10 @@ class SQLStoreBuilder(object):
 
         currentTestID = testCase.id()
         cp = ConnectionPool(
-            self.sharedService.produceConnection, maxConnections=4
+            self.sharedService.produceConnection,
+            maxConnections=4,
+            dialect=DB_TYPE[0],
+            paramstyle=DB_TYPE[1],
         )
         quota = deriveQuota(testCase)
         store = CommonDataStore(
@@ -250,12 +271,14 @@ class SQLStoreBuilder(object):
 
         @inlineCallbacks
         def stopIt():
-            txn = store.newTransaction()
-            jobs = yield JobItem.all(txn)
-            yield txn.commit()
 
             if enableJobProcessing:
+                txn = store.newTransaction()
+                jobs = yield JobItem.all(txn)
+                yield txn.commit()
                 yield pool.stopService()
+            else:
+                jobs = ()
 
             # active transactions should have been shut down.
             wasBusy = len(cp._busy)
@@ -293,6 +316,9 @@ class SQLStoreBuilder(object):
     @inlineCallbacks
     def cleanStore(self, testCase, storeToClean):
 
+        if "noCleanup" in self.options:
+            returnValue(None)
+
         cleanupTxn = storeToClean.sqlTxnFactory(
             "%s schema-cleanup" % (testCase.id(),)
         )
@@ -318,8 +344,13 @@ class SQLStoreBuilder(object):
         # Change the starting values of sequences to random values
         for sequence in schema.model.sequences: #@UndefinedVariable
             try:
-                curval = (yield cleanupTxn.execSQL("select nextval('{}')".format(sequence.name), []))[0][0]
-                yield cleanupTxn.execSQL("select setval('{}', {})".format(sequence.name, curval + randint(1, 10000)), [])
+                if cleanupTxn.dialect == POSTGRES_DIALECT:
+                    curval = (yield cleanupTxn.execSQL("select nextval('{}')".format(sequence.name), []))[0][0]
+                    yield cleanupTxn.execSQL("select setval('{}', {})".format(sequence.name, curval + randint(1, 10000)), [])
+                elif cleanupTxn.dialect == ORACLE_DIALECT:
+                    yield cleanupTxn.execSQL("alter sequence {} increment by {}".format(sequence.name, randint(1, 10000)), [])
+                    yield cleanupTxn.execSQL("select {}.nextval from dual".format(sequence.name), [])
+                    yield cleanupTxn.execSQL("alter sequence {} increment by {}".format(sequence.name, 1), [])
             except:
                 log.failure("setval sequence '{}' failed", sequence=sequence.name)
         yield cleanupTxn.execSQL("update CALENDARSERVER set VALUE = '1' where NAME = 'MIN-VALID-REVISION'", [])

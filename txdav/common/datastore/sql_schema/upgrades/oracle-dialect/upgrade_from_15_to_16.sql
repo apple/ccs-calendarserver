@@ -30,6 +30,10 @@ create table IMIP_TOKENS (
     primary key("ORGANIZER", "ATTENDEE", "ICALUID")
 );
 
+create index IMIP_TOKENS_TOKEN_e94b918f on IMIP_TOKENS (
+    TOKEN
+);
+
 create table IMIP_INVITATION_WORK (
     "WORK_ID" integer primary key not null,
     "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',

@@ -231,6 +231,9 @@ delete
 	 		)
   	);
 
+drop index ADDRESSBOOK_OBJECT_RE_f460d62d;
+drop index ADDRESSBOOK_OBJECT_RE_9a848f39;
+drop index ADDRESSBOOK_OBJECT_RE_cb101e6b;
 alter table ADDRESSBOOK_OBJECT_REVISIONS
 	drop ("ADDRESSBOOK_RESOURCE_ID");
 

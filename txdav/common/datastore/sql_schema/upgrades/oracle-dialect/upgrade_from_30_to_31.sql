@@ -22,6 +22,8 @@
 -- Change Address Book Object Members --
 ----------------------------------------
 
+alter table ABO_MEMBERS
+	 drop primary key;
 begin
     for i in (select constraint_name
               from   user_cons_columns

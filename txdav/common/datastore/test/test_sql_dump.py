@@ -14,37 +14,51 @@
 # limitations under the License.
 ##
 
-from txdav.common.datastore.sql_dump import dumpSchema
-from twext.enterprise.dal.parseschema import schemaFromString
 
 """
 Tests for L{txdav.common.datastore.upgrade.sql.upgrade}.
 """
 
+from twext.enterprise.dal.parseschema import schemaFromString
+from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
-from txdav.common.datastore.test.util import theStoreBuilder, \
-    StubNotifierFactory
+from txdav.base.datastore.suboracle import cleanDatabase
+from txdav.common.datastore.sql_dump import dumpSchema
+from txdav.common.datastore.test.util import StubNotifierFactory, SQLStoreBuilder,\
+    DB_TYPE, theStoreBuilder
 
 class SQLDump(TestCase):
     """
     Tests for L{sql_dump}.
     """
 
+    def __init__(self, methodName='runTest'):
+        super(SQLDump, self).__init__(methodName)
+        if DB_TYPE[0] == POSTGRES_DIALECT:
+            self.testStoreBuilder = theStoreBuilder
+        else:
+            self.testStoreBuilder = SQLStoreBuilder(dsnUser="test_dbUpgrades", noCleanup=True)
+
+
     @inlineCallbacks
     def setUp(self):
         TestCase.setUp(self)
 
-        self.store = yield theStoreBuilder.buildStore(
+        self.store = yield self.testStoreBuilder.buildStore(
             self, {"push": StubNotifierFactory()}, enableJobProcessing=False
         )
 
 
     @inlineCallbacks
     def cleanUp(self):
-        startTxn = self.store.newTransaction("test_sql_dump")
-        yield startTxn.execSQL("set search_path to public;")
-        yield startTxn.execSQL("drop schema test_sql_dump cascade;")
+        startTxn = self.store.newTransaction("test_dbUpgrades")
+        if startTxn.dialect == POSTGRES_DIALECT:
+            yield startTxn.execSQL("set search_path to public")
+            yield startTxn.execSQL("drop schema test_dbUpgrades cascade")
+        else:
+            yield cleanDatabase(startTxn)
+
         yield startTxn.commit()
 
 
@@ -54,10 +68,11 @@ class SQLDump(TestCase):
         Use the postgres schema mechanism to do tests under a separate "namespace"
         in postgres that we can quickly wipe clean afterwards.
         """
-        startTxn = self.store.newTransaction("test_sql_dump")
-        yield startTxn.execSQL("create schema test_sql_dump;")
-        yield startTxn.execSQL("set search_path to test_sql_dump;")
-        yield startTxn.execSQL(schema)
+        startTxn = self.store.newTransaction("test_dbUpgrades")
+        if startTxn.dialect == POSTGRES_DIALECT:
+            yield startTxn.execSQL("create schema test_dbUpgrades")
+            yield startTxn.execSQL("set search_path to test_dbUpgrades")
+        yield startTxn.execSQLBlock(schema)
         yield startTxn.commit()
 
         self.addCleanup(self.cleanUp)
@@ -70,7 +85,7 @@ class SQLDump(TestCase):
         yield self._loadSchema(schema)
 
         txn = self.store.newTransaction("loadData")
-        dumped = yield dumpSchema(txn, "test", schemaname="test_sql_dump")
+        dumped = yield dumpSchema(txn, "test", schemaname="test_dbUpgrades")
         yield txn.commit()
 
         parsed = schemaFromString(schema)
@@ -215,6 +230,133 @@ CREATE TABLE FOO (
 
     unique (ID1, ID2)
 );
+"""
+
+        yield self._schemaCheck(schema, schema_bad)
+
+
+    @inlineCallbacks
+    def test_timestamp_table(self):
+
+        schema = """
+CREATE TABLE FOO (
+    ID1 integer primary key,
+    ID2 timestamp default timezone('UTC', CURRENT_TIMESTAMP)
+);
+""" if DB_TYPE[0] == POSTGRES_DIALECT else """
+CREATE TABLE FOO (
+    ID1 integer primary key,
+    ID2 timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
+);
+"""
+
+        schema_bad = """
+CREATE TABLE FOO (
+    ID1 integer primary key default 0,
+    ID2 timestamp
+);
+"""
+
+        yield self._schemaCheck(schema, schema_bad)
+
+
+    @inlineCallbacks
+    def test_references_table(self):
+
+        schema = """
+CREATE TABLE FOO (
+    ID1 integer primary key,
+    ID2 text default null
+);
+CREATE TABLE BAR (
+    ID1 integer references FOO on delete cascade,
+    ID2 integer
+);
+CREATE TABLE BAZ (
+    ID1 integer references FOO,
+    ID2 integer
+);
+""" if DB_TYPE[0] == POSTGRES_DIALECT else """
+CREATE TABLE FOO (
+    ID1 integer primary key,
+    ID2 nclob default null
+);
+CREATE TABLE BAR (
+    ID1 integer references FOO on delete cascade,
+    ID2 integer
+);
+CREATE TABLE BAZ (
+    ID1 integer references FOO,
+    ID2 integer
+);
+"""
+        schema_bad = """
+CREATE TABLE FOO (
+    ID1 integer primary key default 0,
+    ID2 timestamp
+);
+CREATE TABLE BAR (
+    ID1 integer references FOO,
+    ID2 integer
+);
+CREATE TABLE BAZ (
+    ID1 integer references FOO on delete cascade,
+    ID2 integer
+);
+"""
+
+        yield self._schemaCheck(schema, schema_bad)
+
+
+    @inlineCallbacks
+    def test_index_table(self):
+
+        schema = """
+CREATE TABLE FOO (
+    ID1 integer not null,
+    ID2 integer not null,
+
+    primary key (ID1)
+);
+
+create index FOOINDEX on FOO (ID1, ID2);
+"""
+
+        schema_bad = """
+CREATE TABLE FOO (
+    ID1 integer,
+    ID2 integer,
+
+    primary key (ID1)
+);
+create index FOOINDEX on FOO (ID2, ID1);
+"""
+
+        yield self._schemaCheck(schema, schema_bad)
+
+
+    @inlineCallbacks
+    def test_unique_index_table(self):
+
+        schema = """
+CREATE TABLE FOO (
+    ID1 integer not null,
+    ID2 integer not null,
+
+    primary key (ID1)
+);
+
+create unique index FOOINDEX on FOO(ID1, ID2);
+"""
+
+        schema_bad = """
+CREATE TABLE FOO (
+    ID1 integer,
+    ID2 integer,
+
+    primary key (ID1)
+);
+create index FOOINDEX on FOO(ID1, ID2);
 """
 
         yield self._schemaCheck(schema, schema_bad)
