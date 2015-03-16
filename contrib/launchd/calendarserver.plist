@@ -41,7 +41,7 @@ limitations under the License.
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
-    <string>/Applications/Server.app/Contents/ServerRoot/usr/bin:/Applications/Server.app/Contents/ServerRoot/usr/sbin:/usr/bin:/usr/sbin:/bin:/sbin</string>
+    <string>/Applications/Server.app/Contents/ServerRoot/Library/CalendarServer/bin:/Applications/Server.app/Contents/ServerRoot/usr/bin:/Applications/Server.app/Contents/ServerRoot/usr/sbin:/usr/bin:/usr/sbin:/bin:/sbin</string>
   </dict>
 
   <key>InitGroups</key>
