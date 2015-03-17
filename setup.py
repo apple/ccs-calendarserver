@@ -74,10 +74,10 @@ def svn_info(wc_path):
     url = entry.find("url")
     root = entry.find("repository").find("root")
     if url.text.startswith(root.text):
-        location = url.text[len(root.text):].strip("/")
+        location = url.text[len(root.text):]
     else:
-        location = url.text.strip("/")
-    project, branch = location.split("/")
+        location = url.text
+    project, branch = location.strip("/").split("/")
 
     return dict(
         root=root.text,
