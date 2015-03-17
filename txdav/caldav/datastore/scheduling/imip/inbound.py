@@ -76,7 +76,10 @@ class IMIPReplyWork(WorkItem, fromTable(schema.IMIP_REPLY_WORK)):
     @inlineCallbacks
     def doWork(self):
         calendar = Component.fromString(self.icalendarText)
-        yield injectMessage(self.transaction, self.organizer, self.attendee, calendar)
+        try:
+            yield injectMessage(self.transaction, self.organizer, self.attendee, calendar)
+        except:
+            log.error("Unable to process reply")
 
 
 
@@ -379,6 +382,14 @@ class MailReceiver(object):
         calendar = Component.fromString(calBody)
         event = calendar.mainComponent()
 
+        # Don't let a missing PRODID prevent the reply from being processed
+        if not calendar.hasProperty("PRODID"):
+            calendar.addProperty(
+                Property(
+                    "PRODID", "Unknown"
+                )
+            )
+
         calendar.removeAllButOneAttendee(record.attendee)
         organizerProperty = calendar.getOrganizerProperty()
         if organizerProperty is None:
@@ -453,14 +464,14 @@ class MailReceiver(object):
                     return succeed(self.INCOMPLETE_DSN)
 
             log.info(
-                "Mail gateway received message %s from %s to %s" %
-                (msg['Message-ID'], msg['From'], msg['To']))
+                "Mail gateway received message {msgid} from {fromAddr} to {toAddr}",
+                msgid=msg['Message-ID'], fromAddr=msg['From'], toAddr=msg['To'])
 
             return self.processReply(msg)
 
         except Exception, e:
             # Don't let a failure of any kind stop us
-            log.error("Failed to process message: %s" % (e,))
+            log.error("Failed to process message: {error}", error=str(e))
         return succeed(self.UNKNOWN_FAILURE)
 
 
@@ -471,9 +482,9 @@ def injectMessage(txn, organizer, attendee, calendar):
     try:
         scheduler = IMIPScheduler(txn, None)
         results = (yield scheduler.doSchedulingDirectly("iMIP", attendee, [organizer, ], calendar,))
-        log.info("Successfully injected iMIP response from %s to %s" % (attendee, organizer))
+        log.info("Successfully injected iMIP response from {attendee} to {organizer}", attendee=attendee, organizer=organizer)
     except Exception, e:
-        log.error("Failed to inject iMIP response (%s)" % (e,))
+        log.error("Failed to inject iMIP response ({error})", error=str(e))
         raise
 
     returnValue(results)
