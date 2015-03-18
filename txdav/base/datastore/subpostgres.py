@@ -182,6 +182,7 @@ class PostgresService(MultiService):
         logFile="postgres.log",
         logDirectory="",
         socketDir="",
+        socketName="",
         listenAddresses=[], sharedBuffers=30,
         maxConnections=20, options=[],
         testMode=False,
@@ -243,6 +244,7 @@ class PostgresService(MultiService):
             digest = md5(dataStoreDirectory.path).hexdigest()
             socketDir = "/tmp/ccs_postgres_" + digest
         self.socketDir = CachingFilePath(socketDir)
+        self.socketName = socketName
 
         if listenAddresses:
             if ":" in listenAddresses[0]:
@@ -356,8 +358,9 @@ class PostgresService(MultiService):
 
             if socketFP.isdir():
                 # We have been given the directory, not the actual socket file
+                nameFormat = self.socketName if self.socketName else ".s.PGSQL.{}"
                 socketFP = socketFP.child(
-                    ".s.PGSQL.{}".format(self.port if self.port else 5432)
+                    nameFormat.format(self.port if self.port else 5432)
                 )
 
             if not socketFP.isSocket():

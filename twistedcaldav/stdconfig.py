@@ -975,6 +975,7 @@ DEFAULT_CONFIG = {
         "LogFile": "postgres.log",
         "LogRotation": False,
         "SocketDirectory": "",
+        "SocketName": "",
         "ListenAddresses": [],
         "SharedBuffers": 0, # BuffersToConnectionsRatio * MaxConnections
                             # Note: don't set this, it will be computed dynamically

@@ -118,6 +118,8 @@
         <string>xpg_ctl.log</string>
         <key>SocketDirectory</key>
         <string>/var/run/caldavd/PostgresSocket</string>
+        <key>SocketName</key>
+        <string>.s.PGSQL.launchd_managed.{}</string>
         <key>LogRotation</key>
         <true/>
     </dict>
