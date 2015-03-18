@@ -303,7 +303,10 @@ def countFromSQLQuery(query):
         "--command={}".format(query),
     )
     lines = stdout.split("\n")
-    count = int(lines[2])
+    try:
+        count = int(lines[2])
+    except IndexError:
+        count = 0
     return count
 
 
