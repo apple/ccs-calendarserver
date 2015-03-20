@@ -143,16 +143,6 @@ def version():
         .format(info["project"], project_name)
     )
 
-    status = svn_status(source_root)
-
-    for entry in status:
-        # We have modifications.
-        modified = "+modified"
-        break
-    else:
-        modified = ""
-
-
     if info["branch"].startswith("tags/release/"):
         project_version = info["branch"][len("tags/release/"):]
         project, version = project_version.split("-")
@@ -163,7 +153,7 @@ def version():
             "Tagged version {!r} != {!r}".format(version, base_version)
         )
         # This is a correctly tagged release of this project.
-        return "{}{}".format(base_version, modified)
+        return base_version
 
     if info["branch"].startswith("branches/release/"):
         project_version = info["branch"][len("branches/release/"):]
@@ -179,19 +169,18 @@ def version():
         )
         # This is a release branch of this project.
         # Designate this as beta2, dev version based on svn revision.
-        return "{}.b2.dev{}{}".format(base_version, info["revision"], modified)
+        return "{}.b2.dev{}".format(base_version, info["revision"])
 
     if info["branch"].startswith("trunk"):
         # This is trunk.
         # Designate this as beta1, dev version based on svn revision.
-        return "{}.b1.dev{}{}".format(base_version, info["revision"], modified)
+        return "{}.b1.dev{}".format(base_version, info["revision"])
 
     # This is some unknown branch or tag...
-    return "{}.a1.dev{}+{}{}".format(
+    return "{}.a1.dev{}+{}".format(
         base_version,
         info["revision"],
         info["branch"].replace("/", "."),
-        modified.replace("+", "."),
     )
 
 
