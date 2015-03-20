@@ -190,9 +190,13 @@ END:VCALENDAR
 
     @inlineCallbacks
     def test_processReply(self):
-        msg = email.message_from_string(self.dataFile('good_reply'))
+        # Make sure an unknown token in an older email is deleted
+        msg = email.message_from_string(self.dataFile('good_reply_past'))
+        result = (yield self.receiver.processReply(msg))
+        self.assertEquals(result, MailReceiver.UNKNOWN_TOKEN_OLD)
 
         # Make sure an unknown token is not processed
+        msg = email.message_from_string(self.dataFile('good_reply_future'))
         result = (yield self.receiver.processReply(msg))
         self.assertEquals(result, MailReceiver.UNKNOWN_TOKEN)
 

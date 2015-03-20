@@ -38,6 +38,8 @@ from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
 from txdav.common.datastore.sql_tables import schema
 
 import datetime
+import dateutil.parser
+import dateutil.tz
 import email.utils
 
 
@@ -191,12 +193,13 @@ class MailReceiver(object):
 
     NO_TOKEN = 0
     UNKNOWN_TOKEN = 1
-    MALFORMED_TO_ADDRESS = 2
-    NO_ORGANIZER_ADDRESS = 3
-    REPLY_FORWARDED_TO_ORGANIZER = 4
-    INJECTION_SUBMITTED = 5
-    INCOMPLETE_DSN = 6
-    UNKNOWN_FAILURE = 7
+    UNKNOWN_TOKEN_OLD = 2
+    MALFORMED_TO_ADDRESS = 3
+    NO_ORGANIZER_ADDRESS = 4
+    REPLY_FORWARDED_TO_ORGANIZER = 5
+    INJECTION_SUBMITTED = 6
+    INCOMPLETE_DSN = 7
+    UNKNOWN_FAILURE = 8
 
     def __init__(self, store, directory):
         self.store = store
@@ -326,10 +329,26 @@ class MailReceiver(object):
             record = records[0]
         except:
             # This isn't a token we recognize
-            log.error(
+            log.info(
                 "Mail gateway found a token (%s) but didn't "
                 "recognize it in message %s"
                 % (token, msg['Message-ID']))
+            # Any email with an unknown token which was sent over 72 hours ago
+            # is deleted.  If we can't parse the date we leave it in the inbox.
+            dateString = msg.get("Date")
+            if dateString is not None:
+                try:
+                    dateSent = dateutil.parser.parse(dateString)
+                except Exception, e:
+                    log.info(
+                        "Could not parse date in IMIP email '{}' ({})".format(
+                            dateString, e
+                        )
+                    )
+                    returnValue(self.UNKNOWN_TOKEN)
+                now = datetime.datetime.now(dateutil.tz.tzutc())
+                if dateSent < now - datetime.timedelta(hours=72):
+                    returnValue(self.UNKNOWN_TOKEN_OLD)
             returnValue(self.UNKNOWN_TOKEN)
 
         for part in msg.walk():
@@ -437,6 +456,7 @@ class MailReceiver(object):
 
         NO_TOKEN - there was no token in the To address
         UNKNOWN_TOKEN - there was an unknown token in the To address
+        UNKNOWN_TOKEN_OLD - there was an unknown token and it's an old email
         MALFORMED_TO_ADDRESS - we could not parse the To address at all
         NO_ORGANIZER_ADDRESS - no ics attachment and no email to forward to
         REPLY_FORWARDED_TO_ORGANIZER - no ics attachment, but reply forwarded
@@ -662,9 +682,8 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
                 self.cbGotMessage, messageListToFetch).addErrback(
                     self.ebLogError)
         else:
-            self.log.debug("Seeing if anything new has arrived")
-            # Go back and see if any more messages have come in
-            self.expunge().addCallback(self.cbInboxSelected)
+            # We're done for this polling interval
+            self.expunge()
 
 
     @inlineCallbacks
@@ -684,11 +703,28 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
             # Delete all mail we see
             yield self.cbFlagDeleted(messageList)
         else:
-            # Delete only mail we've processed; the rest are left flagged Seen
+            # Delete only mail we've processed; the rest are left flagged \Seen
             if actionTaken == MailReceiver.INJECTION_SUBMITTED:
+                yield self.cbFlagDeleted(messageList)
+            elif actionTaken == MailReceiver.UNKNOWN_TOKEN:
+                # It's not a token we recognize (probably meant for another pod)
+                # so remove the \Seen flag
+                yield self.cbFlagUnseen(messageList)
+            elif actionTaken == MailReceiver.UNKNOWN_TOKEN_OLD:
+                # It's not a token we recognize, but it's old, so delete it
                 yield self.cbFlagDeleted(messageList)
             else:
                 self.fetchNextMessage()
+
+    def cbFlagUnseen(self, messageList):
+        self.removeFlags(
+            messageList, ("\\Seen",), uid=True
+        ).addCallback(self.cbMessageUnseen, messageList)
+
+
+    def cbMessageUnseen(self, results, messageList):
+        self.log.debug("Removed \\Seen flag from message")
+        self.fetchNextMessage()
 
 
     def cbFlagDeleted(self, messageList):
