@@ -96,7 +96,7 @@ usage ()
     echo "        -p Path to the desired pstats file.";
     echo "        -R The Twisted Reactor to run [${reactor}]";
 
-    if [ "${1-}" == "-" ]; then return 0; fi;
+    if [ "${1-}" = "-" ]; then return 0; fi;
     exit 64;
 }
 

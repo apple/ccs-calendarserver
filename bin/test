@@ -47,7 +47,7 @@ until_fail="";
    numjobs="";
    reactor="";
 
-if [ "$(uname -s)" == "Darwin" ]; then
+if [ "$(uname -s)" = "Darwin" ]; then
   reactor="--reactor=kqueue";
 fi;
 
@@ -67,7 +67,7 @@ usage ()
   echo "        -c         Generate coverage reports.";
   echo "        -L         Show logging output in a separate view.";
 
-  if [ "${1-}" == "-" ]; then return 0; fi;
+  if [ "${1-}" = "-" ]; then return 0; fi;
   exit 64;
 }
 

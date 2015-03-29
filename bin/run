@@ -77,7 +77,7 @@ usage () {
   echo "  -P  Select the twistd plugin name [${plugin_name}]";
   echo "  -R  Twisted Reactor plugin to execute [${reactor}]";
 
-  if [ "${1-}" == "-" ]; then
+  if [ "${1-}" = "-" ]; then
     return 0;
   fi;
   exit 64;
@@ -153,7 +153,7 @@ run () {
       mkdir "${wd}/data";
     fi;
 
-    #if [ "$(uname -s)" == "Darwin" ] && [ "$(uname -r | cut -d . -f 1)" -ge 9 ]; then
+    #if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -r | cut -d . -f 1)" -ge 9 ]; then
     #  caldavd_wrapper_command="launchctl /";
     #else
       caldavd_wrapper_command="";

@@ -57,7 +57,7 @@ usage ()
   echo "        -z  Use SSL.";
   echo "        -D  Turn on CalDAVTester debugging";
 
-  if [ "${1-}" == "-" ]; then return 0; fi;
+  if [ "${1-}" = "-" ]; then return 0; fi;
   exit 64;
 }
 
@@ -79,7 +79,7 @@ done;
 
 shift $((${OPTIND} - 1));
 
-if [ $# == 0 ]; then
+if [ $# = 0 ]; then
   set - "--all";
 fi;
 

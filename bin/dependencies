@@ -56,7 +56,7 @@ usage ()
   echo "    -n Output a nested list (default)";
   echo "    -l Output a simple list";
 
-  if [ "${1-}" == "-" ]; then return 0; fi;
+  if [ "${1-}" = "-" ]; then return 0; fi;
   exit 64;
 }
 
