@@ -25,7 +25,7 @@ errorlogenabled="";
 username="";
 groupname="";
 configfile="";
-twistdpath="$(type -p twistd)";
+twistdpath="$(command -v twistd)";
 plugin_name="caldav";
 service_type="";
 profile="";
@@ -47,7 +47,7 @@ try_python ()
 
   if ! type "${python}" > /dev/null 2>&1; then return 1; fi;
   local py_version="$(py_version "${python}")";
-  if [ "${py_version/./}" -lt "24" ]; then return 1; fi;
+  if [ $(echo ${py_version} | tr -d .) -lt "24" ]; then return 1; fi;
 
   return 0;
 }

@@ -523,7 +523,7 @@ c_dependencies () {
 
 
   ruler;
-  if type -P memcached > /dev/null; then
+  if command -v memcached > /dev/null; then
     using_system "memcached";
   else
     local v="2.0.21-stable";
@@ -545,14 +545,14 @@ c_dependencies () {
 
 
   ruler;
-  if type -P postgres > /dev/null; then
+  if command -v postgres > /dev/null; then
     using_system "Postgres";
   else
     local v="9.3.1";
     local n="postgresql";
     local p="${n}-${v}";
 
-    if type -P dtrace > /dev/null; then
+    if command -v dtrace > /dev/null; then
       local enable_dtrace="--enable-dtrace";
     else
       local enable_dtrace="";
