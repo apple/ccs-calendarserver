@@ -1218,12 +1218,14 @@ END:VCALENDAR
         home = yield self.transactionUnderTest().calendarHomeWithUID("home_defaults")
         self.assertEqual(home._default_events, default_events._resourceID)
         self.assertEqual(home._default_tasks, default_tasks._resourceID)
-        yield home.removeCalendarWithName("calendar_1-vtodo", bypassTrash=True)
+        yield home.removeCalendarWithName("calendar_1-vtodo", bypassTrash=False)
         yield self.commit()
 
         home = yield self.transactionUnderTest().calendarHomeWithUID("home_defaults")
-        self.assertEqual(home._default_events, default_events._resourceID)
-        self.assertEqual(home._default_tasks, None)
+        default_events = yield home.defaultCalendar("VEVENT", create=False)
+        self.assertTrue(default_events is not None)
+        default_tasks = yield home.defaultCalendar("VTODO", create=False)
+        self.assertTrue(default_tasks is None)
 
         default_tasks2 = yield home.defaultCalendar("VTODO")
         self.assertTrue(default_tasks2 is not None)
@@ -1290,19 +1292,19 @@ END:VCALENDAR
         calendar1 = yield home.calendarWithName("calendar_1")
         default_events = yield home.defaultCalendar("VEVENT")
         self.assertTrue(default_events is not None)
-        self.assertEqual(home._default_events, calendar1._resourceID)
+        self.assertEqual(default_events._resourceID, calendar1._resourceID)
         yield self.commit()
 
         home = yield self.homeUnderTest(name="home_defaults")
         calendar1 = yield home.calendarWithName("calendar_1")
-        yield calendar1.remove(bypassTrash=True)
+        yield calendar1.remove(bypassTrash=False)
         yield self.commit()
 
         home = yield self.homeUnderTest(name="home_defaults")
-        self.assertEqual(home._default_events, None)
-        self.assertEqual(home._default_tasks, None)
-        calendars = yield home.listCalendars()
-        self.assertEqual(calendars, ["inbox", ])
+        default_events = yield home.defaultCalendar("VEVENT", create=False)
+        self.assertEqual(default_events, None)
+        default_tasks = yield home.defaultCalendar("VTODO", create=False)
+        self.assertEqual(default_tasks, None)
         yield self.commit()
 
         home = yield self.homeUnderTest(name="home_defaults")
@@ -1314,8 +1316,37 @@ END:VCALENDAR
         calendar1 = yield home.calendarWithName(default_events.name())
         default_events = yield home.defaultCalendar("VEVENT")
         self.assertTrue(default_events is not None)
-        self.assertEqual(home._default_events, calendar1._resourceID)
+        self.assertEqual(default_events._resourceID, calendar1._resourceID)
         yield self.commit()
+
+
+    @inlineCallbacks
+    def test_defaultCalendar_delete_and_recover(self):
+        """
+        Make sure a default_events calendar is re-assigned after recovering from trash
+        """
+
+        if config.EnableTrashCollection:
+            home = yield self.homeUnderTest(name="home_defaults")
+            calendar1 = yield home.calendarWithName("calendar_1")
+            default_events = yield home.defaultCalendar("VEVENT")
+            self.assertEqual(default_events._resourceID, calendar1._resourceID)
+            yield self.commit()
+
+            home = yield self.homeUnderTest(name="home_defaults")
+            calendar1 = yield home.calendarWithName("calendar_1")
+            yield calendar1.remove(bypassTrash=False)
+            default_events = yield home.defaultCalendar("VEVENT", create=False)
+            self.assertTrue(default_events is None)
+            yield self.commit()
+
+            home = yield self.homeUnderTest(name="home_defaults")
+            trashChildren = yield home.children(onlyInTrash=True)
+            calendar1 = trashChildren[0]
+            yield calendar1.fromTrash()
+            default_events = yield home.defaultCalendar("VEVENT")
+            self.assertEqual(default_events._resourceID, calendar1._resourceID)
+            yield self.commit()
 
 
     @inlineCallbacks

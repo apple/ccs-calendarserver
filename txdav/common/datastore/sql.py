@@ -3518,10 +3518,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         )
         newName = "{}-{}".format(self._name[:36], str(uuid4()))
         yield self.rename(newName)
-        # yield self.notifyPropertyChanged()
-        # yield self.invalidateQueryCache()
         yield self._deletedSyncToken()
-        # yield self._home.notifyChanged()
 
         # Update _children cache to reflect moving to trash
         try:
