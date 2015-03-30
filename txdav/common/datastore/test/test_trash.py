@@ -1893,6 +1893,74 @@ END:VCALENDAR
         yield txn.commit()
 
 
+    @inlineCallbacks
+    def test_trashDuplicateUID(self):
+        """
+        Verify a duplicate uid is purged from the trash when a matching event
+        is added to a collection
+        """
+
+        from twistedcaldav.stdconfig import config
+        self.patch(config, "EnableTrashCollection", True)
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:5CE3B280-DBC9-4E8E-B0B2-996754020E5F
+DTSTART;TZID=America/Los_Angeles:20141108T093000
+DTEND;TZID=America/Los_Angeles:20141108T103000
+CREATED:20141106T192546Z
+DTSTAMP:20141106T192546Z
+RRULE:FREQ=DAILY
+SEQUENCE:0
+SUMMARY:repeating event
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:5CE3B280-DBC9-4E8E-B0B2-996754020E5F
+RECURRENCE-ID;TZID=America/Los_Angeles:20141111T093000
+DTSTART;TZID=America/Los_Angeles:20141111T110000
+DTEND;TZID=America/Los_Angeles:20141111T120000
+CREATED:20141106T192546Z
+DTSTAMP:20141106T192546Z
+SEQUENCE:0
+SUMMARY:repeating event
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+"""
+
+        txn = self.store.newTransaction()
+        home = yield txn.calendarHomeWithUID("user01", create=True)
+        collection = yield home.childWithName("calendar")
+        # trash = yield home.getTrash(create=True)
+        resource = yield collection.createObjectResourceWithName(
+            "test.ics",
+            Component.allFromString(data1)
+        )
+        yield resource.toTrash()
+        yield txn.commit()
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        txn = self.store.newTransaction()
+        home = yield txn.calendarHomeWithUID("user01", create=False)
+        collection = yield home.childWithName("calendar")
+        resource = yield collection.createObjectResourceWithName(
+            "duplicate.ics",
+            Component.allFromString(data1)
+        )
+        yield txn.commit()
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        # Verify the one in the trash has been deleted
+        txn = self.store.newTransaction()
+        home = yield txn.calendarHomeWithUID("user01")
+        trash = yield home.getTrash(create=True)
+        resourceNames = yield self._getResourceNames(txn, "user01", trash.name())
+        self.assertEqual(len(resourceNames), 0)
+        yield txn.commit()
+
 
     @inlineCallbacks
     def test_tool_emptyTrashForPrincipal(self):

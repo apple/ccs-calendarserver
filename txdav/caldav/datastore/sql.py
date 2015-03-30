@@ -590,6 +590,10 @@ class CalendarHome(CommonHome):
         # objectResourcesWithUID.)
         objectResources = (yield self.getCalendarResourcesForUID(uid))
         for objectResource in objectResources:
+            # The matching calendar resource is in the trash, so delete it
+            if (yield objectResource.isInTrash()):
+                yield objectResource.remove(bypassTrash=True)
+                continue
             if ok_object and objectResource._resourceID == ok_object._resourceID:
                 continue
             matched_mode = ("schedule" if objectResource.isScheduleObject else "calendar")
