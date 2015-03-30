@@ -132,7 +132,7 @@ class CommonHomeExternal(CommonHome):
         returnValue(child)
 
 
-    def removeChildWithName(self, name):
+    def removeChildWithName(self, name, bypassTrash=False):
         """
         No children.
         """
@@ -147,7 +147,7 @@ class CommonHomeExternal(CommonHome):
         """
         if child._bindUID is None:
             raise AssertionError("CommonHomeExternal: not supported")
-        yield super(CommonHomeExternal, self).removeChildWithName(child.name())
+        yield super(CommonHomeExternal, self).removeChildWithName(child.name(), bypassTrash=True)
 
 
     def syncToken(self):
@@ -294,13 +294,13 @@ class CommonHomeChildExternal(CommonHomeChild):
 
 
     @inlineCallbacks
-    def remove(self):
+    def remove(self, bypassTrash=True):
         """
         External shares are never removed directly - instead they must be "uninvited". However,
         the owner's external calendar can be removed.
         """
         if self.owned():
-            yield super(CommonHomeChildExternal, self).remove()
+            yield super(CommonHomeChildExternal, self).remove(bypassTrash=bypassTrash)
         else:
             raise AssertionError("CommonHomeChildExternal: not supported")
 

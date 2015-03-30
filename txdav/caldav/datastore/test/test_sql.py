@@ -827,7 +827,7 @@ END:VCALENDAR
 
         # Remove calendar and check for no properties
         home = yield self.homeUnderTest()
-        yield home.removeCalendarWithName(name)
+        yield home.removeCalendarWithName(name, bypassTrash=True)
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
         self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()
@@ -1218,7 +1218,7 @@ END:VCALENDAR
         home = yield self.transactionUnderTest().calendarHomeWithUID("home_defaults")
         self.assertEqual(home._default_events, default_events._resourceID)
         self.assertEqual(home._default_tasks, default_tasks._resourceID)
-        yield home.removeCalendarWithName("calendar_1-vtodo")
+        yield home.removeCalendarWithName("calendar_1-vtodo", bypassTrash=True)
         yield self.commit()
 
         home = yield self.transactionUnderTest().calendarHomeWithUID("home_defaults")
@@ -1295,7 +1295,7 @@ END:VCALENDAR
 
         home = yield self.homeUnderTest(name="home_defaults")
         calendar1 = yield home.calendarWithName("calendar_1")
-        yield calendar1.remove()
+        yield calendar1.remove(bypassTrash=True)
         yield self.commit()
 
         home = yield self.homeUnderTest(name="home_defaults")
@@ -3613,7 +3613,7 @@ END:VCALENDAR
         yield self.abort()
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
-        yield cobj.remove()
+        yield cobj.remove(bypassTrash=True)
         yield self.commit()
 
         rows = yield Select(

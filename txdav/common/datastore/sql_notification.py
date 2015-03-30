@@ -563,7 +563,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
 
     @inlineCallbacks
-    def remove(self):
+    def remove(self, bypassTrash=True):
         """
         Remove DB rows corresponding to this notification home.
         """

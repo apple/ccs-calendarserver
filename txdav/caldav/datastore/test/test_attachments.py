@@ -818,7 +818,7 @@ END:VCALENDAR
 
         # Remove resource
         obj = yield self.calendarObjectUnderTest()
-        yield obj.remove()
+        yield obj.remove(bypassTrash=True)
         yield self.commit()
 
         self.assertTrue(os.path.exists(apath))
@@ -830,7 +830,7 @@ END:VCALENDAR
 
         # Remove resource
         obj = yield self.calendarObjectUnderTest(name="test.ics")
-        yield obj.remove()
+        yield obj.remove(bypassTrash=True)
         yield self.commit()
 
         self.assertFalse(os.path.exists(apath))

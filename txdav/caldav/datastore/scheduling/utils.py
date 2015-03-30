@@ -43,7 +43,7 @@ def getCalendarObjectForRecord(txn, record, uid):
             # Delete all but the first one
             log.debug("Should only have zero or one scheduling object resource with UID '%s' in calendar home: %s" % (uid, calendar_home,))
             for resource in objectResources[1:]:
-                yield resource._removeInternal(internal_state=ComponentRemoveState.INTERNAL)
+                yield resource._removeInternal(internal_state=ComponentRemoveState.INTERNAL, bypassTrash=True)
             objectResources = objectResources[:1]
 
         returnValue(objectResources[0] if len(objectResources) == 1 else None)

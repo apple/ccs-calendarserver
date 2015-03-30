@@ -888,7 +888,7 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
 
 
     @inlineCallbacks
-    def remove(self):
+    def remove(self, bypassTrash=True):
 
         if self._resourceID == self._home._resourceID:
 

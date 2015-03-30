@@ -552,7 +552,7 @@ END:VCALENDAR
         home0 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
         calendar0 = yield home0.childWithName("new-calendar")
         del details0[calendar0.id()]
-        yield calendar0.remove()
+        yield calendar0.remove(bypassTrash=True)
         yield self.commitTransaction(0)
 
         # Trigger sync

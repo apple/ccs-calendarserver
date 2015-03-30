@@ -1088,7 +1088,7 @@ class CommonStoreTransaction(
             home = (yield self.calendarHomeWithUID(uid))
             calendar = (yield home.childWithName(calendarName))
             resource = (yield calendar.objectResourceWithName(eventName))
-            yield resource.remove(implicitly=False)
+            yield resource.remove(implicitly=False, bypassTrash=True)
             count += 1
         returnValue(count)
 
@@ -2308,14 +2308,14 @@ class CommonHome(SharingHomeMixIn):
 
 
     @inlineCallbacks
-    def removeChildWithName(self, name):
+    def removeChildWithName(self, name, bypassTrash=False):
         child = yield self.childWithName(name)
         if child is None:
             raise NoSuchHomeChildError()
         key = self._childrenKey(child.isInTrash())
         resourceID = child._resourceID
 
-        yield child.remove()
+        yield child.remove(bypassTrash=bypassTrash)
         self._children[key].pop(name, None)
         self._children[key].pop(resourceID, None)
 
@@ -3455,7 +3455,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @inlineCallbacks
-    def remove(self):
+    def remove(self, bypassTrash=False):
         """
         Just moves the collection to the trash
         """
@@ -3465,7 +3465,10 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             if isInTrash:
                 raise AlreadyInTrashError
             else:
-                yield self.toTrash()
+                if bypassTrash:
+                    yield self.reallyRemove()
+                else:
+                    yield self.toTrash()
         else:
             yield self.reallyRemove()
 

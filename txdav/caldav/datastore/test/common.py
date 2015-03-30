@@ -756,6 +756,7 @@ class CommonTests(CommonCommonTests):
         exists.
         """
         home = yield self.homeUnderTest()
+        trash = yield home.getTrash(create=True)
 
         # FIXME: test transactions
         for name in home1_calendarNames:
@@ -766,14 +767,20 @@ class CommonTests(CommonCommonTests):
         yield self.commit()
 
         # Make sure notification fired after commit
+        expected = [
+            ("/CalDAV/example.com/home1/", PushPriority.high),
+            ("/CalDAV/example.com/home1/calendar_1/", PushPriority.high),
+            ("/CalDAV/example.com/home1/calendar_2/", PushPriority.high),
+            ("/CalDAV/example.com/home1/calendar_empty/", PushPriority.high),
+        ]
+        if trash:
+            expected.append(
+                ("/CalDAV/example.com/home1/{}/".format(trash.name()), PushPriority.high),
+            )
+
         self.assertEquals(
             set(self.notifierFactory.history),
-            set([
-                ("/CalDAV/example.com/home1/", PushPriority.high),
-                ("/CalDAV/example.com/home1/calendar_1/", PushPriority.high),
-                ("/CalDAV/example.com/home1/calendar_2/", PushPriority.high),
-                ("/CalDAV/example.com/home1/calendar_empty/", PushPriority.high),
-            ])
+            set(expected)
         )
 
 
@@ -876,7 +883,7 @@ class CommonTests(CommonCommonTests):
         ctxn = self.concurrentTransaction()
         calendar1prime = yield self.calendarUnderTest(ctxn)
         obj1 = yield calendar1prime.calendarObjectWithName("1.ics")
-        yield obj1.remove()
+        yield obj1.remove(bypassTrash=True)
         yield ctxn.commit()
         try:
             retrieval = yield calendarObject.component()
@@ -927,6 +934,8 @@ class CommonTests(CommonCommonTests):
         """
         Remove an existing calendar object.
         """
+        home = yield self.homeUnderTest()
+        trash = yield home.getTrash(create=True)
         calendar = yield self.calendarUnderTest()
         for name in calendar1_objectNames:
             uid = (u'uid' + name.rstrip(".ics"))
@@ -942,13 +951,18 @@ class CommonTests(CommonCommonTests):
                 None
             )
 
+        expected = [
+            ("/CalDAV/example.com/home1/", PushPriority.high),
+            ("/CalDAV/example.com/home1/calendar_1/", PushPriority.high),
+        ]
+        if trash:
+            expected.append(
+                ("/CalDAV/example.com/home1/{}/".format(trash.name()), PushPriority.high),
+            )
         # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
-            set([
-                ("/CalDAV/example.com/home1/", PushPriority.high),
-                ("/CalDAV/example.com/home1/calendar_1/", PushPriority.high),
-            ])
+            set(expected)
         )
         yield self.commit()
 
@@ -1610,13 +1624,25 @@ END:VCALENDAR
 
         home = yield self.homeUnderTest()
 
+        expected = [
+            "calendar_1/",
+            "calendar_1/new.ics",
+            "calendar_1/2.ics",
+            "other-calendar/"
+        ]
+
+        trash = yield home.getTrash()
+        if trash is not None:
+            trashed = yield trash.calendarObjects()
+            expected.extend([
+                "{}/".format(trash.name()),
+                "{}/{}".format(trash.name(), trashed[0].name()),
+            ])
+
         changed, deleted, invalid = yield home.resourceNamesSinceToken(
             self.token2revision(st), "infinity")
 
-        self.assertEquals(set(changed), set(["calendar_1/",
-                                             "calendar_1/new.ics",
-                                             "calendar_1/2.ics",
-                                             "other-calendar/"]))
+        self.assertEquals(set(changed), set(expected))
         self.assertEquals(set(deleted), set(["calendar_1/2.ics"]))
         self.assertEquals(invalid, [])
 

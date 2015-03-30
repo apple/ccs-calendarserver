@@ -218,7 +218,9 @@ class CalendarObjectExternal(CommonObjectResourceExternal, CalendarObject):
         raise AssertionError("CalendarObjectExternal: not supported")
 
 
-    def _removeInternal(self, internal_state=ComponentRemoveState.NORMAL):
+    def _removeInternal(
+        self, internal_state=ComponentRemoveState.NORMAL, bypassTrash=False
+    ):
         raise AssertionError("CalendarObjectExternal: not supported")
 
 
