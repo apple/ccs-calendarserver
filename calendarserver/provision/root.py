@@ -235,7 +235,6 @@ class RootResource(
                         "Wiki sessionID cookie value: {token}", token=token
                     )
 
-                    record = None
                     try:
                         uid = yield uidForAuthToken(token)
                         if uid == "unauthenticated":
@@ -270,9 +269,9 @@ class RootResource(
 
                         if principal:
                             log.debug(
-                                "Wiki-authenticated principal {record.uid} "
+                                "Wiki-authenticated principal {uid} "
                                 "being assigned to authnUser and authzUser",
-                                record=record
+                                uid=uid
                             )
                             request.authzUser = request.authnUser = principal
 
