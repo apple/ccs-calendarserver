@@ -2019,4 +2019,36 @@ END:VCALENDAR
         yield emptyTrashForPrincipal(None, self.store, "user01", 0, txn=txn, verbose=False)
         names = yield self._getResourceNames(txn, "user01", trashName)
         self.assertEquals(len(names), 0)
+        result = yield txn.execSQL("select * from calendar_object", [])
+        self.assertEquals(len(result), 0)
+        yield txn.commit()
+
+        # Add event again, and this time remove the containing calendar
+        txn = self.store.newTransaction()
+        calendar = yield self._collectionForUser(txn, "user01", "calendar")
+        yield calendar.createObjectResourceWithName(
+            "test.ics",
+            Component.allFromString(data1)
+        )
+        yield txn.commit()
+
+        txn = self.store.newTransaction()
+        calendar = yield self._collectionForUser(txn, "user01", "calendar")
+        result = yield txn.execSQL("select * from calendar_object", [])
+        yield calendar.remove()
+        home = yield self._homeForUser(txn, "user01")
+        trashedCollections = yield home.children(onlyInTrash=True)
+        self.assertEquals(len(trashedCollections), 1)
+        yield txn.commit()
+
+        txn = self.store.newTransaction()
+        yield emptyTrashForPrincipal(None, self.store, "user01", 0, txn=txn, verbose=False)
+        yield txn.commit()
+
+        txn = self.store.newTransaction()
+        home = yield self._homeForUser(txn, "user01")
+        trashedCollections = yield home.children(onlyInTrash=True)
+        self.assertEquals(len(trashedCollections), 0)
+        result = yield txn.execSQL("select * from calendar_object", [])
+        self.assertEquals(len(result), 0)
         yield txn.commit()

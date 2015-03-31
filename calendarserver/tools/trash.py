@@ -21,12 +21,10 @@ from argparse import ArgumentParser
 import datetime
 
 from calendarserver.tools.cmdline import utilityMain, WorkerService
-from calendarserver.tools.util import prettyRecord
+from calendarserver.tools.util import prettyRecord, displayNameForCollection, agoString, locationString
 from pycalendar.datetime import DateTime, Timezone
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
-from txdav.base.propertystore.base import PropertyName
-from txdav.xml import element
 
 log = Logger()
 
@@ -147,36 +145,8 @@ def listTrashedCollectionsForPrincipal(service, store, principalUID):
     yield store.inTransaction(label="List trashed collections", operation=doIt)
 
 
-def agoString(delta):
-    if delta.days:
-        agoString = "{} days ago".format(delta.days)
-    elif delta.seconds:
-        if delta.seconds < 60:
-            agoString = "{} second{} ago".format(delta.seconds, "s" if delta.seconds > 1 else "")
-        else:
-            minutesAgo = delta.seconds / 60
-            if minutesAgo < 60:
-                agoString = "{} minute{} ago".format(minutesAgo, "s" if minutesAgo > 1 else "")
-            else:
-                hoursAgo = minutesAgo / 60
-                agoString = "{} hour{} ago".format(hoursAgo, "s" if hoursAgo > 1 else "")
-    return agoString
-
-
 def startString(pydt):
     return pydt.getLocaleDateTime(DateTime.FULLDATE, False, True, pydt.getTimezoneID())
-
-
-def locationString(component):
-    locationProps = component.properties("LOCATION")
-    if locationProps is not None:
-        locations = []
-        for locationProp in locationProps:
-            locations.append(locationProp.value())
-        locationString = ", ".join(locations)
-    else:
-        locationString = ""
-    return locationString
 
 
 @inlineCallbacks
@@ -231,6 +201,7 @@ def printEventDetails(event):
         print("         {} {}".format(startString(dtstart), location))
 
 
+
 @inlineCallbacks
 def listTrashedEventsForPrincipal(service, store, principalUID):
     directory = store.directoryService()
@@ -268,7 +239,7 @@ def listTrashedEventsForPrincipal(service, store, principalUID):
             for child in children:
                 print()
                 yield printEventDetails(child)
-            print()
+            print("")
 
     yield store.inTransaction(label="List trashed events", operation=doIt)
 
@@ -337,7 +308,6 @@ def restoreTrashedEvent(service, store, principalUID, resourceID):
     yield store.inTransaction(label="Restore trashed event", operation=doIt)
 
 
-
 @inlineCallbacks
 def emptyTrashForPrincipal(service, store, principalUID, days, txn=None, verbose=True):
     directory = store.directoryService()
@@ -347,7 +317,6 @@ def emptyTrashForPrincipal(service, store, principalUID, days, txn=None, verbose
             print("No record found for:", principalUID)
         returnValue(None)
 
-
     @inlineCallbacks
     def doIt(txn):
         home = yield txn.calendarHomeWithUID(principalUID)
@@ -356,36 +325,7 @@ def emptyTrashForPrincipal(service, store, principalUID, days, txn=None, verbose
                 print("No home for principal")
             returnValue(None)
 
-        trash = yield home.getTrash()
-        if trash is None:
-            if verbose:
-                print("No trash available")
-            returnValue(None)
-
-        untrashedCollections = yield home.children(onlyInTrash=False)
-        if len(untrashedCollections) == 0:
-            if verbose:
-                print("No untrashed collections for:", prettyRecord(record))
-            returnValue(None)
-
-        endTime = datetime.datetime.utcnow() - datetime.timedelta(days=-days)
-        for collection in untrashedCollections:
-            displayName = displayNameForCollection(collection)
-            children = yield trash.trashForCollection(
-                collection._resourceID, end=endTime
-            )
-            if len(children) == 0:
-                continue
-
-            if verbose:
-                print("Collection \"{}\":".format(displayName.encode("utf-8")))
-            for child in children:
-                component = yield child.component()
-                summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
-                if verbose:
-                    print("   Removing \"{}\"...".format(summary))
-                yield child.reallyRemove()
-            print()
+        yield home.emptyTrash(days=days, verbose=verbose)
 
     if txn is None:
         yield store.inTransaction(label="Empty trash", operation=doIt)
@@ -394,16 +334,7 @@ def emptyTrashForPrincipal(service, store, principalUID, days, txn=None, verbose
 
 
 
-def displayNameForCollection(collection):
-    try:
-        displayName = collection.properties()[
-            PropertyName.fromElement(element.DisplayName)
-        ]
-        displayName = displayName.toString()
-    except:
-        displayName = collection.name()
 
-    return displayName
 
 
 if __name__ == "__main__":

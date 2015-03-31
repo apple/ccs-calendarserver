@@ -53,7 +53,9 @@ from txweb2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResourc
     davPrivilegeSet
 from txweb2.dav.resource import TwistedACLInheritable
 from txweb2.dav.util import joinURL, parentForURL, normalizeURL
-from txweb2.http import HTTPError, RedirectResponse, StatusResponse, Response
+from txweb2.http import (
+    HTTPError, RedirectResponse, StatusResponse, Response
+)
 from txweb2.dav.http import ErrorResponse
 from txweb2.http_headers import MimeType, ETag
 from txweb2.stream import MemoryStream

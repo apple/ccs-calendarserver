@@ -80,6 +80,7 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
 from txdav.common.idirectoryservice import IStoreDirectoryService, \
     DirectoryRecordNotFoundError
 from txdav.idav import ChangeCategory
+from calendarserver.tools.util import displayNameForCollection, getEventDetails, agoString
 
 from zope.interface import implements, directlyProvides
 
@@ -2921,6 +2922,107 @@ class CommonHome(SharingHomeMixIn):
             returnValue((None, None))
 
 
+    @inlineCallbacks
+    def emptyTrash(self, days=0, verbose=False):
+        trash = yield self.getTrash()
+        if trash is None:
+            if verbose:
+                print("No trash collection for principal")
+            returnValue(None)
+
+        endTime = datetime.datetime.utcnow() - datetime.timedelta(days=days)
+
+        untrashedCollections = yield self.children(onlyInTrash=False)
+        for collection in untrashedCollections:
+            displayName = displayNameForCollection(collection)
+            children = yield trash.trashForCollection(
+                collection._resourceID, end=endTime
+            )
+            if len(children) == 0:
+                continue
+
+            if verbose:
+                print("Collection \"{}\":".format(displayName.encode("utf-8")))
+            for child in children:
+                component = yield child.component()
+                summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
+                if verbose:
+                    print("   Removing \"{}\"...".format(summary))
+                yield child.reallyRemove()
+            if verbose:
+                print("")
+
+        trashedCollections = yield self.children(onlyInTrash=True)
+        for collection in trashedCollections:
+            displayName = displayNameForCollection(collection)
+            children = yield trash.trashForCollection(
+                collection._resourceID, end=endTime
+            )
+            if verbose:
+                print("Collection \"{}\":".format(displayName.encode("utf-8")))
+            for child in children:
+                component = yield child.component()
+                summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
+                if verbose:
+                    print("   Removing \"{}\"...".format(summary))
+                yield child.reallyRemove()
+            if verbose:
+                print("")
+
+            if collection.whenTrashed() < endTime:
+                if verbose:
+                    print("Removing collection \"{}\"...".format(displayName.encode("utf-8")))
+                yield collection.reallyRemove()
+
+
+    @inlineCallbacks
+    def getTrashContents(self):
+        result = {
+            "trashedcollections": [],
+            "untrashedcollections": []
+        }
+
+        trash = yield self.getTrash()
+        if trash is None:
+            returnValue(result)
+
+        nowDT = datetime.datetime.utcnow()
+
+        trashedCollections = yield self.children(onlyInTrash=True)
+        for collection in trashedCollections:
+            whenTrashed = collection.whenTrashed()
+            detail = {
+                "displayName": displayNameForCollection(collection),
+                "recoveryID": collection._resourceID,
+                "whenTrashed": agoString(nowDT - whenTrashed),
+                "children": [],
+            }
+            startTime = whenTrashed - datetime.timedelta(minutes=5)
+            children = yield trash.trashForCollection(
+                collection._resourceID, start=startTime
+            )
+            for child in children:
+                component = yield child.component()
+                summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
+                detail["children"].append(summary.encode("utf-8"))
+            result["trashedcollections"].append(detail)
+
+        untrashedCollections = yield self.children(onlyInTrash=False)
+        for collection in untrashedCollections:
+            children = yield trash.trashForCollection(collection._resourceID)
+            if len(children) == 0:
+                continue
+            detail = {
+                "displayName": displayNameForCollection(collection),
+                "children": [],
+            }
+            for child in children:
+                childDetail = yield getEventDetails(child)
+                detail["children"].append(childDetail)
+            result["untrashedcollections"].append(detail)
+
+        returnValue(result)
+
 
 class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase, SharingMixIn):
     """
@@ -3512,6 +3614,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
         for resource in (yield self.objectResources()):
             yield resource.toTrash()
+
         whenTrashed = datetime.datetime.utcnow()
         yield self._updateIsInTrashQuery.on(
             self._txn, isInTrash=True, trashed=whenTrashed, resourceID=self._resourceID

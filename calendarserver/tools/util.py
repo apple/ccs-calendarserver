@@ -24,6 +24,7 @@ __all__ = [
     "booleanArgument",
 ]
 
+import datetime
 import os
 from time import sleep
 import socket
@@ -42,7 +43,9 @@ from txdav.xml import element as davxml
 
 
 from twistedcaldav import memcachepool
-from txdav.who.groups import GroupCacherPollingWork
+from txdav.base.propertystore.base import PropertyName
+from txdav.xml import element
+from pycalendar.datetime import DateTime, Timezone
 
 
 log = Logger()
@@ -384,6 +387,7 @@ def addProxy(rootResource, directory, store, principal, proxyType, proxyPrincipa
 
     # Schedule work the PeerConnectionPool will pick up as overdue
     def groupPollNow(txn):
+        from txdav.who.groups import GroupCacherPollingWork
         return GroupCacherPollingWork.reschedule(txn, 0, force=True)
     yield store.inTransaction("addProxy groupPollNow", groupPollNow)
 
@@ -424,6 +428,7 @@ def removeProxy(rootResource, directory, store, principal, proxyPrincipal, **kwa
     if removed:
         # Schedule work the PeerConnectionPool will pick up as overdue
         def groupPollNow(txn):
+            from txdav.who.groups import GroupCacherPollingWork
             return GroupCacherPollingWork.reschedule(txn, 0, force=True)
         yield store.inTransaction("removeProxy groupPollNow", groupPollNow)
     returnValue(removed)
@@ -447,6 +452,98 @@ def prettyRecord(record):
         sn=(", ".join([sn.encode("utf-8") for sn in shortNames]))
     )
 
+
+def displayNameForCollection(collection):
+    try:
+        displayName = collection.properties()[
+            PropertyName.fromElement(element.DisplayName)
+        ]
+        displayName = displayName.toString()
+    except:
+        displayName = collection.name()
+
+    return displayName
+
+
+def agoString(delta):
+    if delta.days:
+        agoString = "{} days ago".format(delta.days)
+    elif delta.seconds:
+        if delta.seconds < 60:
+            agoString = "{} second{} ago".format(delta.seconds, "s" if delta.seconds > 1 else "")
+        else:
+            minutesAgo = delta.seconds / 60
+            if minutesAgo < 60:
+                agoString = "{} minute{} ago".format(minutesAgo, "s" if minutesAgo > 1 else "")
+            else:
+                hoursAgo = minutesAgo / 60
+                agoString = "{} hour{} ago".format(hoursAgo, "s" if hoursAgo > 1 else "")
+    return agoString
+
+
+def locationString(component):
+    locationProps = component.properties("LOCATION")
+    if locationProps is not None:
+        locations = []
+        for locationProp in locationProps:
+            locations.append(locationProp.value())
+        locationString = ", ".join(locations)
+    else:
+        locationString = ""
+    return locationString
+
+
+@inlineCallbacks
+def getEventDetails(event):
+    detail = {}
+
+    nowPyDT = DateTime.getNowUTC()
+    nowDT = datetime.datetime.utcnow()
+    oneYearInFuture = DateTime.getNowUTC()
+    oneYearInFuture.offsetDay(365)
+
+    component = yield event.component()
+    mainSummary = component.mainComponent().propertyValue("SUMMARY", u"<no title>")
+    whenTrashed = yield event.whenTrashed()
+    ago = nowDT - whenTrashed
+
+    detail["summary"] = mainSummary
+    detail["whenTrashed"] = agoString(ago)
+    detail["recoveryID"] = event._resourceID
+
+    if component.isRecurring():
+        detail["recurring"] = True
+        detail["instances"] = []
+        instances = component.cacheExpandedTimeRanges(oneYearInFuture)
+        instances = sorted(instances.instances.values(), key=lambda x: x.start)
+        limit = 3
+        count = 0
+        for instance in instances:
+            if instance.start >= nowPyDT:
+                summary = instance.component.propertyValue("SUMMARY", u"<no title>")
+                location = locationString(instance.component)
+                tzid = instance.component.getProperty("DTSTART").parameterValue("TZID", None)
+                dtstart = instance.start
+                if tzid is not None:
+                    timezone = Timezone(tzid=tzid)
+                    dtstart.adjustTimezone(timezone)
+                detail["instances"].append({
+                    "summary": summary,
+                    "starttime": dtstart.getLocaleDateTime(DateTime.FULLDATE, False, True, dtstart.getTimezoneID()),
+                    "location": location
+                })
+                count += 1
+                limit -= 1
+            if limit == 0:
+                break
+
+    else:
+        detail["recurring"] = False
+        dtstart = component.mainComponent().propertyValue("DTSTART")
+        detail["starttime"] = dtstart.getLocaleDateTime(DateTime.FULLDATE, False, True, dtstart.getTimezoneID())
+        detail["location"] = locationString(component.mainComponent())
+
+    returnValue(detail)
 
 
 class ProxyError(Exception):

@@ -4110,11 +4110,15 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         return succeed(None)
 
 
+    @inlineCallbacks
     def remove(self, implicitly=True, bypassTrash=False):
-        return self._removeInternal(
-            internal_state=ComponentRemoveState.NORMAL if implicitly else ComponentRemoveState.NORMAL_NO_IMPLICIT,
-            bypassTrash=bypassTrash
-        )
+        if (yield self.isInTrash()):
+            implicitly = False
+        returnValue((
+            yield self._removeInternal(
+                internal_state=ComponentRemoveState.NORMAL if implicitly else ComponentRemoveState.NORMAL_NO_IMPLICIT, bypassTrash=bypassTrash
+            )
+        ))
 
 
     def purge(self):
