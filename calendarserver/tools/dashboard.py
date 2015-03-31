@@ -49,6 +49,7 @@ def usage(e=None):
     print("  -h --help: print this help and exit")
     print("  -t: text output, not curses")
     print("  -s: server host (and optional port) [localhost:8100]")
+    print("      or unix socket path prefixed by 'unix:'")
     print("")
 
     if e:
@@ -84,12 +85,15 @@ def main():
             useCurses = False
 
         elif opt in ("-s"):
-            server = arg.split(":")
-            if len(server) == 1:
-                server.append(8100)
+            if not arg.startswith("unix:"):
+                server = arg.split(":")
+                if len(server) == 1:
+                    server.append(8100)
+                else:
+                    server[1] = int(server[1])
+                server = tuple(server)
             else:
-                server[1] = int(server[1])
-            server = tuple(server)
+                server = arg
 
         else:
             raise NotImplementedError(opt)
@@ -146,7 +150,7 @@ class Dashboard(object):
         self.paused = False
         self.seconds = 0.1 if usesCurses else 1.0
         self.sched = sched.scheduler(time.time, time.sleep)
-        self.client = DashboardClient(server, True)
+        self.client = DashboardClient(server)
         self.client_error = False
 
 
@@ -295,10 +299,14 @@ class DashboardClient(object):
     Client that connects to a server and fetches information.
     """
 
-    def __init__(self, sockname, useTCP):
+    def __init__(self, sockname):
         self.socket = None
-        self.sockname = sockname
-        self.useTCP = useTCP
+        if isinstance(sockname, str):
+            self.sockname = sockname[5:]
+            self.useTCP = False
+        else:
+            self.sockname = sockname
+            self.useTCP = True
         self.currentData = {}
         self.items = []
 
