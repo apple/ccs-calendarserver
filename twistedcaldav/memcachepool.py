@@ -23,6 +23,7 @@ from twisted.protocols.memcache import MemCacheProtocol, NoSuchCommand
 from twext.python.log import Logger
 from twext.internet.gaiendpoint import GAIEndpoint
 from twext.internet.adaptendpoint import connect
+from twisted.internet.endpoints import UNIXClientEndpoint
 
 
 
@@ -446,10 +447,15 @@ def installPools(pools, maxClients=5, reactor=None):
         from twisted.internet import reactor
     for name, pool in pools.items():
         if pool["ClientEnabled"]:
+            if pool["MemcacheSocket"] is not '':
+                ep = UNIXClientEndpoint(reactor, pool["MemcacheSocket"])
+            else:
+                ep = GAIEndpoint(reactor, pool["BindAddress"], pool["Port"])
+
             _installPool(
                 name,
                 pool["HandleCacheTypes"],
-                GAIEndpoint(reactor, pool["BindAddress"], pool["Port"]),
+                ep,
                 maxClients,
                 reactor,
             )

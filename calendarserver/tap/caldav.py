@@ -1214,6 +1214,46 @@ class CalDAVServiceMaker (object):
                 config.BindAddresses = [""]
         return config.BindAddresses
 
+    def _spawnMemcached(self, monitor=None):
+        """
+        Optionally start memcached through the specified ProcessMonitor,
+        or if monitor is None, use Popen.
+        """
+        for name, pool in config.Memcached.Pools.items():
+            if pool.ServerEnabled:
+                memcachedArgv = [
+                    config.Memcached.memcached,
+                    "-U", "0",
+                ]
+                # Use Unix domain sockets by default
+                if pool.MemcacheSocket is not '':
+                    memcachedArgv.extend([
+                        "-s", str(pool.MemcacheSocket),
+                    ])
+                else:
+                    # ... or INET sockets
+                    memcachedArgv.extend([
+                        "-p", str(pool.Port),
+                        "-l", pool.BindAddress,
+                    ])
+                if config.Memcached.MaxMemory is not 0:
+                    memcachedArgv.extend(
+                        ["-m", str(config.Memcached.MaxMemory)]
+                    )
+                if config.UserName:
+                    memcachedArgv.extend(["-u", config.UserName])
+                memcachedArgv.extend(config.Memcached.Options)
+                print(
+                    "Adding memcached service for pool:", name, memcachedArgv
+                )
+                if monitor is not None:
+                    monitor.addProcess(
+                        "memcached-{}".format(name), memcachedArgv,
+                        env=PARENT_ENVIRONMENT
+                    )
+                else:
+                    Popen(memcachedArgv)
+
 
     def makeService_Single(self, options):
         """
@@ -1355,30 +1395,10 @@ class CalDAVServiceMaker (object):
             config.AccessLogFile,
         )
 
-        # Optionally launch memcached.  Note, this is not going through a
+        # Maybe spawn memcached. Note, this is not going through a
         # ProcessMonitor because there is code elsewhere that needs to
-        # access memcached before startService() gets called, so we're just
-        # directly using Popen to spawn memcached.
-        for name, pool in config.Memcached.Pools.items():
-            if pool.ServerEnabled:
-                self.log.info(
-                    "Adding memcached service for pool: {name}",
-                    name=name, pool=pool
-                )
-                memcachedArgv = [
-                    config.Memcached.memcached,
-                    "-p", str(pool.Port),
-                    "-l", pool.BindAddress,
-                    "-U", "0",
-                ]
-                if config.Memcached.MaxMemory is not 0:
-                    memcachedArgv.extend(
-                        ["-m", str(config.Memcached.MaxMemory)]
-                    )
-                if config.UserName:
-                    memcachedArgv.extend(["-u", config.UserName])
-                memcachedArgv.extend(config.Memcached.Options)
-                Popen(memcachedArgv)
+        # access memcached before startService() gets called
+        self._spawnMemcached(monitor=None)
 
         return self.storageService(
             slaveSvcCreator, logObserver, uid=uid, gid=gid
@@ -1710,29 +1730,8 @@ class CalDAVServiceMaker (object):
             )
             memoryLimiter.setServiceParent(s)
 
-        for name, pool in config.Memcached.Pools.items():
-            if pool.ServerEnabled:
-                self.log.info(
-                    "Adding memcached service for pool: {name}",
-                    name=name, pool=pool
-                )
-                memcachedArgv = [
-                    config.Memcached.memcached,
-                    "-p", str(pool.Port),
-                    "-l", pool.BindAddress,
-                    "-U", "0",
-                ]
-                if config.Memcached.MaxMemory is not 0:
-                    memcachedArgv.extend(
-                        ["-m", str(config.Memcached.MaxMemory)]
-                    )
-                if config.UserName:
-                    memcachedArgv.extend(["-u", config.UserName])
-                memcachedArgv.extend(config.Memcached.Options)
-                monitor.addProcess(
-                    "memcached-{}".format(name), memcachedArgv,
-                    env=PARENT_ENVIRONMENT
-                )
+        # Maybe spawn memcached through a ProcessMonitor
+        self._spawnMemcached(monitor=monitor)
 
         # Open the socket(s) to be inherited by the slaves
         inheritFDs = []

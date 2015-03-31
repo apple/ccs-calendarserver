@@ -932,6 +932,9 @@ DEFAULT_CONFIG = {
         "MaxClients": 5,
         "Pools": {
             "Default": {
+                # A unix socket used for communication with memcached.
+                # If blank, then an AF_INET socket is used instead.
+                "MemcacheSocket": "memcache.sock",
                 "ClientEnabled": True,
                 "ServerEnabled": True,
                 "BindAddress": "127.0.0.1",
@@ -1200,6 +1203,7 @@ RELATIVE_PATHS = [
     ("RunRoot", "PIDFile"),
     ("RunRoot", ("Stats", "UnixStatsSocket",)),
     ("RunRoot", "ControlSocket"),
+    ("RunRoot", ("Memcached", "Pools", "Default", "MemcacheSocket")),
     ("RunRoot", ("DirectoryProxy", "SocketPath",)),
 ]
 

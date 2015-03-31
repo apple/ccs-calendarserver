@@ -18,7 +18,9 @@ import sys
 import os
 import stat
 import grp
+import random
 
+from time import sleep
 from os.path import dirname, abspath
 from collections import namedtuple
 
@@ -29,6 +31,8 @@ from twisted.python.threadable import isInIOThread
 from twisted.internet.reactor import callFromThread
 from twisted.python.usage import Options, UsageError
 from twisted.python.procutils import which
+
+from twisted.runner.procmon import ProcessMonitor
 
 from twisted.internet.interfaces import IProcessTransport, IReactorProcess
 from twisted.internet.protocol import ServerFactory
@@ -46,6 +50,7 @@ from txweb2.dav import auth
 from txweb2.log import LogWrapperResource
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 
+from twistedcaldav import memcacheclient
 from twistedcaldav.config import config, ConfigDict, ConfigurationError
 from twistedcaldav.resource import AuthenticationWrapper
 from twistedcaldav.stdconfig import DEFAULT_CONFIG
@@ -436,6 +441,62 @@ class ModesOnUNIXSocketsTests(CalDAVServiceMakerTestBase):
             )
             self.assertEquals(socketService.gid, self.alternateGroup)
 
+
+class MemcacheSpawner(TestCase):
+
+    def setUp(self):
+        super(MemcacheSpawner, self).setUp()
+        self.monitor = ProcessMonitor()
+        self.monitor.startService()
+        self.socket = os.path.abspath("memcache.sock")
+        self.patch(config.Memcached.Pools.Default, "ServerEnabled", True)
+
+
+    def test_memcacheUnix(self):
+        """
+        Spawn a memcached process listening on a unix socket that becomes
+        connectable in no more than one second. Connect and interact.
+        Verify secure file permissions on the socket file.
+        """
+        self.patch(config.Memcached.Pools.Default, "MemcacheSocket", self.socket)
+        CalDAVServiceMaker()._spawnMemcached(monitor=self.monitor)
+        sleep(1)
+        mc = memcacheclient.Client(["unix:{}".format(self.socket)], debug=1)
+        rando = random.random()
+        mc.set("the_answer", rando)
+        self.assertEquals(rando, mc.get("the_answer"))
+        # The socket file should not be usable to other users
+        st = os.stat(self.socket)
+        self.assertTrue(str(oct(st.st_mode)).endswith("00"))
+        mc.disconnect_all()
+
+
+    def test_memcacheINET(self):
+        """
+        Spawn a memcached process listening on a network socket that becomes
+        connectable in no more than one second. Interact with it.
+        """
+        self.patch(config.Memcached.Pools.Default, "MemcacheSocket", "")
+        ba = config.Memcached.Pools.Default.BindAddress
+        bp = config.Memcached.Pools.Default.Port
+        CalDAVServiceMaker()._spawnMemcached(monitor=self.monitor)
+        sleep(1)
+        mc = memcacheclient.Client(["{}:{}".format(ba, bp)], debug=1)
+        rando = random.random()
+        mc.set("the_password", rando)
+        self.assertEquals(rando, mc.get("the_password"))
+        mc.disconnect_all()
+
+
+    def tearDown(self):
+        """
+        Verify that our spawned memcached can be reaped in no more than
+        one second - if not we'll get reactor unclean failures.
+        """
+        self.monitor.stopService()
+        sleep(1)
+        if os.path.exists(self.socket):
+            os.remove(self.socket)
 
 
 class ProcessMonitorTests(CalDAVServiceMakerTestBase):
