@@ -60,9 +60,10 @@ from txdav.xml import element as davxml
 from txweb2 import responsecode
 from txweb2.auth.digest import DigestedCredentials
 from txweb2.auth.tls import TLSCredentials
+from txweb2.auth.wrapper import UnauthorizedResponse
 from txweb2.dav.noneprops import NonePropertyStore
 from txweb2.dav.util import joinURL
-from txweb2.http import HTTPError
+from txweb2.http import HTTPError, RedirectResponse
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentials
@@ -905,6 +906,31 @@ class DirectoryPrincipalResource (
 
     def isCollection(self):
         return True
+
+
+    @inlineCallbacks
+    def handleMissingTrailingSlash(self, request):
+        try:
+            _ignore_authnUser, authzUser = yield self.authenticate(request)
+        except Exception:
+            authzUser = None
+
+        # Turn 301 into 401
+        if authzUser is None:
+            response = (yield UnauthorizedResponse.makeResponse(
+                request.credentialFactories,
+                request.remoteAddr
+            ))
+            returnValue(response)
+        else:
+            response = RedirectResponse(
+                request.unparseURL(
+                    path=quote(
+                        unquote(request.path),
+                        safe=':/') + '/'
+                )
+            )
+            returnValue(response)
 
 
     def displayName(self):

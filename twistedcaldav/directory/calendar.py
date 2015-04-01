@@ -27,25 +27,28 @@ __all__ = [
 ]
 
 from twext.python.log import Logger
+
 from txweb2 import responsecode
+from txweb2.auth.wrapper import UnauthorizedResponse
+from txweb2.dav.http import ErrorResponse
 from txweb2.dav.util import joinURL
-from txweb2.http import HTTPError, JSONResponse
+from txweb2.http import HTTPError, RedirectResponse, JSONResponse
 from txweb2.http_headers import ETag, MimeType
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
+from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.directory.common import uidsResourceName, \
     CommonUIDProvisioningResource, CommonHomeTypeProvisioningResource
-
-from txdav.who.wiki import getWikiACL
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVResource, \
     DAVResourceWithChildrenMixin
 from twistedcaldav.resource import CalendarHomeResource
 
+from txdav.who.wiki import getWikiACL
+
 from uuid import uuid4
-from txweb2.dav.http import ErrorResponse
-from twistedcaldav.caldavxml import caldav_namespace
+import urllib
 
 
 log = Logger()
@@ -79,6 +82,31 @@ class DirectoryCalendarProvisioningResource (
 
     def contentType(self):
         return MimeType("httpd", "unix-directory")
+
+
+    @inlineCallbacks
+    def handleMissingTrailingSlash(self, request):
+        try:
+            _ignore_authnUser, authzUser = yield self.authenticate(request)
+        except Exception:
+            authzUser = None
+
+        # Turn 301 into 401
+        if authzUser is None:
+            response = (yield UnauthorizedResponse.makeResponse(
+                request.credentialFactories,
+                request.remoteAddr
+            ))
+            returnValue(response)
+        else:
+            response = RedirectResponse(
+                request.unparseURL(
+                    path=urllib.quote(
+                        urllib.unquote(request.path),
+                        safe=':/') + '/'
+                )
+            )
+            returnValue(response)
 
 
 
@@ -324,6 +352,7 @@ class DirectoryCalendarHomeResource (CalendarHomeResource):
                 (caldav_namespace, "valid-action-parameter",),
                 "The action parameter in the request-URI is not valid",
             ))
+
 
     def _ok(self, status, description, result=None):
         if result is None:

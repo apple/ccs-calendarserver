@@ -90,17 +90,18 @@ class CommonUIDProvisioningResource(object):
 
     @inlineCallbacks
     def locateChild(self, request, segments):
-
         name = segments[0]
         if name == "":
             returnValue((self, ()))
 
         record = yield self.directory.recordWithUID(name)
-        if record:
-            child = yield self.homeResourceForRecord(record, request)
-            returnValue((child, segments[1:]))
-        else:
-            returnValue((None, ()))
+        if record is None:
+            returnValue(
+                (NotFoundResource(principalCollections=self.parent.principalCollections()), [])
+            )
+
+        child = yield self.homeResourceForRecord(record, request)
+        returnValue((child, segments[1:]))
 
 
     def listChildren(self):

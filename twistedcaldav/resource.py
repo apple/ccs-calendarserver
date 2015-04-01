@@ -47,6 +47,7 @@ from txdav.xml import element
 from txdav.xml.element import dav_namespace
 
 from txweb2 import responsecode, http, http_headers
+from txweb2.auth.wrapper import UnauthorizedResponse
 from txweb2.dav.auth import AuthenticationWrapper as SuperAuthenticationWrapper
 from txweb2.dav.idav import IDAVPrincipalCollectionResource
 from txweb2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResource, \
@@ -345,6 +346,31 @@ class CalDAVResource (
                 if response.headers.hasHeader("last-modified"):
                     response.headers.setHeader("last-modified", self.lastModified())
         returnValue(response)
+
+
+    @inlineCallbacks
+    def handleMissingTrailingSlash(self, request):
+        try:
+            _ignore_authnUser, authzUser = yield self.authenticate(request)
+        except Exception:
+            authzUser = None
+
+        # Turn 301 into 401
+        if authzUser is None:
+            response = (yield UnauthorizedResponse.makeResponse(
+                request.credentialFactories,
+                request.remoteAddr
+            ))
+            returnValue(response)
+        else:
+            response = RedirectResponse(
+                request.unparseURL(
+                    path=urllib.quote(
+                        urllib.unquote(request.path),
+                        safe=':/') + '/'
+                )
+            )
+            returnValue(response)
 
 
     # Begin transitional new-store resource interface:
@@ -1718,6 +1744,31 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
 
     def isCollection(self):
         return True
+
+
+    @inlineCallbacks
+    def handleMissingTrailingSlash(self, request):
+        try:
+            _ignore_authnUser, authzUser = yield self.authenticate(request)
+        except Exception:
+            authzUser = None
+
+        # Turn 301 into 401
+        if authzUser is None:
+            response = (yield UnauthorizedResponse.makeResponse(
+                request.credentialFactories,
+                request.remoteAddr
+            ))
+            returnValue(response)
+        else:
+            response = RedirectResponse(
+                request.unparseURL(
+                    path=urllib.quote(
+                        urllib.unquote(request.path),
+                        safe=':/') + '/'
+                )
+            )
+            returnValue(response)
 
 
     def calendarsEnabled(self):

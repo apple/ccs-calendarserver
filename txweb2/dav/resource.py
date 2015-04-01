@@ -2354,13 +2354,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         # If this is a collection and the URI doesn't end in "/", redirect.
         #
         if self.isCollection() and request.path[-1:] != "/":
-            return RedirectResponse(
-                request.unparseURL(
-                    path=urllib.quote(
-                        urllib.unquote(request.path),
-                        safe=':/') + '/'
-                )
-            )
+            return self.handleMissingTrailingSlash(request)
 
         def setHeaders(response):
             response = IResponse(response)
@@ -2388,6 +2382,16 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         d = maybeDeferred(super(DAVResource, self).renderHTTP, request)
         return d.addCallbacks(setHeaders, onError)
+
+
+    def handleMissingTrailingSlash(self, request):
+        return RedirectResponse(
+            request.unparseURL(
+                path=urllib.quote(
+                    urllib.unquote(request.path),
+                    safe=':/') + '/'
+            )
+        )
 
 
 
