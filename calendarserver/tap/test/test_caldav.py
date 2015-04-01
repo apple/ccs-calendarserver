@@ -490,13 +490,9 @@ class MemcacheSpawner(TestCase):
 
     def tearDown(self):
         """
-        Verify that our spawned memcached can be reaped in no more than
-        one second - if not we'll get reactor unclean failures.
+        Verify that our spawned memcached can be reaped.
         """
-        self.monitor.stopService()
-        sleep(1)
-        if os.path.exists(self.socket):
-            os.remove(self.socket)
+        return self.monitor.stopService()
 
 
 class ProcessMonitorTests(CalDAVServiceMakerTestBase):
