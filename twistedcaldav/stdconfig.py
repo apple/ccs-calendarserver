@@ -933,7 +933,7 @@ DEFAULT_CONFIG = {
         "Pools": {
             "Default": {
                 # A unix socket used for communication with memcached.
-                # If blank, then an AF_INET socket is used instead.
+                # If MemcacheSocket is absent, an AF_INET socket is used.
                 "MemcacheSocket": "memcache.sock",
                 "ClientEnabled": True,
                 "ServerEnabled": True,

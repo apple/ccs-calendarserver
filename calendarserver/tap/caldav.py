@@ -1226,7 +1226,7 @@ class CalDAVServiceMaker (object):
                     "-U", "0",
                 ]
                 # Use Unix domain sockets by default
-                if pool.MemcacheSocket is not '':
+                if "MemcacheSocket" in pool:
                     memcachedArgv.extend([
                         "-s", str(pool.MemcacheSocket),
                     ])

@@ -447,7 +447,7 @@ def installPools(pools, maxClients=5, reactor=None):
         from twisted.internet import reactor
     for name, pool in pools.items():
         if pool["ClientEnabled"]:
-            if pool["MemcacheSocket"] is not '':
+            if "MemcacheSocket" in pool:
                 ep = UNIXClientEndpoint(reactor, pool["MemcacheSocket"])
             else:
                 ep = GAIEndpoint(reactor, pool["BindAddress"], pool["Port"])
