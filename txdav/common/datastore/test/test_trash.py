@@ -75,6 +75,14 @@ class TrashTests(StoreTestCase):
 
 
     @inlineCallbacks
+    def _getTrashNames(self, txn, userName):
+        home = yield txn.calendarHomeWithUID(userName)
+        trash = yield home.getTrash()
+        resourceNames = yield trash.listObjectResources()
+        returnValue(resourceNames)
+
+
+    @inlineCallbacks
     def _updateResource(self, txn, userName, collectionName, resourceName, data):
         resource = yield self._getResource(txn, userName, collectionName, resourceName)
         yield resource.setComponent(Component.fromString(data))
@@ -2008,16 +2016,13 @@ END:VCALENDAR
         txn = self.store.newTransaction()
         resource = yield self._getResource(txn, "user01", "calendar", "test.ics")
         yield resource.remove()
-        home = yield self._homeForUser(txn, "user01")
-        trash = yield home.getTrash()
-        trashName = trash.name()
+        names = yield self._getTrashNames(txn, "user01")
+        self.assertEquals(len(names), 1)
         yield txn.commit()
 
         txn = self.store.newTransaction()
-        names = yield self._getResourceNames(txn, "user01", trashName)
-        self.assertEquals(len(names), 1)
         yield emptyTrashForPrincipal(None, self.store, "user01", 0, txn=txn, verbose=False)
-        names = yield self._getResourceNames(txn, "user01", trashName)
+        names = yield self._getTrashNames(txn, "user01")
         self.assertEquals(len(names), 0)
         result = yield txn.execSQL("select * from calendar_object", [])
         self.assertEquals(len(result), 0)
