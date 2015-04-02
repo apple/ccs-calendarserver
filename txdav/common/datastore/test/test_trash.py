@@ -1971,6 +1971,90 @@ END:VCALENDAR
 
 
     @inlineCallbacks
+    def test_trashDuplicateUIDDifferentOrganizer(self):
+        """
+        Verify an attendee with a trashed copy of an event with a different
+        organizer will have that copy removed.
+        """
+
+        from twistedcaldav.stdconfig import config
+        self.patch(config, "EnableTrashCollection", True)
+
+        organizer1_data = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20140101T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:duplicate
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user03@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+        organizer2_data = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20140101T100000Z
+DURATION:PT1H
+SUMMARY:event 2
+UID:duplicate
+ORGANIZER:mailto:user02@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        # user01 invites user03
+        txn = self.store.newTransaction()
+        home1 = yield txn.calendarHomeWithUID("user01", create=True)
+        collection = yield home1.childWithName("calendar")
+        resource = yield collection.createObjectResourceWithName(
+            "test.ics",
+            Component.allFromString(organizer1_data)
+        )
+        yield txn.commit()
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        # user03 trashes the event
+        txn = self.store.newTransaction()
+        resource = yield self._getResource(txn, "user03", "calendar", "")
+        yield resource.remove()
+        yield txn.commit()
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        # user02 invites user03 using an event with the same uid
+        txn = self.store.newTransaction()
+        home2 = yield txn.calendarHomeWithUID("user02", create=True)
+        collection = yield home2.childWithName("calendar")
+        resource = yield collection.createObjectResourceWithName(
+            "test.ics",
+            Component.allFromString(organizer2_data)
+        )
+        yield txn.commit()
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        # user03's trash is now empty, and user03's copy is the invite from user02
+        txn = self.store.newTransaction()
+        resourceNames = yield self._getTrashNames(txn, "user03")
+        self.assertEquals(len(resourceNames), 0)
+        newData = yield self._getResourceData(txn, "user03", "calendar", "")
+        self.assertTrue("user02" in newData)
+        yield txn.commit()
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+
+    @inlineCallbacks
     def test_tool_emptyTrashForPrincipal(self):
 
         from twistedcaldav.stdconfig import config
@@ -2061,6 +2145,9 @@ END:VCALENDAR
 
     @inlineCallbacks
     def test_trashedCalendars(self):
+        """
+        Verify home.calendars(onlyInTrash=) works
+        """
 
         from twistedcaldav.stdconfig import config
         self.patch(config, "EnableTrashCollection", True)

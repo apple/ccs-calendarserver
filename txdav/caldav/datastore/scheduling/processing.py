@@ -364,7 +364,15 @@ class ImplicitProcessor(object):
                 # is local to the server - then allow the change
                 if not (existing_organizer == "" and self.originator.hosted()):
                     log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring UID: '%s' - organizer has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-                    raise ImplicitProcessorException("5.3;Organizer change not allowed")
+                    # If the recipient copy is in the trash, just remove it
+                    if (yield self.recipient_calendar_resource.isInTrash()):
+                        yield self.recipient_calendar_resource.remove(bypassTrash=True)
+                        # Reset state to make it look like a new iTIP being processed
+                        self.recipient_calendar = None
+                        self.recipient_calendar_resource = None
+                        self.new_resource = True
+                    else:
+                        raise ImplicitProcessorException("5.3;Organizer change not allowed")
 
                 # For a missing existing organizer we don't know for sure that the existing event came from the originator - it could be spoofed
                 # by the originator to have the same UID as the existing event which it would overwrite. Instead what we will do is rename and
