@@ -2052,3 +2052,45 @@ END:VCALENDAR
         result = yield txn.execSQL("select * from calendar_object", [])
         self.assertEquals(len(result), 0)
         yield txn.commit()
+
+
+    @inlineCallbacks
+    def test_trashedCalendars(self):
+
+        from twistedcaldav.stdconfig import config
+        self.patch(config, "EnableTrashCollection", True)
+
+        txn = self.store.newTransaction()
+        home = yield self._homeForUser(txn, "user01")
+        yield home.getTrash(create=True) # force loading trash
+        calendar = yield self._collectionForUser(txn, "user01", "calendar")
+        calendars = yield home.calendars(onlyInTrash=False)
+        self.assertEquals(
+            set([c.name() for c in calendars]),
+            set(["tasks", "inbox", "calendar"]) # trash not there
+        )
+        calendars = yield home.calendars(onlyInTrash=True)
+        self.assertEquals(
+            set([c.name() for c in calendars]),
+            set() # trash not there either
+        )
+        yield txn.commit()
+
+        txn = self.store.newTransaction()
+        calendar = yield self._collectionForUser(txn, "user01", "calendar")
+        resourceID = calendar._resourceID
+        yield calendar.remove()
+        yield txn.commit()
+
+        txn = self.store.newTransaction()
+        home = yield self._homeForUser(txn, "user01")
+        yield home.getTrash(create=True) # force loading trash
+        calendars = yield home.calendars(onlyInTrash=False)
+        self.assertEquals(
+            set([c.name() for c in calendars]),
+            set(["tasks", "inbox"])
+        )
+        calendars = yield home.calendars(onlyInTrash=True)
+        self.assertEquals(len(calendars), 1)
+        self.assertEquals(calendars[0]._resourceID, resourceID)
+        yield txn.commit()

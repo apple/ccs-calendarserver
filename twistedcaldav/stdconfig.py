@@ -578,6 +578,7 @@ DEFAULT_CONFIG = {
     ],
 
     "EnableTrashCollection": False,  # Enable Trash Collection
+    "ExposeTrashCollection": False,  # Expose Trash Collection as a resource
 
     "ParallelUpgrades": False, # Perform upgrades - currently only the
                                # database -> filesystem migration - but in

@@ -2204,6 +2204,9 @@ class CommonHome(SharingHomeMixIn):
         """
         results = (yield self._childClass.loadAllObjects(self))
         for result in results:
+            if not config.ExposeTrashCollection:
+                if result.isTrash():
+                    continue
             key = self._childrenKey(result.isInTrash())
             if result.name() not in self._children[key]:
                 self._children[key][result.name()] = result
@@ -2324,9 +2327,12 @@ class CommonHome(SharingHomeMixIn):
     @inlineCallbacks
     def getTrash(self, create=False):
         child = None
-        if hasattr(self, "_trash"):
+        if hasattr(self, "_trashObject"):
+            child = self._trashObject
+        elif hasattr(self, "_trash"):
             if self._trash:
-                child = yield self.childWithID(self._trash)
+                child = yield self._childClass.objectWithID(self, self._trash)
+                self._trashObject = child
             elif create:
                 schema = self._homeMetaDataSchema
 
@@ -2344,7 +2350,7 @@ class CommonHome(SharingHomeMixIn):
                     Where=(schema.RESOURCE_ID == self.id()),
                 ).on(self._txn))[0][0]
                 if self._trash:
-                    child = yield self.childWithID(self._trash)
+                    child = yield self._childClass.objectWithID(self, self._trash)
                 else:
                     child = yield self._trashClass.create(self, str(uuid4()))
                     self._trash = child.id()
@@ -2353,6 +2359,7 @@ class CommonHome(SharingHomeMixIn):
                         {schema.TRASH: self._trash},
                         Where=(schema.RESOURCE_ID == self.id())
                     ).on(self._txn)
+                self._trashObject = child
         returnValue(child)
 
 
@@ -3619,9 +3626,11 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         yield self._updateIsInTrashQuery.on(
             self._txn, isInTrash=True, trashed=whenTrashed, resourceID=self._resourceID
         )
+        yield self._deletedSyncToken()
+
+        # Rename after calling _deletedSyncToken
         newName = "{}-{}".format(self._name[:36], str(uuid4()))
         yield self.rename(newName)
-        yield self._deletedSyncToken()
 
         # Update _children cache to reflect moving to trash
         try:

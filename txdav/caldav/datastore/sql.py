@@ -520,10 +520,9 @@ class CalendarHome(CommonHome):
 
     @inlineCallbacks
     def calendars(self, onlyInTrash=False):
-        if onlyInTrash:
-            returnValue([c for c in (yield self.children()) if c.isTrash()])
-        else:
-            returnValue([c for c in (yield self.children()) if not c.isTrash()])
+        returnValue(
+            [c for c in (yield self.children(onlyInTrash=onlyInTrash))]
+        )
 
 
     @inlineCallbacks
