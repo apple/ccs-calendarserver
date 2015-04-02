@@ -2018,9 +2018,15 @@ END:VCALENDAR
         yield cobj.setComponent(Component.fromString(self.organizer_update_data))
         yield self.commit()
 
-        cobj = yield self.calendarObjectUnderTest(home="user02", name="attendee2.ics")
-        comp = yield cobj.component()
-        self.assertTrue(comp.getOrganizer() is not None)
+        cal = yield self.calendarUnderTest(home="user02")
+        cobjs = yield cal.calendarObjects()
+        self.assertTrue(len(cobjs) == 2)
+        for cobj in cobjs:
+            comp = yield cobj.component()
+            if comp.resourceUID() == "event1@ninevah.local":
+                self.assertTrue(comp.getOrganizer() is not None)
+            else:
+                self.assertTrue(comp.getOrganizer() is None)
 
         inbox = yield self.calendarUnderTest(home="user02", name="inbox")
         cobjs = yield inbox.calendarObjects()

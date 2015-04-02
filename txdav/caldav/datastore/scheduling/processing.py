@@ -366,6 +366,24 @@ class ImplicitProcessor(object):
                     log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring UID: '%s' - organizer has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
                     raise ImplicitProcessorException("5.3;Organizer change not allowed")
 
+                # For a missing existing organizer we don't know for sure that the existing event came from the originator - it could be spoofed
+                # by the originator to have the same UID as the existing event which it would overwrite. Instead what we will do is rename and
+                # change the UID of the original event to preserve it and let the user resolve the "duplicate" conflict that results.
+                if not existing_organizer:
+                    # Copy the raw (including per-user) data of the original, change its UID and write out a new resource
+                    changed_calendar = (yield self.recipient_calendar_resource.component()).duplicate()
+                    changed_calendar.replacePropertyInAllComponents(Property("UID", str(uuid.uuid4())))
+                    name = "%s-%s.ics" % (hashlib.md5(changed_calendar.resourceUID()).hexdigest(), str(uuid.uuid4())[:8],)
+                    yield self.recipient_calendar_resource.parentCollection()._createCalendarObjectWithNameInternal(name, changed_calendar, ComponentUpdateState.RAW)
+
+                    # Delete the original resource
+                    yield self.recipient_calendar_resource.remove(implicitly=False, bypassTrash=True)
+
+                    # Reset state to make it look like a new iTIP being processed
+                    self.recipient_calendar = None
+                    self.recipient_calendar_resource = None
+                    self.new_resource = True
+
         # Handle splitting of data early so we can preserve per-attendee data
         if self.message.hasProperty("X-CALENDARSERVER-SPLIT-OLDER-UID"):
             if config.Scheduling.Options.Splitting.Enabled:
