@@ -3031,6 +3031,7 @@ class CommonHome(SharingHomeMixIn):
         returnValue(result)
 
 
+
 class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase, SharingMixIn):
     """
     Common ancestor class of AddressBooks and Calendars.
