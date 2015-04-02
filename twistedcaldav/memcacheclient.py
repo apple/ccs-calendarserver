@@ -1301,7 +1301,7 @@ class _Host:
             if isinstance(msg, tuple):
                 msg = msg[1]
             log.error("Memcacheclient _get_socket() connection error (%s)" % (msg,))
-            self.mark_dead("connect: %s" % msg[1])
+            self.mark_dead("connect: %s" % msg)
             return None
         self.socket = s
         self.buffer = ''

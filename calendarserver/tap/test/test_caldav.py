@@ -69,6 +69,7 @@ from calendarserver.tap.caldav import (
 )
 from calendarserver.provision.root import RootResource
 from StringIO import StringIO
+import tempfile
 
 log = Logger()
 
@@ -442,13 +443,14 @@ class ModesOnUNIXSocketsTests(CalDAVServiceMakerTestBase):
             self.assertEquals(socketService.gid, self.alternateGroup)
 
 
+
 class MemcacheSpawner(TestCase):
 
     def setUp(self):
         super(MemcacheSpawner, self).setUp()
         self.monitor = ProcessMonitor()
         self.monitor.startService()
-        self.socket = os.path.abspath("memcache.sock")
+        self.socket = os.path.join(tempfile.gettempdir(), "memcache.sock")
         self.patch(config.Memcached.Pools.Default, "ServerEnabled", True)
 
 
@@ -493,6 +495,7 @@ class MemcacheSpawner(TestCase):
         Verify that our spawned memcached can be reaped.
         """
         return self.monitor.stopService()
+
 
 
 class ProcessMonitorTests(CalDAVServiceMakerTestBase):

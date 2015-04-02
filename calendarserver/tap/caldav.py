@@ -1214,6 +1214,7 @@ class CalDAVServiceMaker (object):
                 config.BindAddresses = [""]
         return config.BindAddresses
 
+
     def _spawnMemcached(self, monitor=None):
         """
         Optionally start memcached through the specified ProcessMonitor,
@@ -1226,7 +1227,7 @@ class CalDAVServiceMaker (object):
                     "-U", "0",
                 ]
                 # Use Unix domain sockets by default
-                if "MemcacheSocket" in pool:
+                if pool.get("MemcacheSocket"):
                     memcachedArgv.extend([
                         "-s", str(pool.MemcacheSocket),
                     ])
