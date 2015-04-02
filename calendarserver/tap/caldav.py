@@ -1244,9 +1244,6 @@ class CalDAVServiceMaker (object):
                 if config.UserName:
                     memcachedArgv.extend(["-u", config.UserName])
                 memcachedArgv.extend(config.Memcached.Options)
-                print(
-                    "Adding memcached service for pool:", name, memcachedArgv
-                )
                 if monitor is not None:
                     monitor.addProcess(
                         "memcached-{}".format(name), memcachedArgv,
