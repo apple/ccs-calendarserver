@@ -5120,11 +5120,19 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     # original resource is the ongoing one,
                     # the new resource is the past one
 
-                    # Update the attendee's copy of the ongoing one
-                    yield ImplicitScheduler().refreshAllAttendeesExceptSome(
-                        self._txn,
-                        self,
-                    )
+                    caldata = yield self.componentForUser() # again, now that we've split
+                    if (yield self.reconcileGroupAttendees(caldata)):
+                        # changed
+                        yield self._setComponentInternal(
+                            caldata, inserting=True, updateSelf=True
+                        )
+
+                    else:
+                        # Update the attendee's copy of the ongoing one
+                        yield ImplicitScheduler().refreshAllAttendeesExceptSome(
+                            self._txn,
+                            self,
+                        )
                 else:
                     if fullyInFuture:
                         log.debug("Scheduled event being recovered by organizer from trash, fully in the future")

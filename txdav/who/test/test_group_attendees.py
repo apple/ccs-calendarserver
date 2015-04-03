@@ -1755,3 +1755,211 @@ END:VCALENDAR
         comp = yield cobjs[0].componentForUser()
         self.assertTrue("STATUS:CANCELLED" in str(comp))
         yield self.commit()
+
+
+    @inlineCallbacks
+    def test_groupAttendeesWhenFullyInFutureEventInTrash(self):
+        """
+        Test that group attendee link is severed while an event is in the trash
+        and is relinked when recovered.  In this case, the event only has
+        instances in the future.
+        """
+
+        from twistedcaldav.stdconfig import config
+        self.patch(config, "EnableTrashCollection", True)
+
+        data_put_1 = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20240101T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER:MAILTO:user02@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:MAILTO:group01@example.com
+END:VEVENT
+END:VCALENDAR"""
+
+        data_get_2 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event1@ninevah.local
+DTSTART:20240101T100000Z
+DURATION:PT1H
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user01
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
+SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+
+        calendar = yield self.calendarUnderTest(name="calendar", home="user02")
+        vcalendar = Component.fromString(data_put_1)
+        yield calendar.createCalendarObjectWithName("data1.ics", vcalendar)
+
+        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
+        self.assertEqual(len(groupsToRefresh), 1)
+        self.assertEqual(list(groupsToRefresh)[0], "group01")
+
+        rows = yield self.transactionUnderTest().execSQL("select * from group_attendee", [])
+        self.assertEquals(len(rows), 1)
+        yield self.commit()
+
+        yield groupCacher.refreshGroup(self.transactionUnderTest(), "group01")
+        yield self.commit()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
+        vcalendar = yield cobj.component()
+        self.assertEqual(normalize_iCalStr(vcalendar), normalize_iCalStr(data_get_2))
+
+        yield self._verifyObjectResourceCount("user01", 1)
+        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
+        self.assertEqual(len(groupsToRefresh), 1)
+        yield self.commit()
+
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
+        yield cobj.remove()
+        yield self.commit()
+
+        rows = yield self.transactionUnderTest().execSQL("select * from group_attendee", [])
+        self.assertEquals(len(rows), 0)
+        yield self.commit()
+
+        # With the event in the trash, the group will not be refreshed
+        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
+        self.assertEqual(len(groupsToRefresh), 0)
+        yield self.commit()
+
+        home = yield self.homeUnderTest(name="user02")
+        trash = yield home.getTrash()
+        names = yield trash.listObjectResources()
+        cobj = yield trash.calendarObjectWithName(names[0])
+        yield cobj.fromTrash()
+        yield self.commit()
+
+        # With the event recovered from the trash, the group will be refreshed
+        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
+        self.assertEqual(len(groupsToRefresh), 1)
+        yield self.commit()
+
+        rows = yield self.transactionUnderTest().execSQL("select * from group_attendee", [])
+        self.assertEquals(len(rows), 1)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_groupAttendeesWhenSplitEventInTrash(self):
+        """
+        Test that group attendee link is severed while an event is in the trash
+        and is relinked when recovered.  In this case, the event has instances
+        in the past and future.
+        """
+
+        from twistedcaldav.stdconfig import config
+        self.patch(config, "EnableTrashCollection", True)
+
+        data_put_1 = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20140101T100000Z
+RRULE:FREQ=DAILY
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER:MAILTO:user02@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:MAILTO:group01@example.com
+END:VEVENT
+END:VCALENDAR"""
+
+        data_get_2 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event1@ninevah.local
+DTSTART:20140101T100000Z
+DURATION:PT1H
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user01
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
+RRULE:FREQ=DAILY
+SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+
+        calendar = yield self.calendarUnderTest(name="calendar", home="user02")
+        vcalendar = Component.fromString(data_put_1)
+        yield calendar.createCalendarObjectWithName("data1.ics", vcalendar)
+
+        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
+        self.assertEqual(len(groupsToRefresh), 1)
+        self.assertEqual(list(groupsToRefresh)[0], "group01")
+
+        rows = yield self.transactionUnderTest().execSQL("select * from group_attendee", [])
+        self.assertEquals(len(rows), 1)
+        yield self.commit()
+
+        yield groupCacher.refreshGroup(self.transactionUnderTest(), "group01")
+        yield self.commit()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
+        vcalendar = yield cobj.component()
+        self.assertEqual(normalize_iCalStr(vcalendar), normalize_iCalStr(data_get_2))
+
+        yield self._verifyObjectResourceCount("user01", 1)
+        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
+        self.assertEqual(len(groupsToRefresh), 1)
+        yield self.commit()
+
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
+        yield cobj.remove()
+        yield self.commit()
+
+        rows = yield self.transactionUnderTest().execSQL("select * from group_attendee", [])
+        self.assertEquals(len(rows), 0)
+        yield self.commit()
+
+        # With the event in the trash, the group will not be refreshed
+        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
+        self.assertEqual(len(groupsToRefresh), 0)
+        yield self.commit()
+
+        home = yield self.homeUnderTest(name="user02")
+        trash = yield home.getTrash()
+        names = yield trash.listObjectResources()
+        cobj = yield trash.calendarObjectWithName(names[0])
+        yield cobj.fromTrash()
+        yield self.commit()
+
+        # With the event recovered from the trash, the group will be refreshed
+        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
+        self.assertEqual(len(groupsToRefresh), 1)
+        yield self.commit()
+
+        rows = yield self.transactionUnderTest().execSQL("select * from group_attendee", [])
+        self.assertEquals(len(rows), 1)
+        yield self.commit()
