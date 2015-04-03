@@ -4173,17 +4173,19 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # Always remove the group attendee link to prevent trashed items from being reconciled when a group changes
             yield GroupAttendeeRecord.deletesimple(self._txn, resourceID=self._resourceID)
 
+            # Do scheduling check before the move to trash
+            if scheduler is not None:
+                # Cannot do implicit in sharee's shared calendar
+                if not self.calendar().owned():
+                    scheduler.setSchedulingNotAllowed(
+                        ShareeAllowedError,
+                        "Sharee's cannot schedule",
+                    )
+
             yield super(CalendarObject, self).remove()
 
         # Do scheduling
         if scheduler is not None:
-            # Cannot do implicit in sharee's shared calendar
-            if not self.calendar().owned():
-                scheduler.setSchedulingNotAllowed(
-                    ShareeAllowedError,
-                    "Sharee's cannot schedule",
-                )
-
             yield scheduler.doImplicitScheduling()
 
 
