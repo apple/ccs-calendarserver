@@ -4170,6 +4170,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         if bypassTrash:
             yield super(CalendarObject, self).reallyRemove()
         else:
+            # Always remove the group attendee link to prevent trashed items from being reconciled when a group changes
+            yield GroupAttendeeRecord.deletesimple(self._txn, resourceID=self._resourceID)
+
             yield super(CalendarObject, self).remove()
 
         # Do scheduling

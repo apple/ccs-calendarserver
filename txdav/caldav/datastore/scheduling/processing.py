@@ -167,6 +167,7 @@ class ImplicitProcessor(object):
         if calendar_resource:
             self.recipient_calendar = (yield calendar_resource.componentForUser(self.recipient.record.uid)).duplicate()
             self.recipient_calendar_resource = calendar_resource
+            self.recipient_in_trash = (yield self.recipient_calendar_resource.isInTrash())
 
 
     @inlineCallbacks
@@ -339,6 +340,7 @@ class ImplicitProcessor(object):
         # If we get a CANCEL and we don't have a matching resource already stored, simply
         # ignore the CANCEL.
         if self.new_resource and self.method == "CANCEL":
+            log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:CANCEL, UID: '%s' - attendee has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
             result = (True, True, False, None)
         else:
             result = (yield self.doImplicitAttendeeUpdate())
@@ -365,8 +367,8 @@ class ImplicitProcessor(object):
                 if not (existing_organizer == "" and self.originator.hosted()):
                     log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring UID: '%s' - organizer has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
                     # If the recipient copy is in the trash, just remove it
-                    if (yield self.recipient_calendar_resource.isInTrash()):
-                        yield self.recipient_calendar_resource.remove(bypassTrash=True)
+                    if self.recipient_in_trash:
+                        yield self.deleteCalendarResource(self.recipient_calendar_resource)
                         # Reset state to make it look like a new iTIP being processed
                         self.recipient_calendar = None
                         self.recipient_calendar_resource = None
@@ -385,7 +387,7 @@ class ImplicitProcessor(object):
                     yield self.recipient_calendar_resource.parentCollection()._createCalendarObjectWithNameInternal(name, changed_calendar, ComponentUpdateState.RAW)
 
                     # Delete the original resource
-                    yield self.recipient_calendar_resource.remove(implicitly=False, bypassTrash=True)
+                    yield self.deleteCalendarResource(self.recipient_calendar_resource)
 
                     # Reset state to make it look like a new iTIP being processed
                     self.recipient_calendar = None
@@ -545,8 +547,7 @@ class ImplicitProcessor(object):
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
 
                 # Only move from trash if attendee is not fully declined:
-                isInTrash = yield self.recipient_calendar_resource.isInTrash()
-                if isInTrash:
+                if self.recipient_in_trash:
                     attendees = self.message.getAttendeeProperties((self.recipient.cuaddr,))
                     if not all([attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "DECLINED" for attendee in attendees]):
                         yield self.recipient_calendar_resource.fromTrash()
@@ -606,10 +607,16 @@ class ImplicitProcessor(object):
         @return: C{tuple} of (processed, auto-processed, store inbox item, changes)
         """
 
-        # If there is no existing copy, then ignore
-        if self.recipient_calendar is None:
-            log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:CANCEL, UID: '%s' - attendee has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-            result = (True, False, True, None)
+        # Note that we never get here if there is no existing copy, i.e., self.new_resource is True, because that case is handled directly in
+        # self.doImplicitAttendee().
+
+        # If there attendee copy is in the trash, then we should remove the trash item and not store an inbox item as there is no reason to recover
+        # the cancelled meeting.
+        if self.recipient_in_trash:
+            # Note we should never get here as this test is
+            log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:CANCEL, UID: '%s' - attendee copy in trash" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+            yield self.deleteCalendarResource(self.recipient_calendar_resource)
+            result = (True, True, False, None)
         else:
             # Need to check for auto-respond attendees. These need to suppress the inbox message
             # if the cancel is processed. However, if the principal is a user we always force the

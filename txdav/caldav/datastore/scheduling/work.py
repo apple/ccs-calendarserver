@@ -495,7 +495,7 @@ class ScheduleOrganizerSendWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORG
             raise
 
         log.debug(
-            "ScheduleOrganizerSendWork - for ID: {id}, UID: {uid}, organizer: {org}, attendee: {att}",
+            "ScheduleOrganizerSendWork - done for ID: {id}, UID: {uid}, organizer: {org}, attendee: {att}",
             id=self.workID,
             uid=self.icalendarUID,
             org=organizer,
