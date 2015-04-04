@@ -686,6 +686,7 @@ class CalendarHome(CommonHome):
             [co.DROPBOX_ID],
             From=co.join(cb, co.PARENT_RESOURCE_ID == cb.RESOURCE_ID),
             Where=(co.DROPBOX_ID != None).And(
+                co.TRASHED == None).And(
                 cb.HOME_RESOURCE_ID == self._resourceID),
             OrderBy=co.DROPBOX_ID
         ).on(self._txn))
