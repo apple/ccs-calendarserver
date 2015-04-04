@@ -178,7 +178,7 @@ class ImplicitProcessor(object):
 
         # Locate the organizer's copy of the event.
         yield self.getRecipientsCopy()
-        if self.recipient_calendar is None:
+        if self.recipient_calendar is None or self.recipient_in_trash:
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring UID: '%s' - organizer has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
             returnValue((True, True, False, None,))
 
@@ -457,6 +457,15 @@ class ImplicitProcessor(object):
         @return: C{tuple} of (processed, auto-processed, store inbox item, changes)
         """
 
+        # If we have a recipient item in the trash, remove it right now so that we treat the iTIP message as a new
+        # invite.
+        if not self.new_resource and self.recipient_in_trash:
+            yield self.deleteCalendarResource(self.recipient_calendar_resource)
+            # Reset state to make it look like a new iTIP being processed
+            self.recipient_calendar = None
+            self.recipient_calendar_resource = None
+            self.new_resource = True
+
         # If there is no existing copy, then look for default calendar and copy it here
         if self.new_resource:
 
@@ -545,14 +554,6 @@ class ImplicitProcessor(object):
 
                 # Update the attendee's copy of the event
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-
-                # Only move from trash if attendee is not fully declined:
-                if self.recipient_in_trash:
-                    attendees = self.message.getAttendeeProperties((self.recipient.cuaddr,))
-                    if not all([attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "DECLINED" for attendee in attendees]):
-                        yield self.recipient_calendar_resource.fromTrash()
-                    else:
-                        store_inbox = False
 
                 new_resource = (yield self.writeCalendarResource(None, self.recipient_calendar_resource, new_calendar))
 
