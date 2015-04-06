@@ -84,8 +84,17 @@
     <!--
     <key>DBType</key>
     <string>postgres</string>
-    <key>DSN</key>
-    <string>:caldav:caldav:::</string>
+    <key>DatabaseConnection</key>
+    <dict>
+    	<key>endpoint</key>
+    	<string>tcp:localhost</string>
+    	<key>database</key>
+    	<string>caldav</string>
+    	<key>user</key>
+    	<string>caldav</string>
+    	<key>password</key>
+    	<string></string>
+    </dict>
      -->
 
     <!-- Data root -->

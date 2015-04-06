@@ -75,8 +75,7 @@ from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.timezoneservice import TimezoneServiceResource
 from twistedcaldav.timezonestdservice import TimezoneStdServiceResource
 
-from txdav.base.datastore.dbapiclient import DBAPIConnector, OracleConnector
-from txdav.base.datastore.dbapiclient import postgresPreflight
+from txdav.base.datastore.dbapiclient import DBAPIConnector
 from txdav.base.datastore.subpostgres import PostgresService
 from txdav.caldav.datastore.scheduling.ischedule.dkim import DKIMUtils, DomainKeyResource
 from txdav.caldav.datastore.scheduling.ischedule.localservers import buildServersDB
@@ -154,23 +153,6 @@ def pgServiceFromConfig(config, subServiceFactory, uid=None, gid=None):
         pgCtl=config.Postgres.Ctl,
         initDB=config.Postgres.Init,
     )
-
-
-
-def pgConnectorFromConfig(config):
-    """
-    Create a postgres DB-API connector from the given configuration.
-    """
-    from txdav.base.datastore.subpostgres import postgres
-    return DBAPIConnector(postgres, postgresPreflight, config.DSN).connect
-
-
-
-def oracleConnectorFromConfig(config):
-    """
-    Create a postgres DB-API connector from the given configuration.
-    """
-    return OracleConnector(config.DSN).connect
 
 
 
@@ -828,14 +810,10 @@ def getDBPool(config):
             # get a PostgresService to tell us what the local connection
             # info is, but *don't* start it (that would start one postgres
             # master per slave, resulting in all kinds of mayhem...)
-            connectionFactory = pgServiceFromConfig(
-                config, None).produceConnection
-        elif config.DBType == 'postgres':
-            connectionFactory = pgConnectorFromConfig(config)
-        elif config.DBType == 'oracle':
-            connectionFactory = oracleConnectorFromConfig(config)
+            connectionFactory = pgServiceFromConfig(config, None).produceConnection
         else:
-            raise UsageError("unknown DB type: %r" % (config.DBType,))
+            connectionFactory = DBAPIConnector.connectorFor(config.DBType, **config.DatabaseConnection).connect
+
         pool = ConnectionPool(connectionFactory, dialect=dialect,
                               paramstyle=paramstyle,
                               maxConnections=config.MaxDBConnectionsPerPool)

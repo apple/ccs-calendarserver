@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # #
-from twisted.internet.defer import inlineCallbacks
 
 """
 Stub service for Oracle.
@@ -22,10 +21,10 @@ Stub service for Oracle.
 
 from twext.python.log import Logger
 
-from txdav.base.datastore.dbapiclient import OracleConnector
-from txdav.common.icommondatastore import InternalDataStoreError
+from txdav.base.datastore.dbapiclient import DBAPIConnector
 
 from twisted.application.service import MultiService
+from twisted.internet.defer import inlineCallbacks
 
 log = Logger()
 
@@ -70,24 +69,14 @@ class OracleService(MultiService):
 
 
     def _connectorFor(self):
-        m = getattr(self, "_connectorFor_{}".format("cx_oracle"), None)
-        if m is None:
-            raise InternalDataStoreError(
-                "Unknown Oracle DBM module: {}".format("cx_oracle")
-            )
+        kwargs = {
+            "endpoint": "tcp:192.168.56.101:1521",
+            "database": "orcl",
+            "user": self.dsnUser if self.dsnUser else "hr",
+            "password": "oracle",
+        }
 
-        return m()
-
-
-    def _connectorFor_cx_oracle(self):
-        dsn = "{}/oracle@192.168.56.101:1521/orcl".format(self.dsnUser if self.dsnUser else "hr")
-
-        log.info(
-            "Connecting to Oracle with dsn={dsn!r}",
-            dsn=dsn,
-        )
-
-        return OracleConnector(dsn)
+        return DBAPIConnector.connectorFor("oracle", **kwargs)
 
 
     def produceConnection(self, label="<unlabeled>"):

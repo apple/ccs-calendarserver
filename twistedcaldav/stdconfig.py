@@ -202,9 +202,12 @@ DEFAULT_CONFIG = {
 
     "SpawnedDBUser": "caldav", # The username to use when DBType is empty
 
-    "DSN": "", # Data Source Name.  Used to connect to an external
-               # database if DBType is non-empty.  Format varies
-               # depending on database type.
+    "DatabaseConnection": { # Used to connect to an external database if DBType is non-empty
+        "endpoint": "",     # Database connection endpoint
+        "database": "",     # Name of database or Oracle SID
+        "user": "",         # User name to connect as
+        "password": "",     # Password to use
+    },
 
     "DBAMPFD": 0, # Internally used by database to tell slave
                   # processes to inherit a file descriptor and use it

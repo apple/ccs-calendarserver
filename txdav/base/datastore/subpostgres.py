@@ -26,7 +26,6 @@ import signal
 from hashlib import md5
 from pipes import quote as shell_quote
 
-import pg8000 as postgres
 
 from twisted.python.procutils import which
 from twisted.internet.protocol import ProcessProtocol
@@ -38,7 +37,7 @@ from twext.python.filepath import CachingFilePath
 from twisted.protocols.basic import LineReceiver
 from twisted.internet.defer import Deferred
 from txdav.base.datastore.dbapiclient import DBAPIConnector
-from txdav.base.datastore.dbapiclient import postgresPreflight
+from txdav.base.datastore.dbapiclient import postgres
 from txdav.common.icommondatastore import InternalDataStoreError
 
 from twisted.application.service import MultiService
@@ -320,71 +319,22 @@ class PostgresService(MultiService):
         if databaseName is None:
             databaseName = self.databaseName
 
-        m = getattr(self, "_connectorFor_{}".format(postgres.__name__), None)
-        if m is None:
-            raise InternalDataStoreError(
-                "Unknown Postgres DBM module: {}".format(postgres)
-            )
-
-        return m(databaseName)
-
-
-    def _connectorFor_pgdb(self, databaseName):
-        dsn = "{}:dbname={}".format(self.host, databaseName)
-
-        if self.spawnedDBUser:
-            dsn = "{}:{}".format(dsn, self.spawnedDBUser)
-        elif self.uid is not None:
-            dsn = "{}:{}".format(dsn, pwd.getpwuid(self.uid).pw_name)
-
-        kwargs = {}
-        if self.port:
-            kwargs["host"] = "{}:{}".format(self.host, self.port)
-
-        log.info(
-            "Connecting to Postgres with dsn={dsn!r} args={args}",
-            dsn=dsn, args=kwargs
-        )
-
-        return DBAPIConnector(postgres, postgresPreflight, dsn, **kwargs)
-
-
-    def _connectorFor_pg8000(self, databaseName):
-        kwargs = dict(database=databaseName)
+        kwargs = {
+            "database": databaseName,
+        }
 
         if self.host.startswith("/"):
-            # We're using a socket file
-            socketFP = CachingFilePath(self.host)
-
-            if socketFP.isdir():
-                # We have been given the directory, not the actual socket file
-                nameFormat = self.socketName if self.socketName else ".s.PGSQL.{}"
-                socketFP = socketFP.child(
-                    nameFormat.format(self.port if self.port else 5432)
-                )
-
-            if not socketFP.isSocket():
-                raise InternalDataStoreError(
-                    "No such socket file: {}".format(socketFP.path)
-                )
-
-            kwargs["host"] = None
-            kwargs["unix_sock"] = socketFP.path
+            kwargs["endpoint"] = "unix:{}".format(self.host)
         else:
-            kwargs["host"] = self.host
-            kwargs["unix_sock"] = None
-
-        if self.port:
-            kwargs["port"] = int(self.port)
-
+            kwargs["endpoint"] = "tcp:{}".format(self.host)
+            if self.port:
+                kwargs["endpoint"] = "{}:{}".format(kwargs["endpoint"], self.port)
         if self.spawnedDBUser:
             kwargs["user"] = self.spawnedDBUser
         elif self.uid is not None:
             kwargs["user"] = pwd.getpwuid(self.uid).pw_name
 
-        log.info("Connecting to Postgres with args={args}", args=kwargs)
-
-        return DBAPIConnector(postgres, postgresPreflight, **kwargs)
+        return DBAPIConnector.connectorFor("postgres", **kwargs)
 
 
     def produceConnection(self, label="<unlabeled>", databaseName=None):

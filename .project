@@ -5,6 +5,7 @@
 	<projects>
 		<project>CalDAVClientLibrary</project>
 		<project>cffi</project>
+		<project>cx_Oracle</project>
 		<project>kerberos</project>
 		<project>pg8000</project>
 		<project>psutil</project>

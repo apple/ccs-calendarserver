@@ -97,8 +97,7 @@
     <!-- Database connection -->
     <key>DBType</key>
     <string></string>
-    <key>DSN</key>
-    <string></string>
+
     <key>Postgres</key>
     <dict>
         <key>Ctl</key>

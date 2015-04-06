@@ -14,10 +14,16 @@
 # limitations under the License.
 ##
 
+
 """
 General utility client code for interfacing with DB-API 2.0 modules.
 """
 from twext.enterprise.util import mapOracleOutputType
+from twext.python.filepath import CachingFilePath
+
+from txdav.common.icommondatastore import InternalDataStoreError
+
+import pg8000 as postgres
 
 try:
     import os
@@ -178,6 +184,45 @@ class DiagnosticConnectionWrapper(object):
 
 
 
+class DBAPIParameters(object):
+    """
+    Object that holds the parameters needed to configure a DBAPIConnector. Since this varies based on
+    the actual DB module in use, this class abstracts the parameters into separate properties that
+    are then used to create the actual parameters for each module.
+    """
+
+    def __init__(self, endpoint=None, user=None, password=None, database=None):
+        """
+        @param endpoint: endpoint string describing the connection
+        @type endpoint: L{str}
+        @param user: user name to connect as
+        @type user: L{str}
+        @param password: password to use
+        @type password: L{str}
+        @param database: database name to connect to
+        @type database: L{str}
+        """
+        self.endpoint = endpoint
+        if self.endpoint.startswith("unix:"):
+            self.unixsocket = self.endpoint[5:]
+            if ":" in self.unixsocket:
+                self.unixsocket, self.port = self.unixsocket.split(":")
+            else:
+                self.port = None
+            self.host = None
+        elif self.endpoint.startswith("tcp:"):
+            self.unixsocket = None
+            self.host = self.endpoint[4:]
+            if ":" in self.host:
+                self.host, self.port = self.host.split(":")
+            else:
+                self.port = None
+        self.user = user
+        self.password = password
+        self.database = database
+
+
+
 class DBAPIConnector(object):
     """
     A simple wrapper for DB-API connectors.
@@ -199,6 +244,86 @@ class DBAPIConnector(object):
         w = self.wrapper(connection, label)
         self.preflight(w)
         return w
+
+
+    @staticmethod
+    def connectorFor(dbtype, **kwargs):
+        if dbtype == "postgres":
+            return DBAPIConnector._connectorFor_module(postgres, **kwargs)
+        elif dbtype == "oracle":
+            return DBAPIConnector._connectorFor_module(cx_Oracle, **kwargs)
+        else:
+            raise InternalDataStoreError(
+                "Unknown database type: {}".format(dbtype)
+            )
+
+
+    @staticmethod
+    def _connectorFor_module(dbmodule, **kwargs):
+        m = getattr(DBAPIConnector, "_connectorFor_{}".format(dbmodule.__name__), None)
+        if m is None:
+            raise InternalDataStoreError(
+                "Unknown DBAPI module: {}".format(dbmodule)
+            )
+
+        return m(dbmodule, **kwargs)
+
+
+    @staticmethod
+    def _connectorFor_pgdb(dbmodule, **kwargs):
+        """
+        Turn properties into pgdb kwargs
+        """
+        params = DBAPIParameters(**kwargs)
+
+        dsn = "{0.host}:dbname={0.database}:{0.user}:{0.password}::".format(params)
+
+        dbkwargs = {}
+        if params.port:
+            dbkwargs["host"] = "{}:{}".format(params.host, params.port)
+        return DBAPIConnector(postgres, postgresPreflight, dsn, **dbkwargs)
+
+
+    @staticmethod
+    def _connectorFor_pg8000(dbmodule, **kwargs):
+        """
+        Turn properties into pg8000 kwargs
+        """
+        params = DBAPIParameters(**kwargs)
+        dbkwargs = {
+            "user": params.user,
+            "password": params.password,
+            "database": params.database,
+        }
+        if params.unixsocket:
+            dbkwargs["unix_sock"] = params.unixsocket
+
+            # We're using a socket file
+            socketFP = CachingFilePath(dbkwargs["unix_sock"])
+
+            if socketFP.isdir():
+                # We have been given the directory, not the actual socket file
+                socketFP = socketFP.child(".s.PGSQL.{}".format(params.port if params.port else "5432"))
+                dbkwargs["unix_sock"] = socketFP.path
+
+            if not socketFP.isSocket():
+                raise InternalDataStoreError(
+                    "No such socket file: {}".format(socketFP.path)
+                )
+        else:
+            dbkwargs["host"] = params.host
+            if params.port:
+                dbkwargs["port"] = int(params.port)
+        return DBAPIConnector(dbmodule, postgresPreflight, **dbkwargs)
+
+
+    @staticmethod
+    def _connectorFor_cx_Oracle(self, **kwargs):
+        """
+        Turn properties into DSN string
+        """
+        dsn = "{0.user}/{0.password}@{0.host}:{0.port}/{0.database}".format(DBAPIParameters(**kwargs))
+        return OracleConnector(dsn)
 
 
 

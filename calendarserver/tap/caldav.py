@@ -80,6 +80,7 @@ from txweb2.channel.http import (
 from txweb2.metafd import ConnectionLimiter, ReportingHTTPService
 from txweb2.server import Site
 
+from txdav.base.datastore.dbapiclient import DBAPIConnector
 from txdav.caldav.datastore.scheduling.imip.inbound import MailRetriever
 from txdav.caldav.datastore.scheduling.imip.inbound import scheduleNextMailPoll
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseStep
@@ -114,7 +115,6 @@ from calendarserver.push.notifier import PushDistributor
 from calendarserver.tap.util import (
     ConnectionDispenser, Stepper,
     checkDirectories, getRootResource,
-    oracleConnectorFromConfig, pgConnectorFromConfig,
     pgServiceFromConfig, getDBPool, MemoryLimitService,
     storeFromConfig, getSSLPassphrase, preFlightChecks,
     storeFromConfigWithDPSClient, storeFromConfigWithoutDPS,
@@ -1500,9 +1500,17 @@ class CalDAVServiceMaker (object):
         @rtype: L{IService}
         """
 
-        def createSubServiceFactory(
-            dialect=POSTGRES_DIALECT, paramstyle='pyformat'
-        ):
+        def createSubServiceFactory(dbtype):
+            if dbtype == "":
+                dialect = POSTGRES_DIALECT
+                paramstyle = "pyformat"
+            elif dbtype == "postgres":
+                dialect = POSTGRES_DIALECT
+                paramstyle = "pyformat"
+            elif dbtype == "oracle":
+                dialect = ORACLE_DIALECT
+                paramstyle = "numeric"
+
             def subServiceFactory(connectionFactory, storageService):
                 ms = MultiService()
                 cp = ConnectionPool(
@@ -1606,26 +1614,14 @@ class CalDAVServiceMaker (object):
                 # to it.
                 pgserv = pgServiceFromConfig(
                     config,
-                    createSubServiceFactory(),
+                    createSubServiceFactory(""),
                     uid=overrideUID, gid=overrideGID
                 )
                 return pgserv
-            elif config.DBType == "postgres":
-                # Connect to a postgres database that is already running.
-                return createSubServiceFactory()(
-                    pgConnectorFromConfig(config), None
-                )
-            elif config.DBType == "oracle":
-                # Connect to an Oracle database that is already running.
-                return createSubServiceFactory(
-                    dialect=ORACLE_DIALECT,
-                    paramstyle="numeric"
-                )(
-                    oracleConnectorFromConfig(config), None
-                )
             else:
-                raise UsageError(
-                    "Unknown database type {}".format(config.DBType)
+                # Connect to a database that is already running.
+                return createSubServiceFactory(config.DBType)(
+                    DBAPIConnector.connectorFor(config.DBType, **config.DatabaseConnection).connect, None
                 )
         else:
             store = storeFromConfig(config, None, None)
