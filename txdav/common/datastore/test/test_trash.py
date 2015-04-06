@@ -568,8 +568,8 @@ END:VCALENDAR
         data = yield self._getResourceData(txn, "user02", "calendar", "")
         self.assertTrue("PARTSTAT=NEEDS-ACTION" in data)
 
-        resource = yield self._getResource(txn, "user01", "inbox", "")
-        yield resource.remove()
+        resourceNames = yield self._getResourceNames(txn, "user01", "inbox")
+        self.assertEqual(len(resourceNames), 0)
 
         yield txn.commit()
 
@@ -2019,7 +2019,7 @@ END:VCALENDAR
         txn = self.store.newTransaction()
         home1 = yield txn.calendarHomeWithUID("user01", create=True)
         collection = yield home1.childWithName("calendar")
-        resource = yield collection.createObjectResourceWithName(
+        yield collection.createObjectResourceWithName(
             "test.ics",
             Component.allFromString(organizer1_data)
         )
@@ -2155,7 +2155,6 @@ END:VCALENDAR
         txn = self.store.newTransaction()
         home = yield self._homeForUser(txn, "user01")
         yield home.getTrash(create=True) # force loading trash
-        calendar = yield self._collectionForUser(txn, "user01", "calendar")
         calendars = yield home.calendars(onlyInTrash=False)
         self.assertEquals(
             set([c.name() for c in calendars]),

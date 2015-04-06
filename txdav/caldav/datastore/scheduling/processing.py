@@ -372,6 +372,7 @@ class ImplicitProcessor(object):
                         # Reset state to make it look like a new iTIP being processed
                         self.recipient_calendar = None
                         self.recipient_calendar_resource = None
+                        self.recipient_in_trash = False
                         self.new_resource = True
                     else:
                         raise ImplicitProcessorException("5.3;Organizer change not allowed")
@@ -457,13 +458,18 @@ class ImplicitProcessor(object):
         @return: C{tuple} of (processed, auto-processed, store inbox item, changes)
         """
 
-        # If we have a recipient item in the trash, remove it right now so that we treat the iTIP message as a new
-        # invite.
-        if not self.new_resource and self.recipient_in_trash:
+        # Check if the incoming data has the recipient declined in all instances.
+        attendees = self.message.getAttendeeProperties((self.recipient.cuaddr,))
+        all_declined = all([attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "DECLINED" for attendee in attendees])
+
+        # If we have a recipient item in the trash, and the incoming message has at least one undeclined partstat, then remove the trash
+        # item right now so that we treat the iTIP message as a new invite.
+        if not self.new_resource and self.recipient_in_trash and not all_declined:
             yield self.deleteCalendarResource(self.recipient_calendar_resource)
             # Reset state to make it look like a new iTIP being processed
             self.recipient_calendar = None
             self.recipient_calendar_resource = None
+            self.recipient_in_trash = False
             self.new_resource = True
 
         # If there is no existing copy, then look for default calendar and copy it here
@@ -471,8 +477,7 @@ class ImplicitProcessor(object):
 
             # Check if the incoming data has the recipient declined in all instances. In that case we will not create
             # a new resource as chances are the recipient previously deleted the resource and we want to keep it deleted.
-            attendees = self.message.getAttendeeProperties((self.recipient.cuaddr,))
-            if all([attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "DECLINED" for attendee in attendees]):
+            if all_declined:
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - ignoring all declined" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
                 returnValue((True, False, False, None,))
 
@@ -544,8 +549,9 @@ class ImplicitProcessor(object):
                     # Only store inbox item when reply is not sent or always for users
                     store_inbox = store_inbox or self.recipient.record.getCUType() == "INDIVIDUAL"
                 else:
+                    # Do not store inbox item if the resource is remaining in the trash
                     send_reply = False
-                    store_inbox = True
+                    store_inbox = not self.recipient_in_trash
 
                 # Let the store know that no time-range info has changed for a refresh (assuming that
                 # no auto-accept changes were made)
