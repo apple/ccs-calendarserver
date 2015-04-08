@@ -761,6 +761,8 @@ DEFAULT_CONFIG = {
                 "AutoReplyDelaySeconds"               : 5,          # Time delay for sending an auto reply iTIP message
                 "AttendeeRefreshBatchDelaySeconds"    : 5,          # Time after an iTIP REPLY for first batched attendee refresh
                 "AttendeeRefreshBatchIntervalSeconds" : 5,          # Time between attendee batch refreshes
+                "TemporaryFailureDelay"               : 60,         # Delay in seconds before a work item is executed again after a temp failure
+                "MaxTemporaryFailures"                : 10,         # Max number of temp failure retries before treating as a permanent failure
             },
 
             "Splitting": {

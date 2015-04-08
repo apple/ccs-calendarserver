@@ -18,7 +18,7 @@ from StringIO import StringIO
 
 from calendarserver.version import version
 
-from twext.internet.gaiendpoint import GAIEndpoint
+from twext.internet.gaiendpoint import GAIEndpoint, MultiFailure
 from twext.python.log import Logger
 from txweb2 import responsecode
 from txweb2.client.http import ClientRequest
@@ -31,7 +31,7 @@ from txweb2.http_headers import MimeType
 from txweb2.stream import MemoryStream
 
 from twisted.internet.defer import inlineCallbacks, DeferredList, returnValue
-from twisted.internet.error import ConnectionDone
+from twisted.internet.error import ConnectionDone, ConnectionRefusedError
 from twisted.internet.protocol import Factory
 from twisted.python.failure import Failure
 
@@ -264,6 +264,15 @@ class IScheduleRequest(object):
                 raise ValueError("Incorrect server response status code: {code}".format(code=response.code))
 
         except Exception, e:
+            # Check for connection failure
+            if isinstance(e, MultiFailure) and not self.scheduler.isfreebusy:
+                all_connections_failed = all([isinstance(err.value, ConnectionRefusedError) for err in e.failures])
+            else:
+                all_connections_failed = False
+
+            # We will return MESSAGE_PENDING if we failed to connect to the remote server, otherwise SERVICE_UNAVAILABLE
+            failed_status = iTIPRequestStatus.MESSAGE_PENDING if all_connections_failed else iTIPRequestStatus.SERVICE_UNAVAILABLE
+
             # Generated failed responses for each recipient
             log.error(
                 "Could not do server-to-server request : {req} {exc}",
@@ -276,7 +285,7 @@ class IScheduleRequest(object):
                     (ischedule_namespace, "recipient-failed"),
                     "Server-to-server request failed",
                 ))
-                self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
+                self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=failed_status)
 
 
     @inlineCallbacks

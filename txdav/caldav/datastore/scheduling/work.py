@@ -18,7 +18,7 @@ from twext.enterprise.dal.record import fromTable, Record
 from twext.enterprise.dal.syntax import Select, Insert, Delete, Parameter
 from twext.enterprise.locking import NamedLock
 from twext.enterprise.jobqueue import WorkItem, WORK_PRIORITY_MEDIUM, JobItem, \
-    WORK_WEIGHT_5
+    WORK_WEIGHT_5, JobTemporaryError
 from twext.python.log import Logger
 
 from twisted.internet.defer import inlineCallbacks, returnValue, Deferred
@@ -279,6 +279,25 @@ class ScheduleWorkMixin(WorkItem):
         return changed
 
 
+    @inlineCallbacks
+    def checkTemporaryFailure(self, results):
+        """
+        Check to see whether whether a temporary failure should be raised as opposed to continuing on with a permanent failure.
+
+        @param results: set of results gathered in L{extractSchedulingResponse}
+        @type results: L{list}
+        """
+        if all([result[1] == iTIPRequestStatus.MESSAGE_PENDING_CODE for result in results]):
+            job = yield JobItem.load(self.transaction, self.jobID)
+            if job.failed >= config.Scheduling.Options.WorkQueues.MaxTemporaryFailures:
+                # Set results to SERVICE_UNAVAILABLE
+                for ctr, result in enumerate(results):
+                    results[ctr] = (result[0], iTIPRequestStatus.SERVICE_UNAVAILABLE_CODE,)
+                returnValue(None)
+            else:
+                raise JobTemporaryError(config.Scheduling.Options.WorkQueues.TemporaryFailureDelay)
+
+
 
 class ScheduleWork(Record, fromTable(schema.SCHEDULE_WORK)):
     """
@@ -478,6 +497,11 @@ class ScheduleOrganizerSendWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORG
             if resource is not None:
                 responses, all_delivered = self.extractSchedulingResponse(scheduler.queuedResponses)
                 if not all_delivered:
+
+                    # Check for all connection failed
+                    yield self.checkTemporaryFailure(responses)
+
+                    # Update calendar data to reflect error status
                     calendar = (yield resource.componentForUser())
                     changed = self.handleSchedulingResponse(responses, calendar, True)
                     if changed:
@@ -567,6 +591,11 @@ class ScheduleReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REPLY_WORK)
             if resource is not None:
                 responses, all_delivered = self.extractSchedulingResponse((response,))
                 if not all_delivered:
+
+                    # Check for all connection failed
+                    yield self.checkTemporaryFailure(responses)
+
+                    # Update calendar data to reflect error status
                     calendar = (yield resource.componentForUser())
                     changed = yield self.handleSchedulingResponse(responses, calendar, False)
                     if changed:
