@@ -4152,11 +4152,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             if do_implicit_action:
                 yield NamedLock.acquire(self._txn, "ImplicitUIDLock:{0}".format(hashlib.md5(calendar.resourceUID()).hexdigest(),))
 
-        # Need to also remove attachments
-        if internal_state != ComponentRemoveState.INTERNAL:
-            if self._dropboxID:
-                yield DropBoxAttachment.resourceRemoved(self._txn, self._resourceID, self._dropboxID)
-            yield ManagedAttachment.resourceRemoved(self._txn, self._resourceID)
 
         if isinbox:
             bypassTrash = True
@@ -4169,6 +4164,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     bypassTrash = True
 
         if bypassTrash:
+            # Need to also remove attachments
+            if internal_state != ComponentRemoveState.INTERNAL:
+                if self._dropboxID:
+                    yield DropBoxAttachment.resourceRemoved(self._txn, self._resourceID, self._dropboxID)
+                yield ManagedAttachment.resourceRemoved(self._txn, self._resourceID)
+
             yield super(CalendarObject, self).reallyRemove()
         else:
             # Always remove the group attendee link to prevent trashed items from being reconciled when a group changes

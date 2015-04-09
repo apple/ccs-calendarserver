@@ -995,6 +995,20 @@ class CommonCommonTests(object):
         returnValue(object)
 
 
+    @inlineCallbacks
+    def trashObjectsUnderTest(
+        self, txn=None, home="home1", status=None
+    ):
+        """
+        Get the calendar detailed by
+        C{requirements[home][calendar_name][name]}.
+        """
+        home = yield self.homeUnderTest(name=home)
+        trash = yield home.getTrash()
+        objects = yield trash.objectResources()
+        returnValue(objects)
+
+
     def addressbookHomeUnderTest(self, txn=None, name="home1"):
         """
         Get the addressbook home detailed by C{requirements['home1']}.

@@ -2934,7 +2934,9 @@ class CommonHome(SharingHomeMixIn):
         trash = yield self.getTrash()
         if trash is None:
             if verbose:
-                print("No trash collection for principal")
+                msg = "No trash collection for principal"
+                print(msg)
+                log.info(msg)
             returnValue(None)
 
         endTime = datetime.datetime.utcnow() - datetime.timedelta(days=days)
@@ -2949,12 +2951,16 @@ class CommonHome(SharingHomeMixIn):
                 continue
 
             if verbose:
-                print("Collection \"{}\":".format(displayName.encode("utf-8")))
+                msg = "Collection \"{}\":".format(displayName.encode("utf-8"))
+                print(msg)
+                log.info(msg)
             for child in children:
-                component = yield child.component()
-                summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
                 if verbose:
-                    print("   Removing \"{}\"...".format(summary))
+                    component = yield child.component()
+                    summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
+                    msg = "   Removing \"{}\"...".format(summary)
+                    print(msg)
+                    log.info(msg)
                 yield child.reallyRemove()
             if verbose:
                 print("")
@@ -2966,19 +2972,25 @@ class CommonHome(SharingHomeMixIn):
                 collection._resourceID, end=endTime
             )
             if verbose:
-                print("Collection \"{}\":".format(displayName.encode("utf-8")))
+                msg = "Collection \"{}\":".format(displayName.encode("utf-8"))
+                print(msg)
+                log.info(msg)
             for child in children:
-                component = yield child.component()
-                summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
                 if verbose:
-                    print("   Removing \"{}\"...".format(summary))
+                    component = yield child.component()
+                    summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
+                    msg = "   Removing \"{}\"...".format(summary)
+                    print(msg)
+                    log.info(msg)
                 yield child.reallyRemove()
             if verbose:
                 print("")
 
             if collection.whenTrashed() < endTime:
                 if verbose:
-                    print("Removing collection \"{}\"...".format(displayName.encode("utf-8")))
+                    msg = "Removing collection \"{}\"...".format(displayName.encode("utf-8"))
+                    print(msg)
+                    log.info(msg)
                 yield collection.reallyRemove()
 
 

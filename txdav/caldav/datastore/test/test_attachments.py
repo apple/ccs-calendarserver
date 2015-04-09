@@ -650,6 +650,8 @@ END:VCALENDAR
         L{ICalendarObject.remove} will remove an associated calendar
         attachment.
         """
+        from twistedcaldav.stdconfig import config
+        self.patch(config, "EnableTrashCollection", True)
 
         # Create attachment
         obj = yield self.calendarObjectUnderTest()
@@ -670,11 +672,25 @@ END:VCALENDAR
         yield self.commit()
         self.assertNotEqual(quota, 0)
 
-        # Remove resource
+        # Remove resource (to trash)
         obj = yield self.calendarObjectUnderTest()
         yield obj.remove()
         yield self.commit()
 
+        # Attachments still exist and count towards quota
+        self.assertTrue(os.path.exists(apath))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID(u"home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertNotEqual(quota, 0)
+
+        # Fully remove resource
+        objects = yield self.trashObjectsUnderTest()
+        yield objects[0].remove(bypassTrash=True)
+        yield self.commit()
+
+        # Attachments don't exist and will not count towards quota
         self.assertFalse(os.path.exists(apath))
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID(u"home1"))
@@ -689,6 +705,8 @@ END:VCALENDAR
         L{ICalendarObject.remove} will remove all associated calendar
         attachments.
         """
+        from twistedcaldav.stdconfig import config
+        self.patch(config, "EnableTrashCollection", True)
 
         # Create attachment
         obj = yield self.calendarObjectUnderTest()
@@ -723,7 +741,7 @@ END:VCALENDAR
 
         # Remove resource
         obj = yield self.calendarObjectUnderTest()
-        yield obj.remove()
+        yield obj.remove(bypassTrash=True)
         yield self.commit()
 
         self.assertFalse(os.path.exists(apath1))
@@ -1261,6 +1279,8 @@ class ManagedAttachmentTests(AttachmentTests):
         L{ICalendarObject.remove} will remove an associated calendar
         attachment.
         """
+        from twistedcaldav.stdconfig import config
+        self.patch(config, "EnableTrashCollection", True)
 
         # Create attachment
         obj = yield self.calendarObjectUnderTest()
@@ -1279,11 +1299,25 @@ class ManagedAttachmentTests(AttachmentTests):
         yield self.commit()
         self.assertNotEqual(quota, 0)
 
-        # Remove resource
+        # Remove resource (to trash)
         obj = yield self.calendarObjectUnderTest()
         yield obj.remove()
         yield self.commit()
 
+        # Attachments still exist and count towards quota
+        self.assertTrue(os.path.exists(apath))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID(u"home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertNotEqual(quota, 0)
+
+        # Fully remove resource
+        objects = yield self.trashObjectsUnderTest()
+        yield objects[0].remove(bypassTrash=True)
+        yield self.commit()
+
+        # Attachments don't exist and will not count towards quota
         self.assertFalse(os.path.exists(apath))
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID(u"home1"))
@@ -1328,7 +1362,7 @@ class ManagedAttachmentTests(AttachmentTests):
 
         # Remove resource
         obj = yield self.calendarObjectUnderTest()
-        yield obj.remove()
+        yield obj.remove(bypassTrash=True)
         yield self.commit()
 
         self.assertFalse(os.path.exists(apath1))
@@ -1368,7 +1402,7 @@ class ManagedAttachmentTests(AttachmentTests):
 
         # Remove resource
         obj = yield self.calendarObjectUnderTest()
-        yield obj.remove()
+        yield obj.remove(bypassTrash=True)
         yield self.commit()
 
         self.assertTrue(os.path.exists(apath))
@@ -1380,7 +1414,7 @@ class ManagedAttachmentTests(AttachmentTests):
 
         # Remove resource
         obj = yield self.calendarObjectUnderTest(name="test.ics")
-        yield obj.remove()
+        yield obj.remove(bypassTrash=True)
         yield self.commit()
 
         self.assertFalse(os.path.exists(apath))
