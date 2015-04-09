@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twistedcaldav.timezones import readVTZ, TimezoneCache
 
 """
 Tests for L{txdav.common.datastore.upgrade.sql.upgrade}.
@@ -40,57 +41,12 @@ class Upgrade_from_4_to_5(CommonStoreTests):
     @inlineCallbacks
     def _calendarTimezoneUpgrade_setup(self):
 
-        tz1 = Component.fromString("""BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-PRODID:-//calendarserver.org//Zonal//EN
-BEGIN:VTIMEZONE
-TZID:Etc/GMT+1
-X-LIC-LOCATION:Etc/GMT+1
-BEGIN:STANDARD
-DTSTART:18000101T000000
-RDATE:18000101T000000
-TZNAME:GMT+1
-TZOFFSETFROM:-0100
-TZOFFSETTO:-0100
-END:STANDARD
-END:VTIMEZONE
-END:VCALENDAR
-""")
-        tz2 = Component.fromString("""BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-PRODID:-//calendarserver.org//Zonal//EN
-BEGIN:VTIMEZONE
-TZID:Etc/GMT+2
-X-LIC-LOCATION:Etc/GMT+2
-BEGIN:STANDARD
-DTSTART:18000101T000000
-RDATE:18000101T000000
-TZNAME:GMT+2
-TZOFFSETFROM:-0200
-TZOFFSETTO:-0200
-END:STANDARD
-END:VTIMEZONE
-END:VCALENDAR
-""")
-        tz3 = Component.fromString("""BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-PRODID:-//calendarserver.org//Zonal//EN
-BEGIN:VTIMEZONE
-TZID:Etc/GMT+3
-X-LIC-LOCATION:Etc/GMT+3
-BEGIN:STANDARD
-DTSTART:18000101T000000
-RDATE:18000101T000000
-TZNAME:GMT+3
-TZOFFSETFROM:-0300
-TZOFFSETTO:-0300
-END:STANDARD
-END:VTIMEZONE
-END:VCALENDAR
-""")
+        TimezoneCache.create()
+        self.addCleanup(TimezoneCache.clear)
+
+        tz1 = Component(None, pycalendar=readVTZ("Etc/GMT+1"))
+        tz2 = Component(None, pycalendar=readVTZ("Etc/GMT+2"))
+        tz3 = Component(None, pycalendar=readVTZ("Etc/GMT+3"))
 
         # Share user01 calendar with user03
         calendar = (yield self.calendarUnderTest(name="calendar_1", home="user01"))

@@ -30,7 +30,7 @@ from txweb2.stream import MemoryStream
 from twisted.python.filepath import FilePath
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList, \
-    succeed
+    succeed, maybeDeferred
 from twisted.internet.task import deferLater, Clock
 from twisted.trial import unittest
 
@@ -40,7 +40,7 @@ from twistedcaldav.stdconfig import config
 from twistedcaldav.dateops import datetimeMktime
 from twistedcaldav.ical import Component, normalize_iCalStr, diff_iCalStrs
 from twistedcaldav.instance import InvalidOverriddenInstanceError
-from twistedcaldav.timezones import TimezoneCache
+from twistedcaldav.timezones import TimezoneCache, readVTZ, TimezoneException
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.datastore.query.filter import Filter
@@ -1844,37 +1844,70 @@ END:VCALENDAR
         Make sure a L{CalendarHomeChild}.setTimezone() works.
         """
 
-        tz1 = Component.fromString("""BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-PRODID:-//calendarserver.org//Zonal//EN
-BEGIN:VTIMEZONE
-TZID:Etc/GMT+1
-X-LIC-LOCATION:Etc/GMT+1
-BEGIN:STANDARD
-DTSTART:18000101T000000
-RDATE:18000101T000000
-TZNAME:GMT+1
-TZOFFSETFROM:-0100
-TZOFFSETTO:-0100
-END:STANDARD
-END:VTIMEZONE
-END:VCALENDAR
-""")
+        TimezoneCache.create()
+        self.addCleanup(TimezoneCache.clear)
+
+        tzid1 = "Etc/GMT+1"
+        tz1 = Component(None, pycalendar=readVTZ(tzid1))
 
         cal = yield self.calendarUnderTest()
         self.assertEqual(cal.getTimezone(), None)
+        self.assertEqual(cal.getTimezoneID(), None)
         yield cal.setTimezone(tz1)
         self.assertEqual(cal.getTimezone(), tz1)
+        self.assertEqual(cal.getTimezoneID(), tzid1)
         yield self.commit()
 
         cal = yield self.calendarUnderTest()
         self.assertEqual(cal.getTimezone(), tz1)
+        self.assertEqual(cal.getTimezoneID(), tzid1)
         yield cal.setTimezone(None)
         yield self.commit()
 
         cal = yield self.calendarUnderTest()
         self.assertEqual(cal.getTimezone(), None)
+        self.assertEqual(cal.getTimezoneID(), None)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_setTimezoneID(self):
+        """
+        Make sure a L{CalendarHomeChild}.setTimezoneID() works.
+        """
+
+        TimezoneCache.create()
+        self.addCleanup(TimezoneCache.clear)
+
+        tzid1 = "Etc/GMT+1"
+        tz1 = Component(None, pycalendar=readVTZ(tzid1))
+
+        cal = yield self.calendarUnderTest()
+        self.assertEqual(cal.getTimezone(), None)
+        self.assertEqual(cal.getTimezoneID(), None)
+        yield cal.setTimezoneID(tzid1)
+        self.assertEqual(cal.getTimezone(), tz1)
+        self.assertEqual(cal.getTimezoneID(), tzid1)
+        yield self.commit()
+
+        cal = yield self.calendarUnderTest()
+        self.assertEqual(cal.getTimezone(), tz1)
+        self.assertEqual(cal.getTimezoneID(), tzid1)
+        yield cal.setTimezoneID(None)
+        yield self.commit()
+
+        cal = yield self.calendarUnderTest()
+        self.assertEqual(cal.getTimezone(), None)
+        self.assertEqual(cal.getTimezoneID(), None)
+        yield self.commit()
+
+        # Invalid TZID
+        cal = yield self.calendarUnderTest()
+        self.assertEqual(cal.getTimezone(), None)
+        self.assertEqual(cal.getTimezoneID(), None)
+        yield self.failUnlessFailure(maybeDeferred(cal.setTimezoneID, "bogus"), TimezoneException)
+        self.assertEqual(cal.getTimezone(), None)
+        self.assertEqual(cal.getTimezoneID(), None)
         yield self.commit()
 
 

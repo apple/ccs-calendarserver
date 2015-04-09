@@ -96,6 +96,7 @@ from txweb2.responsecode import (
     BAD_REQUEST, OK, INSUFFICIENT_STORAGE_SPACE, SERVICE_UNAVAILABLE
 )
 from txweb2.stream import ProducerStream, readStream, MemoryStream
+from twistedcaldav.timezones import TimezoneException
 
 
 """
@@ -1199,6 +1200,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
             DefaultAlarmPropertyMixin.ALARM_PROPERTIES.keys()
         ) + (
             caldavxml.CalendarTimeZone.qname(),
+            caldavxml.CalendarTimeZoneID.qname(),
         )
 
 
@@ -1212,7 +1214,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         if qname in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
             return succeed(self.getDefaultAlarmProperty(qname) is not None)
 
-        elif qname == caldavxml.CalendarTimeZone.qname():
+        elif qname in (caldavxml.CalendarTimeZone.qname(), caldavxml.CalendarTimeZoneID.qname(),):
             return succeed(self._newStoreObject.getTimezone() is not None)
 
         else:
@@ -1233,6 +1235,10 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
             timezone = self._newStoreObject.getTimezone()
             format = property.content_type if isinstance(property, caldavxml.CalendarTimeZone) else None
             returnValue(caldavxml.CalendarTimeZone.fromCalendar(timezone, format=format) if timezone else None)
+
+        elif qname == caldavxml.CalendarTimeZoneID.qname():
+            tzid = self._newStoreObject.getTimezoneID()
+            returnValue(caldavxml.CalendarTimeZoneID.fromString(tzid) if tzid else None)
 
         result = (yield super(CalendarCollectionResource, self).readProperty(property, request))
         returnValue(result)
@@ -1261,6 +1267,18 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
             yield self._newStoreObject.setTimezone(property.calendar())
             returnValue(None)
 
+        elif property.qname() == caldavxml.CalendarTimeZoneID.qname():
+            tzid = property.toString()
+            try:
+                yield self._newStoreObject.setTimezoneID(tzid)
+            except TimezoneException:
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "valid-timezone"),
+                    description="Invalid property"
+                ))
+            returnValue(None)
+
         elif property.qname() == caldavxml.ScheduleCalendarTransp.qname():
             yield self._newStoreObject.setUsedForFreeBusy(property == caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
             returnValue(None)
@@ -1280,7 +1298,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
             result = (yield self.removeDefaultAlarmProperty(qname))
             returnValue(result)
 
-        elif qname == caldavxml.CalendarTimeZone.qname():
+        elif qname in (caldavxml.CalendarTimeZone.qname(), caldavxml.CalendarTimeZoneID.qname(),):
             yield self._newStoreObject.setTimezone(None)
             returnValue(None)
 

@@ -690,11 +690,11 @@ class CalDAVResource (
                         "Component %s is not supported by this server" % (component.toxml(),)
                     ))
 
-        # Strictly speaking CalDAV:timezone is a live property in the sense that the
-        # server enforces what can be stored, however it need not actually
-        # exist so we cannot list it in liveProperties on this resource, since its
-        # its presence there means that hasProperty will always return True for it.
-        elif property.qname() == caldavxml.CalendarTimeZone.qname():
+        # Strictly speaking CalDAV:calendar-timezone and CalDAV:calendar-timezone-id are live properties
+        # in the sense that the server enforces what can be stored, however they need not actually
+        # exist so we cannot list them in liveProperties on this resource, since their presence there
+        # means that hasProperty will always return True for it.
+        elif property.qname() in (caldavxml.CalendarTimeZone.qname(), caldavxml.CalendarTimeZoneID.qname(),):
             if not self.isCalendarCollection():
                 raise HTTPError(StatusResponse(
                     responsecode.FORBIDDEN,

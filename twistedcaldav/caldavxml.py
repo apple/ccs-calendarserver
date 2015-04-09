@@ -212,6 +212,7 @@ class CalDAVDataMixin(object):
         """
         Returns the calendar data derived from this element.
         """
+        data = None
         for data in self.children:
             if not isinstance(data, PCDATAElement):
                 return None
@@ -314,6 +315,17 @@ class CalendarTimeZone (CalDAVTimeZoneElement):
         "content-type": False,
         "version"     : False,
     }
+
+
+
+@registerElement
+class CalendarTimeZoneID (CalDAVTextElement):
+    """
+    Specifies a time zone id on a calendar collection.
+    (draft-ietf-tzdist-caldav-timezone-ref-01, Section-5.2)
+    """
+    name = "calendar-timezone-id"
+    hidden = True
 
 
 
@@ -469,6 +481,7 @@ class CalendarQuery (CalDAVElement):
         (dav_namespace, "propname"): (0, None),
         (dav_namespace, "prop"): (0, None),
         (caldav_namespace, "timezone"): (0, 1),
+        (caldav_namespace, "timezone-id"): (0, 1),
         (caldav_namespace, "filter"): (0, 1), # Actually (1, 1) unless element is empty
     }
 
@@ -479,6 +492,7 @@ class CalendarQuery (CalDAVElement):
         props = None
         filter = None
         timezone = None
+        timezone_id = None
 
         for child in self.children:
             qname = child.qname()
@@ -496,7 +510,14 @@ class CalendarQuery (CalDAVElement):
                 filter = child
 
             elif qname == (caldav_namespace, "timezone"):
+                if timezone_id is not None:
+                    raise ValueError("Only one of CalDAV:timezone and CalDAV:timezone-id allowed")
                 timezone = child
+
+            elif qname == (caldav_namespace, "timezone-id"):
+                if timezone is not None:
+                    raise ValueError("Only one of CalDAV:timezone and CalDAV:timezone-id allowed")
+                timezone_id = child
 
             else:
                 raise AssertionError("We shouldn't be here")
@@ -508,6 +529,7 @@ class CalendarQuery (CalDAVElement):
         self.props = props
         self.filter = filter
         self.timezone = timezone
+        self.timezone_id = timezone_id
 
 
 
@@ -902,6 +924,16 @@ class TimeZone (CalDAVTimeZoneElement):
         "content-type": False,
         "version"     : False,
     }
+
+
+
+@registerElement
+class TimeZoneID (CalDAVTextElement):
+    """
+    Specifies a time zone id.
+    (draft-ietf-tzdist-caldav-timezone-ref-01, Section-5.2)
+    """
+    name = "timezone-id"
 
 
 

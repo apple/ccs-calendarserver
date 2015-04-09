@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twistedcaldav.timezones import TimezoneException, readVTZ
+from twistedcaldav.ical import Component
 
 """
 CalDAV calendar-query report
@@ -72,18 +74,30 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
 
     # Get the original timezone provided in the query, if any, and validate it now
     query_timezone = None
-    query_tz = calendar_query.timezone
-    if query_tz is not None and not query_tz.valid():
-        msg = "CalDAV:timezone must contain one VTIMEZONE component only: %s" % (query_tz,)
-        log.error(msg)
-        raise HTTPError(ErrorResponse(
-            responsecode.FORBIDDEN,
-            (caldav_namespace, "valid-calendar-data"),
-            "Invalid calendar-data",
-        ))
-    if query_tz:
+    if calendar_query.timezone:
+        query_tz = calendar_query.timezone
+        if not query_tz.valid():
+            msg = "CalDAV:timezone must contain one VTIMEZONE component only: %s" % (query_tz,)
+            log.error(msg)
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "valid-calendar-data"),
+                "Invalid calendar-data",
+            ))
         filter.settimezone(query_tz)
-        query_timezone = tuple(calendar_query.timezone.calendar().subcomponents())[0]
+        query_timezone = tuple(query_tz.calendar().subcomponents())[0]
+    elif calendar_query.timezone_id:
+        query_tzid = calendar_query.timezone_id.toString()
+        try:
+            query_tz = Component(None, pycalendar=readVTZ(query_tzid))
+        except TimezoneException:
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "valid-timezone"),
+                "Invalid timezone-id",
+            ))
+        filter.settimezone(query_tz)
+        query_timezone = tuple(query_tz.subcomponents())[0]
 
     if props.qname() == ("DAV:", "allprop"):
         propertiesForResource = report_common.allPropertiesForResource
@@ -171,12 +185,13 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         if calresource.isPseudoCalendarCollection():
             # Get the timezone property from the collection if one was not set in the query,
             # and store in the query filter for later use
-            has_prop = (yield calresource.hasProperty(CalendarTimeZone(), request))
             timezone = query_timezone
-            if query_tz is None and has_prop:
-                tz = (yield calresource.readProperty(CalendarTimeZone(), request))
-                filter.settimezone(tz)
-                timezone = tuple(tz.calendar().subcomponents())[0]
+            if timezone is None:
+                has_prop = (yield calresource.hasProperty(CalendarTimeZone(), request))
+                if has_prop:
+                    tz = (yield calresource.readProperty(CalendarTimeZone(), request))
+                    filter.settimezone(tz)
+                    timezone = tuple(tz.calendar().subcomponents())[0]
 
             # Do some optimization of access control calculation by determining any inherited ACLs outside of
             # the child resource loop and supply those to the checkPrivileges on each child.
@@ -226,7 +241,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             # Get the timezone property from the collection if one was not set in the query,
             # and store in the query object for later use
             timezone = query_timezone
-            if query_tz is None:
+            if timezone is None:
 
                 parent = (yield calresource.locateParent(request, uri))
                 assert parent is not None and parent.isPseudoCalendarCollection()

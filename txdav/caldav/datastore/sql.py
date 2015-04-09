@@ -50,7 +50,7 @@ from twistedcaldav.dateops import normalizeForIndex, \
     pyCalendarToSQLTimestamp, parseSQLDateToPyCalendar
 from twistedcaldav.ical import Component, InvalidICalendarDataError, Property
 from twistedcaldav.instance import InvalidOverriddenInstanceError
-from twistedcaldav.timezones import TimezoneException
+from twistedcaldav.timezones import TimezoneException, readVTZ, hasTZ
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.datastore.query.builder import buildExpression
@@ -1368,26 +1368,88 @@ class Calendar(CommonHomeChild):
 
     def getTimezone(self):
         """
-        Return the VTIMEZONE data.
+        Return the VTIMEZONE data. L{self._timezone} will either be a full iCalendar component
+        (BEGIN:VCALENDAR ... END:VCALENDAR) or just the timezone id.
 
-        @return: the component (text)
+        @return: the component
         @rtype: L{Component}
         """
 
-        return Component.fromString(self._timezone) if self._timezone else None
+        if self._timezone:
+            if self._timezone.startswith("BEGIN:VCALENDAR"):
+                return Component.fromString(self._timezone)
+            else:
+                try:
+                    return Component(None, pycalendar=readVTZ(self._timezone))
+                except TimezoneException:
+                    return None
+        else:
+            return None
 
 
-    @inlineCallbacks
+    def getTimezoneID(self):
+        """
+        Return the VTIMEZONE TZID value. L{self._timezone} will either be a full iCalendar component
+        (BEGIN:VCALENDAR ... END:VCALENDAR) or just the timezone id.
+
+        @return: the timezone id
+        @rtype: L{str}
+        """
+
+        if self._timezone:
+            if self._timezone.startswith("BEGIN:VCALENDAR"):
+                tz = Component.fromString(self._timezone)
+                return list(tz.timezones())[0]
+            else:
+                return self._timezone
+        else:
+            return None
+
+
     def setTimezone(self, timezone):
         """
-        Set VTIMEZONE data.
+        Set VTIMEZONE data. If the TZID is in our database, then just store the TZID value, otherwise store the
+        entire iCalendar object as text.
 
         @param timezone: the component
         @type timezone: L{Component}
         """
 
-        self._timezone = str(timezone) if timezone else None
+        if timezone is not None:
+            try:
+                tzid = list(timezone.timezones())[0]
+                if hasTZ(tzid):
+                    self._timezone = tzid
+            except TimezoneException:
+                self._timezone = str(timezone)
+        else:
+            self._timezone = None
+        return self._setTimezoneValue()
 
+
+    def setTimezoneID(self, tzid):
+        """
+        Set VTIMEZONE via a TZID value. Make sure the TZID is in our TZ database.
+
+        @param tzid: the component
+        @type tzid: L{Component}
+
+        @raise L{TimezoneException} if tzid is not in our database
+        """
+
+        if tzid is not None:
+            hasTZ(tzid)
+            self._timezone = tzid
+        else:
+            self._timezone = None
+        return self._setTimezoneValue()
+
+
+    @inlineCallbacks
+    def _setTimezoneValue(self):
+        """
+        Store the current L{self._timezone} value in the database.
+        """
         cal = self._bindSchema
         yield Update(
             {

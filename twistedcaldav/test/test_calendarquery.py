@@ -22,7 +22,7 @@ from txweb2 import responsecode
 from txweb2.iweb import IResponse
 from txweb2.stream import MemoryStream
 from txdav.xml import element as davxml
-from txweb2.dav.util import davXMLFromStream
+from txweb2.dav.util import davXMLFromStream, allDataFromStream
 
 from twistedcaldav import caldavxml
 from twistedcaldav import ical
@@ -36,6 +36,7 @@ from twistedcaldav.ical import Component
 from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.caldav.datastore.query.filter import TimeRange
 from twext.who.idirectory import RecordType
+from twistedcaldav.timezones import readVTZ, TimezoneCache
 
 
 @inlineCallbacks
@@ -172,6 +173,167 @@ class CalendarQuery (StoreTestCase):
                                           % (property, property.calendar, query_timerange))
 
         return self.calendar_query(query, got_xml)
+
+
+    def test_calendar_query_timezone(self):
+        """
+        Partial retrieval of events by time range.
+        (CalDAV-access-09, section 7.6.1)
+        """
+        TimezoneCache.create()
+        self.addCleanup(TimezoneCache.clear)
+
+        tzid1 = "Etc/GMT+1"
+        tz1 = Component(None, pycalendar=readVTZ(tzid1))
+
+        calendar_properties = (
+            davxml.GETETag(),
+            caldavxml.CalendarData(),
+        )
+
+        query_timerange = caldavxml.TimeRange(
+            start="%04d1001T000000Z" % (DateTime.getToday().getYear(),),
+            end="%04d1101T000000Z" % (DateTime.getToday().getYear(),),
+        )
+
+        query = caldavxml.CalendarQuery(
+            davxml.PropertyContainer(*calendar_properties),
+            caldavxml.Filter(
+                caldavxml.ComponentFilter(
+                    caldavxml.ComponentFilter(
+                        query_timerange,
+                        name="VEVENT",
+                    ),
+                    name="VCALENDAR",
+                ),
+            ),
+            caldavxml.TimeZone.fromCalendar(tz1),
+        )
+
+        def got_xml(doc):
+            if not isinstance(doc.root_element, davxml.MultiStatus):
+                self.fail("REPORT response XML root element is not multistatus: %r" % (doc.root_element,))
+
+        return self.calendar_query(query, got_xml)
+
+
+    def test_calendar_query_timezone_id(self):
+        """
+        Partial retrieval of events by time range.
+        (CalDAV-access-09, section 7.6.1)
+        """
+        TimezoneCache.create()
+        self.addCleanup(TimezoneCache.clear)
+
+        tzid1 = "Etc/GMT+1"
+
+        calendar_properties = (
+            davxml.GETETag(),
+            caldavxml.CalendarData(),
+        )
+
+        query_timerange = caldavxml.TimeRange(
+            start="%04d1001T000000Z" % (DateTime.getToday().getYear(),),
+            end="%04d1101T000000Z" % (DateTime.getToday().getYear(),),
+        )
+
+        query = caldavxml.CalendarQuery(
+            davxml.PropertyContainer(*calendar_properties),
+            caldavxml.Filter(
+                caldavxml.ComponentFilter(
+                    caldavxml.ComponentFilter(
+                        query_timerange,
+                        name="VEVENT",
+                    ),
+                    name="VCALENDAR",
+                ),
+            ),
+            caldavxml.TimeZoneID.fromString(tzid1),
+        )
+
+        def got_xml(doc):
+            if not isinstance(doc.root_element, davxml.MultiStatus):
+                self.fail("REPORT response XML root element is not multistatus: %r" % (doc.root_element,))
+
+        return self.calendar_query(query, got_xml)
+
+
+    @inlineCallbacks
+    def test_calendar_query_bogus_timezone_id(self):
+        """
+        Partial retrieval of events by time range.
+        (CalDAV-access-09, section 7.6.1)
+        """
+        TimezoneCache.create()
+        self.addCleanup(TimezoneCache.clear)
+
+        calendar_properties = (
+            davxml.GETETag(),
+            caldavxml.CalendarData(),
+        )
+
+        query_timerange = caldavxml.TimeRange(
+            start="%04d1001T000000Z" % (DateTime.getToday().getYear(),),
+            end="%04d1101T000000Z" % (DateTime.getToday().getYear(),),
+        )
+
+        query = caldavxml.CalendarQuery(
+            davxml.PropertyContainer(*calendar_properties),
+            caldavxml.Filter(
+                caldavxml.ComponentFilter(
+                    caldavxml.ComponentFilter(
+                        query_timerange,
+                        name="VEVENT",
+                    ),
+                    name="VCALENDAR",
+                ),
+            ),
+            caldavxml.TimeZoneID.fromString("bogus"),
+        )
+
+        result = yield self.calendar_query(query, got_xml=None, expected_code=responsecode.FORBIDDEN)
+        self.assertTrue("valid-timezone" in result)
+
+
+    @inlineCallbacks
+    def test_calendar_query_wrong_timezone_elements(self):
+        """
+        Partial retrieval of events by time range.
+        (CalDAV-access-09, section 7.6.1)
+        """
+        TimezoneCache.create()
+        self.addCleanup(TimezoneCache.clear)
+
+        tzid1 = "Etc/GMT+1"
+        tz1 = Component(None, pycalendar=readVTZ(tzid1))
+
+        calendar_properties = (
+            davxml.GETETag(),
+            caldavxml.CalendarData(),
+        )
+
+        query_timerange = caldavxml.TimeRange(
+            start="%04d1001T000000Z" % (DateTime.getToday().getYear(),),
+            end="%04d1101T000000Z" % (DateTime.getToday().getYear(),),
+        )
+
+        query = caldavxml.CalendarQuery(
+            davxml.PropertyContainer(*calendar_properties),
+            caldavxml.Filter(
+                caldavxml.ComponentFilter(
+                    caldavxml.ComponentFilter(
+                        query_timerange,
+                        name="VEVENT",
+                    ),
+                    name="VCALENDAR",
+                ),
+            ),
+            caldavxml.TimeZone.fromCalendar(tz1),
+        )
+        query.children += (caldavxml.TimeZoneID.fromString(tzid1),)
+
+        result = yield self.calendar_query(query, got_xml=None, expected_code=responsecode.BAD_REQUEST)
+        self.assertTrue("Only one of" in result)
 
 
     def test_calendar_query_partial_recurring(self):
@@ -343,7 +505,7 @@ class CalendarQuery (StoreTestCase):
 
 
     @inlineCallbacks
-    def calendar_query(self, query, got_xml):
+    def calendar_query(self, query, got_xml, expected_code=responsecode.MULTI_STATUS):
 
         principal = yield self.actualRoot.findPrincipalForAuthID("wsanchez")
         request = SimpleStoreRequest(self, "REPORT", "/calendars/users/wsanchez/calendar/", authPrincipal=principal)
@@ -352,9 +514,14 @@ class CalendarQuery (StoreTestCase):
 
         response = IResponse(response)
 
-        if response.code != responsecode.MULTI_STATUS:
+        if response.code != expected_code:
             self.fail("REPORT failed: %s" % (response.code,))
 
-        returnValue(
-            (yield davXMLFromStream(response.stream).addCallback(got_xml))
-        )
+        if got_xml is not None:
+            returnValue(
+                (yield davXMLFromStream(response.stream).addCallback(got_xml))
+            )
+        else:
+            returnValue(
+                (yield allDataFromStream(response.stream))
+            )
