@@ -30,14 +30,12 @@ from twext.python.log import Logger
 
 from txweb2 import responsecode
 from txweb2.auth.wrapper import UnauthorizedResponse
-from txweb2.dav.http import ErrorResponse
 from txweb2.dav.util import joinURL
-from txweb2.http import HTTPError, RedirectResponse, JSONResponse
+from txweb2.http import HTTPError, RedirectResponse
 from txweb2.http_headers import ETag, MimeType
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
-from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.directory.common import uidsResourceName, \
     CommonUIDProvisioningResource, CommonHomeTypeProvisioningResource
@@ -321,45 +319,3 @@ class DirectoryCalendarHomeResource (CalendarHomeResource):
 
     def principalForRecord(self):
         return self.parent.principalForRecord(self.record)
-
-
-    @inlineCallbacks
-    def POST_handler_action(self, request, action):
-        """
-        Handle a POST request with an action= query parameter
-
-        @param request: the request to process
-        @type request: L{Request}
-        @param action: the action to execute
-        @type action: C{str}
-        """
-        if action == "emptytrash":
-            days = int(request.args.get("days", ("0",))[0])
-            yield self._newStoreHome.emptyTrash(days=days)
-            returnValue(
-                self._ok("ok", "Empty Trash")
-            )
-
-        elif action == "gettrashcontents":
-            contents = yield self._newStoreHome.getTrashContents()
-            returnValue(
-                self._ok("ok", "Trash Contents", contents)
-            )
-
-        else:
-            raise HTTPError(ErrorResponse(
-                responsecode.FORBIDDEN,
-                (caldav_namespace, "valid-action-parameter",),
-                "The action parameter in the request-URI is not valid",
-            ))
-
-
-    def _ok(self, status, description, result=None):
-        if result is None:
-            result = {}
-        result["status"] = status
-        result["description"] = description
-        return JSONResponse(
-            responsecode.OK,
-            result,
-        )

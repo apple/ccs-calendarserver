@@ -54,9 +54,7 @@ from txweb2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResourc
     davPrivilegeSet
 from txweb2.dav.resource import TwistedACLInheritable
 from txweb2.dav.util import joinURL, parentForURL, normalizeURL
-from txweb2.http import (
-    HTTPError, RedirectResponse, StatusResponse, Response
-)
+from txweb2.http import HTTPError, RedirectResponse, StatusResponse, Response, JSONResponse
 from txweb2.dav.http import ErrorResponse
 from txweb2.http_headers import MimeType, ETag
 from txweb2.stream import MemoryStream
@@ -2704,6 +2702,48 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
                 notallowed.extend([joinURL("notification", name) for name in noti_notallowed])
 
         returnValue((changed, deleted, notallowed))
+
+
+    @inlineCallbacks
+    def POST_handler_action(self, request, action):
+        """
+        Handle a POST request with an action= query parameter
+
+        @param request: the request to process
+        @type request: L{Request}
+        @param action: the action to execute
+        @type action: C{str}
+        """
+        if action == "emptytrash":
+            days = int(request.args.get("days", ("0",))[0])
+            yield self._newStoreHome.emptyTrash(days=days)
+            returnValue(
+                self._ok("ok", "Empty Trash")
+            )
+
+        elif action == "gettrashcontents":
+            contents = yield self._newStoreHome.getTrashContents()
+            returnValue(
+                self._ok("ok", "Trash Contents", contents)
+            )
+
+        else:
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "valid-action-parameter",),
+                "The action parameter in the request-URI is not valid",
+            ))
+
+
+    def _ok(self, status, description, result=None):
+        if result is None:
+            result = {}
+        result["status"] = status
+        result["description"] = description
+        return JSONResponse(
+            responsecode.OK,
+            result,
+        )
 
 
 
