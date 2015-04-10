@@ -739,7 +739,7 @@ class CalVerifyService(WorkerService, object):
             calendar = yield home.childWithID(calendarID)
             calendarObj = yield calendar.objectResourceWithID(resid)
             objname = calendarObj.name()
-            yield calendarObj.remove(implicitly=False, bypassTrash=True)
+            yield calendarObj.purge(implicitly=False)
             yield self.txn.commit()
             self.txn = self.store.newTransaction()
 

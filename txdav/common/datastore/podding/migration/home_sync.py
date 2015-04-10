@@ -647,7 +647,7 @@ class CrossPodHomeSync(object):
         local_objects = yield local_calendar.objectResourcesWithNames(purge_names)
 
         for local_object in local_objects:
-            yield local_object.purge()
+            yield local_object.purge(implicitly=False)
             self.accounting("  Purged calendar object local-id={}.".format(local_object.id()))
 
 
@@ -737,7 +737,7 @@ class CrossPodHomeSync(object):
 
         # Purge the ones that remain
         for local_object in local_objects.values():
-            yield local_object.purge()
+            yield local_object.purge(implicitly=False)
             self.accounting("  Purged calendar object local-id={}.".format(local_object.id()))
 
 

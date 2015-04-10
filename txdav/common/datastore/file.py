@@ -848,7 +848,7 @@ class CommonHome(FileMetaDataMixin):
 
 
     @writeOperation
-    def removeChildWithName(self, name, bypassTrash=False):
+    def removeChildWithName(self, name, useTrash=True):
         if name.startswith(".") or name in self._removedChildren:
             raise NoSuchHomeChildError(name)
 
@@ -1403,7 +1403,7 @@ class CommonObjectResource(FileMetaDataMixin, FancyEqMixin):
         raise NotImplementedError
 
 
-    def remove(self, bypassTrash=False):
+    def remove(self):
 
         # FIXME: test for undo
         objectResourcePath = self._path
@@ -1414,6 +1414,7 @@ class CommonObjectResource(FileMetaDataMixin, FancyEqMixin):
 
         self._parentCollection.removedObjectResource(self)
 
+    purge = remove
 
     def _text(self):
         raise NotImplementedError

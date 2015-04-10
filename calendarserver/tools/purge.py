@@ -994,7 +994,7 @@ class PurgePrincipalService(WorkerService):
             yield storeCalHome.removeUnacceptedShares()
             notificationHome = yield txn.notificationsWithUID(storeCalHome.uid())
             if notificationHome is not None:
-                yield notificationHome.remove(bypassTrash=True)
+                yield notificationHome.purge()
 
 
     @inlineCallbacks
@@ -1059,7 +1059,7 @@ class PurgePrincipalService(WorkerService):
                     if not self.dryrun:
                         retry = False
                         try:
-                            yield childResource.remove(implicitly=doScheduling, bypassTrash=True)
+                            yield childResource.purge(implicitly=doScheduling)
                             incrementCount = True
                         except Exception, e:
                             print("Exception deleting %s: %s" % (uri, str(e)))
@@ -1069,7 +1069,7 @@ class PurgePrincipalService(WorkerService):
                             # Try again with implicit scheduling off
                             print("Retrying deletion of %s with scheduling turned off" % (uri,))
                             try:
-                                yield childResource.remove(implicitly=False, bypassTrash=True)
+                                yield childResource.purge(implicitly=False)
                                 incrementCount = True
                             except Exception, e:
                                 print("Still couldn't delete %s even with scheduling turned off: %s" % (uri, str(e)))
@@ -1112,7 +1112,7 @@ class PurgePrincipalService(WorkerService):
                                 print("Deleting calendar: %s" % (calendarName,))
                         if not self.dryrun:
                             if calColl.owned():
-                                yield storeCalHome.removeChildWithName(calendarName, bypassTrash=True)
+                                yield storeCalHome.removeChildWithName(calendarName, useTrash=False)
                             else:
                                 yield calColl.unshare()
 
@@ -1179,7 +1179,7 @@ class PurgePrincipalService(WorkerService):
                     if not self.dryrun:
                         # Also remove the addressbook collection itself
                         if abColl.owned():
-                            yield storeAbHome.removeChildWithName(abName, bypassTrash=True)
+                            yield storeAbHome.removeChildWithName(abName, useTrash=False)
                         else:
                             yield abColl.unshare()
 

@@ -164,7 +164,7 @@ END:VCALENDAR
         # create orphans by deleting events
         cal = yield self.calendarUnderTest(home="user01", name="calendar")
         for item in (yield cal.objectResourcesWithNames(["cal1.ics", "cal3.ics"])):
-            yield item.remove(bypassTrash=True)
+            yield item.purge()
 
         # do cleanup
         yield self.transactionUnderTest().enqueue(CleanupOneInboxWork, homeID=cal.ownerHome()._resourceID, notBefore=datetime.datetime.utcnow())

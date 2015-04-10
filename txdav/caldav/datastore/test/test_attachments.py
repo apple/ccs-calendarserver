@@ -687,7 +687,7 @@ END:VCALENDAR
 
         # Fully remove resource
         objects = yield self.trashObjectsUnderTest()
-        yield objects[0].remove(bypassTrash=True)
+        yield objects[0].purge()
         yield self.commit()
 
         # Attachments don't exist and will not count towards quota
@@ -741,7 +741,7 @@ END:VCALENDAR
 
         # Remove resource
         obj = yield self.calendarObjectUnderTest()
-        yield obj.remove(bypassTrash=True)
+        yield obj.purge()
         yield self.commit()
 
         self.assertFalse(os.path.exists(apath1))
@@ -836,7 +836,7 @@ END:VCALENDAR
 
         # Remove resource
         obj = yield self.calendarObjectUnderTest()
-        yield obj.remove(bypassTrash=True)
+        yield obj.purge()
         yield self.commit()
 
         self.assertTrue(os.path.exists(apath))
@@ -848,7 +848,7 @@ END:VCALENDAR
 
         # Remove resource
         obj = yield self.calendarObjectUnderTest(name="test.ics")
-        yield obj.remove(bypassTrash=True)
+        yield obj.purge()
         yield self.commit()
 
         self.assertFalse(os.path.exists(apath))
@@ -1314,7 +1314,7 @@ class ManagedAttachmentTests(AttachmentTests):
 
         # Fully remove resource
         objects = yield self.trashObjectsUnderTest()
-        yield objects[0].remove(bypassTrash=True)
+        yield objects[0].purge()
         yield self.commit()
 
         # Attachments don't exist and will not count towards quota
@@ -1362,7 +1362,7 @@ class ManagedAttachmentTests(AttachmentTests):
 
         # Remove resource
         obj = yield self.calendarObjectUnderTest()
-        yield obj.remove(bypassTrash=True)
+        yield obj.purge()
         yield self.commit()
 
         self.assertFalse(os.path.exists(apath1))
@@ -1402,7 +1402,7 @@ class ManagedAttachmentTests(AttachmentTests):
 
         # Remove resource
         obj = yield self.calendarObjectUnderTest()
-        yield obj.remove(bypassTrash=True)
+        yield obj.purge()
         yield self.commit()
 
         self.assertTrue(os.path.exists(apath))
@@ -1414,7 +1414,7 @@ class ManagedAttachmentTests(AttachmentTests):
 
         # Remove resource
         obj = yield self.calendarObjectUnderTest(name="test.ics")
-        yield obj.remove(bypassTrash=True)
+        yield obj.purge()
         yield self.commit()
 
         self.assertFalse(os.path.exists(apath))

@@ -827,7 +827,7 @@ END:VCALENDAR
 
         # Remove calendar and check for no properties
         home = yield self.homeUnderTest()
-        yield home.removeCalendarWithName(name, bypassTrash=True)
+        yield home.removeCalendarWithName(name, useTrash=False)
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
         self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()
@@ -1218,7 +1218,7 @@ END:VCALENDAR
         home = yield self.transactionUnderTest().calendarHomeWithUID("home_defaults")
         self.assertEqual(home._default_events, default_events._resourceID)
         self.assertEqual(home._default_tasks, default_tasks._resourceID)
-        yield home.removeCalendarWithName("calendar_1-vtodo", bypassTrash=False)
+        yield home.removeCalendarWithName("calendar_1-vtodo", useTrash=True)
         yield self.commit()
 
         home = yield self.transactionUnderTest().calendarHomeWithUID("home_defaults")
@@ -1297,7 +1297,7 @@ END:VCALENDAR
 
         home = yield self.homeUnderTest(name="home_defaults")
         calendar1 = yield home.calendarWithName("calendar_1")
-        yield calendar1.remove(bypassTrash=False)
+        yield calendar1.remove()
         yield self.commit()
 
         home = yield self.homeUnderTest(name="home_defaults")
@@ -1335,7 +1335,7 @@ END:VCALENDAR
 
             home = yield self.homeUnderTest(name="home_defaults")
             calendar1 = yield home.calendarWithName("calendar_1")
-            yield calendar1.remove(bypassTrash=False)
+            yield calendar1.remove()
             default_events = yield home.defaultCalendar("VEVENT", create=False)
             self.assertTrue(default_events is None)
             yield self.commit()
@@ -3599,7 +3599,7 @@ END:VCALENDAR
     @inlineCallbacks
     def test_calendarObjectSplit_removed(self):
         """
-        Test that splitting of calendar objects dioes not occur when the object is
+        Test that splitting of calendar objects does not occur when the object is
         removed before the work can be done.
         """
         self.patch(config.Scheduling.Options.Splitting, "Enabled", True)
@@ -3677,7 +3677,7 @@ END:VCALENDAR
         yield self.abort()
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
-        yield cobj.remove(bypassTrash=True)
+        yield cobj.purge(implicitly=True)
         yield self.commit()
 
         rows = yield Select(

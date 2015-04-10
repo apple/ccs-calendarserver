@@ -1089,7 +1089,7 @@ class CommonStoreTransaction(
             home = (yield self.calendarHomeWithUID(uid))
             calendar = (yield home.childWithName(calendarName))
             resource = (yield calendar.objectResourceWithName(eventName))
-            yield resource.remove(implicitly=False, bypassTrash=True)
+            yield resource.purge(implicitly=False)
             count += 1
         returnValue(count)
 
@@ -2312,14 +2312,18 @@ class CommonHome(SharingHomeMixIn):
 
 
     @inlineCallbacks
-    def removeChildWithName(self, name, bypassTrash=False):
+    def removeChildWithName(self, name, useTrash=True):
         child = yield self.childWithName(name)
         if child is None:
             raise NoSuchHomeChildError()
         key = self._childrenKey(child.isInTrash())
         resourceID = child._resourceID
 
-        yield child.remove(bypassTrash=bypassTrash)
+        if useTrash:
+            yield child.remove()
+        else:
+            yield child.purge()
+
         self._children[key].pop(name, None)
         self._children[key].pop(resourceID, None)
 
@@ -2961,7 +2965,7 @@ class CommonHome(SharingHomeMixIn):
                     msg = "   Removing \"{}\"...".format(summary)
                     print(msg)
                     log.info(msg)
-                yield child.reallyRemove()
+                yield child.purge(implicitly=False)
             if verbose:
                 print("")
 
@@ -2982,7 +2986,7 @@ class CommonHome(SharingHomeMixIn):
                     msg = "   Removing \"{}\"...".format(summary)
                     print(msg)
                     log.info(msg)
-                yield child.reallyRemove()
+                yield child.purge(implicitly=False)
             if verbose:
                 print("")
 
@@ -2991,7 +2995,7 @@ class CommonHome(SharingHomeMixIn):
                     msg = "Removing collection \"{}\"...".format(displayName.encode("utf-8"))
                     print(msg)
                     log.info(msg)
-                yield collection.reallyRemove()
+                yield collection.purge()
 
 
     @inlineCallbacks
@@ -3577,9 +3581,10 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @inlineCallbacks
-    def remove(self, bypassTrash=False):
+    def remove(self):
         """
-        Just moves the collection to the trash
+        If trash is enabled, move the collection to trash, otherwise fully
+        delete it.
         """
 
         if config.EnableTrashCollection:
@@ -3587,16 +3592,13 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             if isInTrash:
                 raise AlreadyInTrashError
             else:
-                if bypassTrash:
-                    yield self.reallyRemove()
-                else:
-                    yield self.toTrash()
+                yield self.toTrash()
         else:
-            yield self.reallyRemove()
+            yield self._reallyRemove()
 
 
     @inlineCallbacks
-    def reallyRemove(self):
+    def _reallyRemove(self):
 
         # Stop sharing first
         yield self.ownerDeleteShare()
@@ -3728,9 +3730,9 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
     def purge(self):
         """
-        Do a "silent" removal of this object resource.
+        Do a "silent" removal of this child.
         """
-        return self.reallyRemove()
+        return self._reallyRemove()
 
 
     def ownerHome(self):
@@ -5062,9 +5064,9 @@ class CommonObjectResource(FancyEqMixin, object):
         raise NotImplementedError
 
 
-    def remove(self, options=None):
+    def remove(self):
         """
-        Just moves the object to the trash
+        If trash is enabled move the object to the trash, otherwise fully delete it
         """
 
         if config.EnableTrashCollection:
@@ -5073,11 +5075,11 @@ class CommonObjectResource(FancyEqMixin, object):
             else:
                 return self.toTrash()
         else:
-            return self.reallyRemove(options=options)
+            return self._reallyRemove()
 
 
     @inlineCallbacks
-    def reallyRemove(self, options=None):
+    def _reallyRemove(self):
         """
         Remove, bypassing the trash
         """
@@ -5185,9 +5187,9 @@ class CommonObjectResource(FancyEqMixin, object):
 
     def purge(self):
         """
-        Do a "silent" removal of this object resource.
+        Delete this object, bypassing trash
         """
-        return self.reallyRemove()
+        return self._reallyRemove()
 
 
     def removeNotifyCategory(self):

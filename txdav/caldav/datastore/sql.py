@@ -591,7 +591,7 @@ class CalendarHome(CommonHome):
         for objectResource in objectResources:
             # The matching calendar resource is in the trash, so delete it
             if (yield objectResource.isInTrash()):
-                yield objectResource.remove(bypassTrash=True)
+                yield objectResource.purge(implicitly=False)
                 continue
             if ok_object and objectResource._resourceID == ok_object._resourceID:
                 continue
@@ -1321,7 +1321,7 @@ class Calendar(CommonHomeChild):
 
         if child is None:
             child = yield self.objectResourceWithID(rid)
-        yield child._removeInternal(internal_state=ComponentRemoveState.INTERNAL, bypassTrash=True)
+        yield child._removeInternal(internal_state=ComponentRemoveState.INTERNAL, useTrash=False)
 
 
     def calendarObjectsInTimeRange(self, start, end, timeZone):
@@ -3598,7 +3598,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
                     # Now forcibly delete the event
                     if not inserting:
-                        yield self._removeInternal(internal_state=ComponentRemoveState.INTERNAL, bypassTrash=True)
+                        yield self._removeInternal(internal_state=ComponentRemoveState.INTERNAL, useTrash=False)
                         raise ResourceDeletedError("Resource modified but immediately deleted by the server.")
                     else:
                         raise AttendeeAllowedError("Attendee cannot create event for Organizer: {0}".format(implicit_result,))
@@ -4173,28 +4173,32 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def remove(self, implicitly=True, bypassTrash=False):
-        if (yield self.isInTrash()):
-            implicitly = False
-        returnValue((
-            yield self._removeInternal(
-                internal_state=ComponentRemoveState.NORMAL if implicitly else ComponentRemoveState.NORMAL_NO_IMPLICIT, bypassTrash=bypassTrash
-            )
-        ))
+    def toTrash(self):
+        yield self._removeInternal(
+            internal_state=ComponentRemoveState.NORMAL, useTrash=config.EnableTrashCollection
+        )
 
 
-    def purge(self):
+    @inlineCallbacks
+    def _reallyRemove(self):
+        yield self._removeInternal(
+            internal_state=ComponentRemoveState.NORMAL, useTrash=False
+        )
+
+
+    @inlineCallbacks
+    def purge(self, implicitly=True):
         """
-        Do a "silent" removal of this object resource.
+        Do an (optionally implicit) removal of this object resource, bypassing the trash.
         """
-        return self._removeInternal(
-            ComponentRemoveState.NORMAL_NO_IMPLICIT, bypassTrash=True
+        yield self._removeInternal(
+            internal_state=ComponentRemoveState.NORMAL if implicitly else ComponentRemoveState.NORMAL_NO_IMPLICIT, useTrash=False
         )
 
 
     @inlineCallbacks
     def _removeInternal(
-        self, internal_state=ComponentRemoveState.NORMAL, bypassTrash=False
+        self, internal_state=ComponentRemoveState.NORMAL, useTrash=False
     ):
 
         isinbox = self._calendar.isInbox()
@@ -4205,6 +4209,13 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # Get data we need for implicit scheduling
             calendar = (yield self.componentForUser())
             scheduler = ImplicitScheduler(logItems=self._txn.logItems)
+            # Cannot do implicit in sharee's shared calendar
+            if not self.calendar().owned():
+                scheduler.setSchedulingNotAllowed(
+                    ShareeAllowedError,
+                    "Sharee's cannot schedule",
+                )
+
             do_implicit_action, _ignore = (yield scheduler.testImplicitSchedulingDELETE(
                 self.calendar(),
                 self,
@@ -4214,39 +4225,30 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             if do_implicit_action:
                 yield NamedLock.acquire(self._txn, "ImplicitUIDLock:{0}".format(hashlib.md5(calendar.resourceUID()).hexdigest(),))
 
-
         if isinbox:
-            bypassTrash = True
+            useTrash = False
         else:
             calendar = (yield self.componentForUser())
             status = calendar.mainComponent().getProperty("STATUS")
             if status is not None:
                 status = status.strvalue()
                 if status == "CANCELLED":
-                    bypassTrash = True
+                    useTrash = False
 
-        if bypassTrash:
+        if useTrash:
+            # Always remove the group attendee link to prevent trashed items from being reconciled when a group changes
+            yield GroupAttendeeRecord.deletesimple(self._txn, resourceID=self._resourceID)
+
+            yield super(CalendarObject, self).toTrash()
+
+        else:
             # Need to also remove attachments
             if internal_state != ComponentRemoveState.INTERNAL:
                 if self._dropboxID:
                     yield DropBoxAttachment.resourceRemoved(self._txn, self._resourceID, self._dropboxID)
                 yield ManagedAttachment.resourceRemoved(self._txn, self._resourceID)
 
-            yield super(CalendarObject, self).reallyRemove()
-        else:
-            # Always remove the group attendee link to prevent trashed items from being reconciled when a group changes
-            yield GroupAttendeeRecord.deletesimple(self._txn, resourceID=self._resourceID)
-
-            # Do scheduling check before the move to trash
-            if scheduler is not None:
-                # Cannot do implicit in sharee's shared calendar
-                if not self.calendar().owned():
-                    scheduler.setSchedulingNotAllowed(
-                        ShareeAllowedError,
-                        "Sharee's cannot schedule",
-                    )
-
-            yield super(CalendarObject, self).remove()
+            yield super(CalendarObject, self)._reallyRemove()
 
         # Do scheduling
         if scheduler is not None:
@@ -5122,7 +5124,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             yield self._setComponentInternal(ical_new, internal_state=ComponentUpdateState.SPLIT_ATTENDEE)
         else:
             # The split removed all components from this object - remove it
-            yield self._removeInternal(internal_state=ComponentRemoveState.INTERNAL, bypassTrash=True)
+            yield self._removeInternal(internal_state=ComponentRemoveState.INTERNAL, useTrash=False)
 
         # Create a new resource and store its data (but not if the parent is "inbox", or if it is empty)
         if not self.calendar().isInbox() and ical_old.mainType() is not None:

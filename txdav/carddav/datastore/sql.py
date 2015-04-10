@@ -888,7 +888,7 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
 
 
     @inlineCallbacks
-    def remove(self, bypassTrash=True):
+    def remove(self):
 
         if self._resourceID == self._home._resourceID:
 
@@ -908,6 +908,7 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
         else:
             returnValue((yield super(AddressBook, self).remove()))
 
+    purge = remove
 
     def rename(self, name):
         # better error?
@@ -2152,7 +2153,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
                     removed=True,
                 )
 
-        yield super(AddressBookObject, self).reallyRemove() # FIXME: carddav trash?
+        yield super(AddressBookObject, self)._reallyRemove() # FIXME: carddav trash?
         self._kind = None
         self._ownerAddressBookResourceID = None
         self._objectText = None

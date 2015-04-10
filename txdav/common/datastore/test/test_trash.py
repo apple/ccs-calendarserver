@@ -794,7 +794,7 @@ END:VCALENDAR
         txn = self.store.newTransaction()
 
         resource = yield self._getResource(txn, "user02", trash2.name(), "")
-        yield resource.reallyRemove()
+        yield resource.purge()
 
         yield txn.commit()
 

@@ -883,7 +883,7 @@ class CommonTests(CommonCommonTests):
         ctxn = self.concurrentTransaction()
         calendar1prime = yield self.calendarUnderTest(ctxn)
         obj1 = yield calendar1prime.calendarObjectWithName("1.ics")
-        yield obj1.remove(bypassTrash=True)
+        yield obj1.purge()
         yield ctxn.commit()
         try:
             retrieval = yield calendarObject.component()

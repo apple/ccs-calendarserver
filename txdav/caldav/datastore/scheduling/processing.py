@@ -1009,7 +1009,7 @@ class ImplicitProcessor(object):
         @type name: C{str}
         """
 
-        yield resource._removeInternal(internal_state=ComponentRemoveState.INTERNAL, bypassTrash=True)
+        yield resource._removeInternal(internal_state=ComponentRemoveState.INTERNAL, useTrash=False)
 
 
     def resetAttendeePartstat(self, component, cuas, partstat, hadRSVP=False):

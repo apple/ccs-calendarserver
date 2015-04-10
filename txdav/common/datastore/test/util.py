@@ -510,11 +510,11 @@ def populateCalendarsFrom(requirements, store, migrating=False):
                     for name in ical.allowedStoreComponents:
                         yield home.removeCalendarWithName(
                             home._componentCalendarName[name],
-                            bypassTrash=True
+                            useTrash=False
                         )
                 else:
-                    yield home.removeCalendarWithName("calendar", bypassTrash=True)
-                yield home.removeCalendarWithName("inbox", bypassTrash=True)
+                    yield home.removeCalendarWithName("calendar", useTrash=False)
+                yield home.removeCalendarWithName("inbox", useTrash=False)
             except NoSuchHomeChildError:
                 pass
 
