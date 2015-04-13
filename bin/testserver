@@ -111,7 +111,12 @@ cp conf/auth/accounts-test.xml "${datadir}/accounts-cdt.xml"
 
 # Modify the plist
 
-python -c "import plistlib; f=plistlib.readPlist('${configdir}/caldavd-cdt.plist'); f['ServerRoot'] = '${sandboxdir}'; f['ConfigRoot'] = 'Config'; f['RunRoot'] = 'Run'; f['ProxyLoadFromFile'] = '${datadir}/proxies-cdt.xml'; f['ResourceService']['params']['xmlFile'] = '${datadir}/resources-cdt.xml'; f['DirectoryService']['params']['xmlFile'] = '${datadir}/accounts-cdt.xml'; f['AugmentService']['params']['xmlFiles'] = ['${datadir}/augments-cdt.xml']; f['Authentication']['Kerberos']['Enabled'] = False; plistlib.writePlist(f, '${configdir}/caldavd-cdt.plist');"
+python -c "import plistlib; f=plistlib.readPlist('${configdir}/caldavd-cdt.plist'); f['BindHTTPPorts'] = [18008]; f['BindSSLPorts'] = [18443]; f['Notifications']['Services']['AMP']['Port'] = 62312; f['ServerRoot'] = '${sandboxdir}'; f['ConfigRoot'] = 'Config'; f['RunRoot'] = 'Run'; f['ProxyLoadFromFile'] = '${datadir}/proxies-cdt.xml'; f['ResourceService']['params']['xmlFile'] = '${datadir}/resources-cdt.xml'; f['DirectoryService']['params']['xmlFile'] = '${datadir}/accounts-cdt.xml'; f['AugmentService']['params']['xmlFiles'] = ['${datadir}/augments-cdt.xml']; f['Authentication']['Kerberos']['Enabled'] = False; plistlib.writePlist(f, '${configdir}/caldavd-cdt.plist');"
+
+# Modify serverinfo to update ports
+
+sed "s/8008/18008/g;s/8443/18443/g" "${serverinfo}" > "${configdir}/serverinfo-cdt.xml"
+serverinfo="${configdir}/serverinfo-cdt.xml"
 
 # Start the server
 
