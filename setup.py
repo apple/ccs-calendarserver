@@ -290,6 +290,9 @@ script_entry_points = {
     "shell":
     ("calendarserver.tools.shell.terminal", "main"),
 
+    "trash":
+    ("calendarserver.tools.trash", "main"),
+
     "upgrade":
     ("calendarserver.tools.upgrade", "main"),
 
