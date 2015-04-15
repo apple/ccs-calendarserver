@@ -415,12 +415,14 @@ class PurgeOldEventsTests(StoreTestCase):
         # Turn off delayed indexing option so we can have some useful tests
         self.patch(config, "FreeBusyIndexDelayedExpand", False)
 
-        self.patch(config.DirectoryService.params, "xmlFile",
+        self.patch(
+            config.DirectoryService.params, "xmlFile",
             os.path.join(
                 os.path.dirname(__file__), "purge", "accounts.xml"
             )
         )
-        self.patch(config.ResourceService.params, "xmlFile",
+        self.patch(
+            config.ResourceService.params, "xmlFile",
             os.path.join(
                 os.path.dirname(__file__), "purge", "resources.xml"
             )
@@ -448,7 +450,8 @@ class PurgeOldEventsTests(StoreTestCase):
 
         # Query for all old events
         results = (yield txn.eventsOlderThan(cutoff))
-        self.assertEquals(sorted(results),
+        self.assertEquals(
+            sorted(results),
             sorted([
                 ['home1', 'calendar1', 'old.ics', '1901-01-01 01:00:00'],
                 ['home1', 'calendar1', 'oldattachment1.ics', '1901-01-01 01:00:00'],
@@ -633,16 +636,18 @@ class PurgeOldEventsTests(StoreTestCase):
         # Dry run
         total = (yield PurgeOldEventsService.purgeOldEvents(
             self._sqlCalendarStore,
+            None,
             PyCalendarDateTime(now, 4, 1, 0, 0, 0),
             2,
             dryrun=True,
-            verbose=False
+            verbose=True
         ))
         self.assertEquals(total, 13)
 
         # Actually remove
         total = (yield PurgeOldEventsService.purgeOldEvents(
             self._sqlCalendarStore,
+            None,
             PyCalendarDateTime(now, 4, 1, 0, 0, 0),
             2,
             verbose=False
@@ -652,9 +657,97 @@ class PurgeOldEventsTests(StoreTestCase):
         # There should be no more left
         total = (yield PurgeOldEventsService.purgeOldEvents(
             self._sqlCalendarStore,
+            None,
             PyCalendarDateTime(now, 4, 1, 0, 0, 0),
             2,
             verbose=False
+        ))
+        self.assertEquals(total, 0)
+
+
+    @inlineCallbacks
+    def test_purgeOldEvents_home_filtering(self):
+
+        # Dry run
+        total = (yield PurgeOldEventsService.purgeOldEvents(
+            self._sqlCalendarStore,
+            "ho",
+            PyCalendarDateTime(now, 4, 1, 0, 0, 0),
+            2,
+            dryrun=True,
+            verbose=True
+        ))
+        self.assertEquals(total, 13)
+
+        # Dry run
+        total = (yield PurgeOldEventsService.purgeOldEvents(
+            self._sqlCalendarStore,
+            "home",
+            PyCalendarDateTime(now, 4, 1, 0, 0, 0),
+            2,
+            dryrun=True,
+            verbose=True
+        ))
+        self.assertEquals(total, 13)
+
+        # Dry run
+        total = (yield PurgeOldEventsService.purgeOldEvents(
+            self._sqlCalendarStore,
+            "home1",
+            PyCalendarDateTime(now, 4, 1, 0, 0, 0),
+            2,
+            dryrun=True,
+            verbose=True
+        ))
+        self.assertEquals(total, 5)
+
+        # Dry run
+        total = (yield PurgeOldEventsService.purgeOldEvents(
+            self._sqlCalendarStore,
+            "home2",
+            PyCalendarDateTime(now, 4, 1, 0, 0, 0),
+            2,
+            dryrun=True,
+            verbose=True
+        ))
+        self.assertEquals(total, 8)
+
+
+    @inlineCallbacks
+    def test_purgeOldEvents_old_cutoff(self):
+
+        # Dry run
+        cutoff = PyCalendarDateTime.getToday()
+        cutoff.setDateOnly(False)
+        cutoff.offsetDay(-400)
+
+        total = (yield PurgeOldEventsService.purgeOldEvents(
+            self._sqlCalendarStore,
+            "ho",
+            cutoff,
+            2,
+            dryrun=True,
+            verbose=True
+        ))
+        self.assertEquals(total, 12)
+
+        # Actually remove
+        total = (yield PurgeOldEventsService.purgeOldEvents(
+            self._sqlCalendarStore,
+            None,
+            cutoff,
+            2,
+            verbose=True
+        ))
+        self.assertEquals(total, 12)
+
+        total = (yield PurgeOldEventsService.purgeOldEvents(
+            self._sqlCalendarStore,
+            "ho",
+            cutoff,
+            2,
+            dryrun=True,
+            verbose=True
         ))
         self.assertEquals(total, 0)
 
@@ -666,8 +759,10 @@ class PurgeOldEventsTests(StoreTestCase):
         # Create an addressbook and one CardDAV resource
         abHome = (yield txn.addressbookHomeWithUID("home1", create=True))
         abColl = (yield abHome.addressbookWithName("addressbook"))
-        (yield abColl.createAddressBookObjectWithName("card1",
-            VCardComponent.fromString(VCARD_1)))
+        (yield abColl.createAddressBookObjectWithName(
+            "card1",
+            VCardComponent.fromString(VCARD_1)
+        ))
         self.assertEquals(len((yield abColl.addressbookObjects())), 1)
 
         # Verify there are 8 events in calendar1
@@ -679,9 +774,11 @@ class PurgeOldEventsTests(StoreTestCase):
         (yield txn.commit())
 
         # Purge home1
-        total, ignored = (yield PurgePrincipalService.purgeUIDs(self._sqlCalendarStore, self.directory,
+        total, ignored = (yield PurgePrincipalService.purgeUIDs(
+            self._sqlCalendarStore, self.directory,
             self.rootResource, ("home1",), verbose=False, proxies=False,
-            when=PyCalendarDateTime(now, 4, 1, 12, 0, 0, 0, PyCalendarTimezone(utc=True))))
+            when=PyCalendarDateTime(now, 4, 1, 12, 0, 0, 0, PyCalendarTimezone(utc=True))
+        ))
 
         # 4 items deleted: 3 events and 1 vcard
         self.assertEquals(total, 4)
@@ -703,8 +800,10 @@ class PurgeOldEventsTests(StoreTestCase):
         # Create an addressbook and one CardDAV resource
         abHome = (yield txn.addressbookHomeWithUID("home1", create=True))
         abColl = (yield abHome.addressbookWithName("addressbook"))
-        (yield abColl.createAddressBookObjectWithName("card1",
-            VCardComponent.fromString(VCARD_1)))
+        (yield abColl.createAddressBookObjectWithName(
+            "card1",
+            VCardComponent.fromString(VCARD_1)
+        ))
         self.assertEquals(len((yield abColl.addressbookObjects())), 1)
 
         # Verify there are 8 events in calendar1
@@ -716,8 +815,10 @@ class PurgeOldEventsTests(StoreTestCase):
         (yield txn.commit())
 
         # Purge home1 completely
-        total, ignored = (yield PurgePrincipalService.purgeUIDs(self._sqlCalendarStore, self.directory,
-            self.rootResource, ("home1",), verbose=False, proxies=False, completely=True))
+        total, ignored = (yield PurgePrincipalService.purgeUIDs(
+            self._sqlCalendarStore, self.directory,
+            self.rootResource, ("home1",), verbose=False, proxies=False, completely=True)
+        )
 
         # 9 items deleted: 8 events and 1 vcard
         self.assertEquals(total, 9)
@@ -768,6 +869,7 @@ class PurgeOldEventsTests(StoreTestCase):
         # Remove old events first
         total = (yield PurgeOldEventsService.purgeOldEvents(
             self._sqlCalendarStore,
+            None,
             PyCalendarDateTime(now, 4, 1, 0, 0, 0),
             2,
             verbose=False

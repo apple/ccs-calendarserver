@@ -25,17 +25,21 @@ from getopt import getopt, GetoptError
 
 from pycalendar.datetime import PyCalendarDateTime
 
+from twext.enterprise.dal.syntax import Select, Parameter, Max
 from twext.python.log import Logger
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import TimeRange
+from twistedcaldav.config import config
+from twistedcaldav.dateops import parseSQLDateToPyCalendar, pyCalendarTodatetime
 from twistedcaldav.directory.directory import DirectoryRecord
+from twistedcaldav.ical import Component, InvalidICalendarDataError
 from twistedcaldav.query import calendarqueryfilter
 
+from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.xml import element as davxml
-
 
 import collections
 import os
@@ -50,6 +54,7 @@ DEFAULT_RETAIN_DAYS = 365
 
 class PurgeOldEventsService(WorkerService):
 
+    uuid = None
     cutoff = None
     batchSize = None
     dryrun = False
@@ -66,8 +71,8 @@ class PurgeOldEventsService(WorkerService):
         print("options:")
         print("  -h --help: print this help and exit")
         print("  -f --config <path>: Specify caldavd.plist configuration path")
+        print("  -u --uuid <uuid>: Only process this user(s) [REQUIRED]")
         print("  -d --days <number>: specify how many days in the past to retain (default=%d)" % (DEFAULT_RETAIN_DAYS,))
-        #print("  -b --batch <number>: number of events to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,))
         print("  -n --dry-run: calculate how many events to purge, but do not purge data")
         print("  -v --verbose: print progress information")
         print("  -D --debug: debug logging")
@@ -85,11 +90,12 @@ class PurgeOldEventsService(WorkerService):
 
         try:
             (optargs, args) = getopt(
-                sys.argv[1:], "Dd:b:f:hnv", [
+                sys.argv[1:], "Dd:b:f:hnu:v", [
                     "days=",
                     "batch=",
                     "dry-run",
                     "config=",
+                    "uuid=",
                     "help",
                     "verbose",
                     "debug",
@@ -102,6 +108,7 @@ class PurgeOldEventsService(WorkerService):
         # Get configuration
         #
         configFileName = None
+        uuid = None
         days = DEFAULT_RETAIN_DAYS
         batchSize = DEFAULT_BATCH_SIZE
         dryrun = False
@@ -138,11 +145,18 @@ class PurgeOldEventsService(WorkerService):
             elif opt in ("-f", "--config"):
                 configFileName = arg
 
+            elif opt in ("-u", "--uuid"):
+                uuid = arg
+
             else:
                 raise NotImplementedError(opt)
 
         if args:
             cls.usage("Too many arguments: %s" % (args,))
+
+        if uuid is None:
+            cls.usage("uuid must be specified")
+        cls.uuid = uuid
 
         if dryrun:
             verbose = True
@@ -164,9 +178,10 @@ class PurgeOldEventsService(WorkerService):
 
     @classmethod
     @inlineCallbacks
-    def purgeOldEvents(cls, store, cutoff, batchSize, verbose=False, dryrun=False):
+    def purgeOldEvents(cls, store, uuid, cutoff, batchSize, verbose=False, dryrun=False):
 
         service = cls(store)
+        service.uuid = uuid
         service.cutoff = cutoff
         service.batchSize = batchSize
         service.dryrun = dryrun
@@ -176,45 +191,290 @@ class PurgeOldEventsService(WorkerService):
 
 
     @inlineCallbacks
+    def getMatchingHomeUIDs(self):
+        """
+        Find all the calendar homes that match the uuid cli argument.
+        """
+        log.debug("Searching for calendar homes matching: {}".format(self.uuid))
+        txn = self.store.newTransaction(label="Find matching homes")
+        ch = schema.CALENDAR_HOME
+        if self.uuid:
+            kwds = {"uuid": self.uuid}
+            rows = (yield Select(
+                [ch.RESOURCE_ID, ch.OWNER_UID, ],
+                From=ch,
+                Where=(ch.OWNER_UID.StartsWith(Parameter("uuid"))),
+            ).on(txn, **kwds))
+        else:
+            rows = (yield Select(
+                [ch.RESOURCE_ID, ch.OWNER_UID, ],
+                From=ch,
+            ).on(txn))
+
+        yield txn.commit()
+        log.debug("  Found {} calendar homes".format(len(rows)))
+        returnValue(sorted(rows, key=lambda x: x[1]))
+
+
+    @inlineCallbacks
+    def getMatchingCalendarIDs(self, home_id, owner_uid):
+        """
+        Find all the owned calendars for the specified calendar home.
+
+        @param home_id: resource-id of calendar home to check
+        @type home_id: L{int}
+        @param owner_uid: owner UUID of home to check
+        @type owner_uid: L{str}
+        """
+        log.debug("Checking calendar home: {} {}".format(home_id, owner_uid))
+        txn = self.store.newTransaction(label="Find matching calendars")
+        cb = schema.CALENDAR_BIND
+        kwds = {"home_id": home_id}
+        rows = (yield Select(
+            [cb.CALENDAR_RESOURCE_ID, cb.CALENDAR_RESOURCE_NAME, ],
+            From=cb,
+            Where=(cb.CALENDAR_HOME_RESOURCE_ID == Parameter("home_id")).And(
+                cb.BIND_MODE == _BIND_MODE_OWN
+            ),
+        ).on(txn, **kwds))
+        yield txn.commit()
+        log.debug("  Found {} calendars".format(len(rows)))
+        returnValue(rows)
+
+
+    PurgeEvent = collections.namedtuple("PurgeEvent", ("home", "calendar", "resource",))
+
+    @inlineCallbacks
+    def getResourceIDsToPurge(self, home_id, calendar_id, calendar_name):
+        """
+        For the given calendar find which calendar objects are older than the cut-off and return the
+        resource-ids of those.
+
+        @param home_id: resource-id of calendar home
+        @type home_id: L{int}
+        @param calendar_id: resource-id of the calendar to check
+        @type calendar_id: L{int}
+        @param calendar_name: name of the calendar to check
+        @type calendar_name: L{str}
+        """
+
+        log.debug("  Checking calendar: {} {}".format(calendar_id, calendar_name))
+        purge = set()
+        txn = self.store.newTransaction(label="Find matching resources")
+        co = schema.CALENDAR_OBJECT
+        tr = schema.TIME_RANGE
+        kwds = {"calendar_id": calendar_id}
+        rows = (yield Select(
+            [co.RESOURCE_ID, co.RECURRANCE_MAX, co.RECURRANCE_MIN, Max(tr.END_DATE)],
+            From=co.join(tr, on=(co.RESOURCE_ID == tr.CALENDAR_OBJECT_RESOURCE_ID)),
+            Where=(co.CALENDAR_RESOURCE_ID == Parameter("calendar_id")).And(
+                co.ICALENDAR_TYPE == "VEVENT"
+            ),
+            GroupBy=(co.RESOURCE_ID, co.RECURRANCE_MAX, co.RECURRANCE_MIN,),
+            Having=(
+                (co.RECURRANCE_MAX == None).And(Max(tr.END_DATE) < pyCalendarTodatetime(self.cutoff))
+            ).Or(
+                (co.RECURRANCE_MAX != None).And(co.RECURRANCE_MAX < pyCalendarTodatetime(self.cutoff))
+            ),
+        ).on(txn, **kwds))
+
+        log.debug("    Found {} resources to check".format(len(rows)))
+        for resource_id, recurrence_max, recurrence_min, max_end_date in rows:
+
+            recurrence_max = parseSQLDateToPyCalendar(recurrence_max) if recurrence_max else None
+            recurrence_min = parseSQLDateToPyCalendar(recurrence_min) if recurrence_min else None
+            max_end_date = parseSQLDateToPyCalendar(max_end_date) if max_end_date else None
+
+            # Find events where we know the max(end_date) represents a valid,
+            # untruncated expansion
+            if recurrence_min is None or recurrence_min < self.cutoff:
+                if recurrence_max is None:
+                    # Here we know max_end_date is the fully expand final instance
+                    if max_end_date < self.cutoff:
+                        purge.add(self.PurgeEvent(home_id, calendar_id, resource_id,))
+                    continue
+                elif recurrence_max > self.cutoff:
+                    # Here we know that there are instances newer than the cut-off
+                    # but they have not yet been indexed out that far
+                    continue
+
+            # Manually detect the max_end_date from the actual calendar data
+            calendar = yield self.getCalendar(txn, resource_id)
+            if calendar is not None:
+                if self.checkLastInstance(calendar):
+                    purge.add(self.PurgeEvent(home_id, calendar_id, resource_id,))
+
+        yield txn.commit()
+        log.debug("    Found {} resources to purge".format(len(purge)))
+        returnValue(purge)
+
+
+    @inlineCallbacks
+    def getCalendar(self, txn, resid):
+        """
+        Get the calendar data for a calendar object resource.
+
+        @param resid: resource-id of the calendar object resource to load
+        @type resid: L{int}
+        """
+        co = schema.CALENDAR_OBJECT
+        kwds = {"ResourceID" : resid}
+        rows = (yield Select(
+            [co.ICALENDAR_TEXT],
+            From=co,
+            Where=(
+                co.RESOURCE_ID == Parameter("ResourceID")
+            ),
+        ).on(txn, **kwds))
+        try:
+            caldata = Component.fromString(rows[0][0]) if rows else None
+        except InvalidICalendarDataError:
+            returnValue(None)
+
+        returnValue(caldata)
+
+
+    def checkLastInstance(self, calendar):
+        """
+        Determine the last instance of a calendar event. Try a "static" analysis of the data first,
+        and only if needed, do an instance expansion.
+
+        @param calendar: the calendar object to examine
+        @type calendar: L{Component}
+        """
+
+        # Is it recurring
+        master = calendar.masterComponent()
+        if not calendar.isRecurring() or master is None:
+            # Just check the end date
+            for comp in calendar.subcomponents():
+                if comp.name() == "VEVENT":
+                    if comp.getEndDateUTC() > self.cutoff:
+                        return False
+            else:
+                return True
+        elif calendar.isRecurringUnbounded():
+            return False
+        else:
+            # First test all sub-components
+            # Just check the end date
+            for comp in calendar.subcomponents():
+                if comp.name() == "VEVENT":
+                    if comp.getEndDateUTC() > self.cutoff:
+                        return False
+
+            # If we get here we need to test the RRULE - if there is an until use
+            # that as the end point, if a count, we have to expand
+            rrules = tuple(master.properties("RRULE"))
+            if len(rrules):
+                if rrules[0].value().getUseUntil():
+                    return rrules[0].value().getUntil() < self.cutoff
+                else:
+                    return not calendar.hasInstancesAfter(self.cutoff)
+
+        return True
+
+
+    @inlineCallbacks
+    def getResourcesToPurge(self, home_id, owner_uid):
+        """
+        Find all the resource-ids of calendar object resources that need to be purged in the specified home.
+
+        @param home_id: resource-id of calendar home to check
+        @type home_id: L{int}
+        @param owner_uid: owner UUID of home to check
+        @type owner_uid: L{str}
+        """
+
+        purge = set()
+        calendars = yield self.getMatchingCalendarIDs(home_id, owner_uid)
+        for calendar_id, calendar_name in calendars:
+            purge.update((yield self.getResourceIDsToPurge(home_id, calendar_id, calendar_name)))
+
+        returnValue(purge)
+
+
+    @inlineCallbacks
+    def purgeResources(self, events):
+        """
+        Remove up to batchSize events and return how
+        many were removed.
+        """
+
+        txn = self.store.newTransaction(label="Remove old events")
+        count = 0
+        last_home = None
+        last_calendar = None
+        for event in events:
+            if event.home != last_home:
+                home = (yield txn.calendarHomeWithResourceID(event.home))
+                last_home = event.home
+            if event.calendar != last_calendar:
+                calendar = (yield home.childWithID(event.calendar))
+                last_calendar = event.calendar
+            resource = (yield calendar.objectResourceWithID(event.resource))
+            yield resource.remove(implicitly=False)
+            count += 1
+        yield txn.commit()
+        returnValue(count)
+
+
+    @inlineCallbacks
     def doWork(self):
 
+        if self.verbose:
+            # Turn on debug logging for this module
+            config.LogLevels[__name__] = "debug"
+        else:
+            config.LogLevels[__name__] = "info"
+        config.update()
+
+        homes = yield self.getMatchingHomeUIDs()
+        if not homes:
+            log.info("No homes to process")
+            returnValue(0)
+
         if self.dryrun:
-            if self.verbose:
-                print("(Dry run) Searching for old events...")
-            txn = self.store.newTransaction(label="Find old events")
-            oldEvents = (yield txn.eventsOlderThan(self.cutoff))
-            eventCount = len(oldEvents)
-            if self.verbose:
-                if eventCount == 0:
-                    print("No events are older than %s" % (self.cutoff,))
-                elif eventCount == 1:
-                    print("1 event is older than %s" % (self.cutoff,))
-                else:
-                    print("%d events are older than %s" % (eventCount, self.cutoff))
+            log.info("Purge dry run only")
+
+        log.info("Searching for old events...")
+
+        purge = set()
+        homes = yield self.getMatchingHomeUIDs()
+        for home_id, owner_uid in homes:
+            purge.update((yield self.getResourcesToPurge(home_id, owner_uid)))
+
+        if self.dryrun:
+            eventCount = len(purge)
+            if eventCount == 0:
+                log.info("No events are older than %s" % (self.cutoff,))
+            elif eventCount == 1:
+                log.info("1 event is older than %s" % (self.cutoff,))
+            else:
+                log.info("%d events are older than %s" % (eventCount, self.cutoff))
             returnValue(eventCount)
 
-        if self.verbose:
-            print("Removing events older than %s..." % (self.cutoff,))
+        purge = list(purge)
+        purge.sort()
+        totalEvents = len(purge)
+
+        log.info("Removing {} events older than {}...".format(len(purge), self.cutoff,))
 
         numEventsRemoved = -1
         totalRemoved = 0
         while numEventsRemoved:
-            txn = self.store.newTransaction(label="Remove old events")
-            numEventsRemoved = (yield txn.removeOldEvents(self.cutoff, batchSize=self.batchSize))
-            (yield txn.commit())
+            numEventsRemoved = (yield self.purgeResources(purge[:self.batchSize]))
             if numEventsRemoved:
                 totalRemoved += numEventsRemoved
-                if self.verbose:
-                    print("%d," % (totalRemoved,),)
+                log.debug("  Removed {} of {} events...".format(totalRemoved, totalEvents))
+                purge = purge[numEventsRemoved:]
 
-        if self.verbose:
-            print("")
-            if totalRemoved == 0:
-                print("No events were removed")
-            elif totalRemoved == 1:
-                print("1 event was removed in total")
-            else:
-                print("%d events were removed in total" % (totalRemoved,))
+        if totalRemoved == 0:
+            log.info("No events were removed")
+        elif totalRemoved == 1:
+            log.info("1 event was removed in total")
+        else:
+            log.info("%d events were removed in total" % (totalRemoved,))
 
         returnValue(totalRemoved)
 
@@ -444,20 +704,18 @@ class PurgeAttachmentsService(WorkerService):
             # Print table of results
             table = tables.Table()
             table.addHeader(("User", "Current Quota", "Orphan Size", "Orphan Count", "Dropbox Size", "Dropbox Count", "Managed Size", "Managed Count", "Total Size", "Total Count"))
-            table.setDefaultColumnFormats(
-               (
-                    tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY),
-                    tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                    tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                    tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                    tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                    tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                    tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                    tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                    tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                    tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                )
-            )
+            table.setDefaultColumnFormats((
+                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY),
+                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            ))
 
             totals = [0] * 8
             for user, data in sorted(byuser.items(), key=lambda x: x[0]):
@@ -815,14 +1073,14 @@ class PurgePrincipalService(WorkerService):
         # Anything in the past is left alone
         whenString = self.when.getText()
         query_filter = caldavxml.Filter(
-              caldavxml.ComponentFilter(
-                  caldavxml.ComponentFilter(
-                      TimeRange(start=whenString,),
-                      name=("VEVENT",),
-                  ),
-                  name="VCALENDAR",
-               )
-          )
+            caldavxml.ComponentFilter(
+                caldavxml.ComponentFilter(
+                    TimeRange(start=whenString,),
+                    name=("VEVENT",),
+                ),
+                name="VCALENDAR",
+            )
+        )
         query_filter = calendarqueryfilter.Filter(query_filter)
 
         count = 0
