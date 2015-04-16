@@ -960,7 +960,7 @@ out.write("""<record>
 """)
 
 out.write("""<record>
-    <uid>Default-Location</uid>
+    <uid>Location-Default</uid>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule-mode>automatic</auto-schedule-mode>
@@ -968,7 +968,7 @@ out.write("""<record>
 """)
 
 out.write("""<record>
-    <uid>Default-Resource</uid>
+    <uid>Resource-Default</uid>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule-mode>automatic</auto-schedule-mode>

@@ -407,6 +407,15 @@ class AugmentedDirectoryService(
                     augmentRecord.enabledForAddressBooks
                 )
 
+            # In the case of XML augments, a missing auto-schedule-mode
+            # element has the same meaning an element with a value of "default"
+            # in which case augmentRecord.autoScheduleMode = "default".  On
+            # the record we're augmenting, "default" mode means autoScheduleMode
+            # gets set to None (distinct from AutoScheduleMode.none!),
+            # which gets swapped for config.Scheduling.Options.AutoSchedule.DefaultMode
+            # in checkAttendeeAutoReply().
+            # ...Except for locations/resources which will default to automatic
+
             autoScheduleMode = {
                 "none": AutoScheduleMode.none,
                 "accept-always": AutoScheduleMode.accept,

@@ -1595,6 +1595,13 @@ oldAugmentsFormat = """<?xml version="1.0" encoding="utf-8"?>
     <auto-schedule>true</auto-schedule>
     <auto-schedule-mode>accept-if-free</auto-schedule-mode>
   </record>
+  <record>
+    <uid>B35DDFCF-C5E2-475E-A57E-8AB7422E9BB8</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule>false</auto-schedule>
+  </record>
 </augments>
 """
 
@@ -1614,6 +1621,7 @@ newAugmentsFormat = """<?xml version="1.0" encoding="utf-8"?>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <enable-login>true</enable-login>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
   </record>
   <record>
     <uid>60B771CC-D727-4453-ACE0-0FE13CD7445A</uid>
@@ -1635,6 +1643,12 @@ newAugmentsFormat = """<?xml version="1.0" encoding="utf-8"?>
     <enable-addressbook>true</enable-addressbook>
     <enable-login>true</enable-login>
     <auto-schedule-mode>accept-if-free</auto-schedule-mode>
+  </record>
+  <record>
+    <uid>B35DDFCF-C5E2-475E-A57E-8AB7422E9BB8</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule-mode>none</auto-schedule-mode>
   </record>
 </augments>
 """

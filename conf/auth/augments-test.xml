@@ -25,13 +25,13 @@ limitations under the License.
     <enable-addressbook>true</enable-addressbook>
 </record>
 <record>
-    <uid>Default-Location</uid>
+    <uid>Location-Default</uid>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule-mode>automatic</auto-schedule-mode>
 </record>
 <record>
-    <uid>Default-Resource</uid>
+    <uid>Resource-Default</uid>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule-mode>automatic</auto-schedule-mode>

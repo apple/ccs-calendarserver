@@ -45,7 +45,7 @@ from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.directory.xmlaugmentsparser import ELEMENT_AUGMENTS
 from twistedcaldav.ical import Component
-from twistedcaldav.xmlutil import readXML, writeXML
+from twistedcaldav.xmlutil import readXML, writeXML, addSubElement
 
 from txdav.caldav.datastore.index_file import db_basename
 from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser
@@ -729,10 +729,17 @@ def upgradeAugmentsXML(augmentsFilePath):
 
         autoScheduleElement = recordNode.find("auto-schedule")
         if autoScheduleElement is not None:
+            # This is a legacy augment record; if auto-schedule was true we
+            # need to set mode to "automatic", if false then set mode to "none".
+            # If auto-schedule was true and auto-schedule-mode existed, keep mode.
+
+            autoScheduleModeElement = recordNode.find("auto-schedule-mode")
+            if autoScheduleModeElement is None:
+                autoScheduleModeElement = addSubElement(recordNode, "auto-schedule-mode", text="automatic")
+
             if autoScheduleElement.text == "false":
-                autoScheduleModeElement = recordNode.find("auto-schedule-mode")
-                if autoScheduleModeElement is not None:
-                    autoScheduleModeElement.text = "none"
+                autoScheduleModeElement.text = "none"
+
             recordNode.remove(autoScheduleElement)
             changed = True
 
