@@ -1078,6 +1078,10 @@ DEFAULT_CONFIG = {
     # respawning it.  Empty string to disable this feature.
     "ServiceDisablingProgram": "",
 
+    # Program to execute to post an alert to the administrator; for example in
+    # OS X we want to call calendarserver_alert <alert-type> <args>
+    "AlertPostingProgram": "",
+
     # These three keys are relative to ConfigRoot:
 
     # Config to read first and merge
