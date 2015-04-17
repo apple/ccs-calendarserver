@@ -22,11 +22,7 @@ __all__ = [
     "propertyNamesForResource",
     "propertyListForResource",
     "validPropertyListCalendarDataTypeVersion",
-    "generateFreeBusyInfo",
-    "processEventFreeBusy",
-    "processFreeBusyFreeBusy",
-    "processAvailabilityFreeBusy",
-    "buildFreeBusyResult",
+    "validPropertyListAddressDataTypeVersion",
 ]
 
 from twisted.internet.defer import inlineCallbacks, returnValue
