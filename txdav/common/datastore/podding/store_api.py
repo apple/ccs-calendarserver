@@ -16,11 +16,13 @@
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
-from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
+from txdav.caldav.datastore.scheduling.cuaddress import calendarUserFromCalendarUserAddress
+from txdav.caldav.datastore.scheduling.freebusy import FreebusyQuery
 from txdav.common.datastore.podding.util import UtilityConduitMixin
 from txdav.common.datastore.sql_tables import _HOME_STATUS_DISABLED
 
-from twistedcaldav.caldavxml import TimeRange
+from pycalendar.period import Period
+
 from datetime import datetime
 
 
@@ -69,13 +71,11 @@ class StoreAPIConduitMixin(object):
     def send_freebusy(
         self,
         calresource,
+        organizer,
+        recipient,
         timerange,
         matchtotal,
         excludeuid,
-        organizer,
-        organizerPrincipal,
-        same_calendar_user,
-        servertoserver,
         event_details,
     ):
         """
@@ -84,13 +84,11 @@ class StoreAPIConduitMixin(object):
         """
         txn, request, server = yield self._getRequestForStoreObject("freebusy", calresource, False)
 
-        request["timerange"] = [timerange.start.getText(), timerange.end.getText()]
+        request["organizer"] = organizer
+        request["recipient"] = organizer
+        request["timerange"] = timerange.getText()
         request["matchtotal"] = matchtotal
         request["excludeuid"] = excludeuid
-        request["organizer"] = organizer
-        request["organizerPrincipal"] = organizerPrincipal
-        request["same_calendar_user"] = same_calendar_user
-        request["servertoserver"] = servertoserver
         request["event_details"] = event_details
 
         response = yield self.sendRequestToServer(txn, server, request)
@@ -109,28 +107,26 @@ class StoreAPIConduitMixin(object):
         # Operate on the L{CommonHomeChild}
         calresource, _ignore = yield self._getStoreObjectForRequest(txn, request)
 
-        fbinfo = [[], [], []]
-        matchtotal = yield generateFreeBusyInfo(
+        organizer = yield calendarUserFromCalendarUserAddress(request["organizer"], txn)
+        recipient = yield calendarUserFromCalendarUserAddress(request["recipient"], txn)
+
+        freebusy = FreebusyQuery(
+            organizer, None, recipient, None, None,
+            Period.parseText(request["timerange"]), request["excludeuid"], None, event_details=request["event_details"])
+        fbinfo = FreebusyQuery.FBInfo([], [], [])
+        matchtotal = yield freebusy.generateFreeBusyInfo(
             calresource,
             fbinfo,
-            TimeRange(start=request["timerange"][0], end=request["timerange"][1]),
             request["matchtotal"],
-            request["excludeuid"],
-            request["organizer"],
-            request["organizerPrincipal"],
-            request["same_calendar_user"],
-            request["servertoserver"],
-            request["event_details"],
-            logItems=None
         )
 
-        # Convert L{DateTime} objects to text for JSON response
-        for i in range(3):
-            for j in range(len(fbinfo[i])):
-                fbinfo[i][j] = fbinfo[i][j].getText()
-
+        # Convert L{Period} objects to text for JSON response
         returnValue({
-            "fbresults": fbinfo,
+            "fbresults": [
+                [item.getText() for item in fbinfo.busy],
+                [item.getText() for item in fbinfo.tentative],
+                [item.getText() for item in fbinfo.unavailable],
+            ],
             "matchtotal": matchtotal,
         })
 

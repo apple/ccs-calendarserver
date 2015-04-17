@@ -20,9 +20,10 @@ CalDAV freebusy report
 
 __all__ = ["report_urn_ietf_params_xml_ns_caldav_free_busy_query"]
 
-from twisted.internet.defer import inlineCallbacks, returnValue
-
 from twext.python.log import Logger
+
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+
 from txweb2 import responsecode
 from txweb2.dav.http import ErrorResponse
 from txweb2.dav.method.report import NumberOfMatchesWithinLimits
@@ -36,12 +37,15 @@ from twistedcaldav.method import report_common
 from twistedcaldav.util import bestAcceptType
 
 from txdav.caldav.icalendarstore import TimeRangeLowerLimit, TimeRangeUpperLimit
+from txdav.caldav.datastore.scheduling.freebusy import FreebusyQuery
 from txdav.xml import element as davxml
+
+from pycalendar.period import Period
 
 log = Logger()
 
 @inlineCallbacks
-def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy): #@UnusedVariable
+def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy):
     """
     Generate a free-busy REPORT.
     (CalDAV-access-09, section 7.8)
@@ -57,36 +61,36 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
     if not timerange.valid():
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Invalid time-range specified"))
 
-    # First list is BUSY, second BUSY-TENTATIVE, third BUSY-UNAVAILABLE
-    fbinfo = ([], [], [])
-
-    matchcount = [0]
+    fbset = []
 
     accepted_type = bestAcceptType(request.headers.getHeader("accept"), Component.allowedTypes())
     if accepted_type is None:
         raise HTTPError(StatusResponse(responsecode.NOT_ACCEPTABLE, "Cannot generate requested data type"))
 
 
-    def generateFreeBusyInfo(calresource, uri): #@UnusedVariable
+    def getCalendarList(calresource, uri): #@UnusedVariable
         """
-        Run a free busy report on the specified calendar collection
-        accumulating the free busy info for later processing.
+        Store the calendars that match the query in L{fbset} which will then be used with the
+        freebusy query.
+
         @param calresource: the L{CalDAVResource} for a calendar collection.
-        @param uri: the uri for the calendar collecton resource.
+        @param uri: the uri for the calendar collection resource.
         """
 
-        def _gotResult(result):
-            matchcount[0] = result
-            return True
-
-        d = report_common.generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchcount[0])
-        d.addCallback(_gotResult)
-        return d
+        fbset.append(calresource._newStoreObject)
+        return succeed(True)
 
     # Run report taking depth into account
+    depth = request.headers.getHeader("depth", "0")
+    yield report_common.applyToCalendarCollections(self, request, request.uri, depth, getCalendarList, (caldavxml.ReadFreeBusy(),))
+
+    # Do the actual freebusy query against the set of matched calendars
+    timerange = Period(timerange.start, timerange.end)
     try:
-        depth = request.headers.getHeader("depth", "0")
-        yield report_common.applyToCalendarCollections(self, request, request.uri, depth, generateFreeBusyInfo, (caldavxml.ReadFreeBusy(),))
+        fbresult = (yield FreebusyQuery(
+            None, None, None, None, None,
+            timerange, None, None,
+        ).generateAttendeeFreeBusyResponse(fbset=fbset, method=None))
     except NumberOfMatchesWithinLimits:
         log.error("Too many matching components in free-busy report")
         raise HTTPError(ErrorResponse(
@@ -107,11 +111,8 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
             "Time-range value too far in the future. Must be on or before %s." % (str(e.limit),)
         ))
 
-    # Now build a new calendar object with the free busy info we have
-    fbcalendar = report_common.buildFreeBusyResult(fbinfo, timerange)
-
     response = Response()
-    response.stream = MemoryStream(fbcalendar.getText(accepted_type))
+    response.stream = MemoryStream(fbresult.getText(accepted_type))
     response.headers.setHeader("content-type", MimeType.fromString("%s; charset=utf-8" % (accepted_type,)))
 
     returnValue(response)

@@ -22,11 +22,10 @@ from twext.python.clsprop import classproperty
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
 
-from twistedcaldav import caldavxml
 from twistedcaldav.ical import Component, Property
 
-from txdav.caldav.datastore.scheduling.freebusy import buildFreeBusyResult, \
-    generateFreeBusyInfo
+from txdav.caldav.datastore.scheduling.cuaddress import calendarUserFromCalendarUserAddress
+from txdav.caldav.datastore.scheduling.freebusy import FreebusyQuery
 from txdav.common.datastore.test.util import CommonCommonTests, populateCalendarsFrom
 
 def normalizeiCalendarText(data):
@@ -46,13 +45,8 @@ class BuildFreeBusyResult (TestCase):
         data = (
             (
                 "#1.1 No busy time",
-                [
-                    [],
-                    [],
-                    [],
-                ],
-                "20080601T000000Z",
-                "20080602T000000Z",
+                FreebusyQuery.FBInfo([], [], []),
+                Period.parseText("20080601T000000Z/20080602T000000Z"),
                 None,
                 None,
                 None,
@@ -68,13 +62,8 @@ END:VCALENDAR
             ),
             (
                 "#1.2 No busy time with organizer & attendee",
-                [
-                    [],
-                    [],
-                    [],
-                ],
-                "20080601T000000Z",
-                "20080602T000000Z",
+                FreebusyQuery.FBInfo([], [], []),
+                Period.parseText("20080601T000000Z/20080602T000000Z"),
                 Property("ORGANIZER", "mailto:user01@example.com"),
                 Property("ATTENDEE", "mailto:user02@example.com"),
                 None,
@@ -92,13 +81,8 @@ END:VCALENDAR
             ),
             (
                 "#1.3 With single busy time",
-                [
-                    [Period.parseText("20080601T120000Z/20080601T130000Z"), ],
-                    [],
-                    [],
-                ],
-                "20080601T000000Z",
-                "20080602T000000Z",
+                FreebusyQuery.FBInfo([Period.parseText("20080601T120000Z/20080601T130000Z"), ], [], []),
+                Period.parseText("20080601T000000Z/20080602T000000Z"),
                 Property("ORGANIZER", "mailto:user01@example.com"),
                 Property("ATTENDEE", "mailto:user02@example.com"),
                 None,
@@ -117,16 +101,15 @@ END:VCALENDAR
             ),
             (
                 "#1.4 With multiple busy time",
-                [
+                FreebusyQuery.FBInfo(
                     [
                         Period.parseText("20080601T120000Z/20080601T130000Z"),
                         Period.parseText("20080601T140000Z/20080601T150000Z"),
                     ],
                     [],
                     [],
-                ],
-                "20080601T000000Z",
-                "20080602T000000Z",
+                ),
+                Period.parseText("20080601T000000Z/20080602T000000Z"),
                 Property("ORGANIZER", "mailto:user01@example.com"),
                 Property("ATTENDEE", "mailto:user02@example.com"),
                 None,
@@ -145,7 +128,7 @@ END:VCALENDAR
             ),
             (
                 "#1.5 With multiple busy time, some overlap",
-                [
+                FreebusyQuery.FBInfo(
                     [
                         Period.parseText("20080601T120000Z/20080601T130000Z"),
                         Period.parseText("20080601T123000Z/20080601T133000Z"),
@@ -154,9 +137,8 @@ END:VCALENDAR
                     ],
                     [],
                     [],
-                ],
-                "20080601T000000Z",
-                "20080602T000000Z",
+                ),
+                Period.parseText("20080601T000000Z/20080602T000000Z"),
                 Property("ORGANIZER", "mailto:user01@example.com"),
                 Property("ATTENDEE", "mailto:user02@example.com"),
                 None,
@@ -175,7 +157,7 @@ END:VCALENDAR
             ),
             (
                 "#1.6 With all busy time types",
-                [
+                FreebusyQuery.FBInfo(
                     [
                         Period.parseText("20080601T120000Z/20080601T130000Z"),
                         Period.parseText("20080601T140000Z/20080601T150000Z"),
@@ -186,9 +168,8 @@ END:VCALENDAR
                     [
                         Period.parseText("20080601T160000Z/20080601T170000Z"),
                     ],
-                ],
-                "20080601T000000Z",
-                "20080602T000000Z",
+                ),
+                Period.parseText("20080601T000000Z/20080602T000000Z"),
                 Property("ORGANIZER", "mailto:user01@example.com"),
                 Property("ATTENDEE", "mailto:user02@example.com"),
                 None,
@@ -209,13 +190,12 @@ END:VCALENDAR
             ),
             (
                 "#1.7 With single busy time and event details",
-                [
+                FreebusyQuery.FBInfo(
                     [Period.parseText("20080601T120000Z/20080601T130000Z"), ],
                     [],
                     [],
-                ],
-                "20080601T000000Z",
-                "20080602T000000Z",
+                ),
+                Period.parseText("20080601T000000Z/20080602T000000Z"),
                 Property("ORGANIZER", "mailto:user01@example.com"),
                 Property("ATTENDEE", "mailto:user02@example.com"),
                 [
@@ -250,16 +230,16 @@ END:VCALENDAR
             ),
         )
 
-        for description, fbinfo, dtstart, dtend, organizer, attendee, event_details, calendar in data:
-            timerange = caldavxml.TimeRange(start=dtstart, end=dtend)
-            result = buildFreeBusyResult(fbinfo, timerange, organizer=organizer, attendee=attendee, event_details=event_details)
+        for description, fbinfo, timerange, organizer, attendee, event_details, calendar in data:
+            freebusy = FreebusyQuery(None, organizer, None, attendee, None, timerange, None, None, event_details=event_details)
+            result = freebusy.buildFreeBusyResult(fbinfo)
             self.assertEqual(normalizeiCalendarText(str(result)), calendar.replace("\n", "\r\n"), msg=description)
 
 
 
 class GenerateFreeBusyInfo(CommonCommonTests, TestCase):
     """
-    Test txdav.caldav.datastore.scheduling.freebusy.generateFreeBusyInfo
+    Test txdav.caldav.datastore.scheduling.freebusy.FreebusyQuery
     """
 
     @inlineCallbacks
@@ -332,14 +312,16 @@ class GenerateFreeBusyInfo(CommonCommonTests, TestCase):
         """
 
         calendar = (yield self.calendarUnderTest(home="user01", name="calendar_1"))
-        fbinfo = [[], [], [], ]
+        fbinfo = FreebusyQuery.FBInfo([], [], [])
         matchtotal = 0
-        timerange = caldavxml.TimeRange(start=self.now.getText(), end=self.now_1D.getText())
-        result = (yield generateFreeBusyInfo(calendar, fbinfo, timerange, matchtotal))
+        timerange = Period(self.now, self.now_1D)
+
+        freebusy = FreebusyQuery(None, None, None, None, None, timerange, None, None)
+        result = (yield freebusy.generateFreeBusyInfo(calendar, fbinfo, matchtotal))
         self.assertEqual(result, 0)
-        self.assertEqual(len(fbinfo[0]), 0)
-        self.assertEqual(len(fbinfo[1]), 0)
-        self.assertEqual(len(fbinfo[2]), 0)
+        self.assertEqual(len(fbinfo.busy), 0)
+        self.assertEqual(len(fbinfo.tentative), 0)
+        self.assertEqual(len(fbinfo.unavailable), 0)
 
 
     @inlineCallbacks
@@ -362,14 +344,16 @@ END:VCALENDAR
 
         yield self._createCalendarObject(data, "user01", "test.ics")
         calendar = (yield self.calendarUnderTest(home="user01", name="calendar_1"))
-        fbinfo = [[], [], [], ]
+        fbinfo = FreebusyQuery.FBInfo([], [], [])
         matchtotal = 0
-        timerange = caldavxml.TimeRange(start=self.now.getText(), end=self.now_1D.getText())
-        result = (yield generateFreeBusyInfo(calendar, fbinfo, timerange, matchtotal))
+        timerange = Period(self.now, self.now_1D)
+
+        freebusy = FreebusyQuery(None, None, None, None, None, timerange, None, None)
+        result = (yield freebusy.generateFreeBusyInfo(calendar, fbinfo, matchtotal))
         self.assertEqual(result, 1)
-        self.assertEqual(fbinfo[0], [Period.parseText("%s/%s" % (self.now_12H.getText(), self.now_13H.getText(),)), ])
-        self.assertEqual(len(fbinfo[1]), 0)
-        self.assertEqual(len(fbinfo[2]), 0)
+        self.assertEqual(fbinfo.busy, [Period.parseText("%s/%s" % (self.now_12H.getText(), self.now_13H.getText(),)), ])
+        self.assertEqual(len(fbinfo.tentative), 0)
+        self.assertEqual(len(fbinfo.unavailable), 0)
 
 
     @inlineCallbacks
@@ -392,21 +376,23 @@ END:VCALENDAR
 
         yield self._createCalendarObject(data, "user01", "test.ics")
         calendar = (yield self.calendarUnderTest(home="user01", name="calendar_1"))
-        fbinfo = [[], [], [], ]
+        fbinfo = FreebusyQuery.FBInfo([], [], [])
         matchtotal = 0
-        timerange = caldavxml.TimeRange(start=self.now.getText(), end=self.now_1D.getText())
+        timerange = Period(self.now, self.now_1D)
         event_details = []
-        result = (yield generateFreeBusyInfo(
+
+        organizer = recipient = (yield calendarUserFromCalendarUserAddress("mailto:user01@example.com", self.transactionUnderTest()))
+
+        freebusy = FreebusyQuery(organizer, None, recipient, None, None, timerange, None, None, event_details=event_details)
+        freebusy.same_calendar_user = True
+        result = (yield freebusy.generateFreeBusyInfo(
             calendar,
             fbinfo,
-            timerange,
             matchtotal,
-            organizer="mailto:user01@example.com",
-            event_details=event_details
         ))
         self.assertEqual(result, 1)
-        self.assertEqual(fbinfo[0], [Period.parseText("%s/%s" % (self.now_12H.getText(), self.now_13H.getText(),)), ])
-        self.assertEqual(len(fbinfo[1]), 0)
-        self.assertEqual(len(fbinfo[2]), 0)
+        self.assertEqual(fbinfo.busy, [Period(self.now_12H, self.now_13H), ])
+        self.assertEqual(len(fbinfo.tentative), 0)
+        self.assertEqual(len(fbinfo.unavailable), 0)
         self.assertEqual(len(event_details), 1)
         self.assertEqual(str(event_details[0]), str(tuple(Component.fromString(data).subcomponents())[0]))

@@ -26,10 +26,8 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 
 from txdav.base.propertystore.base import PropertyName
-from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser, RemoteCalendarUser, OtherServerCalendarUser
 from txdav.caldav.datastore.scheduling.delivery import DeliveryService
-from txdav.caldav.datastore.scheduling.freebusy import processAvailabilityFreeBusy, \
-    generateFreeBusyInfo, buildFreeBusyResult
+from txdav.caldav.datastore.scheduling.freebusy import FreebusyQuery
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
 from txdav.caldav.datastore.scheduling.processing import ImplicitProcessor, ImplicitProcessorException
 from txdav.caldav.datastore.scheduling.utils import extractEmailDomain
@@ -97,10 +95,6 @@ class ScheduleViaCalDAV(DeliveryService):
         organizerProp = self.scheduler.calendar.getOrganizerProperty()
         uid = self.scheduler.calendar.resourceUID()
 
-        organizerPrincipal = None
-        if type(self.scheduler.organizer) in (LocalCalendarUser, OtherServerCalendarUser,):
-            organizerPrincipal = self.scheduler.organizer.record.uid
-
         for recipient in self.recipients:
 
             #
@@ -113,7 +107,7 @@ class ScheduleViaCalDAV(DeliveryService):
                 # Look for special delegate extended free-busy request
                 event_details = [] if self.scheduler.calendar.getExtendedFreeBusy() else None
 
-                yield self.generateFreeBusyResponse(recipient, self.responses, organizerProp, organizerPrincipal, uid, event_details)
+                yield self.generateFreeBusyResponse(recipient, self.responses, organizerProp, uid, event_details)
             else:
                 yield self.generateResponse(recipient, self.responses)
 
@@ -199,32 +193,26 @@ class ScheduleViaCalDAV(DeliveryService):
 
 
     @inlineCallbacks
-    def generateFreeBusyResponse(self, recipient, responses, organizerProp, organizerPrincipal, uid, event_details):
+    def generateFreeBusyResponse(self, recipient, responses, organizerProp, uid, event_details):
 
         # Extract the ATTENDEE property matching current recipient from the calendar data
         cuas = recipient.record.calendarUserAddresses
         attendeeProp = self.scheduler.calendar.getAttendeeProperty(cuas)
 
-        remote = isinstance(self.scheduler.organizer, RemoteCalendarUser)
-
         try:
-            fbresult = (yield self.generateAttendeeFreeBusyResponse(
-                recipient,
-                organizerProp,
-                organizerPrincipal,
-                uid,
-                attendeeProp,
-                remote,
-                event_details,
-            ))
-        except Exception:
+            fbresult = (yield FreebusyQuery(
+                self.scheduler.organizer, organizerProp, recipient, attendeeProp, uid,
+                self.scheduler.timeRange, self.scheduler.excludeUID, self.scheduler.logItems,
+                event_details=event_details,
+            ).generateAttendeeFreeBusyResponse())
+        except Exception as e:
             log.failure(
                 "Could not determine free busy information for recipient {cuaddr}",
                 cuaddr=recipient.cuaddr, level=LogLevel.debug
             )
             log.error(
-                "Could not determine free busy information for recipient {cuaddr}",
-                cuaddr=recipient.cuaddr
+                "Could not determine free busy information for recipient {cuaddr}: {ex}",
+                cuaddr=recipient.cuaddr, ex=e
             )
             err = HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
@@ -245,56 +233,3 @@ class ScheduleViaCalDAV(DeliveryService):
                 calendar=fbresult
             )
             returnValue(True)
-
-
-    @inlineCallbacks
-    def generateAttendeeFreeBusyResponse(self, recipient, organizerProp, organizerPrincipal, uid, attendeeProp, remote, event_details=None):
-
-        # Find the current recipients calendars that are not transparent
-        fbset = (yield recipient.inbox.ownerHome().loadCalendars())
-        fbset = [calendar for calendar in fbset if calendar.isUsedForFreeBusy()]
-
-        # First list is BUSY, second BUSY-TENTATIVE, third BUSY-UNAVAILABLE
-        fbinfo = ([], [], [])
-
-        # Process the availability property from the Inbox.
-        availability = recipient.inbox.ownerHome().getAvailability()
-        if availability is not None:
-            processAvailabilityFreeBusy(availability, fbinfo, self.scheduler.timeRange)
-
-        # Check to see if the recipient is the same calendar user as the organizer.
-        # Needed for masked UID stuff.
-        if isinstance(self.scheduler.organizer, LocalCalendarUser):
-            same_calendar_user = self.scheduler.organizer.record.uid == recipient.record.uid
-        else:
-            same_calendar_user = False
-
-        # Now process free-busy set calendars
-        matchtotal = 0
-        for calendar in fbset:
-            matchtotal = (yield generateFreeBusyInfo(
-                calendar,
-                fbinfo,
-                self.scheduler.timeRange,
-                matchtotal,
-                excludeuid=self.scheduler.excludeUID,
-                organizer=self.scheduler.organizer.cuaddr,
-                organizerPrincipal=organizerPrincipal,
-                same_calendar_user=same_calendar_user,
-                servertoserver=remote,
-                event_details=event_details,
-                logItems=self.scheduler.logItems,
-            ))
-
-        # Build VFREEBUSY iTIP reply for this recipient
-        fbresult = buildFreeBusyResult(
-            fbinfo,
-            self.scheduler.timeRange,
-            organizer=organizerProp,
-            attendee=attendeeProp,
-            uid=uid,
-            method="REPLY",
-            event_details=event_details,
-        )
-
-        returnValue(fbresult)

@@ -42,6 +42,8 @@ from txdav.caldav.datastore.scheduling.imip.delivery import ScheduleViaIMip
 from txdav.caldav.datastore.scheduling.ischedule.delivery import ScheduleViaISchedule
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
 
+from pycalendar.period import Period
+
 import hashlib
 from collections import namedtuple
 
@@ -400,9 +402,7 @@ class Scheduler(object):
                         "VFREEBUSY start or end not UTC",
                     ))
 
-                self.timeRange = caldavxml.TimeRange(start=dtstart.getText(), end=dtend.getText())
-                self.timeRange.start = dtstart
-                self.timeRange.end = dtend
+                self.timeRange = Period(dtstart, dtend)
 
                 # Look for masked UID
                 self.excludeUID = self.calendar.getMaskUID()

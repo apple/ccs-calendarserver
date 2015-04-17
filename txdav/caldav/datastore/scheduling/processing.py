@@ -16,6 +16,7 @@
 
 from pycalendar.datetime import DateTime
 from pycalendar.duration import Duration
+from pycalendar.period import Period
 from pycalendar.timezone import Timezone
 
 from twext.python.log import Logger
@@ -23,13 +24,13 @@ from txweb2.http import HTTPError
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
-from twistedcaldav import customxml, caldavxml
+from twistedcaldav import customxml
 from twistedcaldav.accounting import emitAccounting, accountingEnabled
 from twistedcaldav.config import config
 from twistedcaldav.ical import Property
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 
-from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
+from txdav.caldav.datastore.scheduling.freebusy import FreebusyQuery
 from txdav.caldav.datastore.scheduling.itip import iTipProcessing, iTIPRequestStatus, \
     iTipGenerator
 from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord
@@ -799,6 +800,9 @@ class ImplicitProcessor(object):
         # in any calendars.
         uid = calendar.resourceUID()
 
+        # Object to do freebusy query
+        freebusy = FreebusyQuery(None, None, None, None, None, None, uid, None, accountingItems=accounting if len(instances) == 1 else None)
+
         # Now compare each instance time-range with the index and see if there is an overlap
         fbset = (yield self.recipient.inbox.ownerHome().loadCalendars())
         fbset = [fbcalendar for fbcalendar in fbset if fbcalendar.isUsedForFreeBusy()]
@@ -822,7 +826,7 @@ class ImplicitProcessor(object):
                 if instance.partstat == "NEEDS-ACTION" and instance.free and instance.active:
                     try:
                         # First list is BUSY, second BUSY-TENTATIVE, third BUSY-UNAVAILABLE
-                        fbinfo = ([], [], [])
+                        fbinfo = FreebusyQuery.FBInfo([], [], [])
 
                         def makeTimedUTC(dt):
                             dt = dt.duplicate()
@@ -834,18 +838,19 @@ class ImplicitProcessor(object):
                                 dt.adjustToUTC()
                             return dt
 
-                        tr = caldavxml.TimeRange(
-                            start=str(makeTimedUTC(instance.start)),
-                            end=str(makeTimedUTC(instance.end)),
+                        tr = Period(
+                            makeTimedUTC(instance.start),
+                            makeTimedUTC(instance.end),
                         )
 
-                        yield generateFreeBusyInfo(testcal, fbinfo, tr, 0, uid, servertoserver=True, accountingItems=accounting if len(instances) == 1 else None)
+                        freebusy.timerange = tr
+                        yield freebusy.generateFreeBusyInfo(testcal, fbinfo, 0)
 
                         # If any fbinfo entries exist we have an overlap
-                        if len(fbinfo[0]) or len(fbinfo[1]) or len(fbinfo[2]):
+                        if len(fbinfo.busy) or len(fbinfo.tentative) or len(fbinfo.unavailable):
                             instance.free = False
                         if accounting is not None:
-                            accounting["tr"].insert(0, (tr.attributes["start"], tr.attributes["end"], instance.free,))
+                            accounting["tr"].insert(0, (tr.getStart().getText(), tr.getEnd().getText(), instance.free,))
                     except QueryMaxResources:
                         instance.free[instance] = False
                         log.info("Exceeded number of matches whilst trying to find free-time.")

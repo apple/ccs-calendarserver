@@ -26,7 +26,6 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
 from twext.python.log import Logger
 from txweb2 import responsecode
-from txdav.xml import element as davxml
 from txweb2.dav.http import ErrorResponse
 from txweb2.dav.util import joinURL
 from txweb2.http import HTTPError
@@ -36,19 +35,19 @@ from txweb2.http_headers import MimeType
 from txweb2.stream import MemoryStream
 
 from twistedcaldav import caldavxml
-from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import Property
 from twistedcaldav.resource import CalDAVResource, ReadOnlyNoCopyResourceMixIn
 from twistedcaldav.scheduling_store.caldav.resource import deliverSchedulePrivilegeSet
 
-from txdav.caldav.datastore.scheduling.caldav.delivery import ScheduleViaCalDAV
 from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser
-from txdav.caldav.datastore.scheduling.scheduler import Scheduler
+from txdav.caldav.datastore.scheduling.freebusy import FreebusyQuery
+from txdav.xml import element as davxml
 
 from pycalendar.datetime import DateTime
 from pycalendar.duration import Duration
+from pycalendar.period import Period
 
 log = Logger()
 
@@ -266,25 +265,15 @@ class FreeBusyURLResource (ReadOnlyNoCopyResourceMixIn, CalDAVResource):
         if inbox is None:
             raise HTTPError(StatusResponse(responsecode.INTERNAL_SERVER_ERROR, "No schedule inbox for principal: %s" % (principal,)))
 
-        scheduler = Scheduler(request, self)
-        scheduler.timeRange = TimeRange(start="20000101T000000Z", end="20070102T000000Z")
-        scheduler.timeRange.start = self.start
-        scheduler.timeRange.end = self.end
+        organizer = recipient = LocalCalendarUser(cuaddr, principal.record)
+        recipient.inbox = inbox._newStoreObject
+        attendeeProp = Property("ATTENDEE", recipient.cuaddr)
+        timerange = Period(self.start, self.end)
 
-        scheduler.organizer = LocalCalendarUser(cuaddr, principal.record)
-        scheduler.organizer.inbox = inbox._newStoreObject
-
-        attendeeProp = Property("ATTENDEE", scheduler.organizer.cuaddr)
-
-        requestor = ScheduleViaCalDAV(scheduler, (), [], True)
-        fbresult = (yield requestor.generateAttendeeFreeBusyResponse(
-            scheduler.organizer,
-            None,
-            None,
-            None,
-            attendeeProp,
-            True,
-        ))
+        fbresult = (yield FreebusyQuery(
+            organizer, None, recipient, attendeeProp, None,
+            timerange, None, None,
+        ).generateAttendeeFreeBusyResponse())
 
         response = Response()
         response.stream = MemoryStream(str(fbresult))

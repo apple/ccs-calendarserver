@@ -26,11 +26,11 @@ from txweb2.stream import MemoryStream
 from twisted.internet.defer import inlineCallbacks, succeed, returnValue
 
 from twistedcaldav import caldavxml
-from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.ical import Component, normalize_iCalStr
 
 from txdav.caldav.datastore.query.filter import Filter
-from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
+from txdav.caldav.datastore.scheduling.cuaddress import calendarUserFromCalendarUserAddress
+from txdav.caldav.datastore.scheduling.freebusy import FreebusyQuery
 from txdav.caldav.datastore.scheduling.ischedule.localservers import ServersDB, Server
 from txdav.caldav.datastore.sql import ManagedAttachment, AttachmentLink
 from txdav.caldav.datastore.test.common import CaptureProtocol
@@ -927,20 +927,12 @@ END:VCALENDAR
 
         shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
 
-        fbinfo = [[], [], []]
-        matchtotal = yield generateFreeBusyInfo(
-            shared,
-            fbinfo,
-            TimeRange(start=fbstart, end=fbend),
-            0,
-            excludeuid=None,
-            organizer=None,
-            organizerPrincipal=None,
-            same_calendar_user=False,
-            servertoserver=False,
-            event_details=False,
-            logItems=None
-        )
+        fbinfo = FreebusyQuery.FBInfo([], [], [])
+        timerange = Period(DateTime.parseText(fbstart), DateTime.parseText(fbend))
+        organizer = recipient = (yield calendarUserFromCalendarUserAddress("mailto:puser01@example.com", self.theTransactionUnderTest(1)))
+
+        freebusy = FreebusyQuery(organizer, None, recipient, None, None, timerange, None, None)
+        matchtotal = (yield freebusy.generateFreeBusyInfo(shared, fbinfo, 0))
 
         self.assertEqual(matchtotal, 1)
         self.assertEqual(fbinfo[0], [Period.parseText("{now:04d}0102T140000Z/PT1H".format(**self.nowYear)), ])
