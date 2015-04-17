@@ -505,8 +505,6 @@ class MemcacheSpawner(TestCase):
 
     def setUp(self):
         super(MemcacheSpawner, self).setUp()
-        self.patch(config.Memcached.Pools.Default, "ServerEnabled", True)
-
         self.monitor = TestProcessMonitor()
         self.monitor.startService()
         self.socket = os.path.join(tempfile.gettempdir(), "memcache.sock")
