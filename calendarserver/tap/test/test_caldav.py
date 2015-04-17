@@ -26,17 +26,18 @@ from collections import namedtuple
 
 from zope.interface import implements
 
+from twisted.application import service
 from twisted.python import log as logging
 from twisted.python.threadable import isInIOThread
 from twisted.internet.reactor import callFromThread
 from twisted.python.usage import Options, UsageError
 from twisted.python.procutils import which
 
-from twisted.runner.procmon import ProcessMonitor
+from twisted.runner.procmon import ProcessMonitor, LoggingProtocol
 
 from twisted.internet.interfaces import IProcessTransport, IReactorProcess
 from twisted.internet.protocol import ServerFactory
-from twisted.internet.defer import Deferred, inlineCallbacks, succeed
+from twisted.internet.defer import Deferred, inlineCallbacks, succeed, gatherResults
 from twisted.internet.task import Clock
 from twisted.internet import reactor
 from twisted.application.service import (IService, IServiceCollection
@@ -443,12 +444,70 @@ class ModesOnUNIXSocketsTests(CalDAVServiceMakerTestBase):
             self.assertEquals(socketService.gid, self.alternateGroup)
 
 
+class TestLoggingProtocol(LoggingProtocol):
+
+    def processEnded(self, reason):
+        LoggingProtocol.processEnded(self, reason)
+        self.service.processEnded(self.name)
+
+
+class TestProcessMonitor(ProcessMonitor):
+
+    def startProcess(self, name):
+        """
+        @param name: The name of the process to be started
+        """
+        # If a protocol instance already exists, it means the process is
+        # already running
+        if name in self.protocols:
+            return
+
+        args, uid, gid, env = self.processes[name]
+
+        proto = TestLoggingProtocol()
+        proto.service = self
+        proto.name = name
+        self.protocols[name] = proto
+        self.timeStarted[name] = self._reactor.seconds()
+        self._reactor.spawnProcess(
+            proto, args[0], args, uid=uid, gid=gid, env=env
+        )
+
+    def stopService(self):
+        """
+        Return a deferred that fires when all child processes have ended.
+        """
+        service.Service.stopService(self)
+
+        self.stopping = True
+        self.deferreds = {}
+        for name in self.processes:
+            self.deferreds[name] = Deferred()
+
+        # Cancel any outstanding restarts
+        for name, delayedCall in self.restart.items():
+            if delayedCall.active():
+                delayedCall.cancel()
+
+        for name in self.processes:
+            self.stopProcess(name)
+
+        return gatherResults(self.deferreds.values())
+
+
+    def processEnded(self, name):
+        if self.stopping:
+            deferred = self.deferreds.pop(name, None)
+            if deferred is not None:
+                deferred.callback(None)
 
 class MemcacheSpawner(TestCase):
 
     def setUp(self):
         super(MemcacheSpawner, self).setUp()
-        self.monitor = ProcessMonitor()
+        self.patch(config.Memcached.Pools.Default, "ServerEnabled", True)
+
+        self.monitor = TestProcessMonitor()
         self.monitor.startService()
         self.socket = os.path.join(tempfile.gettempdir(), "memcache.sock")
         self.patch(config.Memcached.Pools.Default, "ServerEnabled", True)
