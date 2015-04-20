@@ -931,8 +931,8 @@ END:VCALENDAR
         timerange = Period(DateTime.parseText(fbstart), DateTime.parseText(fbend))
         organizer = recipient = (yield calendarUserFromCalendarUserAddress("mailto:puser01@example.com", self.theTransactionUnderTest(1)))
 
-        freebusy = FreebusyQuery(organizer, None, recipient, None, None, timerange, None, None)
-        matchtotal = (yield freebusy.generateFreeBusyInfo(shared, fbinfo, 0))
+        freebusy = FreebusyQuery(organizer=organizer, recipient=recipient, timerange=timerange)
+        matchtotal = (yield freebusy.generateFreeBusyInfo([shared, ], fbinfo))
 
         self.assertEqual(matchtotal, 1)
         self.assertEqual(fbinfo[0], [Period.parseText("{now:04d}0102T140000Z/PT1H".format(**self.nowYear)), ])

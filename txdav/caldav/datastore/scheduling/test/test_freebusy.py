@@ -61,7 +61,7 @@ END:VCALENDAR
 """,
             ),
             (
-                "#1.2 No busy time with organizer & attendee",
+                "#1.2 No busy time with organizerProp & attendeeProp",
                 FreebusyQuery.FBInfo([], [], []),
                 Period.parseText("20080601T000000Z/20080602T000000Z"),
                 Property("ORGANIZER", "mailto:user01@example.com"),
@@ -230,8 +230,8 @@ END:VCALENDAR
             ),
         )
 
-        for description, fbinfo, timerange, organizer, attendee, event_details, calendar in data:
-            freebusy = FreebusyQuery(None, organizer, None, attendee, None, timerange, None, None, event_details=event_details)
+        for description, fbinfo, timerange, organizerProp, attendeeProp, event_details, calendar in data:
+            freebusy = FreebusyQuery(organizerProp=organizerProp, attendeeProp=attendeeProp, timerange=timerange, event_details=event_details)
             result = freebusy.buildFreeBusyResult(fbinfo)
             self.assertEqual(normalizeiCalendarText(str(result)), calendar.replace("\n", "\r\n"), msg=description)
 
@@ -313,11 +313,11 @@ class GenerateFreeBusyInfo(CommonCommonTests, TestCase):
 
         calendar = (yield self.calendarUnderTest(home="user01", name="calendar_1"))
         fbinfo = FreebusyQuery.FBInfo([], [], [])
-        matchtotal = 0
         timerange = Period(self.now, self.now_1D)
 
-        freebusy = FreebusyQuery(None, None, None, None, None, timerange, None, None)
-        result = (yield freebusy.generateFreeBusyInfo(calendar, fbinfo, matchtotal))
+        organizer = recipient = yield calendarUserFromCalendarUserAddress("mailto:user01@example.com", self.transactionUnderTest())
+        freebusy = FreebusyQuery(organizer=organizer, recipient=recipient, timerange=timerange)
+        result = (yield freebusy.generateFreeBusyInfo([calendar, ], fbinfo))
         self.assertEqual(result, 0)
         self.assertEqual(len(fbinfo.busy), 0)
         self.assertEqual(len(fbinfo.tentative), 0)
@@ -345,11 +345,11 @@ END:VCALENDAR
         yield self._createCalendarObject(data, "user01", "test.ics")
         calendar = (yield self.calendarUnderTest(home="user01", name="calendar_1"))
         fbinfo = FreebusyQuery.FBInfo([], [], [])
-        matchtotal = 0
         timerange = Period(self.now, self.now_1D)
 
-        freebusy = FreebusyQuery(None, None, None, None, None, timerange, None, None)
-        result = (yield freebusy.generateFreeBusyInfo(calendar, fbinfo, matchtotal))
+        organizer = recipient = yield calendarUserFromCalendarUserAddress("mailto:user01@example.com", self.transactionUnderTest())
+        freebusy = FreebusyQuery(organizer=organizer, recipient=recipient, timerange=timerange)
+        result = (yield freebusy.generateFreeBusyInfo([calendar, ], fbinfo))
         self.assertEqual(result, 1)
         self.assertEqual(fbinfo.busy, [Period.parseText("%s/%s" % (self.now_12H.getText(), self.now_13H.getText(),)), ])
         self.assertEqual(len(fbinfo.tentative), 0)
@@ -377,19 +377,13 @@ END:VCALENDAR
         yield self._createCalendarObject(data, "user01", "test.ics")
         calendar = (yield self.calendarUnderTest(home="user01", name="calendar_1"))
         fbinfo = FreebusyQuery.FBInfo([], [], [])
-        matchtotal = 0
         timerange = Period(self.now, self.now_1D)
         event_details = []
 
-        organizer = recipient = (yield calendarUserFromCalendarUserAddress("mailto:user01@example.com", self.transactionUnderTest()))
-
-        freebusy = FreebusyQuery(organizer, None, recipient, None, None, timerange, None, None, event_details=event_details)
+        organizer = recipient = yield calendarUserFromCalendarUserAddress("mailto:user01@example.com", self.transactionUnderTest())
+        freebusy = FreebusyQuery(organizer=organizer, recipient=recipient, timerange=timerange, event_details=event_details)
         freebusy.same_calendar_user = True
-        result = (yield freebusy.generateFreeBusyInfo(
-            calendar,
-            fbinfo,
-            matchtotal,
-        ))
+        result = yield freebusy.generateFreeBusyInfo([calendar, ], fbinfo)
         self.assertEqual(result, 1)
         self.assertEqual(fbinfo.busy, [Period(self.now_12H, self.now_13H), ])
         self.assertEqual(len(fbinfo.tentative), 0)

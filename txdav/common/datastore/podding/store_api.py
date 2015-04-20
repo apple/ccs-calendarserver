@@ -85,7 +85,7 @@ class StoreAPIConduitMixin(object):
         txn, request, server = yield self._getRequestForStoreObject("freebusy", calresource, False)
 
         request["organizer"] = organizer
-        request["recipient"] = organizer
+        request["recipient"] = recipient
         request["timerange"] = timerange.getText()
         request["matchtotal"] = matchtotal
         request["excludeuid"] = excludeuid
@@ -107,17 +107,21 @@ class StoreAPIConduitMixin(object):
         # Operate on the L{CommonHomeChild}
         calresource, _ignore = yield self._getStoreObjectForRequest(txn, request)
 
-        organizer = yield calendarUserFromCalendarUserAddress(request["organizer"], txn)
-        recipient = yield calendarUserFromCalendarUserAddress(request["recipient"], txn)
+        organizer = yield calendarUserFromCalendarUserAddress(request["organizer"], txn) if request["organizer"] else None
+        recipient = yield calendarUserFromCalendarUserAddress(request["recipient"], txn) if request["recipient"] else None
 
         freebusy = FreebusyQuery(
-            organizer, None, recipient, None, None,
-            Period.parseText(request["timerange"]), request["excludeuid"], None, event_details=request["event_details"])
+            organizer=organizer,
+            recipient=recipient,
+            timerange=Period.parseText(request["timerange"]),
+            excludeUID=request["excludeuid"],
+            event_details=request["event_details"],
+        )
         fbinfo = FreebusyQuery.FBInfo([], [], [])
         matchtotal = yield freebusy.generateFreeBusyInfo(
-            calresource,
+            [calresource, ],
             fbinfo,
-            request["matchtotal"],
+            matchtotal=request["matchtotal"],
         )
 
         # Convert L{Period} objects to text for JSON response

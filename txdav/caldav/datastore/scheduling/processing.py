@@ -801,7 +801,7 @@ class ImplicitProcessor(object):
         uid = calendar.resourceUID()
 
         # Object to do freebusy query
-        freebusy = FreebusyQuery(None, None, None, None, None, None, uid, None, accountingItems=accounting if len(instances) == 1 else None)
+        freebusy = FreebusyQuery(recipient=self.recipient, excludeUID=uid, accountingItems=accounting if len(instances) == 1 else None)
 
         # Now compare each instance time-range with the index and see if there is an overlap
         fbset = (yield self.recipient.inbox.ownerHome().loadCalendars())
@@ -844,7 +844,7 @@ class ImplicitProcessor(object):
                         )
 
                         freebusy.timerange = tr
-                        yield freebusy.generateFreeBusyInfo(testcal, fbinfo, 0)
+                        yield freebusy.generateFreeBusyInfo([testcal, ], fbinfo)
 
                         # If any fbinfo entries exist we have an overlap
                         if len(fbinfo.busy) or len(fbinfo.tentative) or len(fbinfo.unavailable):

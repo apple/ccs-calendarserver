@@ -37,6 +37,7 @@ from twistedcaldav.method import report_common
 from twistedcaldav.util import bestAcceptType
 
 from txdav.caldav.icalendarstore import TimeRangeLowerLimit, TimeRangeUpperLimit
+from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser
 from txdav.caldav.datastore.scheduling.freebusy import FreebusyQuery
 from txdav.xml import element as davxml
 
@@ -85,12 +86,11 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
     yield report_common.applyToCalendarCollections(self, request, request.uri, depth, getCalendarList, (caldavxml.ReadFreeBusy(),))
 
     # Do the actual freebusy query against the set of matched calendars
+    principal = yield self.ownerPrincipal(request)
+    organizer = recipient = LocalCalendarUser(principal.canonicalCalendarUserAddress(), principal.record)
     timerange = Period(timerange.start, timerange.end)
     try:
-        fbresult = (yield FreebusyQuery(
-            None, None, None, None, None,
-            timerange, None, None,
-        ).generateAttendeeFreeBusyResponse(fbset=fbset, method=None))
+        fbresult = yield FreebusyQuery(organizer=organizer, recipient=recipient, timerange=timerange).generateAttendeeFreeBusyResponse(fbset=fbset, method=None)
     except NumberOfMatchesWithinLimits:
         log.error("Too many matching components in free-busy report")
         raise HTTPError(ErrorResponse(

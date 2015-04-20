@@ -270,10 +270,12 @@ class FreeBusyURLResource (ReadOnlyNoCopyResourceMixIn, CalDAVResource):
         attendeeProp = Property("ATTENDEE", recipient.cuaddr)
         timerange = Period(self.start, self.end)
 
-        fbresult = (yield FreebusyQuery(
-            organizer, None, recipient, attendeeProp, None,
-            timerange, None, None,
-        ).generateAttendeeFreeBusyResponse())
+        fbresult = yield FreebusyQuery(
+            organizer=organizer,
+            recipient=recipient,
+            attendeeProp=attendeeProp,
+            timerange=timerange,
+        ).generateAttendeeFreeBusyResponse()
 
         response = Response()
         response.stream = MemoryStream(str(fbresult))

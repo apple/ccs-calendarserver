@@ -200,11 +200,17 @@ class ScheduleViaCalDAV(DeliveryService):
         attendeeProp = self.scheduler.calendar.getAttendeeProperty(cuas)
 
         try:
-            fbresult = (yield FreebusyQuery(
-                self.scheduler.organizer, organizerProp, recipient, attendeeProp, uid,
-                self.scheduler.timeRange, self.scheduler.excludeUID, self.scheduler.logItems,
+            fbresult = yield FreebusyQuery(
+                organizer=self.scheduler.organizer,
+                organizerProp=organizerProp,
+                recipient=recipient,
+                attendeeProp=attendeeProp,
+                uid=uid,
+                timerange=self.scheduler.timeRange,
+                excludeUID=self.scheduler.excludeUID,
+                logItems=self.scheduler.logItems,
                 event_details=event_details,
-            ).generateAttendeeFreeBusyResponse())
+            ).generateAttendeeFreeBusyResponse()
         except Exception as e:
             log.failure(
                 "Could not determine free busy information for recipient {cuaddr}",

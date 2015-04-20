@@ -103,7 +103,11 @@ class FreebusyQuery(object):
     FBInfo_mapper = {"BUSY": "busy", "BUSY-TENTATIVE": "tentative", "BUSY-UNAVAILABLE": "unavailable"}
     FBInfo_index_mapper = {'B': "busy", 'T': "tentative", 'U': "unavailable"}
 
-    def __init__(self, organizer, organizerProp, recipient, attendeeProp, uid, timeRange, excludeUID, logItems, accountingItems=None, event_details=None):
+    def __init__(
+        self,
+        organizer=None, organizerProp=None, recipient=None, attendeeProp=None,
+        uid=None, timerange=None, excludeUID=None, logItems=None, accountingItems=None, event_details=None
+    ):
         """
 
         @param organizer: the organizer making the freebusy request
@@ -114,10 +118,13 @@ class FreebusyQuery(object):
         @type recipient: L{CalendarUser}
         @param attendeeProp: iCalendar ATTENDEE property from the request
         @type attendeeProp: L{Property}
+        @param authzuid: directory UID of the currently authenticated user (i.e., the one making
+            the actual free busy request - might be different from the organizer)
+        @type authzuid: L{str}
         @param uid: iCalendar UID in the request
         @type uid: L{str}
-        @param timeRange: time range for freebusy request
-        @type timeRange: L{Period}
+        @param timerange: time range for freebusy request
+        @type timerange: L{Period}
         @param excludeUID: an iCalendar UID to exclude from busy results
         @type excludeUID: L{str}
         @param logItems: items to add to logging
@@ -132,7 +139,7 @@ class FreebusyQuery(object):
         self.recipient = recipient
         self.attendeeProp = attendeeProp
         self.uid = uid
-        self.timerange = timeRange
+        self.timerange = timerange
         self.excludeuid = excludeUID
         self.logItems = logItems
         self.accountingItems = accountingItems
@@ -144,6 +151,48 @@ class FreebusyQuery(object):
             self.same_calendar_user = self.organizer.record.uid == self.recipient.record.uid
         else:
             self.same_calendar_user = False
+
+        # May need organizer principal
+        self.organizer_record = self.organizer.record if self.organizer and self.organizer.hosted() else None
+        self.organizer_uid = self.organizer_record.uid if self.organizer_record else None
+
+        # Free busy is per-user
+        self.attendee_record = self.recipient.record if self.recipient and self.recipient.hosted() else None
+        self.attendee_uid = self.attendee_record.uid if self.attendee_record else None
+
+
+    @inlineCallbacks
+    def checkRichOptions(self, txn):
+        if not hasattr(self, "rich_options"):
+            # Look for possible extended free busy information
+            self.rich_options = {
+                "organizer": False,
+                "delegate": False,
+                "resource": False,
+            }
+            if self.event_details is not None and self.organizer_record is not None and self.attendee_record is not None:
+
+                # Get the principal of the authorized user which may be different from the organizer if a delegate of
+                # the organizer is making the request
+                authzuid = txn._authz_uid if txn is not None else None
+                if authzuid is not None and authzuid != self.organizer_uid:
+                    authz_record = yield txn.directoryService().recordWithUID(authzuid.decode("utf-8"))
+                else:
+                    self.authzuid = self.organizer_uid
+                    authz_record = self.organizer_record
+
+                # Check if attendee is also the organizer or the delegate doing the request
+                if self.attendee_uid in (self.organizer_uid, authzuid):
+                    self.rich_options["organizer"] = True
+
+                # Check if authorized user is a delegate of attendee
+                proxy = (yield authz_record.isProxyFor(self.attendee_record))
+                if config.Scheduling.Options.DelegeteRichFreeBusy and proxy:
+                    self.rich_options["delegate"] = True
+
+                # Check if attendee is room or resource
+                if config.Scheduling.Options.RoomResourceRichFreeBusy and self.attendee_record.getCUType() in ("RESOURCE", "ROOM",):
+                    self.rich_options["resource"] = True
 
 
     @inlineCallbacks
@@ -159,18 +208,13 @@ class FreebusyQuery(object):
                 fbset = [calendar for calendar in fbset if calendar.isUsedForFreeBusy()]
 
             # Process the availability property from the Inbox.
-            availability = self.recipient.inbox.ownerHome().getAvailability()
-            if availability is not None:
-                self.processAvailabilityFreeBusy(availability, fbinfo)
+            if hasattr(self.recipient, "inbox"):
+                availability = self.recipient.inbox.ownerHome().getAvailability()
+                if availability is not None:
+                    self.processAvailabilityFreeBusy(availability, fbinfo)
 
         # Now process free-busy set calendars
-        matchtotal = 0
-        for calendar in fbset:
-            matchtotal = (yield self.generateFreeBusyInfo(
-                calendar,
-                fbinfo,
-                matchtotal,
-            ))
+        yield self.generateFreeBusyInfo(fbset, fbinfo)
 
         # Build VFREEBUSY iTIP reply for this recipient
         fbresult = self.buildFreeBusyResult(fbinfo, method=method)
@@ -268,50 +312,63 @@ class FreebusyQuery(object):
         return periods
 
 
-    def generateFreeBusyInfo(self, calresource, fbinfo, matchtotal):
+    @inlineCallbacks
+    def generateFreeBusyInfo(self, fbset, fbinfo, matchtotal=0):
         """
         Get freebusy information for a calendar. Different behavior for internal vs external calendars.
 
         See L{_internalGenerateFreeBusyInfo} for argument description.
         """
 
-        # TODO: this method really should be moved to L{CalendarObject} so the internal/external pieces
-        # can be split across L{CalendarObject} and L{CalendarObjectExternal}
-        if calresource.external():
-            return self._externalGenerateFreeBusyInfo(
-                calresource,
+        # Split calendar set into internal/external items
+        fbset_internal = [calendar for calendar in fbset if not calendar.external()]
+        fbset_external = [calendar for calendar in fbset if calendar.external()]
+
+        # TODO: we should probably figure out how to run the internal and external ones in parallel
+        if fbset_external:
+            matchtotal += (yield self._externalGenerateFreeBusyInfo(
+                fbset_external,
                 fbinfo,
                 matchtotal,
-            )
-        else:
-            return self._internalGenerateFreeBusyInfo(
-                calresource,
+            ))
+
+        if fbset_internal:
+            matchtotal += (yield self._internalGenerateFreeBusyInfo(
+                fbset_internal,
                 fbinfo,
                 matchtotal,
-            )
+            ))
+
+        returnValue(matchtotal)
 
 
     @inlineCallbacks
-    def _externalGenerateFreeBusyInfo(self, calresource, fbinfo, matchtotal):
+    def _externalGenerateFreeBusyInfo(self, fbset, fbinfo, matchtotal):
         """
         Generate a freebusy response for an external (cross-pod) calendar by making a cross-pod call. This will bypass
         any type of smart caching on this pod in favor of using caching on the pod hosting the actual calendar data.
 
         See L{_internalGenerateFreeBusyInfo} for argument description.
         """
-        fbresults, matchtotal = yield calresource._txn.store().conduit.send_freebusy(
-            calresource, self.organizer.cuaddr, self.recipient.cuaddr, self.timerange,
-            matchtotal, self.excludeuid, self.event_details
-        )
-        for i in range(3):
-            fbinfo[i].extend([Period.parseText(p) for p in fbresults[i]])
+        for calresource in fbset:
+            fbresults, matchtotal = yield calresource._txn.store().conduit.send_freebusy(
+                calresource,
+                self.organizer.cuaddr if self.organizer else None,
+                self.recipient.cuaddr if self.recipient else None,
+                self.timerange,
+                matchtotal,
+                self.excludeuid,
+                self.event_details,
+            )
+            for i in range(3):
+                fbinfo[i].extend([Period.parseText(p) for p in fbresults[i]])
         returnValue(matchtotal)
 
 
     @inlineCallbacks
     def _internalGenerateFreeBusyInfo(
         self,
-        calresource,
+        fbset,
         fbinfo,
         matchtotal,
     ):
@@ -323,56 +380,174 @@ class FreebusyQuery(object):
         @param matchtotal:  the running total for the number of matches.
         """
 
-        # First check the privilege on this collection
-        # TODO: for server-to-server we bypass this right now as we have no way to authorize external users.
-        # TODO: actually we by pass altogether by assuming anyone can check anyone else's freebusy
+        yield self.checkRichOptions(fbset[0]._txn)
 
-        # May need organizer principal
-        organizer_record = self.organizer.record if self.organizer and self.organizer.hosted() else None
-        organizer_uid = organizer_record.uid if organizer_record else ""
+        calidmap = dict([(fbcalendar.id(), fbcalendar,) for fbcalendar in fbset])
+        directoryService = fbset[0].directoryService()
 
-        # Free busy is per-user
-        attendee_record = self.recipient.record if self.organizer and self.recipient.hosted() else None
-        attendee_uid = attendee_record.uid if attendee_record else calresource.viewerHome().uid()
+        resources, tzinfos = yield self._matchResources(fbset)
+
+        # We care about separate instances for VEVENTs only
+        aggregated_resources = {}
+        for calid, name, uid, type, test_organizer, float, start, end, fbtype, transp in resources:
+            if transp == 'T' and fbtype != '?':
+                fbtype = 'F'
+            aggregated_resources.setdefault((calid, name, uid, type, test_organizer,), []).append((float, start, end, fbtype,))
+
+        if self.accountingItems is not None:
+            self.accountingItems["fb-resources"] = {}
+            for k, v in aggregated_resources.items():
+                calid, name, uid, type, test_organizer = k
+                self.accountingItems["fb-resources"][uid] = []
+                for float, start, end, fbtype in v:
+                    fbstart = parseSQLTimestampToPyCalendar(start)
+                    if float == 'Y':
+                        fbstart.setTimezone(tzinfos[calid])
+                    else:
+                        fbstart.setTimezone(Timezone(utc=True))
+                    fbend = parseSQLTimestampToPyCalendar(end)
+                    if float == 'Y':
+                        fbend.setTimezone(tzinfos[calid])
+                    else:
+                        fbend.setTimezone(Timezone(utc=True))
+                    self.accountingItems["fb-resources"][uid].append((
+                        float,
+                        str(fbstart),
+                        str(fbend),
+                        fbtype,
+                    ))
+
+        # Cache directory record lookup outside this loop as it is expensive and will likely
+        # always end up being called with the same organizer address.
+        recordUIDCache = {}
+        for key in aggregated_resources.iterkeys():
+
+            calid, name, uid, type, test_organizer = key
+            calresource = calidmap[calid]
+            tzinfo = tzinfos[calid]
+
+            # Short-cut - if an fbtype exists we can use that
+            if type == "VEVENT" and aggregated_resources[key][0][3] != '?':
+
+                matchedResource = False
+
+                # Look at each instance
+                for float, start, end, fbtype in aggregated_resources[key]:
+                    # Ignore free time or unknown
+                    if fbtype in ('F', '?'):
+                        continue
+
+                    # Ignore ones of this UID
+                    if (yield self._testIgnoreExcludeUID(uid, test_organizer, recordUIDCache, directoryService)):
+                        continue
+
+                    # Apply a timezone to any floating times
+                    fbstart = parseSQLTimestampToPyCalendar(start)
+                    if float == 'Y':
+                        fbstart.setTimezone(tzinfo)
+                    else:
+                        fbstart.setTimezone(Timezone(utc=True))
+                    fbend = parseSQLTimestampToPyCalendar(end)
+                    if float == 'Y':
+                        fbend.setTimezone(tzinfo)
+                    else:
+                        fbend.setTimezone(Timezone(utc=True))
+
+                    # Clip instance to time range
+                    clipped = clipPeriod(Period(fbstart, duration=fbend - fbstart), self.timerange)
+
+                    # Double check for overlap
+                    if clipped:
+                        matchedResource = True
+                        getattr(fbinfo, self.FBInfo_index_mapper.get(fbtype, "busy")).append(clipped)
+
+                if matchedResource:
+                    # Check size of results is within limit
+                    matchtotal += 1
+                    if matchtotal > config.MaxQueryWithDataResults:
+                        raise QueryMaxResources(config.MaxQueryWithDataResults, matchtotal)
+
+                    # Add extended details
+                    if any(self.rich_options.values()):
+                        child = (yield calresource.calendarObjectWithName(name))
+                        # Only add fully public events
+                        if not child.accessMode or child.accessMode == Component.ACCESS_PUBLIC:
+                            calendar = (yield child.componentForUser())
+                            self._addEventDetails(calendar, self.rich_options, tzinfo)
+
+            else:
+                child = (yield calresource.calendarObjectWithName(name))
+                calendar = (yield child.componentForUser())
+
+                # The calendar may come back as None if the resource is being changed, or was deleted
+                # between our initial index query and getting here. For now we will ignore this error, but in
+                # the longer term we need to implement some form of locking, perhaps.
+                if calendar is None:
+                    log.error("Calendar %s is missing from calendar collection %r" % (name, calresource))
+                    continue
+
+                # Ignore ones of this UID
+                if (yield self._testIgnoreExcludeUID(uid, calendar.getOrganizer(), recordUIDCache, calresource.directoryService())):
+                    continue
+
+                if self.accountingItems is not None:
+                    self.accountingItems.setdefault("fb-filter-match", []).append(uid)
+
+                if filter.match(calendar, None):
+                    if self.accountingItems is not None:
+                        self.accountingItems.setdefault("fb-filter-matched", []).append(uid)
+
+                    # Check size of results is within limit
+                    matchtotal += 1
+                    if matchtotal > config.MaxQueryWithDataResults:
+                        raise QueryMaxResources(config.MaxQueryWithDataResults, matchtotal)
+
+                    if calendar.mainType() == "VEVENT":
+                        self.processEventFreeBusy(calendar, fbinfo, tzinfo)
+                    elif calendar.mainType() == "VFREEBUSY":
+                        self.processFreeBusyFreeBusy(calendar, fbinfo)
+                    elif calendar.mainType() == "VAVAILABILITY":
+                        self.processAvailabilityFreeBusy(calendar, fbinfo)
+                    else:
+                        assert "Free-busy query returned unwanted component: %s in %r", (name, calresource,)
+
+                    # Add extended details
+                    if calendar.mainType() == "VEVENT" and any(self.rich_options.values()):
+                        # Only add fully public events
+                        if not child.accessMode or child.accessMode == Component.ACCESS_PUBLIC:
+                            self._addEventDetails(calendar, self.rich_options, tzinfo)
+
+        returnValue(matchtotal)
+
+
+    @inlineCallbacks
+    def _matchResources(self, fbset):
+        """
+        For now iterate over each calendar and collect the results. In the longer term we might want to consider
+        doing a single DB query in the case where multiple calendars need to be searched.
+
+        @param fbset: list of calendars to process
+        @type fbset: L{list} of L{Calendar}
+        """
+
+        results = []
+        tzinfos = {}
+        for calresource in fbset:
+            resources, tzinfo = yield self._matchCalendarResources(calresource)
+            results.extend([(calresource.id(),) + tuple(resource) for resource in resources])
+            tzinfos[calresource.id()] = tzinfo
+
+        returnValue((results, tzinfos,))
+
+
+    @inlineCallbacks
+    def _matchCalendarResources(self, calresource):
 
         # Get the timezone property from the collection.
         tz = calresource.getTimezone()
 
-        # Look for possible extended free busy information
-        rich_options = {
-            "organizer": False,
-            "delegate": False,
-            "resource": False,
-        }
-        do_event_details = False
-        if self.event_details is not None and organizer_record is not None and attendee_record is not None:
-
-            # Get the principal of the authorized user which may be different from the organizer if a delegate of
-            # the organizer is making the request
-            authz_uid = organizer_uid
-            authz_record = organizer_record
-            if calresource._txn._authz_uid is not None and calresource._txn._authz_uid != organizer_uid:
-                authz_uid = calresource._txn._authz_uid
-                authz_record = yield calresource.directoryService().recordWithUID(authz_uid.decode("utf-8"))
-
-            # Check if attendee is also the organizer or the delegate doing the request
-            if attendee_uid in (organizer_uid, authz_uid):
-                do_event_details = True
-                rich_options["organizer"] = True
-
-            # Check if authorized user is a delegate of attendee
-            proxy = (yield authz_record.isProxyFor(attendee_record))
-            if config.Scheduling.Options.DelegeteRichFreeBusy and proxy:
-                do_event_details = True
-                rich_options["delegate"] = True
-
-            # Check if attendee is room or resource
-            if config.Scheduling.Options.RoomResourceRichFreeBusy and attendee_record.getCUType() in ("RESOURCE", "ROOM",):
-                do_event_details = True
-                rich_options["resource"] = True
-
         # Try cache
-        resources = (yield FBCacheEntry.getCacheEntry(calresource, attendee_uid, self.timerange)) if config.EnableFreeBusyCache else None
+        resources = (yield FBCacheEntry.getCacheEntry(calresource, self.attendee_uid, self.timerange)) if config.EnableFreeBusyCache else None
 
         if resources is None:
 
@@ -420,9 +595,9 @@ class FreebusyQuery(object):
                 self.accountingItems["fb-query-timerange"] = (str(tr.start), str(tr.end),)
 
             try:
-                resources = yield calresource.search(filter, useruid=attendee_uid, fbtype=True)
+                resources = yield calresource.search(filter, useruid=self.attendee_uid, fbtype=True)
                 if caching:
-                    yield FBCacheEntry.makeCacheEntry(calresource, attendee_uid, cache_timerange, resources)
+                    yield FBCacheEntry.makeCacheEntry(calresource, self.attendee_uid, cache_timerange, resources)
             except IndexedSearchException:
                 raise InternalDataStoreError("Invalid indexedSearch query")
 
@@ -437,170 +612,44 @@ class FreebusyQuery(object):
             # Determine appropriate timezone (UTC is the default)
             tzinfo = tz.gettimezone() if tz is not None else Timezone(utc=True)
 
-        # We care about separate instances for VEVENTs only
-        aggregated_resources = {}
-        for name, uid, type, test_organizer, float, start, end, fbtype, transp in resources:
-            if transp == 'T' and fbtype != '?':
-                fbtype = 'F'
-            aggregated_resources.setdefault((name, uid, type, test_organizer,), []).append((float, start, end, fbtype,))
+        returnValue((resources, tzinfo,))
 
-        if self.accountingItems is not None:
-            self.accountingItems["fb-resources"] = {}
-            for k, v in aggregated_resources.items():
-                name, uid, type, test_organizer = k
-                self.accountingItems["fb-resources"][uid] = []
-                for float, start, end, fbtype in v:
-                    fbstart = parseSQLTimestampToPyCalendar(start)
-                    if float == 'Y':
-                        fbstart.setTimezone(tzinfo)
-                    else:
-                        fbstart.setTimezone(Timezone(utc=True))
-                    fbend = parseSQLTimestampToPyCalendar(end)
-                    if float == 'Y':
-                        fbend.setTimezone(tzinfo)
-                    else:
-                        fbend.setTimezone(Timezone(utc=True))
-                    self.accountingItems["fb-resources"][uid].append((
-                        float,
-                        str(fbstart),
-                        str(fbend),
-                        fbtype,
-                    ))
 
-        # Cache directory record lookup outside this loop as it is expensive and will likely
-        # always end up being called with the same organizer address.
-        recordUIDCache = {}
-        for key in aggregated_resources.iterkeys():
+    @inlineCallbacks
+    def _testIgnoreExcludeUID(self, uid, test_organizer, recordUIDCache, dirservice):
+        """
+        Check whether the event with the specified UID can be correctly excluded from the
+        freebusy result.
 
-            name, uid, type, test_organizer = key
+        @param uid: UID to test
+        @type uid: L{str}
+        @param test_organizer: organizer cu-address of the event
+        @type test_organizer: L{str}
+        @param recordUIDCache: cache of directory records
+        @type recordUIDCache: L{dict}
+        @param dirservice: directory service to use for record lookups
+        @type dirservice: L{DirectoryService}
+        """
 
-            # Short-cut - if an fbtype exists we can use that
-            if type == "VEVENT" and aggregated_resources[key][0][3] != '?':
-
-                matchedResource = False
-
-                # Look at each instance
-                for float, start, end, fbtype in aggregated_resources[key]:
-                    # Ignore free time or unknown
-                    if fbtype in ('F', '?'):
-                        continue
-
-                    # Ignore ones of this UID
-                    if self.excludeuid:
-                        # See if we have a UID match
-                        if (self.excludeuid == uid):
-                            if test_organizer:
-                                test_uid = recordUIDCache.get(test_organizer)
-                                if test_uid is None:
-                                    test_record = (yield calresource.directoryService().recordWithCalendarUserAddress(test_organizer))
-                                    test_uid = test_record.uid if test_record else ""
-                                    recordUIDCache[test_organizer] = test_uid
-                            else:
-                                test_uid = ""
-
-                            # Check that ORGANIZER's match (security requirement)
-                            if (self.organizer is None) or (organizer_uid == test_uid):
-                                continue
-                            # Check for no ORGANIZER and check by same calendar user
-                            elif (test_uid == "") and self.same_calendar_user:
-                                continue
-
-                    # Apply a timezone to any floating times
-                    fbstart = parseSQLTimestampToPyCalendar(start)
-                    if float == 'Y':
-                        fbstart.setTimezone(tzinfo)
-                    else:
-                        fbstart.setTimezone(Timezone(utc=True))
-                    fbend = parseSQLTimestampToPyCalendar(end)
-                    if float == 'Y':
-                        fbend.setTimezone(tzinfo)
-                    else:
-                        fbend.setTimezone(Timezone(utc=True))
-
-                    # Clip instance to time range
-                    clipped = clipPeriod(Period(fbstart, duration=fbend - fbstart), self.timerange)
-
-                    # Double check for overlap
-                    if clipped:
-                        matchedResource = True
-                        getattr(fbinfo, self.FBInfo_index_mapper.get(fbtype, "busy")).append(clipped)
-
-                if matchedResource:
-                    # Check size of results is within limit
-                    matchtotal += 1
-                    if matchtotal > config.MaxQueryWithDataResults:
-                        raise QueryMaxResources(config.MaxQueryWithDataResults, matchtotal)
-
-                    # Add extended details
-                    if do_event_details:
-                        child = (yield calresource.calendarObjectWithName(name))
-                        # Only add fully public events
-                        if not child.accessMode or child.accessMode == Component.ACCESS_PUBLIC:
-                            calendar = (yield child.componentForUser())
-                            self._addEventDetails(calendar, rich_options, tzinfo)
-
+        # See if we have a UID match
+        if self.excludeuid == uid:
+            if test_organizer:
+                test_uid = recordUIDCache.get(test_organizer)
+                if test_uid is None:
+                    test_record = (yield dirservice.recordWithCalendarUserAddress(test_organizer))
+                    test_uid = test_record.uid if test_record else ""
+                    recordUIDCache[test_organizer] = test_uid
             else:
-                child = (yield calresource.calendarObjectWithName(name))
-                calendar = (yield child.componentForUser())
+                test_uid = ""
 
-                # The calendar may come back as None if the resource is being changed, or was deleted
-                # between our initial index query and getting here. For now we will ignore this error, but in
-                # the longer term we need to implement some form of locking, perhaps.
-                if calendar is None:
-                    log.error("Calendar %s is missing from calendar collection %r" % (name, calresource))
-                    continue
+            # Check that ORGANIZER's match (security requirement)
+            if (self.organizer is None) or (self.organizer_uid == test_uid):
+                returnValue(True)
+            # Check for no ORGANIZER and check by same calendar user
+            elif (test_uid == "") and self.same_calendar_user:
+                returnValue(True)
 
-                # Ignore ones of this UID
-                if self.excludeuid:
-                    # See if we have a UID match
-                    if (self.excludeuid == uid):
-                        test_organizer = calendar.getOrganizer()
-                        if test_organizer:
-                            test_uid = recordUIDCache.get(test_organizer)
-                            if test_uid is None:
-                                test_record = (yield calresource.directoryService().recordWithCalendarUserAddress(test_organizer))
-                                test_uid = test_record.uid if test_record else ""
-                                recordUIDCache[test_organizer] = test_uid
-                        else:
-                            test_uid = ""
-
-                        # Check that ORGANIZER's match (security requirement)
-                        if (self.organizer is None) or (organizer_uid == test_uid):
-                            continue
-                        # Check for no ORGANIZER and check by same calendar user
-                        elif (test_organizer is None) and self.same_calendar_user:
-                            continue
-
-                if self.accountingItems is not None:
-                    self.accountingItems.setdefault("fb-filter-match", []).append(uid)
-
-                if filter.match(calendar, None):
-                    if self.accountingItems is not None:
-                        self.accountingItems.setdefault("fb-filter-matched", []).append(uid)
-
-                    # Check size of results is within limit
-                    matchtotal += 1
-                    if matchtotal > config.MaxQueryWithDataResults:
-                        raise QueryMaxResources(config.MaxQueryWithDataResults, matchtotal)
-
-                    if calendar.mainType() == "VEVENT":
-                        self.processEventFreeBusy(calendar, fbinfo, tzinfo)
-                    elif calendar.mainType() == "VFREEBUSY":
-                        self.processFreeBusyFreeBusy(calendar, fbinfo)
-                    elif calendar.mainType() == "VAVAILABILITY":
-                        self.processAvailabilityFreeBusy(calendar, fbinfo)
-                    else:
-                        assert "Free-busy query returned unwanted component: %s in %r", (name, calresource,)
-
-                    # Add extended details
-                    if calendar.mainType() == "VEVENT" and do_event_details:
-                        child = (yield calresource.calendarObjectWithName(name))
-                        # Only add fully public events
-                        if not child.accessMode or child.accessMode == Component.ACCESS_PUBLIC:
-                            calendar = (yield child.componentForUser())
-                            self._addEventDetails(calendar, rich_options, tzinfo)
-
-        returnValue(matchtotal)
+        returnValue(False)
 
 
     def _addEventDetails(self, calendar, rich_options, tzinfo):
