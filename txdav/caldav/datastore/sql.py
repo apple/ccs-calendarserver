@@ -1577,14 +1577,24 @@ class Calendar(CommonHomeChild):
             ownerView = yield self.ownerView()
             try:
                 displayname = ownerView.properties()[PropertyName.fromElement(element.DisplayName)]
-                self.properties()[PropertyName.fromElement(element.DisplayName)] = displayname
             except KeyError:
-                pass
+                # displayname is not set, so use the owner's fullname
+                record = yield ownerView.ownerHome().directoryRecord()
+                if record is not None:
+                    displayname = element.DisplayName.fromString(record.fullNames[0].encode("utf-8"))
+
+            if displayname is not None:
+                try:
+                    self.properties()[PropertyName.fromElement(element.DisplayName)] = displayname
+                except KeyError:
+                    pass
+
             try:
                 color = ownerView.properties()[PropertyName.fromElement(customxml.CalendarColor)]
                 self.properties()[PropertyName.fromElement(customxml.CalendarColor)] = color
             except KeyError:
                 pass
+
         elif displayname:
             self.properties()[PropertyName.fromElement(element.DisplayName)] = element.DisplayName.fromString(displayname)
 
@@ -2332,7 +2342,7 @@ class Calendar(CommonHomeChild):
 
 
     @inlineCallbacks
-    def directShareWithUser(self, shareeUID, shareName=None):
+    def directShareWithUser(self, shareeUID, shareName=None, displayName=None):
         """
         Create a direct share with the specified user. Note it is currently up to the app layer
         to enforce access control - this is not ideal as we really should have control of that in
@@ -2349,7 +2359,7 @@ class Calendar(CommonHomeChild):
             yield self.updateShare(shareeView, mode=_BIND_MODE_DIRECT, status=_BIND_STATUS_ACCEPTED)
             returnValue(shareeView)
         else:
-            returnValue((yield super(Calendar, self).directShareWithUser(shareeUID, shareName)))
+            returnValue((yield super(Calendar, self).directShareWithUser(shareeUID, shareName, displayName)))
 
 
     @inlineCallbacks

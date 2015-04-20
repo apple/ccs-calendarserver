@@ -438,7 +438,7 @@ class SharingMixIn(object):
 
 
     @inlineCallbacks
-    def directShareWithUser(self, shareeUID, shareName=None):
+    def directShareWithUser(self, shareeUID, shareName=None, displayName=None):
         """
         Create a direct share with the specified user. Note it is currently up to the app layer
         to enforce access control - this is not ideal as we really should have control of that in
@@ -454,7 +454,7 @@ class SharingMixIn(object):
         shareeView = yield self.shareeView(shareeUID)
         if shareeView is None:
             shareeView = yield self.createShare(shareeUID=shareeUID, mode=_BIND_MODE_DIRECT, shareName=shareName)
-            yield shareeView.newShare()
+            yield shareeView.newShare(displayname=displayName)
 
             # Check for external
             if shareeView.viewerHome().external():

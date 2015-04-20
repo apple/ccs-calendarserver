@@ -205,7 +205,10 @@ class SharedResourceMixin(object):
             ))
 
         # Accept it
-        shareeView = yield self._newStoreObject.directShareWithUser(sharee.principalUID())
+        shareeView = yield self._newStoreObject.directShareWithUser(
+            sharee.principalUID(),
+            displayName=self.displayName()
+        )
 
         # Return the URL of the shared calendar
         sharedAsURL = joinURL(shareeHomeResource.url(), shareeView.name())

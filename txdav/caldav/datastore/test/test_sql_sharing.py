@@ -33,7 +33,7 @@ from txdav.common.datastore.sql_tables import _BIND_STATUS_INVITED
 from txdav.common.datastore.test.util import CommonCommonTests
 from txdav.common.datastore.test.util import populateCalendarsFrom
 from txdav.xml.base import WebDAVTextElement
-from txdav.xml.element import registerElement, registerElementClass
+from txdav.xml.element import registerElement, registerElementClass, DisplayName
 import os
 
 class BaseSharingTests(CommonCommonTests, TestCase):
@@ -440,9 +440,10 @@ class CalendarSharing(BaseSharingTests):
 
 
     @inlineCallbacks
-    def test_direct_sharee(self):
+    def test_direct_sharee_without_displayname(self):
         """
         Test invite/uninvite creates/removes shares and notifications.
+        The displayname for the sharee's copy is taken from the sharer's fullname
         """
 
         # Invite
@@ -463,6 +464,55 @@ class CalendarSharing(BaseSharingTests):
         sharedName = shareeView.name()
         shared = yield self.calendarUnderTest(home="user02", name=sharedName)
         self.assertTrue(shared is not None)
+        self.assertEquals(shared.displayName(), u"User 01")
+
+        notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02", create=True)
+        notifications = yield notifyHome.listNotificationObjects()
+        self.assertEqual(len(notifications), 0)
+
+        yield self.commit()
+
+        # Remove
+        shared = yield self.calendarUnderTest(home="user02", name=sharedName)
+        yield shared.deleteShare()
+
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 0)
+
+        notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02")
+        notifications = yield notifyHome.listNotificationObjects()
+        self.assertEqual(len(notifications), 0)
+
+
+    @inlineCallbacks
+    def test_direct_sharee_with_displayname(self):
+        """
+        Test invite/uninvite creates/removes shares and notifications.
+        """
+
+        # Invite
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar.properties()[PropertyName.fromElement(DisplayName)] = (
+            DisplayName.fromString("xyzzy")
+        )
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 0)
+        self.assertFalse(calendar.isShared())
+
+        shareeView = yield calendar.directShareWithUser("user02")
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 1)
+        self.assertEqual(invites[0].uid, shareeView.shareUID())
+        self.assertEqual(invites[0].ownerUID, "user01")
+        self.assertEqual(invites[0].shareeUID, "user02")
+        self.assertEqual(invites[0].mode, _BIND_MODE_DIRECT)
+        self.assertEqual(invites[0].status, _BIND_STATUS_ACCEPTED)
+
+        sharedName = shareeView.name()
+        shared = yield self.calendarUnderTest(home="user02", name=sharedName)
+        self.assertTrue(shared is not None)
+        self.assertEquals(shared.displayName(), "xyzzy")
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02", create=True)
         notifications = yield notifyHome.listNotificationObjects()
