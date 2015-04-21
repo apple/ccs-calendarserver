@@ -580,7 +580,7 @@ DEFAULT_CONFIG = {
         # "VPOLL",
     ],
 
-    "EnableTrashCollection": True,  # Enable Trash Collection
+    "EnableTrashCollection": False,  # Enable Trash Collection
     "ExposeTrashCollection": False,  # Expose Trash Collection as a resource
 
     "ParallelUpgrades": False, # Perform upgrades - currently only the
