@@ -34,6 +34,7 @@ cdt="${py_virtualenv}/src/caldavtester";
 
    verbose="";
 serverinfo="${cdt}/scripts/server/serverinfo.xml";
+  pretests="";
   printres="";
     subdir="";
     random="--random";
@@ -49,6 +50,7 @@ usage ()
   echo "        -d  Set the script subdirectory";
   echo "        -h  Print this help and exit";
   echo "        -o  Execute tests in order";
+  echo "        -p  Run pretests";
   echo "        -r  Print request and response";
   echo "        -s  Set the serverinfo.xml";
   echo "        -t  Set the CalDAVTester directory";
@@ -61,12 +63,13 @@ usage ()
   exit 64;
 }
 
-while getopts 'Dhvrozt:s:d:x:' option; do
+while getopts 'Dhvprozt:s:d:x:' option; do
   case "$option" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
     't') cdt="${OPTARG}"; serverinfo="${OPTARG}/scripts/server/serverinfo.xml"; ;;
     'd') subdir="--subdir=${OPTARG}"; ;;
+    'p') pretests="--pretest CalDAV/pretest.xml"; ;;
     's') serverinfo="${OPTARG}"; ;;
     'r') printres="--always-print-request --always-print-response"; ;;
     'v') verbose="v"; ;;
@@ -139,7 +142,7 @@ set +e
 
 echo "Starting CDT run"
 
-cd "${cdt}" && "${python}" testcaldav.py ${random} ${seed} ${ssl} ${cdtdebug} --print-details-onfail ${printres} -s "${serverinfo}" ${subdir} "$@";
+cd "${cdt}" && "${python}" testcaldav.py ${random} ${seed} ${ssl} ${cdtdebug} ${pretests} --print-details-onfail ${printres} -s "${serverinfo}" ${subdir} "$@";
 
 # Capture exit status of testcaldav.py to use as this script's exit status.
 
