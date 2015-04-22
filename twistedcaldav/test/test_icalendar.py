@@ -697,7 +697,7 @@ END:VCALENDAR
         self.assertTrue(dt.floating())
 
         dt = DateTime.parseText("19980119T070000Z")
-        self.assertEqual(dt, DateTime(1998, 1, 19, 7, 0, 0, tzid=Timezone(utc=True)))
+        self.assertEqual(dt, DateTime(1998, 1, 19, 7, 0, 0, tzid=Timezone.UTCTimezone))
 
 
     def test_parse_date_or_datetime(self):
@@ -711,7 +711,7 @@ END:VCALENDAR
         self.assertTrue(dt.floating())
 
         dt = DateTime.parseText("19980119T070000Z")
-        self.assertEqual(dt, DateTime(1998, 1, 19, 7, 0, 0, tzid=Timezone(utc=True)))
+        self.assertEqual(dt, DateTime(1998, 1, 19, 7, 0, 0, tzid=Timezone.UTCTimezone))
 
 
     def test_parse_duration(self):
@@ -834,7 +834,7 @@ END:VCALENDAR
 """,
                 (
                     ("mailto:user1@example.com", None),
-                    ("mailto:user1@example.com", DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)))
+                    ("mailto:user1@example.com", DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone))
                 )
             ),
             (
@@ -860,7 +860,7 @@ END:VCALENDAR
 """,
                 (
                     ("mailto:user1@example.com", None),
-                    ("mailto:user3@example.com", DateTime(2009, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)))
+                    ("mailto:user3@example.com", DateTime(2009, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone))
                 )
             ),
             (
@@ -973,8 +973,8 @@ END:VCALENDAR
                 False,
                 (
                     ("mailto:user2@example.com", None),
-                    ("mailto:user2@example.com", DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user3@example.com", DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)))
+                    ("mailto:user2@example.com", DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone)),
+                    ("mailto:user3@example.com", DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone))
                 )
             ),
             (
@@ -2380,8 +2380,8 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 )
             ),
@@ -2402,12 +2402,12 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 )
             ),
@@ -2429,16 +2429,16 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2007, 11, 16, 1, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 16, 2, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 16, 1, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 16, 2, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 )
             ),
@@ -2460,12 +2460,12 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2007, 11, 16, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 16, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 16, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 16, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 )
             ),
@@ -2487,12 +2487,12 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2007, 11, 16, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 16, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 16, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 16, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 )
             ),
@@ -2520,12 +2520,12 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 15, 2, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 15, 2, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 )
             ),
@@ -2577,12 +2577,12 @@ END:VCALENDAR
                 True,
                 (
                     (
-                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 )
             ),
@@ -2621,8 +2621,8 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 )
             ),
@@ -2664,12 +2664,12 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 )
             ),
@@ -2717,16 +2717,16 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2007, 11, 16, 1, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 16, 2, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 16, 1, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 16, 2, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 )
             ),
@@ -2779,12 +2779,12 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2007, 11, 16, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 16, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 16, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 16, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 )
             ),
@@ -2839,12 +2839,12 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 15, 2, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 15, 2, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 )
             ),
@@ -2964,8 +2964,8 @@ END:VCALENDAR
                 None,
                 (
                     (
-                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 ),
                 None,
@@ -2986,8 +2986,8 @@ END:VCALENDAR
                 DateTime(2007, 1, 1),
                 (
                     (
-                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 ),
                 None,
@@ -3026,20 +3026,20 @@ END:VCALENDAR
                 None,
                 (
                     (
-                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2008, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2008, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2009, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2009, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2009, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2009, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2010, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2010, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2010, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2010, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 ),
                 None,
@@ -3061,20 +3061,20 @@ END:VCALENDAR
                 DateTime(2007, 1, 1),
                 (
                     (
-                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2008, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2008, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2009, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2009, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2009, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2009, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2010, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2010, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2010, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2010, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 ),
                 None,
@@ -3096,8 +3096,8 @@ END:VCALENDAR
                 DateTime(2010, 1, 1),
                 (
                     (
-                        DateTime(2010, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2010, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2010, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2010, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 ),
                 DateTime(2010, 1, 1),
@@ -3151,20 +3151,20 @@ END:VCALENDAR
                 None,
                 (
                     (
-                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2008, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2008, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2008, 11, 15, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2008, 11, 15, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2009, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2009, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2009, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2009, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2010, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2010, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2010, 11, 15, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2010, 11, 15, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 ),
                 None,
@@ -3200,20 +3200,20 @@ END:VCALENDAR
                 DateTime(2007, 1, 1),
                 (
                     (
-                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2008, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2008, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2008, 11, 15, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2008, 11, 15, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2009, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2009, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2009, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2009, 11, 14, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2010, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2010, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2010, 11, 15, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2010, 11, 15, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 ),
                 None,
@@ -3249,8 +3249,8 @@ END:VCALENDAR
                 DateTime(2010, 1, 1),
                 (
                     (
-                        DateTime(2010, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2010, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2010, 11, 15, 0, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2010, 11, 15, 1, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 ),
                 DateTime(2010, 1, 1),
@@ -4143,7 +4143,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                DateTime(2009, 1, 2, 8, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2009, 1, 2, 8, 0, 0, tzid=Timezone.UTCTimezone),
                 """BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20090102T080000Z
@@ -4168,7 +4168,7 @@ RDATE:20090102T180000Z
 END:VEVENT
 END:VCALENDAR
 """,
-                DateTime(2009, 1, 2, 18, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2009, 1, 2, 18, 0, 0, tzid=Timezone.UTCTimezone),
                 """BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20090102T180000Z
@@ -4194,7 +4194,7 @@ RDATE:20090104T180000Z
 END:VEVENT
 END:VCALENDAR
 """,
-                DateTime(2009, 1, 3, 18, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2009, 1, 3, 18, 0, 0, tzid=Timezone.UTCTimezone),
                 """BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20090103T180000Z
@@ -4218,7 +4218,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                DateTime(2009, 1, 2, 9, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2009, 1, 2, 9, 0, 0, tzid=Timezone.UTCTimezone),
                 None,
             ),
             (
@@ -4236,7 +4236,7 @@ RDATE:20090102T180000Z
 END:VEVENT
 END:VCALENDAR
 """,
-                DateTime(2009, 1, 2, 19, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2009, 1, 2, 19, 0, 0, tzid=Timezone.UTCTimezone),
                 None,
             ),
             (
@@ -4255,7 +4255,7 @@ RDATE:20090104T180000Z
 END:VEVENT
 END:VCALENDAR
 """,
-                DateTime(2009, 1, 3, 19, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2009, 1, 3, 19, 0, 0, tzid=Timezone.UTCTimezone),
                 None,
             ),
             (
@@ -4472,8 +4472,8 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    DateTime(2009, 1, 2, 8, 0, 0, tzid=Timezone(utc=True)),
-                    DateTime(2009, 1, 4, 8, 0, 0, tzid=Timezone(utc=True)),
+                    DateTime(2009, 1, 2, 8, 0, 0, tzid=Timezone.UTCTimezone),
+                    DateTime(2009, 1, 4, 8, 0, 0, tzid=Timezone.UTCTimezone),
                 ),
                 (
                     """BEGIN:VEVENT
@@ -4510,8 +4510,8 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    DateTime(2009, 1, 2, 18, 0, 0, tzid=Timezone(utc=True)),
-                    DateTime(2009, 1, 4, 8, 0, 0, tzid=Timezone(utc=True)),
+                    DateTime(2009, 1, 2, 18, 0, 0, tzid=Timezone.UTCTimezone),
+                    DateTime(2009, 1, 4, 8, 0, 0, tzid=Timezone.UTCTimezone),
                 ),
                 (
                     """BEGIN:VEVENT
@@ -4549,8 +4549,8 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    DateTime(2009, 1, 3, 18, 0, 0, tzid=Timezone(utc=True)),
-                    DateTime(2009, 1, 5, 8, 0, 0, tzid=Timezone(utc=True)),
+                    DateTime(2009, 1, 3, 18, 0, 0, tzid=Timezone.UTCTimezone),
+                    DateTime(2009, 1, 5, 8, 0, 0, tzid=Timezone.UTCTimezone),
                 ),
                 (
                     """BEGIN:VEVENT
@@ -4586,8 +4586,8 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    DateTime(2009, 1, 2, 9, 0, 0, tzid=Timezone(utc=True)),
-                    DateTime(2009, 1, 3, 8, 0, 0, tzid=Timezone(utc=True)),
+                    DateTime(2009, 1, 2, 9, 0, 0, tzid=Timezone.UTCTimezone),
+                    DateTime(2009, 1, 3, 8, 0, 0, tzid=Timezone.UTCTimezone),
                 ),
                 (
                     None,
@@ -4617,8 +4617,8 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    DateTime(2009, 1, 2, 19, 0, 0, tzid=Timezone(utc=True)),
-                    DateTime(2009, 1, 3, 8, 0, 0, tzid=Timezone(utc=True)),
+                    DateTime(2009, 1, 2, 19, 0, 0, tzid=Timezone.UTCTimezone),
+                    DateTime(2009, 1, 3, 8, 0, 0, tzid=Timezone.UTCTimezone),
                 ),
                 (
                     None,
@@ -4649,8 +4649,8 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    DateTime(2009, 1, 3, 19, 0, 0, tzid=Timezone(utc=True)),
-                    DateTime(2009, 1, 3, 8, 0, 0, tzid=Timezone(utc=True)),
+                    DateTime(2009, 1, 3, 19, 0, 0, tzid=Timezone.UTCTimezone),
+                    DateTime(2009, 1, 3, 8, 0, 0, tzid=Timezone.UTCTimezone),
                 ),
                 (
                     None,
@@ -4695,7 +4695,7 @@ EXDATE:20090102T080000Z
 END:VEVENT
 END:VCALENDAR
 """,
-                DateTime(2009, 1, 2, 8, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2009, 1, 2, 8, 0, 0, tzid=Timezone.UTCTimezone),
                 """BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20090102T080000Z
@@ -4722,7 +4722,7 @@ STATUS:CONFIRMED
 END:VEVENT
 END:VCALENDAR
 """,
-                DateTime(2009, 1, 2, 8, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2009, 1, 2, 8, 0, 0, tzid=Timezone.UTCTimezone),
                 """BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20090102T080000Z
@@ -4765,19 +4765,19 @@ END:VCALENDAR
         self.assertFalse(hasattr(ical, "cachedInstances"))
 
         # Derive one day apart - no re-cache
-        ical.deriveInstance(DateTime(2009, 1, 2, 8, 0, 0, tzid=Timezone(utc=True)))
+        ical.deriveInstance(DateTime(2009, 1, 2, 8, 0, 0, tzid=Timezone.UTCTimezone))
         self.assertTrue(hasattr(ical, "cachedInstances"))
         oldLimit = ical.cachedInstances.limit
-        ical.deriveInstance(DateTime(2009, 1, 3, 8, 0, 0, tzid=Timezone(utc=True)))
+        ical.deriveInstance(DateTime(2009, 1, 3, 8, 0, 0, tzid=Timezone.UTCTimezone))
         self.assertEqual(ical.cachedInstances.limit, oldLimit)
 
         # Derive several years ahead - re-cached
-        ical.deriveInstance(DateTime(2011, 1, 1, 8, 0, 0, tzid=Timezone(utc=True)))
+        ical.deriveInstance(DateTime(2011, 1, 1, 8, 0, 0, tzid=Timezone.UTCTimezone))
         self.assertNotEqual(ical.cachedInstances.limit, oldLimit)
         oldLimit = ical.cachedInstances.limit
 
         # Check one day ahead again - no re-cache
-        ical.deriveInstance(DateTime(2011, 1, 2, 8, 0, 0, tzid=Timezone(utc=True)))
+        ical.deriveInstance(DateTime(2011, 1, 2, 8, 0, 0, tzid=Timezone.UTCTimezone))
         self.assertEqual(ical.cachedInstances.limit, oldLimit)
 
 
@@ -4822,13 +4822,13 @@ END:VEVENT
         masterDerived = ical.masterDerived()
 
         # Derive one day apart - no re-cache
-        result = ical.deriveInstance(DateTime(2009, 1, 2, 8, 0, 0, tzid=Timezone(utc=True)), newcomp=masterDerived)
+        result = ical.deriveInstance(DateTime(2009, 1, 2, 8, 0, 0, tzid=Timezone.UTCTimezone), newcomp=masterDerived)
         self.assertEqual(str(result), derived1)
 
-        result = ical.deriveInstance(DateTime(2009, 2, 3, 8, 0, 0, tzid=Timezone(utc=True)), newcomp=masterDerived)
+        result = ical.deriveInstance(DateTime(2009, 2, 3, 8, 0, 0, tzid=Timezone.UTCTimezone), newcomp=masterDerived)
         self.assertEqual(str(result), derived2)
 
-        result = ical.deriveInstance(DateTime(2009, 3, 3, 9, 0, 0, tzid=Timezone(utc=True)), newcomp=masterDerived)
+        result = ical.deriveInstance(DateTime(2009, 3, 3, 9, 0, 0, tzid=Timezone.UTCTimezone), newcomp=masterDerived)
         self.assertEqual(result, None)
 
         self.assertEqual(str(ical), event)
@@ -5008,8 +5008,8 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone(utc=True)), False),
+                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone.UTCTimezone), False),
                 )
             ),
             (
@@ -5027,9 +5027,9 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2009, 10, 5, 0, 0, 0, tzid=Timezone(utc=True)), False),
+                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2009, 10, 5, 0, 0, 0, tzid=Timezone.UTCTimezone), False),
                 )
             ),
             (
@@ -5047,10 +5047,10 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2009, 10, 4, 1, 0, 0, tzid=Timezone(utc=True)), False),
+                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2009, 10, 4, 1, 0, 0, tzid=Timezone.UTCTimezone), False),
                 )
             ),
             (
@@ -5069,11 +5069,11 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2009, 10, 4, 1, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2009, 10, 4, 2, 0, 0, tzid=Timezone(utc=True)), False),
+                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2009, 10, 4, 1, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2009, 10, 4, 2, 0, 0, tzid=Timezone.UTCTimezone), False),
                 )
             ),
             (
@@ -5093,12 +5093,12 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2009, 10, 4, 1, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2009, 10, 4, 2, 0, 0, tzid=Timezone(utc=True)), False),
-                    (DateTime(2009, 10, 3, 0, 0, 0, tzid=Timezone(utc=True)), False),
+                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2009, 10, 4, 1, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2009, 10, 4, 2, 0, 0, tzid=Timezone.UTCTimezone), False),
+                    (DateTime(2009, 10, 3, 0, 0, 0, tzid=Timezone.UTCTimezone), False),
                 )
             ),
             (
@@ -5121,11 +5121,11 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)), False),
-                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2009, 10, 4, 1, 0, 0, tzid=Timezone(utc=True)), False),
+                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone.UTCTimezone), False),
+                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2009, 10, 4, 1, 0, 0, tzid=Timezone.UTCTimezone), False),
                 )
             ),
             (
@@ -5150,12 +5150,12 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2007, 11, 15, 2, 0, 0, tzid=Timezone(utc=True)), False),
-                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2009, 10, 4, 1, 0, 0, tzid=Timezone(utc=True)), False),
+                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2007, 11, 15, 2, 0, 0, tzid=Timezone.UTCTimezone), False),
+                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2009, 10, 4, 1, 0, 0, tzid=Timezone.UTCTimezone), False),
                 )
             ),
             (
@@ -5173,9 +5173,9 @@ END:VCALENDAR
 """,
                 (
                     (None, False),
-                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)), False),
-                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)), True),
-                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone(utc=True)), False),
+                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone), False),
+                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone.UTCTimezone), True),
+                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone.UTCTimezone), False),
                 )
             ),
             (
@@ -5207,7 +5207,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone), True),
                 )
             ),
             (
@@ -5223,7 +5223,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)), False),
+                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone.UTCTimezone), False),
                 )
             ),
             (
@@ -5245,7 +5245,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)), False),
+                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone.UTCTimezone), False),
                 )
             ),
         )
@@ -5557,12 +5557,12 @@ END:VCALENDAR
 """,
                 (
                     (
-                        DateTime(2007, 11, 14, 20, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 14, 21, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 20, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 14, 21, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                     (
-                        DateTime(2007, 11, 15, 21, 0, 0, tzid=Timezone(utc=True)),
-                        DateTime(2007, 11, 15, 22, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 15, 21, 0, 0, tzid=Timezone.UTCTimezone),
+                        DateTime(2007, 11, 15, 22, 0, 0, tzid=Timezone.UTCTimezone),
                     ),
                 )
             ),
@@ -5715,7 +5715,7 @@ END:VEVENT
 END:VCALENDAR
 """,
             (
-                DateTime(2009, 7, 6, 17, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2009, 7, 6, 17, 0, 0, tzid=Timezone.UTCTimezone),
                 DateTime(2009, 7, 6, 10, 0, 0, tzid=Timezone(tzid="US/Pacific")),
             ),
 
@@ -5803,7 +5803,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    DateTime(2009, 7, 6, 17, 0, 0, tzid=Timezone(utc=True)),
+                    DateTime(2009, 7, 6, 17, 0, 0, tzid=Timezone.UTCTimezone),
                     DateTime(2009, 7, 6, 10, 0, 0, tzid=Timezone(tzid="US/Pacific")),
                 ),
 
@@ -5880,7 +5880,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    DateTime(2009, 7, 6, 17, 0, 0, tzid=Timezone(utc=True)),
+                    DateTime(2009, 7, 6, 17, 0, 0, tzid=Timezone.UTCTimezone),
                     DateTime(2009, 7, 6, 10, 0, 0, tzid=Timezone(tzid="US/Pacific")),
                 ),
 
@@ -5959,7 +5959,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    DateTime(2009, 7, 6, 17, 0, 0, tzid=Timezone(utc=True)),
+                    DateTime(2009, 7, 6, 17, 0, 0, tzid=Timezone.UTCTimezone),
                     DateTime(2009, 7, 6, 10, 0, 0, tzid=Timezone(tzid="US/Pacific")),
                 ),
 
@@ -6038,7 +6038,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    DateTime(2009, 7, 6, 17, 0, 0, tzid=Timezone(utc=True)),
+                    DateTime(2009, 7, 6, 17, 0, 0, tzid=Timezone.UTCTimezone),
                     DateTime(2009, 7, 6, 10, 0, 0, tzid=Timezone(tzid="US/Pacific")),
                 ),
 
@@ -6117,7 +6117,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    DateTime(2009, 7, 6, 17, 0, 0, tzid=Timezone(utc=True)),
+                    DateTime(2009, 7, 6, 17, 0, 0, tzid=Timezone.UTCTimezone),
                     DateTime(2009, 7, 6, 10, 0, 0, tzid=Timezone(tzid="US/Pacific")),
                 ),
 
@@ -6345,7 +6345,7 @@ END:VCALENDAR
                         ),
                     ),
                     (
-                        DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone.UTCTimezone),
                         (
                             ("", (False, None, None,),),
                         ),
@@ -6390,7 +6390,7 @@ END:VCALENDAR
                         ),
                     ),
                     (
-                        DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone.UTCTimezone),
                         (
                             ("", (False, None, None,),),
                             ("user01", (False, None, None,),),
@@ -6444,7 +6444,7 @@ END:VCALENDAR
                         ),
                     ),
                     (
-                        DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone.UTCTimezone),
                         (
                             ("", (False, None, None,),),
                             ("user01", (False, None, None,),),
@@ -6490,19 +6490,19 @@ END:VCALENDAR
                         ),
                     ),
                     (
-                        DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone.UTCTimezone),
                         (
                             ("", (False, None, None,),),
                         ),
                     ),
                     (
-                        DateTime(2008, 6, 3, 12, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2008, 6, 3, 12, 0, 0, tzid=Timezone.UTCTimezone),
                         (
                             ("", (True, None, None,),),
                         ),
                     ),
                     (
-                        DateTime(2008, 6, 4, 12, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2008, 6, 4, 12, 0, 0, tzid=Timezone.UTCTimezone),
                         (
                             ("", (True, None, None,),),
                         ),
@@ -6565,21 +6565,21 @@ END:VCALENDAR
                         ),
                     ),
                     (
-                        DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone.UTCTimezone),
                         (
                             ("", (False, None, None,),),
                             ("user01", (True, None, None,),),
                         ),
                     ),
                     (
-                        DateTime(2008, 6, 3, 12, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2008, 6, 3, 12, 0, 0, tzid=Timezone.UTCTimezone),
                         (
                             ("", (False, None, None,),),
                             ("user01", (True, None, None,),),
                         ),
                     ),
                     (
-                        DateTime(2008, 6, 4, 12, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2008, 6, 4, 12, 0, 0, tzid=Timezone.UTCTimezone),
                         (
                             ("", (False, None, None,),),
                             ("user01", (False, None, None,),),
@@ -6664,7 +6664,7 @@ END:VCALENDAR
                         ),
                     ),
                     (
-                        DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone.UTCTimezone),
                         (
                             ("", (False, None, None,),),
                             ("user01", (True, None, None,),),
@@ -6672,7 +6672,7 @@ END:VCALENDAR
                         ),
                     ),
                     (
-                        DateTime(2008, 6, 3, 12, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2008, 6, 3, 12, 0, 0, tzid=Timezone.UTCTimezone),
                         (
                             ("", (False, None, None,),),
                             ("user01", (True, None, None,),),
@@ -6680,7 +6680,7 @@ END:VCALENDAR
                         ),
                     ),
                     (
-                        DateTime(2008, 6, 4, 12, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2008, 6, 4, 12, 0, 0, tzid=Timezone.UTCTimezone),
                         (
                             ("", (False, None, None,),),
                             ("user01", (False, None, None,),),
@@ -10213,7 +10213,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                DateTime(2009, 2, 1, 8, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2009, 2, 1, 8, 0, 0, tzid=Timezone.UTCTimezone),
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -10281,7 +10281,7 @@ DTSTAMP:20080601T120000Z
 END:VEVENT
 END:VCALENDAR
 """,
-                DateTime(2009, 2, 1, 8, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2009, 2, 1, 8, 0, 0, tzid=Timezone.UTCTimezone),
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -10353,7 +10353,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                DateTime(2009, 2, 1, 8, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2009, 2, 1, 8, 0, 0, tzid=Timezone.UTCTimezone),
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -10402,7 +10402,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                DateTime(2009, 2, 1, 8, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2009, 2, 1, 8, 0, 0, tzid=Timezone.UTCTimezone),
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -10452,7 +10452,7 @@ RDATE:20090202T180000Z
 END:VEVENT
 END:VCALENDAR
 """,
-                DateTime(2009, 1, 31, 8, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2009, 1, 31, 8, 0, 0, tzid=Timezone.UTCTimezone),
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -10501,7 +10501,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                DateTime(2009, 1, 31, 6, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2009, 1, 31, 6, 0, 0, tzid=Timezone.UTCTimezone),
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -10571,7 +10571,7 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """,
-                DateTime(2009, 2, 1, 8, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2009, 2, 1, 8, 0, 0, tzid=Timezone.UTCTimezone),
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -10720,7 +10720,7 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """,
-                DateTime(2009, 2, 1, 8, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2009, 2, 1, 8, 0, 0, tzid=Timezone.UTCTimezone),
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN

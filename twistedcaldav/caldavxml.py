@@ -244,7 +244,7 @@ class CalDAVTimeZoneElement (CalDAVDataMixin, CalDAVTextElement):
                 return tz
 
         # Default to using utc tzinfo
-        return Timezone(utc=True)
+        return Timezone.UTCTimezone
 
 
     def valid(self):

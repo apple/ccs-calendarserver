@@ -815,7 +815,7 @@ class ImplicitProcessor(object):
             # Get the timezone property from the collection, and store in the query filter
             # for use during the query itself.
             tz = testcal.getTimezone()
-            tzinfo = tz.gettimezone() if tz is not None else Timezone(utc=True)
+            tzinfo = tz.gettimezone() if tz is not None else Timezone.UTCTimezone
 
             # Now do search for overlapping time-range and set instance.free based
             # on whether there is an overlap or not.

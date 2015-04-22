@@ -4466,7 +4466,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 ("mailto:user2@example.com",),
-                (DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),),
+                (DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),),
             ),
 
             # Recurring component with one instance, each with one attendee - cancel instance
@@ -4507,7 +4507,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 ("mailto:user2@example.com",),
-                (DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),),
+                (DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),),
             ),
 
             # Recurring component with one instance, each with one attendee - cancel master
@@ -4568,7 +4568,7 @@ END:VCALENDAR
 """,
                 "",
                 ("mailto:user2@example.com",),
-                (DateTime(2008, 12, 14, 0, 0, 0, tzid=Timezone(utc=True)),),
+                (DateTime(2008, 12, 14, 0, 0, 0, tzid=Timezone.UTCTimezone),),
             ),
 
         )

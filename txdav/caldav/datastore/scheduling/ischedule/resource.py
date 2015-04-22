@@ -160,9 +160,9 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
 
         # Determine min/max date-time for iSchedule
         now = DateTime.getNowUTC()
-        minDateTime = DateTime(now.getYear(), 1, 1, 0, 0, 0, Timezone(utc=True))
+        minDateTime = DateTime(now.getYear(), 1, 1, 0, 0, 0, Timezone.UTCTimezone)
         minDateTime.offsetYear(-1)
-        maxDateTime = DateTime(now.getYear(), 1, 1, 0, 0, 0, Timezone(utc=True))
+        maxDateTime = DateTime(now.getYear(), 1, 1, 0, 0, 0, Timezone.UTCTimezone)
         maxDateTime.offsetYear(10)
 
         dataTypes = []

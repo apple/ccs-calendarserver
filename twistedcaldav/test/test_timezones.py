@@ -69,8 +69,8 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
 
         self.doTest(
             "TruncatedApr01.ics",
-            DateTime(2007, 04, 01, 16, 0, 0, Timezone(utc=True)),
-            DateTime(2007, 04, 01, 17, 0, 0, Timezone(utc=True))
+            DateTime(2007, 04, 01, 16, 0, 0, Timezone.UTCTimezone),
+            DateTime(2007, 04, 01, 17, 0, 0, Timezone.UTCTimezone)
         )
 
 
@@ -84,8 +84,8 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
 
         self.doTest(
             "TruncatedDec10.ics",
-            DateTime(2007, 12, 10, 17, 0, 0, Timezone(utc=True)),
-            DateTime(2007, 12, 10, 18, 0, 0, Timezone(utc=True))
+            DateTime(2007, 12, 10, 17, 0, 0, Timezone.UTCTimezone),
+            DateTime(2007, 12, 10, 18, 0, 0, Timezone.UTCTimezone)
         )
 
 
@@ -99,13 +99,13 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
 
         self.doTest(
             "TruncatedApr01.ics",
-            DateTime(2007, 04, 01, 16, 0, 0, Timezone(utc=True)),
-            DateTime(2007, 04, 01, 17, 0, 0, Timezone(utc=True)),
+            DateTime(2007, 04, 01, 16, 0, 0, Timezone.UTCTimezone),
+            DateTime(2007, 04, 01, 17, 0, 0, Timezone.UTCTimezone),
         )
         self.doTest(
             "TruncatedDec10.ics",
-            DateTime(2007, 12, 10, 17, 0, 0, Timezone(utc=True)),
-            DateTime(2007, 12, 10, 18, 0, 0, Timezone(utc=True)),
+            DateTime(2007, 12, 10, 17, 0, 0, Timezone.UTCTimezone),
+            DateTime(2007, 12, 10, 18, 0, 0, Timezone.UTCTimezone),
             testEqual=False
         )
 
@@ -119,13 +119,13 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
 
         self.doTest(
             "TruncatedApr01.ics",
-            DateTime(2007, 04, 01, 16, 0, 0, Timezone(utc=True)),
-            DateTime(2007, 04, 01, 17, 0, 0, Timezone(utc=True)),
+            DateTime(2007, 04, 01, 16, 0, 0, Timezone.UTCTimezone),
+            DateTime(2007, 04, 01, 17, 0, 0, Timezone.UTCTimezone),
         )
         self.doTest(
             "TruncatedDec10.ics",
-            DateTime(2007, 12, 10, 17, 0, 0, Timezone(utc=True)),
-            DateTime(2007, 12, 10, 18, 0, 0, Timezone(utc=True)),
+            DateTime(2007, 12, 10, 17, 0, 0, Timezone.UTCTimezone),
+            DateTime(2007, 12, 10, 18, 0, 0, Timezone.UTCTimezone),
         )
 
 
@@ -139,13 +139,13 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
 
         self.doTest(
             "TruncatedDec10.ics",
-            DateTime(2007, 12, 10, 17, 0, 0, Timezone(utc=True)),
-            DateTime(2007, 12, 10, 18, 0, 0, Timezone(utc=True))
+            DateTime(2007, 12, 10, 17, 0, 0, Timezone.UTCTimezone),
+            DateTime(2007, 12, 10, 18, 0, 0, Timezone.UTCTimezone)
         )
         self.doTest(
             "TruncatedApr01.ics",
-            DateTime(2007, 04, 01, 16, 0, 0, Timezone(utc=True)),
-            DateTime(2007, 04, 01, 17, 0, 0, Timezone(utc=True))
+            DateTime(2007, 04, 01, 16, 0, 0, Timezone.UTCTimezone),
+            DateTime(2007, 04, 01, 17, 0, 0, Timezone.UTCTimezone)
         )
 
 
@@ -206,8 +206,8 @@ END:VCALENDAR
             instance = instances[key]
             start = instance.start
             end = instance.end
-            self.assertEqual(start, DateTime(2007, 12, 25, 05, 0, 0, Timezone(utc=True)))
-            self.assertEqual(end, DateTime(2007, 12, 25, 06, 0, 0, Timezone(utc=True)))
+            self.assertEqual(start, DateTime(2007, 12, 25, 05, 0, 0, Timezone.UTCTimezone))
+            self.assertEqual(end, DateTime(2007, 12, 25, 06, 0, 0, Timezone.UTCTimezone))
             break
 
 

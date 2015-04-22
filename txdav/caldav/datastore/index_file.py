@@ -693,7 +693,7 @@ class CalendarIndex (AbstractCalendarIndex):
         if master is None or not calendar.isRecurring():
             # When there is no master we have a set of overridden components - index them all.
             # When there is one instance - index it.
-            expand = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+            expand = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
             doInstanceIndexing = True
         else:
             # If migrating or re-creating or config option for delayed indexing is off, always index
@@ -738,7 +738,7 @@ class CalendarIndex (AbstractCalendarIndex):
         # Now coerce indexing to off if needed
         if not doInstanceIndexing:
             instances = None
-            recurrenceLimit = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+            recurrenceLimit = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
 
         self._delete_from_db(name, uid, False)
 
@@ -804,8 +804,8 @@ class CalendarIndex (AbstractCalendarIndex):
             # Special - for unbounded recurrence we insert a value for "infinity"
             # that will allow an open-ended time-range to always match it.
             if calendar.isRecurringUnbounded():
-                start = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-                end = DateTime(2100, 1, 1, 1, 0, 0, tzid=Timezone(utc=True))
+                start = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
+                end = DateTime(2100, 1, 1, 1, 0, 0, tzid=Timezone.UTCTimezone)
                 float = 'N'
                 self._db_execute(
                     """

@@ -86,7 +86,7 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
     yield report_common.applyToCalendarCollections(self, request, request.uri, depth, getCalendarList, (caldavxml.ReadFreeBusy(),))
 
     # Do the actual freebusy query against the set of matched calendars
-    principal = yield self.ownerPrincipal(request)
+    principal = yield self.resourceOwnerPrincipal(request)
     organizer = recipient = LocalCalendarUser(principal.canonicalCalendarUserAddress(), principal.record)
     timerange = Period(timerange.start, timerange.end)
     try:

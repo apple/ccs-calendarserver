@@ -145,7 +145,7 @@ class Filter(FilterBase):
                     instances = None
                 else:
                     # Expand the instances up to infinity
-                    instances = component.expandTimeRanges(DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone(utc=True)), ignoreInvalidInstances=True)
+                    instances = component.expandTimeRanges(DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone), ignoreInvalidInstances=True)
             else:
                 instances = component.expandTimeRanges(maxend, ignoreInvalidInstances=True)
         else:
@@ -183,7 +183,7 @@ class Filter(FilterBase):
         elif isinstance(tzelement, Component):
             tz = tzelement.gettimezone()
         if tz is None:
-            tz = Timezone(utc=True)
+            tz = Timezone.UTCTimezone
         self.child.settzinfo(tz)
         return tz
 

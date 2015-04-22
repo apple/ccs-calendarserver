@@ -234,9 +234,9 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user01@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user02@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user03@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user01@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
+                    ("mailto:user02@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
+                    ("mailto:user03@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
                 ),
             ),
             (
@@ -273,12 +273,12 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user01@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user02@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user03@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user01@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user02@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user03@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user01@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
+                    ("mailto:user02@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
+                    ("mailto:user03@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
+                    ("mailto:user01@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
+                    ("mailto:user02@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
+                    ("mailto:user03@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
                 ),
             ),
             (
@@ -316,15 +316,15 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user01@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user02@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user03@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user01@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user02@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user03@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user01@example.com", DateTime(2008, 12, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user02@example.com", DateTime(2008, 12, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user03@example.com", DateTime(2008, 12, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user01@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
+                    ("mailto:user02@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
+                    ("mailto:user03@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
+                    ("mailto:user01@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
+                    ("mailto:user02@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
+                    ("mailto:user03@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
+                    ("mailto:user01@example.com", DateTime(2008, 12, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
+                    ("mailto:user02@example.com", DateTime(2008, 12, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
+                    ("mailto:user03@example.com", DateTime(2008, 12, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
                 ),
             ),
             (
@@ -433,7 +433,7 @@ END:VCALENDAR
 """,
                 (
                     ("mailto:user03@example.com", None),
-                    ("mailto:user03@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user03@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
                 ),
             ),
             (
@@ -488,7 +488,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user03@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user03@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
                 ),
             ),
             (
@@ -634,9 +634,9 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user01@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user02@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user03@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user01@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
+                    ("mailto:user02@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
+                    ("mailto:user03@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
                 ),
             ),
             (
@@ -691,7 +691,7 @@ END:VCALENDAR
 """,
                 (
                     ("mailto:user03@example.com", None),
-                    ("mailto:user04@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user04@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
                 ),
             ),
             (
@@ -737,7 +737,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user04@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user04@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
                 ),
             ),
             (
@@ -784,9 +784,9 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user01@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user02@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user04@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user01@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
+                    ("mailto:user02@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
+                    ("mailto:user04@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone.UTCTimezone)),
                 ),
             ),
         )

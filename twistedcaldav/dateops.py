@@ -113,7 +113,7 @@ def floatoffset(dt, pytz):
     """
 
     if pytz is None:
-        pytz = Timezone(utc=True)
+        pytz = Timezone.UTCTimezone
 
     dt = dt.duplicate()
     dt.adjustTimezone(pytz)
@@ -286,7 +286,7 @@ def pyCalendarToSQLTimestamp(pydt):
 
 
 
-def parseSQLTimestampToPyCalendar(ts):
+def parseSQLTimestampToPyCalendar(ts, withTimezone=None):
     """
     Parse an SQL formated timestamp into a DateTime
     @param ts: the SQL timestamp
@@ -302,7 +302,8 @@ def parseSQLTimestampToPyCalendar(ts):
             day=ts.day,
             hours=ts.hour,
             minutes=ts.minute,
-            seconds=ts.second
+            seconds=ts.second,
+            tzid=withTimezone,
         )
     else:
         # Format is "%Y-%m-%d %H:%M:%S"
@@ -312,8 +313,47 @@ def parseSQLTimestampToPyCalendar(ts):
             day=int(ts[8:10]),
             hours=int(ts[11:13]),
             minutes=int(ts[14:16]),
-            seconds=int(ts[17:19])
+            seconds=int(ts[17:19]),
+            tzid=withTimezone,
         )
+
+
+
+def pickledFromPyCalendar(dt):
+    """
+    Parse an SQL formated timestamp into a DateTime
+    @param ts: the SQL timestamp
+    @type ts: C{str}
+
+    @return: L{DateTime} result
+    """
+
+    # Format is "%Y%m%dT%H%M%S"
+    return (
+        dt.mYear, dt.mMonth, dt.mDay, dt.mHours, dt.mMinutes, dt.mSeconds
+    )
+
+
+
+def pickledToPyCalendar(ts, withTimezone=None):
+    """
+    Parse an SQL formated timestamp into a DateTime
+    @param ts: the SQL timestamp
+    @type ts: C{str}
+
+    @return: L{DateTime} result
+    """
+
+    # Format is "%Y%m%dT%H%M%S"
+    return DateTime(
+        year=ts[0],
+        month=ts[1],
+        day=ts[2],
+        hours=ts[3],
+        minutes=ts[4],
+        seconds=ts[5],
+        tzid=withTimezone,
+    )
 
 
 

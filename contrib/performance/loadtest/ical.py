@@ -1660,7 +1660,7 @@ class BaseAppleClient(BaseClient):
             msg("Availability request spanning multiple days (%r to %r), "
                 "dropping the end date." % (start, end))
 
-        start.setTimezone(Timezone(utc=True))
+        start.setTimezone(Timezone.UTCTimezone)
         start.setHHMMSS(0, 0, 0)
         end = start + Duration(hours=24)
 

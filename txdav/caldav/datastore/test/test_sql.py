@@ -1464,38 +1464,38 @@ END:VCALENDAR
         self.assertEqual(rmax.getYear(), nowYear + 1)
 
         # Fully within range
-        testMin = DateTime(nowYear, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+        testMin = DateTime(nowYear, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
+        testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
         result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, [])
 
         # Upper bound exceeded
-        testMin = DateTime(nowYear, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+        testMin = DateTime(nowYear, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
+        testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
         result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
         # Lower bound exceeded
-        testMin = DateTime(nowYear - 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+        testMin = DateTime(nowYear - 5, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
+        testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
         result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
         # Lower and upper bounds exceeded
-        testMin = DateTime(nowYear - 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+        testMin = DateTime(nowYear - 5, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
+        testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
         result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
         # Lower none within range
         testMin = None
-        testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+        testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
         result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, [])
 
         # Lower none and upper bounds exceeded
         testMin = None
-        testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+        testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
         result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 

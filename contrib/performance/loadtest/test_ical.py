@@ -1964,8 +1964,8 @@ class VFreeBusyTests(OS_X_10_6Mixin, TestCase):
         self.client.outbox = "/calendars/__uids__/%s/outbox/" % (self.record.uid,)
         requests = self.interceptRequests()
 
-        start = DateTime(2011, 6, 10, 10, 45, 0, tzid=Timezone(utc=True))
-        end = DateTime(2011, 6, 10, 11, 15, 0, tzid=Timezone(utc=True))
+        start = DateTime(2011, 6, 10, 10, 45, 0, tzid=Timezone.UTCTimezone)
+        end = DateTime(2011, 6, 10, 11, 15, 0, tzid=Timezone.UTCTimezone)
         d = self.client.requestAvailability(
             start, end, [u"urn:uuid:user05", u"urn:uuid:user10"])
 

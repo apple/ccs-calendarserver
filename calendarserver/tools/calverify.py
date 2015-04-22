@@ -2268,7 +2268,7 @@ class DoubleBookingService(CalVerifyService):
 
         # Adjust floating and sort
         if hasFloating and tzid is not None:
-            utc = Timezone(utc=True)
+            utc = Timezone.UTCTimezone
             for item in details:
                 if item.start.floating():
                     item.start.setTimezone(tzid)

@@ -534,7 +534,7 @@ class InstanceList(object):
             # If the availability is beyond the end of the range we want, ignore it
             return
         if start is None:
-            start = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+            start = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
         start = self.normalizeFunction(start)
 
         end = component.getEndDateUTC()
@@ -542,7 +542,7 @@ class InstanceList(object):
             # If the availability is before the start of the range we want, ignore it
             return
         if end is None:
-            end = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+            end = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
         end = self.normalizeFunction(end)
 
         self.addInstance(Instance(component, start, end))

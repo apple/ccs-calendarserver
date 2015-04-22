@@ -27,8 +27,8 @@ from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.config import config
 from twistedcaldav.dateops import compareDateTime, normalizeToUTC, \
-    parseSQLTimestampToPyCalendar, clipPeriod, timeRangesOverlap, \
-    normalizePeriodList
+    parseSQLTimestampToPyCalendar, pickledToPyCalendar, clipPeriod, \
+    timeRangesOverlap, normalizePeriodList, pickledFromPyCalendar
 from twistedcaldav.ical import Component, Property, iCalendarProductID
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.memcacher import Memcacher
@@ -235,10 +235,10 @@ class FreebusyQuery(object):
             # Get overall start/end
             start = vav.getStartDateUTC()
             if start is None:
-                start = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+                start = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
             end = vav.getEndDateUTC()
             if end is None:
-                end = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+                end = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
             period = Period(start, end)
             overall = clipPeriod(period, self.timerange)
             if overall is None:
@@ -385,137 +385,117 @@ class FreebusyQuery(object):
         calidmap = dict([(fbcalendar.id(), fbcalendar,) for fbcalendar in fbset])
         directoryService = fbset[0].directoryService()
 
-        resources, tzinfos = yield self._matchResources(fbset)
-
-        # We care about separate instances for VEVENTs only
-        aggregated_resources = {}
-        for calid, name, uid, type, test_organizer, float, start, end, fbtype, transp in resources:
-            if transp == 'T' and fbtype != '?':
-                fbtype = 'F'
-            aggregated_resources.setdefault((calid, name, uid, type, test_organizer,), []).append((float, start, end, fbtype,))
+        results = yield self._matchResources(fbset)
 
         if self.accountingItems is not None:
             self.accountingItems["fb-resources"] = {}
-            for k, v in aggregated_resources.items():
-                calid, name, uid, type, test_organizer = k
-                self.accountingItems["fb-resources"][uid] = []
-                for float, start, end, fbtype in v:
-                    fbstart = parseSQLTimestampToPyCalendar(start)
-                    if float == 'Y':
-                        fbstart.setTimezone(tzinfos[calid])
-                    else:
-                        fbstart.setTimezone(Timezone(utc=True))
-                    fbend = parseSQLTimestampToPyCalendar(end)
-                    if float == 'Y':
-                        fbend.setTimezone(tzinfos[calid])
-                    else:
-                        fbend.setTimezone(Timezone(utc=True))
-                    self.accountingItems["fb-resources"][uid].append((
-                        float,
-                        str(fbstart),
-                        str(fbend),
-                        fbtype,
-                    ))
+            for calid, result in results.items():
+                aggregated_resources, tzinfo, filter = result
+                for k, v in aggregated_resources.items():
+                    name, uid, comptype, test_organizer = k
+                    self.accountingItems["fb-resources"][uid] = []
+                    for float, start, end, fbtype in v:
+                        fbstart = pickledToPyCalendar(start, withTimezone=tzinfo if float == 'Y' else Timezone.UTCTimezone)
+                        fbend = pickledToPyCalendar(end, withTimezone=tzinfo if float == 'Y' else Timezone.UTCTimezone)
+                        self.accountingItems["fb-resources"][uid].append((
+                            float,
+                            str(fbstart),
+                            str(fbend),
+                            fbtype,
+                        ))
 
         # Cache directory record lookup outside this loop as it is expensive and will likely
         # always end up being called with the same organizer address.
         recordUIDCache = {}
-        for key in aggregated_resources.iterkeys():
-
-            calid, name, uid, type, test_organizer = key
+        for calid, result in results.items():
             calresource = calidmap[calid]
-            tzinfo = tzinfos[calid]
+            aggregated_resources, tzinfo, filter = result
+            for key in aggregated_resources.iterkeys():
 
-            # Short-cut - if an fbtype exists we can use that
-            if type == "VEVENT" and aggregated_resources[key][0][3] != '?':
+                name, uid, comptype, test_organizer = key
 
-                matchedResource = False
+                # Short-cut - if an fbtype exists we can use that
+                if comptype == "VEVENT" and aggregated_resources[key][0][3] != '?':
 
-                # Look at each instance
-                for float, start, end, fbtype in aggregated_resources[key]:
-                    # Ignore free time or unknown
-                    if fbtype in ('F', '?'):
+                    matchedResource = False
+
+                    # Look at each instance
+                    for float, start, end, fbtype in aggregated_resources[key]:
+                        # Ignore free time or unknown
+                        if fbtype in ('F', '?'):
+                            continue
+
+                        # Apply a timezone to any floating times
+                        fbstart = pickledToPyCalendar(start, withTimezone=tzinfo if float == 'Y' else Timezone.UTCTimezone)
+                        fbend = pickledToPyCalendar(end, withTimezone=tzinfo if float == 'Y' else Timezone.UTCTimezone)
+
+                        # Clip instance to time range
+                        clipped = clipPeriod(Period(fbstart, end=fbend), self.timerange)
+
+                        # Double check for overlap
+                        if clipped:
+                            # Ignore ones of this UID
+                            if not (yield self._testIgnoreExcludeUID(uid, test_organizer, recordUIDCache, directoryService)):
+                                clipped.setUseDuration(True)
+                                matchedResource = True
+                                getattr(fbinfo, self.FBInfo_index_mapper.get(fbtype, "busy")).append(clipped)
+
+                    if matchedResource:
+                        # Check size of results is within limit
+                        matchtotal += 1
+                        if matchtotal > config.MaxQueryWithDataResults:
+                            raise QueryMaxResources(config.MaxQueryWithDataResults, matchtotal)
+
+                        # Add extended details
+                        if any(self.rich_options.values()):
+                            child = (yield calresource.calendarObjectWithName(name))
+                            # Only add fully public events
+                            if not child.accessMode or child.accessMode == Component.ACCESS_PUBLIC:
+                                calendar = (yield child.componentForUser())
+                                self._addEventDetails(calendar, self.rich_options, tzinfo)
+
+                else:
+                    child = (yield calresource.calendarObjectWithName(name))
+                    calendar = (yield child.componentForUser())
+
+                    # The calendar may come back as None if the resource is being changed, or was deleted
+                    # between our initial index query and getting here. For now we will ignore this error, but in
+                    # the longer term we need to implement some form of locking, perhaps.
+                    if calendar is None:
+                        log.error("Calendar %s is missing from calendar collection %r" % (name, calresource))
                         continue
 
-                    # Ignore ones of this UID
-                    if (yield self._testIgnoreExcludeUID(uid, test_organizer, recordUIDCache, directoryService)):
-                        continue
-
-                    # Apply a timezone to any floating times
-                    fbstart = parseSQLTimestampToPyCalendar(start)
-                    if float == 'Y':
-                        fbstart.setTimezone(tzinfo)
-                    else:
-                        fbstart.setTimezone(Timezone(utc=True))
-                    fbend = parseSQLTimestampToPyCalendar(end)
-                    if float == 'Y':
-                        fbend.setTimezone(tzinfo)
-                    else:
-                        fbend.setTimezone(Timezone(utc=True))
-
-                    # Clip instance to time range
-                    clipped = clipPeriod(Period(fbstart, duration=fbend - fbstart), self.timerange)
-
-                    # Double check for overlap
-                    if clipped:
-                        matchedResource = True
-                        getattr(fbinfo, self.FBInfo_index_mapper.get(fbtype, "busy")).append(clipped)
-
-                if matchedResource:
-                    # Check size of results is within limit
-                    matchtotal += 1
-                    if matchtotal > config.MaxQueryWithDataResults:
-                        raise QueryMaxResources(config.MaxQueryWithDataResults, matchtotal)
-
-                    # Add extended details
-                    if any(self.rich_options.values()):
-                        child = (yield calresource.calendarObjectWithName(name))
-                        # Only add fully public events
-                        if not child.accessMode or child.accessMode == Component.ACCESS_PUBLIC:
-                            calendar = (yield child.componentForUser())
-                            self._addEventDetails(calendar, self.rich_options, tzinfo)
-
-            else:
-                child = (yield calresource.calendarObjectWithName(name))
-                calendar = (yield child.componentForUser())
-
-                # The calendar may come back as None if the resource is being changed, or was deleted
-                # between our initial index query and getting here. For now we will ignore this error, but in
-                # the longer term we need to implement some form of locking, perhaps.
-                if calendar is None:
-                    log.error("Calendar %s is missing from calendar collection %r" % (name, calresource))
-                    continue
-
-                # Ignore ones of this UID
-                if (yield self._testIgnoreExcludeUID(uid, calendar.getOrganizer(), recordUIDCache, calresource.directoryService())):
-                    continue
-
-                if self.accountingItems is not None:
-                    self.accountingItems.setdefault("fb-filter-match", []).append(uid)
-
-                if filter.match(calendar, None):
                     if self.accountingItems is not None:
-                        self.accountingItems.setdefault("fb-filter-matched", []).append(uid)
+                        self.accountingItems.setdefault("fb-filter-match", []).append(uid)
 
-                    # Check size of results is within limit
-                    matchtotal += 1
-                    if matchtotal > config.MaxQueryWithDataResults:
-                        raise QueryMaxResources(config.MaxQueryWithDataResults, matchtotal)
+                    if filter.match(calendar, None):
 
-                    if calendar.mainType() == "VEVENT":
-                        self.processEventFreeBusy(calendar, fbinfo, tzinfo)
-                    elif calendar.mainType() == "VFREEBUSY":
-                        self.processFreeBusyFreeBusy(calendar, fbinfo)
-                    elif calendar.mainType() == "VAVAILABILITY":
-                        self.processAvailabilityFreeBusy(calendar, fbinfo)
-                    else:
-                        assert "Free-busy query returned unwanted component: %s in %r", (name, calresource,)
+                        # Ignore ones of this UID
+                        if (yield self._testIgnoreExcludeUID(uid, calendar.getOrganizer(), recordUIDCache, calresource.directoryService())):
+                            continue
 
-                    # Add extended details
-                    if calendar.mainType() == "VEVENT" and any(self.rich_options.values()):
-                        # Only add fully public events
-                        if not child.accessMode or child.accessMode == Component.ACCESS_PUBLIC:
-                            self._addEventDetails(calendar, self.rich_options, tzinfo)
+                        if self.accountingItems is not None:
+                            self.accountingItems.setdefault("fb-filter-matched", []).append(uid)
+
+                        # Check size of results is within limit
+                        matchtotal += 1
+                        if matchtotal > config.MaxQueryWithDataResults:
+                            raise QueryMaxResources(config.MaxQueryWithDataResults, matchtotal)
+
+                        if calendar.mainType() == "VEVENT":
+                            self.processEventFreeBusy(calendar, fbinfo, tzinfo)
+                        elif calendar.mainType() == "VFREEBUSY":
+                            self.processFreeBusyFreeBusy(calendar, fbinfo)
+                        elif calendar.mainType() == "VAVAILABILITY":
+                            self.processAvailabilityFreeBusy(calendar, fbinfo)
+                        else:
+                            assert "Free-busy query returned unwanted component: %s in %r", (name, calresource,)
+
+                        # Add extended details
+                        if calendar.mainType() == "VEVENT" and any(self.rich_options.values()):
+                            # Only add fully public events
+                            if not child.accessMode or child.accessMode == Component.ACCESS_PUBLIC:
+                                self._addEventDetails(calendar, self.rich_options, tzinfo)
 
         returnValue(matchtotal)
 
@@ -530,14 +510,12 @@ class FreebusyQuery(object):
         @type fbset: L{list} of L{Calendar}
         """
 
-        results = []
-        tzinfos = {}
+        results = {}
         for calresource in fbset:
-            resources, tzinfo = yield self._matchCalendarResources(calresource)
-            results.extend([(calresource.id(),) + tuple(resource) for resource in resources])
-            tzinfos[calresource.id()] = tzinfo
+            aggregated_resources, tzinfo, filter = yield self._matchCalendarResources(calresource)
+            results[calresource.id()] = (aggregated_resources, tzinfo, filter,)
 
-        returnValue((results, tzinfos,))
+        returnValue(results)
 
 
     @inlineCallbacks
@@ -547,9 +525,9 @@ class FreebusyQuery(object):
         tz = calresource.getTimezone()
 
         # Try cache
-        resources = (yield FBCacheEntry.getCacheEntry(calresource, self.attendee_uid, self.timerange)) if config.EnableFreeBusyCache else None
+        aggregated_resources = (yield FBCacheEntry.getCacheEntry(calresource, self.attendee_uid, self.timerange)) if config.EnableFreeBusyCache else None
 
-        if resources is None:
+        if aggregated_resources is None:
 
             if self.accountingItems is not None:
                 self.accountingItems["fb-uncached"] = self.accountingItems.get("fb-uncached", 0) + 1
@@ -596,8 +574,20 @@ class FreebusyQuery(object):
 
             try:
                 resources = yield calresource.search(filter, useruid=self.attendee_uid, fbtype=True)
+
+                aggregated_resources = {}
+                for name, uid, comptype, test_organizer, float, start, end, fbtype, transp in resources:
+                    if transp == 'T' and fbtype != '?':
+                        fbtype = 'F'
+                    aggregated_resources.setdefault((name, uid, comptype, test_organizer,), []).append((
+                        float,
+                        pickledFromPyCalendar(parseSQLTimestampToPyCalendar(start)),
+                        pickledFromPyCalendar(parseSQLTimestampToPyCalendar(end)),
+                        fbtype,
+                    ))
+
                 if caching:
-                    yield FBCacheEntry.makeCacheEntry(calresource, self.attendee_uid, cache_timerange, resources)
+                    yield FBCacheEntry.makeCacheEntry(calresource, self.attendee_uid, cache_timerange, aggregated_resources)
             except IndexedSearchException:
                 raise InternalDataStoreError("Invalid indexedSearch query")
 
@@ -610,9 +600,10 @@ class FreebusyQuery(object):
                 self.logItems["fb-cached"] = self.logItems.get("fb-cached", 0) + 1
 
             # Determine appropriate timezone (UTC is the default)
-            tzinfo = tz.gettimezone() if tz is not None else Timezone(utc=True)
+            tzinfo = tz.gettimezone() if tz is not None else Timezone.UTCTimezone
+            filter = None
 
-        returnValue((resources, tzinfo,))
+        returnValue((aggregated_resources, tzinfo, filter,))
 
 
     @inlineCallbacks

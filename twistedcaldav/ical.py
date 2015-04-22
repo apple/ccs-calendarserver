@@ -162,8 +162,8 @@ normalizePropsValue = {
 ignoredComponents = ("VTIMEZONE", PERUSER_COMPONENT,)
 
 # Used for min/max time-range query limits
-minDateTime = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-maxDateTime = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+minDateTime = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
+maxDateTime = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
 
 
 class InvalidICalendarDataError(ValueError):

@@ -3729,7 +3729,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 # When there is no master we have a set of overridden components -
                 #   index them all.
                 # When there is one instance - index it.
-                expand = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+                expand = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
                 doInstanceIndexing = True
             else:
 
@@ -3792,7 +3792,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             if not doInstanceIndexing:
                 # instances = None # used by removeOldEventGroupLink() call at end
                 recurrenceLowerLimit = None
-                recurrenceLimit = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+                recurrenceLimit = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
 
         co = self._objectSchema
         tr = schema.TIME_RANGE
@@ -3946,8 +3946,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # For truncated items we insert a tomb stone lower bound so that a time-range
         # query with just an end bound will match
         if lowerLimitApplied or instances.lowerLimit and len(instances.instances) == 0:
-            start = DateTime(1901, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-            end = DateTime(1901, 1, 1, 1, 0, 0, tzid=Timezone(utc=True))
+            start = DateTime(1901, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
+            end = DateTime(1901, 1, 1, 1, 0, 0, tzid=Timezone.UTCTimezone)
             yield self._addInstanceDetails(component, None, start, end, False, True, "UNKNOWN", isInboxItem, txn)
 
         # Special - for unbounded recurrence we insert a value for "infinity"
@@ -3955,8 +3955,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # We also need to add the "infinity" value if the event was bounded but
         # starts after the future expansion cut-off limit.
         if component.isRecurringUnbounded() or instances.limit and len(instances.instances) == 0:
-            start = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-            end = DateTime(2100, 1, 1, 1, 0, 0, tzid=Timezone(utc=True))
+            start = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
+            end = DateTime(2100, 1, 1, 1, 0, 0, tzid=Timezone.UTCTimezone)
             yield self._addInstanceDetails(component, None, start, end, False, True, "UNKNOWN", isInboxItem, txn)
 
 
