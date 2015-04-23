@@ -29,9 +29,10 @@ create table JOB (
 
 create table CALENDAR_HOME (
     "RESOURCE_ID" integer primary key,
-    "OWNER_UID" nvarchar2(255) unique,
+    "OWNER_UID" nvarchar2(255),
     "STATUS" integer default 0 not null,
-    "DATAVERSION" integer default 0 not null
+    "DATAVERSION" integer default 0 not null, 
+    unique ("OWNER_UID", "STATUS")
 );
 
 create table HOME_STATUS (
@@ -42,6 +43,8 @@ create table HOME_STATUS (
 insert into HOME_STATUS (DESCRIPTION, ID) values ('normal', 0);
 insert into HOME_STATUS (DESCRIPTION, ID) values ('external', 1);
 insert into HOME_STATUS (DESCRIPTION, ID) values ('purging', 2);
+insert into HOME_STATUS (DESCRIPTION, ID) values ('migrating', 3);
+insert into HOME_STATUS (DESCRIPTION, ID) values ('disabled', 4);
 create table CALENDAR (
     "RESOURCE_ID" integer primary key
 );
@@ -68,11 +71,20 @@ create table CALENDAR_METADATA (
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 
+create table CALENDAR_MIGRATION (
+    "CALENDAR_HOME_RESOURCE_ID" integer references CALENDAR_HOME on delete cascade,
+    "REMOTE_RESOURCE_ID" integer not null,
+    "LOCAL_RESOURCE_ID" integer references CALENDAR on delete cascade,
+    "LAST_SYNC_TOKEN" nvarchar2(255), 
+    primary key ("CALENDAR_HOME_RESOURCE_ID", "REMOTE_RESOURCE_ID")
+);
+
 create table NOTIFICATION_HOME (
     "RESOURCE_ID" integer primary key,
-    "OWNER_UID" nvarchar2(255) unique,
+    "OWNER_UID" nvarchar2(255),
     "STATUS" integer default 0 not null,
-    "DATAVERSION" integer default 0 not null
+    "DATAVERSION" integer default 0 not null, 
+    unique ("OWNER_UID", "STATUS")
 );
 
 create table NOTIFICATION (
@@ -90,11 +102,11 @@ create table NOTIFICATION (
 create table CALENDAR_BIND (
     "CALENDAR_HOME_RESOURCE_ID" integer not null references CALENDAR_HOME,
     "CALENDAR_RESOURCE_ID" integer not null references CALENDAR on delete cascade,
-    "EXTERNAL_ID" integer default null,
     "CALENDAR_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
     "BIND_REVISION" integer default 0 not null,
+    "BIND_UID" nvarchar2(36) default null,
     "MESSAGE" nclob,
     "TRANSP" integer default 0 not null,
     "ALARM_VEVENT_TIMED" nclob default null,
@@ -208,6 +220,13 @@ create table PERUSER (
     primary key ("TIME_RANGE_INSTANCE_ID", "USER_ID")
 );
 
+create table CALENDAR_OBJECT_MIGRATION (
+    "CALENDAR_HOME_RESOURCE_ID" integer references CALENDAR_HOME on delete cascade,
+    "REMOTE_RESOURCE_ID" integer not null,
+    "LOCAL_RESOURCE_ID" integer references CALENDAR_OBJECT on delete cascade, 
+    primary key ("CALENDAR_HOME_RESOURCE_ID", "REMOTE_RESOURCE_ID")
+);
+
 create table ATTACHMENT (
     "ATTACHMENT_ID" integer primary key,
     "CALENDAR_HOME_RESOURCE_ID" integer not null references CALENDAR_HOME,
@@ -228,6 +247,13 @@ create table ATTACHMENT_CALENDAR_OBJECT (
     unique ("MANAGED_ID", "CALENDAR_OBJECT_RESOURCE_ID")
 );
 
+create table ATTACHMENT_MIGRATION (
+    "CALENDAR_HOME_RESOURCE_ID" integer references CALENDAR_HOME on delete cascade,
+    "REMOTE_RESOURCE_ID" integer not null,
+    "LOCAL_RESOURCE_ID" integer references ATTACHMENT on delete cascade, 
+    primary key ("CALENDAR_HOME_RESOURCE_ID", "REMOTE_RESOURCE_ID")
+);
+
 create table RESOURCE_PROPERTY (
     "RESOURCE_ID" integer not null,
     "NAME" nvarchar2(255),
@@ -239,9 +265,10 @@ create table RESOURCE_PROPERTY (
 create table ADDRESSBOOK_HOME (
     "RESOURCE_ID" integer primary key,
     "ADDRESSBOOK_PROPERTY_STORE_ID" integer not null,
-    "OWNER_UID" nvarchar2(255) unique,
+    "OWNER_UID" nvarchar2(255),
     "STATUS" integer default 0 not null,
-    "DATAVERSION" integer default 0 not null
+    "DATAVERSION" integer default 0 not null, 
+    unique ("OWNER_UID", "STATUS")
 );
 
 create table ADDRESSBOOK_HOME_METADATA (
@@ -254,11 +281,11 @@ create table ADDRESSBOOK_HOME_METADATA (
 create table SHARED_ADDRESSBOOK_BIND (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
     "OWNER_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
-    "EXTERNAL_ID" integer default null,
     "ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
     "BIND_REVISION" integer default 0 not null,
+    "BIND_UID" nvarchar2(36) default null,
     "MESSAGE" nclob, 
     primary key ("ADDRESSBOOK_HOME_RESOURCE_ID", "OWNER_HOME_RESOURCE_ID"), 
     unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_NAME")
@@ -308,11 +335,11 @@ create table ABO_FOREIGN_MEMBERS (
 create table SHARED_GROUP_BIND (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
     "GROUP_RESOURCE_ID" integer not null references ADDRESSBOOK_OBJECT on delete cascade,
-    "EXTERNAL_ID" integer default null,
     "GROUP_ADDRESSBOOK_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
     "BIND_REVISION" integer default 0 not null,
+    "BIND_UID" nvarchar2(36) default null,
     "MESSAGE" nclob, 
     primary key ("ADDRESSBOOK_HOME_RESOURCE_ID", "GROUP_RESOURCE_ID"), 
     unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "GROUP_ADDRESSBOOK_NAME")
@@ -607,7 +634,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '52');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '53');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
@@ -622,6 +649,10 @@ create index CALENDAR_HOME_METADAT_d55e5548 on CALENDAR_HOME_METADATA (
 
 create index CALENDAR_HOME_METADAT_910264ce on CALENDAR_HOME_METADATA (
     DEFAULT_POLLS
+);
+
+create index CALENDAR_MIGRATION_LO_0525c72b on CALENDAR_MIGRATION (
+    LOCAL_RESOURCE_ID
 );
 
 create index NOTIFICATION_NOTIFICA_f891f5f9 on NOTIFICATION (
@@ -659,6 +690,15 @@ create index TIME_RANGE_CALENDAR_O_acf37bd1 on TIME_RANGE (
     CALENDAR_OBJECT_RESOURCE_ID
 );
 
+create index CALENDAR_OBJECT_MIGRA_0502cbef on CALENDAR_OBJECT_MIGRATION (
+    CALENDAR_HOME_RESOURCE_ID,
+    LOCAL_RESOURCE_ID
+);
+
+create index CALENDAR_OBJECT_MIGRA_3577efd9 on CALENDAR_OBJECT_MIGRATION (
+    LOCAL_RESOURCE_ID
+);
+
 create index ATTACHMENT_CALENDAR_H_0078845c on ATTACHMENT (
     CALENDAR_HOME_RESOURCE_ID
 );
@@ -669,6 +709,15 @@ create index ATTACHMENT_DROPBOX_ID_5073cf23 on ATTACHMENT (
 
 create index ATTACHMENT_CALENDAR_O_81508484 on ATTACHMENT_CALENDAR_OBJECT (
     CALENDAR_OBJECT_RESOURCE_ID
+);
+
+create index ATTACHMENT_MIGRATION__804bf85e on ATTACHMENT_MIGRATION (
+    CALENDAR_HOME_RESOURCE_ID,
+    LOCAL_RESOURCE_ID
+);
+
+create index ATTACHMENT_MIGRATION__816947fe on ATTACHMENT_MIGRATION (
+    LOCAL_RESOURCE_ID
 );
 
 create index SHARED_ADDRESSBOOK_BI_e9a2e6d4 on SHARED_ADDRESSBOOK_BIND (
@@ -926,3 +975,5 @@ create index PRINCIPAL_PURGE_HOME__f35eea7a on PRINCIPAL_PURGE_HOME_WORK (
 create index PRINCIPAL_PURGE_HOME__967e4480 on PRINCIPAL_PURGE_HOME_WORK (
     HOME_RESOURCE_ID
 );
+
+-- Extra schema to add to current-oracle-dialect.sql
