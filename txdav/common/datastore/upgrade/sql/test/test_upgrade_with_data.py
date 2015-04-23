@@ -13,20 +13,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twext.enterprise.dal.syntax import Insert, Select
-from txdav.common.datastore.sql_tables import _populateSchema
-from datetime import datetime
 
 """
 Tests for L{txdav.common.datastore.upgrade.sql.upgrade}.
 """
 
+from twext.enterprise.dal.syntax import Insert, Select
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
+from twext.enterprise.jobqueue import JobItem
+
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial.unittest import TestCase
+
+from txdav.caldav.datastore.scheduling.work import ScheduleReplyWork, \
+    ScheduleWork
+from txdav.common.datastore.sql_tables import _populateSchema
 from txdav.common.datastore.test.util import theStoreBuilder, \
     StubNotifierFactory
 from txdav.common.datastore.upgrade.sql.upgrade import UpgradeDatabaseSchemaStep
+
+from datetime import datetime
 import re
 
 class SchemaUpgradeWithDataTests(TestCase):
@@ -169,13 +175,23 @@ END:VCALENDAR
         replies = yield Select(
             From=schema.SCHEDULE_REPLY_WORK,
         ).on(txn)
-        yield txn.commit()
 
         self.assertEqual(len(jobs), 1)
         self.assertEqual(len(schedules), 1)
         self.assertEqual(len(replies), 1)
 
         self.assertEqual(replies[0], [1, 1, None, cal1, ])
+
+        jobs = yield JobItem.all(txn)
+        self.assertEqual(len(jobs), 1)
+        work = yield jobs[0].workItem()
+        self.assertTrue(isinstance(work, ScheduleReplyWork))
+
+        workers = yield ScheduleWork.all(txn)
+        self.assertEqual(len(workers), 1)
+        self.assertEqual(workers[0].workType, "SCHEDULE_REPLY_WORK")
+
+        yield txn.commit()
 
 
     @inlineCallbacks
@@ -265,10 +281,20 @@ END:VCALENDAR
         replies = yield Select(
             From=schema.SCHEDULE_REPLY_WORK,
         ).on(txn)
-        yield txn.commit()
 
         self.assertEqual(len(jobs), 1)
         self.assertEqual(len(schedules), 1)
         self.assertEqual(len(replies), 1)
 
         self.assertEqual(replies[0], [1, 1, 3, None, ])
+
+        jobs = yield JobItem.all(txn)
+        self.assertEqual(len(jobs), 1)
+        work = yield jobs[0].workItem()
+        self.assertTrue(isinstance(work, ScheduleReplyWork))
+
+        workers = yield ScheduleWork.all(txn)
+        self.assertEqual(len(workers), 1)
+        self.assertEqual(workers[0].workType, "SCHEDULE_REPLY_WORK")
+
+        yield txn.commit()
