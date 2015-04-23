@@ -32,6 +32,7 @@ from calendarserver.accesslog import DirectoryLogWrapperResource
 from calendarserver.provision.root import RootResource
 from calendarserver.push.applepush import APNSubscriptionResource
 from calendarserver.push.notifier import NotifierFactory
+from calendarserver.tools import diagnose
 from calendarserver.tools.util import checkDirectory
 from calendarserver.webadmin.landing import WebAdminLandingResource
 from calendarserver.webcal.resource import WebCalendarResource
@@ -1223,6 +1224,9 @@ def preFlightChecks(config):
     success, reason = verifyConfig(config)
 
     if success:
+        success, reason = verifyServerRoot(config)
+
+    if success:
         success, reason = verifyTLSCertificate(config)
 
     if success:
@@ -1244,6 +1248,7 @@ def preFlightChecks(config):
             return False
 
         else:
+            print(reason)
             sys.exit(1)
 
     return True
@@ -1261,6 +1266,19 @@ def verifyConfig(config):
     return False, "Neither CalDAV nor CardDAV are enabled"
 
 
+def verifyServerRoot(config):
+    """
+    Ensure server root is not on a phantom volume
+    """
+    result = diagnose.detectPhantomVolume(config.ServerRoot)
+
+    if result == diagnose.EXIT_CODE_SERVER_ROOT_MISSING:
+        return False, "ServerRoot is missing"
+
+    if result == diagnose.EXIT_CODE_PHANTOM_DATA_VOLUME:
+        return False, "ServerRoot is supposed to be on a non-boot-volume but it's not"
+
+    return True, "ServerRoot is ok"
 
 def verifyTLSCertificate(config):
     """

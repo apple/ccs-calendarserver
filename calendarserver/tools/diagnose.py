@@ -71,6 +71,7 @@ def main():
         optargs, _ignore_args = getopt(
             sys.argv[1:], "h", [
                 "help",
+                "phantom",
             ],
         )
     except GetoptError, e:
@@ -83,6 +84,10 @@ def main():
 
         if opt in ("-h", "--help"):
             usage()
+
+        elif opt == "--phantom":
+            result = detectPhantomVolume()
+            sys.exit(result)
 
 
     osBuild = getOSBuild()
@@ -104,6 +109,14 @@ def main():
 
     serverRoot = getServerRoot()
     print("Prefs plist says ServerRoot directory is: {}".format(serverRoot.encode("utf-8")))
+
+    result = detectPhantomVolume(serverRoot)
+    if result == EXIT_CODE_OK:
+        print("ServerRoot volume ok")
+    elif result == EXIT_CODE_SERVER_ROOT_MISSING:
+        print("ServerRoot directory missing")
+    elif result == EXIT_CODE_PHANTOM_DATA_VOLUME:
+        print("Phantom ServerRoot volume detected")
 
     systemPlist = os.path.join(serverRoot, "Config", "caldavd-system.plist")
     try:
@@ -155,6 +168,31 @@ def main():
 
     showWebApps()
 
+
+EXIT_CODE_OK = 0
+EXIT_CODE_SERVER_ROOT_MISSING = 1
+EXIT_CODE_PHANTOM_DATA_VOLUME = 2
+
+def detectPhantomVolume(serverRoot=None):
+    """
+    Check to see if serverRoot directory exists in a "phantom" volume, meaning
+    it's simply a directory under /Volumes residing on the boot volume, rather
+    that a real separate volume.
+    """
+
+    if not serverRoot:
+        serverRoot = getServerRoot()
+
+    if not os.path.exists(serverRoot):
+        return EXIT_CODE_SERVER_ROOT_MISSING
+
+    if serverRoot.startswith("/Volumes/"):
+        bootDevice = os.stat("/").st_dev
+        dataDevice = os.stat(serverRoot).st_dev
+        if bootDevice == dataDevice:
+            return EXIT_CODE_PHANTOM_DATA_VOLUME
+
+    return EXIT_CODE_OK
 
 
 def showProcesses():
@@ -303,7 +341,10 @@ def countFromSQLQuery(query):
         "--command={}".format(query),
     )
     lines = stdout.split("\n")
-    count = int(lines[2])
+    try:
+        count = int(lines[2])
+    except IndexError:
+        count = 0
     return count
 
 
@@ -356,6 +397,7 @@ def showPostgresContent():
 
     print("'job' table...")
     runSQLQuery("select * from job;")
+
 
 
 def showConfigKeys():
