@@ -222,7 +222,7 @@ else
   echo "";
   echo "Submitting sources for ${project_version}...";
   rm -rf "${wc}/.dependencies";
-  ~rc/bin/submitproject "${wc}" ${releases};
+  ~rc/bin/submitproject -noforward "${wc}" ${releases};
 fi;
 
 sudo rm -rf "${tmp}";
