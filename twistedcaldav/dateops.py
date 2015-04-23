@@ -319,39 +319,44 @@ def parseSQLTimestampToPyCalendar(ts, withTimezone=None):
 
 
 
-def pickledFromPyCalendar(dt):
+def tupleFromDateTime(dt):
     """
-    Parse an SQL formated timestamp into a DateTime
-    @param ts: the SQL timestamp
-    @type ts: C{str}
+    Convert a L{DateTime} into a L{tuple} of L{int}s that performs better when pickled.
 
-    @return: L{DateTime} result
+    @param dt: the date time to convert
+    @type dt: L{DateTime}
+
+    @return: L{tuple} result
     """
 
-    # Format is "%Y%m%dT%H%M%S"
+    # Expand the date and time components into a tuple
     return (
         dt.mYear, dt.mMonth, dt.mDay, dt.mHours, dt.mMinutes, dt.mSeconds
     )
 
 
 
-def pickledToPyCalendar(ts, withTimezone=None):
+def tupleToDateTime(tp, withTimezone=None):
     """
-    Parse an SQL formated timestamp into a DateTime
-    @param ts: the SQL timestamp
-    @type ts: C{str}
+    Turn an L{tuple} produced by L{tupleFromDateTime} into an L{DateTime} and use the provided
+    time zone.
+
+    @param tp: the tuple to convert
+    @type tp: L{tuple}
+    @param withTimezone: time zone to use or L{None}
+    @type withTimezone: L{Timezone}
 
     @return: L{DateTime} result
     """
 
-    # Format is "%Y%m%dT%H%M%S"
+    # Construct date time from tuple components
     return DateTime(
-        year=ts[0],
-        month=ts[1],
-        day=ts[2],
-        hours=ts[3],
-        minutes=ts[4],
-        seconds=ts[5],
+        year=tp[0],
+        month=tp[1],
+        day=tp[2],
+        hours=tp[3],
+        minutes=tp[4],
+        seconds=tp[5],
         tzid=withTimezone,
     )
 

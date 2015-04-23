@@ -27,8 +27,8 @@ from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.config import config
 from twistedcaldav.dateops import compareDateTime, normalizeToUTC, \
-    parseSQLTimestampToPyCalendar, pickledToPyCalendar, clipPeriod, \
-    timeRangesOverlap, normalizePeriodList, pickledFromPyCalendar
+    parseSQLTimestampToPyCalendar, tupleToDateTime, clipPeriod, \
+    timeRangesOverlap, normalizePeriodList, tupleFromDateTime
 from twistedcaldav.ical import Component, Property, iCalendarProductID
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.memcacher import Memcacher
@@ -395,8 +395,8 @@ class FreebusyQuery(object):
                     name, uid, comptype, test_organizer = k
                     self.accountingItems["fb-resources"][uid] = []
                     for float, start, end, fbtype in v:
-                        fbstart = pickledToPyCalendar(start, withTimezone=tzinfo if float == 'Y' else Timezone.UTCTimezone)
-                        fbend = pickledToPyCalendar(end, withTimezone=tzinfo if float == 'Y' else Timezone.UTCTimezone)
+                        fbstart = tupleToDateTime(start, withTimezone=tzinfo if float == 'Y' else Timezone.UTCTimezone)
+                        fbend = tupleToDateTime(end, withTimezone=tzinfo if float == 'Y' else Timezone.UTCTimezone)
                         self.accountingItems["fb-resources"][uid].append((
                             float,
                             str(fbstart),
@@ -426,8 +426,8 @@ class FreebusyQuery(object):
                             continue
 
                         # Apply a timezone to any floating times
-                        fbstart = pickledToPyCalendar(start, withTimezone=tzinfo if float == 'Y' else Timezone.UTCTimezone)
-                        fbend = pickledToPyCalendar(end, withTimezone=tzinfo if float == 'Y' else Timezone.UTCTimezone)
+                        fbstart = tupleToDateTime(start, withTimezone=tzinfo if float == 'Y' else Timezone.UTCTimezone)
+                        fbend = tupleToDateTime(end, withTimezone=tzinfo if float == 'Y' else Timezone.UTCTimezone)
 
                         # Clip instance to time range
                         clipped = clipPeriod(Period(fbstart, end=fbend), self.timerange)
@@ -581,8 +581,8 @@ class FreebusyQuery(object):
                         fbtype = 'F'
                     aggregated_resources.setdefault((name, uid, comptype, test_organizer,), []).append((
                         float,
-                        pickledFromPyCalendar(parseSQLTimestampToPyCalendar(start)),
-                        pickledFromPyCalendar(parseSQLTimestampToPyCalendar(end)),
+                        tupleFromDateTime(parseSQLTimestampToPyCalendar(start)),
+                        tupleFromDateTime(parseSQLTimestampToPyCalendar(end)),
                         fbtype,
                     ))
 
