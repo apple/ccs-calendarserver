@@ -212,7 +212,7 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
     country = None
 
     if extended or street or city or region or postalcode or country or params:
-        params["TYPE"] = ("WORK", "PREF", "POSTAL", "PARCEL",)
+        params["TYPE"] = ["WORK", "PREF", "POSTAL", "PARCEL", ]
         vcard.addProperty(
             Property(
                 "ADR", Adr(
@@ -241,11 +241,11 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
     #     3.3.1 TEL
 
     # 3.3.2 EMAIL
-    preferredWorkParams = {"TYPE": ("WORK", "PREF", "INTERNET",), }
-    workParams = {"TYPE": ("WORK", "INTERNET",), }
+    preferredWorkParams = {"TYPE": ["WORK", "PREF", "INTERNET", ], }
+    workParams = {"TYPE": ["WORK", "INTERNET", ], }
     params = preferredWorkParams
     for emailAddress in record.fields.get(FieldName.emailAddresses, ()):
-        addUniqueProperty(Property("EMAIL", emailAddress.encode("utf-8"), params=params), ignoredParameters={"TYPE": ("PREF",)})
+        addUniqueProperty(Property("EMAIL", emailAddress.encode("utf-8"), params=params), ignoredParameters={"TYPE": ["PREF", ]})
         params = workParams
 
     # UNIMPLEMENTED:

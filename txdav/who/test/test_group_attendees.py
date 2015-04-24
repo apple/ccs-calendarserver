@@ -1765,7 +1765,6 @@ END:VCALENDAR
         instances in the future.
         """
 
-        from twistedcaldav.stdconfig import config
         self.patch(config, "EnableTrashCollection", True)
 
         data_put_1 = """BEGIN:VCALENDAR
@@ -1868,7 +1867,6 @@ END:VCALENDAR
         in the past and future.
         """
 
-        from twistedcaldav.stdconfig import config
         self.patch(config, "EnableTrashCollection", True)
 
         data_put_1 = """BEGIN:VCALENDAR
