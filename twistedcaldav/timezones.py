@@ -104,7 +104,7 @@ class TimezoneCache(object):
         try:
             return open(os.path.join(dbpath, "version.txt")).read().strip()
         except IOError:
-            return TimezoneCache.IANA_VERSION_PREFIX + "Unknown"
+            return ""
 
 
     class FilteredFilePath(FilePath):
@@ -134,7 +134,7 @@ class TimezoneCache(object):
             # Check if pkg is more recent and copy over
             pkgversion = TimezoneCache.getTZVersion(TimezoneCache._getPackageDBPath())
             dbversion = TimezoneCache.getTZVersion(dbpath.path)
-            if pkgversion > dbversion:
+            if not dbversion or pkgversion > dbversion:
                 dbpath.remove()
                 TimezoneCache.copyPackage("Updating")
             else:
