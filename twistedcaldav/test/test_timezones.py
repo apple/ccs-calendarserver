@@ -279,6 +279,24 @@ class TimezonePackageTest (twistedcaldav.test.util.TestCase):
         self.assertEqual(str(pkg_tz), str(copy_tz))
 
 
+    def test_copyPackage_missingVersion(self):
+        """
+        Test that tz data is updated if the version is missing.
+        """
+
+        self.patch(config, "UsePackageTimezones", False)
+        TimezoneCache.clear()
+        TimezoneCache.create()
+
+        self.assertTrue(os.path.exists(os.path.join(config.DataRoot, "zoneinfo")))
+        self.assertTrue(os.path.exists(os.path.join(config.DataRoot, "zoneinfo", "version.txt")))
+        os.remove(os.path.join(config.DataRoot, "zoneinfo", "version.txt"))
+        self.assertFalse(os.path.exists(os.path.join(config.DataRoot, "zoneinfo", "version.txt")))
+
+        TimezoneCache.create()
+        self.assertTrue(os.path.exists(os.path.join(config.DataRoot, "zoneinfo", "version.txt")))
+
+
     def test_copyPackage_Concurrency(self):
         """
         Test that concurrent copying of the tz package works.
