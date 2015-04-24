@@ -24,7 +24,7 @@ __all__ = [
 
 import sys
 from collections import OrderedDict
-from os import getuid, getgid, umask, remove, environ, stat, chown
+from os import getuid, getgid, umask, remove, environ, stat, chown, W_OK
 from os.path import exists, basename
 import socket
 from stat import S_ISSOCK
@@ -1415,6 +1415,15 @@ class CalDAVServiceMaker (object):
 
         config.addPostUpdateHooks((agentPostUpdateHook,))
         config.reload()
+
+        # Verify that server root actually exists and is not phantom
+        from calendarserver.tools.util import checkDirectory
+        checkDirectory(
+            config.ServerRoot,
+            "Server root",
+            access=W_OK,
+            wait=True  # Wait in a loop until ServerRoot exists and is not phantom
+        )
 
         # These we need to set in order to open the store
         config.EnableCalDAV = config.EnableCardDAV = True
