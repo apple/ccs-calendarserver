@@ -140,9 +140,16 @@ def checkDirectory(dirpath, description, access=None, create=None, wait=False):
     if not os.path.exists(dirpath):
 
         if wait:
+
+            # If we're being told to wait, post an alert that we can't continue
+            # until the volume is mounted
+            if not os.path.exists(dirpath):
+                from calendarserver.tap.util import postAlert
+                postAlert("MissingDataVolumeAlert", ["volumePath", dirpath])
+
             while not os.path.exists(dirpath):
                 print("Path does not exist: %s" % (dirpath,))
-                sleep(1)
+                sleep(5)
         else:
             try:
                 mode, username, groupname = create

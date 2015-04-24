@@ -25,6 +25,7 @@ __all__ = [
     "getRootResource",
     "getSSLPassphrase",
     "MemoryLimitService",
+    "postAlert",
     "preFlightChecks",
 ]
 
@@ -1445,3 +1446,23 @@ def getSSLPassphrase(*ignored):
                 return output.strip()
 
     return None
+
+
+def postAlert(alertType, args):
+    if (
+        config.AlertPostingProgram and
+        os.path.exists(config.AlertPostingProgram)
+    ):
+        try:
+            commandLine = [config.AlertPostingProgram, alertType]
+            commandLine.extend(args)
+            Popen(
+                commandLine,
+                stdout=PIPE,
+                stderr=PIPE,
+            ).communicate()
+        except Exception, e:
+            log.error(
+                "Could not post alert: {alertType} {args} ({error})",
+                alertType=alertType, args=args, error=e
+            )

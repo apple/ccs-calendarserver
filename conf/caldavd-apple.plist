@@ -556,6 +556,12 @@
       <true/>
     </dict>
 
+    <!-- Alert-posting program
+      -->
+    <key>AlertPostingProgram</key>
+    <string>/Applications/Server.app/Contents/ServerRoot/Library/CalendarServer/bin/calendarserver_alert</string>
+
+
     <key>Includes</key>
     <array>
         <string>/Library/Preferences/com.apple.servermgr_calendar.plist</string>
