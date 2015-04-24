@@ -3,7 +3,7 @@ AUS Eastern Standard Time	Australia/Sydney
 Afghanistan Standard Time	Asia/Kabul
 Africa/Addis_Ababa	Africa/Nairobi
 Africa/Asmara	Africa/Nairobi
-Africa/Asmera	Africa/Asmara
+Africa/Asmera	Africa/Nairobi
 Africa/Bamako	Africa/Abidjan
 Africa/Bangui	Africa/Lagos
 Africa/Banjul	Africa/Abidjan
@@ -39,11 +39,13 @@ Africa/Sao_Tome	Africa/Abidjan
 Africa/Timbuktu	Africa/Abidjan
 Alaskan Standard Time	America/Anchorage
 America/Anguilla	America/Port_of_Spain
+America/Antigua	America/Port_of_Spain
 America/Argentina/ComodRivadavia	America/Argentina/Catamarca
 America/Aruba	America/Curacao
 America/Atka	America/Adak
 America/Buenos_Aires	America/Argentina/Buenos_Aires
 America/Catamarca	America/Argentina/Catamarca
+America/Cayman	America/Panama
 America/Coral_Harbour	America/Atikokan
 America/Cordoba	America/Argentina/Cordoba
 America/Dominica	America/Port_of_Spain
@@ -59,6 +61,7 @@ America/Louisville	America/Kentucky/Louisville
 America/Lower_Princes	America/Curacao
 America/Marigot	America/Port_of_Spain
 America/Mendoza	America/Argentina/Mendoza
+America/Montreal	America/Toronto
 America/Montserrat	America/Port_of_Spain
 America/Porto_Acre	America/Rio_Branco
 America/Rosario	America/Argentina/Cordoba
@@ -77,7 +80,9 @@ Arabian Standard Time	Asia/Dubai
 Arabic Standard Time	Asia/Baghdad
 Arctic/Longyearbyen	Europe/Oslo
 Argentina Standard Time	America/Buenos_Aires
+Asia/Aden	Asia/Riyadh
 Asia/Ashkhabad	Asia/Ashgabat
+Asia/Bahrain	Asia/Qatar
 Asia/Calcutta	Asia/Kolkata
 Asia/Chongqing	Asia/Shanghai
 Asia/Chungking	Asia/Shanghai
@@ -86,7 +91,9 @@ Asia/Harbin	Asia/Shanghai
 Asia/Istanbul	Europe/Istanbul
 Asia/Kashgar	Asia/Urumqi
 Asia/Katmandu	Asia/Kathmandu
+Asia/Kuwait	Asia/Riyadh
 Asia/Macao	Asia/Macau
+Asia/Muscat	Asia/Dubai
 Asia/Phnom_Penh	Asia/Bangkok
 Asia/Saigon	Asia/Ho_Chi_Minh
 Asia/Tel_Aviv	Asia/Jerusalem
@@ -113,6 +120,7 @@ Azerbaijan Standard Time	Asia/Baku
 Azores Standard Time	Atlantic/Azores
 Bahia Standard Time	America/Bahia
 Bangladesh Standard Time	Asia/Dhaka
+Belarus Standard Time	Europe/Minsk
 Brazil/Acre	America/Rio_Branco
 Brazil/DeNoronha	America/Noronha
 Brazil/East	America/Sao_Paulo
@@ -147,6 +155,7 @@ E. Africa Standard Time	Africa/Nairobi
 E. Australia Standard Time	Australia/Brisbane
 E. South America Standard Time	America/Sao_Paulo
 Eastern Standard Time	America/New_York
+Eastern Standard Time (Mexico)	America/Cancun
 Egypt	Africa/Cairo
 Egypt Standard Time	Africa/Cairo
 Eire	Europe/Dublin
@@ -234,7 +243,9 @@ Pacific SA Standard Time	America/Santiago
 Pacific Standard Time	America/Los_Angeles
 Pacific Standard Time (Mexico)	America/Santa_Isabel
 Pacific/Johnston	Pacific/Honolulu
+Pacific/Midway	Pacific/Pago_Pago
 Pacific/Ponape	Pacific/Pohnpei
+Pacific/Saipan	Pacific/Guam
 Pacific/Samoa	Pacific/Pago_Pago
 Pacific/Truk	Pacific/Chuuk
 Pacific/Yap	Pacific/Chuuk
@@ -245,6 +256,9 @@ Portugal	Europe/Lisbon
 ROC	Asia/Taipei
 ROK	Asia/Seoul
 Romance Standard Time	Europe/Paris
+Russia Time Zone 10	Asia/Srednekolymsk
+Russia Time Zone 11	Asia/Kamchatka
+Russia Time Zone 3	Europe/Samara
 Russian Standard Time	Europe/Moscow
 SA Eastern Standard Time	America/Cayenne
 SA Pacific Standard Time	America/Bogota

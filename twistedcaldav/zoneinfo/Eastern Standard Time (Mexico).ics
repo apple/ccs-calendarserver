@@ -3,8 +3,8 @@ VERSION:2.0
 CALSCALE:GREGORIAN
 PRODID:-//calendarserver.org//Zonal//EN
 BEGIN:VTIMEZONE
-TZID:America/Cancun
-X-LIC-LOCATION:America/Cancun
+TZID:Eastern Standard Time (Mexico)
+X-LIC-LOCATION:Eastern Standard Time (Mexico)
 BEGIN:STANDARD
 DTSTART:19220101T001256
 RDATE:19220101T001256
