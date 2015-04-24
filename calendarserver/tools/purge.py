@@ -58,7 +58,7 @@ class PurgeOldEventsService(WorkerService):
     cutoff = None
     batchSize = None
     dryrun = False
-    verbose = False
+    debug = False
 
     @classmethod
     def usage(cls, e=None):
@@ -167,25 +167,25 @@ class PurgeOldEventsService(WorkerService):
         cls.cutoff = cutoff
         cls.batchSize = batchSize
         cls.dryrun = dryrun
-        cls.verbose = verbose
+        cls.debug = debug
 
         utilityMain(
             configFileName,
             cls,
-            verbose=debug,
+            verbose=verbose,
         )
 
 
     @classmethod
     @inlineCallbacks
-    def purgeOldEvents(cls, store, uuid, cutoff, batchSize, verbose=False, dryrun=False):
+    def purgeOldEvents(cls, store, uuid, cutoff, batchSize, debug=False, dryrun=False):
 
         service = cls(store)
         service.uuid = uuid
         service.cutoff = cutoff
         service.batchSize = batchSize
         service.dryrun = dryrun
-        service.verbose = verbose
+        service.debug = debug
         result = (yield service.doWork())
         returnValue(result)
 
@@ -195,7 +195,7 @@ class PurgeOldEventsService(WorkerService):
         """
         Find all the calendar homes that match the uuid cli argument.
         """
-        log.debug("Searching for calendar homes matching: {}".format(self.uuid))
+        log.debug("Searching for calendar homes matching: '{}'".format(self.uuid))
         txn = self.store.newTransaction(label="Find matching homes")
         ch = schema.CALENDAR_HOME
         if self.uuid:
@@ -226,7 +226,7 @@ class PurgeOldEventsService(WorkerService):
         @param owner_uid: owner UUID of home to check
         @type owner_uid: L{str}
         """
-        log.debug("Checking calendar home: {} {}".format(home_id, owner_uid))
+        log.debug("Checking calendar home: {} '{}'".format(home_id, owner_uid))
         txn = self.store.newTransaction(label="Find matching calendars")
         cb = schema.CALENDAR_BIND
         kwds = {"home_id": home_id}
@@ -258,7 +258,7 @@ class PurgeOldEventsService(WorkerService):
         @type calendar_name: L{str}
         """
 
-        log.debug("  Checking calendar: {} {}".format(calendar_id, calendar_name))
+        log.debug("  Checking calendar: {} '{}'".format(calendar_id, calendar_name))
         purge = set()
         txn = self.store.newTransaction(label="Find matching resources")
         co = schema.CALENDAR_OBJECT
@@ -414,6 +414,13 @@ class PurgeOldEventsService(WorkerService):
                 last_calendar = event.calendar
             resource = (yield calendar.objectResourceWithID(event.resource))
             yield resource.remove(implicitly=False)
+            log.debug("Removed resource {} '{}' from calendar {} '{}' of calendar home '{}'".format(
+                resource.id(),
+                resource.name(),
+                resource.parentCollection().id(),
+                resource.parentCollection().name(),
+                resource.parentCollection().ownerHome().uid()
+            ))
             count += 1
         yield txn.commit()
         returnValue(count)
@@ -422,7 +429,7 @@ class PurgeOldEventsService(WorkerService):
     @inlineCallbacks
     def doWork(self):
 
-        if self.verbose:
+        if self.debug:
             # Turn on debug logging for this module
             config.LogLevels[__name__] = "debug"
         else:

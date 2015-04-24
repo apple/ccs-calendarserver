@@ -970,7 +970,7 @@ class StandardIOObserver(object):
             output = stdout
 
         if not text:
-            text = " ".join([str(m) for m in eventDict["message"]]) + "\n"
+            text = formatEvent(eventDict) + "\n"
 
         output.write(text)
         output.flush()

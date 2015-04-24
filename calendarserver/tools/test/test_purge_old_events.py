@@ -640,7 +640,7 @@ class PurgeOldEventsTests(StoreTestCase):
             PyCalendarDateTime(now, 4, 1, 0, 0, 0),
             2,
             dryrun=True,
-            verbose=True
+            debug=True
         ))
         self.assertEquals(total, 13)
 
@@ -650,7 +650,7 @@ class PurgeOldEventsTests(StoreTestCase):
             None,
             PyCalendarDateTime(now, 4, 1, 0, 0, 0),
             2,
-            verbose=False
+            debug=False
         ))
         self.assertEquals(total, 13)
 
@@ -660,7 +660,7 @@ class PurgeOldEventsTests(StoreTestCase):
             None,
             PyCalendarDateTime(now, 4, 1, 0, 0, 0),
             2,
-            verbose=False
+            debug=False
         ))
         self.assertEquals(total, 0)
 
@@ -675,7 +675,7 @@ class PurgeOldEventsTests(StoreTestCase):
             PyCalendarDateTime(now, 4, 1, 0, 0, 0),
             2,
             dryrun=True,
-            verbose=True
+            debug=True
         ))
         self.assertEquals(total, 13)
 
@@ -686,7 +686,7 @@ class PurgeOldEventsTests(StoreTestCase):
             PyCalendarDateTime(now, 4, 1, 0, 0, 0),
             2,
             dryrun=True,
-            verbose=True
+            debug=True
         ))
         self.assertEquals(total, 13)
 
@@ -697,7 +697,7 @@ class PurgeOldEventsTests(StoreTestCase):
             PyCalendarDateTime(now, 4, 1, 0, 0, 0),
             2,
             dryrun=True,
-            verbose=True
+            debug=True
         ))
         self.assertEquals(total, 5)
 
@@ -708,7 +708,7 @@ class PurgeOldEventsTests(StoreTestCase):
             PyCalendarDateTime(now, 4, 1, 0, 0, 0),
             2,
             dryrun=True,
-            verbose=True
+            debug=True
         ))
         self.assertEquals(total, 8)
 
@@ -727,7 +727,7 @@ class PurgeOldEventsTests(StoreTestCase):
             cutoff,
             2,
             dryrun=True,
-            verbose=True
+            debug=True
         ))
         self.assertEquals(total, 12)
 
@@ -737,7 +737,7 @@ class PurgeOldEventsTests(StoreTestCase):
             None,
             cutoff,
             2,
-            verbose=True
+            debug=True
         ))
         self.assertEquals(total, 12)
 
@@ -747,7 +747,7 @@ class PurgeOldEventsTests(StoreTestCase):
             cutoff,
             2,
             dryrun=True,
-            verbose=True
+            debug=True
         ))
         self.assertEquals(total, 0)
 
@@ -872,7 +872,7 @@ class PurgeOldEventsTests(StoreTestCase):
             None,
             PyCalendarDateTime(now, 4, 1, 0, 0, 0),
             2,
-            verbose=False
+            debug=False
         ))
         self.assertEquals(total, 13)
 
