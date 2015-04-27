@@ -109,7 +109,7 @@ class SharingInvitesConduitMixin(object):
             request["mode"],
             request["bind_uid"],
             request["summary"],
-            request["properties"],
+            dict([(k, v.encode("utf-8")) for k, v in request["properties"].items()]),
             supported_components=request.get("supported-components")
         )
 
