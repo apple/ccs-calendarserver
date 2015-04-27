@@ -282,7 +282,7 @@ class WebDAVElement (object):
 
 
     def writeXML(self, output, pretty=True):
-        output.write("<?xml version='1.0' encoding='utf-8'?>" + ("\n" if pretty else ""))
+        output.write("<?xml version='1.0' encoding='UTF-8'?>" + ("\n" if pretty else ""))
         self._writeToStream(output, "", 0, pretty)
 
 

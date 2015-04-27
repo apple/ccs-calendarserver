@@ -28,7 +28,7 @@ HTML_FORBIDDEN_END = ['AREA', 'BASE', 'BASEFONT', 'BR', 'COL', 'FRAME', 'HR', 'I
 XHTML_NAMESPACE = "http://www.w3.org/1999/xhtml"
 
 
-def Print(root, stream=sys.stdout, encoding='utf-8'):
+def Print(root, stream=sys.stdout, encoding='UTF-8'):
     if not hasattr(root, "nodeType"):
         return
     nss = SeekNss(root)
@@ -38,7 +38,7 @@ def Print(root, stream=sys.stdout, encoding='utf-8'):
 
 
 
-def PrettyPrint(root, stream=sys.stdout, encoding='utf-8', indent='  ',
+def PrettyPrint(root, stream=sys.stdout, encoding='UTF-8', indent='  ',
                 preserveElements=None):
     if not hasattr(root, "nodeType"):
         return
@@ -414,7 +414,7 @@ def utf8_to_code(text, encoding):
 
 
 def strobj_to_utf8str(text, encoding):
-    if string.upper(encoding) not in ["utf-8", "ISO-8859-1", "LATIN-1"]:
+    if string.upper(encoding) not in ["UTF-8", "ISO-8859-1", "LATIN-1"]:
         raise ValueError("Invalid encoding: %s" % encoding)
     encoder = codecs.lookup(encoding)[0] # encode,decode,reader,writer
     if type(text) is not unicode:
@@ -444,7 +444,7 @@ def TranslateCdataAttr(characters):
 
 
 # Note: Unicode object only for now
-def TranslateCdata(characters, encoding='utf-8', prev_chars='', markupSafe=0,
+def TranslateCdata(characters, encoding='UTF-8', prev_chars='', markupSafe=0,
                    charsetHandler=utf8_to_code):
     """
     charsetHandler is a function that takes a string or unicode object as the
@@ -477,7 +477,7 @@ def TranslateCdata(characters, encoding='utf-8', prev_chars='', markupSafe=0,
 
 
 
-def TranslateHtmlCdata(characters, encoding='utf-8', prev_chars=''):
+def TranslateHtmlCdata(characters, encoding='UTF-8', prev_chars=''):
     # Translate numerical char entity references with HTML entity equivalents
     new_string, _ignore_num_subst = re.subn(
         g_cdataCharPattern,
