@@ -22,13 +22,17 @@ limitations under the License.
   <server>
     <id>A</id>
     <uri>http://localhost:8008</uri>
-    <allowed-from>localhost</allowed-from>
+    <allowed-from>127.0.0.1</allowed-from>
+    <allowed-from>::1</allowed-from>
+    <allowed-from>::ffff:127.0.0.1</allowed-from>
     <shared-secret>A</shared-secret>
   </server>
   <server>
     <id>B</id>
     <uri>http://localhost:8108</uri>
-    <allowed-from>localhost</allowed-from>
+    <allowed-from>127.0.0.1</allowed-from>
+    <allowed-from>::1</allowed-from>
+    <allowed-from>::ffff:127.0.0.1</allowed-from>
     <shared-secret>B</shared-secret>
   </server>
 </servers>

@@ -15,7 +15,7 @@
 ##
 
 from twext.python.log import Logger
-from twisted.internet.abstract import isIPAddress
+from twisted.internet.abstract import isIPAddress, isIPv6Address
 from twistedcaldav.client.pool import installPool
 from twistedcaldav.config import config, fullServerPath
 from twistedcaldav.xmlutil import readXML
@@ -182,7 +182,7 @@ class Server(object):
 
         actual_ips = set()
         for item in self.allowed_from_ips:
-            if not isIPAddress(item):
+            if not isIPAddress(item) and not isIPv6Address(item):
                 try:
                     ips = getIPsFromHost(item)
                 except socket.gaierror, e:
