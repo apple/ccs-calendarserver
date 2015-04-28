@@ -70,8 +70,9 @@ find .develop/virtualenv/src -mindepth 1 -maxdepth 1 -type d | {
 
     ln -s "../${source}" "${target}";
 
-    rm -f "${target}/.develop";
-    ln -s "${wd}/.develop" "${target}/.develop";
+	# NO! This causes bin/develop to hang the second time it is run
+    #rm -f "${target}/.develop";
+    #ln -s "${wd}/.develop" "${target}/.develop";
   done;
 }
 
