@@ -51,6 +51,7 @@ def find_packages():
     return modules
 
 
+
 def svn_info(wc_path):
     """
     Look up info on a Subversion working copy.
@@ -84,6 +85,7 @@ def svn_info(wc_path):
         project=project, branch=branch,
         revision=info.find("entry").attrib["revision"],
     )
+
 
 
 def svn_status(wc_path):
@@ -124,6 +126,7 @@ def svn_status(wc_path):
             if path.startswith(wc_path):
                 path = path[len(wc_path):]
         yield dict(path=path)
+
 
 
 def version():
