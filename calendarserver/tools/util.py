@@ -453,6 +453,7 @@ def prettyRecord(record):
     )
 
 
+
 def displayNameForCollection(collection):
     try:
         displayName = collection.properties()[
@@ -463,6 +464,7 @@ def displayNameForCollection(collection):
         displayName = collection.name()
 
     return displayName
+
 
 
 def agoString(delta):
@@ -481,6 +483,7 @@ def agoString(delta):
     return agoString
 
 
+
 def locationString(component):
     locationProps = component.properties("LOCATION")
     if locationProps is not None:
@@ -491,6 +494,7 @@ def locationString(component):
     else:
         locationString = ""
     return locationString
+
 
 
 @inlineCallbacks
@@ -544,6 +548,7 @@ def getEventDetails(event):
         detail["location"] = locationString(component.mainComponent())
 
     returnValue(detail)
+
 
 
 class ProxyError(Exception):

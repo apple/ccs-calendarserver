@@ -145,8 +145,10 @@ def listTrashedCollectionsForPrincipal(service, store, principalUID):
     yield store.inTransaction(label="List trashed collections", operation=doIt)
 
 
+
 def startString(pydt):
     return pydt.getLocaleDateTime(DateTime.FULLDATE, False, True, pydt.getTimezoneID())
+
 
 
 @inlineCallbacks
@@ -308,6 +310,7 @@ def restoreTrashedEvent(service, store, principalUID, resourceID):
     yield store.inTransaction(label="Restore trashed event", operation=doIt)
 
 
+
 @inlineCallbacks
 def emptyTrashForPrincipal(service, store, principalUID, days, txn=None, verbose=True):
     directory = store.directoryService()
@@ -316,6 +319,7 @@ def emptyTrashForPrincipal(service, store, principalUID, days, txn=None, verbose
         if verbose:
             print("No record found for:", principalUID)
         returnValue(None)
+
 
     @inlineCallbacks
     def doIt(txn):
@@ -331,9 +335,6 @@ def emptyTrashForPrincipal(service, store, principalUID, days, txn=None, verbose
         yield store.inTransaction(label="Empty trash", operation=doIt)
     else:
         yield doIt(txn)
-
-
-
 
 
 
