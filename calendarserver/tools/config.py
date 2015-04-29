@@ -17,6 +17,13 @@
 ##
 from __future__ import print_function
 
+# Suppress warning that occurs on Linux
+import sys
+if sys.platform.startswith("linux"):
+    from Crypto.pct_warnings import PowmInsecureWarning
+    import warnings
+    warnings.simplefilter("ignore", PowmInsecureWarning)
+
 """
 This tool gets and sets Calendar Server configuration keys
 """
@@ -26,7 +33,6 @@ import os
 import plistlib
 import signal
 import subprocess
-import sys
 import xml
 
 from plistlib import readPlistFromString, writePlistToString

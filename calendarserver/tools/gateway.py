@@ -17,10 +17,16 @@
 ##
 from __future__ import print_function
 
+# Suppress warning that occurs on Linux
+import sys
+if sys.platform.startswith("linux"):
+    from Crypto.pct_warnings import PowmInsecureWarning
+    import warnings
+    warnings.simplefilter("ignore", PowmInsecureWarning)
+
 from getopt import getopt, GetoptError
 import os
 from plistlib import readPlistFromString, writePlistToString
-import sys
 import uuid
 import xml
 
