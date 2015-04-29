@@ -25,6 +25,7 @@ __all__ = [
     "getRootResource",
     "getSSLPassphrase",
     "MemoryLimitService",
+    "postAlert",
     "preFlightChecks",
 ]
 

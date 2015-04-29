@@ -32,6 +32,8 @@ from pwd import getpwnam
 from grp import getgrnam
 from uuid import UUID
 
+from calendarserver.tools import diagnose
+
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
@@ -140,12 +142,22 @@ def checkDirectory(dirpath, description, access=None, create=None, wait=False):
     # Note: we have to use print here because the logging mechanism has not
     # been set up yet.
 
-    if not os.path.exists(dirpath):
+    if not os.path.exists(dirpath) or (diagnose.detectPhantomVolume(dirpath) == diagnose.EXIT_CODE_PHANTOM_DATA_VOLUME):
 
         if wait:
-            while not os.path.exists(dirpath):
-                print("Path does not exist: %s" % (dirpath,))
-                sleep(1)
+
+            # If we're being told to wait, post an alert that we can't continue
+            # until the volume is mounted
+            if not os.path.exists(dirpath) or (diagnose.detectPhantomVolume(dirpath) == diagnose.EXIT_CODE_PHANTOM_DATA_VOLUME):
+                from calendarserver.tap.util import postAlert
+                postAlert("MissingDataVolumeAlert", ["volumePath", dirpath])
+
+            while not os.path.exists(dirpath) or (diagnose.detectPhantomVolume(dirpath) == diagnose.EXIT_CODE_PHANTOM_DATA_VOLUME):
+                if not os.path.exists(dirpath):
+                    print("Path does not exist: %s" % (dirpath,))
+                else:
+                    print("Path is not a real volume: %s" % (dirpath,))
+                sleep(5)
         else:
             try:
                 mode, username, groupname = create
