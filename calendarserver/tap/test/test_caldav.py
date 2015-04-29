@@ -444,11 +444,13 @@ class ModesOnUNIXSocketsTests(CalDAVServiceMakerTestBase):
             self.assertEquals(socketService.gid, self.alternateGroup)
 
 
+
 class TestLoggingProtocol(LoggingProtocol):
 
     def processEnded(self, reason):
         LoggingProtocol.processEnded(self, reason)
         self.service.processEnded(self.name)
+
 
 
 class TestProcessMonitor(ProcessMonitor):
@@ -472,6 +474,7 @@ class TestProcessMonitor(ProcessMonitor):
         self._reactor.spawnProcess(
             proto, args[0], args, uid=uid, gid=gid, env=env
         )
+
 
     def stopService(self):
         """
@@ -500,6 +503,8 @@ class TestProcessMonitor(ProcessMonitor):
             deferred = self.deferreds.pop(name, None)
             if deferred is not None:
                 deferred.callback(None)
+
+
 
 class MemcacheSpawner(TestCase):
 
@@ -640,8 +645,8 @@ class SlaveServiceTests(CalDAVServiceMakerTestBase):
                     serviceArgs[0],
                     dict(expectedSubServices)[serviceClass]
                 )
-        # TCP+SSL services for IPv4, TCP+SSL services for IPv6.
-        self.assertEquals(checked, 4)
+        # TCP+SSL services for each bind address
+        self.assertEquals(checked, 2 * len(config.BindAddresses))
 
 
     def test_SSLKeyConfiguration(self):
