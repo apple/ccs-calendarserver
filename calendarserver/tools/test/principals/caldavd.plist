@@ -91,7 +91,7 @@
 
     <!-- Configuration root -->
     <key>ConfigRoot</key>
-    <string>Config</string>
+    <string>config</string>
 
     <!-- Log root -->
     <key>LogRoot</key>
