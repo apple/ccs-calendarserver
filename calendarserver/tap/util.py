@@ -1245,6 +1245,7 @@ def verifyConfig(config):
     return False, "Neither CalDAV nor CardDAV are enabled"
 
 
+
 def verifyServerRoot(config):
     """
     Ensure server root is not on a phantom volume
@@ -1258,6 +1259,7 @@ def verifyServerRoot(config):
         return False, "ServerRoot is supposed to be on a non-boot-volume but it's not"
 
     return True, "ServerRoot is ok"
+
 
 
 def verifyTLSCertificate(config):
@@ -1426,6 +1428,7 @@ def getSSLPassphrase(*ignored):
                 return output.strip()
 
     return None
+
 
 
 def postAlert(alertType, args):

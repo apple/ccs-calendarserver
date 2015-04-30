@@ -716,6 +716,7 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
             else:
                 self.fetchNextMessage()
 
+
     def cbFlagUnseen(self, messageList):
         self.removeFlags(
             messageList, ("\\Seen",), uid=True

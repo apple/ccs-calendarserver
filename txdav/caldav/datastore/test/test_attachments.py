@@ -650,7 +650,6 @@ END:VCALENDAR
         L{ICalendarObject.remove} will remove an associated calendar
         attachment.
         """
-        from twistedcaldav.stdconfig import config
         self.patch(config, "EnableTrashCollection", True)
 
         # Create attachment
@@ -705,7 +704,6 @@ END:VCALENDAR
         L{ICalendarObject.remove} will remove all associated calendar
         attachments.
         """
-        from twistedcaldav.stdconfig import config
         self.patch(config, "EnableTrashCollection", True)
 
         # Create attachment
@@ -1279,7 +1277,6 @@ class ManagedAttachmentTests(AttachmentTests):
         L{ICalendarObject.remove} will remove an associated calendar
         attachment.
         """
-        from twistedcaldav.stdconfig import config
         self.patch(config, "EnableTrashCollection", True)
 
         # Create attachment
