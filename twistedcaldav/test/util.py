@@ -564,7 +564,7 @@ class CapturingProcessProtocol(ProcessProtocol):
         Some output was received on stderr.
         """
         # Ignore the Postgres "NOTICE" output
-        if "NOTICE" in data:
+        if not data or "NOTICE" in data or "PowmInsecureWarning" in data:
             return
 
         self.error.append(data)

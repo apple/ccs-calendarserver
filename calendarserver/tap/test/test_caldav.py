@@ -1334,7 +1334,7 @@ class ReExecServiceTests(StoreTestCase):
         START and STOP appear in the process output.
         """
         # Inherit the reactor used to run trial
-        reactorArg = ""
+        reactorArg = "--reactor=select"
         for arg in sys.argv:
             if arg.startswith("--reactor"):
                 reactorArg = arg
@@ -1346,7 +1346,7 @@ class ReExecServiceTests(StoreTestCase):
         proc = reactor.spawnProcess(
             CapturingProcessProtocol(deferred, None),
             sys.executable,
-            [sys.executable, twistd, reactorArg, '-n', '-y', tacFilePath],
+            [sys.executable, '-W', 'ignore', twistd, reactorArg, '-n', '-y', tacFilePath],
             env=os.environ
         )
         reactor.callLater(3, proc.signalProcess, "HUP")
