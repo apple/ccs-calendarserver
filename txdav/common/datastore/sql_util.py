@@ -653,7 +653,7 @@ def _normalizeHomeUUIDsIn(t, homeType):
             estimate = "unknown"
         log.info(
             "Scanning UID {uid} [{homeType}] "
-            "({pct!0.2d}%, {estimate} seconds remaining)...",
+            "({pct:0.2d}%, {estimate} seconds remaining)...",
             uid=UID, pct=(n / float(total)) * 100, estimate=estimate,
             homeType=homeTypeName
         )
