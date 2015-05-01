@@ -5813,7 +5813,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             childResourceIDs = [dataRow[2] for dataRow in dataRows]
 
             propertyStores = yield PropertyStore.forMultipleResourcesWithResourceIDs(
-                home.uid(), None, None, home._txn, childResourceIDs
+                home.uid(), None, home.authzuid(), home._txn, childResourceIDs
             )
 
             # Get revisions
@@ -6938,9 +6938,9 @@ class CommonObjectResource(FancyEqMixin, object):
             # Get property stores for all these child resources (if any found)
             if parent.objectResourcesHaveProperties():
                 propertyStores = (yield PropertyStore.forMultipleResources(
-                    parent._home.uid(),
-                    None,
-                    None,
+                    parent.ownerHome().uid(),
+                    parent.viewerHome().uid(),
+                    parent._home.authzuid(),
                     parent._txn,
                     cls._objectSchema.RESOURCE_ID,
                     cls._objectSchema.PARENT_RESOURCE_ID,
@@ -7044,9 +7044,9 @@ class CommonObjectResource(FancyEqMixin, object):
             # Get property stores for all these child resources
             if parent.objectResourcesHaveProperties():
                 propertyStores = (yield PropertyStore.forMultipleResourcesWithResourceIDs(
-                    parent._home.uid(),
-                    None,
-                    None,
+                    parent.ownerHome().uid(),
+                    parent.viewerHome().uid(),
+                    parent._home.authzuid(),
                     parent._txn,
                     tuple([row[0] for row in dataRows]),
                 ))

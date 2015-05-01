@@ -1188,7 +1188,7 @@ END:VCARD
             # Get property stores for all these child resources (if any found)
             addressbookPropertyStoreIDs = [ownerHomeItem._addressbookPropertyStoreID for ownerHomeItem in ownerHomeToDataRowMap]
             propertyStores = yield PropertyStore.forMultipleResourcesWithResourceIDs(
-                home.uid(), None, None, home._txn, addressbookPropertyStoreIDs
+                home.uid(), None, home.authzuid(), home._txn, addressbookPropertyStoreIDs
             )
 
             addressbookResourceIDs = [ownerHomeItem.addressbook()._resourceID for ownerHomeItem in ownerHomeToDataRowMap]
