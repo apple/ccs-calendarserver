@@ -1328,6 +1328,7 @@ def verifyAPNSCertificate(config):
                         cert=protoConfig.CertificatePath
                     )
                 )
+                postAlert("PushNotificationCertificateAlert", [])
                 return False, message
 
             try:
@@ -1351,6 +1352,7 @@ def verifyAPNSCertificate(config):
                         reason=str(e)
                     )
                 )
+                postAlert("PushNotificationCertificateAlert", [])
                 return False, message
 
         return True, "APNS enabled"

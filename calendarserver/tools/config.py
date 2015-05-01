@@ -29,6 +29,7 @@ This tool gets and sets Calendar Server configuration keys
 """
 
 from getopt import getopt, GetoptError
+from itertools import chain
 import os
 import plistlib
 import signal
@@ -84,6 +85,9 @@ WRITABLE_CONFIG_KEYS = [
     "SSLPrivateKey",
 ]
 
+READONLY_CONFIG_KEYS = [
+    "ServerRoot",
+]
 
 
 
@@ -351,7 +355,7 @@ class Runner(object):
         @type command: C{dict}
         """
         result = {}
-        for keyPath in WRITABLE_CONFIG_KEYS:
+        for keyPath in chain(WRITABLE_CONFIG_KEYS, READONLY_CONFIG_KEYS):
             value = getKeyPath(config, keyPath)
             if value is not None:
                 # Note: config contains utf-8 encoded strings, but plistlib

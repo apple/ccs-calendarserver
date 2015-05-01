@@ -133,8 +133,8 @@ class ConfigTestCase(RunCommandTestCase):
         self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["Enabled"], False)
         self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["CalDAV"]["CertificatePath"], "/example/calendar.cer")
 
-        # Verify not all keys are present, such as ServerRoot which is not writable
-        self.assertFalse("ServerRoot" in results["result"])
+        # Verify not all keys are present, such as umask which is not accessible
+        self.assertFalse("umask" in results["result"])
 
 
     @inlineCallbacks
@@ -153,6 +153,9 @@ class ConfigTestCase(RunCommandTestCase):
         self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["CalDAV"]["CertificatePath"], "/example/changed.cer")
         hostName = "hostname_%s_%s" % (unichr(208), u"\ud83d\udca3")
         self.assertTrue(results["result"]["ServerHostName"].endswith(hostName))
+
+        # We tried to modify ServerRoot, but make sure our change did not take
+        self.assertNotEquals(results["result"]["ServerRoot"], "/You/Shall/Not/Pass")
 
         # The static plist should still have EnableCalDAV = True
         staticPlist = plistlib.readPlist(self.configFileName)
@@ -241,6 +244,8 @@ command_writeConfig = """<?xml version="1.0" encoding="UTF-8"?>
             <true/>
             <key>Notifications.Services.APNS.CalDAV.CertificatePath</key>
             <string>/example/changed.cer</string>
+            <key>ServerRoot</key>
+            <string>/You/Shall/Not/Pass</string>
             <key>ServerHostName</key>
             <string>hostname_%s_%s</string>
         </dict>
