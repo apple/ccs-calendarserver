@@ -454,7 +454,7 @@ class CalDAVOptions (Options):
         oldmask = umask(config.umask)
         if oldmask != config.umask:
             self.log.info(
-                "WARNING: changing umask from: 0{old!03o} to 0{new!03o}",
+                "WARNING: changing umask from: 0{old:03o} to 0{new:03o}",
                 old=oldmask, new=config.umask
             )
         self.parent["umask"] = config.umask
