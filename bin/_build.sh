@@ -444,7 +444,7 @@ c_dependencies () {
   # value of OPENSSL_VERSION_NUBMER for use in inequality comparison.
   ruler;
 
-  local min_ssl_version="9470367";  # OpenSSL 0.9.8y
+  local min_ssl_version="9470463";  # OpenSSL 0.9.8zf
 
   local ssl_version="$(c_macro openssl/ssl.h OPENSSL_VERSION_NUMBER)";
   if [ -z "${ssl_version}" ]; then ssl_version="0x0"; fi;
@@ -453,13 +453,13 @@ c_dependencies () {
   if [ "${ssl_version}" -ge "${min_ssl_version}" ]; then
     using_system "OpenSSL";
   else
-    local v="0.9.8y";
+    local v="0.9.8zf";
     local n="openssl";
     local p="${n}-${v}";
 
     # use 'config' instead of 'configure'; 'make' instead of 'jmake'.
     # also pass 'shared' to config to build shared libs.
-    c_dependency -c "config" -m "47c7fb37f78c970f1d30aa2f9e9e26d8" \
+    c_dependency -c "config" -m "c69a4a679233f7df189e1ad6659511ec" \
       -p "make depend" -b "make" \
       "openssl" "${p}" \
       "http://www.openssl.org/source/${p}.tar.gz" "shared";
