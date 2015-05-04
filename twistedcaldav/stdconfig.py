@@ -1611,10 +1611,6 @@ def _updateNotifications(configDict, reloading=False):
                     else:
                         log.error("APNS certificate path not specified")
 
-                if not service[protocol]["Topic"]:
-                    log.error("APNS cannot proceed; disabling APNS")
-                    service["Enabled"] = False
-
                 # If we already have the cert passphrase, don't fetch it again
                 if service[protocol]["Passphrase"]:
                     continue

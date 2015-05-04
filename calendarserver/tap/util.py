@@ -33,6 +33,7 @@ from calendarserver.accesslog import DirectoryLogWrapperResource
 from calendarserver.provision.root import RootResource
 from calendarserver.push.applepush import APNSubscriptionResource
 from calendarserver.push.notifier import NotifierFactory
+from calendarserver.push.util import getAPNTopicFromCertificate
 from calendarserver.tools import diagnose
 from calendarserver.tools.util import checkDirectory
 from calendarserver.webadmin.landing import WebAdminLandingResource
@@ -76,6 +77,8 @@ from twistedcaldav.stdconfig import config
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.timezoneservice import TimezoneServiceResource
 from twistedcaldav.timezonestdservice import TimezoneStdServiceResource
+from twistedcaldav.util import getPasswordFromKeychain
+from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
 
 from txdav.base.datastore.dbapiclient import DBAPIConnector
 from txdav.base.datastore.subpostgres import PostgresService
@@ -1318,9 +1321,13 @@ def verifyAPNSCertificate(config):
 
     if config.Notifications.Services.APNS.Enabled:
 
-        for protocol in ("CalDAV", "CardDAV"):
+        for protocol, accountName in (
+            ("CalDAV", "apns:com.apple.calendar"),
+            ("CardDAV", "apns:com.apple.contact"),
+        ):
             protoConfig = config.Notifications.Services.APNS[protocol]
 
+            # Verify the cert exists
             if not os.path.exists(protoConfig.CertificatePath):
                 message = (
                     "The {proto} APNS certificate ({cert}) is missing".format(
@@ -1331,6 +1338,27 @@ def verifyAPNSCertificate(config):
                 postAlert("PushNotificationCertificateAlert", [])
                 return False, message
 
+            # Verify we can extract the topic
+            if not protoConfig.Topic:
+                topic = getAPNTopicFromCertificate(protoConfig.CertificatePath)
+                protoConfig.Topic = topic
+            if not protoConfig.Topic:
+                postAlert("PushNotificationCertificateAlert", [])
+                return False, message
+
+            # Verify we can acquire the passphrase
+            try:
+                passphrase = getPasswordFromKeychain(accountName)
+                protoConfig.Passphrase = passphrase
+            except KeychainAccessError:
+                # The system doesn't support keychain
+                pass
+            except KeychainPasswordNotFound:
+                # The password doesn't exist in the keychain.
+                postAlert("PushNotificationCertificateAlert", [])
+                return False, message
+
+            # Let OpenSSL try to use the cert
             try:
                 if protoConfig.Passphrase:
                     passwdCallback = lambda *ignored: protoConfig.Passphrase
