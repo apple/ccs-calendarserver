@@ -584,4 +584,5 @@ class CapturingProcessProtocol(ProcessProtocol):
         if why.value.exitCode == 0 and not self.error:
             self.deferred.callback(''.join(self.output))
         else:
-            self.deferred.errback(ErrorOutput(repr(''.join(self.error))))
+            errtxt = "Code: {}, Errors: {}".format(why.value.exitCode, repr(''.join(self.error)))
+            self.deferred.errback(ErrorOutput(errtxt))
