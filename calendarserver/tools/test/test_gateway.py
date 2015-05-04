@@ -43,25 +43,25 @@ class RunCommandTestCase(TestCase):
 
         self.serverRoot = self.mktemp()
         os.mkdir(self.serverRoot)
-        absoluteServerRoot = os.path.abspath(self.serverRoot)
+        self.absoluteServerRoot = os.path.abspath(self.serverRoot)
 
-        configRoot = os.path.join(absoluteServerRoot, "Config")
+        configRoot = os.path.join(self.absoluteServerRoot, "Config")
         if not os.path.exists(configRoot):
             os.makedirs(configRoot)
 
-        dataRoot = os.path.join(absoluteServerRoot, "Data")
+        dataRoot = os.path.join(self.absoluteServerRoot, "Data")
         if not os.path.exists(dataRoot):
             os.makedirs(dataRoot)
 
-        documentRoot = os.path.join(absoluteServerRoot, "Documents")
+        documentRoot = os.path.join(self.absoluteServerRoot, "Documents")
         if not os.path.exists(documentRoot):
             os.makedirs(documentRoot)
 
-        logRoot = os.path.join(absoluteServerRoot, "Logs")
+        logRoot = os.path.join(self.absoluteServerRoot, "Logs")
         if not os.path.exists(logRoot):
             os.makedirs(logRoot)
 
-        runRoot = os.path.join(absoluteServerRoot, "Run")
+        runRoot = os.path.join(self.absoluteServerRoot, "Run")
         if not os.path.exists(runRoot):
             os.makedirs(runRoot)
 
@@ -75,7 +75,7 @@ class RunCommandTestCase(TestCase):
 
         databaseRoot = os.path.abspath("_spawned_scripts_db" + str(os.getpid()))
         newConfig = template % {
-            "ServerRoot": absoluteServerRoot,
+            "ServerRoot": self.absoluteServerRoot,
             "DataRoot": dataRoot,
             "DatabaseRoot": databaseRoot,
             "DocumentRoot": documentRoot,
@@ -468,8 +468,11 @@ class GatewayTestCase(RunCommandTestCase):
         self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["Enabled"], False)
         self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["CalDAV"]["CertificatePath"], "/example/calendar.cer")
 
-        # Verify not all keys are present, such as ServerRoot which is not writable
-        self.assertFalse("ServerRoot" in results["result"])
+        # This is a read only key that is returned
+        self.assertEquals(results["result"]["ServerRoot"], self.absoluteServerRoot)
+
+        # Verify other non-writeable keys are not present, such as DataRoot which is not writable
+        self.assertFalse("DataRoot" in results["result"])
 
 
     @inlineCallbacks
