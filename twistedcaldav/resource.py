@@ -868,21 +868,13 @@ class CalDAVResource (
     ##
 
     def displayName(self):
-        if self.isAddressBookCollection() and not self.hasDeadProperty((dav_namespace, "displayname")):
-            return None
-
         if 'record' in dir(self):
             if self.record.fullNames:
                 return self.record.fullNames[0]
             elif self.record.shortNames:
                 return self.record.shortNames[0]
-            else:
-                return super(DAVResource, self).displayName()
-        else:
-            result = super(DAVResource, self).displayName()
-            if not result:
-                result = self.name()
-            return result
+
+        return super(DAVResource, self).displayName()
 
 
     def name(self):

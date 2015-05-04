@@ -155,7 +155,7 @@ def http_PROPFIND(self, request):
 
     for respcode, resource, uri in resources:
         if respcode == responsecode.OK:
-            if search_properties is "names":
+            if search_properties == "names":
                 try:
                     resource_properties = (yield resource.listProperties(request))
                 except:
@@ -171,7 +171,7 @@ def http_PROPFIND(self, request):
                     responsecode.NOT_FOUND : [],
                 }
 
-                if search_properties is "all":
+                if search_properties == "all":
                     properties_to_enumerate = (yield resource.listAllprop(request))
                 else:
                     properties_to_enumerate = search_properties
@@ -191,9 +191,9 @@ def http_PROPFIND(self, request):
                         else:
                             if resource_property is not None:
                                 properties_by_status[responsecode.OK].append(resource_property)
-                            elif not returnMinimal:
+                            elif not returnMinimal and search_properties != "all":
                                 properties_by_status[responsecode.NOT_FOUND].append(propertyName(property))
-                    elif not returnMinimal:
+                    elif not returnMinimal and search_properties != "all":
                         properties_by_status[responsecode.NOT_FOUND].append(propertyName(property))
 
             propstats = []
