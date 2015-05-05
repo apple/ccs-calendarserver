@@ -174,7 +174,8 @@ DEFAULT_CONFIG = {
     #    This configures the actual network address that the server binds to.
     #
 
-    "RequestSocket": "/tmp/caldavd_requests.sock",
+    "RequestSocket": "", # Socket file to listen for requests on; if set, the
+                         # server will not bind to any TCP ports
 
     "BindAddresses": [], # List of IP addresses to bind to [empty = all]
     "BindHTTPPorts": [], # List of port numbers to bind to for HTTP

@@ -1113,6 +1113,7 @@ class CalDAVServiceMaker (object):
             # recvmsg() and SCM_RIGHTS.
 
             if config.RequestSocket:
+                # TLS will be handled by a front-end web proxy
                 contextFactory = None
             else:
                 try:
@@ -1754,6 +1755,7 @@ class CalDAVServiceMaker (object):
             dispatcher = None
 
         if config.RequestSocket:
+            # Requests will arrive via Unix domain socket file
             cl.addSocketFileService(
                 "TCP", config.RequestSocket, config.ListenBacklog
             )
