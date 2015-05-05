@@ -78,7 +78,7 @@ def svn_info(wc_path):
         location = url.text[len(root.text):]
     else:
         location = url.text
-    project, branch = location.strip("/").split("/")
+    project, branch = location.strip("/").split("/", 1)
 
     return dict(
         root=root.text,
@@ -180,10 +180,10 @@ def version():
         return "{}.b1.dev{}".format(base_version, info["revision"])
 
     # This is some unknown branch or tag...
-    return "{}.a1.dev{}+{}".format(
+    return "{}a1.dev{}+{}".format(
         base_version,
         info["revision"],
-        info["branch"].replace("/", "."),
+        info["branch"].replace("/", ".").replace("-", "."),
     )
 
 
