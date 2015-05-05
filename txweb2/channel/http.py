@@ -116,7 +116,7 @@ def _cachedGetHostByAddr(hostaddr):
     if hostname is None:
         try:
             hostname = socket.gethostbyaddr(hostaddr)[0]
-        except socket.herror:
+        except (socket.herror, socket.gaierror):
             hostname = hostaddr
         _cachedHostNames[hostaddr] = hostname
     return hostname
