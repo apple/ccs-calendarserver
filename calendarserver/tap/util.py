@@ -1344,6 +1344,7 @@ def verifyAPNSCertificate(config):
                 protoConfig.Topic = topic
             if not protoConfig.Topic:
                 postAlert("PushNotificationCertificateAlert", [])
+                message = "Cannot extract APN topic"
                 return False, message
 
             # Verify we can acquire the passphrase
@@ -1356,6 +1357,7 @@ def verifyAPNSCertificate(config):
             except KeychainPasswordNotFound:
                 # The password doesn't exist in the keychain.
                 postAlert("PushNotificationCertificateAlert", [])
+                message = "Cannot retrieve APN passphrase from keychain"
                 return False, message
 
             # Let OpenSSL try to use the cert
