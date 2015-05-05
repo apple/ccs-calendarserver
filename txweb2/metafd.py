@@ -34,6 +34,7 @@ from twisted.internet import reactor
 from twisted.python.util import FancyStrMixin
 from twisted.internet.tcp import Server
 from twext.internet.sendfdport import IStatusWatcher
+from twext.internet.socketfile import MaxAcceptSocketFileServer
 
 log = Logger()
 
@@ -342,6 +343,14 @@ class ConnectionLimiter(MultiService, object):
             port, lipf,
             interface=interface,
             backlog=backlog
+        ).setServiceParent(self)
+
+
+    def addSocketFileService(self, description, address, backlog=None):
+        lipf = LimitingInheritingProtocolFactory(self, description)
+        self.factories.append(lipf)
+        MaxAcceptSocketFileServer(
+            lipf, address, backlog=backlog
         ).setServiceParent(self)
 
 

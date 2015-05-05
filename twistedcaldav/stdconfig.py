@@ -173,6 +173,10 @@ DEFAULT_CONFIG = {
     #
     #    This configures the actual network address that the server binds to.
     #
+
+    "RequestSocket": "", # Socket file to listen for requests on; if set, the
+                         # server will not bind to any TCP ports
+
     "BindAddresses": [], # List of IP addresses to bind to [empty = all]
     "BindHTTPPorts": [], # List of port numbers to bind to for HTTP
                          # [empty = same as "Port"]
@@ -1213,6 +1217,7 @@ RELATIVE_PATHS = [
     ("RunRoot", "PIDFile"),
     ("RunRoot", ("Stats", "UnixStatsSocket",)),
     ("RunRoot", "ControlSocket"),
+    ("RunRoot", "RequestSocket"),
     ("RunRoot", ("Memcached", "Pools", "Default", "MemcacheSocket")),
     ("RunRoot", ("DirectoryProxy", "SocketPath",)),
 ]

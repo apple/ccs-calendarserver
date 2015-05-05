@@ -1112,17 +1112,21 @@ class CalDAVServiceMaker (object):
             # Inherit a single socket to receive accept()ed connections via
             # recvmsg() and SCM_RIGHTS.
 
-            try:
-                contextFactory = self.createContextFactory()
-            except SSLError, e:
-                self.log.error(
-                    "Unable to set up SSL context factory: {error}",
-                    error=e
-                )
-                # None is okay as a context factory for ReportingHTTPService as
-                # long as we will never receive a file descriptor with the
-                # 'SSL' tag on it, since that's the only time it's used.
+            if config.RequestSocket:
+                # TLS will be handled by a front-end web proxy
                 contextFactory = None
+            else:
+                try:
+                    contextFactory = self.createContextFactory()
+                except SSLError, e:
+                    self.log.error(
+                        "Unable to set up SSL context factory: {error}",
+                        error=e
+                    )
+                    # None is okay as a context factory for ReportingHTTPService as
+                    # long as we will never receive a file descriptor with the
+                    # 'SSL' tag on it, since that's the only time it's used.
+                    contextFactory = None
 
             ReportingHTTPService(
                 requestFactory, int(config.MetaFD), contextFactory
@@ -1750,40 +1754,47 @@ class CalDAVServiceMaker (object):
             s._inheritedSockets = []
             dispatcher = None
 
-        for bindAddress in self._allBindAddresses():
-            self._validatePortConfig()
-            if config.UseMetaFD:
-                portsList = [(config.BindHTTPPorts, "TCP")]
-                if config.EnableSSL:
-                    portsList.append((config.BindSSLPorts, "SSL"))
-                for ports, description in portsList:
-                    for port in ports:
-                        cl.addPortService(
-                            description, port, bindAddress,
-                            config.ListenBacklog
+        if config.RequestSocket:
+            # Requests will arrive via Unix domain socket file
+            cl.addSocketFileService(
+                "TCP", config.RequestSocket, config.ListenBacklog
+            )
+
+        else:
+            for bindAddress in self._allBindAddresses():
+                self._validatePortConfig()
+                if config.UseMetaFD:
+                    portsList = [(config.BindHTTPPorts, "TCP")]
+                    if config.EnableSSL:
+                        portsList.append((config.BindSSLPorts, "SSL"))
+                    for ports, description in portsList:
+                        for port in ports:
+                            cl.addPortService(
+                                description, port, bindAddress,
+                                config.ListenBacklog
+                            )
+                else:
+                    def _openSocket(addr, port):
+                        log.info(
+                            "Opening socket for inheritance at {address}:{port}",
+                            address=addr, port=port
                         )
-            else:
-                def _openSocket(addr, port):
-                    log.info(
-                        "Opening socket for inheritance at {address}:{port}",
-                        address=addr, port=port
-                    )
-                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    sock.setblocking(0)
-                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                    sock.bind((addr, port))
-                    sock.listen(config.ListenBacklog)
-                    s._inheritedSockets.append(sock)
-                    return sock
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        sock.setblocking(0)
+                        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                        sock.bind((addr, port))
+                        sock.listen(config.ListenBacklog)
+                        s._inheritedSockets.append(sock)
+                        return sock
 
-                for portNum in config.BindHTTPPorts:
-                    sock = _openSocket(bindAddress, int(portNum))
-                    inheritFDs.append(sock.fileno())
-
-                if config.EnableSSL:
-                    for portNum in config.BindSSLPorts:
+                    for portNum in config.BindHTTPPorts:
                         sock = _openSocket(bindAddress, int(portNum))
-                        inheritSSLFDs.append(sock.fileno())
+                        inheritFDs.append(sock.fileno())
+
+                    if config.EnableSSL:
+                        for portNum in config.BindSSLPorts:
+                            sock = _openSocket(bindAddress, int(portNum))
+                            inheritSSLFDs.append(sock.fileno())
 
         # Start listening on the stats socket, for administrators to inspect
         # the current stats on the server.
