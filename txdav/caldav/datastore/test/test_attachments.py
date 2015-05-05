@@ -2007,8 +2007,9 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         yield self._verifyConversion(u"home2", "calendar3", "2-3.2.ics", ("attach_1_4.txt",))
         yield self._verifyConversion(u"home2", "calendar3", "2-3.3.ics", ("attach_1_4.txt",))
 
-        # Paths do not exist
+        # Paths do not exist up to a certain point (the old two-level hash prefix
+        # might still be in use for the managed attachment path)
         for path in self.paths.values():
-            for _ignore in range(4):
+            for _ignore in range(2):
                 self.assertFalse(path.exists(), msg="Still exists: %s" % (path,))
                 path = path.parent()
