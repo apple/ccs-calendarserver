@@ -113,7 +113,6 @@ class ReportingHTTPService(Service, object):
         Create a TCP transport, from a socket object passed by the parent.
         """
         self._connectionCount += 1
-        print("XYZZY create transport", peer)
         transport = Server(skt, protocol, peer, JustEnoughLikeAPort,
                            self._connectionCount, reactor)
         if data == 'SSL':
