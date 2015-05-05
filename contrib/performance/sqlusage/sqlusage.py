@@ -81,9 +81,9 @@ END:VCALENDAR
 
 class SQLUsageSession(CalDAVSession):
 
-    def __init__(self, server, port=None, ssl=False, user="", pswd="", principal=None, root=None, calendar="calendar", logging=False):
+    def __init__(self, server, port=None, ssl=False, afunix=None, user="", pswd="", principal=None, root=None, calendar="calendar", logging=False):
 
-        super(SQLUsageSession, self).__init__(server, port, ssl, user, pswd, principal, root, logging)
+        super(SQLUsageSession, self).__init__(server, port, ssl, afunix, user, pswd, principal, root, logging)
         self.homeHref = "/calendars/users/%s/" % (self.user,)
         self.calendarHref = "/calendars/users/%s/%s/" % (self.user, calendar,)
         self.inboxHref = "/calendars/users/%s/inbox/" % (self.user,)
