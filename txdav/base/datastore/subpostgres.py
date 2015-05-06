@@ -658,10 +658,14 @@ class PostgresService(MultiService):
             # database.  (This also happens in command-line tools.)
             if self.shouldStopDatabase:
                 monitor = PostgresMonitor()
-                # FIXME: why is this 'logfile' and not self.logfile?
+                args = [
+                    self._pgCtl, "stop",
+                    "--log={}".format(self.logFile),
+                ]
+                log.info("Requesting postgres stop via: {args}", args=args)
                 self.reactor.spawnProcess(
                     monitor, self._pgCtl,
-                    [self._pgCtl, "-l", "logfile", "stop"],
+                    args,
                     env=self.env, path=self.workingDir.path,
                     uid=self.uid, gid=self.gid,
                 )
