@@ -175,8 +175,8 @@ DEFAULT_CONFIG = {
     #
 
     "UseSocketFiles" : False, # If True, server won't bind to any TCP sockets
-    "SecuredRequestsSocket": "", # Socket file to listen for secure requests on
-    "UnsecuredRequestsSocket": "", # Socket file to listen for insecure requests on
+    "SecuredRequestsSocket": "caldavd_secured.sock", # Socket file to listen for secure requests on
+    "UnsecuredRequestsSocket": "caldavd_unsecured.sock", # Socket file to listen for insecure requests on
 
     "BindAddresses": [], # List of IP addresses to bind to [empty = all]
     "BindHTTPPorts": [], # List of port numbers to bind to for HTTP
