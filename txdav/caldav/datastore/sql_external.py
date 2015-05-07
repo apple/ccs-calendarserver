@@ -22,6 +22,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twext.python.log import Logger
 
+from txdav.caldav.datastore.scheduling.imip.token import iMIPTokenRecord
 from txdav.caldav.datastore.sql import CalendarHome, Calendar, CalendarObject
 from txdav.caldav.datastore.sql_attachment import Attachment, AttachmentLink
 from txdav.caldav.datastore.sql_directory import GroupAttendeeRecord, GroupShareeRecord
@@ -187,6 +188,12 @@ class CalendarHomeExternal(CommonHomeExternal, CalendarHome):
         No children.
         """
         raise AssertionError("CommonHomeExternal: not supported")
+
+
+    @inlineCallbacks
+    def iMIPTokens(self):
+        results = yield self._txn.store().conduit.send_home_imip_tokens(self)
+        returnValue(map(iMIPTokenRecord.deserialize, results))
 
 
 

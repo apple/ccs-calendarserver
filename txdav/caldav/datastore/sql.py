@@ -59,6 +59,7 @@ from txdav.caldav.datastore.query.generator import CalDAVSQLQueryGenerator
 from txdav.caldav.datastore.scheduling.cuaddress import calendarUserFromCalendarUserAddress
 from txdav.caldav.datastore.scheduling.icaldiff import iCalDiff
 from txdav.caldav.datastore.scheduling.icalsplitter import iCalSplitter
+from txdav.caldav.datastore.scheduling.imip.token import iMIPTokenRecord
 from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 from txdav.caldav.datastore.scheduling.utils import uidFromCalendarUserAddress
 from txdav.caldav.datastore.sql_attachment import Attachment, DropBoxAttachment, \
@@ -1032,6 +1033,10 @@ class CalendarHome(CommonHome):
         inbox = (yield self.calendarWithName("inbox"))
         if inbox is not None:
             yield inbox.notifyPropertyChanged()
+
+
+    def iMIPTokens(self):
+        return iMIPTokenRecord.query(self._txn, iMIPTokenRecord.organizer == "urn:x-uid:{}".format(self.uid()))
 
 
 CalendarHome._register(ECALENDARTYPE)

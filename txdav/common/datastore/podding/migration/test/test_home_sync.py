@@ -22,6 +22,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.filepath import FilePath
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component, normalize_iCalStr
+from txdav.caldav.datastore.scheduling.imip.token import iMIPTokenRecord
 from txdav.caldav.datastore.sql import ManagedAttachment
 from txdav.caldav.datastore.sql_directory import GroupShareeRecord
 from txdav.common.datastore.podding.migration.home_sync import CrossPodHomeSync
@@ -1073,7 +1074,7 @@ class TestSharingSync(MultiStoreConduitTest):
     @inlineCallbacks
     def test_shared_collections_reconcile(self):
         """
-        Test that L{sharedCollectionsReconcile} copies over the full set of delegates and caches associated groups..
+        Test that L{sharedCollectionsReconcile} copies over the full set of delegates and caches associated groups.
         """
 
         # Create home
@@ -1146,7 +1147,7 @@ class TestSharingSync(MultiStoreConduitTest):
     @inlineCallbacks
     def test_group_shared_collections_reconcile(self):
         """
-        Test that L{sharedCollectionsReconcile} copies over the full set of delegates and caches associated groups..
+        Test that L{sharedCollectionsReconcile} copies over the full set of delegates and caches associated groups.
         """
 
         # Create home
@@ -1305,3 +1306,111 @@ END:VCALENDAR""".format(**now)
         group04 = yield self.theTransactionUnderTest(1).groupByUID(u"group04")
         self.assertEqual(record.groupID, group04.groupID)
         self.assertEqual(record.membershipHash, group04.membershipHash)
+
+
+
+class TestiMIPTokensSync(MultiStoreConduitTest):
+    """
+    Test that L{CrossPodHomeSync} iMIP token sync works.
+    """
+
+    @inlineCallbacks
+    def setUp(self):
+        self.accounts = FilePath(__file__).sibling("accounts").child("groupAccounts.xml")
+        self.augments = FilePath(__file__).sibling("accounts").child("augments.xml")
+        yield super(TestiMIPTokensSync, self).setUp()
+        yield self.populate()
+
+
+    @inlineCallbacks
+    def populate(self):
+        yield populateCalendarsFrom(self.requirements, self.theStoreUnderTest(0))
+
+    requirements = {
+        "user01" : None,
+        "user02" : None,
+        "user06" : None,
+        "user07" : None,
+        "user08" : None,
+        "user09" : None,
+        "user10" : None,
+    }
+
+
+    @inlineCallbacks
+    def _createTokens(self, txn, organizer, attendee_prefix, number):
+
+        for n in range(number):
+            yield iMIPTokenRecord.create(
+                txn,
+                token=str(uuid4()),
+                organizer=organizer,
+                attendee="mailto:{}{}@example.com".format(attendee_prefix, n + 1),
+                icaluid=str(uuid4()),
+            )
+
+
+    @inlineCallbacks
+    def test_token_sync(self):
+        """
+        Test that L{iMIPTokensReconcile} copies over the full set of iMIP tokens.
+        """
+
+        # Start with tokens on each pod for different sets of users
+        txn = self.theTransactionUnderTest(0)
+        yield self._createTokens(txn, "urn:x-uid:user01", "xyz_user01", 10)
+        yield self._createTokens(txn, "urn:x-uid:user02", "xyz_user02", 10)
+        yield self.commitTransaction(0)
+
+        txn = self.theTransactionUnderTest(1)
+        yield self._createTokens(txn, "urn:x-uid:puser01", "xyz_puser01", 10)
+        yield self._createTokens(txn, "urn:x-uid:puser02", "xyz_puser02", 10)
+        yield self.commitTransaction(1)
+
+        # Double-check tokens are there
+        records = yield iMIPTokenRecord.query(self.theTransactionUnderTest(0), iMIPTokenRecord.organizer == "urn:x-uid:user01")
+        self.assertEqual(len(records), 10)
+        records = yield iMIPTokenRecord.query(self.theTransactionUnderTest(0), iMIPTokenRecord.organizer == "urn:x-uid:user02")
+        self.assertEqual(len(records), 10)
+        records = yield iMIPTokenRecord.query(self.theTransactionUnderTest(0), iMIPTokenRecord.organizer == "urn:x-uid:puser01")
+        self.assertEqual(len(records), 0)
+        records = yield iMIPTokenRecord.query(self.theTransactionUnderTest(0), iMIPTokenRecord.organizer == "urn:x-uid:puser02")
+        self.assertEqual(len(records), 0)
+        yield self.commitTransaction(0)
+
+        records = yield iMIPTokenRecord.query(self.theTransactionUnderTest(1), iMIPTokenRecord.organizer == "urn:x-uid:user01")
+        self.assertEqual(len(records), 0)
+        records = yield iMIPTokenRecord.query(self.theTransactionUnderTest(1), iMIPTokenRecord.organizer == "urn:x-uid:user02")
+        self.assertEqual(len(records), 0)
+        records = yield iMIPTokenRecord.query(self.theTransactionUnderTest(1), iMIPTokenRecord.organizer == "urn:x-uid:puser01")
+        self.assertEqual(len(records), 10)
+        records = yield iMIPTokenRecord.query(self.theTransactionUnderTest(1), iMIPTokenRecord.organizer == "urn:x-uid:puser02")
+        self.assertEqual(len(records), 10)
+        yield self.commitTransaction(1)
+
+        # Do the sync
+        syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
+        yield syncer.loadRecord()
+        count = yield syncer.iMIPTokensReconcile()
+        self.assertEqual(count, 10)
+
+        # Tokens have been copied - original still in place
+        records = yield iMIPTokenRecord.query(self.theTransactionUnderTest(0), iMIPTokenRecord.organizer == "urn:x-uid:user01")
+        self.assertEqual(len(records), 10)
+        records = yield iMIPTokenRecord.query(self.theTransactionUnderTest(0), iMIPTokenRecord.organizer == "urn:x-uid:user02")
+        self.assertEqual(len(records), 10)
+        records = yield iMIPTokenRecord.query(self.theTransactionUnderTest(0), iMIPTokenRecord.organizer == "urn:x-uid:puser01")
+        self.assertEqual(len(records), 0)
+        records = yield iMIPTokenRecord.query(self.theTransactionUnderTest(0), iMIPTokenRecord.organizer == "urn:x-uid:puser02")
+        self.assertEqual(len(records), 0)
+        yield self.commitTransaction(0)
+
+        records = yield iMIPTokenRecord.query(self.theTransactionUnderTest(1), iMIPTokenRecord.organizer == "urn:x-uid:user01")
+        self.assertEqual(len(records), 10)
+        records = yield iMIPTokenRecord.query(self.theTransactionUnderTest(1), iMIPTokenRecord.organizer == "urn:x-uid:user02")
+        self.assertEqual(len(records), 0)
+        records = yield iMIPTokenRecord.query(self.theTransactionUnderTest(1), iMIPTokenRecord.organizer == "urn:x-uid:puser01")
+        self.assertEqual(len(records), 10)
+        records = yield iMIPTokenRecord.query(self.theTransactionUnderTest(1), iMIPTokenRecord.organizer == "urn:x-uid:puser02")
+        self.assertEqual(len(records), 10)
+        yield self.commitTransaction(1)

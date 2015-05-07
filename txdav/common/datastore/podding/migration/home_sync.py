@@ -213,7 +213,7 @@ class CrossPodHomeSync(object):
         yield self.notificationsReconcile()
 
         # TODO: iMIP tokens
-        pass
+        yield self.iMIPTokensReconcile()
 
         # TODO: work items
         pass
@@ -1358,3 +1358,47 @@ class CrossPodHomeSync(object):
         records = yield remote_calendar.migrateBindRecords(None)
         self.accounting("    Updating remote records")
         returnValue(records)
+
+
+    @inlineCallbacks
+    def iMIPTokensReconcile(self):
+        """
+        Sync all the existing L{iMIPTokenRecord} records from the remote store.
+        """
+
+        self.accounting("Starting: iMIPTokensReconcile...")
+        records = yield self.iMIPTokenRecords()
+        self.accounting("  Found {} iMIPToken records".format(len(records)))
+
+        # Batch setting resources for the local home
+        len_records = len(records)
+        while records:
+            yield self.makeiMIPTokens(records[:50])
+            records = records[50:]
+
+        self.accounting("Completed: iMIPTokensReconcile.")
+
+        returnValue(len_records)
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def iMIPTokenRecords(self, txn):
+        """
+        Get all the existing L{iMIPTokenRecord}'s from the remote store.
+        """
+
+        remote_home = yield self._remoteHome(txn)
+        records = yield remote_home.iMIPTokens()
+        returnValue(records)
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def makeiMIPTokens(self, txn, records):
+        """
+        Create L{iMIPTokenRecord} records in the local store.
+        """
+
+        for record in records:
+            yield record.insert(txn)
