@@ -1218,7 +1218,8 @@ RELATIVE_PATHS = [
     ("RunRoot", "PIDFile"),
     ("RunRoot", ("Stats", "UnixStatsSocket",)),
     ("RunRoot", "ControlSocket"),
-    ("RunRoot", "RequestSocket"),
+    ("RunRoot", "SecuredRequestsSocket"),
+    ("RunRoot", "UnsecuredRequestsSocket"),
     ("RunRoot", ("Memcached", "Pools", "Default", "MemcacheSocket")),
     ("RunRoot", ("DirectoryProxy", "SocketPath",)),
 ]
