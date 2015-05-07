@@ -1112,7 +1112,7 @@ class CalDAVServiceMaker (object):
             # Inherit a single socket to receive accept()ed connections via
             # recvmsg() and SCM_RIGHTS.
 
-            if config.RequestSocket:
+            if config.UseSocketFiles:
                 # TLS will be handled by a front-end web proxy
                 contextFactory = None
             else:
@@ -1129,7 +1129,8 @@ class CalDAVServiceMaker (object):
                     contextFactory = None
 
             ReportingHTTPService(
-                requestFactory, int(config.MetaFD), contextFactory
+                requestFactory, int(config.MetaFD), contextFactory,
+                usingSocketFile=config.UseSocketFiles
             ).setServiceParent(connectionService)
 
         else:  # Not inheriting, therefore we open our own:
@@ -1754,11 +1755,17 @@ class CalDAVServiceMaker (object):
             s._inheritedSockets = []
             dispatcher = None
 
-        if config.RequestSocket:
-            # Requests will arrive via Unix domain socket file
-            cl.addSocketFileService(
-                "TCP", config.RequestSocket, config.ListenBacklog
-            )
+        if config.UseSocketFiles:
+            if config.SecuredRequestsSocket:
+                # TLS-secured requests will arrive via this Unix domain socket file
+                cl.addSocketFileService(
+                    "SSL", config.SecuredRequestsSocket, config.ListenBacklog
+                )
+            if config.UnsecuredRequestsSocket:
+                # Unsecured requests will arrive via this Unix domain socket file
+                cl.addSocketFileService(
+                    "TCP", config.UnsecuredRequestsSocket, config.ListenBacklog
+                )
 
         else:
             for bindAddress in self._allBindAddresses():

@@ -174,8 +174,9 @@ DEFAULT_CONFIG = {
     #    This configures the actual network address that the server binds to.
     #
 
-    "RequestSocket": "", # Socket file to listen for requests on; if set, the
-                         # server will not bind to any TCP ports
+    "UseSocketFiles" : False, # If True, server won't bind to any TCP sockets
+    "SecuredRequestsSocket": "", # Socket file to listen for secure requests on
+    "UnsecuredRequestsSocket": "", # Socket file to listen for insecure requests on
 
     "BindAddresses": [], # List of IP addresses to bind to [empty = all]
     "BindHTTPPorts": [], # List of port numbers to bind to for HTTP

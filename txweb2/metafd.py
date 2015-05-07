@@ -21,7 +21,8 @@ L{twext.internet.sendfdport.InheritedSocketDispatcher}.
 """
 from __future__ import print_function
 
-from zope.interface import implementer
+from zope.interface import implementer, directlyProvides
+from twisted.internet.interfaces import ISSLTransport
 
 from twext.internet.sendfdport import (
     InheritedPort, InheritedSocketDispatcher, InheritingProtocolFactory,
@@ -70,13 +71,18 @@ class ReportingHTTPService(Service, object):
 
     _connectionCount = 0
 
-    def __init__(self, site, fd, contextFactory):
+    def __init__(self, site, fd, contextFactory, usingSocketFile=False):
         self.contextFactory = contextFactory
         # Unlike other 'factory' constructions, config.MaxRequests and
         # config.MaxAccepts are dealt with in the master process, so we don't
         # need to propagate them here.
         self.site = site
         self.fd = fd
+        # When usingSocketFile is True, any TLS will be handled by a proxy in
+        # front of us.  When the master passes us an "SSL"-tagged request,
+        # we'll tweak the transport object enough to appear secure without
+        # actually doing startTLS ourselves.
+        self.usingSocketFile = usingSocketFile
 
 
     def startService(self):
@@ -116,7 +122,13 @@ class ReportingHTTPService(Service, object):
         transport = Server(skt, protocol, peer, JustEnoughLikeAPort,
                            self._connectionCount, reactor)
         if data == 'SSL':
-            transport.startTLS(self.contextFactory)
+            if self.usingSocketFile:
+                # Mark the transport as "secure", enough for getHostInfo() to
+                # think so
+                transport.getPeerCertificate = lambda _ : None
+                directlyProvides(transport, ISSLTransport)
+            else:
+                transport.startTLS(self.contextFactory)
         transport.startReading()
         return transport
 

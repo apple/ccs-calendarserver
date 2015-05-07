@@ -99,6 +99,7 @@ class SSLRedirectRequest(Request):
                     "https://%s:%d%s"
                     % (config.ServerHostName, config.SSLPort, self.uri)
                 )
+            log.debug("Redirecting unsecured request")
             return super(SSLRedirectRequest, self).writeResponse(
                 RedirectResponse(location)
             )
