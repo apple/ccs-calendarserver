@@ -58,10 +58,13 @@ class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
         maxPriority = self.pushPriority
 
         # If there are other enqueued work items for this push ID, find the
-        # highest priority one and use that value
+        # highest priority one and use that value. Note that L{results} will
+        # not contain this work item as job processing behavior will have already
+        # deleted it. So we need to make sure the max priority calculation includes
+        # this one.
         if results:
             workIDs, jobIDs, priorities = zip(*results)
-            maxPriority = max(priorities)
+            maxPriority = max(priorities + (self.pushPriority,))
 
             # Delete the work items and jobs we selected - deleting the job will ensure that there are no
             # orphaned" jobs left in the job queue which would otherwise get to run at some later point,
