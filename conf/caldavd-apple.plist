@@ -42,6 +42,19 @@
     <key>EnableCardDAV</key>
     <false/>
 
+    <!-- Socket Files -->
+    <key>SocketFiles</key>
+    <dict>
+        <key>Enabled</key>
+        <false/>
+        <key>Owner</key>
+        <string>_calendar</string>
+        <key>Group</key>
+        <string>_www</string>
+    </dict>
+    <key>SocketRoot</key>
+    <string>/var/run/caldavd_requests</string>
+
     <!-- HTTP port [0 = disable HTTP] -->
     <key>HTTPPort</key>
     <integer>8008</integer>

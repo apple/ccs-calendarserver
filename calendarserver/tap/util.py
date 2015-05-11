@@ -1046,6 +1046,17 @@ def checkDirectories(config):
             access=os.W_OK,
             create=(0750, config.UserName, config.GroupName),
         )
+    if config.SocketFiles.Enabled:
+        checkDirectory(
+            config.SocketRoot,
+            "Socket file root",
+            access=os.W_OK,
+            create=(
+                config.SocketFiles.Permissions,
+                config.SocketFiles.Owner,
+                config.SocketFiles.Group
+            )
+        )
     # Always create  these:
     checkDirectory(
         config.LogRoot,

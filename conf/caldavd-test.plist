@@ -42,6 +42,15 @@
     <key>EnableCardDAV</key>
     <true/>
 
+    <!-- Socket Files -->
+    <key>SocketFiles</key>
+    <dict>
+        <key>Enabled</key>
+        <false/>
+    </dict>
+    <key>SocketRoot</key>
+    <string>/tmp/calendarserver</string>
+
     <!-- HTTP port [0 = disable HTTP] -->
     <key>HTTPPort</key>
     <integer>8008</integer>

@@ -174,9 +174,15 @@ DEFAULT_CONFIG = {
     #    This configures the actual network address that the server binds to.
     #
 
-    "UseSocketFiles" : False, # If True, server won't bind to any TCP sockets
-    "SecuredRequestsSocket": "caldavd_secured.sock", # Socket file to listen for secure requests on
-    "UnsecuredRequestsSocket": "caldavd_unsecured.sock", # Socket file to listen for insecure requests on
+    "SocketFiles": {
+        "Enabled": False,
+        "Secured": "secured.sock", # Socket file to listen for secure requests on
+        "Unsecured": "unsecured.sock", # Socket file to listen for insecure requests on
+        "Owner": "",
+        "Group": "",
+        "Permissions": 0770,
+    },
+    "SocketRoot": "/tmp/calendarserver",
 
     "BindAddresses": [], # List of IP addresses to bind to [empty = all]
     "BindHTTPPorts": [], # List of port numbers to bind to for HTTP
@@ -1218,10 +1224,10 @@ RELATIVE_PATHS = [
     ("RunRoot", "PIDFile"),
     ("RunRoot", ("Stats", "UnixStatsSocket",)),
     ("RunRoot", "ControlSocket"),
-    ("RunRoot", "SecuredRequestsSocket"),
-    ("RunRoot", "UnsecuredRequestsSocket"),
     ("RunRoot", ("Memcached", "Pools", "Default", "MemcacheSocket")),
     ("RunRoot", ("DirectoryProxy", "SocketPath",)),
+    ("SocketRoot", ("SocketFiles", "Secured")),
+    ("SocketRoot", ("SocketFiles", "Unsecured")),
 ]
 
 
