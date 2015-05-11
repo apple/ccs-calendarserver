@@ -212,11 +212,11 @@ class CrossPodHomeSync(object):
         # Notifications
         yield self.notificationsReconcile()
 
-        # TODO: iMIP tokens
+        # iMIP tokens
         yield self.iMIPTokensReconcile()
 
-        # TODO: work items
-        pass
+        # Work items
+        yield self.workItemsReconcile()
 
         self.accounting("Completed: finalSync.\n")
 
@@ -225,15 +225,19 @@ class CrossPodHomeSync(object):
     @inlineCallbacks
     def disableRemoteHome(self, txn):
         """
-        Mark the remote home as disabled.
+        Mark the remote home as disabled. Also, prevent any scheduling jobs for the corresponding user
+        from being run.
         """
 
         yield self.loadRecord()
         self.accounting("Starting: disableRemoteHome...")
         yield self.prepareCalendarHome()
 
-        # Calendar home
+        # Stop any work first
         remote_home = yield self._remoteHome(txn)
+        yield remote_home.pauseWork()
+
+        # Calendar home
         yield remote_home.setStatus(_HOME_STATUS_DISABLED)
 
         # Notification home
@@ -272,6 +276,9 @@ class CrossPodHomeSync(object):
         if newnotifications:
             yield newnotifications.setStatus(_HOME_STATUS_NORMAL)
 
+        # Unpause work items
+        yield newhome.unpauseWork()
+
         # TODO: remove migration state
         pass
 
@@ -289,7 +296,7 @@ class CrossPodHomeSync(object):
 
         # TODO: implement API on CommonHome to purge the old data without
         # any side-effects (scheduling, sharing etc). Also purge associated
-        # data such as iMIP tokens, delegates etc
+        # data such as iMIP tokens, delegates, work items, etc
         yield self.loadRecord()
         self.accounting("Starting: removeRemoteHome...")
         yield self.prepareCalendarHome()
@@ -1402,3 +1409,72 @@ class CrossPodHomeSync(object):
 
         for record in records:
             yield record.insert(txn)
+
+
+    @inlineCallbacks
+    def workItemsReconcile(self):
+        """
+        Sync all the existing L{SCheduleWork} records from the remote store.
+        """
+
+        self.accounting("Starting: workItemsReconcile...")
+        records, mapping = yield self.workItemRecords()
+        self.accounting("  Found {} Schedule work records".format(len(records)))
+
+        # Batch setting resources for the local home
+        len_records = len(records)
+        while records:
+            yield self.makeWorkItems(records[:50], mapping)
+            records = records[50:]
+
+        self.accounting("Completed: workItemsReconcile.")
+
+        returnValue(len_records)
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def workItemRecords(self, txn):
+        """
+        Get all the existing L{ScheduleWork}'s from the remote store. Also, if any are found, get the object
+        resource id mapping details.
+        """
+
+        remote_home = yield self._remoteHome(txn)
+        records = yield remote_home.workItems()
+        mapping = {}
+
+        # Cache remote->local resource id mapping
+        if records:
+            local_home = yield self._localHome(txn)
+            mappings = yield CalendarObjectMigrationRecord.query(
+                txn,
+                CalendarObjectMigrationRecord.calendarHomeResourceID == local_home.id()
+            )
+            for item in mappings:
+                mapping[item.remoteResourceID] = item.localResourceID
+
+        returnValue((records, mapping,))
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def makeWorkItems(self, txn, records, mapping):
+        """
+        Create L{ScheduleWork} records in the local store. Note that the work items need to be given
+        references to the local home and object resource. The job is created in paused state.
+        """
+
+        local_home = yield self._localHome(txn)
+
+        @inlineCallbacks
+        def mapIDs(remote_id):
+            local_id = mapping.get(remote_id)
+            if local_id is not None:
+                obj = yield local_home.objectResourceWithID(local_id)
+            else:
+                obj = None
+            returnValue((local_home, obj,))
+
+        for record in records:
+            yield record.migrate(txn, mapIDs)

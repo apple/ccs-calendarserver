@@ -41,6 +41,8 @@ from txweb2.http_headers import MimeType
 from txweb2.stream import MemoryStream
 from uuid import uuid4
 import json
+from txdav.caldav.datastore.scheduling.work import ScheduleOrganizerWork, \
+    ScheduleReplyWork, ScheduleRefreshWork, ScheduleAutoReplyWork
 
 
 class TestCrossPodHomeSync(MultiStoreConduitTest):
@@ -990,9 +992,52 @@ END:VCALENDAR
         home from being created.
         """
 
-        # Create remote home - and add some fake notifications
-        yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        self.patch(config.Scheduling.Options.WorkQueues, "RequestDelaySeconds", 1000)
+
+        # Create remote home
+        home0 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+
+        # Create some fake events
+        calendar0 = yield home0.childWithName("calendar")
+        o1 = yield calendar0.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        o2 = yield calendar0.createCalendarObjectWithName("2.ics", Component.fromString(self.caldata2))
+        o3 = yield calendar0.createCalendarObjectWithName("3.ics", Component.fromString(self.caldata3))
+
+        # Add some fake scheduling work
+        yield ScheduleOrganizerWork.schedule(
+            self.theTransactionUnderTest(0),
+            "uid1",
+            "create",
+            home0,
+            None,
+            None,
+            Component.fromString(self.caldata1),
+            "urn:x-uid:user01",
+            2,
+            False,
+        )
+        yield ScheduleReplyWork.reply(
+            self.theTransactionUnderTest(0),
+            home0,
+            o2,
+            Component.fromString(self.caldata1),
+            "urn:x-uid:user01",
+        )
+        yield ScheduleRefreshWork.refreshAttendees(
+            self.theTransactionUnderTest(0),
+            o1,
+            Component.fromString(self.caldata1),
+            ("urn:x-uid:user02",),
+        )
+        yield ScheduleAutoReplyWork.autoReply(
+            self.theTransactionUnderTest(0),
+            o3,
+            "ACCEPTED"
+        )
+
+        # Notifications
         yield self.theTransactionUnderTest(0).notificationsWithUID("user01", create=True)
+
         yield self.commitTransaction(0)
 
         # Sync from remote side
@@ -1008,7 +1053,136 @@ END:VCALENDAR
         self.assertTrue(home is None)
         home = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", status=_HOME_STATUS_DISABLED)
         self.assertTrue(home is not None)
+
+        # Work is paused
+        jobs = yield JobItem.all(self.theTransactionUnderTest(0))
+        count = 0
+        for job in jobs:
+            if job.workType in (
+                ScheduleOrganizerWork.table.model.name,
+                ScheduleReplyWork.table.model.name,
+                ScheduleRefreshWork.table.model.name,
+                ScheduleAutoReplyWork.table.model.name,
+            ):
+                self.assertTrue(job.pause)
+                work = yield job.workItem()
+                yield work.delete()
+                yield job.delete()
+                count += 1
+        self.assertEqual(count, 4)
+
         yield self.commitTransaction(0)
+
+
+    @inlineCallbacks
+    def test_work_items_sync(self):
+        """
+        Test that L{workItemsReconcile} copies over work items from the remote pod.
+        """
+
+        self.patch(config.Scheduling.Options.WorkQueues, "RequestDelaySeconds", 1000)
+
+        # Create remote home
+        home0 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+
+        # Create some fake events
+        calendar0 = yield home0.childWithName("calendar")
+        o1 = yield calendar0.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        o2 = yield calendar0.createCalendarObjectWithName("2.ics", Component.fromString(self.caldata2))
+        o3 = yield calendar0.createCalendarObjectWithName("3.ics", Component.fromString(self.caldata3))
+
+        # Add some fake scheduling work
+        yield ScheduleOrganizerWork.schedule(
+            self.theTransactionUnderTest(0),
+            "uid1",
+            "create",
+            home0,
+            None,
+            None,
+            Component.fromString(self.caldata1),
+            "urn:x-uid:user01",
+            2,
+            False,
+        )
+        yield ScheduleReplyWork.reply(
+            self.theTransactionUnderTest(0),
+            home0,
+            o2,
+            Component.fromString(self.caldata1),
+            "urn:x-uid:user01",
+        )
+        yield ScheduleRefreshWork.refreshAttendees(
+            self.theTransactionUnderTest(0),
+            o1,
+            Component.fromString(self.caldata1),
+            ("urn:x-uid:user02",),
+        )
+        yield ScheduleAutoReplyWork.autoReply(
+            self.theTransactionUnderTest(0),
+            o3,
+            "ACCEPTED"
+        )
+
+        # Notifications
+        yield self.theTransactionUnderTest(0).notificationsWithUID("user01", create=True)
+
+        yield self.commitTransaction(0)
+
+        # Do a full data sync since we need references to the calendar objects
+        syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
+        yield syncer.sync()
+
+        # Sync from remote side
+        syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
+        yield syncer.loadRecord()
+        yield syncer.prepareCalendarHome()
+        count = yield syncer.workItemsReconcile()
+        self.assertEqual(count, 4)
+
+        # Work is paused
+        pod1Data = {}
+        jobs = yield JobItem.all(self.theTransactionUnderTest(1))
+        count = 0
+        for job in jobs:
+            if job.workType in (
+                ScheduleOrganizerWork.table.model.name,
+                ScheduleReplyWork.table.model.name,
+                ScheduleRefreshWork.table.model.name,
+                ScheduleAutoReplyWork.table.model.name,
+            ):
+                self.assertTrue(job.pause)
+                work = yield job.workItem()
+                pod1Data[job.workType] = work.serialize()
+                for attrname in ("homeResourceID", "resourceID", "workID",):
+                    del pod1Data[job.workType][attrname]
+                yield work.delete()
+                yield job.delete()
+                count += 1
+        self.assertEqual(count, 4)
+        yield self.commitTransaction(1)
+
+        # Old work
+        pod0Data = {}
+        jobs = yield JobItem.all(self.theTransactionUnderTest(0))
+        count = 0
+        for job in jobs:
+            if job.workType in (
+                ScheduleOrganizerWork.table.model.name,
+                ScheduleReplyWork.table.model.name,
+                ScheduleRefreshWork.table.model.name,
+                ScheduleAutoReplyWork.table.model.name,
+            ):
+                work = yield job.workItem()
+                pod0Data[job.workType] = work.serialize()
+                for attrname in ("homeResourceID", "resourceID", "workID",):
+                    del pod0Data[job.workType][attrname]
+                yield work.delete()
+                yield job.delete()
+                count += 1
+        self.assertEqual(count, 4)
+        yield self.commitTransaction(0)
+
+        self.assertEqual(pod0Data, pod1Data)
 
 
 

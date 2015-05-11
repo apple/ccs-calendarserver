@@ -14,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from txdav.caldav.datastore.scheduling.work import ScheduleOrganizerWork, \
+    ScheduleWork, ScheduleAutoReplyWork, ScheduleOrganizerSendWork, \
+    ScheduleRefreshWork, ScheduleReplyWork
 
 
 """
@@ -31,7 +34,7 @@ from twext.enterprise.dal.syntax import Count, ColumnSyntax, Delete, \
     Insert, Len, Max, Parameter, Select, Update, utcNowSQL
 from twext.enterprise.locking import NamedLock
 from twext.enterprise.jobqueue import WorkItem, AggregatedWorkItem, \
-    WORK_PRIORITY_LOW, WORK_WEIGHT_5, WORK_WEIGHT_3
+    WORK_PRIORITY_LOW, WORK_WEIGHT_5, WORK_WEIGHT_3, JobItem
 from twext.enterprise.util import parseSQLTimestamp
 from twext.python.clsprop import classproperty
 from twext.python.log import Logger
@@ -1037,6 +1040,56 @@ class CalendarHome(CommonHome):
 
     def iMIPTokens(self):
         return iMIPTokenRecord.query(self._txn, iMIPTokenRecord.organizer == "urn:x-uid:{}".format(self.uid()))
+
+
+    def pauseWork(self):
+        """
+        Mark all associated work items as paused. This applies to L{ScheduleOrganizerWork},
+        L{ScheduleOrganizerSendWork}, L{ScheduleReplyWork}, L{ScheduleRefreshWork}, L{ScheduleAutoReplyWork}
+        """
+        return self._pauseWork(1)
+
+
+    def unpauseWork(self):
+        """
+        Mark all associated work items as unpaused. This applies to L{ScheduleOrganizerWork},
+        L{ScheduleOrganizerSendWork}, L{ScheduleReplyWork}, L{ScheduleRefreshWork}, L{ScheduleAutoReplyWork}
+        """
+        return self._pauseWork(0)
+
+
+    @inlineCallbacks
+    def _pauseWork(self, pause):
+        """
+        Mark all associated work items as either paused or unpaused. This applies to L{ScheduleOrganizerWork},
+        L{ScheduleOrganizerSendWork}, L{ScheduleReplyWork}, L{ScheduleRefreshWork}, L{ScheduleAutoReplyWork}
+        """
+
+        for workType in (ScheduleOrganizerWork, ScheduleOrganizerSendWork, ScheduleReplyWork, ScheduleRefreshWork, ScheduleAutoReplyWork,):
+            yield JobItem.updatesome(
+                self._txn,
+                where=JobItem.jobID.In(
+                    ScheduleWork.jobIDsQueryJoin(self.id(), workType)
+                ),
+                pause=pause,
+            )
+
+
+    @inlineCallbacks
+    def workItems(self):
+        """
+        Get all the associated scheduling work items and serialize them based on their class. Note this method is directly used
+        by the cross-pod conduit and expects the results to be JSON compatible.
+        """
+
+        results = collections.defaultdict(list)
+        for workType in (ScheduleOrganizerWork, ScheduleOrganizerSendWork, ScheduleReplyWork, ScheduleRefreshWork, ScheduleAutoReplyWork,):
+            workItems = yield workType.query(self._txn, workType.homeResourceID == self.id())
+            for item in workItems:
+                serialized = yield item.serializeWithAncillaryData()
+                results[workType.__name__].append(serialized)
+
+        returnValue(results)
 
 
 CalendarHome._register(ECALENDARTYPE)

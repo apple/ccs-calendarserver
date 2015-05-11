@@ -21,7 +21,8 @@ from twext.enterprise.jobqueue import WorkItem, WORK_PRIORITY_MEDIUM, JobItem, \
     WORK_WEIGHT_5, JobTemporaryError
 from twext.python.log import Logger
 
-from twisted.internet.defer import inlineCallbacks, returnValue, Deferred
+from twisted.internet.defer import inlineCallbacks, returnValue, Deferred, \
+    succeed
 
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component
@@ -216,6 +217,16 @@ class ScheduleWorkMixin(WorkItem):
                 self.transaction.postCommit(_post)
 
 
+    def serializeWithAncillaryData(self):
+        """
+        Include the ancillary data in the serialized result.
+
+        @return: mapping of attribute to string values
+        @rtype: L{Deferred} returning an L{dict} of L{str}:L{str}
+        """
+        return succeed(self.serialize())
+
+
     def extractSchedulingResponse(self, queuedResponses):
         """
         Extract a list of (recipient, status) pairs from a scheduling response, returning that list
@@ -301,15 +312,42 @@ class ScheduleWorkMixin(WorkItem):
 
 class ScheduleWork(Record, fromTable(schema.SCHEDULE_WORK)):
     """
+    @DynamicAttrs
     A L{Record} based table whose rows are used for locking scheduling work by iCalendar UID value.
     as well as helping to determine the next work for a particular UID.
     """
-    pass
+
+    _classForWorkType = {}
+
+    @classmethod
+    def jobIDsQueryJoin(cls, homeID, other):
+        return Select(
+            [cls.jobID, ],
+            From=cls.table.join(other.table, on=(cls.workID == other.workID)),
+            Where=other.homeResourceID == homeID,
+        )
+
+
+    @classmethod
+    def classForWorkType(cls, workType):
+        return cls._classForWorkType.get(workType)
+
+
+    def migrate(self, mapIDsCallback):
+        """
+        Abstract API that must be implemented by each sub-class. This method will take a record, and replace
+        the references to the home and any object resource id with those determined from the callback, and then
+        will create new job/work items for the record. This is used for cross-pod migration of work items.
+
+        @param mapIDsCallback: a callback that returns a tuple of the new home id and new resource id
+        """
+        raise NotImplementedError
 
 
 
 class ScheduleOrganizerWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORGANIZER_WORK)):
     """
+    @DynamicAttrs
     The associated work item table is SCHEDULE_ORGANIZER_WORK.
 
     This work item is used to generate a set of L{ScheduleOrganizerSendWork} work items for
@@ -319,7 +357,7 @@ class ScheduleOrganizerWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORGANIZ
 
     @classmethod
     @inlineCallbacks
-    def schedule(cls, txn, uid, action, home, resource, calendar_old, calendar_new, organizer, attendee_count, smart_merge):
+    def schedule(cls, txn, uid, action, home, resource, calendar_old, calendar_new, organizer, attendee_count, smart_merge, pause=0):
         """
         The actual arguments depend on the action:
 
@@ -339,6 +377,12 @@ class ScheduleOrganizerWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORGANIZ
         """
         # Always queue up new work - coalescing happens when work is executed
         notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.WorkQueues.RequestDelaySeconds)
+
+        if isinstance(calendar_old, Component):
+            calendar_old = calendar_old.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference)
+        if isinstance(calendar_new, Component):
+            calendar_new = calendar_new.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference)
+
         proposal = (yield txn.enqueue(
             cls,
             notBefore=notBefore,
@@ -346,13 +390,45 @@ class ScheduleOrganizerWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORGANIZ
             scheduleAction=scheduleActionToSQL[action],
             homeResourceID=home.id(),
             resourceID=resource.id() if resource else None,
-            icalendarTextOld=calendar_old.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference) if calendar_old else None,
-            icalendarTextNew=calendar_new.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference) if calendar_new else None,
+            icalendarTextOld=calendar_old,
+            icalendarTextNew=calendar_new,
             attendeeCount=attendee_count,
-            smartMerge=smart_merge
+            smartMerge=smart_merge,
+            pause=pause,
         ))
         cls._enqueued()
         log.debug("ScheduleOrganizerWork - enqueued for ID: {id}, UID: {uid}, organizer: {org}", id=proposal.workItem.workID, uid=uid, org=organizer)
+
+
+    @inlineCallbacks
+    def migrate(self, txn, mapIDsCallback):
+        """
+        See L{ScheduleWork.migrate}
+        """
+
+        # Try to find a mapping
+        new_home, new_resource = yield mapIDsCallback(self.resourceID)
+
+        # If we previously had a resource ID and now don't, then don't create work
+        if self.resourceID is not None and new_resource is None:
+            returnValue(False)
+
+        if self.icalendarTextOld:
+            calendar_old = Component.fromString(self.icalendarTextOld)
+            uid = calendar_old.resourceUID()
+        else:
+            calendar_new = Component.fromString(self.icalendarTextNew)
+            uid = calendar_new.resourceUID()
+
+        # Insert new work - in paused state
+        yield ScheduleOrganizerWork.schedule(
+            txn, uid, scheduleActionFromSQL[self.scheduleAction],
+            new_home, new_resource, self.icalendarTextOld, self.icalendarTextNew,
+            new_home.uid(), self.attendeeCount, self.smartMerge,
+            pause=1
+        )
+
+        returnValue(True)
 
 
     @inlineCallbacks
@@ -401,6 +477,7 @@ class ScheduleOrganizerWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORGANIZ
 
 class ScheduleOrganizerSendWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORGANIZER_SEND_WORK)):
     """
+    @DynamicAttrs
     The associated work item table is SCHEDULE_ORGANIZER_SEND_WORK.
 
     This work item is used to send iTIP request and cancel messages when an organizer changes
@@ -410,7 +487,7 @@ class ScheduleOrganizerSendWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORG
 
     @classmethod
     @inlineCallbacks
-    def schedule(cls, txn, action, home, resource, organizer, attendee, itipmsg, no_refresh, stagger):
+    def schedule(cls, txn, action, home, resource, organizer, attendee, itipmsg, no_refresh, stagger, pause=0):
         """
         Create the work item. Because there may be lots of these dumped onto the server in one go, we will
         stagger them via notBefore. However, we are using a "chained" work item so when one completes, it
@@ -444,6 +521,7 @@ class ScheduleOrganizerSendWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORG
             attendee=attendee,
             itipMsg=itipmsg.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference),
             noRefresh=no_refresh,
+            pause=pause,
         ))
         cls._enqueued()
         log.debug(
@@ -453,6 +531,33 @@ class ScheduleOrganizerSendWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORG
             org=organizer,
             att=attendee
         )
+
+
+    @inlineCallbacks
+    def migrate(self, txn, mapIDsCallback):
+        """
+        See L{ScheduleWork.migrate}
+        """
+
+        # Try to find a mapping
+        new_home, new_resource = yield mapIDsCallback(self.resourceID)
+
+        # If we previously had a resource ID and now don't, then don't create work
+        if self.resourceID is not None and new_resource is None:
+            returnValue(False)
+
+        if self.itipMsg:
+            itipmsg = Component.fromString(self.itipMsg)
+
+        # Insert new work - in paused state
+        yield ScheduleOrganizerSendWork.schedule(
+            txn, scheduleActionFromSQL[self.scheduleAction],
+            new_home, new_resource, new_home.uid(), self.attendee,
+            itipmsg, self.noRefresh, 0,
+            pause=1
+        )
+
+        returnValue(True)
 
 
     @inlineCallbacks
@@ -530,6 +635,7 @@ class ScheduleOrganizerSendWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORG
 
 class ScheduleReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REPLY_WORK)):
     """
+    @DynamicAttrs
     The associated work item table is SCHEDULE_REPLY_WORK.
 
     This work item is used to send an iTIP reply message when an attendee changes
@@ -538,7 +644,7 @@ class ScheduleReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REPLY_WORK)
 
     @classmethod
     @inlineCallbacks
-    def reply(cls, txn, home, resource, itipmsg, attendee):
+    def reply(cls, txn, home, resource, itipmsg, attendee, pause=0):
         # Always queue up new work - coalescing happens when work is executed
         notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.WorkQueues.ReplyDelaySeconds)
         uid = itipmsg.resourceUID()
@@ -549,9 +655,36 @@ class ScheduleReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REPLY_WORK)
             homeResourceID=home.id(),
             resourceID=resource.id() if resource else None,
             itipMsg=itipmsg.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference),
+            pause=pause,
         ))
         cls._enqueued()
         log.debug("ScheduleReplyWork - enqueued for ID: {id}, UID: {uid}, attendee: {att}", id=proposal.workItem.workID, uid=uid, att=attendee)
+
+
+    @inlineCallbacks
+    def migrate(self, txn, mapIDsCallback):
+        """
+        See L{ScheduleWork.migrate}
+        """
+
+        # Try to find a mapping
+        new_home, new_resource = yield mapIDsCallback(self.resourceID)
+
+        # If we previously had a resource ID and now don't, then don't create work
+        if self.resourceID is not None and new_resource is None:
+            returnValue(False)
+
+        if self.itipMsg:
+            itipmsg = Component.fromString(self.itipMsg)
+
+        # Insert new work - in paused state
+        yield ScheduleReplyWork.reply(
+            txn,
+            new_home, new_resource, itipmsg, new_home.uid(),
+            pause=1
+        )
+
+        returnValue(True)
 
 
     @inlineCallbacks
@@ -617,6 +750,7 @@ class ScheduleReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REPLY_WORK)
 
 class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_WORK)):
     """
+    @DynamicAttrs
     The associated work item table is SCHEDULE_REFRESH_WORK.
 
     This work item is used to trigger an iTIP refresh of attendees. This happens when one attendee
@@ -655,7 +789,7 @@ class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_W
 
     @classmethod
     @inlineCallbacks
-    def refreshAttendees(cls, txn, organizer_resource, organizer_calendar, attendees):
+    def refreshAttendees(cls, txn, organizer_resource, organizer_calendar, attendees, pause=0):
         # See if there is already a pending refresh and merge current attendees into that list,
         # otherwise just mark all attendees as pending
         sra = schema.SCHEDULE_REFRESH_ATTENDEES
@@ -683,9 +817,33 @@ class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_W
             resourceID=organizer_resource.id(),
             attendeeCount=len(attendees),
             notBefore=notBefore,
+            pause=pause,
         ))
         cls._enqueued()
         log.debug("ScheduleRefreshWork - enqueued for ID: {id}, UID: {uid}, attendees: {att}", id=proposal.workItem.workID, uid=organizer_resource.uid(), att=",".join(attendeesToRefresh))
+
+
+    @inlineCallbacks
+    def migrate(self, txn, mapIDsCallback):
+        """
+        See L{ScheduleWork.migrate}
+        """
+
+        # Try to find a mapping
+        _ignore_new_home, new_resource = yield mapIDsCallback(self.resourceID)
+
+        # If we previously had a resource ID and now don't, then don't create work
+        if new_resource is None:
+            returnValue(False)
+
+        # Insert new work - in paused state
+        yield ScheduleRefreshWork.refreshAttendees(
+            txn,
+            new_resource, None, self._refreshAttendees,
+            pause=1
+        )
+
+        returnValue(True)
 
 
     @inlineCallbacks
@@ -803,9 +961,46 @@ class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_W
         )
 
 
+    @inlineCallbacks
+    def serializeWithAncillaryData(self):
+        """
+        Include the ancillary attendee list information in the serialized result.
+
+        @return: mapping of attribute to string values
+        @rtype: L{dict} of L{str}:L{str}
+        """
+
+        # Certain values have to be mapped to str
+        result = self.serialize()
+
+        sra = schema.SCHEDULE_REFRESH_ATTENDEES
+        rows = (yield Select(
+            [sra.ATTENDEE, ],
+            From=sra,
+            Where=sra.RESOURCE_ID == self.resourceID,
+        ).on(self.transaction))
+
+        result["_refreshAttendees"] = [row[0] for row in rows]
+        returnValue(result)
+
+
+    @classmethod
+    def deserialize(cls, attrmap):
+        """
+        Handle the special attendee list attribute.
+        """
+
+        attendees = attrmap.pop("_refreshAttendees")
+
+        record = super(ScheduleRefreshWork, cls).deserialize(attrmap)
+        record._refreshAttendees = attendees
+        return record
+
+
 
 class ScheduleAutoReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_AUTO_REPLY_WORK)):
     """
+    @DynamicAttrs
     The associated work item table is SCHEDULE_AUTO_REPLY_WORK.
 
     This work item is used to send auto-reply iTIP messages after the calendar data for the
@@ -814,7 +1009,7 @@ class ScheduleAutoReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_AUTO_RE
 
     @classmethod
     @inlineCallbacks
-    def autoReply(cls, txn, resource, partstat):
+    def autoReply(cls, txn, resource, partstat, pause=0):
         # Always queue up new work - coalescing happens when work is executed
         notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.WorkQueues.AutoReplyDelaySeconds)
         proposal = (yield txn.enqueue(
@@ -824,9 +1019,33 @@ class ScheduleAutoReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_AUTO_RE
             resourceID=resource.id(),
             partstat=partstat,
             notBefore=notBefore,
+            pause=pause,
         ))
         cls._enqueued()
         log.debug("ScheduleAutoReplyWork - enqueued for ID: {id}, UID: {uid}", id=proposal.workItem.workID, uid=resource.uid())
+
+
+    @inlineCallbacks
+    def migrate(self, txn, mapIDsCallback):
+        """
+        See L{ScheduleWork.migrate}
+        """
+
+        # Try to find a mapping
+        _ignore_new_home, new_resource = yield mapIDsCallback(self.resourceID)
+
+        # If we previously had a resource ID and now don't, then don't create work
+        if new_resource is None:
+            returnValue(False)
+
+        # Insert new work - in paused state
+        yield ScheduleAutoReplyWork.autoReply(
+            txn,
+            new_resource, self.partstat,
+            pause=1
+        )
+
+        returnValue(True)
 
 
     @inlineCallbacks
@@ -887,3 +1106,7 @@ class ScheduleAutoReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_AUTO_RE
                 raise
         else:
             log.debug("ImplicitProcessing - skipping auto-reply of missing ID: '{rid}'", rid=self.resourceID)
+
+
+for workClass in (ScheduleOrganizerWork, ScheduleOrganizerSendWork, ScheduleReplyWork, ScheduleRefreshWork, ScheduleAutoReplyWork,):
+    ScheduleWork._classForWorkType[workClass.__name__] = workClass

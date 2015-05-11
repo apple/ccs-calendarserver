@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from txdav.caldav.datastore.scheduling.work import ScheduleWork
 """
 SQL backend for CalDAV storage when resources are external.
 """
@@ -194,6 +195,26 @@ class CalendarHomeExternal(CommonHomeExternal, CalendarHome):
     def iMIPTokens(self):
         results = yield self._txn.store().conduit.send_home_imip_tokens(self)
         returnValue(map(iMIPTokenRecord.deserialize, results))
+
+
+    def pauseWork(self):
+        return self._txn.store().conduit.send_home_pause_work(self)
+
+
+    def unpauseWork(self):
+        return self._txn.store().conduit.send_home_unpause_work(self)
+
+
+    @inlineCallbacks
+    def workItems(self):
+        results = yield self._txn.store().conduit.send_home_work_items(self)
+        workItems = []
+        for workType, records in results.items():
+            workClass = ScheduleWork.classForWorkType(workType)
+            if workClass is not None:
+                for record in records:
+                    workItems.append(workClass.deserialize(record))
+        returnValue(workItems)
 
 
 

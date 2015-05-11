@@ -176,6 +176,9 @@ UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "home_set_status",
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "home_get_all_group_attendees", "getAllGroupAttendees", transform_recv_result=StoreAPIConduitMixin._to_serialize_pair_list)
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "home_shared_to_records", "sharedToBindRecords", transform_recv_result=StoreAPIConduitMixin._to_serialize_dict_list_serialized_value)
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "home_imip_tokens", "iMIPTokens", transform_recv_result=UtilityConduitMixin._to_serialize_list)
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "home_pause_work", "pauseWork")
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "home_unpause_work", "unpauseWork")
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "home_work_items", "workItems")
 
 # Calls on L{CommonHomeChild} objects
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_listobjects", "listObjects", classMethod=True)

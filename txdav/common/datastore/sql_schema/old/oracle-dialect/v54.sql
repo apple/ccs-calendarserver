@@ -24,8 +24,7 @@ create table JOB (
     "NOT_BEFORE" timestamp not null,
     "ASSIGNED" timestamp default null,
     "OVERDUE" timestamp default null,
-    "FAILED" integer default 0,
-    "PAUSE" integer default 0
+    "FAILED" integer default 0
 );
 
 create table CALENDAR_HOME (
