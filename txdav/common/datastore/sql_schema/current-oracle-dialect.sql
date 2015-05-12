@@ -646,6 +646,12 @@ create table PRINCIPAL_PURGE_HOME_WORK (
     "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade
 );
 
+create table MIGRATION_CLEANUP_WORK (
+    "WORK_ID" integer primary key,
+    "JOB_ID" integer not null references JOB,
+    "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade
+);
+
 create table CALENDARSERVER (
     "NAME" nvarchar2(255) primary key,
     "VALUE" nvarchar2(255)
@@ -995,6 +1001,10 @@ create index PRINCIPAL_PURGE_HOME__f35eea7a on PRINCIPAL_PURGE_HOME_WORK (
 
 create index PRINCIPAL_PURGE_HOME__967e4480 on PRINCIPAL_PURGE_HOME_WORK (
     "HOME_RESOURCE_ID"
+);
+
+create index MIGRATION_CLEANUP_WOR_8c23cc35 on MIGRATION_CLEANUP_WORK (
+    "JOB_ID"
 );
 
 -- Extra schema to add to current-oracle-dialect.sql

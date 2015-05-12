@@ -16,8 +16,9 @@
 
 from twext.enterprise.dal.record import Record, fromTable
 from twext.enterprise.dal.syntax import Parameter, Delete
-from txdav.common.datastore.sql_tables import schema
+from twext.enterprise.jobqueue import SingletonWorkItem
 from twisted.internet.defer import inlineCallbacks
+from txdav.common.datastore.sql_tables import schema
 
 """
 Module that manages store-level metadata objects used during the migration process.
@@ -56,3 +57,30 @@ class AttachmentMigrationRecord(Record, fromTable(schema.ATTACHMENT_MIGRATION)):
     L{Record} for L{schema.ATTACHMENT_MIGRATION}.
     """
     pass
+
+
+
+class MigrationCleanupWork(SingletonWorkItem, fromTable(schema.MIGRATION_CLEANUP_WORK)):
+
+    group = "homeResourceID"
+
+    notBeforeDelay = 300    # 5 minutes
+
+    @inlineCallbacks
+    def doWork(self):
+        """
+        Delete all the corresponding migration records.
+        """
+
+        yield CalendarMigrationRecord.deletesome(
+            self.transaction,
+            CalendarMigrationRecord.calendarHomeResourceID == self.homeResourceID,
+        )
+        yield CalendarObjectMigrationRecord.deletesome(
+            self.transaction,
+            CalendarObjectMigrationRecord.calendarHomeResourceID == self.homeResourceID,
+        )
+        yield AttachmentMigrationRecord.deletesome(
+            self.transaction,
+            AttachmentMigrationRecord.calendarHomeResourceID == self.homeResourceID,
+        )

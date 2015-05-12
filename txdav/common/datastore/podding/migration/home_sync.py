@@ -22,7 +22,8 @@ from twisted.python.failure import Failure
 from twistedcaldav.accounting import emitAccounting
 from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.podding.migration.sync_metadata import CalendarMigrationRecord, \
-    CalendarObjectMigrationRecord, AttachmentMigrationRecord
+    CalendarObjectMigrationRecord, AttachmentMigrationRecord, \
+    MigrationCleanupWork
 from txdav.caldav.datastore.sql import ManagedAttachment, CalendarBindRecord
 from txdav.common.datastore.sql_external import NotificationCollectionExternal
 from txdav.common.datastore.sql_notification import NotificationCollection
@@ -279,8 +280,12 @@ class CrossPodHomeSync(object):
         # Unpause work items
         yield newhome.unpauseWork()
 
-        # TODO: remove migration state
-        pass
+        # Remove migration state
+        yield MigrationCleanupWork.reschedule(
+            txn,
+            MigrationCleanupWork.notBeforeDelay,
+            homeResourceID=newhome.id(),
+        )
 
         # TODO: purge the old ones
         pass

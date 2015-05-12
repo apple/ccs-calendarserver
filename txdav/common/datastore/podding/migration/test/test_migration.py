@@ -15,23 +15,33 @@
 ##
 
 from pycalendar.datetime import DateTime
+
+from twext.enterprise.jobqueue import JobItem
+
+from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.filepath import FilePath
+
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component
+
+from txdav.caldav.datastore.scheduling.ischedule.delivery import IScheduleRequest
+from txdav.caldav.datastore.scheduling.ischedule.resource import IScheduleInboxResource
+from txdav.caldav.datastore.test.common import CaptureProtocol
 from txdav.common.datastore.podding.migration.home_sync import CrossPodHomeSync
+from txdav.common.datastore.podding.migration.sync_metadata import CalendarMigrationRecord, \
+    AttachmentMigrationRecord, CalendarObjectMigrationRecord, \
+    MigrationCleanupWork
 from txdav.common.datastore.podding.test.util import MultiStoreConduitTest
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, \
     _HOME_STATUS_DISABLED, _HOME_STATUS_NORMAL, _HOME_STATUS_EXTERNAL, \
     _HOME_STATUS_MIGRATING
 from txdav.common.datastore.test.util import populateCalendarsFrom
 from txdav.who.delegates import Delegates
+
+from txweb2.dav.test.util import SimpleRequest
 from txweb2.http_headers import MimeType
 from txweb2.stream import MemoryStream
-from txdav.caldav.datastore.scheduling.ischedule.delivery import IScheduleRequest
-from txdav.caldav.datastore.scheduling.ischedule.resource import IScheduleInboxResource
-from txweb2.dav.test.util import SimpleRequest
-from txdav.caldav.datastore.test.common import CaptureProtocol
 
 
 class TestCompleteMigrationCycle(MultiStoreConduitTest):
@@ -65,6 +75,9 @@ class TestCompleteMigrationCycle(MultiStoreConduitTest):
         self.augments = FilePath(__file__).sibling("accounts").child("augments.xml")
         yield super(TestCompleteMigrationCycle, self).setUp()
         yield self.populate()
+
+        # Speed up work
+        self.patch(MigrationCleanupWork, "notBeforeDelay", 1)
 
 
     def configure(self):
@@ -647,6 +660,13 @@ END:VCALENDAR
         self.assertEqual(attachment.md5(), self.stash["user01_attachment_md5"])
         data = yield self.attachmentToString(attachment)
         self.assertEqual(data, "Here is some text #1.")
+
+        # No migration data left
+        txn = self.theTransactionUnderTest(1)
+        yield JobItem.waitEmpty(self.theStoreUnderTest(1).newTransaction, reactor, 60)
+        for migrationType in (CalendarMigrationRecord, CalendarObjectMigrationRecord, AttachmentMigrationRecord,):
+            records = yield migrationType.all(txn)
+            self.assertEqual(len(records), 0, msg=migrationType.__name__)
 
 
     @inlineCallbacks

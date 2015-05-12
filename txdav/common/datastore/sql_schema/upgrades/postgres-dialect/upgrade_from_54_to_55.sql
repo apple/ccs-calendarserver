@@ -22,5 +22,15 @@
 alter table JOB
   add column PAUSE integer default 0;
 
+-- New Table
+create table MIGRATION_CLEANUP_WORK (
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  JOB_ID                        integer      references JOB not null,
+  HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade
+);
+
+create index MIGRATION_CLEANUP_WORK_JOB_ID on
+  MIGRATION_CLEANUP_WORK(JOB_ID);
+
 -- update the version
 update CALENDARSERVER set VALUE = '55' where NAME = 'VERSION';
