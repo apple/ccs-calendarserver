@@ -30,7 +30,7 @@ def serverRootLocation():
     Return the ServerRoot value from the servermgr_calendar.plist.  If not
     present, return the default.
     """
-    plist = "/Library/Preferences/com.apple.servermgr_calendar.plist"
+    plist = "/Library/Server/Preferences/Calendar.plist"
     serverRoot = u"/Library/Server/Calendar and Contacts"
     if os.path.exists(plist):
         serverRoot = plistlib.readPlist(plist).get("ServerRoot", serverRoot)

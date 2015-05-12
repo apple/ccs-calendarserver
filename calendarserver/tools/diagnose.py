@@ -30,7 +30,7 @@ from twext.internet.ssl import ChainingOpenSSLContextFactory
 import OpenSSL
 
 
-PREFS_PLIST = "/Library/Preferences/com.apple.servermgr_calendar.plist"
+PREFS_PLIST = "/Library/Server/Preferences/Calendar.plist"
 SSLPrivateKey = ""
 SSLCertAdmin = ""
 SSLPassPhraseDialog = ""
@@ -503,10 +503,9 @@ def getServerRoot():
     @rtype: C{unicode}
     """
     try:
-        plist = "/Library/Preferences/com.apple.servermgr_calendar.plist"
         serverRoot = u"/Library/Server/Calendar and Contacts"
-        if os.path.exists(plist):
-            serverRoot = readPlist(plist).get("ServerRoot", serverRoot)
+        if os.path.exists(PREFS_PLIST):
+            serverRoot = readPlist(PREFS_PLIST).get("ServerRoot", serverRoot)
         if isinstance(serverRoot, str):
             serverRoot = serverRoot.decode("utf-8")
         return serverRoot

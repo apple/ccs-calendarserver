@@ -577,7 +577,7 @@
       -->
     <key>Includes</key>
     <array>
-        <string>/Library/Preferences/com.apple.servermgr_calendar.plist</string>
+        <string>/Library/Server/Preferences/Calendar.plist</string>
         <string>caldavd-system.plist</string>
         <string>caldavd-user.plist</string>
     </array>
