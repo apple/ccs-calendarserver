@@ -32,6 +32,9 @@ create table MIGRATION_CLEANUP_WORK (
 create index MIGRATION_CLEANUP_WOR_8c23cc35 on MIGRATION_CLEANUP_WORK (
     "JOB_ID"
 );
+create index MIGRATION_CLEANUP_WOR_86181cb8 on MIGRATION_CLEANUP_WORK (
+    "HOME_RESOURCE_ID"
+);
 
 -- update the version
 update CALENDARSERVER set VALUE = '55' where NAME = 'VERSION';

@@ -1007,4 +1007,8 @@ create index MIGRATION_CLEANUP_WOR_8c23cc35 on MIGRATION_CLEANUP_WORK (
     "JOB_ID"
 );
 
+create index MIGRATION_CLEANUP_WOR_86181cb8 on MIGRATION_CLEANUP_WORK (
+    "HOME_RESOURCE_ID"
+);
+
 -- Extra schema to add to current-oracle-dialect.sql
