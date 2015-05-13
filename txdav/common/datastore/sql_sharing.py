@@ -29,7 +29,7 @@ from txdav.base.propertystore.base import PropertyName
 from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, _BIND_MODE_DIRECT, \
     _BIND_MODE_INDIRECT, _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, \
     _BIND_STATUS_INVITED, _BIND_STATUS_INVALID, _BIND_STATUS_DELETED, \
-    _HOME_STATUS_EXTERNAL
+    _HOME_STATUS_EXTERNAL, _HOME_STATUS_DISABLED
 from txdav.common.icommondatastore import ExternalShareFailed, \
     HomeChildNameAlreadyExistsError, AllRetriesFailed
 from txdav.xml import element
@@ -479,8 +479,9 @@ class SharingMixIn(object):
                 yield self._sendExternalUninvite(shareeView)
             else:
                 # If current user state is accepted then we send an invite with the new state, otherwise
-                # we cancel any existing invites for the user
-                if not shareeView.direct():
+                # we cancel any existing invites for the user. Also, if the ownerHome is disabled, we assume
+                # that no sharing invites are sent.
+                if not shareeView.direct() and shareeView.ownerHome().status() != _HOME_STATUS_DISABLED:
                     if shareeView.shareStatus() != _BIND_STATUS_ACCEPTED:
                         yield self._removeInviteNotification(shareeView)
                     else:

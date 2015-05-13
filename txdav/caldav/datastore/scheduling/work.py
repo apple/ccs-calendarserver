@@ -1108,5 +1108,6 @@ class ScheduleAutoReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_AUTO_RE
             log.debug("ImplicitProcessing - skipping auto-reply of missing ID: '{rid}'", rid=self.resourceID)
 
 
-for workClass in (ScheduleOrganizerWork, ScheduleOrganizerSendWork, ScheduleReplyWork, ScheduleRefreshWork, ScheduleAutoReplyWork,):
+allScheduleWork = (ScheduleOrganizerWork, ScheduleOrganizerSendWork, ScheduleReplyWork, ScheduleRefreshWork, ScheduleAutoReplyWork,)
+for workClass in allScheduleWork:
     ScheduleWork._classForWorkType[workClass.__name__] = workClass

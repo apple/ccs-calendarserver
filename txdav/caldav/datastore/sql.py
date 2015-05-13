@@ -14,9 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.caldav.datastore.scheduling.work import ScheduleOrganizerWork, \
-    ScheduleWork, ScheduleAutoReplyWork, ScheduleOrganizerSendWork, \
-    ScheduleRefreshWork, ScheduleReplyWork
 
 
 """
@@ -65,6 +62,7 @@ from txdav.caldav.datastore.scheduling.icalsplitter import iCalSplitter
 from txdav.caldav.datastore.scheduling.imip.token import iMIPTokenRecord
 from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 from txdav.caldav.datastore.scheduling.utils import uidFromCalendarUserAddress
+from txdav.caldav.datastore.scheduling.work import allScheduleWork, ScheduleWork
 from txdav.caldav.datastore.sql_attachment import Attachment, DropBoxAttachment, \
     AttachmentLink, ManagedAttachment
 from txdav.caldav.datastore.sql_directory import GroupAttendeeRecord, \
@@ -535,6 +533,19 @@ class CalendarHome(CommonHome):
         yield Attachment.removedHome(self._txn, self._resourceID)
 
         yield super(CalendarHome, self).remove()
+
+
+    @inlineCallbacks
+    def purgeAll(self):
+        """
+        Do a complete purge of all data associated with this calendar home. For now this will assume
+        a "silent" non-implicit behavior. In the future we will want to build in some of the options
+        the current set of "purge" CLI tools have to allow for cancels of future events etc.
+        """
+        # delete attachments corresponding to this home, also removing from disk
+        yield Attachment.removedHome(self._txn, self._resourceID)
+
+        yield super(CalendarHome, self).purgeAll()
 
 
     @inlineCallbacks
@@ -1065,7 +1076,7 @@ class CalendarHome(CommonHome):
         L{ScheduleOrganizerSendWork}, L{ScheduleReplyWork}, L{ScheduleRefreshWork}, L{ScheduleAutoReplyWork}
         """
 
-        for workType in (ScheduleOrganizerWork, ScheduleOrganizerSendWork, ScheduleReplyWork, ScheduleRefreshWork, ScheduleAutoReplyWork,):
+        for workType in allScheduleWork:
             yield JobItem.updatesome(
                 self._txn,
                 where=JobItem.jobID.In(
@@ -1083,7 +1094,7 @@ class CalendarHome(CommonHome):
         """
 
         results = collections.defaultdict(list)
-        for workType in (ScheduleOrganizerWork, ScheduleOrganizerSendWork, ScheduleReplyWork, ScheduleRefreshWork, ScheduleAutoReplyWork,):
+        for workType in allScheduleWork:
             workItems = yield workType.query(self._txn, workType.homeResourceID == self.id())
             for item in workItems:
                 serialized = yield item.serializeWithAncillaryData()

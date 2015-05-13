@@ -58,6 +58,7 @@ from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
 from txdav.carddav.iaddressbookstore import IAddressBookTransaction
 from txdav.common.datastore.common import HomeChildBase
 from txdav.common.datastore.podding.conduit import PoddingConduit
+from txdav.common.datastore.podding.migration.work import MigratedHomeCleanupWork
 from txdav.common.datastore.sql_apn import APNSubscriptionsMixin
 from txdav.common.datastore.sql_directory import DelegatesAPIMixin, \
     GroupsAPIMixin, GroupCacherAPIMixin
@@ -800,6 +801,23 @@ class CommonStoreTransaction(
                 self._notificationHomes["byID"][None][rid] = result
                 self._notificationHomes["byUID"][result.status()][result.uid()] = result
         returnValue(result)
+
+
+    def migratedHome(self, ownerUID):
+        """
+        This pod is being told that user data migration to another pod has been completed, and the old data now
+        needs to be removed.
+
+        @param ownerUID: directory UID of the user whose data has been migrated
+        @type ownerUID: L{str}
+        """
+
+        # All we do is schedule a work item to run the actual clean-up
+        return MigratedHomeCleanupWork.reschedule(
+            self,
+            MigratedHomeCleanupWork.notBeforeDelay,
+            ownerUID=ownerUID,
+        )
 
 
     def preCommit(self, operation):
@@ -2135,6 +2153,62 @@ class CommonHome(SharingHomeMixIn):
             yield child.remove()
             self._children.pop(child.name(), None)
             self._children.pop(child.id(), None)
+
+
+    @inlineCallbacks
+    def purgeAll(self):
+        """
+        Do a complete purge of all data associated with this calendar home. For now this will assume
+        a "silent" non-implicit behavior. In the future we will want to build in some of the options
+        the current set of "purge" CLI tools have to allow for cancels of future events etc.
+        """
+
+        # Removing the home table entry does NOT remove the child class entry - it does remove
+        # the associated bind entry. So manually remove each child.
+        yield self.purgeAllChildren()
+
+        r = self._childClass._revisionsSchema
+        yield Delete(
+            From=r,
+            Where=r.HOME_RESOURCE_ID == self._resourceID,
+        ).on(self._txn)
+
+        h = self._homeSchema
+        yield Delete(
+            From=h,
+            Where=h.RESOURCE_ID == self._resourceID,
+        ).on(self._txn)
+
+        yield self.properties()._removeResource()
+
+        if self._txn._queryCacher:
+            yield self._txn._queryCacher.delete(self._txn._queryCacher.keyForHomeWithUID(
+                self._homeType,
+                self.uid(),
+                self._status,
+            ))
+            yield self._txn._queryCacher.delete(self._txn._queryCacher.keyForHomeWithID(
+                self._homeType,
+                self.id(),
+                self._status,
+            ))
+
+
+    @inlineCallbacks
+    def purgeAllChildren(self):
+        """
+        Purge each child (non-implicit).
+        """
+
+        children = yield self.loadChildren()
+        for child in children:
+            yield child.unshare()
+            if child.owned():
+                yield child.purge()
+            self._children.pop(child.name(), None)
+            self._children.pop(child.id(), None)
+
+        yield self.removeUnacceptedShares()
 
 
     def transaction(self):
@@ -3599,6 +3673,11 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
     @inlineCallbacks
     def _reallyRemove(self):
+        """
+        Actually remove this collection from the database. All the child resources will be automatically
+        removed by virtue of an on delete cascade. Note that means no implicit scheduling cancels will
+        occur.
+        """
 
         # Stop sharing first
         yield self.ownerDeleteShare()

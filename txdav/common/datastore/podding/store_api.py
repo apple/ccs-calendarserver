@@ -135,6 +135,39 @@ class StoreAPIConduitMixin(object):
         })
 
 
+    @inlineCallbacks
+    def send_migrated_home(self, txn, ownerUID):
+        """
+        Tell another pod that user data migration is done.
+
+        @param txn: transaction to use
+        @type txn: L{CommonStoreTransaction}
+        @param server: server to query
+        @type server: L{Server}
+        @param ownerUID: directory UID of the user whose data has been migrated
+        @type ownerUID: L{str}
+        """
+
+        recipient = yield self.store.directoryService().recordWithUID(ownerUID)
+        request = {
+            "action": "migrated-home",
+            "ownerUID": ownerUID,
+        }
+        yield self.sendRequestToServer(txn, recipient.server(), request)
+
+
+    @inlineCallbacks
+    def recv_migrated_home(self, txn, request):
+        """
+        Process a migrated homes cross-pod request. Request arguments as per L{send_migrated_home}.
+
+        @param request: request arguments
+        @type request: C{dict}
+        """
+
+        yield txn.migratedHome(request["ownerUID"])
+
+
     @staticmethod
     def _to_serialize_pair_list(value):
         """

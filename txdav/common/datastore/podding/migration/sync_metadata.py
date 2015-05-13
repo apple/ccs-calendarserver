@@ -16,7 +16,7 @@
 
 from twext.enterprise.dal.record import Record, fromTable
 from twext.enterprise.dal.syntax import Parameter, Delete
-from twext.enterprise.jobqueue import SingletonWorkItem
+from twext.enterprise.jobqueue import WorkItem
 from twisted.internet.defer import inlineCallbacks
 from txdav.common.datastore.sql_tables import schema
 
@@ -60,7 +60,7 @@ class AttachmentMigrationRecord(Record, fromTable(schema.ATTACHMENT_MIGRATION)):
 
 
 
-class MigrationCleanupWork(SingletonWorkItem, fromTable(schema.MIGRATION_CLEANUP_WORK)):
+class MigrationCleanupWork(WorkItem, fromTable(schema.MIGRATION_CLEANUP_WORK)):
 
     group = "homeResourceID"
 

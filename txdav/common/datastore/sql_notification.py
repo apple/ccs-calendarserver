@@ -586,6 +586,8 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
             ),
         ).on(self._txn, **kwds)
 
+    purge = remove
+
 
 
 class NotificationObjectRecord(SerializableRecord, fromTable(schema.NOTIFICATION)):

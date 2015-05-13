@@ -14,23 +14,26 @@
 # limitations under the License.
 ##
 
-from functools import wraps
-
 from twext.python.log import Logger
+
 from twisted.internet.defer import returnValue, inlineCallbacks
 from twisted.python.failure import Failure
+
 from twistedcaldav.accounting import emitAccounting
+
+from txdav.caldav.datastore.sql import ManagedAttachment, CalendarBindRecord
 from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.podding.migration.sync_metadata import CalendarMigrationRecord, \
     CalendarObjectMigrationRecord, AttachmentMigrationRecord, \
     MigrationCleanupWork
-from txdav.caldav.datastore.sql import ManagedAttachment, CalendarBindRecord
+from txdav.common.datastore.podding.migration.work import HomeCleanupWork
 from txdav.common.datastore.sql_external import NotificationCollectionExternal
 from txdav.common.datastore.sql_notification import NotificationCollection
 from txdav.common.datastore.sql_tables import _HOME_STATUS_MIGRATING, _HOME_STATUS_DISABLED, \
     _HOME_STATUS_EXTERNAL, _HOME_STATUS_NORMAL
 from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
 
+from functools import wraps
 from uuid import uuid4
 import datetime
 
@@ -287,8 +290,12 @@ class CrossPodHomeSync(object):
             homeResourceID=newhome.id(),
         )
 
-        # TODO: purge the old ones
-        pass
+        # Purge the old ones
+        yield HomeCleanupWork.reschedule(
+            txn,
+            HomeCleanupWork.notBeforeDelay,
+            ownerUID=newhome.uid(),
+        )
 
         self.accounting("Completed: enableLocalHome.\n")
 
@@ -305,8 +312,17 @@ class CrossPodHomeSync(object):
         yield self.loadRecord()
         self.accounting("Starting: removeRemoteHome...")
         yield self.prepareCalendarHome()
+        yield self._migratedHome()
 
         self.accounting("Completed: removeRemoteHome.\n")
+
+
+    @inTransactionWrapper
+    def _migratedHome(self, txn):
+        """
+        Send cross-pod message to tell the old pod to remove the migrated data.
+        """
+        return txn.store().conduit.send_migrated_home(txn, self.diruid)
 
 
     @inlineCallbacks

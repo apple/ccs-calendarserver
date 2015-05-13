@@ -27,12 +27,16 @@ from twistedcaldav.ical import Component
 
 from txdav.caldav.datastore.scheduling.ischedule.delivery import IScheduleRequest
 from txdav.caldav.datastore.scheduling.ischedule.resource import IScheduleInboxResource
+from txdav.caldav.datastore.scheduling.work import allScheduleWork
 from txdav.caldav.datastore.test.common import CaptureProtocol
 from txdav.common.datastore.podding.migration.home_sync import CrossPodHomeSync
 from txdav.common.datastore.podding.migration.sync_metadata import CalendarMigrationRecord, \
     AttachmentMigrationRecord, CalendarObjectMigrationRecord, \
     MigrationCleanupWork
+from txdav.common.datastore.podding.migration.work import HomeCleanupWork, MigratedHomeCleanupWork
 from txdav.common.datastore.podding.test.util import MultiStoreConduitTest
+from txdav.common.datastore.sql_directory import DelegateRecord,\
+    DelegateGroupsRecord, ExternalDelegateGroupsRecord
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, \
     _HOME_STATUS_DISABLED, _HOME_STATUS_NORMAL, _HOME_STATUS_EXTERNAL, \
     _HOME_STATUS_MIGRATING
@@ -78,6 +82,8 @@ class TestCompleteMigrationCycle(MultiStoreConduitTest):
 
         # Speed up work
         self.patch(MigrationCleanupWork, "notBeforeDelay", 1)
+        self.patch(HomeCleanupWork, "notBeforeDelay", 1)
+        self.patch(MigratedHomeCleanupWork, "notBeforeDelay", 1)
 
 
     def configure(self):
@@ -375,6 +381,7 @@ END:VCALENDAR
 
         # Data for user01
         home = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        self.stash["user01_pod0_home_id"] = home.id()
         calendar = yield home.childWithName("calendar")
         yield calendar.createCalendarObjectWithName("01_1.ics", Component.fromString(self.data01_1))
         yield calendar.createCalendarObjectWithName("01_2.ics", Component.fromString(self.data01_2))
@@ -661,12 +668,46 @@ END:VCALENDAR
         data = yield self.attachmentToString(attachment)
         self.assertEqual(data, "Here is some text #1.")
 
-        # No migration data left
-        txn = self.theTransactionUnderTest(1)
+        # Check removal of data from new pod
+
+        # Make sure all jobs are done
         yield JobItem.waitEmpty(self.theStoreUnderTest(1).newTransaction, reactor, 60)
+
+        # No migration state data left
+        txn = self.theTransactionUnderTest(1)
         for migrationType in (CalendarMigrationRecord, CalendarObjectMigrationRecord, AttachmentMigrationRecord,):
             records = yield migrationType.all(txn)
             self.assertEqual(len(records), 0, msg=migrationType.__name__)
+        yield self.commitTransaction(1)
+
+        # No homes
+        txn = self.theTransactionUnderTest(1)
+        oldhome = yield txn.calendarHomeWithUID("user01", status=_HOME_STATUS_DISABLED)
+        self.assertTrue(oldhome is None)
+        oldhome = yield txn.notificationsWithUID("user01", status=_HOME_STATUS_DISABLED)
+        self.assertTrue(oldhome is None)
+
+        # Check removal of data from old pod
+
+        # Make sure all jobs are done
+        yield JobItem.waitEmpty(self.theStoreUnderTest(0).newTransaction, reactor, 60)
+
+        # No homes
+        txn = self.theTransactionUnderTest(0)
+        oldhome = yield txn.calendarHomeWithUID("user01", status=_HOME_STATUS_DISABLED)
+        self.assertTrue(oldhome is None)
+        oldhome = yield txn.notificationsWithUID("user01", status=_HOME_STATUS_DISABLED)
+        self.assertTrue(oldhome is None)
+
+        # No delegates
+        for delegateType in (DelegateRecord, DelegateGroupsRecord, ExternalDelegateGroupsRecord):
+            records = yield delegateType.query(txn, delegateType.delegator == "user01")
+            self.assertEqual(len(records), 0, msg=delegateType.__name__)
+
+        # No work items
+        for workType in allScheduleWork:
+            records = yield workType.query(txn, workType.homeResourceID == self.stash["user01_pod0_home_id"])
+            self.assertEqual(len(records), 0, msg=workType.__name__)
 
 
     @inlineCallbacks

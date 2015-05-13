@@ -1234,6 +1234,32 @@ create index MIGRATION_CLEANUP_WORK_JOB_ID on
 create index MIGRATION_CLEANUP_WORK_HOME_RESOURCE_ID on
   MIGRATION_CLEANUP_WORK(HOME_RESOURCE_ID);
 
+-----------------------
+-- Home Cleanup Work --
+-----------------------
+
+create table HOME_CLEANUP_WORK (
+  WORK_ID          integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  JOB_ID           integer      references JOB not null,
+  OWNER_UID        varchar(255) not null
+);
+
+create index HOME_CLEANUP_WORK_JOB_ID on
+  HOME_CLEANUP_WORK(JOB_ID);
+
+--------------------------------
+-- Migrated Home Cleanup Work --
+--------------------------------
+
+create table MIGRATED_HOME_CLEANUP_WORK (
+  WORK_ID          integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  JOB_ID           integer      references JOB not null,
+  OWNER_UID        varchar(255) not null
+);
+
+create index MIGRATED_HOME_CLEANUP_WORK_JOB_ID on
+  MIGRATED_HOME_CLEANUP_WORK(JOB_ID);
+
 --------------------
 -- Schema Version --
 --------------------

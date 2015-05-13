@@ -22,7 +22,7 @@
 alter table JOB
   add ("PAUSE" integer default 0);
 
--- New table
+-- New tables
 create table MIGRATION_CLEANUP_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB,
@@ -34,6 +34,26 @@ create index MIGRATION_CLEANUP_WOR_8c23cc35 on MIGRATION_CLEANUP_WORK (
 );
 create index MIGRATION_CLEANUP_WOR_86181cb8 on MIGRATION_CLEANUP_WORK (
     "HOME_RESOURCE_ID"
+);
+
+create table HOME_CLEANUP_WORK (
+    "WORK_ID" integer primary key,
+    "JOB_ID" integer not null references JOB,
+    "OWNER_UID" nvarchar2(255)
+);
+
+create index HOME_CLEANUP_WORK_JOB_9631dfb0 on HOME_CLEANUP_WORK (
+    "JOB_ID"
+);
+
+create table MIGRATED_HOME_CLEANUP_WORK (
+    "WORK_ID" integer primary key,
+    "JOB_ID" integer not null references JOB,
+    "OWNER_UID" nvarchar2(255)
+);
+
+create index MIGRATED_HOME_CLEANUP_4c714fd4 on MIGRATED_HOME_CLEANUP_WORK (
+    "JOB_ID"
 );
 
 -- update the version
