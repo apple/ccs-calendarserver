@@ -72,7 +72,8 @@ from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
 from twistedcaldav.resource import AuthenticationWrapper
-from twistedcaldav.simpleresource import SimpleResource, SimpleRedirectResource
+from twistedcaldav.simpleresource import SimpleResource, SimpleRedirectResource, \
+    SimpleUnavailableResource
 from twistedcaldav.stdconfig import config
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.timezoneservice import TimezoneServiceResource
@@ -541,6 +542,11 @@ def getRootResource(config, newStore, resources=None):
                 if e.errno != errno.ENOENT:
                     log.error("Could not delete: {path} : {error}", path=directoryPath, error=e)
 
+    if config.MigrationOnly:
+        unavailable = SimpleUnavailableResource((principalCollection,))
+    else:
+        unavailable = None
+
     log.info("Setting up root resource: {cls}", cls=rootResourceClass)
 
     root = rootResourceClass(
@@ -548,13 +554,13 @@ def getRootResource(config, newStore, resources=None):
         principalCollections=(principalCollection,),
     )
 
-    root.putChild("principals", principalCollection)
+    root.putChild("principals", principalCollection if unavailable is None else unavailable)
     if config.EnableCalDAV:
-        root.putChild("calendars", calendarCollection)
+        root.putChild("calendars", calendarCollection if unavailable is None else unavailable)
     if config.EnableCardDAV:
-        root.putChild('addressbooks', addressBookCollection)
+        root.putChild('addressbooks', addressBookCollection if unavailable is None else unavailable)
         if config.DirectoryAddressBook.Enabled and config.EnableSearchAddressBook:
-            root.putChild(config.DirectoryAddressBook.name, directoryBackedAddressBookCollection)
+            root.putChild(config.DirectoryAddressBook.name, directoryBackedAddressBookCollection if unavailable is None else unavailable)
 
     # /.well-known
     if config.EnableWellKnown:
@@ -652,7 +658,7 @@ def getRootResource(config, newStore, resources=None):
             newStore,
             podding=True
         )
-        root.putChild(config.Servers.InboxName, ischedule)
+        root.putChild(config.Servers.InboxName, ischedule if unavailable is None else unavailable)
 
         log.info("Setting up podding conduit resource: {cls}", cls=conduitResourceClass)
 
@@ -672,7 +678,7 @@ def getRootResource(config, newStore, resources=None):
             root,
             newStore,
         )
-        root.putChild("ischedule", ischedule)
+        root.putChild("ischedule", ischedule if unavailable is None else unavailable)
 
         # Do DomainKey resources
         DKIMUtils.validConfiguration(config)
@@ -697,7 +703,7 @@ def getRootResource(config, newStore, resources=None):
             config.WebCalendarRoot,
             principalCollections=(principalCollection,),
         )
-        root.putChild("webcal", webCalendar)
+        root.putChild("webcal", webCalendar if unavailable is None else unavailable)
 
     #
     # WebAdmin

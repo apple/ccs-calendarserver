@@ -21,6 +21,8 @@ from twisted.internet.defer import inlineCallbacks
 
 from txdav.caldav.datastore.scheduling.imip.token import iMIPTokenRecord
 from txdav.caldav.datastore.scheduling.work import allScheduleWork
+from txdav.common.datastore.podding.migration.sync_metadata import CalendarMigrationRecord, \
+    CalendarObjectMigrationRecord, AttachmentMigrationRecord
 from txdav.common.datastore.sql_directory import DelegateRecord, \
     DelegateGroupsRecord, ExternalDelegateGroupsRecord
 from txdav.common.datastore.sql_tables import schema, _HOME_STATUS_DISABLED
@@ -99,3 +101,30 @@ class MigratedHomeCleanupWork(WorkItem, fromTable(schema.MIGRATED_HOME_CLEANUP_W
         yield DelegateRecord.deletesome(self.transaction, DelegateRecord.delegator == self.ownerUID)
         yield DelegateGroupsRecord.deletesome(self.transaction, DelegateGroupsRecord.delegator == self.ownerUID)
         yield ExternalDelegateGroupsRecord.deletesome(self.transaction, ExternalDelegateGroupsRecord.delegator == self.ownerUID)
+
+
+
+class MigrationCleanupWork(WorkItem, fromTable(schema.MIGRATION_CLEANUP_WORK)):
+
+    group = "homeResourceID"
+
+    notBeforeDelay = 300    # 5 minutes
+
+    @inlineCallbacks
+    def doWork(self):
+        """
+        Delete all the corresponding migration records.
+        """
+
+        yield CalendarMigrationRecord.deletesome(
+            self.transaction,
+            CalendarMigrationRecord.calendarHomeResourceID == self.homeResourceID,
+        )
+        yield CalendarObjectMigrationRecord.deletesome(
+            self.transaction,
+            CalendarObjectMigrationRecord.calendarHomeResourceID == self.homeResourceID,
+        )
+        yield AttachmentMigrationRecord.deletesome(
+            self.transaction,
+            AttachmentMigrationRecord.calendarHomeResourceID == self.homeResourceID,
+        )

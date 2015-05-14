@@ -31,9 +31,8 @@ from txdav.caldav.datastore.scheduling.work import allScheduleWork
 from txdav.caldav.datastore.test.common import CaptureProtocol
 from txdav.common.datastore.podding.migration.home_sync import CrossPodHomeSync
 from txdav.common.datastore.podding.migration.sync_metadata import CalendarMigrationRecord, \
-    AttachmentMigrationRecord, CalendarObjectMigrationRecord, \
-    MigrationCleanupWork
-from txdav.common.datastore.podding.migration.work import HomeCleanupWork, MigratedHomeCleanupWork
+    AttachmentMigrationRecord, CalendarObjectMigrationRecord
+from txdav.common.datastore.podding.migration.work import HomeCleanupWork, MigratedHomeCleanupWork, MigrationCleanupWork
 from txdav.common.datastore.podding.test.util import MultiStoreConduitTest
 from txdav.common.datastore.sql_directory import DelegateRecord,\
     DelegateGroupsRecord, ExternalDelegateGroupsRecord

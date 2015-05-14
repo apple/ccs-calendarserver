@@ -24,9 +24,8 @@ from twistedcaldav.accounting import emitAccounting
 from txdav.caldav.datastore.sql import ManagedAttachment, CalendarBindRecord
 from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.podding.migration.sync_metadata import CalendarMigrationRecord, \
-    CalendarObjectMigrationRecord, AttachmentMigrationRecord, \
-    MigrationCleanupWork
-from txdav.common.datastore.podding.migration.work import HomeCleanupWork
+    CalendarObjectMigrationRecord, AttachmentMigrationRecord
+from txdav.common.datastore.podding.migration.work import HomeCleanupWork, MigrationCleanupWork
 from txdav.common.datastore.sql_external import NotificationCollectionExternal
 from txdav.common.datastore.sql_notification import NotificationCollection
 from txdav.common.datastore.sql_tables import _HOME_STATUS_MIGRATING, _HOME_STATUS_DISABLED, \

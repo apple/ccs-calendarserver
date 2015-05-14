@@ -1303,7 +1303,8 @@ class CalDAVServiceMaker (object):
 
             pool = PeerConnectionPool(
                 reactor, store.newTransaction, ampPort,
-                useWorkerPool=False
+                useWorkerPool=False,
+                disableWorkProcessing=config.MigrationOnly,
             )
             self._initJobQueue(pool)
             store.queuer = store.queuer.transferProposalCallbacks(pool)
@@ -1873,7 +1874,8 @@ class CalDAVServiceMaker (object):
                 ampPort = None
 
             pool = PeerConnectionPool(
-                reactor, store.newTransaction, ampPort
+                reactor, store.newTransaction, ampPort,
+                disableWorkProcessing=config.MigrationOnly,
             )
             self._initJobQueue(pool)
 

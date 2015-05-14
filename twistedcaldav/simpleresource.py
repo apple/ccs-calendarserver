@@ -26,15 +26,18 @@ __all__ = [
     "SimpleDataResource",
 ]
 
-from txweb2 import http
+from txweb2 import http, server
+from txweb2 import responsecode
 from txweb2.dav.noneprops import NonePropertyStore
-from txweb2.http import Response
+from txweb2.http import Response, HTTPError
 
 from twisted.internet.defer import succeed
 
 from twistedcaldav.resource import CalDAVResource
 
 from txdav.xml import element as davxml
+
+import time
 
 class SimpleResource (
     CalDAVResource,
@@ -105,6 +108,38 @@ class SimpleRedirectResource(SimpleResource):
 
     def renderHTTP(self, request):
         return http.RedirectResponse(request.unparseURL(host=request.host, **self._kwargs))
+
+
+
+class SimpleUnavailableResource(SimpleResource):
+    """
+    A L{SimpleResource} which always generates a 503 Service Unavailable response with an optional Retry-After value.
+    """
+
+    def __init__(self, principalCollections, retryafter=300, defaultACL=SimpleResource.authReadACL, **kwargs):
+        """
+        Parameters are URL components and are the same as those for
+        L{urlparse.urlunparse}.  URL components which are not specified will
+        default to the corresponding component of the URL of the request being
+        redirected.
+
+        @param retryafter: time in seconds to use in Retry-After header, or -1 for no header
+        @type retryafter: L{int}
+        """
+        SimpleResource.__init__(self, principalCollections=principalCollections, isdir=False, defaultACL=defaultACL)
+        self.retryAfter = retryafter
+        self._kwargs = kwargs
+
+
+    def locateChild(self, request, segments):
+        return self, server.StopTraversal
+
+
+    def renderHTTP(self, request):
+        response = http.StatusResponse(responsecode.SERVICE_UNAVAILABLE, responsecode.RESPONSES[responsecode.SERVICE_UNAVAILABLE])
+        if self.retryAfter > 0:
+            response.headers.setHeader("Retry-After", time.time() + self.retryAfter)
+        raise HTTPError(response)
 
 
 
