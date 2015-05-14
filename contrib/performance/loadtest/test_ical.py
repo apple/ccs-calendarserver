@@ -38,6 +38,7 @@ from twisted.web.http_headers import Headers
 from twistedcaldav.ical import Component
 from twistedcaldav.timezones import TimezoneCache
 
+import json
 import os
 
 EVENT_UID = 'D94F247D-7433-43AF-B84B-ADD684D023B0'
@@ -1537,7 +1538,9 @@ END:VCALENDAR
         self.client.serialize()
         self.assertTrue(os.path.exists(clientPath))
         self.assertTrue(os.path.exists(indexPath))
-        self.assertEqual(open(indexPath).read().replace(" \n", "\n"), """{
+        def _normDict(d):
+            return dict([(k, sorted(v, key=lambda x: x["changeToken" if k == "calendars" else "url"]) if v else None,) for k, v in d.items()])
+        self.assertEqual(_normDict(json.loads(open(indexPath).read())), _normDict(json.loads("""{
   "calendars": [
     {
       "changeToken": "123",
@@ -1590,7 +1593,7 @@ END:VCALENDAR
       "uid": "00a79cad-857b-418e-a54a-340b5686d747"
     }
   ]
-}""")
+}""")))
 
         event1Path = os.path.join(clientPath, "calendar", "1.ics")
         self.assertTrue(os.path.exists(event1Path))

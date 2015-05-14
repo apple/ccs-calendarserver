@@ -505,7 +505,7 @@ class HTTPTests(unittest.TestCase):
                 else:
                     sortedHeaderCommands.append(cmd)
             self.assertEquals(receivedRequest.cmds, sortedHeaderCommands)
-        self.assertEquals(cxn.client.data, data)
+        self.assertEquals(set(cxn.client.data.splitlines()), set(data.splitlines()))
 
 
     def assertDone(self, cxn, done=True):

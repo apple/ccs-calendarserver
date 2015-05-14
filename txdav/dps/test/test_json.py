@@ -33,6 +33,7 @@ from ..json import (
 from twext.who.test.test_xml import xmlService
 from twisted.trial import unittest
 
+import json
 
 
 class SerializationTests(unittest.TestCase):
@@ -212,19 +213,15 @@ class SerializationTests(unittest.TestCase):
         expression = MatchExpression(FieldName.uid, uid)
         jsonText = expressionAsJSONText(expression)
 
-        expected = (
-            u"""
-            {{
-                "field": "uid",
-                "flags": "{{}}",
-                "match": "equals",
-                "value": "{uid}",
-                "type": "MatchExpression"
-            }}
-            """
-        ).replace(" ", "").replace("\n", "").format(uid=uid)
+        expected = {
+            "type": "MatchExpression",
+            "field": "uid",
+            "value": uid,
+            "match": "equals",
+            "flags": "{}",
+        }
 
-        self.assertEquals(jsonText, expected)
+        self.assertEquals(json.loads(jsonText), expected)
 
 
 

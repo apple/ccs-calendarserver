@@ -412,48 +412,48 @@ class GroupCacherTest(StoreTestCase):
         )
 
         self.assertEquals(
-            (
+            map(set, (
                 # changed
                 [("A", ("1", "2")), ("B", ("3", "4"))],
                 # removed
                 [],
-            ),
-            diffAssignments(
+            )),
+            map(set, diffAssignments(
                 # old
                 {},
                 # new
                 {"A": ("1", "2"), "B": ("3", "4")}
-            )
+            ))
         )
 
         self.assertEquals(
-            (
+            map(set, (
                 # changed
                 [],
                 # removed
                 ["A", "B"],
-            ),
-            diffAssignments(
+            )),
+            map(set, diffAssignments(
                 # old
                 {"A": ("1", "2"), "B": ("3", "4")},
                 # new
                 {},
-            )
+            ))
         )
 
         self.assertEquals(
-            (
+            map(set, (
                 # changed
                 [('C', ('4', '5')), ('D', ('7', '8'))],
                 # removed
                 ["B"],
-            ),
-            diffAssignments(
+            )),
+            map(set, diffAssignments(
                 # old
                 {"A": ("1", "2"), "B": ("3", "4"), "C": ("5", "6")},
                 # new
                 {"D": ("7", "8"), "C": ("4", "5"), "A": ("1", "2")},
-            )
+            ))
         )
 
 
@@ -580,11 +580,11 @@ class GroupCacherTest(StoreTestCase):
         yield self.groupCacher.refreshGroup(self.transactionUnderTest(), "__top_group_1__")
         yield self.commit()
 
-        self.assertEqual(TestNotifier.changedTokens, [
+        self.assertEqual(set(TestNotifier.changedTokens), set([
             "__top_group_1__",
             "__sagen1__",
             "__cdaboo1__",
-        ])
+        ]))
         TestNotifier.changedTokens = []
 
         # Add sub-group member to group
@@ -595,11 +595,11 @@ class GroupCacherTest(StoreTestCase):
         yield self.groupCacher.refreshGroup(self.transactionUnderTest(), "__top_group_1__")
         yield self.commit()
 
-        self.assertEqual(TestNotifier.changedTokens, [
+        self.assertEqual(set(TestNotifier.changedTokens), set([
             "__top_group_1__",
             "__sagen1__",
             "__cdaboo1__",
-        ])
+        ]))
         TestNotifier.changedTokens = []
 
 

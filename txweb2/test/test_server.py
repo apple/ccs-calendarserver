@@ -301,7 +301,9 @@ class BaseCase(unittest.TestCase):
         if expected_data is not None:
             self.assertEquals(data, expected_data)
         for key, value in expected_headers.iteritems():
-            self.assertEquals(headers.getHeader(key), value)
+            test1 = sorted(headers.getHeader(key))
+            test2 = sorted(value)
+            self.assertEquals(test1, test2)
         self.assertEquals(failed, expectedfailure)
 
 

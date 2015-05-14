@@ -973,6 +973,7 @@ class BaseAppleClient(BaseClient):
         local cache.
         """
 
+        changed.sort()
         while changed:
             batchedHrefs = changed[:self.MULTIGET_BATCH_SIZE]
             changed = changed[self.MULTIGET_BATCH_SIZE:]
