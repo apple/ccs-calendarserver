@@ -46,7 +46,7 @@
     <key>SocketFiles</key>
     <dict>
         <key>Enabled</key>
-        <false/>
+        <true/>
         <key>Owner</key>
         <string>_calendar</string>
         <key>Group</key>
@@ -57,20 +57,20 @@
 
     <!-- HTTP port [0 = disable HTTP] -->
     <key>HTTPPort</key>
-    <integer>8008</integer>
+    <integer>80</integer>
 
     <!-- SSL port -->
     <!-- (Must also configure SSLCertificate and SSLPrivateKey below) -->
     <key>SSLPort</key>
-    <integer>8443</integer>
+    <integer>443</integer>
 
     <!-- Enable listening on SSL port(s) -->
     <key>EnableSSL</key>
-    <false/>
+    <true/>
 
     <!-- Redirect non-SSL ports to an SSL port (if configured for SSL) -->
     <key>RedirectHTTPToHTTPS</key>
-    <false/>
+    <true/>
 
 
     <!--
@@ -87,15 +87,11 @@
     <!-- List of port numbers to bind to for HTTP [empty = same as "Port"] -->
     <key>BindHTTPPorts</key>
     <array>
-        <integer>8008</integer>
-        <integer>8800</integer>
     </array>
 
     <!-- List of port numbers to bind to for SSL [empty = same as "SSLPort"] -->
     <key>BindSSLPorts</key>
     <array>
-        <integer>8443</integer>
-        <integer>8843</integer>
     </array>
 
 
