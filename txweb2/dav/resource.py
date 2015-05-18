@@ -2359,7 +2359,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         def setHeaders(response):
             response = IResponse(response)
 
-            response.headers.setHeader("dav", self.davComplianceClasses())
+            # Only set the DAV header on an OPTIONS request
+            if request.method == "OPTIONS":
+                response.headers.setHeader("dav", self.davComplianceClasses())
 
             #
             # If this is a collection and the URI doesn't end in "/",
