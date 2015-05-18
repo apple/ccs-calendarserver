@@ -242,7 +242,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                             if record is not None:
                                 guid = record.guid
                         else:
-                            guid = (yield guidForAuthToken(token))
+                            guid = (yield guidForAuthToken(token, host=wikiConfig.CollabHost, port=wikiConfig.CollabPort))
                             if guid == "unauthenticated":
                                 guid = None
 
