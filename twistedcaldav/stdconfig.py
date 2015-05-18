@@ -511,7 +511,8 @@ DEFAULT_CONFIG = {
     "EnableTimezoneService"   : False, # Old Timezone service
 
     "TimezoneService"         : {    # New standard timezone service
-        "Enabled"       : False, # Overall on/off switch
+        "Enabled"       : True,      # Overall on/off switch
+        "URI"           : "/stdtimezones", # URI where service is hosted
         "Mode"          : "primary", # Can be "primary" or "secondary"
         "BasePath"      : "",        # Path to directory containing a zoneinfo - if None use default package path
                                      # secondary service MUST define its own writable path

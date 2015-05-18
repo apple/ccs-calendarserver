@@ -29,6 +29,7 @@ from twext.python.log import Logger
 from txweb2 import responsecode
 from txweb2.dav.method.propfind import http_PROPFIND
 from txweb2.dav.noneprops import NonePropertyStore
+from txweb2.dav.util import joinURL
 from txweb2.http import HTTPError, JSONResponse, StatusResponse
 from txweb2.http import Response
 from txweb2.http_headers import MimeType
@@ -291,6 +292,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
         if len(request.args) != 0:
             self.problemReport("invalid-action", "Invalid request-URI query parameters", responsecode.BAD_REQUEST)
 
+        urlbase = request.path.rsplit("/", 1)[0]
         result = {
             "version": "1",
             "info" : {
@@ -301,16 +303,19 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             "actions" : [
                 {
                     "name": "capabilities",
+                    "uri-template": joinURL(urlbase, "capabilities"),
                     "parameters": [],
                 },
                 {
                     "name": "list",
+                    "uri-template": joinURL(urlbase, "zones{?changedsince}"),
                     "parameters": [
                         {"name": "changedsince", "required": False, "multi": False, },
                     ],
                 },
                 {
                     "name": "get",
+                    "uri-template": joinURL(urlbase, "zones{/tzid}{?start,end}"),
                     "parameters": [
                         {"name": "start", "required": False, "multi": False},
                         {"name": "stop", "required": False, "multi": False, },
@@ -318,14 +323,15 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                 },
                 {
                     "name": "expand",
+                    "uri-template": joinURL(urlbase, "zones{/tzid}/observances{?start,end}"),
                     "parameters": [
                         {"name": "start", "required": True, "multi": False, },
                         {"name": "end", "required": True, "multi": False, },
-                        {"name": "changedsince", "required": False, "multi": False, },
                     ],
                 },
                 {
                     "name": "find",
+                    "uri-template": joinURL(urlbase, "zones{?pattern}"),
                     "parameters": [
                         {"name": "pattern", "required": True, "multi": False, },
                     ],
@@ -399,7 +405,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
         Expand a timezone within specified start/end dates.
         """
 
-        if set(request.args.keys()) - set(("start", "end", "changedsince",)):
+        if set(request.args.keys()) - set(("start", "end",)):
             self.problemReport("invalid-action", "Invalid request-URI query parameters", responsecode.BAD_REQUEST)
 
         start = request.args.get("start", ())

@@ -2399,6 +2399,13 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         returnValue((storeHome, created))
 
 
+    def davComplianceClasses(self):
+        compliance = tuple(super(CalendarHomeResource, self).davComplianceClasses())
+        if config.EnableTimezonesByReference:
+            compliance += caldavxml.caldav_timezone_service_set_compliance
+        return compliance
+
+
     def liveProperties(self):
 
         existing = super(CalendarHomeResource, self).liveProperties()
@@ -2418,6 +2425,11 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         if config.EnableManagedAttachments:
             existing += (
                 caldavxml.ManagedAttachmentsServerURL.qname(),
+            )
+
+        if config.EnableTimezonesByReference:
+            existing += (
+                caldavxml.TimezoneServiceSet.qname(),
             )
 
         return existing
@@ -2468,6 +2480,13 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
                 # The HRef is empty - this will force the client to treat all managed attachment URLs
                 # as relative to this server scheme/host.
                 returnValue(caldavxml.ManagedAttachmentsServerURL(element.HRef.fromString("")))
+            else:
+                returnValue(None)
+
+        elif qname == caldavxml.TimezoneServiceSet.qname():
+            if config.EnableTimezonesByReference and config.TimezoneService.Enabled:
+                # Href points to standard timezone dist service.
+                returnValue(caldavxml.TimezoneServiceSet(element.HRef.fromString(config.TimezoneService.URI)))
             else:
                 returnValue(None)
 

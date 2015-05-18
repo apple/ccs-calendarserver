@@ -575,7 +575,7 @@ def getRootResource(config, newStore, resources=None):
         for enabled, wellknown_name, redirected_to in (
             (config.EnableCalDAV, "caldav", "/principals/",),
             (config.EnableCardDAV, "carddav", "/principals/",),
-            (config.TimezoneService.Enabled, "timezone", "/stdtimezones",),
+            (config.TimezoneService.Enabled, "timezone", config.TimezoneService.URI,),
             (config.Scheduling.iSchedule.Enabled, "ischedule", "/ischedule"),
         ):
             if enabled:

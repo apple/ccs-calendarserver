@@ -515,6 +515,13 @@
     <key>EnableTimezoneService</key>
     <true/>
 
+    <!-- Standard Timezone Service -->
+    <key>TimezoneService</key>
+    <dict>
+    	<key>Enabled</key>
+    	<false/>
+    </dict>
+
     <!-- Shared Calendars & Address Books -->
     <key>Sharing</key>
     <dict>

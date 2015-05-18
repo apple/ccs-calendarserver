@@ -1445,6 +1445,26 @@ class ManagedAttachmentsServerURL (CalDAVElement):
     allowed_children = {(dav_namespace, "href"): (0, 1)}
 
 
+#
+# draft-ietf-tzdist-caldav-timezone-ref
+#
+
+caldav_timezone_service_set_compliance = (
+    "timezone-service-set",
+)
+
+
+
+@registerElement
+class TimezoneServiceSet (CalDAVElement):
+    """
+    Zero or one href elements defining the base scheme/host for attachments.
+    """
+    name = "timezone-service-set"
+
+    allowed_children = {(dav_namespace, "href"): (0, 1)}
+
+
 
 #
 # Extensions to ResourceType
