@@ -450,6 +450,13 @@ class _CommonHomeChildCollectionMixin(object):
         returnValue(CREATED)
 
 
+    def http_PUT(self, request):
+        """
+        Cannot PUT to existing collection. Use POST instead.
+        """
+        return FORBIDDEN
+
+
     @requiresPermissions(fromParent=[davxml.Unbind()])
     @inlineCallbacks
     def http_DELETE(self, request):

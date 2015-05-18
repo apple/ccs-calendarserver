@@ -2375,6 +2375,14 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
     def notifyChanged(self):
         return self._newStoreHome.notifyChanged()
 
+
+    def http_PUT(self, request):
+        """
+        Cannot PUT to existing collection.
+        """
+        return responsecode.FORBIDDEN
+
+
     # Methods not supported
     http_ACL = None
     http_COPY = None
