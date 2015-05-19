@@ -1088,7 +1088,12 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
                 def translateUnauthenticated(f):
                     f.trap(UnauthorizedLogin, LoginFailed)
-                    log.info("Authentication failed: %s" % (f.value,))
+                    ips = [request.remoteAddr.host, ]
+                    fwdHeaders = request.headers.getRawHeaders("x-forwarded-for", "")
+                    for hdr in fwdHeaders:
+                        ips.append("fwd={}".format(hdr))
+                    ips = ", ".join(ips)
+                    log.info("Authentication failed: %s, client: %s" % (f.value, ips,))
                     d = UnauthorizedResponse.makeResponse(
                         request.credentialFactories, request.remoteAddr
                     )

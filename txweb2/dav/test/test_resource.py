@@ -24,6 +24,7 @@
 
 from twisted.internet.defer import DeferredList, waitForDeferred, deferredGenerator, succeed
 from twisted.cred.portal import Portal
+from twisted.python.log import addObserver, removeObserver
 from txweb2 import responsecode
 from txweb2.http import HTTPError
 from txweb2.auth import basic
@@ -337,6 +338,32 @@ class AccessTests(TestCase):
         def expectWwwAuth(err):
             self.failUnless(err.response.headers.hasHeader("WWW-Authenticate"),
                             "No WWW-Authenticate header present.")
+        d.addCallback(self.assertErrorResponse, responsecode.UNAUTHORIZED, expectWwwAuth)
+        return d
+
+
+    def test_badUsernameOrPassword_XForwarded(self):
+        class FakeLogObserver(object):
+            messages = []
+            def emit(self, eventDict):
+                if "log_legacy" in eventDict:
+                    self.messages.append(eventDict["log_legacy"])
+
+        blo = FakeLogObserver()
+        addObserver(blo.emit)
+        self.addCleanup(lambda: removeObserver(blo.emit))
+
+        request = SimpleRequest(self.site, "GET", "/protected")
+        request.headers.setHeader(
+            "authorization",
+            ("basic", "gooduser:badpass".encode("base64"))
+        )
+        request.headers.setRawHeaders("x-forwarded-for", ("10.0.1.1",))
+        d = self.assertFailure(self.checkSecurity(request), HTTPError)
+        def expectWwwAuth(err):
+            self.failUnless(err.response.headers.hasHeader("WWW-Authenticate"),
+                            "No WWW-Authenticate header present.")
+            self.assertTrue("fwd=10.0.1.1" in str(blo.messages[0]))
         d.addCallback(self.assertErrorResponse, responsecode.UNAUTHORIZED, expectWwwAuth)
         return d
 
