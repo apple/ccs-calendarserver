@@ -35,7 +35,8 @@ from txdav.xml.element import WebDAVUnknownElement
 from txdav.idav import IPropertyStore, IDataStore
 from txdav.base.propertystore.base import PropertyName
 from txdav.common.icommondatastore import HomeChildNameAlreadyExistsError, \
-    ICommonTransaction, InvalidComponentForStoreError, InvalidUIDError
+    ICommonTransaction, InvalidComponentForStoreError, InvalidUIDError, \
+    ObjectResourceNameNotAllowedError
 from txdav.common.icommondatastore import InvalidObjectResourceError
 from txdav.common.icommondatastore import NoSuchHomeChildError
 from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError
@@ -1389,6 +1390,36 @@ END:VCALENDAR
         yield self.failUnlessFailure(
             maybeDeferred(cal.createCalendarObjectWithName, "1.ics", comp),
             ObjectResourceNameAlreadyExistsError,
+        )
+
+
+    @inlineCallbacks
+    def test_createCalendarObjectWithName_invalidName(self):
+        """
+        L{ICalendar.createCalendarObjectWithName} raises
+        L{CalendarObjectNameAlreadyExistsError} if the calendar object name
+        starts with a ".".
+        """
+        cal = yield self.calendarUnderTest()
+        comp = VComponent.fromString(test_event_text)
+        yield self.failUnlessFailure(
+            maybeDeferred(cal.createCalendarObjectWithName, ".1.ics", comp),
+            ObjectResourceNameNotAllowedError,
+        )
+
+
+    @inlineCallbacks
+    def test_createCalendarObjectWithName_longName(self):
+        """
+        L{ICalendar.createCalendarObjectWithName} raises
+        L{CalendarObjectNameAlreadyExistsError} if the calendar object name
+        is too long.
+        """
+        cal = yield self.calendarUnderTest()
+        comp = VComponent.fromString(test_event_text)
+        yield self.failUnlessFailure(
+            maybeDeferred(cal.createCalendarObjectWithName, "A" * 256 + ".ics", comp),
+            ObjectResourceNameNotAllowedError,
         )
 
 

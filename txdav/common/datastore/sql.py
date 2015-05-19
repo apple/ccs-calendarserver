@@ -4871,6 +4871,9 @@ class CommonObjectResource(FancyEqMixin, object):
         if name.startswith("."):
             raise ObjectResourceNameNotAllowedError(name)
 
+        if len(name) > 255:
+            raise ObjectResourceNameNotAllowedError(name)
+
         c = cls._externalClass if parent.externalClass() else cls
         objectResource = c(parent, name, None, None, options=options)
         yield objectResource.setComponent(component, inserting=True)

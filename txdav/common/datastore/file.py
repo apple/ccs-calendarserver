@@ -1234,6 +1234,9 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
         if name.startswith("."):
             raise ObjectResourceNameNotAllowedError(name)
 
+        if len(name) > 255:
+            raise ObjectResourceNameNotAllowedError(name)
+
         objectResourcePath = self._path.child(name)
         if objectResourcePath.exists():
             raise ObjectResourceNameAlreadyExistsError(name)

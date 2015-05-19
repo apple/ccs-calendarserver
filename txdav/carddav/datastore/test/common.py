@@ -32,7 +32,8 @@ from txdav.base.propertystore.base import PropertyName
 from txdav.carddav.iaddressbookstore import IAddressBookObject, IAddressBookHome, \
     IAddressBook, IAddressBookTransaction
 from txdav.common.datastore.test.util import CommonCommonTests
-from txdav.common.icommondatastore import InvalidUIDError
+from txdav.common.icommondatastore import InvalidUIDError, \
+    ObjectResourceNameNotAllowedError
 from txdav.common.icommondatastore import ICommonTransaction
 from txdav.common.icommondatastore import InvalidObjectResourceError
 from txdav.common.icommondatastore import NoSuchHomeChildError
@@ -706,6 +707,36 @@ class CommonTests(CommonCommonTests):
                 (yield self.addressbookUnderTest()).createAddressBookObjectWithName,
                 "1.vcf", VComponent.fromString(vcard4_text)),
             ObjectResourceNameAlreadyExistsError
+        )
+
+
+    @inlineCallbacks
+    def test_createAddressBookObjectWithName_invalidName(self):
+        """
+        L{IAddressBook.createAddressBookObjectWithName} raises
+        L{AddressBookObjectNameAlreadyExistsError} if an addressbook object
+        gname starts with a ".".
+        """
+        yield self.failUnlessFailure(
+            maybeDeferred(
+                (yield self.addressbookUnderTest()).createAddressBookObjectWithName,
+                ".1.vcf", VComponent.fromString(vcard4_text)),
+            ObjectResourceNameNotAllowedError
+        )
+
+
+    @inlineCallbacks
+    def test_createAddressBookObjectWithName_longName(self):
+        """
+        L{IAddressBook.createAddressBookObjectWithName} raises
+        L{AddressBookObjectNameAlreadyExistsError} if an addressbook object
+        name is too long.
+        """
+        yield self.failUnlessFailure(
+            maybeDeferred(
+                (yield self.addressbookUnderTest()).createAddressBookObjectWithName,
+                "A" * 256 + ".vcf", VComponent.fromString(vcard4_text)),
+            ObjectResourceNameNotAllowedError
         )
 
 
