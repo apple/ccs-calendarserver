@@ -29,38 +29,17 @@ __all__ = [
     "isAddressBookCollectionResource",
 ]
 
-import hashlib
-from urlparse import urlsplit
-import urllib
-from uuid import UUID
-import uuid
+from calendarserver.push.notifier import getPubSubAPSConfiguration
 
-
-from zope.interface import implements
-
-from twisted.internet.defer import succeed, maybeDeferred, fail
-from twisted.internet.defer import inlineCallbacks, returnValue
-
+from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.python.log import Logger
 
-from txdav.xml import element
-from txdav.xml.element import dav_namespace
-
-from txweb2 import responsecode, http, http_headers
-from txweb2.auth.wrapper import UnauthorizedResponse
-from txweb2.dav.auth import AuthenticationWrapper as SuperAuthenticationWrapper
-from txweb2.dav.idav import IDAVPrincipalCollectionResource
-from txweb2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResource, \
-    davPrivilegeSet
-from txweb2.dav.resource import TwistedACLInheritable
-from txweb2.dav.util import joinURL, parentForURL, normalizeURL
-from txweb2.http import HTTPError, RedirectResponse, StatusResponse, Response, JSONResponse
-from txweb2.dav.http import ErrorResponse
-from txweb2.http_headers import MimeType, ETag
-from txweb2.stream import MemoryStream
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import succeed, maybeDeferred, fail
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav import carddavxml
+from twistedcaldav import ical
 from twistedcaldav.cache import PropfindCacheMixin
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.carddavxml import carddav_namespace
@@ -70,18 +49,38 @@ from twistedcaldav.datafilters.hiddeninstance import HiddenInstanceFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.extensions import DAVResource, DAVPrincipalResource, \
     DAVResourceWithChildrenMixin
-from twistedcaldav import ical
 from twistedcaldav.ical import Component
-
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.linkresource import LinkResource
-from calendarserver.push.notifier import getPubSubAPSConfiguration
 from twistedcaldav.sharing import SharedResourceMixin, SharedHomeMixin
-from txdav.caldav.datastore.util import normalizationLookup
 from twistedcaldav.vcard import Component as vComponent
 
+from txdav.caldav.datastore.util import normalizationLookup
 from txdav.common.icommondatastore import InternalDataStoreError, \
     SyncTokenValidException
+from txdav.xml import element
+from txdav.xml.element import dav_namespace
+
+from txweb2 import responsecode, http, http_headers
+from txweb2.auth.wrapper import UnauthorizedResponse
+from txweb2.dav.auth import AuthenticationWrapper as SuperAuthenticationWrapper
+from txweb2.dav.http import ErrorResponse
+from txweb2.dav.idav import IDAVPrincipalCollectionResource
+from txweb2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResource, \
+    davPrivilegeSet
+from txweb2.dav.resource import TwistedACLInheritable
+from txweb2.dav.util import joinURL, parentForURL, normalizeURL
+from txweb2.http import HTTPError, RedirectResponse, StatusResponse, Response, JSONResponse
+from txweb2.http_headers import MimeType, ETag
+from txweb2.stream import MemoryStream
+
+from urlparse import urlsplit
+from uuid import UUID
+from zope.interface import implements
+import hashlib
+import time
+import urllib
+import uuid
 
 ##
 # Sharing Conts
@@ -325,12 +324,23 @@ class CalDAVResource (
         @param transaction: optional transaction to use instead of associated transaction
         @type transaction: L{txdav.caldav.idav.ITransaction}
         """
-        response = yield super(CalDAVResource, self).renderHTTP(request)
+        try:
+            response = yield super(CalDAVResource, self).renderHTTP(request)
+        except AlreadyFinishedError:
+            self._transactionError = True
         if transaction is None:
             transaction = self._associatedTransaction
         if transaction is not None:
             if self._transactionError:
-                yield transaction.abort()
+                try:
+                    yield transaction.abort()
+                except AlreadyFinishedError:
+                    if transaction.timedout:
+                        response = http.StatusResponse(responsecode.SERVICE_UNAVAILABLE, responsecode.RESPONSES[responsecode.SERVICE_UNAVAILABLE])
+                        response.headers.setHeader("Retry-After", time.time() + config.TransactionHTTPRetrySeconds)
+                        raise HTTPError(response)
+                    else:
+                        raise
             else:
                 yield transaction.commit()
 

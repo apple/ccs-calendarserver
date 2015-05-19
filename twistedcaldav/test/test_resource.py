@@ -14,22 +14,26 @@
 # limitations under the License.
 ##
 
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks, returnValue, Deferred
+
 from twistedcaldav import carddavxml
 from twistedcaldav.config import config
 from twistedcaldav.notifications import NotificationCollectionResource
-from twistedcaldav.resource import (
-    CalDAVResource, CommonHomeResource,
+from twistedcaldav.resource import \
+    CalDAVResource, CommonHomeResource, \
     CalendarHomeResource, AddressBookHomeResource
-)
-from twistedcaldav.test.util import (
-    InMemoryPropertyStore, StoreTestCase, SimpleStoreRequest
-)
+from twistedcaldav.storebridge import CalendarCollectionResource
 from twistedcaldav.test.util import TestCase
+from twistedcaldav.test.util import \
+    InMemoryPropertyStore, StoreTestCase, SimpleStoreRequest
+
+from txdav.xml import element
 from txdav.xml.element import HRef
+
+from txweb2 import responsecode
 from txweb2.http import HTTPError
 from txweb2.test.test_server import SimpleRequest
-from txdav.xml import element
 
 
 
@@ -83,6 +87,47 @@ class CalDAVResourceTests(TestCase):
         self.resource.writeDeadProperty(prop)
         self.assertEquals(self.resource._dead_properties.get(("StubQnamespace", "StubQname")),
                           prop)
+
+
+
+class TransactionTimeoutTests(StoreTestCase):
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(TransactionTimeoutTests, self).setUp()
+
+
+    @inlineCallbacks
+    def test_timeoutRetry(self):
+        """
+        Test that a timed out transaction during an HTTP request results in a 503 error
+        with a Retry-After header.
+        """
+
+        # Patch request handling to add a delay to trigger the txn time out
+        original = CalendarCollectionResource.iCalendarRolledup
+        @inlineCallbacks
+        def _iCalendarRolledup(self, request):
+            d = Deferred()
+            reactor.callLater(2, d.callback, None)
+            yield d
+            result = yield original(self, request)
+            returnValue(result)
+        self.patch(CalendarCollectionResource, "iCalendarRolledup", _iCalendarRolledup)
+
+        self.patch(self.store, "timeoutTransactions", 1)
+
+        # Run delayed request
+        authPrincipal = yield self.actualRoot.findPrincipalForAuthID("user01")
+        request = SimpleStoreRequest(self, "GET", "/calendars/__uids__/user01/calendar/", authPrincipal=authPrincipal)
+        try:
+            yield self.send(request)
+        except HTTPError as e:
+            self.assertEqual(e.response.code, responsecode.SERVICE_UNAVAILABLE)
+            self.assertTrue(e.response.headers.hasHeader("Retry-After"))
+            self.assertApproximates(int(e.response.headers.getRawHeaders("Retry-After")[0]), config.TransactionHTTPRetrySeconds, 1)
+        else:
+            self.fail("HTTPError not raised")
 
 
 

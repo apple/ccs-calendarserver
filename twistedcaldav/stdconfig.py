@@ -201,9 +201,11 @@ DEFAULT_CONFIG = {
 
     "UseDatabase": True, # True: database; False: files
 
-    "TransactionTimeoutSeconds": 300, # Timeout transactions that take longer than
-                                      # the specified number of seconds. Zero means
-                                      # no timeouts. 5 minute default.
+    "TransactionTimeoutSeconds": 300,   # Timeout transactions that take longer than
+                                        # the specified number of seconds. Zero means
+                                        # no timeouts. 5 minute default.
+    "TransactionHTTPRetrySeconds": 300, # When a transactions times out tell HTTP clients
+                                        # clients to retry after this amount of time
 
     "DBType": "", # 2 possible values: empty, meaning 'spawn postgres
                   # yourself', or 'postgres', meaning 'connect to a
