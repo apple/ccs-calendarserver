@@ -1365,17 +1365,18 @@ def verifyAPNSCertificate(config):
                 return False, message
 
             # Verify we can acquire the passphrase
-            try:
-                passphrase = getPasswordFromKeychain(accountName)
-                protoConfig.Passphrase = passphrase
-            except KeychainAccessError:
-                # The system doesn't support keychain
-                pass
-            except KeychainPasswordNotFound:
-                # The password doesn't exist in the keychain.
-                postAlert("PushNotificationCertificateAlert", [])
-                message = "Cannot retrieve APN passphrase from keychain"
-                return False, message
+            if not protoConfig.Passphrase:
+                try:
+                    passphrase = getPasswordFromKeychain(accountName)
+                    protoConfig.Passphrase = passphrase
+                except KeychainAccessError:
+                    # The system doesn't support keychain
+                    pass
+                except KeychainPasswordNotFound:
+                    # The password doesn't exist in the keychain.
+                    postAlert("PushNotificationCertificateAlert", [])
+                    message = "Cannot retrieve APN passphrase from keychain"
+                    return False, message
 
             # Let OpenSSL try to use the cert
             try:
