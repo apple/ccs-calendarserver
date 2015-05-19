@@ -2758,7 +2758,21 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
 
         elif action == "recovertrash":
             mode = request.args.get("mode", ("event",))[0]
-            recoveryID = int(request.args.get("id", ("0",))[0])
+            recoveryID = request.args.get("id", (None,))[0]
+            if recoveryID is None:
+                returnValue(
+                    self._ok("error", "Invalid id")
+                )
+            if recoveryID == "all":
+                recoveryID = None
+            else:
+                try:
+                    recoveryID = int(recoveryID)
+                except ValueError:
+                    returnValue(
+                        self._ok("error", "Invalid id")
+                    )
+
             yield self._newStoreHome.recoverTrash(mode, recoveryID)
             returnValue(
                 self._ok("ok", "Recover Trash")

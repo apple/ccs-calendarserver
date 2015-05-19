@@ -3127,16 +3127,31 @@ class CommonHome(SharingHomeMixIn):
         if trash is not None:
 
             if mode == "event":
-                child = yield trash.objectResourceWithID(recoveryID)
-                if child is not None:
-                    yield child.fromTrash()
-
+                if recoveryID:
+                    child = yield trash.objectResourceWithID(recoveryID)
+                    if child is not None:
+                        yield child.fromTrash()
+                else:
+                    # Recover all trashed events
+                    untrashedCollections = yield self.children(onlyInTrash=False)
+                    for collection in untrashedCollections:
+                        children = yield trash.trashForCollection(
+                            collection._resourceID
+                        )
+                        for child in children:
+                            yield child.fromTrash()
             else:
-                collection = yield self.childWithID(recoveryID, onlyInTrash=True)
-                if collection is not None:
-                    yield collection.fromTrash(
-                        restoreChildren=True, delta=datetime.timedelta(minutes=5)
-                    )
+                if recoveryID:
+                    collection = yield self.childWithID(recoveryID, onlyInTrash=True)
+                    if collection is not None:
+                        yield collection.fromTrash(
+                            restoreChildren=True, delta=datetime.timedelta(minutes=5)
+                        )
+                else:
+                    # Recover all trashed collections (and their events)
+                    trashedCollections = yield self.children(onlyInTrash=True)
+                    for collection in trashedCollections:
+                        yield collection.fromTrash(restoreChildren=True)
 
 
 class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase, SharingMixIn):
