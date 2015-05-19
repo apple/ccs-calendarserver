@@ -2756,6 +2756,14 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
                 self._ok("ok", "Trash Contents", contents)
             )
 
+        elif action == "recovertrash":
+            mode = request.args.get("mode", ("event",))[0]
+            recoveryID = int(request.args.get("id", ("0",))[0])
+            yield self._newStoreHome.recoverTrash(mode, recoveryID)
+            returnValue(
+                self._ok("ok", "Recover Trash")
+            )
+
         else:
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,

@@ -3121,6 +3121,23 @@ class CommonHome(SharingHomeMixIn):
         returnValue(result)
 
 
+    @inlineCallbacks
+    def recoverTrash(self, mode, recoveryID):
+        trash = yield self.getTrash()
+        if trash is not None:
+
+            if mode == "event":
+                child = yield trash.objectResourceWithID(recoveryID)
+                if child is not None:
+                    yield child.fromTrash()
+
+            else:
+                collection = yield self.childWithID(recoveryID, onlyInTrash=True)
+                if collection is not None:
+                    yield collection.fromTrash(
+                        restoreChildren=True, delta=datetime.timedelta(minutes=5)
+                    )
+
 
 class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase, SharingMixIn):
     """
