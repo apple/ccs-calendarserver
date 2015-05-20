@@ -103,6 +103,40 @@ class Properties (StoreTestCase):
 
 
     @inlineCallbacks
+    def test_free_busy_set_tasks(self):
+        """
+        Test that calendar-free-busy-set ignores tasks calendar.
+        """
+
+        request = SimpleRequest(self.site, "GET", "/calendars/users/user01/inbox/")
+        inbox = yield request.locateResource("/calendars/users/user01/inbox/")
+        self.assertTrue((yield inbox.hasProperty(caldavxml.CalendarFreeBusySet, request)))
+        prop = (yield inbox.readProperty(caldavxml.CalendarFreeBusySet, request))
+        self.assertEqual(
+            set([str(child) for child in prop.children]),
+            set((
+                "/calendars/__uids__/user01/calendar/",
+            ))
+        )
+        newfbset = set()
+        newfbset.add("/calendars/users/user01/tasks/")
+        newset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in newfbset])
+
+        yield inbox.writeProperty(newset, request)
+        yield request._newStoreTransaction.commit()
+
+        request = SimpleRequest(self.site, "GET", "/calendars/users/user01/inbox/")
+        inbox = yield request.locateResource("/calendars/users/user01/inbox/")
+        prop = (yield inbox.readProperty(caldavxml.CalendarFreeBusySet, request))
+        self.assertEqual(len(prop.children), 0)
+        yield request._newStoreTransaction.commit()
+        calendar = yield request.locateResource("/calendars/__uids__/user01/tasks/")
+        self.assertFalse(calendar._newStoreObject.isUsedForFreeBusy())
+        calendar = yield request.locateResource("/calendars/__uids__/user01/calendar/")
+        self.assertFalse(calendar._newStoreObject.isUsedForFreeBusy())
+
+
+    @inlineCallbacks
     def test_free_busy_set_invalid_url(self):
         """
         Test that calendar-free-busy-set will generate an error if an invalid value is used.

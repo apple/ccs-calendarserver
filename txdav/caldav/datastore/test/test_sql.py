@@ -2053,6 +2053,36 @@ END:VCALENDAR
 
 
     @inlineCallbacks
+    def test_tasksTransp(self):
+        """
+        Make sure tasks is always transparent no matter what is stored in the DB.
+        """
+
+        home = yield self.homeUnderTest(name="user01", create=True)
+        self.assertNotEqual(home, None)
+        tasks = yield self.calendarUnderTest(home="user01", name="tasks")
+        self.assertFalse(tasks.isUsedForFreeBusy())
+        yield tasks.setUsedForFreeBusy(True)
+        self.assertFalse(tasks.isUsedForFreeBusy())
+        yield self.commit()
+
+        tasks = yield self.calendarUnderTest(home="user01", name="tasks")
+        self.assertFalse(tasks.isUsedForFreeBusy())
+
+        cb = schema.CALENDAR_BIND
+        yield Update(
+            {cb.TRANSP: _TRANSP_OPAQUE},
+            Where=(cb.CALENDAR_RESOURCE_NAME == "tasks").And(
+                cb.CALENDAR_RESOURCE_ID == tasks.id()
+            )
+        ).on(self.transactionUnderTest())
+        yield self.commit()
+
+        tasks = yield self.calendarUnderTest(home="user01", name="tasks")
+        self.assertFalse(tasks.isUsedForFreeBusy())
+
+
+    @inlineCallbacks
     def test_missingTimezone(self):
         """
         Make sure missing timezone causes an exception, whether or timezones by reference is on.

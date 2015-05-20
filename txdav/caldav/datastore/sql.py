@@ -1590,12 +1590,13 @@ class Calendar(CommonHomeChild):
     def isUsedForFreeBusy(self):
         """
         Indicates whether the contents of this calendar contributes to free busy. Always coerce
-        inbox to be transparent.
+        inbox to be transparent. Also ignore VTODO only calendars.
 
         @return: C{True} if it does, C{False} otherwise
         @rtype: C{bool}
         """
-        return (self._transp == _TRANSP_OPAQUE) and not self.isInbox() and not self.isTrash()
+        supported = not self._supportedComponents or self._supportedComponents.split(",") != ["VTODO", ]
+        return (self._transp == _TRANSP_OPAQUE) and not self.isInbox() and not self.isTrash() and supported
 
 
     @inlineCallbacks
