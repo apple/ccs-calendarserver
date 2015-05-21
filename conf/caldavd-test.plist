@@ -969,5 +969,10 @@
     <!-- Directory Address Book -->
     <key>EnableSearchAddressBook</key>
     <true/>
+
+    <!-- Trash -->
+    <key>EnableTrashCollection</key>
+    <true/>
+
   </dict>
 </plist>

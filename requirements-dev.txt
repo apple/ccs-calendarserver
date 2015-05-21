@@ -7,5 +7,5 @@ docutils
 mockldap
 q
 tl.eggdeps
---editable svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVClientLibrary/trunk@14790#egg=CalDAVClientLibrary
---editable svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVTester/trunk@14795#egg=CalDAVTester
+--editable svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVClientLibrary/trunk@14811#egg=CalDAVClientLibrary
+--editable svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVTester/trunk@14811#egg=CalDAVTester

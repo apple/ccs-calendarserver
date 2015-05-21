@@ -69,7 +69,7 @@ while getopts 'Dhvprozt:s:d:x:' option; do
     'h') usage -; exit 0; ;;
     't') cdt="${OPTARG}"; serverinfo="${OPTARG}/scripts/server/serverinfo.xml"; ;;
     'd') subdir="--subdir=${OPTARG}"; ;;
-    'p') pretests="--pretest CalDAV/pretest.xml"; ;;
+    'p') pretests="--pretest CalDAV/pretest.xml --posttest CalDAV/pretest.xml"; ;;
     's') serverinfo="${OPTARG}"; ;;
     'r') printres="--always-print-request --always-print-response"; ;;
     'v') verbose="v"; ;;
