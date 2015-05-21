@@ -154,8 +154,17 @@ DEFAULT_SERVICE_PARAMS = {
             "memberIdAttr": None, # which attribute the above refer to
         },
         "resourceSchema": {
-            "resourceInfoAttr": None, # contains location/resource info
-            "autoAcceptGroupAttr": None, # auto accept group
+            # Either set this attribute to retrieve the plist version
+            # of resource-info, as in a Leopard OD server, or...
+            "resourceInfoAttr": None,
+            # ...set the above to None and instead specify these
+            # individually:
+            "autoScheduleAttr": None,
+            "autoScheduleEnabledValue": "yes",
+            "autoScheduleModeAttr": None, # must match augment.allowedAutoScheduleModes
+            "proxyAttr": None, # list of GUIDs
+            "readOnlyProxyAttr": None, # list of GUIDs
+            "autoAcceptGroupAttr": None, # single group GUID
         },
         "partitionSchema": {
             "serverIdAttr": None, # maps to augments server-id

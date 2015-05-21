@@ -183,6 +183,7 @@ class LdapDirectoryService(CachingDirectoryService):
                 # individually:
                 "autoScheduleAttr": None,
                 "autoScheduleEnabledValue": "yes",
+                "autoScheduleModeAttr": None, # must match augment.allowedAutoScheduleModes
                 "proxyAttr": None, # list of GUIDs
                 "readOnlyProxyAttr": None, # list of GUIDs
                 "autoAcceptGroupAttr": None, # single group GUID
@@ -267,6 +268,8 @@ class LdapDirectoryService(CachingDirectoryService):
             attrSet.add(self.resourceSchema["resourceInfoAttr"])
         if self.resourceSchema["autoScheduleAttr"]:
             attrSet.add(self.resourceSchema["autoScheduleAttr"])
+        if self.resourceSchema["autoScheduleModeAttr"]:
+            attrSet.add(self.resourceSchema["autoScheduleModeAttr"])
         if self.resourceSchema["autoAcceptGroupAttr"]:
             attrSet.add(self.resourceSchema["autoAcceptGroupAttr"])
         if self.resourceSchema["proxyAttr"]:
@@ -816,6 +819,7 @@ class LdapDirectoryService(CachingDirectoryService):
         proxyGUIDs = ()
         readOnlyProxyGUIDs = ()
         autoSchedule = False
+        autoScheduleMode = None
         autoAcceptGroup = ""
         memberGUIDs = []
 
@@ -886,6 +890,9 @@ class LdapDirectoryService(CachingDirectoryService):
                         self.resourceSchema["autoScheduleAttr"])
                     autoSchedule = (autoScheduleValue ==
                         self.resourceSchema["autoScheduleEnabledValue"])
+                if self.resourceSchema["autoScheduleModeAttr"]:
+                    autoScheduleMode = self._getUniqueLdapAttribute(attrs,
+                        self.resourceSchema["autoScheduleModeAttr"])
                 if self.resourceSchema["proxyAttr"]:
                     proxyGUIDs = set(self._getMultipleLdapAttributes(attrs,
                         self.resourceSchema["proxyAttr"]))
@@ -960,6 +967,7 @@ class LdapDirectoryService(CachingDirectoryService):
                 partitionID=partitionID,
                 enabledForCalendaring=enabledForCalendaring,
                 autoSchedule=autoSchedule,
+                autoScheduleMode=autoScheduleMode,
                 autoAcceptGroup=autoAcceptGroup,
                 enabledForAddressBooks=enabledForAddressBooks, # TODO: add to LDAP?
                 enabledForLogin=enabledForLogin,
