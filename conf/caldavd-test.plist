@@ -972,7 +972,7 @@
 
     <!-- Trash -->
     <key>EnableTrashCollection</key>
-    <true/>
+    <false/>
 
   </dict>
 </plist>
