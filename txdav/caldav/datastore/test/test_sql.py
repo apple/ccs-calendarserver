@@ -2348,6 +2348,107 @@ END:VCALENDAR
         yield self.commit()
 
 
+    @inlineCallbacks
+    def test_homeSyncTokenWithTrash_Visible(self):
+        """
+        L{ICalendarHome.resourceNamesSinceToken} will return the names of
+        calendar objects created since L{ICalendarHome.syncToken} last returned
+        a particular value.
+        """
+
+        self.patch(config, "EnableTrashCollection", True)
+        self.patch(config, "ExposeTrashCollection", True)
+
+        home = yield self.homeUnderTest()
+        cal = yield self.calendarUnderTest()
+        st = yield home.syncToken()
+        yield cal.createCalendarObjectWithName("new.ics", Component.fromString(
+            test_event_text
+        ))
+
+        obj1 = yield cal.calendarObjectWithName("2.ics")
+        yield obj1.remove()
+        yield home.createCalendarWithName("other-calendar")
+        st2 = yield home.syncToken()
+        self.failIfEquals(st, st2)
+
+        home = yield self.homeUnderTest()
+
+        expected = [
+            "calendar_1/",
+            "calendar_1/new.ics",
+            "calendar_1/2.ics",
+            "other-calendar/"
+        ]
+
+        trash = yield home.getTrash()
+        if trash is not None:
+            trashed = yield trash.calendarObjects()
+            expected.extend([
+                "{}/".format(trash.name()),
+                "{}/{}".format(trash.name(), trashed[0].name()),
+            ])
+
+        changed, deleted, invalid = yield home.resourceNamesSinceToken(
+            self.token2revision(st), "infinity")
+
+        self.assertEquals(set(changed), set(expected))
+        self.assertEquals(set(deleted), set(["calendar_1/2.ics"]))
+        self.assertEquals(invalid, [])
+
+        changed, deleted, invalid = yield home.resourceNamesSinceToken(
+            self.token2revision(st2), "infinity")
+        self.assertEquals(changed, [])
+        self.assertEquals(deleted, [])
+        self.assertEquals(invalid, [])
+
+
+    @inlineCallbacks
+    def test_homeSyncTokenWithTrash_Invisible(self):
+        """
+        L{ICalendarHome.resourceNamesSinceToken} will return the names of
+        calendar objects created since L{ICalendarHome.syncToken} last returned
+        a particular value.
+        """
+
+        self.patch(config, "EnableTrashCollection", True)
+
+        home = yield self.homeUnderTest()
+        cal = yield self.calendarUnderTest()
+        st = yield home.syncToken()
+        yield cal.createCalendarObjectWithName("new.ics", Component.fromString(
+            test_event_text
+        ))
+
+        obj1 = yield cal.calendarObjectWithName("2.ics")
+        yield obj1.remove()
+        yield home.createCalendarWithName("other-calendar")
+        st2 = yield home.syncToken()
+        self.failIfEquals(st, st2)
+
+        home = yield self.homeUnderTest()
+
+        expected = [
+            "calendar_1/",
+            "calendar_1/new.ics",
+            "calendar_1/2.ics",
+            "other-calendar/"
+        ]
+
+        changed, deleted, invalid = yield home.resourceNamesSinceToken(
+            self.token2revision(st), "infinity")
+
+        self.assertEquals(set(changed), set(expected))
+        self.assertEquals(set(deleted), set(["calendar_1/2.ics"]))
+        self.assertEquals(invalid, [])
+
+        changed, deleted, invalid = yield home.resourceNamesSinceToken(
+            self.token2revision(st2), "infinity")
+        self.assertEquals(changed, [])
+        self.assertEquals(deleted, [])
+        self.assertEquals(invalid, [])
+
+
 
 class SchedulingTests(CommonCommonTests, unittest.TestCase):
     """

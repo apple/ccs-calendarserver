@@ -2610,11 +2610,22 @@ class CommonHome(SharingHomeMixIn):
             (yield self.doChangesQuery(revision))
         ]
 
+        if not config.ExposeTrashCollection:
+            trash = yield self.getTrash(create=False)
+            trashName = trash.name() if trash else None
+        else:
+            trashName = None
+
         changed = set()
         deleted = set()
         invalid = set()
         deleted_collections = set()
         for path, name, wasdeleted in results:
+
+            # Don't report the trash if it is hidden
+            if trashName and path == trashName:
+                continue
+
             if wasdeleted:
                 if name:
                     # Resource deleted - for depth "1" report collection as changed,
@@ -3152,6 +3163,7 @@ class CommonHome(SharingHomeMixIn):
                     trashedCollections = yield self.children(onlyInTrash=True)
                     for collection in trashedCollections:
                         yield collection.fromTrash(restoreChildren=True)
+
 
 
 class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase, SharingMixIn):
