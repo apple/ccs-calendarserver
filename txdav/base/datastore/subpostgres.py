@@ -592,7 +592,7 @@ class PostgresService(MultiService):
 
         if self.socketDir:
             if not self.socketDir.isdir():
-                log.info("Creating {dir}", dir=self.socketDir.path)
+                log.info("Creating {dir}", dir=self.socketDir.path.decode("utf-8"))
                 self.socketDir.createDirectory()
 
             if self.uid and self.gid:
@@ -601,11 +601,11 @@ class PostgresService(MultiService):
             os.chmod(self.socketDir.path, 0770)
 
         if not self.dataStoreDirectory.isdir():
-            log.info("Creating {dir}", dir=self.dataStoreDirectory.path)
+            log.info("Creating {dir}", dir=self.dataStoreDirectory.path.decode("utf-8"))
             self.dataStoreDirectory.createDirectory()
 
         if not self.workingDir.isdir():
-            log.info("Creating {dir}", dir=self.workingDir.path)
+            log.info("Creating {dir}", dir=self.workingDir.path.decode("utf-8"))
             self.workingDir.createDirectory()
 
         if self.uid and self.gid:
@@ -614,7 +614,7 @@ class PostgresService(MultiService):
 
         if not clusterDir.isdir():
             # No cluster directory, run initdb
-            log.info("Running initdb for {dir}", dir=clusterDir.path)
+            log.info("Running initdb for {dir}", dir=clusterDir.path.decode("utf-8"))
             dbInited = Deferred()
             self.reactor.spawnProcess(
                 CapturingProcessProtocol(dbInited, None),
@@ -636,7 +636,7 @@ class PostgresService(MultiService):
             dbInited.addCallback(doCreate)
 
         else:
-            log.info("Cluster already exists at {dir}", dir=clusterDir.path)
+            log.info("Cluster already exists at {dir}", dir=clusterDir.path.decode("utf-8"))
             self.startDatabase()
 
 
