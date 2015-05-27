@@ -4,7 +4,8 @@
 <!ENTITY rfc2518 PUBLIC '' 'bibxml/reference.RFC.2518.xml'>
 <!ENTITY rfc3744 PUBLIC '' 'bibxml/reference.RFC.3744.xml'>
 <!ENTITY rfc4791 PUBLIC '' 'bibxml/reference.RFC.4791.xml'>
-<!ENTITY I-D.desruisseaux-caldav-sched PUBLIC '' 'bibxml3/reference.I-D.desruisseaux-caldav-sched.xml'>
+<!ENTITY rfc6578 PUBLIC '' 'bibxml/reference.RFC.6578.xml'>
+<!ENTITY rfc6638 PUBLIC '' 'bibxml/reference.RFC.6638.xml'>
 ]> 
 <?rfc toc="yes"?>
 <?rfc tocdepth="4"?>
@@ -16,9 +17,9 @@
 <?rfc compact="yes"?>
 <?rfc subcompact="no"?>
 <?rfc private="Calendar Server Extension"?>
-<rfc ipr="none" docName='caldav-ctag-02'>
+<rfc ipr="none" docName='caldav-ctag-03'>
     <front>
-        <title abbrev="CalDAV Proxy">Calendar Collection Entity Tag (CTag) in CalDAV</title> 
+        <title abbrev="CalDAV CTag">Calendar Collection Entity Tag (CTag) in CalDAV</title> 
         <author initials="C." surname="Daboo" fullname="Cyrus Daboo">
             <organization abbrev="Apple">
                 Apple Inc.
@@ -35,8 +36,11 @@
                 <uri>http://www.apple.com/</uri>
             </address>
         </author>
-        <date year='2007'/>
+        <date />
         <abstract>
+            <t>
+              IMPORTANT: The feature defined by this specification is now deprecated in favor of support for the WebDAV Sync REPORT as defined by <xref target="RFC6578" />. Clients MUST NOT rely on this feature to detect changes to collections, instead they MUST support the WebDAV Sync REPORT. Servers MUST support the WebDAV Sync REPORT to allow clients to efficiently synchronize calendar collections. Whilst most modern clients do support the WebDAV Sync REPORT, servers MAY continue to support this specification by simply using the DAV:sync-token property value for the getctag property value, in order to provide backwards compatibility with old clients.
+            </t>
             <t>
                 This specification defines an extension to CalDAV that provides a fast way for a client to determine whether the contents of a calendar collection may have changed.
             </t>
@@ -54,7 +58,7 @@
                 To improve on performance, this specification defines a new "calendar collection entity tag" (CTag) WebDAV property that is defined on calendar collections. When the calendar collection changes, the CTag value changes. Thus a client can cache the CTag at some point in time, then poll the collection only (i.e. PROPFIND Depth:0 HTTP requests) and determine if a change has happened based on the returned CTag value. If there is a change, it can then fall back to doing the full (Depth:1) poll of the collection to actually determine which resources in the collection changed.
             </t>
             <t>
-            	This extension also defines CTag's on <xref target="I-D.desruisseaux-caldav-sched">CalDAV scheduling</xref> Inbox and Outbox collections.
+            	This extension also defines CTag's on <xref target="RFC6638">CalDAV scheduling</xref> Inbox and Outbox collections.
             </t>
         </section>
         <section title='Conventions Used in This Document'>
@@ -153,7 +157,8 @@
             &rfc2518;
             &rfc3744;
             &rfc4791;
-            &I-D.desruisseaux-caldav-sched;
+            &rfc6578;
+            &rfc6638;
         </references>
 <!--
 <references title='Informative References'>
@@ -165,13 +170,19 @@
             </t>
         </section>
         <section title='Change History'>
-            <t>Changes from -01:
+            <t>Changes in -03:
+                <list style='numbers'>
+                    <t>Added deprecation warning.</t>
+                    <t>Updated references.</t>
+                </list>
+            </t>
+            <t>Changes in -02:
                 <list style='numbers'>
                     <t>Updated to RFC4791 reference.</t>
                     <t>Added text indicating that ctag applies to schedule Inbox and Outbox as well.</t>
                 </list>
             </t>
-            <t>Changes from -00:
+            <t>Changes in -01:
                 <list style='numbers'>
                     <t>Relaxed requirement so that any type of change to a child resource can trigger a CTag change (similar behavior to ETag).</t>
                 </list>

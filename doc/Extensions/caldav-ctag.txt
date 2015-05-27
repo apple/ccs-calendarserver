@@ -1,61 +1,47 @@
 
 
 
-Calendar Server Extension                                       C. Daboo
+
+                                                                C. Daboo
                                                                    Apple
-                                                             May 3, 2007
+                                                            May 27, 2015
 
 
             Calendar Collection Entity Tag (CTag) in CalDAV
-                             caldav-ctag-02
+                             caldav-ctag-03
 
 Abstract
+
+   IMPORTANT: The feature defined by this specification is now
+   deprecated in favor of support for the WebDAV Sync REPORT as defined
+   by [RFC6578].  Clients MUST NOT rely on this feature to detect
+   changes to collections, instead they MUST support the WebDAV Sync
+   REPORT.  Servers MUST support the WebDAV Sync REPORT to allow clients
+   to efficiently synchronize calendar collections.  Whilst most modern
+   clients do support the WebDAV Sync REPORT, servers MAY continue to
+   support this specification by simply using the DAV:sync-token
+   property value for the getctag property value, in order to provide
+   backwards compatibility with old clients.
 
    This specification defines an extension to CalDAV that provides a
    fast way for a client to determine whether the contents of a calendar
    collection may have changed.
 
-
 Table of Contents
 
-   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . . . 2
-   2.  Conventions Used in This Document . . . . . . . . . . . . . . . 2
-   3.  Overview  . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
-     3.1.  Server  . . . . . . . . . . . . . . . . . . . . . . . . . . 3
-     3.2.  Client  . . . . . . . . . . . . . . . . . . . . . . . . . . 3
-   4.  New features in CalDAV  . . . . . . . . . . . . . . . . . . . . 3
-     4.1.  getctag WebDAV Property . . . . . . . . . . . . . . . . . . 4
-   5.  Security Considerations . . . . . . . . . . . . . . . . . . . . 4
-   6.  IANA Considerations . . . . . . . . . . . . . . . . . . . . . . 5
-   7.  Normative References  . . . . . . . . . . . . . . . . . . . . . 5
-   Appendix A.  Acknowledgments  . . . . . . . . . . . . . . . . . . . 5
-   Appendix B.  Change History . . . . . . . . . . . . . . . . . . . . 5
-   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . . . 6
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Daboo                                                           [Page 1]
-
-                              CalDAV Proxy                      May 2007
-
+   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   1
+   2.  Conventions Used in This Document . . . . . . . . . . . . . .   2
+   3.  Overview  . . . . . . . . . . . . . . . . . . . . . . . . . .   2
+     3.1.  Server  . . . . . . . . . . . . . . . . . . . . . . . . .   2
+     3.2.  Client  . . . . . . . . . . . . . . . . . . . . . . . . .   3
+   4.  New features in CalDAV  . . . . . . . . . . . . . . . . . . .   3
+     4.1.  getctag WebDAV Property . . . . . . . . . . . . . . . . .   3
+   5.  Security Considerations . . . . . . . . . . . . . . . . . . .   4
+   6.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .   4
+   7.  Normative References  . . . . . . . . . . . . . . . . . . . .   4
+   Appendix A.  Acknowledgments  . . . . . . . . . . . . . . . . . .   5
+   Appendix B.  Change History . . . . . . . . . . . . . . . . . . .   5
+   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .   5
 
 1.  Introduction
 
@@ -64,6 +50,14 @@ Daboo                                                           [Page 1]
    find out what has changed since the last time they examined it.
    Currently that involves having to do a PROPFIND Depth:1 HTTP request,
    or a CALDAV:calendar-query REPORT request.  When a calendar
+
+
+
+Daboo                   Expires November 28, 2015               [Page 1]
+
+                               CalDAV CTag                      May 2015
+
+
    collection contains a large number of calendar resources those
    operations become expensive on the server.
 
@@ -82,9 +76,8 @@ Daboo                                                           [Page 1]
    doing the full (Depth:1) poll of the collection to actually determine
    which resources in the collection changed.
 
-   This extension also defines CTag's on CalDAV scheduling
-   [I-D.desruisseaux-caldav-sched] Inbox and Outbox collections.
-
+   This extension also defines CTag's on CalDAV scheduling [RFC6638]
+   Inbox and Outbox collections.
 
 2.  Conventions Used in This Document
 
@@ -103,16 +96,6 @@ Daboo                                                           [Page 1]
    of an XML fragment, the string "CS:" will be prefixed to the element
    type names respectively.
 
-
-
-
-
-
-Daboo                                                           [Page 2]
-
-                              CalDAV Proxy                      May 2007
-
-
 3.  Overview
 
 3.1.  Server
@@ -123,6 +106,13 @@ Daboo                                                           [Page 2]
    The property value is an "opaque" token whose value is guaranteed to
    be unique over the lifetime of any calendar or scheduling Inbox or
    Outbox collection at a specific URI.
+
+
+
+Daboo                   Expires November 28, 2015               [Page 2]
+
+                               CalDAV CTag                      May 2015
+
 
    Whenever a calendar resource is added to, modified or deleted from
    the calendar collection, the value of the CS:getctag property MUST
@@ -138,8 +128,8 @@ Daboo                                                           [Page 2]
    collection that it intends to synchronize with.
 
    When polling a calendar or scheduling Inbox or Outbox collection, the
-   client issues a PROPFIND Depth:0 HTTP request, asking for the CS:
-   getctag property to be returned.
+   client issues a PROPFIND Depth:0 HTTP request, asking for the
+   CS:getctag property to be returned.
 
    If the returned value of CS:getctag property matches the one
    currently cached for the calendar or scheduling Inbox or Outbox
@@ -151,23 +141,11 @@ Daboo                                                           [Page 2]
    Inbox or Outbox collection have changed.  At that point the client
    should re-issue the PROPFIND Depth:1 request to get the collection
    changes in detail and the CS:getctag property value corresponding to
-   the new state.  The new CSgetctag property value should replace the
+   the new state.  The new CS:getctag property value should replace the
    one currently cached for that calendar or scheduling Inbox or Outbox
    collection.
 
-
 4.  New features in CalDAV
-
-
-
-
-
-
-
-Daboo                                                           [Page 3]
-
-                              CalDAV Proxy                      May 2007
-
 
 4.1.  getctag WebDAV Property
 
@@ -183,6 +161,14 @@ Daboo                                                           [Page 3]
       scheduling Inbox or Outbox collection resource.  It MUST be
       protected and SHOULD be returned by a PROPFIND DAV:allprop request
       (as defined in Section 12.14.1 of [RFC2518]).
+
+
+
+
+Daboo                   Expires November 28, 2015               [Page 3]
+
+                               CalDAV CTag                      May 2015
+
 
    Description:  The CS:getctag property allows clients to quickly
       determine if the contents of a calendar or scheduling Inbox or
@@ -202,7 +188,6 @@ Daboo                                                           [Page 3]
        <T:getctag xmlns:T="http://calendarserver.org/ns/"
        >ABCD-GUID-IN-THIS-COLLECTION-20070228T122324010340</T:getctag>
 
-
 5.  Security Considerations
 
    The CS:getctag property value changes whenever any resource in the
@@ -215,27 +200,11 @@ Daboo                                                           [Page 3]
    resources in a calendar collection, but it does not expose any
    details about them.
 
-
-
-
-
-
-Daboo                                                           [Page 4]
-
-                              CalDAV Proxy                      May 2007
-
-
 6.  IANA Considerations
 
    This document does not require any actions on the part of IANA.
 
-
 7.  Normative References
-
-   [I-D.desruisseaux-caldav-sched]
-              Desruisseaux, B., "Scheduling Extensions to CalDAV",
-              draft-desruisseaux-caldav-sched-03 (work in progress),
-              January 2007.
 
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
               Requirement Levels", BCP 14, RFC 2119, March 1997.
@@ -245,41 +214,53 @@ Daboo                                                           [Page 4]
               WEBDAV", RFC 2518, February 1999.
 
    [RFC3744]  Clemm, G., Reschke, J., Sedlar, E., and J. Whitehead, "Web
-              Distributed Authoring and Versioning (WebDAV) Access
-              Control Protocol", RFC 3744, May 2004.
+              Distributed Authoring and Versioning (WebDAV)
+              Access Control Protocol", RFC 3744, May 2004.
+
+
+
+
+
+Daboo                   Expires November 28, 2015               [Page 4]
+
+                               CalDAV CTag                      May 2015
+
 
    [RFC4791]  Daboo, C., Desruisseaux, B., and L. Dusseault,
               "Calendaring Extensions to WebDAV (CalDAV)", RFC 4791,
               March 2007.
 
+   [RFC6578]  Daboo, C. and A. Quillaud, "Collection Synchronization for
+              Web Distributed Authoring and Versioning (WebDAV)", RFC
+              6578, March 2012.
+
+   [RFC6638]  Daboo, C. and B. Desruisseaux, "Scheduling Extensions to
+              CalDAV", RFC 6638, June 2012.
 
 Appendix A.  Acknowledgments
 
    This specification is the result of discussions between the Apple
    calendar server and client teams.
 
-
 Appendix B.  Change History
 
-   Changes from -01:
+   Changes in -03:
+
+   1.  Added deprecation warning.
+
+   2.  Updated references.
+
+   Changes in -02:
 
    1.  Updated to RFC4791 reference.
 
    2.  Added text indicating that ctag applies to schedule Inbox and
        Outbox as well.
 
-   Changes from -00:
+   Changes in -01:
 
    1.  Relaxed requirement so that any type of change to a child
        resource can trigger a CTag change (similar behavior to ETag).
-
-
-
-
-Daboo                                                           [Page 5]
-
-                              CalDAV Proxy                      May 2007
-
 
 Author's Address
 
@@ -296,41 +277,4 @@ Author's Address
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Daboo                                                           [Page 6]
-
+Daboo                   Expires November 28, 2015               [Page 5]
