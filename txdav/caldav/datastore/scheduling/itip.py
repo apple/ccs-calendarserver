@@ -1124,7 +1124,10 @@ class iTipGenerator(object):
             if component.name() == "VPOLL":
                 iTipGenerator.generateVPOLLReply(component, attendee)
 
-        return itip
+        # After all the processing check that we have a valid component - one with a valid UID
+        uid = itip.resourceUID()
+
+        return itip if uid is not None else None
 
 
     @staticmethod

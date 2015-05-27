@@ -278,14 +278,15 @@ def importCollectionComponent(store, component):
             organizerCUA = organizerRecord.canonicalCalendarUserAddress()
             processor = ImplicitProcessor()
             newComponent = iTipGenerator.generateAttendeeReply(groupedComponent, attendeeCUA, method="X-RESTORE")
-            txn = store.newTransaction()
-            yield processor.doImplicitProcessing(
-                txn,
-                newComponent,
-                LocalCalendarUser(attendeeCUA, ownerRecord),
-                LocalCalendarUser(organizerCUA, organizerRecord)
-            )
-            yield txn.commit()
+            if newComponent is not None:
+                txn = store.newTransaction()
+                yield processor.doImplicitProcessing(
+                    txn,
+                    newComponent,
+                    LocalCalendarUser(attendeeCUA, ownerRecord),
+                    LocalCalendarUser(organizerCUA, organizerRecord)
+                )
+                yield txn.commit()
 
 
 

@@ -17,7 +17,7 @@
 from twext.python.log import Logger
 from txweb2.dav.http import ErrorResponse
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from txweb2 import responsecode
 from txweb2.http import HTTPError
 
@@ -504,7 +504,6 @@ class ImplicitScheduler(object):
 
     @inlineCallbacks
     def sendAttendeeReply(self, txn, resource):
-
         self.txn = txn
         self.resource = resource
 
@@ -520,12 +519,19 @@ class ImplicitScheduler(object):
         # Get some useful information from the calendar
         yield self.extractCalendarData()
 
+        self.organizerAddress = (yield calendarUserFromCalendarUserAddress(self.organizer, self.txn))
         self.attendeeAddress = (yield calendarUserFromCalendarUserUID(self.calendar_home.uid(), self.txn))
         self.originator = self.attendee = self.attendeeAddress.record.canonicalCalendarUserAddress()
 
-        result = (yield self.scheduleWithOrganizer())
 
-        returnValue(result)
+        # Check SCHEDULE-AGENT
+        if not self.checkOrganizerScheduleAgent():
+            returnValue(False)
+
+        # result is None if this succeeds, else False
+        result = yield self.scheduleWithOrganizer()
+
+        returnValue(result != False)
 
 
     @inlineCallbacks
@@ -1726,6 +1732,10 @@ class ImplicitScheduler(object):
             self.logItems["itip.reply"] = "reply"
 
         itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, changedRids=changedRids)
+        if itipmsg is None:
+            # Log and ignore this situation
+            log.debug("Empty iTIP attendee reply: Attendee '{attendee}', UID: {uid}".format(attendee=self.attendee, uid=self.uid))
+            return succeed(False)
         if config.Scheduling.Options.WorkQueues.Enabled:
             # Always make it look like scheduling succeeded when queuing
             self.calendar.setParameterToValueForPropertyWithValue(
@@ -1751,6 +1761,10 @@ class ImplicitScheduler(object):
             self.logItems["itip.reply"] = "cancel"
 
         itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, force_decline=True)
+        if itipmsg is None:
+            # Log and ignore this situation
+            log.debug("Empty iTIP attendee reply: Attendee '{attendee}', UID: {uid}".format(attendee=self.attendee, uid=self.uid))
+            return succeed(None)
 
         if config.Scheduling.Options.WorkQueues.Enabled:
             return ScheduleReplyWork.reply(self.txn, self.calendar_home, None, itipmsg, self.attendee)

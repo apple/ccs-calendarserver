@@ -1713,6 +1713,98 @@ END:VCALENDAR
         self.assertEqual(len(list2), 1)
 
 
+    @inlineCallbacks
+    def test_sendAttendeeReply_ScheduleAgentNone(self):
+        """
+        Test that sendAttendeeReply does nothing when the Organizer has
+        SCHEDULE-AGENT=NONE.
+        """
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTAMP:20080601T120000Z
+DTSTART:20140302T190000Z
+DURATION:PT1H
+ORGANIZER;SCHEDULE-AGENT=NONE;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY;UNTIL=20140309T075959Z
+END:VEVENT
+END:VCALENDAR
+"""
+        yield self._createCalendarObject(data1, "user02", "test.ics")
+
+        cobj = yield self.calendarObjectUnderTest(home="user02", name="test.ics",)
+        result = yield ImplicitScheduler().sendAttendeeReply(cobj._txn, cobj)
+        self.assertFalse(result)
+
+
+    @inlineCallbacks
+    def test_sendAttendeeReply_ScheduleAgentClient(self):
+        """
+        Test that sendAttendeeReply does nothing when the Organizer has
+        SCHEDULE-AGENT=CLIENT.
+        """
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTAMP:20080601T120000Z
+DTSTART:20140302T190000Z
+DURATION:PT1H
+ORGANIZER;SCHEDULE-AGENT=CLIENT;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY;UNTIL=20140309T075959Z
+END:VEVENT
+END:VCALENDAR
+"""
+        yield self._createCalendarObject(data1, "user02", "test.ics")
+
+        cobj = yield self.calendarObjectUnderTest(home="user02", name="test.ics",)
+        result = yield ImplicitScheduler().sendAttendeeReply(cobj._txn, cobj)
+        self.assertFalse(result)
+
+
+    @inlineCallbacks
+    def test_sendAttendeeReply_NoAttendee(self):
+        """
+        Test that sendAttendeeReply does nothing when the Attencdee is not
+        listed in the event. This will not normally ever be possible, but a case
+        like this was seen due to a processing error elsewehere.
+        """
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTAMP:20080601T120000Z
+DTSTART:20140302T190000Z
+DURATION:PT1H
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user03@example.com
+RRULE:FREQ=DAILY;UNTIL=20140309T075959Z
+END:VEVENT
+END:VCALENDAR
+"""
+        yield self._createCalendarObject(data1, "user02", "test.ics")
+
+        cobj = yield self.calendarObjectUnderTest(home="user02", name="test.ics",)
+
+        # Need to remove SCHEDULE-AGENT=NONE on ORGANIZER as that will have been added during the store operation
+        cal = yield cobj.componentForUser()
+        cal.removePropertyParameters("ORGANIZER", ("SCHEDULE-AGENT", "SCHEDULE-STATUS",))
+        result = yield ImplicitScheduler().sendAttendeeReply(cobj._txn, cobj)
+        self.assertFalse(result)
+
+
 
 class ScheduleAgentFixBase(CommonCommonTests, TestCase):
     """
