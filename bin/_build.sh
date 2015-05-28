@@ -543,27 +543,6 @@ c_dependencies () {
       "http://www.memcached.org/files/${p}.tar.gz";
   fi;
 
-
-  ruler;
-  if command -v postgres > /dev/null; then
-    using_system "Postgres";
-  else
-    local v="9.3.1";
-    local n="postgresql";
-    local p="${n}-${v}";
-
-    if command -v dtrace > /dev/null; then
-      local enable_dtrace="--enable-dtrace";
-    else
-      local enable_dtrace="";
-    fi;
-
-    c_dependency -m "c003d871f712d4d3895956b028a96e74" \
-      "PostgreSQL" "${p}" \
-      "http://ftp.postgresql.org/pub/source/v${v}/${p}.tar.bz2" \
-      --with-python ${enable_dtrace};
-  fi;
-
 }
 
 
