@@ -102,6 +102,35 @@ shareAcceptStatesByXML["ACCEPTED"] = customxml.InviteStatusAccepted()
 shareAcceptStatesByXML["DECLINED"] = customxml.InviteStatusDeclined()
 shareAcceptStatesByXML["DELETED"] = customxml.InviteStatusDeleted()
 
+def requiresPermissions(*permissions, **kw):
+    """
+    A decorator to wrap http_ methods in, to indicate that they should not be
+    run until the current user principal has been authorized for the given
+    permission set.
+    """
+    fromParent = kw.get('fromParent')
+    # FIXME: direct unit tests
+    def wrap(thunk):
+        def authAndContinue(self, request, *args, **kwargs):
+            if permissions:
+                d = self.authorize(request, permissions)
+            else:
+                d = succeed(None)
+            if fromParent:
+                d.addCallback(
+                    lambda whatever:
+                        request.locateResource(parentForURL(request.uri))
+                ).addCallback(
+                    lambda parent:
+                        parent.authorize(request, fromParent)
+                )
+            d.addCallback(lambda whatever: thunk(self, request, *args, **kwargs))
+            return d
+        return authAndContinue
+    return wrap
+
+
+
 class CalDAVComplianceMixIn(object):
     def davComplianceClasses(self):
         return (
@@ -2733,6 +2762,7 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         returnValue((changed, deleted, notallowed))
 
 
+    @requiresPermissions(element.WriteContent())
     @inlineCallbacks
     def POST_handler_action(self, request, action):
         """
