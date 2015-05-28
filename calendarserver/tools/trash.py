@@ -160,7 +160,7 @@ def printEventDetails(event):
 
     component = yield event.component()
     mainSummary = component.mainComponent().propertyValue("SUMMARY", u"<no title>")
-    whenTrashed = yield event.whenTrashed()
+    whenTrashed = event.whenTrashed()
     ago = nowDT - whenTrashed
     print("   Trashed {}:".format(agoString(ago)))
 

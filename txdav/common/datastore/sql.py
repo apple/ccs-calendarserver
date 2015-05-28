@@ -3706,7 +3706,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         """
 
         if config.EnableTrashCollection:
-            isInTrash = yield self.isInTrash()
+            isInTrash = self.isInTrash()
             if isInTrash:
                 raise AlreadyInTrashError
             else:
@@ -3833,12 +3833,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
                         print("Recovering \"{}\"".format(summary.encode("utf-8")))
 
                     yield child.fromTrash()
-
-
-    @classproperty
-    def _selectIsInTrashQuery(cls):
-        table = cls._homeChildMetaDataSchema
-        return Select((table.IS_IN_TRASH, table.TRASHED), From=table, Where=table.RESOURCE_ID == Parameter("resourceID"))
 
 
     def isInTrash(self):
@@ -5268,8 +5262,11 @@ class CommonObjectResource(FancyEqMixin, object):
         trash = yield self._parentCollection.ownerHome().getTrash(create=True)
         newName = str(uuid4())
         yield self.moveTo(trash, name=newName)
+
+        self._original_collection = originalCollection
+        self._trashed = datetime.datetime.utcnow()
         yield self._updateToTrashQuery.on(
-            self._txn, originalCollection=originalCollection, trashed=datetime.datetime.utcnow(), resourceID=self._resourceID
+            self._txn, originalCollection=self._original_collection, trashed=self._trashed, resourceID=self._resourceID
         )
         returnValue(newName)
 
@@ -5278,37 +5275,23 @@ class CommonObjectResource(FancyEqMixin, object):
     def fromTrash(self):
         originalCollection = yield self.originalCollection()
         yield self.moveTo(originalCollection)
+
+        self._original_collection = None
+        self._trashed = None
         yield self._updateFromTrashQuery.on(
             self._txn, resourceID=self._resourceID
         )
         returnValue(self._name)
 
 
-    @classproperty
-    def _selectIsInTrashQuery(cls):
-        obj = cls._objectSchema
-        return Select((obj.ORIGINAL_COLLECTION, obj.TRASHED), From=obj, Where=obj.RESOURCE_ID == Parameter("resourceID"))
-
-
-    @inlineCallbacks
     def isInTrash(self):
-        originalCollectionID = (
-            yield self._selectIsInTrashQuery.on(
-                self._txn, resourceID=self._resourceID
-            )
-        )[0][0]
-        returnValue(originalCollectionID is not None)
+        return (getattr(self, "_original_collection", None) is not None) or getattr(self, "_isInTrash", False)
 
 
-    @inlineCallbacks
     def whenTrashed(self):
-        returnValue(
-            (
-                yield self._selectIsInTrashQuery.on(
-                    self._txn, resourceID=self._resourceID
-                )
-            )[0][1]
-        )
+        if self._trashed is None:
+            return None
+        return parseSQLTimestamp(self._trashed)
 
 
     def purge(self):

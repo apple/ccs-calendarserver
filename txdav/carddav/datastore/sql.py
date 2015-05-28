@@ -2634,6 +2634,8 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
             )[0]
             self._created = parseSQLTimestamp(self._created)
             self._modified = parseSQLTimestamp(self._modified)
+            self._is_in_trash = None
+            self._trashed = None
 
             # delete foreign members table rows for this object
             groupIDRows = yield Select(

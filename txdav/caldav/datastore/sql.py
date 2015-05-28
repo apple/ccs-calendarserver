@@ -605,7 +605,7 @@ class CalendarHome(CommonHome):
         objectResources = (yield self.getCalendarResourcesForUID(uid))
         for objectResource in objectResources:
             # The matching calendar resource is in the trash, so delete it
-            if (yield objectResource.isInTrash()):
+            if objectResource.isInTrash():
                 yield objectResource.purge(implicitly=False)
                 continue
             if ok_object and objectResource._resourceID == ok_object._resourceID:
@@ -3936,6 +3936,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 )[0]
                 self._created = parseSQLTimestamp(self._created)
                 self._modified = parseSQLTimestamp(self._modified)
+                self._original_collection = None
+                self._trashed = None
             else:
                 values[co.MODIFIED] = utcNowSQL
                 self._modified = parseSQLTimestamp((
@@ -5160,6 +5162,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             split_details=(rid, newerUID, False, False)
         )
 
+        # Reconcile trash state
+        if self.isInTrash():
+            yield olderObject._updateToTrashQuery.on(
+                olderObject._txn, originalCollection=self._original_collection, trashed=self._trashed, resourceID=olderObject._resourceID
+            )
+
         # Split each one - but not this resource
         for resource in resources:
             if resource._resourceID == self._resourceID:
@@ -5208,7 +5216,13 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Create a new resource and store its data (but not if the parent is "inbox", or if it is empty)
         if not self.calendar().isInbox() and ical_old.mainType() is not None:
-            yield self.calendar()._createCalendarObjectWithNameInternal("{0}.ics".format(olderUID,), ical_old, ComponentUpdateState.SPLIT_ATTENDEE)
+            olderObject = yield self.calendar()._createCalendarObjectWithNameInternal("{0}.ics".format(olderUID,), ical_old, ComponentUpdateState.SPLIT_ATTENDEE)
+
+            # Reconcile trash state
+            if self.isInTrash():
+                yield olderObject._updateToTrashQuery.on(
+                    olderObject._txn, originalCollection=self._original_collection, trashed=self._trashed, resourceID=olderObject._resourceID
+                )
 
 
     class CalendarObjectSplitterWork(WorkItem, fromTable(schema.CALENDAR_OBJECT_SPLITTER_WORK)):

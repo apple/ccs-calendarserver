@@ -168,7 +168,7 @@ class ImplicitProcessor(object):
         if calendar_resource:
             self.recipient_calendar = (yield calendar_resource.componentForUser(self.recipient.record.uid)).duplicate()
             self.recipient_calendar_resource = calendar_resource
-            self.recipient_in_trash = (yield self.recipient_calendar_resource.isInTrash())
+            self.recipient_in_trash = self.recipient_calendar_resource.isInTrash()
 
 
     @inlineCallbacks

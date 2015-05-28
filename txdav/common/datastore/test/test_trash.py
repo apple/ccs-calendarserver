@@ -165,8 +165,8 @@ END:VCALENDAR
         self.assertEquals(len(objects), 0)
 
         # Verify it's not in the trash
-        self.assertFalse((yield resource.isInTrash()))
-        trashed = yield resource.whenTrashed()
+        self.assertFalse(resource.isInTrash())
+        trashed = resource.whenTrashed()
         self.assertTrue(trashed is None)
 
         # Move object to trash
@@ -179,8 +179,8 @@ END:VCALENDAR
 
         # Verify it's in the trash
         resource = yield self._getResource(txn, "user01", trash.name(), newName)
-        self.assertTrue((yield resource.isInTrash()))
-        trashed = yield resource.whenTrashed()
+        self.assertTrue(resource.isInTrash())
+        trashed = resource.whenTrashed()
         self.assertFalse(trashed is None)
 
         # No objects in collection
@@ -208,8 +208,8 @@ END:VCALENDAR
         resourceNames = yield self._getResourceNames(txn, "user01", "calendar")
         self.assertEqual(len(resourceNames), 1)
         resource = yield self._getResource(txn, "user01", "calendar", newName)
-        self.assertFalse((yield resource.isInTrash()))
-        trashed = yield resource.whenTrashed()
+        self.assertFalse(resource.isInTrash())
+        trashed = resource.whenTrashed()
         self.assertTrue(trashed is None)
 
         # No objects in trash
@@ -322,8 +322,8 @@ END:VCALENDAR
         # user01's copy is in the trash, still with user02 accepted
         txn = self.store.newTransaction()
         resource = yield self._getResource(txn, "user01", trash1.name(), "")
-        self.assertTrue((yield resource.isInTrash()))
-        trashed = yield resource.whenTrashed()
+        self.assertTrue(resource.isInTrash())
+        trashed = resource.whenTrashed()
         self.assertFalse(trashed is None)
         data = yield self._getResourceData(txn, "user01", trash1.name(), "")
         self.assertTrue("PARTSTAT=ACCEPTED" in data)
@@ -357,8 +357,8 @@ END:VCALENDAR
 
         # user01's copy should be back on their calendar
         resource = yield self._getResource(txn, "user01", "calendar", "")
-        self.assertFalse((yield resource.isInTrash()))
-        trashed = yield resource.whenTrashed()
+        self.assertFalse(resource.isInTrash())
+        trashed = resource.whenTrashed()
         self.assertTrue(trashed is None)
         data = yield self._getResourceData(txn, "user01", "calendar", "")
         self.assertTrue("PARTSTAT=NEEDS-ACTION" in data)
@@ -1768,8 +1768,8 @@ END:VCALENDAR
         self.assertEquals(len(objects), 0)
 
         # Verify it's not in the trash
-        self.assertFalse((yield resource.isInTrash()))
-        trashed = yield resource.whenTrashed()
+        self.assertFalse(resource.isInTrash())
+        trashed = resource.whenTrashed()
         self.assertTrue(trashed is None)
 
         collection = yield self._collectionForUser(txn, "user01", "test")
