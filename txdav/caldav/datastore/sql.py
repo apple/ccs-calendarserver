@@ -5205,8 +5205,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         if ical_new.mainType() is not None:
 
             if coercePartstatsInExistingResource:
+                organizer = ical_new.getOrganizer()
                 for attendee in ical_new.getAllAttendeeProperties():
-                    if attendee.parameterValue("SCHEDULE-AGENT", "SERVER").upper() == "SERVER" and attendee.hasParameter("PARTSTAT"):
+                    if attendee.parameterValue("SCHEDULE-AGENT", "SERVER").upper() == "SERVER" and attendee.hasParameter("PARTSTAT") and attendee.value() != organizer:
                         attendee.setParameter("PARTSTAT", "NEEDS-ACTION")
 
             yield self._setComponentInternal(ical_new, internal_state=ComponentUpdateState.SPLIT_ATTENDEE)
@@ -5299,7 +5300,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                         newdata = caldata.duplicate()
                         newdata.bumpiTIPInfo(doSequence=True)
                         for attendee in newdata.getAllAttendeeProperties():
-                            if attendee.parameterValue("SCHEDULE-AGENT", "SERVER").upper() == "SERVER" and attendee.hasParameter("PARTSTAT"):
+                            if attendee.parameterValue("SCHEDULE-AGENT", "SERVER").upper() == "SERVER" and attendee.hasParameter("PARTSTAT") and attendee.value() != organizer:
                                 attendee.setParameter("PARTSTAT", "NEEDS-ACTION")
 
 

@@ -39,6 +39,9 @@ from twistedcaldav.extensions import DAVResource, \
     DAVResourceWithoutChildrenMixin
 from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn
 
+from txdav.caldav.datastore.scheduling.work import ScheduleOrganizerWork, \
+    ScheduleOrganizerSendWork, ScheduleReplyWork, ScheduleRefreshWork, \
+    ScheduleAutoReplyWork
 from txdav.who.groups import GroupCacherPollingWork, GroupRefreshWork, \
     GroupAttendeeReconciliationWork, GroupDelegateChangesWork, \
     GroupShareeReconciliationWork
@@ -337,3 +340,15 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
             ))
 
         returnValue(self._ok("ok", "Group refresh scheduled"))
+
+
+    @inlineCallbacks
+    def action_schedulingdone(self, j):
+        """
+        Wait for all schedule queue items to complete.
+        """
+        yield JobItem.waitWorkDone(self._store.newTransaction, reactor, 120.0, (
+            ScheduleOrganizerWork, ScheduleOrganizerSendWork, ScheduleReplyWork, ScheduleRefreshWork, ScheduleAutoReplyWork,
+        ))
+
+        returnValue(self._ok("ok", "Scheduling done"))

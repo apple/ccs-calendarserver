@@ -89,6 +89,7 @@ from collections import defaultdict
 import datetime
 import inspect
 import itertools
+import os
 import sys
 import time
 from uuid import uuid4
@@ -5258,9 +5259,12 @@ class CommonObjectResource(FancyEqMixin, object):
 
     @inlineCallbacks
     def toTrash(self):
+
+        # Preserve existing resource name extension
+        newName = str(uuid4()) + os.path.splitext(self.name())[1]
+
         originalCollection = self._parentCollection._resourceID
         trash = yield self._parentCollection.ownerHome().getTrash(create=True)
-        newName = str(uuid4())
         yield self.moveTo(trash, name=newName)
 
         self._original_collection = originalCollection
