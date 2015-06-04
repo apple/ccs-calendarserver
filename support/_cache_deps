@@ -58,7 +58,8 @@ done;
 # Build cffi because xattr needs it at setup time.
 #
 
-if ! find_header ffi/ffi.h; then
+if ! find_header ffi.h; then
+  c_glue_include="${dev_roots}/c_glue/include";
   mkdir -p "${c_glue_include}";
   echo "#include <ffi/ffi.h>" > "${c_glue_include}/ffi.h"
   export C_INCLUDE_PATH="${c_glue_include}:${C_INCLUDE_PATH:-}";
