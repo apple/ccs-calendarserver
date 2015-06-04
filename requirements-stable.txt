@@ -46,7 +46,7 @@
                 #setuptools
 
         # [DAL] extra
-              sqlparse==0.1.15
+              sqlparse==0.1.14  # Compat issue in 0.1.15; fix before updating
 
         # [OpenDirectory] extra
             #pyobjc-framework-OpenDirectory  # Use system module
