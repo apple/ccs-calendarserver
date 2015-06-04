@@ -133,13 +133,17 @@ main () {
 
   for executable in              \
     "memcached/bin/memcached"    \
+    "OpenLDAP/bin/ldapsearch"    \
     "openssl/bin/openssl"        \
+    "PostgreSQL/bin/initdb"      \
+    "PostgreSQL/bin/pg_ctl"      \
     "PostgreSQL/bin/psql"        \
-    "PostgreSQL/bin/pg_dump"     \
-    "PostgreSQL/bin/pg_dumpall"  \
-    "PostgreSQL/bin/pg_restore"  \
   ; do
-    ln -s "../roots/${executable}" .;
+    if [ -e "../roots/${executable}" ]; then
+      ln -s "../roots/${executable}" .;
+    else
+      echo "No executable: ${executable}";
+    fi;
   done;
 
 }
