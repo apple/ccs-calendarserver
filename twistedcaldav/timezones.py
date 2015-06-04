@@ -186,6 +186,8 @@ def hasTZ(tzid):
     cannot be found.
     """
 
+    if isinstance(tzid, unicode):
+        tzid = tzid.encode("utf-8")
     if tzid not in cachedVTZs:
         readVTZ(tzid)
     return True
@@ -196,6 +198,8 @@ def addVTZ(tzid, tzcal):
     """
     Add a VTIMEZONE component to the cache.
     """
+    if isinstance(tzid, unicode):
+        tzid = tzid.encode("utf-8")
     if tzid not in cachedVTZs:
         cachedVTZs[tzid] = tzcal
         cachedTZs[tzid] = str(tzcal)
@@ -207,6 +211,8 @@ def readVTZ(tzid):
     Try to load the specified TZID as a calendar object from the database. Raise if not found.
     """
 
+    if isinstance(tzid, unicode):
+        tzid = tzid.encode("utf-8")
     if tzid not in cachedVTZs:
 
         tzcal = TimezoneDatabase.getTimezoneInCalendar(tzid)
@@ -224,6 +230,8 @@ def readTZ(tzid):
     Try to load the specified TZID as text from the database. Raise if not found.
     """
 
+    if isinstance(tzid, unicode):
+        tzid = tzid.encode("utf-8")
     if tzid not in cachedTZs:
 
         tzcal = readVTZ(tzid)

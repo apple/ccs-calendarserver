@@ -83,10 +83,11 @@ def emitAccounting(category, record, data, tag=None, filename=None):
     if isinstance(record, str):
         principalLogPath = record
     elif accountingEnabled(category, record):
+        ruid = record.uid.encode("utf-8")
         principalLogPath = os.path.join(
-            record.uid[0:2],
-            record.uid[2:4],
-            record.uid
+            ruid[0:2],
+            ruid[2:4],
+            ruid
         )
     else:
         return None
