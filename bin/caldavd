@@ -33,22 +33,26 @@ twistd_reactor="";
 child_reactor=""
 extra="";
 
-py_version ()
-{
-  local python="$1"; shift
+py_version () {
+  local python="$1"; shift;
   echo "$("${python}" -c "from distutils.sysconfig import get_python_version; print get_python_version()")";
 }
 
-try_python ()
-{
-  local python="$1"; shift
+try_python () {
+  local python="$1"; shift;
 
-  if [ -z "${python}" ]; then return 1; fi;
+  if [ -z "${python}" ]; then
+    return 1;
+  fi;
 
-  if ! type "${python}" > /dev/null 2>&1; then return 1; fi;
+  if ! type "${python}" > /dev/null 2>&1; then
+    return 1;
+  fi;
+
   local py_version="$(py_version "${python}")";
-  if [ $(echo ${py_version} | tr -d .) -lt "24" ]; then return 1; fi;
-
+  if [ "$(echo "${py_version}" | sed 's|\.||')" -lt "25" ]; then
+    return 1;
+  fi;
   return 0;
 }
 
