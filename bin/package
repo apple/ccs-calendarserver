@@ -155,7 +155,7 @@ main () {
       -name '*.so.*'   -o  \
       -name '*.dylib'      \
     ")" -print0            \
-    | xargs -0 -J % ln -s % .;
+    | xargs -0 -I % ln -s % .;
 }
 
 
