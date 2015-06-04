@@ -123,13 +123,14 @@ main () {
   py_dependencies;
 
   install -d "${destination}/bin";
+  install -d "${destination}/lib";
 
   cd "${destination}/bin";
 
   find ../virtualenv/bin                                                   \
-    '(' -name 'caldavd' -o -name 'calendarserver_*' -o -name 'python' ')'  \
-    -exec ln -fs '{}' . ';'                                                \
-  ;
+    "(" -name "caldavd" -o -name 'calendarserver_*' -o -name "python" ")"  \
+    -exec ln -fs "{}" . ";"                                                \
+    ;
 
   for executable in              \
     "memcached/bin/memcached"    \
@@ -146,6 +147,15 @@ main () {
     fi;
   done;
 
+  cd "${destination}/lib";
+
+  find "../roots" -type f  \
+    "("                    \
+      -name '*.so'     -o  \
+      -name '*.so.*'   -o  \
+      -name '*.dylib'      \
+    ")" -print0            \
+    | xargs -0 -J % ln -s % .;
 }
 
 
