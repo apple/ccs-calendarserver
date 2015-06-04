@@ -74,5 +74,5 @@
 
     psutil==2.2.1
     setproctitle==1.1.8
-    xattr==0.7.5
+    # xattr==0.7.5  # Only needed for upgrades from ancient versions.  Added in _cache_deps.
         #cffi

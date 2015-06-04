@@ -80,6 +80,7 @@ bootstrap_virtualenv;
 reqs_to_use="${ve_tmp}/requirements.txt";
 
 sed -e '/python-ldap/d' < "${requirements}" > "${reqs_to_use}";
+echo "xattr==0.7.5" >> "${reqs_to_use}";
 
 ruler "Downloading Python requirements for .[${extra_features}]";
 echo "";
