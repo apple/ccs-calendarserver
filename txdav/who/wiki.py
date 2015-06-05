@@ -24,8 +24,6 @@ __all__ = [
 ]
 
 import json
-from twext.internet.adaptendpoint import connect
-from twext.internet.gaiendpoint import GAIEndpoint
 from twext.internet.gaiendpoint import MultiFailure
 from twext.python.log import Logger
 from twext.who.directory import (
@@ -46,7 +44,7 @@ from txweb2 import responsecode
 from txweb2.auth.wrapper import UnauthorizedResponse
 from txweb2.dav.resource import TwistedACLInheritable
 from txweb2.http import HTTPError, StatusResponse
-
+from twisted.internet import endpoints
 
 log = Logger()
 
@@ -80,10 +78,9 @@ class DirectoryService(BaseDirectoryService):
     ))
 
 
-    def __init__(self, realmName, wikiHost, wikiPort):
+    def __init__(self, realmName, endpointDescriptor):
         BaseDirectoryService.__init__(self, realmName)
-        self.wikiHost = wikiHost
-        self.wikiPort = wikiPort
+        self.endpointDescriptor = endpointDescriptor
         self._recordsByName = {}
 
 
@@ -181,8 +178,7 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
             )
             access = yield accessForUserToWiki(
                 uid.encode("utf-8"), self.shortNames[0].encode("utf-8"),
-                host=self.service.wikiHost,
-                port=self.service.wikiPort,
+                self.service.endpointDescriptor
             )
             self.log.debug(
                 "Wiki access result: {wiki}, {user}, {access}",
@@ -380,7 +376,7 @@ class WebAuthError(RuntimeError):
 
 
 @inlineCallbacks
-def uidForAuthToken(token, host="localhost", port=80):
+def uidForAuthToken(token, descriptor):
     """
     Send a GET request to the web auth service to retrieve the user record
     uid associated with the provided auth token.
@@ -391,8 +387,8 @@ def uidForAuthToken(token, host="localhost", port=80):
     @return: deferred returning a uid (C{str}) if successful, or
         will raise WebAuthError otherwise.
     """
-    url = "http://%s:%d/auth/verify?auth_token=%s" % (host, port, token,)
-    jsonResponse = (yield _getPage(url, host, port))
+    url = "http://localhost/auth/verify?auth_token={}".format(token)
+    jsonResponse = (yield _getPage(url, descriptor))
     try:
         response = json.loads(jsonResponse)
     except Exception, e:
@@ -408,7 +404,7 @@ def uidForAuthToken(token, host="localhost", port=80):
 
 
 
-def accessForUserToWiki(user, wiki, host="localhost", port=4444):
+def accessForUserToWiki(user, wiki, descriptor):
     """
     Send a GET request to the wiki collabd service to retrieve the access level
     the given user (uid) has to the given wiki (in wiki short-name
@@ -423,29 +419,27 @@ def accessForUserToWiki(user, wiki, host="localhost", port=4444):
         status FORBIDDEN will errBack; an unknown wiki will have a status
         of NOT_FOUND
     """
-    url = "http://%s:%s/cal/accessLevelForUserWikiCalendar/%s/%s" % (
-        host, port, user, wiki
+    url = "http://localhost/cal/accessLevelForUserWikiCalendar/{}/{}".format(
+        user, wiki
     )
-    return _getPage(url, host, port)
+    return _getPage(url, descriptor)
 
 
 
-# FIXME: Why don't we use twisted.web.
-def _getPage(url, host, port):
+def _getPage(url, descriptor):
     """
     Fetch the body of the given url via HTTP, connecting to the given host
     and port.
 
     @param url: The URL to GET
     @type url: C{str}
-    @param host: The hostname to connect to
-    @type host: C{str}
-    @param port: The port number to connect to
-    @type port: C{int}
+    @param descriptor: The endpoint descriptor to use
+    @type descriptor: C{str}
     @return: A deferred; upon 200 success the body of the response is returned,
         otherwise a twisted.web.error.Error is the result.
     """
+    point = endpoints.clientFromString(reactor, descriptor)
     factory = HTTPClientFactory(url)
     factory.protocol = HTTPPageGetter
-    connect(GAIEndpoint(reactor, host, port), factory)
+    point.connect(factory)
     return factory.deferred

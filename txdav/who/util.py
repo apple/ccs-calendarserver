@@ -278,8 +278,7 @@ def buildDirectory(
         aggregatedServices.append(
             WikiDirectoryService(
                 userDirectory.realmName,
-                wikiServiceInfo.CollabHost,
-                wikiServiceInfo.CollabPort
+                wikiServiceInfo.EndpointDescriptor,
             )
         )
 

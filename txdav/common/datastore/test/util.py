@@ -791,8 +791,7 @@ def buildTestDirectory(
     wikiServiceInfo = ConfigDict(
         {
             "Enabled": True,
-            "CollabHost": "localhost",
-            "CollabPort": 4444,
+            "EndpointDescriptor": "http://localhost:4444/",
         }
     )
     directory = buildDirectory(

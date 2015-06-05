@@ -236,7 +236,7 @@ class RootResource(
                     )
 
                     try:
-                        uid = yield uidForAuthToken(token)
+                        uid = yield uidForAuthToken(token, wikiConfig["EndpointDescriptor"])
                         if uid == "unauthenticated":
                             uid = None
 

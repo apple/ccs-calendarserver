@@ -392,8 +392,7 @@ DEFAULT_CONFIG = {
         "Wiki": {
             "Enabled": False,
             "Cookie": "cc.collabd_session_guid",
-            "CollabHost": "localhost",
-            "CollabPort": 4444,
+            "EndpointDescriptor": "http://localhost:4444/"
         },
     },
 
