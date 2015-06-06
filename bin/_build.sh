@@ -675,8 +675,10 @@ pip_download () {
   mkdir -p "${dev_home}/pip_downloads";
 
   "${python}" -m pip install               \
+    --disable-pip-version-check            \
     --download="${dev_home}/pip_downloads" \
     --pre --allow-all-external             \
+    --no-cache-dir                         \
     --log-file="${dev_home}/pip.log"       \
     "$@";
 }
@@ -684,8 +686,10 @@ pip_download () {
 
 pip_install_from_cache () {
   "${python}" -m pip install                 \
+    --disable-pip-version-check              \
     --pre --allow-all-external               \
     --no-index                               \
+    --no-cache-dir                           \
     --find-links="${dev_home}/pip_downloads" \
     --log-file="${dev_home}/pip.log"         \
     "$@";
@@ -694,7 +698,9 @@ pip_install_from_cache () {
 
 pip_download_and_install () {
   "${python}" -m pip install                 \
+    --disable-pip-version-check              \
     --pre --allow-all-external               \
+    --no-cache-dir                           \
     --log-file="${dev_home}/pip.log"         \
     "$@";
 }
