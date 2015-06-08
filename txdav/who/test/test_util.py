@@ -79,7 +79,7 @@ class UtilTest(TestCase):
                 "Authentication": {
                     "Wiki": {
                         "Enabled": True,
-                        "EndpointDescriptor": "http://localhost:4444/",
+                        "EndpointDescriptor": "tcp:host=localhost:port=4444",
                     },
                 },
                 "DirectoryService": {

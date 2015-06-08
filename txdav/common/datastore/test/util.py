@@ -791,7 +791,7 @@ def buildTestDirectory(
     wikiServiceInfo = ConfigDict(
         {
             "Enabled": True,
-            "EndpointDescriptor": "http://localhost:4444/",
+            "EndpointDescriptor": "tcp:host=localhost:port=4444",
         }
     )
     directory = buildDirectory(

@@ -392,7 +392,7 @@ DEFAULT_CONFIG = {
         "Wiki": {
             "Enabled": False,
             "Cookie": "cc.collabd_session_guid",
-            "EndpointDescriptor": "http://localhost:4444/"
+            "EndpointDescriptor": "tcp:host=localhost:port=4444"
         },
     },
 

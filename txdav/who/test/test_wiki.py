@@ -39,7 +39,7 @@ class WikiIndividualServiceTestCase(unittest.TestCase):
 
     @inlineCallbacks
     def test_service(self):
-        service = DirectoryService("realm", "http://localhost:4444/")
+        service = DirectoryService("realm", "tcp:host=localhost:port=4444")
         record = yield service.recordWithUID(u"wiki-test")
         self.assertEquals(
             record.shortNames[0],
