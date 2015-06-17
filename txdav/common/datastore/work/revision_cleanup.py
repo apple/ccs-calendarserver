@@ -86,7 +86,7 @@ class FindMinValidRevisionWork(RegeneratingWorkItem, fromTable(schema.FIND_MIN_V
 
         if maxRevOlderThanDate > minValidRevision:
             # save new min valid revision
-            yield self.transaction.updateCalendarserverValue("MIN-VALID-REVISION", maxRevOlderThanDate)
+            yield self.transaction.updateCalendarserverValue("MIN-VALID-REVISION", maxRevOlderThanDate + 1)
 
             # Schedule revision cleanup
             yield RevisionCleanupWork.reschedule(self.transaction, seconds=0)
@@ -105,3 +105,42 @@ class RevisionCleanupWork(SingletonWorkItem, fromTable(schema.REVISION_CLEANUP_W
 
         # delete revisions
         yield self.transaction.deleteRevisionsBefore(minValidRevision)
+
+
+
+@inlineCallbacks
+def _triggerRevisionCleanup(txn, backSeconds):
+    # Get the minimum valid revision
+    minValidRevision = int((yield txn.calendarserverValue("MIN-VALID-REVISION")))
+
+    # get max revision on table rows before dateLimit
+    dateLimit = (
+        datetime.datetime.utcnow() -
+        datetime.timedelta(seconds=backSeconds)
+    )
+    maxRevOlderThanDate = 0
+
+    # TODO: Use one Select statement
+    for table in (
+        schema.CALENDAR_OBJECT_REVISIONS,
+        schema.NOTIFICATION_OBJECT_REVISIONS,
+        schema.ADDRESSBOOK_OBJECT_REVISIONS,
+        schema.ABO_MEMBERS,
+    ):
+        revisionRows = yield Select(
+            [Max(table.REVISION)],
+            From=table,
+            Where=(table.MODIFIED < dateLimit),
+        ).on(txn)
+
+        if revisionRows:
+            tableMaxRevision = revisionRows[0][0]
+            if tableMaxRevision > maxRevOlderThanDate:
+                maxRevOlderThanDate = tableMaxRevision
+
+    if maxRevOlderThanDate > minValidRevision:
+        # save new min valid revision
+        yield txn.updateCalendarserverValue("MIN-VALID-REVISION", maxRevOlderThanDate + 1)
+
+        # Schedule revision cleanup
+        yield RevisionCleanupWork.reschedule(txn, seconds=0)

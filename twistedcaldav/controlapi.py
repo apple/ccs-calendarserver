@@ -352,3 +352,22 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
         ))
 
         returnValue(self._ok("ok", "Scheduling done"))
+
+
+    @inlineCallbacks
+    def action_revisioncleanup(self, j):
+        """
+        Wait for all schedule queue items to complete.
+        """
+        from txdav.common.datastore.work.revision_cleanup import _triggerRevisionCleanup
+        from txdav.common.datastore.work.revision_cleanup import RevisionCleanupWork
+
+        txn = self._store.newTransaction()
+        yield _triggerRevisionCleanup(txn, 60)
+        yield txn.commit()
+
+        yield JobItem.waitWorkDone(self._store.newTransaction, reactor, 120.0, (
+            RevisionCleanupWork,
+        ))
+
+        returnValue(self._ok("ok", "RevisionCleanupWork done"))
