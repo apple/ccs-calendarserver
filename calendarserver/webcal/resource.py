@@ -201,10 +201,13 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
 
 
 try:
-    from Foundation import NSTimeZone
+    from twext.platform.osx.utils import CFTimeZoneRef
 
     def lookupSystemTimezone():
-        return NSTimeZone.localTimeZone().name().encode("utf-8")
+        try:
+            return CFTimeZoneRef.defaultTimeZoneName()
+        except:
+            return ""
 
 except ImportError:
     def lookupSystemTimezone():

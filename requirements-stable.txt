@@ -36,7 +36,7 @@
             #pyOpenSSL
         pycrypto==2.6.1
 
-    --editable svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@14808#egg=twextpy
+    --editable svn+http://svn.calendarserver.org/repository/calendarserver/twext/branches/users/cdaboo/cfod@14899#egg=twextpy
         cffi==1.1.0
             pycparser==2.13
         #twisted
@@ -47,9 +47,6 @@
 
         # [DAL] extra
               sqlparse==0.1.14  # Compat issue in 0.1.15; fix before updating
-
-        # [OpenDirectory] extra
-            #pyobjc-framework-OpenDirectory  # Use system module
 
         # [Postgres] extra
             pg8000==1.10.2
