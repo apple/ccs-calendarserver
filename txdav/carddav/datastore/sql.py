@@ -766,7 +766,8 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
                     missingNameIDs
                 ).on(self._txn, resourceIDs=missingNameIDs)
             )
-            idToNameMap = dict(dict(idToNameMap), **dict(memberIDNameRows))
+            idToNameMap = dict(idToNameMap)
+            idToNameMap.update(dict(memberIDNameRows))
 
         # now do revisions
         if revision:
