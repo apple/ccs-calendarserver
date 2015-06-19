@@ -23,6 +23,7 @@ from twistedcaldav.test.util import StoreTestCase
 from twext.who.directory import DirectoryRecord
 from twext.who.idirectory import FieldName, RecordType
 from txdav.who.directory import CalendarDirectoryRecordMixin, AutoScheduleMode
+from txdav.who.util import startswithFilter
 from uuid import UUID
 from twext.who.expression import (
     MatchType, MatchFlags, MatchExpression
@@ -50,7 +51,7 @@ class DirectoryTestCase(StoreTestCase):
 
         expanded = yield record.expandedMembers()
         self.assertEquals(
-            set([u"Chris Lecroy", u"Cyrus Daboo", u"David Reid", u"Wilfredo Sanchez"]),
+            set([u"Chris Lecroy", u"Cyrus Daboo", u"David Reid", u"Wilfredo Sanchez-Vega"]),
             set([r.displayName for r in expanded])
         )
 
@@ -202,6 +203,53 @@ class DirectoryTestCase(StoreTestCase):
             u"mailto:nocalendar@example.com"
         )
         self.assertEquals(record, None)
+
+
+    @inlineCallbacks
+    def test_recordsMatchingTokensNoFilter(self):
+        """
+        Records with names containing the token are returned
+        """
+
+        records = (yield self.directory.recordsMatchingTokens(
+            [u"anche"]
+        ))
+        matchingShortNames = set()
+        for r in records:
+            for shortName in r.shortNames:
+                matchingShortNames.add(shortName)
+        self.assertTrue("dre" in matchingShortNames)
+        self.assertTrue("wsanchez" in matchingShortNames)
+
+
+    @inlineCallbacks
+    def test_recordsMatchingTokensStartswithFilter(self):
+        """
+        Records with names starting with the token are returned, because of
+        the filter installed.  Note that hyphens and spaces are used to split
+        fullname into names.
+        """
+        self.directory.setFilter(startswithFilter)
+
+        records = (yield self.directory.recordsMatchingTokens(
+            [u"anche"]
+        ))
+        matchingShortNames = set()
+        for r in records:
+            for shortName in r.shortNames:
+                matchingShortNames.add(shortName)
+        self.assertTrue("dre" not in matchingShortNames)
+        self.assertTrue("wsanchez" not in matchingShortNames)
+
+        records = (yield self.directory.recordsMatchingTokens(
+            [u"vega", u"wilf"]
+        ))
+        matchingShortNames = set()
+        for r in records:
+            for shortName in r.shortNames:
+                matchingShortNames.add(shortName)
+        self.assertTrue("dre" not in matchingShortNames)
+        self.assertTrue("wsanchez" in matchingShortNames)
 
 
     @inlineCallbacks

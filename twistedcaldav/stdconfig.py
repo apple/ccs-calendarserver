@@ -316,6 +316,10 @@ DEFAULT_CONFIG = {
 
     "DirectoryRealmName": "",
 
+    # Apply an additional filter for attendee lookups where names must start
+    # with the search tokens rather than just contain them.
+    "DirectoryFilterStartsWith": False,
+
     #
     # Locations and Resources service
     #

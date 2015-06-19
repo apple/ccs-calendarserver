@@ -200,10 +200,20 @@ class CalendarDirectoryServiceMixin(object):
         else:
             recordTypes = None
 
-        results = yield self.recordsFromExpression(
-            expression, recordTypes=recordTypes, limitResults=limitResults,
-            timeoutSeconds=timeoutSeconds
-        )
+        # If a filter has been set, pass self.recordsFromExpression to it for
+        # result processing
+        if getattr(self, "_resultFilter", None):
+            results = yield self._resultFilter(
+                self.recordsFromExpression, tokens, expression,
+                recordTypes=recordTypes, limitResults=limitResults,
+                timeoutSeconds=timeoutSeconds
+            )
+        else:
+            results = yield self.recordsFromExpression(
+                expression, recordTypes=recordTypes, limitResults=limitResults,
+                timeoutSeconds=timeoutSeconds
+            )
+
         log.debug(
             "Tokens ({t}) matched {n} records",
             t=tokens, n=len(results)
@@ -254,6 +264,18 @@ class CalendarDirectoryServiceMixin(object):
             expression, recordTypes=recordTypes,
             limitResults=limitResults, timeoutSeconds=timeoutSeconds
         )
+
+
+    def setFilter(self, filter):
+        """
+        Assign a filter for post-processing recordsMatchingTokens and
+        recordsMatchingFields results.
+
+        @param filter: a callable taking the following args:
+            method, tokens, expression, recordTypes, limitResults, timeoutSeconds
+            ...and returning a deferred firing with the list of records
+        """
+        self._resultFilter = filter
 
 
     _oldRecordTypeNames = {

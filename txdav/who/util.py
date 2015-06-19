@@ -14,7 +14,8 @@
 # limitations under the License.
 ##
 
-
+import re
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.python.log import Logger
 from twext.python.types import MappingProxyType
 from twext.who.aggregate import DirectoryService as AggregateDirectoryService
@@ -69,14 +70,15 @@ def directoryFromConfig(config, store):
         config.AugmentService,
         config.Authentication.Wiki,
         serversDB=serversDB,
-        cachingSeconds=config.DirectoryProxy.InSidecarCachingSeconds
+        cachingSeconds=config.DirectoryProxy.InSidecarCachingSeconds,
+        filterStartsWith=config.DirectoryFilterStartsWith
     )
 
 
 
 def buildDirectory(
     store, dataRoot, servicesInfo, augmentServiceInfo, wikiServiceInfo,
-    serversDB=None, cachingSeconds=0
+    serversDB=None, cachingSeconds=0, filterStartsWith=False
 ):
     """
     Return a directory without using a config object; suitable for tests
@@ -315,6 +317,9 @@ def buildDirectory(
     if serversDB is not None:
         augmented.setServersDB(serversDB)
 
+    if filterStartsWith:
+        augmented.setFilter(startswithFilter)
+
     return augmented
 
 
@@ -327,3 +332,49 @@ DEFAULT_AUGMENT_CONTENT = """<?xml version="1.0" encoding="utf-8"?>
 
 <augments/>
 """
+
+
+@inlineCallbacks
+def startswithFilter(
+    method, tokens, expression, recordTypes=None, records=None,
+    limitResults=None, timeoutSeconds=None
+):
+    """
+    Call the passed-in method to retrieve records from the directory, but
+    further filter the results by only returning records whose email addresses
+    and names actually start with the tokens.  Without this filter, it's only
+    required that the record's fullname *contains* the tokens. "Names" are split
+    from the record's fullname, delimited by whitespace and hypens.
+    """
+
+    tokens = [t.lower() for t in tokens]
+
+    results = []
+    records = yield method(
+        expression, recordTypes=recordTypes, limitResults=1000,
+        timeoutSeconds=timeoutSeconds
+    )
+    count = 0
+    for record in records:
+        try:
+            names = list(record.emailAddresses)
+        except AttributeError:
+            names = []
+        for fullName in record.fullNames:
+            names.extend(re.split(' |-', fullName))
+        match = True # assume it will match
+        for token in tokens:
+            for name in names:
+                if name.lower().startswith(token):
+                    break
+            else:
+                # there was no match for this token
+                match = False
+                break
+        if match:
+            results.append(record)
+            count += 1
+            if limitResults and count == limitResults:
+                break
+
+    returnValue(results)
