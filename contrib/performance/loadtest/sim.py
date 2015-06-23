@@ -69,22 +69,6 @@ def safeDivision(value, total, factor=1):
 
 
 
-def generateRecords(
-    count, uidPattern="user%d", passwordPattern="user%d",
-    namePattern="User %d", emailPattern="user%d@example.com",
-    guidPattern="user%d"
-):
-    for i in xrange(count):
-        i += 1
-        uid = uidPattern % (i,)
-        password = passwordPattern % (i,)
-        name = namePattern % (i,)
-        email = emailPattern % (i,)
-        guid = guidPattern % (i,)
-        yield _DirectoryRecord(uid, password, name, email, guid)
-
-
-
 def recordsFromCSVFile(path):
     if path:
         pathObj = FilePath(path)
@@ -94,20 +78,6 @@ def recordsFromCSVFile(path):
         _DirectoryRecord(*line.decode('utf-8').split(u','))
         for line
         in pathObj.getContent().splitlines()]
-
-
-
-def recordsFromCount(count, uid=u"user%02d", password=u"user%02d",
-                     commonName=u"User %02d", email=u"user%02d@example.com",
-                     guid="10000000-0000-0000-0000-000000000%03d"):
-    for i in range(1, count + 1):
-        yield _DirectoryRecord(
-            uid % i,
-            password % i,
-            commonName % i,
-            email % i,
-            guid % i,
-        )
 
 
 
@@ -292,15 +262,9 @@ class LoadSimulator(object):
             workerID = config.get("workerID", 0)
             workerCount = config.get("workerCount", 1)
             configTemplate = None
-            server = 'http://127.0.0.1:8008'
-            principalPathTemplate = "/principals/users/%s/"
+            server = config.get('server', 'http://127.0.0.1:8008')
+            principalPathTemplate = config.get('principalPathTemplate', '/principals/users/%s/')
             serializationPath = None
-
-            if 'server' in config:
-                server = config['server']
-
-            if 'principalPathTemplate' in config:
-                principalPathTemplate = config['principalPathTemplate']
 
             if 'clientDataSerialization' in config:
                 serializationPath = config['clientDataSerialization']['Path']
