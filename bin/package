@@ -149,7 +149,7 @@ main () {
 
   cd "${destination}/lib";
 
-  find "../roots" -type f  \
+  find "../roots" -type f -o -type l  \
     "("                    \
       -name '*.so'     -o  \
       -name '*.so.*'   -o  \
