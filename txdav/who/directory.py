@@ -713,7 +713,7 @@ class CalendarDirectoryRecordMixin(object):
         params = params.copy() if params else params
         if "PARTSTAT" not in params:
             params["PARTSTAT"] = "NEEDS-ACTION"
-        if "CN"not in params:
+        if "CN" not in params:
             if self.displayName:
                 params["CN"] = self.displayName.encode("utf-8")
         if "EMAIL" not in params:
@@ -721,7 +721,7 @@ class CalendarDirectoryRecordMixin(object):
                 params["EMAIL"] = list(self.emailAddresses)[0].encode("utf-8")
         if "CUTYPE" not in params:
             cuType = self.getCUType()
-            if cuType is not "INDIVIDUAL":
+            if cuType != "INDIVIDUAL":
                 params["CUTYPE"] = cuType
 
         return Property("ATTENDEE", self.canonicalCalendarUserAddress().encode("utf-8"), params=params)

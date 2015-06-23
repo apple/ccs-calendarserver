@@ -89,6 +89,8 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
         self.assertEqual(membersA, set(("B", "C", "D",)))
         self.assertEqual(membershipsB, set(("A",)))
 
+        db.close()
+
 
     @inlineCallbacks
     def test_normalDBNonAscii(self):
@@ -105,6 +107,8 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
         self.assertEqual(membersA, set(("B", "C", "D",)))
         self.assertEqual(membershipsB, set((principalID,)))
 
+        db.close()
+
 
     @inlineCallbacks
     def test_DBIndexed(self):
@@ -114,6 +118,8 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
         db = ProxySqliteDB(db_path)
         self.assertEqual(set([row[1] for row in (yield db.query("PRAGMA index_list(GROUPS)"))]), set(("GROUPNAMES", "MEMBERS")))
 
+        db.close()
+
 
     @inlineCallbacks
     def test_OldDB(self):
@@ -122,6 +128,8 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
         db_path = os.path.abspath(self.mktemp())
         db = self.old_ProxyDB(db_path)
         self.assertEqual(set([row[1] for row in (yield db.query("PRAGMA index_list(GROUPS)"))]), set())
+
+        db.close()
 
 
     @inlineCallbacks
@@ -150,7 +158,6 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
         self.assertEqual(membershipsB, set(("A",)))
         self.assertEqual(set([row[1] for row in (yield db.query("PRAGMA index_list(GROUPS)"))]), set(("GROUPNAMES", "MEMBERS")))
         db.close()
-        db = None
 
 
     @inlineCallbacks
@@ -253,6 +260,8 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
 
             yield db.clean()
 
+            db.close()
+
 
     @inlineCallbacks
     def test_cachingDBRemove(self):
@@ -297,6 +306,8 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
 
             yield db.clean()
 
+            db.close()
+
 
     @inlineCallbacks
     def test_cachingDBRemoveSpecial(self):
@@ -333,6 +344,8 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
 
             yield db.clean()
 
+            db.close()
+
 
     @inlineCallbacks
     def test_cachingDBInsertUncached(self):
@@ -364,6 +377,8 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
             self.assertEqual(membershipsEE, set(("AA",)))
 
             yield db.clean()
+
+            db.close()
 
 
 

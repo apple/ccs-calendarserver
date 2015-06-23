@@ -39,12 +39,11 @@ class CProfileCPURunner(CProfileRunner):
         if self.saveStats:
             p.dump_stats(self.profileOutput)
         else:
-            stream = open(self.profileOutput, 'w')
-            s = pstats.Stats(p, stream=stream)
-            s.strip_dirs()
-            s.sort_stats(-1)
-            s.print_stats()
-            stream.close()
+            with open(self.profileOutput, 'w') as stream:
+                s = pstats.Stats(p, stream=stream)
+                s.strip_dirs()
+                s.sort_stats(-1)
+                s.print_stats()
 
 
 AppProfiler.profilers["cprofile-cpu"] = CProfileCPURunner

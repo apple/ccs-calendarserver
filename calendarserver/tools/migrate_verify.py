@@ -192,6 +192,8 @@ class MigrateVerifyService(WorkerService, object):
                     invalidGUIDs.add(segments[3])
                 self.badPaths.append(line)
 
+        datafile.close()
+
         # Remove any invalid GUIDs that actuall were valid
         invalidGUIDs = [pguid for pguid in invalidGUIDs if pguid not in self.pathsByGUID]
 

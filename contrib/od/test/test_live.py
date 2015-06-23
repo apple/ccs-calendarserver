@@ -73,10 +73,6 @@ if moduleImported:
         def setUp(self):
             self.service = DirectoryService()
 
-        def tearDown(self):
-            self.service._deletePool()
-
-
         def verifyResults(self, records, expected, unexpected):
             shortNames = []
             for record in records:

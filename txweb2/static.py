@@ -551,6 +551,7 @@ class FileSaver(resource.PostableResource):
             fileobject = os.fdopen(os.open(outname, flags, self.permissions), 'wb', 0)
 
             stream.readIntoFile(filestream, fileobject)
+            fileobject.close()
 
         return outname
 

@@ -1329,7 +1329,8 @@ class BaseAppleClient(BaseClient):
         }
 
         # Write JSON data
-        json.dump(data, open(os.path.join(path, "index.json"), "w"), indent=2)
+        with open(os.path.join(path, "index.json"), "w") as f:
+            json.dump(data, f, indent=2)
 
 
     def deserialize(self):
@@ -1346,7 +1347,8 @@ class BaseAppleClient(BaseClient):
 
         # Parse JSON data for calendars
         try:
-            data = json.load(open(os.path.join(path, "index.json")))
+            with open(os.path.join(path, "index.json")) as f:
+                data = json.load(f)
         except IOError:
             return
 

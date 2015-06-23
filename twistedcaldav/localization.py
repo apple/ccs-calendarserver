@@ -443,8 +443,10 @@ def convertStringsFile(src, dest):
             # can't create directory to hold .po file
             return
 
-    # Parse the binary plist .strings file:
-    data = CFDataRef.fromString(open(src).read())
+    # Parse the binary plist .strings file
+    with open(src) as f:
+        data = f.read()
+    data = CFDataRef.fromString(data)
     try:
         parsed = CFPropertyListRef.createFromData(data)
         strings = parsed.toDict()

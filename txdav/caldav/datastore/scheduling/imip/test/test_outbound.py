@@ -585,6 +585,7 @@ END:VCALENDAR
             txn, inputOriginator, inputRecipient,
             Component.fromString(inputCalendar.replace("\n", "\r\n")),
             onlyAfter=DateTime(2010, 1, 1, 0, 0, 0))
+        yield txn.commit()
 
         # Verify we didn't create a new token...
         txn = self.store.newTransaction()

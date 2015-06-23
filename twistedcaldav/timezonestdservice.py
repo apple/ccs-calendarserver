@@ -696,7 +696,9 @@ class PrimaryTimezoneDatabase(CommonTimezoneDatabase):
                 # Build TimezoneInfo object
                 tzid = os.path.join(path, item[:-4])
                 try:
-                    md5 = hashlib.md5(open(fullPath).read()).hexdigest()
+                    with open(fullPath) as f:
+                        tzdata = f.read()
+                    md5 = hashlib.md5(tzdata).hexdigest()
                 except IOError:
                     log.error("Unable to read timezone file: %s" % (fullPath,))
                     continue
@@ -711,7 +713,8 @@ class PrimaryTimezoneDatabase(CommonTimezoneDatabase):
 
         # Try links (aliases) file
         try:
-            aliases = open(os.path.join(self.basepath, "links.txt")).read()
+            with open(os.path.join(self.basepath, "links.txt")) as f:
+                aliases = f.read()
         except IOError, e:
             log.error("Unable to read links.txt file: %s" % (str(e),))
             aliases = ""

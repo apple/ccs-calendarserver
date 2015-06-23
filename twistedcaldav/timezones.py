@@ -102,7 +102,8 @@ class TimezoneCache(object):
     @staticmethod
     def getTZVersion(dbpath):
         try:
-            return open(os.path.join(dbpath, "version.txt")).read().strip()
+            with open(os.path.join(dbpath, "version.txt")) as f:
+                return f.read().strip()
         except IOError:
             return ""
 

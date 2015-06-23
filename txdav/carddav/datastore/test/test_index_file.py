@@ -65,6 +65,10 @@ class SQLIndexTests (twistedcaldav.test.util.TestCase):
         self.db = AddressBookIndex(MinimalResourceReplacement(self.indexDirPath))
 
 
+    def tearDown(self):
+        self.db._db_close()
+
+
     def test_reserve_uid_ok(self):
         uid = "test-test-test"
         d = self.db.isReservedUID(uid)
@@ -141,7 +145,7 @@ END:VCARD
             calendar = Component.fromString(vcard_txt)
             f = open(os.path.join(self.site.resource.fp.path, name), "w")
             f.write(vcard_txt)
-            del f
+            f.close()
 
             self.db.addResource(name, calendar)
             self.assertTrue(self.db.resourceExists(name), msg=description)

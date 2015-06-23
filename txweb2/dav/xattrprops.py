@@ -188,6 +188,12 @@ class xattrPropertyStore (object):
                 err(None, msg)
                 raise HTTPError(
                     StatusResponse(responsecode.INTERNAL_SERVER_ERROR, msg))
+            except Exception:
+                format = "Invalid property value stored on server: %s %s"
+                msg = format % (encodeXMLName(*qname), data)
+                err(None, msg)
+                raise HTTPError(
+                    StatusResponse(responsecode.INTERNAL_SERVER_ERROR, msg))
             else:
                 legacy = True
 

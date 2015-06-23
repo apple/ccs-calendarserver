@@ -271,7 +271,8 @@ class ObliterateService(WorkerService, object):
                 self.output.write("%s is not a valid file\n" % (self.options["data"],))
                 raise ConfigError
 
-            uuids = open(self.options["data"]).read().split()
+            with open(self.options["data"]) as f:
+                uuids = f.read().split()
         else:
             self.output.write("One of --data or --uuid must be specified\n")
             raise ConfigError

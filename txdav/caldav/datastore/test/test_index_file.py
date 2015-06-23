@@ -98,6 +98,10 @@ class SQLIndexTests (twistedcaldav.test.util.TestCase):
         self.db = Index(MinimalResourceReplacement(self.indexDirPath))
 
 
+    def tearDown(self):
+        self.db._db_close()
+
+
     def test_reserve_uid_ok(self):
         uid = "test-test-test"
         d = self.db.isReservedUID(uid)
@@ -296,7 +300,7 @@ END:VCALENDAR
             if ok:
                 f = open(os.path.join(self.indexDirPath.path, name), "w")
                 f.write(calendar_txt)
-                del f
+                f.close()
 
                 self.db.addResource(name, calendar, reCreate=reCreate)
                 self.assertTrue(self.db.resourceExists(name), msg=description)
@@ -462,7 +466,7 @@ END:VCALENDAR
 
             f = open(os.path.join(self.indexDirPath.path, name), "w")
             f.write(calendar_txt)
-            del f
+            f.close()
 
             self.db.addResource(name, calendar)
             self.assertTrue(self.db.resourceExists(name), msg=description)
@@ -648,7 +652,7 @@ END:VCALENDAR
 
             f = open(os.path.join(self.indexDirPath.path, name), "w")
             f.write(calendar_txt)
-            del f
+            f.close()
 
             self.db.addResource(name, calendar)
             self.assertTrue(self.db.resourceExists(name), msg=description)
@@ -1055,7 +1059,7 @@ END:VCALENDAR
 
             f = open(os.path.join(self.indexDirPath.path, name), "w")
             f.write(calendar_txt)
-            del f
+            f.close()
 
             self.db.addResource(name, calendar)
             self.assertTrue(self.db.resourceExists(name), msg=description)

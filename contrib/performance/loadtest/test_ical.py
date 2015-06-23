@@ -1540,7 +1540,9 @@ END:VCALENDAR
         self.assertTrue(os.path.exists(indexPath))
         def _normDict(d):
             return dict([(k, sorted(v, key=lambda x: x["changeToken" if k == "calendars" else "url"]) if v else None,) for k, v in d.items()])
-        self.assertEqual(_normDict(json.loads(open(indexPath).read())), _normDict(json.loads("""{
+        with open(indexPath) as f:
+            jdata = f.read()
+        self.assertEqual(_normDict(json.loads(jdata)), _normDict(json.loads("""{
   "calendars": [
     {
       "changeToken": "123",
@@ -1597,11 +1599,15 @@ END:VCALENDAR
 
         event1Path = os.path.join(clientPath, "calendar", "1.ics")
         self.assertTrue(os.path.exists(event1Path))
-        self.assertEqual(open(event1Path).read(), cal1)
+        with open(event1Path) as f:
+            data = f.read()
+        self.assertEqual(data, cal1)
 
         event2Path = os.path.join(clientPath, "inbox", "i1.ics")
         self.assertTrue(os.path.exists(event2Path))
-        self.assertEqual(open(event2Path).read(), cal2)
+        with open(event2Path) as f:
+            data = f.read()
+        self.assertEqual(data, cal2)
 
 
     def test_deserialization(self):
@@ -1642,7 +1648,8 @@ END:VCALENDAR
         clientPath = os.path.join(self.client.serializePath, "user91-OS_X_10.6")
         os.mkdir(clientPath)
         indexPath = os.path.join(clientPath, "index.json")
-        open(indexPath, "w").write("""{
+        with open(indexPath, "w") as f:
+            f.write("""{
   "calendars": [
     {
       "changeToken": "321",
@@ -1699,10 +1706,12 @@ END:VCALENDAR
 
         os.mkdir(os.path.join(clientPath, "calendar"))
         event1Path = os.path.join(clientPath, "calendar", "2.ics")
-        open(event1Path, "w").write(cal1)
+        with open(event1Path, "w") as f:
+            f.write(cal1)
         os.mkdir(os.path.join(clientPath, "inbox"))
         event1Path = os.path.join(clientPath, "inbox", "i2.ics")
-        open(event1Path, "w").write(cal2)
+        with open(event1Path, "w") as f:
+            f.write(cal2)
 
         self.client.deserialize()
 

@@ -67,7 +67,8 @@ class HTTPTestBase(object):
         """
         Clear the server's SQL log file.
         """
-        open(self.logFilePath, "w").write("")
+        with open(self.logFilePath, "w") as f:
+            f.write("")
 
 
     def doRequest(self):
@@ -91,7 +92,8 @@ class HTTPTestBase(object):
             return float(line[pos + 2:])
 
         # Need to skip over stats that are unlabeled
-        data = open(self.logFilePath).read()
+        with open(self.logFilePath) as f:
+            data = f.read()
         lines = data.splitlines()
         offset = 0
         while True:

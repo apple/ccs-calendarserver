@@ -84,7 +84,7 @@ class WebDAVContentHandler(xml.sax.handler.ContentHandler):
 
         attributes_dict = {}
 
-        if attributes.getLength() is not 0:
+        if attributes.getLength() != 0:
             for attr_name in attributes.getQNames():
                 attributes_dict[attr_name.encode("utf-8")] = attributes.getValueByQName(attr_name)
 

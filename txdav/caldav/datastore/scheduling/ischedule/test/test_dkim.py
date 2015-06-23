@@ -155,7 +155,9 @@ dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=dns/txt:http/well
 
             result = request.generateSignature(sign_this)
 
-            key = RSA.importKey(open(self.private_keyfile).read())
+            with open(self.private_keyfile) as f:
+                key = f.read()
+            key = RSA.importKey(key)
             signature = DKIMUtils.sign(sign_this, key, DKIMUtils.hash_func(algorithm))
 
             self.assertEqual(result, signature)
@@ -214,7 +216,9 @@ content-type:%s
 ischedule-version:1.0
 ischedule-message-id:%s
 dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=private-exchange:http/well-known:dns/txt; c=ischedule-relaxed/simple; h=Originator:Recipient:Content-Type:iSchedule-Version:iSchedule-Message-ID; bh=%s; b=""".replace("\n", "\r\n") % (headers.getRawHeaders("Content-Type")[0], request.message_id, request.time, request.expire, algorithm, bodyhash)
-            key = RSA.importKey(open(self.private_keyfile).read())
+            with open(self.private_keyfile) as f:
+                key = f.read()
+            key = RSA.importKey(key)
             signature = DKIMUtils.sign(sign_this, key, DKIMUtils.hash_func(algorithm))
 
             self.assertEqual(result, signature)
@@ -224,7 +228,9 @@ dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=private-exchange:
             self.assertEqual(request.headers.getRawHeaders("DKIM-Signature")[0], updated_header)
 
             # Try to verify result using public key
-            pubkey = RSA.importKey(open(self.public_keyfile).read())
+            with open(self.public_keyfile) as f:
+                pubkey = f.read()
+            pubkey = RSA.importKey(pubkey)
             self.assertEqual(DKIMUtils.verify(sign_this, result, pubkey, DKIMUtils.hash_func(algorithm)), None)
 
 

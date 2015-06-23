@@ -468,6 +468,7 @@ def put(stream, filepath, uri=None):
         ))
 
     # Remove stat info from filepath since we modified the backing file
+    resource_file.close()
     filepath.changed()
     yield success_code
 
