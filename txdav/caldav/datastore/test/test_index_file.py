@@ -67,8 +67,18 @@ class MinimalResourceReplacement(object):
     by L{Index}.
     """
 
+    class MinimalTxn(object):
+
+        def postCommit(self, _ignore):
+            pass
+
+        def postAbort(self, _ignore):
+            pass
+
+
     def __init__(self, filePath):
         self.fp = filePath
+        self._txn = MinimalResourceReplacement.MinimalTxn()
 
 
     def isCalendarCollection(self):
