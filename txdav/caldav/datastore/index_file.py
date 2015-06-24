@@ -95,6 +95,9 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
         db_filename = self.resource.fp.child(db_basename).path
         super(AbstractCalendarIndex, self).__init__(db_filename, False)
 
+        self.resource._txn.postCommit(self._db_close)
+        self.resource._txn.postAbort(self._db_close)
+
 
     def create(self):
         """

@@ -265,6 +265,9 @@ class AddressBookIndex(AbstractSQLDatabase):
         else:
             self.reserver = SQLUIDReserver(self)
 
+        self.resource._txn.postCommit(self._db_close)
+        self.resource._txn.postAbort(self._db_close)
+
 
     def create(self):
         """

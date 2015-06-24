@@ -1458,6 +1458,7 @@ class CommonStubResource(object):
     """
     def __init__(self, resource):
         self.resource = resource
+        self._txn = self.resource._txn
         self.fp = self.resource._path
 
 
