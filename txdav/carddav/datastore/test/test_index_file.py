@@ -214,6 +214,7 @@ class MemcacheTests(SQLIndexTests):
 
 
     def tearDown(self):
+        super(MemcacheTests, self).tearDown()
         for _ignore_k, v in self.memcache._timeouts.iteritems():
             if v.active():
                 v.cancel()

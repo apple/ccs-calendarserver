@@ -45,7 +45,8 @@ class MinimalCalendarObjectReplacement(object):
 
 
     def iCalendar(self):
-        text = self.fp.open().read()
+        with self.fp.open() as f:
+            text = f.read()
         try:
             component = Component.fromString(text)
             # Fix any bogus data we can
@@ -1167,6 +1168,7 @@ class MemcacheTests(SQLIndexTests):
 
 
     def tearDown(self):
+        super(MemcacheTests, self).tearDown()
         for _ignore_k, v in self.memcache._timeouts.iteritems():
             if v.active():
                 v.cancel()

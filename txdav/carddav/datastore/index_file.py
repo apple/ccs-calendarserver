@@ -635,8 +635,11 @@ class AddressBookIndex(AbstractSQLDatabase):
             if name.startswith("."):
                 continue
 
+            child = fp.child(name)
+            if not child.isfile():
+                continue
             try:
-                stream = fp.child(name).open()
+                stream = child.open()
             except (IOError, OSError), e:
                 log.error("Unable to open resource %s: %s" % (name, e))
                 continue
