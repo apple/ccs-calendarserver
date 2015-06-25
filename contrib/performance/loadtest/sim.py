@@ -69,6 +69,22 @@ def safeDivision(value, total, factor=1):
 
 
 
+def generateRecords(
+    count, uidPattern="user%d", passwordPattern="user%d",
+    namePattern="User %d", emailPattern="user%d@example.com",
+    guidPattern="user%d"
+):
+    for i in xrange(count):
+        i += 1
+        uid = uidPattern % (i,)
+        password = passwordPattern % (i,)
+        name = namePattern % (i,)
+        email = emailPattern % (i,)
+        guid = guidPattern % (i,)
+        yield _DirectoryRecord(uid, password, name, email, guid)
+
+
+
 def recordsFromCSVFile(path):
     if path:
         pathObj = FilePath(path)
