@@ -23,6 +23,7 @@ File calendar store tests.
 # FileStorageTests, or implementation-agnostic methods on CommonTests.
 
 from pycalendar.datetime import DateTime
+from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.python.filepath import CachingFilePath as FilePath
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial import unittest
@@ -116,6 +117,15 @@ class CalendarStoreTest(unittest.TestCase):
         setUpCalendarStore(self)
 
 
+    @inlineCallbacks
+    def tearDown(self):
+        super(CalendarStoreTest, self).tearDown()
+        try:
+            yield self.txn.commit()
+        except AlreadyFinishedError:
+            pass
+
+
     def test_calendarHomeWithUID_dot(self):
         """
         Filenames starting with "." are reserved by this
@@ -134,6 +144,15 @@ class CalendarHomeTest(unittest.TestCase):
 
     def setUp(self):
         return setUpHome1(self)
+
+
+    @inlineCallbacks
+    def tearDown(self):
+        super(CalendarHomeTest, self).tearDown()
+        try:
+            yield self.txn.commit()
+        except AlreadyFinishedError:
+            pass
 
 
     def test_init(self):
@@ -194,6 +213,15 @@ class CalendarTest(unittest.TestCase):
         return setUpCalendar1(self)
 
 
+    @inlineCallbacks
+    def tearDown(self):
+        super(CalendarTest, self).tearDown()
+        try:
+            yield self.txn.commit()
+        except AlreadyFinishedError:
+            pass
+
+
     def test_init(self):
         """
         L{Calendar.__init__} sets private attributes to reflect its constructor
@@ -231,6 +259,7 @@ class CalendarTest(unittest.TestCase):
         index = calendar._index
         self.assertEquals(set((yield index.calendarObjects())),
                           set((yield calendar.calendarObjects())))
+        index._oldIndex._db_close()
 
 
     @inlineCallbacks
@@ -376,11 +405,13 @@ class CalendarTest(unittest.TestCase):
             (yield self.calendar1.calendarObjectWithName("1.ics")).component(),
             VComponent.fromString(event1modified_text)
         )
+        index = self.calendar1._index
         yield self.doThenUndo()
         self.assertEquals(
             (yield self.calendar1.calendarObjectWithName("1.ics")).component(),
             originalComponent
         )
+        index._oldIndex._db_close()
 
 
     @testUnimplemented
@@ -416,6 +447,15 @@ class CalendarObjectTest(unittest.TestCase):
     def setUp(self):
         yield setUpCalendar1(self)
         self.object1 = yield self.calendar1.calendarObjectWithName("1.ics")
+
+
+    @inlineCallbacks
+    def tearDown(self):
+        super(CalendarObjectTest, self).tearDown()
+        try:
+            yield self.txn.commit()
+        except AlreadyFinishedError:
+            pass
 
 
     def test_init(self):

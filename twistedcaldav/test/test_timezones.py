@@ -325,3 +325,5 @@ class TimezonePackageTest (twistedcaldav.test.util.TestCase):
 
         self.assertTrue(os.path.exists(os.path.join(config.DataRoot, "zoneinfo")))
         self.assertTrue(os.path.exists(os.path.join(config.DataRoot, "zoneinfo", "America", "New_York.ics")))
+
+    test_copyPackage_Concurrency.skip = "This tests needs to use separate processes rather than threads to work properly as the FilesystemLock object is process-based "

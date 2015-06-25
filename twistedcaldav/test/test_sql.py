@@ -107,6 +107,7 @@ class SQL (twistedcaldav.test.util.TestCase):
         self.assertFalse(hasattr(db, "_db_connection"))
         self.assertTrue(db._db() is not None)
         self.assertTrue(db._db_connection is not None)
+        db._db_close()
 
 
     def test_connect_autocommit(self):
@@ -117,6 +118,7 @@ class SQL (twistedcaldav.test.util.TestCase):
         self.assertFalse(hasattr(db, "_db_connection"))
         self.assertTrue(db._db() is not None)
         self.assertTrue(db._db_connection is not None)
+        db._db_close()
 
 
     def test_readwrite(self):
@@ -129,6 +131,7 @@ class SQL (twistedcaldav.test.util.TestCase):
         q = db._db().execute("SELECT * from TESTTYPE")
         items = [i for i in q.fetchall()]
         self.assertEqual(items, [("FOO", "BAR")])
+        db._db_close()
 
 
     def test_readwrite_autocommit(self):
@@ -140,6 +143,7 @@ class SQL (twistedcaldav.test.util.TestCase):
         q = db._db().execute("SELECT * from TESTTYPE")
         items = [i for i in q.fetchall()]
         self.assertEqual(items, [("FOO", "BAR")])
+        db._db_close()
 
 
     def test_readwrite_cursor(self):
@@ -150,6 +154,7 @@ class SQL (twistedcaldav.test.util.TestCase):
         db._db_execute("INSERT into TESTTYPE (KEY, VALUE) values (:1, :2)", "FOO", "BAR")
         items = db._db_execute("SELECT * from TESTTYPE")
         self.assertEqual(items, [("FOO", "BAR")])
+        db._db_close()
 
 
     def test_readwrite_cursor_autocommit(self):
@@ -160,6 +165,7 @@ class SQL (twistedcaldav.test.util.TestCase):
         db._db_execute("INSERT into TESTTYPE (KEY, VALUE) values (:1, :2)", "FOO", "BAR")
         items = db._db_execute("SELECT * from TESTTYPE")
         self.assertEqual(items, [("FOO", "BAR")])
+        db._db_close()
 
 
     def test_readwrite_rollback(self):
@@ -171,6 +177,7 @@ class SQL (twistedcaldav.test.util.TestCase):
         db._db_rollback()
         items = db._db_execute("SELECT * from TESTTYPE")
         self.assertEqual(items, [])
+        db._db_close()
 
 
     def test_close(self):
@@ -194,6 +201,7 @@ class SQL (twistedcaldav.test.util.TestCase):
                 try:
                     db = SQL.TestDBPauseInInit(dbname)
                     db._db()
+                    db._db_close()
                     self.result = True
                 except:
                     self.result = False
@@ -224,6 +232,7 @@ class SQL (twistedcaldav.test.util.TestCase):
         self.assertRaises(SQL.TestDBRecreateUpgrade.RecreateDBException, db._db)
         items = db._db_execute("SELECT * from TESTTYPE")
         self.assertEqual(items, [])
+        db._db_close()
 
 
     def test_version_upgrade_persistent(self):
@@ -249,6 +258,7 @@ class SQL (twistedcaldav.test.util.TestCase):
         self.assertTrue(db._db() is not None)
         items = db._db_execute("SELECT * from TESTTYPE")
         self.assertEqual(items, [("FOO", "BAR")])
+        db._db_close()
 
 
     def test_version_upgrade_persistent_add_index(self):
@@ -268,3 +278,4 @@ class SQL (twistedcaldav.test.util.TestCase):
         self.assertTrue(db._db() is not None)
         items = db._db_execute("SELECT * from TESTTYPE")
         self.assertEqual(items, [("FOO", "BAR")])
+        db._db_close()

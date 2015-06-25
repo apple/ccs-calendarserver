@@ -192,17 +192,17 @@ class AbstractSQLDatabase (object):
         # want other processes to get stomped on or stomp on us.
         old_isolation = self._db_connection.isolation_level
         self._db_connection.isolation_level = None
-        q.execute("begin exclusive transaction")
-
-        # We re-check whether the schema table is present again AFTER we've got an exclusive
-        # lock as some other server process may have snuck in and already created it
-        # before we got the lock, or whilst we were waiting for it.
-        if not self._test_schema_table(q):
-            self._db_init_schema_table(q)
-            self._db_init_data_tables(q)
-            self._db_recreate(False)
-
         try:
+            q.execute("begin exclusive transaction")
+
+            # We re-check whether the schema table is present again AFTER we've got an exclusive
+            # lock as some other server process may have snuck in and already created it
+            # before we got the lock, or whilst we were waiting for it.
+            if not self._test_schema_table(q):
+                self._db_init_schema_table(q)
+                self._db_init_data_tables(q)
+                self._db_recreate(False)
+
             q.execute("commit")
         except DatabaseError:
             pass

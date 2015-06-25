@@ -1502,6 +1502,7 @@ class UpgradeTests(StoreTestCase):
         )
 
         yield txn.commit()
+        sqliteProxyService.close()
 
 
     def test_resourcesXML(self):

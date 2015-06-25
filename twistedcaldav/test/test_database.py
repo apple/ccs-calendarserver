@@ -124,6 +124,7 @@ class Database (twistedcaldav.test.util.TestCase):
         self.assertFalse(db.initialized)
         yield db.open()
         self.assertTrue(db.initialized)
+        db.close()
 
 
     @inlineCallbacks
@@ -154,6 +155,7 @@ class Database (twistedcaldav.test.util.TestCase):
         self.assertEqual(items, (("FOO", "BAR"),))
         items = (yield db.queryList("SELECT * from TESTTYPE"))
         self.assertEqual(items, ("FOO",))
+        db.close()
 
 
     @inlineCallbacks
@@ -189,6 +191,7 @@ class Database (twistedcaldav.test.util.TestCase):
         yield self.inlineCallbackRaises(Database.TestDBRecreateUpgrade.RecreateDBException, db.open)
         items = (yield db.query("SELECT * from TESTTYPE"))
         self.assertEqual(items, ())
+        db.close()
 
 
     @inlineCallbacks
@@ -215,6 +218,7 @@ class Database (twistedcaldav.test.util.TestCase):
         yield db.open()
         items = (yield db.query("SELECT * from TESTTYPE"))
         self.assertEqual(items, (("FOO", "BAR"),))
+        db.close()
 
 
     @inlineCallbacks
@@ -235,3 +239,4 @@ class Database (twistedcaldav.test.util.TestCase):
         yield db.open()
         items = (yield db.query("SELECT * from TESTTYPE"))
         self.assertEqual(items, (("FOO", "BAR"),))
+        db.close()

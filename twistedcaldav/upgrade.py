@@ -1077,6 +1077,7 @@ def migrateDelegatesToStore(store):
     yield txn.commit()
 
     # Remove the old file
+    service.close()
     os.remove(service.dbpath)
     journalPath = service.dbpath + "-journal"
     if os.path.exists(journalPath):
