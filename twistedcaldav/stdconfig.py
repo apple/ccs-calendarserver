@@ -1720,6 +1720,8 @@ def _updateCompliance(configDict, reloading=False):
             compliance += customxml.calendarserver_sharing_compliance
             # TODO: This is only needed whilst we do not support scheduling in shared calendars
             compliance += customxml.calendarserver_sharing_no_scheduling_compliance
+            if config.Sharing.Calendars.Enabled and config.Sharing.Calendars.Groups.Enabled:
+                compliance += customxml.calendarserver_group_sharee_compliance
         if configDict.EnableCalendarQueryExtended:
             compliance += caldavxml.caldav_query_extended_compliance
         if configDict.EnableDefaultAlarms:
@@ -1728,6 +1730,8 @@ def _updateCompliance(configDict, reloading=False):
             compliance += caldavxml.caldav_managed_attachments_compliance
         if configDict.Scheduling.Options.TimestampAttendeePartStatChanges:
             compliance += customxml.calendarserver_partstat_changes_compliance
+        if config.GroupAttendees.Enabled:
+            compliance += customxml.calendarserver_group_attendee_compliance
         if configDict.EnableTimezonesByReference:
             compliance += caldavxml.caldav_timezones_by_reference_compliance
         compliance += customxml.calendarserver_recurrence_split
