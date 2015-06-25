@@ -68,7 +68,7 @@
 
     --editable svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk@13420#egg=kerberos
 
-    --editable svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk@14695#egg=pycalendar
+    --editable svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk@14915#egg=pycalendar
     python-dateutil==1.5  # Note: v2.0+ is for Python 3
     pytz==2015.4
 
