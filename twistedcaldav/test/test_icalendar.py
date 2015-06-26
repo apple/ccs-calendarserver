@@ -8241,9 +8241,6 @@ END:VCALENDAR
 
         yield component.normalizeCalendarUserAddresses(lookupFunction, None, toCanonical=True)
 
-        # Location value changed
-        prop = component.mainComponent().getProperty("LOCATION")
-        self.assertEquals(prop.value(), "{Restricted} Buzz")
         prop = component.getAttendeeProperty(("urn:x-uid:buzz",))
         self.assertEquals("urn:x-uid:buzz", prop.value())
         self.assertEquals(prop.parameterValue("CN"), "{Restricted} Buzz")

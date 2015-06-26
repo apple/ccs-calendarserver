@@ -3541,13 +3541,6 @@ END:VCALENDAR
                 if name:
                     if name != oldCN:
                         prop.setParameter("CN", name)
-
-                        # Also adjust any previously matching location property
-                        if cutype == "ROOM":
-                            location = component.getProperty("LOCATION")
-                            if location is not None:
-                                if location.value() == oldCN:
-                                    location.setValue(name)
                 else:
                     prop.removeParameter("CN")
 

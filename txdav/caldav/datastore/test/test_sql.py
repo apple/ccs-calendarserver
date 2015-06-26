@@ -21,6 +21,7 @@ L{txdav.caldav.datastore.test.common}.
 
 from pycalendar.datetime import DateTime
 from pycalendar.timezone import Timezone
+from pycalendar.value import Value
 
 
 from txweb2 import responsecode
@@ -38,7 +39,7 @@ from twistedcaldav import caldavxml, ical
 from twistedcaldav.caldavxml import CalendarDescription
 from twistedcaldav.stdconfig import config
 from twistedcaldav.dateops import datetimeMktime
-from twistedcaldav.ical import Component, normalize_iCalStr, diff_iCalStrs
+from twistedcaldav.ical import Component, normalize_iCalStr, diff_iCalStrs, Property
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.timezones import TimezoneCache, readVTZ, TimezoneException
 
@@ -2682,7 +2683,7 @@ END:VCALENDAR
             calendar_name="calendar",
             home="user01"
         )
-        comp = yield cobj.component()
+        comp = yield cobj.componentForUser()
         components = list(comp.subcomponents())
 
         # Check first component
@@ -2773,14 +2774,14 @@ END:VCALENDAR
             calendar_name="calendar",
             home="user01"
         )
-        comp = yield cobj.component()
+        comp = yield cobj.componentForUser()
         components = list(comp.subcomponents())
 
         # Check first component
         locProp = components[0].getProperty("LOCATION")
         self.assertEquals(
             locProp.value(),
-            "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014; Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014"
+            "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014;Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014"
         )
         structProps = tuple(components[0].properties("X-APPLE-STRUCTURED-LOCATION"))
         self.assertEqual(len(structProps), 2)
@@ -2817,13 +2818,154 @@ END:VCALENDAR
         locProp = components[0].getProperty("LOCATION")
         self.assertEquals(
             locProp.value(),
-            "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014; Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014"
+            "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014;Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014"
         )
         structProps = tuple(components[0].properties("X-APPLE-STRUCTURED-LOCATION"))
         self.assertEqual(len(structProps), 2)
         self.assertEquals(
             set([structProp.value() for structProp in structProps]),
             set(("geo:37.331741,-122.030333", "geo:37.332633,-122.030502",))
+        )
+
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_setComponent_structuredLocation_Mixed(self):
+        """
+        Verify adding a location that's not in the directory to an event which
+        already has a location that's in the directory keeps them both.
+        X-APPLE-STRUCTURED-LOCATION properties which have X-CUADDR but no
+        corresponding ATTENDEE are removed.
+        """
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//Mac OS X 10.9.1//EN
+BEGIN:VEVENT
+UID:561F5DBB-3F38-4B3A-986F-DD05CBAF554F
+DTSTART:20131211T164500Z
+DURATION:PT1H
+ATTENDEE;CN=Old Room with Address 1;CUTYPE=ROOM;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICIPAN
+ T;SCHEDULE-STATUS=2.0:urn:x-uid:room-addr-1
+ATTENDEE;CN=Room with Address 2;CUTYPE=ROOM;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICIPAN
+ T;SCHEDULE-STATUS=2.0:urn:x-uid:room-addr-2
+ATTENDEE;CN=Mercury Seven;CUTYPE=ROOM;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICIPAN
+ T;SCHEDULE-STATUS=2.0:urn:x-uid:mercury
+ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL;EMAIL=user01@example.com;PARTSTAT=AC
+ CEPTED:urn:x-uid:user01
+X-APPLE-STRUCTURED-LOCATION;VALUE=URI;X-ADDRESS="1 Infinite Loop, Cupertin
+ o, CA 95014";X-APPLE-RADIUS=71;X-CUADDR="urn:x-uid:room-addr-1";X-TITLE=O
+ ld Room with Address 1:geo:37.331741,-122.030333
+X-APPLE-STRUCTURED-LOCATION;VALUE=URI;X-ADDRESS="2 Infinite Loop, Cupertin
+ o, CA 95014";X-APPLE-RADIUS=71;X-TITLE=Room with Address 2:geo:37.332633,
+ -122.030502
+X-APPLE-STRUCTURED-LOCATION;VALUE=URI;X-ADDRESS=123 Main St;X-APPLE-RADIUS
+ =14164;X-TITLE=Mercury Seven:geo:37.351164,-122.032686
+CREATED:20131211T221854Z
+DTSTAMP:20131211T230632Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+SEQUENCE:1
+SUMMARY:locations
+LOCATION:Old Room with Address 1;Unstructured Location; Mercury Seven; Room with Address 2
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        yield calendar.createCalendarObjectWithName(
+            "structured.ics",
+            Component.fromString(data)
+        )
+
+        yield self.commit()
+
+        cobj = yield self.calendarObjectUnderTest(
+            name="structured.ics",
+            calendar_name="calendar",
+            home="user01"
+        )
+        comp = yield cobj.componentForUser()
+        components = list(comp.subcomponents())
+
+        # Check first component -- LOCATION now has the street addresses, and
+        # location values that don't have an ATTENDEE or X-APPLE-STRUCTURED-LOCATIONs
+        # are retained
+        locProp = components[0].getProperty("LOCATION")
+        self.assertEquals(
+            locProp.value(),
+            "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014;Unstructured Location;Mercury Seven;Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014"
+        )
+        structProps = tuple(components[0].properties("X-APPLE-STRUCTURED-LOCATION"))
+        self.assertEqual(len(structProps), 3)
+        self.assertEquals(
+            structProps[0].value(),
+            "geo:37.331741,-122.030333",
+        )
+        # Make sure server has also added X-CUADDR
+        self.assertEquals(
+            structProps[0].parameterValue("X-CUADDR"),
+            "urn:x-uid:room-addr-1"
+        )
+
+        # Client now adds a location not in the directory:
+        comp = comp.duplicate()
+        main = comp.mainComponent()
+        main.replaceProperty(Property("LOCATION", "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014; Unstructured Location; Falafel Stop\n1325 Sunnyvale Saratoga, Sunnyvale, CA 94087;Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014"))
+
+        params = {
+            "X-ADDRESS": "1325 Sunnyvale Saratoga Rd",
+            "X-APPLE-RADIUS": "14164",
+            "X-TITLE": "Falafel Stop",
+        }
+        structured = Property(
+            "X-APPLE-STRUCTURED-LOCATION",
+            "geo:37.351164,-122.032686", params=params,
+            valuetype=Value.VALUETYPE_URI
+        )
+        main.addProperty(structured)
+
+        # ...plus let's prove we clean up structured locations which have X-CUADDR
+        # but no matching ATTENDEE
+        params = {
+            "X-ADDRESS": "1122 Boogie Woogie Ave",
+            "X-APPLE-RADIUS": "14164",
+            "X-TITLE": "Home of the Boogie, House of the Funk",
+            "X-CUADDR": "urn:x-uid:boogie-home",
+        }
+        structured = Property(
+            "X-APPLE-STRUCTURED-LOCATION",
+            "geo:37.351164,-122.032686", params=params,
+            valuetype=Value.VALUETYPE_URI
+        )
+        main.addProperty(structured)
+
+        # Store the new component and let the server do its thing
+        yield cobj.setComponent(comp)
+        yield self.commit()
+
+        cobj = yield self.calendarObjectUnderTest(
+            name="structured.ics",
+            calendar_name="calendar",
+            home="user01"
+        )
+        comp = yield cobj.componentForUser()
+        components = list(comp.subcomponents())
+
+        # Check first component
+        structProps = tuple(components[0].properties("X-APPLE-STRUCTURED-LOCATION"))
+        self.assertEqual(len(structProps), 4)
+        self.assertEquals(
+            set([structProp.parameterValue("X-TITLE") for structProp in structProps]),
+            set(("Room with Address 1", "Room with Address 2", "Falafel Stop", "Mercury Seven"))
+        )
+
+        locProp = components[0].getProperty("LOCATION")
+        self.assertEquals(
+            locProp.value(),
+            "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014;Unstructured Location;Falafel Stop\n1325 Sunnyvale Saratoga, Sunnyvale, CA 94087;Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014"
         )
 
         yield self.commit()

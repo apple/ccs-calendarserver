@@ -3296,14 +3296,39 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         Scan the component for ROOM attendees; if any are associated with an
         address record which has street address and geo coordinates, add an
         X-APPLE-STRUCTURED-LOCATION property and update the LOCATION property
-        to contain the name and street address.
+        to contain the name and street address.  X-APPLE-STRUCTURED-LOCATION
+        with X-CUADDR but no corresponding ATTENDEE are removed.
         """
-
-        cache = {}
         dir = self.directoryService()
+
+        changed = False
+        cache = {}
+
         for sub in component.subcomponents():
-            locations = []
-            removed = False
+            existingLocationProps = list(sub.properties("LOCATION"))
+            if len(existingLocationProps) == 0:
+                existingLocationValue = ""
+            else:
+                existingLocationValue = existingLocationProps[0].value()
+            existingLocations = []
+            for value in existingLocationValue.split(";"):
+                if value:
+                    existingLocations.append(value.strip())
+
+            # index the structured locations on X-CUADDR and X-TITLE
+            allStructured = {
+                "cua": {},
+                "title": {}
+            }
+            for structured in sub.properties("X-APPLE-STRUCTURED-LOCATION"):
+                cuAddr = structured.parameterValue("X-CUADDR")
+                if cuAddr:
+                    allStructured["cua"][cuAddr] = structured
+                else:
+                    title = structured.parameterValue("X-TITLE")
+                    if title:
+                        allStructured["title"][title] = structured
+
             for attendee in sub.getAllAttendeeProperties():
                 if attendee.parameterValue("CUTYPE") == "ROOM":
                     value = attendee.value()
@@ -3326,32 +3351,89 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     # Use the cached data if present
                     entry = cache[value]
                     if entry is not None:
+
                         street, geo, title = entry
+                        newLocationValue = "{0}\n{1}".format(title, street.encode("utf-8"))
+
+                        # Is there already a structured location property for
+                        # this attendee?  If so, we'll update it.
+                        # Unfortunately, we can only depend on X-CUADDR
+                        # going forward, but there is going to be old existing
+                        # X-APPLE-STRUCTURED-LOCATIONs that haven't yet had
+                        # those added.  So let's first look up by X-CUADDR and
+                        # then by X-TITLE.
+                        if value in allStructured["cua"]:
+                            structured = allStructured["cua"][value]
+                        elif title in allStructured["title"]:
+                            structured = allStructured["title"][title]
+                        else:
+                            structured = None
+
                         params = {
                             "X-ADDRESS": street,
                             "X-APPLE-RADIUS": "71",
                             "X-TITLE": title,
+                            "X-CUADDR": value,
                         }
-                        structured = Property(
-                            "X-APPLE-STRUCTURED-LOCATION",
-                            geo.encode("utf-8"), params=params,
-                            valuetype=Value.VALUETYPE_URI
-                        )
 
-                        # The first time we have any X- prop, remove all existing ones
-                        if not removed:
-                            sub.removeProperty("X-APPLE-STRUCTURED-LOCATION")
-                            removed = True
-                        sub.addProperty(structured)
-                        locations.append("{0}\n{1}".format(title, street.encode("utf-8")))
+                        if structured is None:
+                            # Create a new one
+                            prevTitle = attendee.parameterValue("CN")
+                            structured = Property(
+                                "X-APPLE-STRUCTURED-LOCATION",
+                                geo.encode("utf-8"), params=params,
+                                valuetype=Value.VALUETYPE_URI
+                            )
+                            changed = True
+                            sub.addProperty(structured)
+                        else:
+                            # Update existing one
+                            prevTitle = structured.parameterValue("X-TITLE")
+                            for paramName, paramValue in params.iteritems():
+                                prevValue = structured.parameterValue(paramName)
+                                if paramValue != prevValue:
+                                    structured.setParameter(paramName, paramValue)
+                                    changed = True
 
-            # Update the LOCATION if X-'s were added
-            if locations:
+                        if changed:
+                            # Replace old location values with the new ones
+                            for i in xrange(len(existingLocations)):
+                                existingLocation = existingLocations[i]
+                                if (
+                                    prevTitle is not None and
+                                    (
+                                        # it's either an exact match or matches
+                                        # up to the newline which precedes the
+                                        # street address
+                                        existingLocation == prevTitle or
+                                        existingLocation.startswith("{}\n".format(prevTitle))
+                                    )
+                                ):
+                                    existingLocations[i] = newLocationValue
+                                    break
+                            else:
+                                existingLocations.append(newLocationValue)
+
+            # Remove any server-generated structured locations without an ATTENDEE
+            for structured in sub.properties("X-APPLE-STRUCTURED-LOCATION"):
+                cuAddr = structured.parameterValue("X-CUADDR")
+                if cuAddr is not None: # therefore it's one that requires an ATTENDEE...
+                    attendeeProp = sub.getAttendeeProperty((cuAddr,))
+                    if attendeeProp is None: # ...remove it if no matching ATTENDEE
+                        sub.removeProperty(structured)
+
+            # Update the LOCATION
+            newLocationValue = ";".join(existingLocations)
+            if newLocationValue != existingLocationValue:
                 newLocProperty = Property(
                     "LOCATION",
-                    "; ".join(locations)
+                    newLocationValue
                 )
                 sub.replaceProperty(newLocProperty)
+                changed = True
+
+        if changed:
+            self._componentChanged = True
 
 
     @inlineCallbacks
