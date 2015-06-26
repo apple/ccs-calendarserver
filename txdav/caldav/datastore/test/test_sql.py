@@ -58,10 +58,10 @@ from txdav.common.datastore.sql import ECALENDARTYPE, CommonObjectResource, \
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT, \
     _BIND_STATUS_ACCEPTED, _TRANSP_OPAQUE
 from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests, \
-    test_event_text
+    test_event_text, cal1Root
 from txdav.caldav.datastore.test.test_file import setUpCalendarStore
 from txdav.common.datastore.test.util import populateCalendarsFrom, \
-    CommonCommonTests
+    CommonCommonTests, updateToCurrentYear
 from txdav.caldav.datastore.util import _migrateCalendar, migrateHome
 from txdav.caldav.icalendarstore import ComponentUpdateState, InvalidDefaultCalendar, \
     InvalidSplit, UnknownTimezone
@@ -1913,117 +1913,6 @@ END:VCALENDAR
 
 
     @inlineCallbacks
-    def test_calendarRevisionChangeConcurrency(self):
-        """
-        Test that two concurrent attempts to add resources in two separate
-        calendar homes does not deadlock on the revision table update.
-        """
-
-        calendarStore = self._sqlCalendarStore
-
-        # Make sure homes are provisioned
-        txn = self.transactionUnderTest()
-        home_uid1 = yield txn.homeWithUID(ECALENDARTYPE, "user01", create=True)
-        home_uid2 = yield txn.homeWithUID(ECALENDARTYPE, "user02", create=True)
-        self.assertNotEqual(home_uid1, None)
-        self.assertNotEqual(home_uid2, None)
-        yield self.commit()
-
-        # Create first events in different calendar homes
-        txn1 = calendarStore.newTransaction()
-        txn2 = calendarStore.newTransaction()
-
-        calendar_uid1_in_txn1 = yield self.calendarUnderTest(txn1, "calendar", "user01")
-        calendar_uid2_in_txn2 = yield self.calendarUnderTest(txn2, "calendar", "user02")
-
-        data = """BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:data%(ctr)s
-DTSTART:20130102T140000Z
-DURATION:PT1H
-CREATED:20060102T190000Z
-DTSTAMP:20051222T210507Z
-SUMMARY:data%(ctr)s
-END:VEVENT
-END:VCALENDAR
-"""
-
-        component = Component.fromString(data % {"ctr": 1})
-        yield calendar_uid1_in_txn1.createCalendarObjectWithName("data1.ics", component)
-
-        component = Component.fromString(data % {"ctr": 2})
-        yield calendar_uid2_in_txn2.createCalendarObjectWithName("data2.ics", component)
-
-        # Setup deferreds to run concurrently and create second events in the calendar homes
-        # previously used by the other transaction - this could create the deadlock.
-        @inlineCallbacks
-        def _defer_uid3():
-            calendar_uid1_in_txn2 = yield self.calendarUnderTest(txn2, "calendar", "user01")
-            component = Component.fromString(data % {"ctr": 3})
-            yield calendar_uid1_in_txn2.createCalendarObjectWithName("data3.ics", component)
-            yield txn2.commit()
-        d1 = _defer_uid3()
-
-        @inlineCallbacks
-        def _defer_uid4():
-            calendar_uid2_in_txn1 = yield self.calendarUnderTest(txn1, "calendar", "user02")
-            component = Component.fromString(data % {"ctr": 4})
-            yield calendar_uid2_in_txn1.createCalendarObjectWithName("data4.ics", component)
-            yield txn1.commit()
-        d2 = _defer_uid4()
-
-        # Now do the concurrent provision attempt
-        yield DeferredList([d1, d2])
-
-        # Verify we did not have a deadlock and all resources have been created.
-        caldata1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
-        caldata2 = yield self.calendarObjectUnderTest(name="data2.ics", calendar_name="calendar", home="user02")
-        caldata3 = yield self.calendarObjectUnderTest(name="data3.ics", calendar_name="calendar", home="user01")
-        caldata4 = yield self.calendarObjectUnderTest(name="data4.ics", calendar_name="calendar", home="user02")
-        self.assertNotEqual(caldata1, None)
-        self.assertNotEqual(caldata2, None)
-        self.assertNotEqual(caldata3, None)
-        self.assertNotEqual(caldata4, None)
-
-
-    @inlineCallbacks
-    def test_calendarMissingRevision(self):
-        """
-        Test that two concurrent attempts to add resources in two separate
-        calendar homes does not deadlock on the revision table update.
-        """
-
-        # Get details
-        home = yield self.homeUnderTest(name="user01", create=True)
-        self.assertNotEqual(home, None)
-        calendar = yield home.childWithName("calendar")
-        self.assertNotEqual(calendar, None)
-
-        rev = calendar._revisionsSchema
-        yield Delete(
-            From=rev,
-            Where=(
-                rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
-                rev.COLLECTION_NAME == Parameter("collectionName")
-            )
-        ).on(self.transactionUnderTest(), homeID=home.id(), collectionName="calendar")
-
-        yield self.commit()
-
-        home = yield self.homeUnderTest(name="user01")
-        children = yield home.loadChildren()
-        self.assertEqual(len(children), 3)
-        yield self.commit()
-
-        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
-        token = yield calendar.syncToken()
-        self.assertTrue(token is not None)
-
-
-    @inlineCallbacks
     def test_inboxTransp(self):
         """
         Make sure inbox is always transparent no matter what is stored in the DB.
@@ -2319,6 +2208,163 @@ END:VCALENDAR
         yield self.commit()
 
 
+
+class SyncTests(CommonCommonTests, unittest.TestCase):
+    """
+    Revision table/sync report tests.
+    """
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(SyncTests, self).setUp()
+        yield self.buildStoreAndDirectory()
+        yield self.populate()
+
+
+    requirements = {
+        "user01": {
+            "calendar": {
+                "1.ics": (cal1Root.child("1.ics").getContent(), CalendarCommonTests.metadata1),
+                "2.ics": (cal1Root.child("2.ics").getContent(), CalendarCommonTests.metadata2),
+                "3.ics": (cal1Root.child("3.ics").getContent(), CalendarCommonTests.metadata3),
+                "4.ics": (cal1Root.child("4.ics").getContent(), CalendarCommonTests.metadata4),
+                "5.ics": (cal1Root.child("5.ics").getContent(), CalendarCommonTests.metadata5),
+            },
+        },
+    }
+
+
+    @inlineCallbacks
+    def populate(self):
+        yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
+        self.notifierFactory.reset()
+
+
+    def token2revision(self, token):
+        """
+        FIXME: the API names for L{syncToken}() and L{resourceNamesSinceToken}()
+        are slightly inaccurate; one doesn't produce input for the other.
+        Actually it should be resource names since I{revision} and you need to
+        understand the structure of the tokens to extract the revision.  Right
+        now that logic lives in the protocol layer, so this testing method
+        replicates it.
+        """
+        _ignore_uuid, rev = token.split("_", 1)
+        rev = int(rev)
+        return rev
+
+
+    @inlineCallbacks
+    def test_calendarRevisionChangeConcurrency(self):
+        """
+        Test that two concurrent attempts to add resources in two separate
+        calendar homes does not deadlock on the revision table update.
+        """
+
+        calendarStore = self._sqlCalendarStore
+
+        # Make sure homes are provisioned
+        txn = self.transactionUnderTest()
+        home_uid1 = yield txn.homeWithUID(ECALENDARTYPE, "user01", create=True)
+        home_uid2 = yield txn.homeWithUID(ECALENDARTYPE, "user02", create=True)
+        self.assertNotEqual(home_uid1, None)
+        self.assertNotEqual(home_uid2, None)
+        yield self.commit()
+
+        # Create first events in different calendar homes
+        txn1 = calendarStore.newTransaction()
+        txn2 = calendarStore.newTransaction()
+
+        calendar_uid1_in_txn1 = yield self.calendarUnderTest(txn1, "calendar", "user01")
+        calendar_uid2_in_txn2 = yield self.calendarUnderTest(txn2, "calendar", "user02")
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:data%(ctr)s
+DTSTART:20130102T140000Z
+DURATION:PT1H
+CREATED:20060102T190000Z
+DTSTAMP:20051222T210507Z
+SUMMARY:data%(ctr)s
+END:VEVENT
+END:VCALENDAR
+"""
+
+        component = Component.fromString(data % {"ctr": 1})
+        yield calendar_uid1_in_txn1.createCalendarObjectWithName("data1.ics", component)
+
+        component = Component.fromString(data % {"ctr": 2})
+        yield calendar_uid2_in_txn2.createCalendarObjectWithName("data2.ics", component)
+
+        # Setup deferreds to run concurrently and create second events in the calendar homes
+        # previously used by the other transaction - this could create the deadlock.
+        @inlineCallbacks
+        def _defer_uid3():
+            calendar_uid1_in_txn2 = yield self.calendarUnderTest(txn2, "calendar", "user01")
+            component = Component.fromString(data % {"ctr": 3})
+            yield calendar_uid1_in_txn2.createCalendarObjectWithName("data3.ics", component)
+            yield txn2.commit()
+        d1 = _defer_uid3()
+
+        @inlineCallbacks
+        def _defer_uid4():
+            calendar_uid2_in_txn1 = yield self.calendarUnderTest(txn1, "calendar", "user02")
+            component = Component.fromString(data % {"ctr": 4})
+            yield calendar_uid2_in_txn1.createCalendarObjectWithName("data4.ics", component)
+            yield txn1.commit()
+        d2 = _defer_uid4()
+
+        # Now do the concurrent provision attempt
+        yield DeferredList([d1, d2])
+
+        # Verify we did not have a deadlock and all resources have been created.
+        caldata1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        caldata2 = yield self.calendarObjectUnderTest(name="data2.ics", calendar_name="calendar", home="user02")
+        caldata3 = yield self.calendarObjectUnderTest(name="data3.ics", calendar_name="calendar", home="user01")
+        caldata4 = yield self.calendarObjectUnderTest(name="data4.ics", calendar_name="calendar", home="user02")
+        self.assertNotEqual(caldata1, None)
+        self.assertNotEqual(caldata2, None)
+        self.assertNotEqual(caldata3, None)
+        self.assertNotEqual(caldata4, None)
+
+
+    @inlineCallbacks
+    def test_calendarMissingRevision(self):
+        """
+        Test that two concurrent attempts to add resources in two separate
+        calendar homes does not deadlock on the revision table update.
+        """
+
+        # Get details
+        home = yield self.homeUnderTest(name="user02", create=True)
+        self.assertNotEqual(home, None)
+        calendar = yield home.childWithName("calendar")
+        self.assertNotEqual(calendar, None)
+
+        rev = calendar._revisionsSchema
+        yield Delete(
+            From=rev,
+            Where=(
+                rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
+                rev.COLLECTION_NAME == Parameter("collectionName")
+            )
+        ).on(self.transactionUnderTest(), homeID=home.id(), collectionName="calendar")
+
+        yield self.commit()
+
+        home = yield self.homeUnderTest(name="user02")
+        children = yield home.loadChildren()
+        self.assertEqual(len(children), 3)
+        yield self.commit()
+
+        calendar = yield self.calendarUnderTest(home="user02", name="calendar")
+        token = yield calendar.syncToken()
+        self.assertTrue(token is not None)
+
+
     @inlineCallbacks
     def test_removeAfterRevisionCleanup(self):
         """
@@ -2350,6 +2396,58 @@ END:VCALENDAR
 
 
     @inlineCallbacks
+    def test_revisionModified(self):
+        """
+        Make sure the revision table MODIFIED value changes for an update or delete
+        """
+
+        @inlineCallbacks
+        def _getModified():
+            home = yield self.homeUnderTest(name="user01")
+            calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+            rev = calendar._revisionsSchema
+            modified = yield Select(
+                [rev.MODIFIED, ],
+                From=rev,
+                Where=(
+                    rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
+                    rev.CALENDAR_RESOURCE_ID == Parameter("collectionID")).And(
+                    rev.RESOURCE_NAME == Parameter("resourceName")
+                )
+            ).on(
+                home._txn,
+                homeID=home.id(),
+                collectionID=calendar.id(),
+                resourceName="1.ics",
+            )
+            yield self.commit()
+            returnValue(modified[0][0])
+
+        # Get current modified
+        old_modified = yield _getModified()
+        self.assertNotEqual(old_modified, None)
+
+        # Update resource
+        cobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        yield cobj.setComponent(Component.fromString(updateToCurrentYear(cal1Root.child("1.ics").getContent())))
+        yield self.commit()
+
+        # Modified changed
+        update_modified = yield _getModified()
+        self.assertGreater(update_modified, old_modified)
+
+        # Delete resource
+        cobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        yield cobj.remove()
+        yield self.commit()
+
+        # Modified changed
+        delete_modified = yield _getModified()
+        self.assertGreater(delete_modified, old_modified)
+        self.assertGreater(delete_modified, update_modified)
+
+
+    @inlineCallbacks
     def test_homeSyncTokenWithTrash_Visible(self):
         """
         L{ICalendarHome.resourceNamesSinceToken} will return the names of
@@ -2360,8 +2458,8 @@ END:VCALENDAR
         self.patch(config, "EnableTrashCollection", True)
         self.patch(config, "ExposeTrashCollection", True)
 
-        home = yield self.homeUnderTest()
-        cal = yield self.calendarUnderTest()
+        home = yield self.homeUnderTest(name="user01")
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
         st = yield home.syncToken()
         yield cal.createCalendarObjectWithName("new.ics", Component.fromString(
             test_event_text
@@ -2373,12 +2471,12 @@ END:VCALENDAR
         st2 = yield home.syncToken()
         self.failIfEquals(st, st2)
 
-        home = yield self.homeUnderTest()
+        home = yield self.homeUnderTest(name="user01")
 
         expected = [
-            "calendar_1/",
-            "calendar_1/new.ics",
-            "calendar_1/2.ics",
+            "calendar/",
+            "calendar/new.ics",
+            "calendar/2.ics",
             "other-calendar/"
         ]
 
@@ -2394,7 +2492,7 @@ END:VCALENDAR
             self.token2revision(st), "infinity")
 
         self.assertEquals(set(changed), set(expected))
-        self.assertEquals(set(deleted), set(["calendar_1/2.ics"]))
+        self.assertEquals(set(deleted), set(["calendar/2.ics"]))
         self.assertEquals(invalid, [])
 
         changed, deleted, invalid = yield home.resourceNamesSinceToken(
@@ -2414,8 +2512,8 @@ END:VCALENDAR
 
         self.patch(config, "EnableTrashCollection", True)
 
-        home = yield self.homeUnderTest()
-        cal = yield self.calendarUnderTest()
+        home = yield self.homeUnderTest(name="user01")
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
         st = yield home.syncToken()
         yield cal.createCalendarObjectWithName("new.ics", Component.fromString(
             test_event_text
@@ -2427,12 +2525,12 @@ END:VCALENDAR
         st2 = yield home.syncToken()
         self.failIfEquals(st, st2)
 
-        home = yield self.homeUnderTest()
+        home = yield self.homeUnderTest(name="user01")
 
         expected = [
-            "calendar_1/",
-            "calendar_1/new.ics",
-            "calendar_1/2.ics",
+            "calendar/",
+            "calendar/new.ics",
+            "calendar/2.ics",
             "other-calendar/"
         ]
 
@@ -2440,7 +2538,7 @@ END:VCALENDAR
             self.token2revision(st), "infinity")
 
         self.assertEquals(set(changed), set(expected))
-        self.assertEquals(set(deleted), set(["calendar_1/2.ics"]))
+        self.assertEquals(set(deleted), set(["calendar/2.ics"]))
         self.assertEquals(invalid, [])
 
         changed, deleted, invalid = yield home.resourceNamesSinceToken(

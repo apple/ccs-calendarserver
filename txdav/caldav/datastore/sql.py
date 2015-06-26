@@ -2568,9 +2568,6 @@ accessMode_to_type = {
 }
 accesstype_to_accessMode = dict([(v, k) for k, v in accessMode_to_type.items()])
 
-def _pathToName(path):
-    return path.rsplit(".", 1)[0]
-
 
 
 class CalendarObject(CommonObjectResource, CalendarObjectBase):

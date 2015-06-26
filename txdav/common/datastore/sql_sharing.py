@@ -19,7 +19,7 @@ from collections import namedtuple
 from pycalendar.datetime import DateTime
 
 from twext.enterprise.dal.syntax import Insert, Parameter, Update, Delete, \
-    Select, Max
+    Select
 from twext.python.clsprop import classproperty
 from twext.python.log import Logger
 
@@ -1448,18 +1448,6 @@ class SharingMixIn(object):
                     'left outer'),
             Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")).And(
                 bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
-        )
-
-
-    @classmethod
-    def _revisionsForResourceIDs(cls, resourceIDs):
-        rev = cls._revisionsSchema
-        return Select(
-            [rev.RESOURCE_ID, Max(rev.REVISION)],
-            From=rev,
-            Where=rev.RESOURCE_ID.In(Parameter("resourceIDs", len(resourceIDs))).And(
-                (rev.RESOURCE_NAME != None).Or(rev.DELETED == False)),
-            GroupBy=rev.RESOURCE_ID
         )
 
 

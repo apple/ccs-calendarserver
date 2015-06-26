@@ -16,7 +16,7 @@
 ##
 
 from twext.enterprise.dal.syntax import Max, Select, Parameter, Delete, Insert, \
-    Update, ColumnSyntax, TableSyntax, Upper
+    Update, ColumnSyntax, TableSyntax, Upper, utcNowSQL
 from twext.python.clsprop import classproperty
 from twext.python.log import Logger
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
@@ -66,6 +66,18 @@ class _SharedSyncLogic(object):
                       Where=rev.RESOURCE_ID == Parameter("resourceID"))
 
 
+    @classmethod
+    def _revisionsForResourceIDs(cls, resourceIDs):
+        rev = cls._revisionsSchema
+        return Select(
+            [rev.RESOURCE_ID, Max(rev.REVISION)],
+            From=rev,
+            Where=rev.RESOURCE_ID.In(Parameter("resourceIDs", len(resourceIDs))).And(
+                (rev.RESOURCE_NAME != None).Or(rev.DELETED == False)),
+            GroupBy=rev.RESOURCE_ID
+        )
+
+
     def revisionFromToken(self, token):
         if token is None:
             return 0
@@ -89,6 +101,21 @@ class _SharedSyncLogic(object):
         if revision is None:
             revision = int((yield self._txn.calendarserverValue("MIN-VALID-REVISION")))
         returnValue(revision)
+
+
+    @classmethod
+    @inlineCallbacks
+    def childSyncTokenRevisions(cls, home, childResourceIDs):
+        rows = (yield cls._revisionsForResourceIDs(childResourceIDs).on(home._txn, resourceIDs=childResourceIDs))
+        revisions = dict(rows)
+
+        # Add in any that were missing - this assumes that childResourceIDs were all valid to begin with
+        missingIDs = set(childResourceIDs) - set(revisions.keys())
+        if missingIDs:
+            min_revision = int((yield home._txn.calendarserverValue("MIN-VALID-REVISION")))
+            for resourceID in missingIDs:
+                revisions[resourceID] = min_revision
+        returnValue(revisions)
 
 
     def objectResourcesSinceToken(self, token):
@@ -206,7 +233,8 @@ class _SharedSyncLogic(object):
         return Update(
             {
                 rev.REVISION: schema.REVISION_SEQ,
-                rev.COLLECTION_NAME: Parameter("name")
+                rev.COLLECTION_NAME: Parameter("name"),
+                rev.MODIFIED: utcNowSQL,
             },
             Where=(rev.RESOURCE_ID == Parameter("resourceID")).And
                   (rev.RESOURCE_NAME == None),
@@ -233,7 +261,10 @@ class _SharedSyncLogic(object):
         """
         rev = cls._revisionsSchema
         return Update(
-            {rev.REVISION: schema.REVISION_SEQ, },
+            {
+                rev.REVISION: schema.REVISION_SEQ,
+                rev.MODIFIED: utcNowSQL,
+            },
             Where=(rev.RESOURCE_ID == Parameter("resourceID")).And
                   (rev.RESOURCE_NAME == None)
         )
@@ -276,7 +307,8 @@ class _SharedSyncLogic(object):
             {
                 rev.RESOURCE_ID: None,
                 rev.REVISION: schema.REVISION_SEQ,
-                rev.DELETED: True
+                rev.DELETED: True,
+                rev.MODIFIED: utcNowSQL,
             },
             Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
                 rev.RESOURCE_ID == Parameter("resourceID")).And(
@@ -294,7 +326,8 @@ class _SharedSyncLogic(object):
             {
                 rev.RESOURCE_ID: None,
                 rev.REVISION: schema.REVISION_SEQ,
-                rev.DELETED: True
+                rev.DELETED: True,
+                rev.MODIFIED: utcNowSQL,
             },
             Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
                 rev.RESOURCE_NAME == None),
@@ -346,7 +379,11 @@ class _SharedSyncLogic(object):
     def _deleteBumpTokenQuery(cls):
         rev = cls._revisionsSchema
         return Update(
-            {rev.REVISION: schema.REVISION_SEQ, rev.DELETED: True},
+            {
+                rev.REVISION: schema.REVISION_SEQ,
+                rev.DELETED: True,
+                rev.MODIFIED: utcNowSQL,
+            },
             Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
                 rev.RESOURCE_NAME == Parameter("name")),
             Return=rev.REVISION
@@ -357,7 +394,10 @@ class _SharedSyncLogic(object):
     def _updateBumpTokenQuery(cls):
         rev = cls._revisionsSchema
         return Update(
-            {rev.REVISION: schema.REVISION_SEQ},
+            {
+                rev.REVISION: schema.REVISION_SEQ,
+                rev.MODIFIED: utcNowSQL,
+            },
             Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
                 rev.RESOURCE_NAME == Parameter("name")),
             Return=rev.REVISION
@@ -379,7 +419,11 @@ class _SharedSyncLogic(object):
     def _updatePreviouslyNamedQuery(cls):
         rev = cls._revisionsSchema
         return Update(
-            {rev.REVISION: schema.REVISION_SEQ, rev.DELETED: False},
+            {
+                rev.REVISION: schema.REVISION_SEQ,
+                rev.DELETED: False,
+                rev.MODIFIED: utcNowSQL,
+            },
             Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
                 rev.RESOURCE_NAME == Parameter("name")),
             Return=rev.REVISION

@@ -570,7 +570,8 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
             {
                 rev.REVISION: schema.REVISION_SEQ,
                 rev.OBJECT_RESOURCE_ID: Parameter("id"),
-                rev.DELETED: True
+                rev.DELETED: True,
+                rev.MODIFIED: utcNowSQL,
             },
             Where=(
                 rev.RESOURCE_ID == Parameter("resourceID")).And(
