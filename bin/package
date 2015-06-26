@@ -115,6 +115,7 @@ main () {
     bootstrap_virtualenv;
     "${bootstrap_python}" -m virtualenv  \
       --always-copy                      \
+      --system-site-packages             \
       --no-setuptools                    \
       "${py_virtualenv}";
   fi;
