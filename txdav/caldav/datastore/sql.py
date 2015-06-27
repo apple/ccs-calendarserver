@@ -2156,11 +2156,13 @@ class Calendar(CommonHomeChild):
                     changed = True
 
             for memberUID in memberUIDs - boundUIDs:
-                shareeView = yield self.shareeView(memberUID)
-                newMode = _BIND_MODE_GROUP if shareeView is None else shareeView._groupModeAfterAddingOneGroupSharee()
-                if newMode is not None:
-                    yield super(Calendar, self).inviteUIDToShare(memberUID, newMode)
-                    changed = True
+                # Never reconcile the sharer
+                if memberUID != self._home.uid():
+                    shareeView = yield self.shareeView(memberUID)
+                    newMode = _BIND_MODE_GROUP if shareeView is None else shareeView._groupModeAfterAddingOneGroupSharee()
+                    if newMode is not None:
+                        yield super(Calendar, self).inviteUIDToShare(memberUID, newMode)
+                        changed = True
 
         returnValue(changed)
 
@@ -2744,6 +2746,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             if attendeeProp.parameterValue("CUTYPE") == "X-SERVER-GROUP"
         ])
 
+        # Map each group attendee to a list of potential member properties
         groupCUAToAttendeeMemberPropMap = {}
         for groupCUA in groupCUAs:
 

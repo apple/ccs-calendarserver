@@ -348,3 +348,164 @@ class GroupShareeReconciliationTests(GroupShareeTestBase):
         yield calendar.uninviteUIDFromShare("group02")
         noinvites = yield calendar.sharingInvites()
         self.assertEqual(len(noinvites), 3)
+
+
+    @inlineCallbacks
+    def test_no_self_invite(self):
+        """
+        Test that group shares where the group includes the sharee work. Then remove
+        the sharee from the group and make sure it works.
+        """
+
+        record02 = yield self.transactionUnderTest().directoryService().recordWithUID("user02")
+
+        @inlineCallbacks
+        def expandedMembers(self, records=None, seen=None):
+
+            if self.uid == "group05":
+                returnValue(frozenset((record02,)))
+            else:
+                returnValue((yield unpatchedExpandedMembers(self, records, seen)))
+
+        unpatchedExpandedMembers = CalendarDirectoryRecordMixin.expandedMembers
+
+        # setup group cacher
+        groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
+        self.assertEqual(len(groupsToRefresh), 0)
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "group05")
+        self.assertEqual(len(wps), 0)
+
+        yield self._check_notifications("user01", [])
+
+        # Invite
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 0)
+        self.assertFalse(calendar.isShared())
+
+        yield self._check_notifications("user01", [])
+        shareeViews = yield calendar.inviteUIDToShare("group05", _BIND_MODE_READ)
+        self.assertEqual(len(shareeViews), 1)
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 1)
+        for invite in invites:
+            shareeView = yield calendar.shareeView(invite.shareeUID)
+            self.assertEqual(invite.ownerUID, "user01")
+            self.assertEqual(invite.uid, shareeView.shareName())
+            self.assertEqual(invite.mode, _BIND_MODE_GROUP)
+            self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_READ)
+            self.assertEqual(invite.status, _BIND_STATUS_INVITED)
+            self.assertEqual(invite.summary, None)
+            yield self._check_notifications(invite.shareeUID, [invite.uid, ])
+
+        # 1 group members
+        self.patch(CalendarDirectoryRecordMixin, "expandedMembers", expandedMembers)
+
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "group05")
+        self.assertEqual(len(wps), 1)
+        yield self.commit()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 1)
+        for invite in invites:
+            shareeView = yield calendar.shareeView(invite.shareeUID)
+            self.assertEqual(invite.ownerUID, "user01")
+            self.assertEqual(invite.uid, shareeView.shareName())
+            self.assertEqual(invite.mode, _BIND_MODE_GROUP)
+            self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_READ)
+            self.assertEqual(invite.status, _BIND_STATUS_INVITED)
+            self.assertEqual(invite.summary, None)
+            yield self._check_notifications(invite.shareeUID, [invite.uid, ])
+
+        yield self._check_notifications("user01", [])
+
+        # Uninvite
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield calendar.uninviteUIDFromShare("group05")
+        noinvites = yield calendar.sharingInvites()
+        self.assertEqual(len(noinvites), 0)
+
+
+    @inlineCallbacks
+    def test_no_self_invite_on_add(self):
+        """
+        Test that the sharee is not invited to their own share when they are added as a member
+        of a group to whom the calendar is shared.
+        """
+
+        record01 = yield self.transactionUnderTest().directoryService().recordWithUID("user01")
+        record02 = yield self.transactionUnderTest().directoryService().recordWithUID("user02")
+
+        @inlineCallbacks
+        def expandedMembers(self, records=None, seen=None):
+
+            if self.uid == "group06":
+                returnValue(frozenset((record01, record02,)))
+            else:
+                returnValue((yield unpatchedExpandedMembers(self, records, seen)))
+
+        unpatchedExpandedMembers = CalendarDirectoryRecordMixin.expandedMembers
+
+        # setup group cacher
+        groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
+        self.assertEqual(len(groupsToRefresh), 0)
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "group06")
+        self.assertEqual(len(wps), 0)
+
+        yield self._check_notifications("user01", [])
+
+        # Invite
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 0)
+        self.assertFalse(calendar.isShared())
+
+        yield self._check_notifications("user01", [])
+        shareeViews = yield calendar.inviteUIDToShare("group06", _BIND_MODE_READ)
+        self.assertEqual(len(shareeViews), 1)
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 1)
+        for invite in invites:
+            shareeView = yield calendar.shareeView(invite.shareeUID)
+            self.assertEqual(invite.ownerUID, "user01")
+            self.assertEqual(invite.uid, shareeView.shareName())
+            self.assertEqual(invite.mode, _BIND_MODE_GROUP)
+            self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_READ)
+            self.assertEqual(invite.status, _BIND_STATUS_INVITED)
+            self.assertEqual(invite.summary, None)
+            yield self._check_notifications(invite.shareeUID, [invite.uid, ])
+
+        # 1 group members
+        self.patch(CalendarDirectoryRecordMixin, "expandedMembers", expandedMembers)
+
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "group06")
+        self.assertEqual(len(wps), 1)
+        yield self.commit()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 1)
+        for invite in invites:
+            shareeView = yield calendar.shareeView(invite.shareeUID)
+            self.assertEqual(invite.ownerUID, "user01")
+            self.assertEqual(invite.uid, shareeView.shareName())
+            self.assertEqual(invite.mode, _BIND_MODE_GROUP)
+            self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_READ)
+            self.assertEqual(invite.status, _BIND_STATUS_INVITED)
+            self.assertEqual(invite.summary, None)
+            yield self._check_notifications(invite.shareeUID, [invite.uid, ])
+
+        yield self._check_notifications("user01", [])
+
+        # Uninvite
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield calendar.uninviteUIDFromShare("group06")
+        noinvites = yield calendar.sharingInvites()
+        self.assertEqual(len(noinvites), 0)

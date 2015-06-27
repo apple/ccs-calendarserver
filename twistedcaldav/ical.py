@@ -3579,6 +3579,18 @@ END:VCALENDAR
 
 
     def _reconcileGroupAttendee(self, groupCUA, memberAttendeeProps):
+        """
+        Make sure there are attendee properties for every member of the group, and no
+        other attendee properties marked as a member of the group. Note that attendee
+        properties already present with a MEMBER parameter are not given a MEMBER
+        parameter if they are in the group. This ensures that manually added attendees
+        are not automatically removed when they dissappear from a group.
+
+        @param groupCUA: calendar user address of the group
+        @type groupCUA: L{str}
+        @param memberAttendeeProps: list of member properties
+        @type memberAttendeeProps: L{tuple}
+        """
 
         changed = False
         for component in self.subcomponents(ignore=True):
@@ -3615,7 +3627,15 @@ END:VCALENDAR
 
 
     def reconcileGroupAttendees(self, groupCUAToAttendeeMemberPropMap):
+        """
+        Reconcile the attendee properties in this L{Component}.
 
+        @param groupCUAToAttendeeMemberPropMap: map of group to potential attendees
+        @type groupCUAToAttendeeMemberPropMap: L{dict}
+        """
+
+        # Reconcile the member ship list of each group attendee, keeping track of which
+        # groups are actually used
         changed = False
         allMemberCUAs = set()
         nonemptyGroupCUAs = set()
@@ -3625,7 +3645,8 @@ END:VCALENDAR
             if memberAttendeeProps:
                 nonemptyGroupCUAs.add(groupCUA)
 
-        # remove orphans
+        # Remove attendee properties that have a MEMBER value that contains only groups no longer
+        # used in this component
         for component in self.subcomponents(ignore=True):
             for attendeeProp in tuple(component.properties("ATTENDEE")):
                 if attendeeProp.hasParameter("MEMBER"):
