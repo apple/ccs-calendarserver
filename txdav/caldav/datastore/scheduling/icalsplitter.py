@@ -139,6 +139,15 @@ class iCalSplitter(object):
             # where the Organizer event has L{willSplit} == C{True}
             rid = break_point if allow_past_the_end else None
 
+        if rid is not None:
+            # rid value type must match
+            dtstart = ical.mainComponent().propertyValue("DTSTART")
+            if dtstart.isDateOnly():
+                rid.setDateOnly(True)
+            elif dtstart.floating():
+                rid.setTimezoneID(None)
+
+
         return rid
 
 

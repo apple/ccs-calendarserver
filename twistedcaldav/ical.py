@@ -1255,7 +1255,10 @@ class Component (object):
                     rrule.setUseUntil(True)
                     rrule.setUseCount(False)
                     until = rid.duplicate()
-                    until.offsetSeconds(-1)
+                    if until.isDateOnly():
+                        until.offsetDay(-1)
+                    else:
+                        until.offsetSeconds(-1)
                     rrule.setUntil(until)
 
             # Remove any RDATEs or EXDATEs in the future

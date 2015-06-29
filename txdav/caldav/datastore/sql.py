@@ -5153,6 +5153,19 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         if organizer is not None and organizerAddress.record.uid != self.calendar().ownerHome().uid():
             raise InvalidSplit("Only organizers can split events.")
 
+        # rid value type must match
+        dtstart = component.mainComponent().propertyValue("DTSTART")
+        if dtstart.isDateOnly():
+            if not rid.isDateOnly():
+                # We ought to reject this but for now we will fix it
+                rid.setDateOnly(True)
+        elif dtstart.floating():
+            if not rid.floating() or rid.isDateOnly():
+                raise InvalidSplit("rid parameter value type must match DTSTART value type.")
+        else:
+            if rid.floating():
+                raise InvalidSplit("rid parameter value type must match DTSTART value type.")
+
         # Determine valid split point
         splitter = iCalSplitter(1024, 14)
         rid = splitter.whereSplit(component, break_point=rid, allow_past_the_end=False)

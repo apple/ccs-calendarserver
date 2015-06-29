@@ -18,7 +18,7 @@
 <?rfc compact="yes"?>
 <?rfc subcompact="no"?>
 <?rfc private="Calendar Server Extension"?>
-<rfc ipr="none" docName='caldav-recursplit-01'>
+<rfc ipr="none" docName='caldav-recursplit-02'>
     <front>
         <title abbrev="CalDAV Recurrence Splitting">Smart Splitting of Recurring Events in CalDAV</title> 
         <author initials="C." surname="Daboo" fullname="Cyrus Daboo">
@@ -79,12 +79,37 @@
           <t>To split an existing calendar object resource containing a recurring event, a client issues an HTTP POST resource with the request-uri set to the URI of the calendar object resource. The client also includes the following two URI query parameters, and one optional one:
             <list style='numbers'>
               <t>"action" set to the value "split" - REQUIRED</t>
-              <t>"rid" set to an iCalendar format DATE-TIME value in UTC ("YYYYMMDDTHHMMSSZ" style format) - REQUIRED</t>
+              <t>"rid" set to an iCalendar format DATE or DATE-TIME value (with format choice determined as per description below) - REQUIRED</t>
               <t>"uid" set to an iCalendar UID property value - OPTIONAL</t>
             </list>
-            The "action" parameter is used to distinguish this operation from others that might be defined in the future for calendar object resources. The "rid" parameter specified the UTC date-time where the split is to occur. The actual split occurs at the next recurrence instance on or after the "rid" parameter value - the "split point". The optional "uid" parameter can be used by the client to specify the iCalendar UID property value used in the new calendar object resource created by the server. In the absence of the "uid" parameter, the server will itself generate the UID value for the new calendar object resource.</t>
+            </t>
+            <t>The "action" parameter is used to distinguish this operation from others that might be defined in the future for calendar object resources.</t>
+            <t>The "rid" parameter specifies the date or date-time where the split is to occur. The actual split occurs at the next recurrence instance on or after the "rid" parameter value - the "split point". The "rid" parameter value is an iCalendar DATE or DATE-TIME value that follows that matched the event's DTSTART value as follows:</t>
+            <texttable>
+              <ttcol>DTSTART value</ttcol>
+              <ttcol>rid value</ttcol>
+              <ttcol>rid example</ttcol>
+
+              <c>DATE</c>
+              <c>DATE</c>
+              <c>20150626</c>
+
+              <c>DATE-TIME UTC</c>
+              <c>DATE-TIME UTC</c>
+              <c>20150626T120000Z</c>
+
+              <c>DATE-TIME local+time zone</c>
+              <c>DATE-TIME UTC</c>
+              <c>20150626T120000Z</c>
+
+              <c>DATE-TIME floating</c>
+              <c>DATE-TIME floating</c>
+              <c>20150626T120000</c>
+
+            </texttable>
+            <t>The optional "uid" parameter can be used by the client to specify the iCalendar UID property value used in the new calendar object resource created by the server. In the absence of the "uid" parameter, the server will itself generate the UID value for the new calendar object resource.</t>
             <t>
-            Clients MUST include both "action" and "rid" parameters in the POST request and MUST ensure a valid date-time value is used. The date-time value MUST NOT be earlier than the start time of the first instance of the recurrence set, and it MUST NOT be later than the start time of the last instance of the recurrence set. If the "rid" parameter value is not of the correct format or missing, the server MUST return a DAV:error response with the CALDAV:valid-rid-parameter pre-condition code. If the "rid" parameter is valid, but outside of the allowed range, or the targeted calendar object resource is not recurring, then the server MUST return a DAV:error response with the CS:invalid-split pre-condition code. The server MUST reject any attempt by an attendee to split their copy of a scheduled calendar object resource - only organizers are allowed to split events. If the optional "uid" parameter is used by the client, and the server determines that the specified value is invalid (e.g., too short or too long as per reasonable requirements), then it MUST return a DAV:error response with the CS:invalid-split pre-condition code.
+            Clients MUST include both "action" and "rid" parameters in the POST request and MUST ensure a valid date-time value is used. The "rid" parameter value MUST NOT be earlier than the start time of the first instance of the recurrence set, and it MUST NOT be later than the start time of the last instance of the recurrence set. If the "rid" parameter value is not of the correct format or missing, the server MUST return a DAV:error response with the CALDAV:valid-rid-parameter pre-condition code. If the "rid" parameter is valid, but outside of the allowed range, or the targeted calendar object resource is not recurring, then the server MUST return a DAV:error response with the CS:invalid-split pre-condition code. The server MUST reject any attempt by an attendee to split their copy of a scheduled calendar object resource - only organizers are allowed to split events. If the optional "uid" parameter is used by the client, and the server determines that the specified value is invalid (e.g., too short or too long as per reasonable requirements), then it MUST return a DAV:error response with the CS:invalid-split pre-condition code.
           </t>
           <t>
             Clients MAY include an HTTP "Prefer" request header including the value "return=representation" (see <xref target='RFC7240'/>). That instructs the server to return a WebDAV multistatus response containing two responses: one for the targeted resource and one for the new resource created as a result of the split. The multistatus response MUST include the DAV:getetag and CALDAV:calendar-data properties for each resource. In the absence of the "Prefer:return=representation" request header, the server MUST return an HTTP "Split-Component-URL" response header whose value is the URI of the new resource created as a result of the split.
@@ -107,7 +132,7 @@
                   <t>Any overridden components with a "RECURRENCE-ID" property value on or after the split point are removed.</t>
                   <t>Any "RDATE" or "EXDATE" property values on or after the split point are removed.</t>
                   <t>Any "RRULE" property that only generates instances on or after the split point is removed.</t>
-                  <t>Any remaining "RRULE" property has an "UNTIL" value applied, with the until value being one second less than the split point.</t>
+                  <t>Any remaining "RRULE" property has an "UNTIL" value applied, with the until value being one second (for a "rid" DATE-TIME value) or one day (for a "rid" DATE value) less than the split point.</t>
                   <t>The "UID" property of all components is changed to (the same) new value.</t>
                   <t>Attendee participation status MUST NOT be changed.</t>
                 </list>
@@ -259,6 +284,12 @@ END:VCALENDAR
             </t>
         </section>
         <section title='Change History'>
+          <t>Changes since -02
+            <list style='numbers'>
+              <t>Clarify that rid query parameter value matches the event DTSTART value type using the UNTIL "rules"</t>
+              <t>Clarify that earlier event uses an UNTIL one second or one day less that the "rid" value depending on the value type.</t>
+            </list>
+          </t>
           <t>Changes since -01
             <list style='numbers'>
               <t>Added "uid" query parameter to POST request</t>

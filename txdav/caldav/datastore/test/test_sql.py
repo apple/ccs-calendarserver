@@ -3183,8 +3183,14 @@ class CalendarObjectSplitting(CommonCommonTests, unittest.TestCase):
 
         self.now = DateTime.getNowUTC()
         self.now.setHHMMSS(0, 0, 0)
+        self.nowDate = self.now.duplicate()
+        self.nowDate.setDateOnly(True)
+        self.nowFloating = self.now.duplicate()
+        self.nowFloating.setTimezoneID(None)
 
         self.subs["now"] = self.now
+        self.subs["nowDate"] = self.nowDate
+        self.subs["nowFloating"] = self.nowFloating
 
         for i in range(30):
             attrname = "now_back%s" % (i + 1,)
@@ -3202,6 +3208,21 @@ class CalendarObjectSplitting(CommonCommonTests, unittest.TestCase):
             getattr(self, attrname_1).offsetSeconds(-1)
             self.subs[attrname_1] = getattr(self, attrname_1)
 
+            attrname = "nowDate_back%s" % (i + 1,)
+            setattr(self, attrname, self.nowDate.duplicate())
+            getattr(self, attrname).offsetDay(-(i + 1))
+            self.subs[attrname] = getattr(self, attrname)
+
+            attrname = "nowFloating_back%s" % (i + 1,)
+            setattr(self, attrname, self.nowFloating.duplicate())
+            getattr(self, attrname).offsetDay(-(i + 1))
+            self.subs[attrname] = getattr(self, attrname)
+
+            attrname_1 = "nowFloating_back%s_1" % (i + 1,)
+            setattr(self, attrname_1, getattr(self, attrname).duplicate())
+            getattr(self, attrname_1).offsetSeconds(-1)
+            self.subs[attrname_1] = getattr(self, attrname_1)
+
         for i in range(30):
             attrname = "now_fwd%s" % (i + 1,)
             setattr(self, attrname, self.now.duplicate())
@@ -3212,6 +3233,16 @@ class CalendarObjectSplitting(CommonCommonTests, unittest.TestCase):
             setattr(self, attrname_12h, getattr(self, attrname).duplicate())
             getattr(self, attrname_12h).offsetHours(12)
             self.subs[attrname_12h] = getattr(self, attrname_12h)
+
+            attrname = "nowDate_fwd%s" % (i + 1,)
+            setattr(self, attrname, self.nowDate.duplicate())
+            getattr(self, attrname).offsetDay(i + 1)
+            self.subs[attrname] = getattr(self, attrname)
+
+            attrname = "nowFloating_fwd%s" % (i + 1,)
+            setattr(self, attrname, self.nowFloating.duplicate())
+            getattr(self, attrname).offsetDay(i + 1)
+            self.subs[attrname] = getattr(self, attrname)
 
         self.patch(config, "MaxAllowedInstances", 500)
 
@@ -3450,6 +3481,428 @@ END:VCALENDAR
         relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s" % (title,))
+
+
+    @inlineCallbacks
+    def test_calendarObjectSplit_AllDay(self):
+        """
+        Test that (manual) splitting of all-day calendar objects works.
+        """
+
+        self.patch(config.Scheduling.Options.Splitting, "Enabled", False)
+        self.patch(config.Scheduling.Options.Splitting, "Size", 1024)
+        self.patch(config.Scheduling.Options.Splitting, "PastDays", 14)
+
+        # Create one event that will split
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:%(nowDate_back30)s
+DURATION:P1D
+ATTENDEE:mailto:user1@example.org
+ATTENDEE:mailto:user2@example.org
+ATTENDEE:mailto:user3@example.org
+ATTENDEE:mailto:user4@example.org
+ATTENDEE:mailto:user5@example.org
+ATTENDEE:mailto:user6@example.org
+ATTENDEE:mailto:user7@example.org
+ATTENDEE:mailto:user8@example.org
+ATTENDEE:mailto:user9@example.org
+ATTENDEE:mailto:user10@example.org
+ATTENDEE:mailto:user11@example.org
+ATTENDEE:mailto:user12@example.org
+ATTENDEE:mailto:user13@example.org
+ATTENDEE:mailto:user14@example.org
+ATTENDEE:mailto:user15@example.org
+ATTENDEE:mailto:user16@example.org
+ATTENDEE:mailto:user17@example.org
+ATTENDEE:mailto:user18@example.org
+ATTENDEE:mailto:user19@example.org
+ATTENDEE:mailto:user20@example.org
+ATTENDEE:mailto:user21@example.org
+ATTENDEE:mailto:user22@example.org
+ATTENDEE:mailto:user23@example.org
+ATTENDEE:mailto:user24@example.org
+ATTENDEE:mailto:user25@example.org
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user1@example.org
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID;VALUE=DATE:%(nowDate_back25)s
+DTSTART;VALUE=DATE:%(nowDate_back25)s
+DURATION:P1D
+ATTENDEE:mailto:user1@example.org
+ATTENDEE:mailto:user2@example.org
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user1@example.org
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID;VALUE=DATE:%(nowDate_back24)s
+DTSTART;VALUE=DATE:%(nowDate_back24)s
+DURATION:P1D
+ATTENDEE:mailto:user1@example.org
+ATTENDEE:mailto:user2@example.org
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user1@example.org
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_future = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:%(nowDate_back14)s
+DURATION:P1D
+ATTENDEE:mailto:user1@example.org
+ATTENDEE:mailto:user2@example.org
+ATTENDEE:mailto:user3@example.org
+ATTENDEE:mailto:user4@example.org
+ATTENDEE:mailto:user5@example.org
+ATTENDEE:mailto:user6@example.org
+ATTENDEE:mailto:user7@example.org
+ATTENDEE:mailto:user8@example.org
+ATTENDEE:mailto:user9@example.org
+ATTENDEE:mailto:user10@example.org
+ATTENDEE:mailto:user11@example.org
+ATTENDEE:mailto:user12@example.org
+ATTENDEE:mailto:user13@example.org
+ATTENDEE:mailto:user14@example.org
+ATTENDEE:mailto:user15@example.org
+ATTENDEE:mailto:user16@example.org
+ATTENDEE:mailto:user17@example.org
+ATTENDEE:mailto:user18@example.org
+ATTENDEE:mailto:user19@example.org
+ATTENDEE:mailto:user20@example.org
+ATTENDEE:mailto:user21@example.org
+ATTENDEE:mailto:user22@example.org
+ATTENDEE:mailto:user23@example.org
+ATTENDEE:mailto:user24@example.org
+ATTENDEE:mailto:user25@example.org
+DTSTAMP:20051222T210507Z
+ORGANIZER;SCHEDULE-AGENT=NONE;SCHEDULE-STATUS=5.3:mailto:user1@example.org
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY
+SEQUENCE:1
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_past = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:%(uid)s
+DTSTART;VALUE=DATE:%(nowDate_back30)s
+DURATION:P1D
+ATTENDEE:mailto:user1@example.org
+ATTENDEE:mailto:user2@example.org
+ATTENDEE:mailto:user3@example.org
+ATTENDEE:mailto:user4@example.org
+ATTENDEE:mailto:user5@example.org
+ATTENDEE:mailto:user6@example.org
+ATTENDEE:mailto:user7@example.org
+ATTENDEE:mailto:user8@example.org
+ATTENDEE:mailto:user9@example.org
+ATTENDEE:mailto:user10@example.org
+ATTENDEE:mailto:user11@example.org
+ATTENDEE:mailto:user12@example.org
+ATTENDEE:mailto:user13@example.org
+ATTENDEE:mailto:user14@example.org
+ATTENDEE:mailto:user15@example.org
+ATTENDEE:mailto:user16@example.org
+ATTENDEE:mailto:user17@example.org
+ATTENDEE:mailto:user18@example.org
+ATTENDEE:mailto:user19@example.org
+ATTENDEE:mailto:user20@example.org
+ATTENDEE:mailto:user21@example.org
+ATTENDEE:mailto:user22@example.org
+ATTENDEE:mailto:user23@example.org
+ATTENDEE:mailto:user24@example.org
+ATTENDEE:mailto:user25@example.org
+DTSTAMP:20051222T210507Z
+ORGANIZER;SCHEDULE-AGENT=NONE;SCHEDULE-STATUS=5.3:mailto:user1@example.org
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY;UNTIL=%(nowDate_back15)s
+SEQUENCE:1
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:%(uid)s
+RECURRENCE-ID;VALUE=DATE:%(nowDate_back25)s
+DTSTART;VALUE=DATE:%(nowDate_back25)s
+DURATION:P1D
+ATTENDEE:mailto:user1@example.org
+ATTENDEE:mailto:user2@example.org
+DTSTAMP:20051222T210507Z
+ORGANIZER;SCHEDULE-AGENT=NONE;SCHEDULE-STATUS=5.3:mailto:user1@example.org
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:%(uid)s
+RECURRENCE-ID;VALUE=DATE:%(nowDate_back24)s
+DTSTART;VALUE=DATE:%(nowDate_back24)s
+DURATION:P1D
+ATTENDEE:mailto:user1@example.org
+ATTENDEE:mailto:user2@example.org
+DTSTAMP:20051222T210507Z
+ORGANIZER;SCHEDULE-AGENT=NONE;SCHEDULE-STATUS=5.3:mailto:user1@example.org
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+"""
+
+        component = Component.fromString(data % self.subs)
+        cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
+        self.assertFalse(hasattr(cobj, "_workItems"))
+        yield self.commit()
+
+        w = schema.CALENDAR_OBJECT_SPLITTER_WORK
+        rows = yield Select(
+            [w.RESOURCE_ID, ],
+            From=w
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(rows), 0)
+        yield self.abort()
+
+        # Do manual split
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        will = yield cobj.willSplit()
+        self.assertTrue(will)
+
+        yield cobj.split()
+        yield self.commit()
+
+        ical_future, ical_past, pastUID, relID, _ignore_new_name = yield self._splitDetails("user01")
+
+        title = "temp"
+        relsubs = dict(self.subs)
+        relsubs["uid"] = pastUID
+        relsubs["relID"] = relID
+        self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s %s" % (title, diff_iCalStrs(ical_future, data_future % relsubs)))
+        self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s %s" % (title, diff_iCalStrs(ical_past, data_past % relsubs)))
+
+
+    @inlineCallbacks
+    def test_calendarObjectSplit_Floating(self):
+        """
+        Test that (manual) splitting of floating calendar objects works.
+        """
+
+        self.patch(config.Scheduling.Options.Splitting, "Enabled", False)
+        self.patch(config.Scheduling.Options.Splitting, "Size", 1024)
+        self.patch(config.Scheduling.Options.Splitting, "PastDays", 14)
+
+        # Create one event that will split
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(nowFloating_back30)s
+DURATION:P1D
+ATTENDEE:mailto:user1@example.org
+ATTENDEE:mailto:user2@example.org
+ATTENDEE:mailto:user3@example.org
+ATTENDEE:mailto:user4@example.org
+ATTENDEE:mailto:user5@example.org
+ATTENDEE:mailto:user6@example.org
+ATTENDEE:mailto:user7@example.org
+ATTENDEE:mailto:user8@example.org
+ATTENDEE:mailto:user9@example.org
+ATTENDEE:mailto:user10@example.org
+ATTENDEE:mailto:user11@example.org
+ATTENDEE:mailto:user12@example.org
+ATTENDEE:mailto:user13@example.org
+ATTENDEE:mailto:user14@example.org
+ATTENDEE:mailto:user15@example.org
+ATTENDEE:mailto:user16@example.org
+ATTENDEE:mailto:user17@example.org
+ATTENDEE:mailto:user18@example.org
+ATTENDEE:mailto:user19@example.org
+ATTENDEE:mailto:user20@example.org
+ATTENDEE:mailto:user21@example.org
+ATTENDEE:mailto:user22@example.org
+ATTENDEE:mailto:user23@example.org
+ATTENDEE:mailto:user24@example.org
+ATTENDEE:mailto:user25@example.org
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user1@example.org
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(nowFloating_back25)s
+DTSTART:%(nowFloating_back25)s
+DURATION:P1D
+ATTENDEE:mailto:user1@example.org
+ATTENDEE:mailto:user2@example.org
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user1@example.org
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(nowFloating_back24)s
+DTSTART:%(nowFloating_back24)s
+DURATION:P1D
+ATTENDEE:mailto:user1@example.org
+ATTENDEE:mailto:user2@example.org
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user1@example.org
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_future = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(nowFloating_back14)s
+DURATION:P1D
+ATTENDEE:mailto:user1@example.org
+ATTENDEE:mailto:user2@example.org
+ATTENDEE:mailto:user3@example.org
+ATTENDEE:mailto:user4@example.org
+ATTENDEE:mailto:user5@example.org
+ATTENDEE:mailto:user6@example.org
+ATTENDEE:mailto:user7@example.org
+ATTENDEE:mailto:user8@example.org
+ATTENDEE:mailto:user9@example.org
+ATTENDEE:mailto:user10@example.org
+ATTENDEE:mailto:user11@example.org
+ATTENDEE:mailto:user12@example.org
+ATTENDEE:mailto:user13@example.org
+ATTENDEE:mailto:user14@example.org
+ATTENDEE:mailto:user15@example.org
+ATTENDEE:mailto:user16@example.org
+ATTENDEE:mailto:user17@example.org
+ATTENDEE:mailto:user18@example.org
+ATTENDEE:mailto:user19@example.org
+ATTENDEE:mailto:user20@example.org
+ATTENDEE:mailto:user21@example.org
+ATTENDEE:mailto:user22@example.org
+ATTENDEE:mailto:user23@example.org
+ATTENDEE:mailto:user24@example.org
+ATTENDEE:mailto:user25@example.org
+DTSTAMP:20051222T210507Z
+ORGANIZER;SCHEDULE-AGENT=NONE;SCHEDULE-STATUS=5.3:mailto:user1@example.org
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_past = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:%(uid)s
+DTSTART:%(nowFloating_back30)s
+DURATION:P1D
+ATTENDEE:mailto:user1@example.org
+ATTENDEE:mailto:user2@example.org
+ATTENDEE:mailto:user3@example.org
+ATTENDEE:mailto:user4@example.org
+ATTENDEE:mailto:user5@example.org
+ATTENDEE:mailto:user6@example.org
+ATTENDEE:mailto:user7@example.org
+ATTENDEE:mailto:user8@example.org
+ATTENDEE:mailto:user9@example.org
+ATTENDEE:mailto:user10@example.org
+ATTENDEE:mailto:user11@example.org
+ATTENDEE:mailto:user12@example.org
+ATTENDEE:mailto:user13@example.org
+ATTENDEE:mailto:user14@example.org
+ATTENDEE:mailto:user15@example.org
+ATTENDEE:mailto:user16@example.org
+ATTENDEE:mailto:user17@example.org
+ATTENDEE:mailto:user18@example.org
+ATTENDEE:mailto:user19@example.org
+ATTENDEE:mailto:user20@example.org
+ATTENDEE:mailto:user21@example.org
+ATTENDEE:mailto:user22@example.org
+ATTENDEE:mailto:user23@example.org
+ATTENDEE:mailto:user24@example.org
+ATTENDEE:mailto:user25@example.org
+DTSTAMP:20051222T210507Z
+ORGANIZER;SCHEDULE-AGENT=NONE;SCHEDULE-STATUS=5.3:mailto:user1@example.org
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY;UNTIL=%(nowFloating_back14_1)s
+SEQUENCE:1
+END:VEVENT
+BEGIN:VEVENT
+UID:%(uid)s
+RECURRENCE-ID:%(nowFloating_back25)s
+DTSTART:%(nowFloating_back25)s
+DURATION:P1D
+ATTENDEE:mailto:user1@example.org
+ATTENDEE:mailto:user2@example.org
+DTSTAMP:20051222T210507Z
+ORGANIZER;SCHEDULE-AGENT=NONE;SCHEDULE-STATUS=5.3:mailto:user1@example.org
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+BEGIN:VEVENT
+UID:%(uid)s
+RECURRENCE-ID:%(nowFloating_back24)s
+DTSTART:%(nowFloating_back24)s
+DURATION:P1D
+ATTENDEE:mailto:user1@example.org
+ATTENDEE:mailto:user2@example.org
+DTSTAMP:20051222T210507Z
+ORGANIZER;SCHEDULE-AGENT=NONE;SCHEDULE-STATUS=5.3:mailto:user1@example.org
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        component = Component.fromString(data % self.subs)
+        cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
+        self.assertFalse(hasattr(cobj, "_workItems"))
+        yield self.commit()
+
+        w = schema.CALENDAR_OBJECT_SPLITTER_WORK
+        rows = yield Select(
+            [w.RESOURCE_ID, ],
+            From=w
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(rows), 0)
+        yield self.abort()
+
+        # Do manual split
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        will = yield cobj.willSplit()
+        self.assertTrue(will)
+
+        yield cobj.split()
+        yield self.commit()
+
+        ical_future, ical_past, pastUID, relID, _ignore_new_name = yield self._splitDetails("user01")
+
+        title = "temp"
+        relsubs = dict(self.subs)
+        relsubs["uid"] = pastUID
+        relsubs["relID"] = relID
+        self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s %s" % (title, diff_iCalStrs(ical_future, data_future % relsubs)))
+        self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s %s" % (title, diff_iCalStrs(ical_past, data_past % relsubs)))
 
 
     @inlineCallbacks
@@ -7647,6 +8100,53 @@ END:VCALENDAR
         # Update it
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
         yield self.failUnlessFailure(cobj.splitAt(DateTime.parseText("%(now_back14)s" % self.subs), pastUID="12345-67890-existing"), InvalidSplit)
+
+
+    @inlineCallbacks
+    def test_calendarObjectSplit_splitat_wrong_value_type(self):
+        """
+        Test that user triggered splitting of calendar objects does not work if wrong rid value type is used.
+        """
+
+        yield self._setupSplitAt()
+
+        # DTSTART DATE-TIME UTC/rid DATE
+        cal = yield self.calendarUnderTest(name="calendar", home="user02")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 1)
+        yield self.failUnlessFailure(cobjs[0].splitAt(DateTime.parseText("%(nowDate)s" % self.subs)), InvalidSplit)
+
+        # DTSTART DATE-TIME UTC/rid DATE-TIME floating
+        yield self.failUnlessFailure(cobjs[0].splitAt(DateTime.parseText("%(nowFloating)s" % self.subs)), InvalidSplit)
+
+        data_floating = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-existing
+DTSTART:%(nowFloating)s
+DURATION:P1D
+DTSTAMP:20051222T210507Z
+RRULE:FREQ=DAILY;COUNT=50
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+END:VCALENDAR
+"""
+
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        component = Component.fromString(data_floating % self.subs)
+        yield calendar.createCalendarObjectWithName("data2.ics", component)
+        yield self.commit()
+
+        # DTSTART DATE/rid DATE-TIME floating
+        cobj = yield self.calendarObjectUnderTest(name="data2.ics", calendar_name="calendar", home="user01")
+        yield self.failUnlessFailure(cobj.splitAt(DateTime.parseText("%(nowFloating)s" % self.subs)), InvalidSplit)
+
+        # DTSTART DATE/rid DATE-TIME UTC
+        yield self.failUnlessFailure(cobj.splitAt(DateTime.parseText("%(now)s" % self.subs)), InvalidSplit)
 
 
 
