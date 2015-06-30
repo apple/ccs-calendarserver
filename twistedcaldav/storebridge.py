@@ -3162,12 +3162,18 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 content_type, filename = _getContentInfo()
                 attachment, location = (yield self._newStoreObject.addAttachment(rids, content_type, filename, request.stream))
                 post_result = Response(CREATED)
+                if not hasattr(request, "extendedLogItems"):
+                    request.extendedLogItems = {}
+                request.extendedLogItems["cl"] = str(attachment.size())
 
             elif action == "attachment-update":
                 mid = _getMID()
                 content_type, filename = _getContentInfo()
                 attachment, location = (yield self._newStoreObject.updateAttachment(mid, content_type, filename, request.stream))
                 post_result = Response(NO_CONTENT)
+                if not hasattr(request, "extendedLogItems"):
+                    request.extendedLogItems = {}
+                request.extendedLogItems["cl"] = str(attachment.size())
 
             elif action == "attachment-remove":
                 rids = _getRIDs()
