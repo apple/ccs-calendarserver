@@ -63,7 +63,7 @@
             #pyasn1
             #cffi
             enum34==1.0.4
-            ipaddress,
+            ipaddress
             setuptools==17.0
             #six
         six==1.9.0
