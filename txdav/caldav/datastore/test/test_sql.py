@@ -60,6 +60,7 @@ from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT, \
 from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests, \
     test_event_text, cal1Root
 from txdav.caldav.datastore.test.test_file import setUpCalendarStore
+from txdav.caldav.datastore.test.util import DateTimeSubstitutionsMixin
 from txdav.common.datastore.test.util import populateCalendarsFrom, \
     CommonCommonTests, updateToCurrentYear
 from txdav.caldav.datastore.util import _migrateCalendar, migrateHome
@@ -3162,7 +3163,7 @@ END:VCALENDAR
 
 
 
-class CalendarObjectSplitting(CommonCommonTests, unittest.TestCase):
+class CalendarObjectSplitting(CommonCommonTests, DateTimeSubstitutionsMixin, unittest.TestCase):
     """
     CalendarObject splitting tests
     """
@@ -3179,70 +3180,7 @@ class CalendarObjectSplitting(CommonCommonTests, unittest.TestCase):
             self.assertNotEqual(home_uid, None)
         yield self.commit()
 
-        self.subs = {}
-
-        self.now = DateTime.getNowUTC()
-        self.now.setHHMMSS(0, 0, 0)
-        self.nowDate = self.now.duplicate()
-        self.nowDate.setDateOnly(True)
-        self.nowFloating = self.now.duplicate()
-        self.nowFloating.setTimezoneID(None)
-
-        self.subs["now"] = self.now
-        self.subs["nowDate"] = self.nowDate
-        self.subs["nowFloating"] = self.nowFloating
-
-        for i in range(30):
-            attrname = "now_back%s" % (i + 1,)
-            setattr(self, attrname, self.now.duplicate())
-            getattr(self, attrname).offsetDay(-(i + 1))
-            self.subs[attrname] = getattr(self, attrname)
-
-            attrname_12h = "now_back%s_12h" % (i + 1,)
-            setattr(self, attrname_12h, getattr(self, attrname).duplicate())
-            getattr(self, attrname_12h).offsetHours(12)
-            self.subs[attrname_12h] = getattr(self, attrname_12h)
-
-            attrname_1 = "now_back%s_1" % (i + 1,)
-            setattr(self, attrname_1, getattr(self, attrname).duplicate())
-            getattr(self, attrname_1).offsetSeconds(-1)
-            self.subs[attrname_1] = getattr(self, attrname_1)
-
-            attrname = "nowDate_back%s" % (i + 1,)
-            setattr(self, attrname, self.nowDate.duplicate())
-            getattr(self, attrname).offsetDay(-(i + 1))
-            self.subs[attrname] = getattr(self, attrname)
-
-            attrname = "nowFloating_back%s" % (i + 1,)
-            setattr(self, attrname, self.nowFloating.duplicate())
-            getattr(self, attrname).offsetDay(-(i + 1))
-            self.subs[attrname] = getattr(self, attrname)
-
-            attrname_1 = "nowFloating_back%s_1" % (i + 1,)
-            setattr(self, attrname_1, getattr(self, attrname).duplicate())
-            getattr(self, attrname_1).offsetSeconds(-1)
-            self.subs[attrname_1] = getattr(self, attrname_1)
-
-        for i in range(30):
-            attrname = "now_fwd%s" % (i + 1,)
-            setattr(self, attrname, self.now.duplicate())
-            getattr(self, attrname).offsetDay(i + 1)
-            self.subs[attrname] = getattr(self, attrname)
-
-            attrname_12h = "now_fwd%s_12h" % (i + 1,)
-            setattr(self, attrname_12h, getattr(self, attrname).duplicate())
-            getattr(self, attrname_12h).offsetHours(12)
-            self.subs[attrname_12h] = getattr(self, attrname_12h)
-
-            attrname = "nowDate_fwd%s" % (i + 1,)
-            setattr(self, attrname, self.nowDate.duplicate())
-            getattr(self, attrname).offsetDay(i + 1)
-            self.subs[attrname] = getattr(self, attrname)
-
-            attrname = "nowFloating_fwd%s" % (i + 1,)
-            setattr(self, attrname, self.nowFloating.duplicate())
-            getattr(self, attrname).offsetDay(i + 1)
-            self.subs[attrname] = getattr(self, attrname)
+        self.setupDateTimeValues()
 
         self.patch(config, "MaxAllowedInstances", 500)
 
@@ -3452,7 +3390,7 @@ END:VEVENT
 END:VCALENDAR
 """
 
-        component = Component.fromString(data % self.subs)
+        component = Component.fromString(data % self.dtsubs)
         cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -3476,7 +3414,7 @@ END:VCALENDAR
         ical_future, ical_past, pastUID, relID, _ignore_new_name = yield self._splitDetails("user01")
 
         title = "temp"
-        relsubs = dict(self.subs)
+        relsubs = dict(self.dtsubs)
         relsubs["uid"] = pastUID
         relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
@@ -3665,7 +3603,7 @@ END:VEVENT
 END:VCALENDAR
 """
 
-        component = Component.fromString(data % self.subs)
+        component = Component.fromString(data % self.dtsubs)
         cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -3689,7 +3627,7 @@ END:VCALENDAR
         ical_future, ical_past, pastUID, relID, _ignore_new_name = yield self._splitDetails("user01")
 
         title = "temp"
-        relsubs = dict(self.subs)
+        relsubs = dict(self.dtsubs)
         relsubs["uid"] = pastUID
         relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s %s" % (title, diff_iCalStrs(ical_future, data_future % relsubs)))
@@ -3874,7 +3812,7 @@ END:VEVENT
 END:VCALENDAR
 """
 
-        component = Component.fromString(data % self.subs)
+        component = Component.fromString(data % self.dtsubs)
         cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -3898,7 +3836,7 @@ END:VCALENDAR
         ical_future, ical_past, pastUID, relID, _ignore_new_name = yield self._splitDetails("user01")
 
         title = "temp"
-        relsubs = dict(self.subs)
+        relsubs = dict(self.dtsubs)
         relsubs["uid"] = pastUID
         relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s %s" % (title, diff_iCalStrs(ical_future, data_future % relsubs)))
@@ -4324,7 +4262,7 @@ END:VEVENT
 END:VCALENDAR
 """
 
-        component = Component.fromString(data % self.subs)
+        component = Component.fromString(data % self.dtsubs)
         cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
         self.assertTrue(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -4353,7 +4291,7 @@ END:VCALENDAR
 
         # Verify user01 data
         title = "user01"
-        relsubs = dict(self.subs)
+        relsubs = dict(self.dtsubs)
         relsubs["uid"] = pastUID
         relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
@@ -4486,7 +4424,7 @@ END:VEVENT
 END:VCALENDAR
 """
 
-        component = Component.fromString(data % self.subs)
+        component = Component.fromString(data % self.dtsubs)
         cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
         self.assertTrue(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -4708,7 +4646,7 @@ END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """
 
-        component = Component.fromString(data % self.subs)
+        component = Component.fromString(data % self.dtsubs)
         cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -4720,16 +4658,16 @@ END:VCALENDAR
         cobj = cobjs[0]
         cname2 = cobj.name()
         ical = yield cobj.component()
-        self.assertEqual(normalize_iCalStr(ical), normalize_iCalStr(data_2) % self.subs, "Failed 2")
-        yield cobj.setComponent(Component.fromString(data_2_update % self.subs))
+        self.assertEqual(normalize_iCalStr(ical), normalize_iCalStr(data_2) % self.dtsubs, "Failed 2")
+        yield cobj.setComponent(Component.fromString(data_2_update % self.dtsubs))
         yield self.commit()
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
         ical = yield cobj.component()
-        self.assertEqual(normalize_iCalStr(ical), normalize_iCalStr(data_1) % self.subs, "Failed 2")
+        self.assertEqual(normalize_iCalStr(ical), normalize_iCalStr(data_1) % self.dtsubs, "Failed 2")
         cobj = yield self.calendarObjectUnderTest(name=cname2, calendar_name="calendar", home="user02")
         ical = yield cobj.component()
-        self.assertEqual(normalize_iCalStr(ical), normalize_iCalStr(data_2_changed) % self.subs, "Failed 2")
+        self.assertEqual(normalize_iCalStr(ical), normalize_iCalStr(data_2_changed) % self.dtsubs, "Failed 2")
         yield self.commit()
 
 
@@ -4794,7 +4732,7 @@ END:VEVENT
 END:VCALENDAR
 """
 
-        component = Component.fromString(data % self.subs)
+        component = Component.fromString(data % self.dtsubs)
         cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -5090,7 +5028,7 @@ END:VCALENDAR
 """
 
         # Create initial non-split event
-        cobj = yield calendar.createCalendarObjectWithName("data1.ics", Component.fromString(data_1 % self.subs))
+        cobj = yield calendar.createCalendarObjectWithName("data1.ics", Component.fromString(data_1 % self.dtsubs))
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
 
@@ -5107,7 +5045,7 @@ END:VCALENDAR
         self.assertEqual(attachment.parameterValue("MANAGED-ID"), mid)
         self.assertEqual(attachment.value(), location)
 
-        relsubs = dict(self.subs)
+        relsubs = dict(self.dtsubs)
         relsubs["mid"] = mid
         relsubs["att_uri"] = location
         relsubs["dtstamp"] = str(ical.masterComponent().propertyValue("DTSTAMP"))
@@ -5447,7 +5385,7 @@ END:VEVENT
 END:VCALENDAR
 """
 
-        component = Component.fromString(data % self.subs)
+        component = Component.fromString(data % self.dtsubs)
         cobj = yield calendar.createCalendarObjectWithName("data.ics", component)
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -5459,7 +5397,7 @@ END:VCALENDAR
         cobj = yield self.calendarObjectUnderTest(name="data.ics", calendar_name="calendar", home="user01")
         processor.recipient_calendar_resource = cobj
         processor.recipient_calendar = (yield cobj.componentForUser("user01"))
-        processor.message = Component.fromString(itip1 % self.subs)
+        processor.message = Component.fromString(itip1 % self.dtsubs)
         processor.originator = RemoteCalendarUser("mailto:cuser01@example.org")
         processor.recipient = LocalCalendarUser("urn:x-uid:user01", None)
         processor.method = "REQUEST"
@@ -5470,7 +5408,7 @@ END:VCALENDAR
         yield self.commit()
 
         new_names = []
-        relsubs = dict(self.subs)
+        relsubs = dict(self.dtsubs)
 
         @inlineCallbacks
         def _verify_state():
@@ -5599,7 +5537,7 @@ END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """
 
-        component = Component.fromString(data % self.subs)
+        component = Component.fromString(data % self.dtsubs)
         cobj = yield calendar.createCalendarObjectWithName("data.ics", component)
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -5611,7 +5549,7 @@ END:VCALENDAR
         cobj = yield self.calendarObjectUnderTest(name="data.ics", calendar_name="calendar", home="user01")
         processor.recipient_calendar_resource = cobj
         processor.recipient_calendar = (yield cobj.componentForUser("user01"))
-        processor.message = Component.fromString(itip1 % self.subs)
+        processor.message = Component.fromString(itip1 % self.dtsubs)
         processor.originator = RemoteCalendarUser("mailto:cuser01@example.org")
         processor.recipient = LocalCalendarUser("urn:x-uid:user01", None)
         processor.method = "CANCEL"
@@ -5622,7 +5560,7 @@ END:VCALENDAR
         yield self.commit()
 
         # Get user01 data
-        relsubs = dict(self.subs)
+        relsubs = dict(self.dtsubs)
         cal = yield self.calendarUnderTest(name="calendar", home="user01")
         cobjs = yield cal.calendarObjects()
         self.assertEqual(len(cobjs), 1)
@@ -5720,7 +5658,7 @@ END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """
 
-        component = Component.fromString(data % self.subs)
+        component = Component.fromString(data % self.dtsubs)
         cobj = yield calendar.createCalendarObjectWithName("data.ics", component)
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -5732,7 +5670,7 @@ END:VCALENDAR
         cobj = yield self.calendarObjectUnderTest(name="data.ics", calendar_name="calendar", home="user01")
         processor.recipient_calendar_resource = cobj
         processor.recipient_calendar = (yield cobj.componentForUser("user01"))
-        processor.message = Component.fromString(itip1 % self.subs)
+        processor.message = Component.fromString(itip1 % self.dtsubs)
         processor.originator = RemoteCalendarUser("mailto:cuser01@example.org")
         processor.recipient = LocalCalendarUser("urn:x-uid:user01", None)
         processor.method = "REQUEST"
@@ -5743,7 +5681,7 @@ END:VCALENDAR
         yield self.commit()
 
         # Get user01 data
-        relsubs = dict(self.subs)
+        relsubs = dict(self.dtsubs)
         cal = yield self.calendarUnderTest(name="calendar", home="user01")
         cobjs = yield cal.calendarObjects()
         self.assertEqual(len(cobjs), 1)
@@ -5893,7 +5831,7 @@ END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """
 
-        component = Component.fromString(data % self.subs)
+        component = Component.fromString(data % self.dtsubs)
         cobj = yield calendar.createCalendarObjectWithName("data.ics", component)
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -5905,7 +5843,7 @@ END:VCALENDAR
         cobj = yield self.calendarObjectUnderTest(name="data.ics", calendar_name="calendar", home="user01")
         processor.recipient_calendar_resource = cobj
         processor.recipient_calendar = (yield cobj.componentForUser("user01"))
-        processor.message = Component.fromString(itip1 % self.subs)
+        processor.message = Component.fromString(itip1 % self.dtsubs)
         processor.originator = RemoteCalendarUser("mailto:cuser01@example.org")
         processor.recipient = LocalCalendarUser("urn:x-uid:user01", None)
         processor.method = "REQUEST"
@@ -5917,7 +5855,7 @@ END:VCALENDAR
 
         # Get user01 data
         ical_future, ical_past, pastUID, relID, _ignore_new_name = yield self._splitDetails("user01")
-        relsubs = dict(self.subs)
+        relsubs = dict(self.dtsubs)
         relsubs["uid"] = pastUID
         relsubs["relID"] = relID
 
@@ -6096,7 +6034,7 @@ END:VEVENT
 END:VCALENDAR
 """
 
-        component = Component.fromString(data % self.subs)
+        component = Component.fromString(data % self.dtsubs)
         cobj = yield calendar.createCalendarObjectWithName("data.ics", component)
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -6117,7 +6055,7 @@ END:VCALENDAR
         cobj = yield self.calendarObjectUnderTest(name="data.ics", calendar_name="calendar", home="user01")
         processor.recipient_calendar_resource = cobj
         processor.recipient_calendar = (yield cobj.componentForUser("user01"))
-        processor.message = Component.fromString(itip1 % self.subs)
+        processor.message = Component.fromString(itip1 % self.dtsubs)
         processor.originator = RemoteCalendarUser("mailto:cuser01@example.org")
         processor.recipient = LocalCalendarUser("urn:x-uid:user01", None)
         processor.method = "REQUEST"
@@ -6136,7 +6074,7 @@ END:VCALENDAR
 
         processor.recipient_calendar_resource = None
         processor.recipient_calendar = None
-        processor.message = Component.fromString(itip2 % self.subs)
+        processor.message = Component.fromString(itip2 % self.dtsubs)
         processor.originator = RemoteCalendarUser("mailto:cuser01@example.org")
         processor.recipient = LocalCalendarUser("urn:x-uid:user01", None)
         processor.method = "REQUEST"
@@ -6497,7 +6435,7 @@ END:VCALENDAR
                     responses.add(recipient, responsecode.NOT_FOUND, reqstatus=iTIPRequestStatus.INVALID_CALENDAR_USER)
             return succeed(responses)
 
-        component = Component.fromString(data % self.subs)
+        component = Component.fromString(data % self.dtsubs)
         cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
         self.assertTrue(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -6538,7 +6476,7 @@ END:VCALENDAR
 
         # Verify user01 data
         title = "user01"
-        relsubs = dict(self.subs)
+        relsubs = dict(self.dtsubs)
         relsubs["uid"] = newUID
         relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s\n%s" % (title, diff_iCalStrs(ical_future, data_future % relsubs),))
@@ -6894,7 +6832,7 @@ END:VCALENDAR
         # Create one event without active split
         self.patch(config.Scheduling.Options.Splitting, "Enabled", False)
         calendar = yield self.calendarUnderTest(name="calendar", home="user01")
-        component = Component.fromString(data_init % self.subs)
+        component = Component.fromString(data_init % self.dtsubs)
         cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -6929,7 +6867,7 @@ END:VCALENDAR
             return oldScheduling(self, do_smart_merge, split_details)
         self.patch(ImplicitScheduler, "doImplicitScheduling", newScheduling)
 
-        component = Component.fromString(data % self.subs)
+        component = Component.fromString(data % self.dtsubs)
         yield self.failUnlessFailure(cobj.setComponent(component), AlreadyFinishedError)
         self.assertTrue(self.transactionUnderTest().timedout)
 
@@ -6973,7 +6911,7 @@ END:VCALENDAR
 
         # Verify user01 data
         title = "user01"
-        relsubs = dict(self.subs)
+        relsubs = dict(self.dtsubs)
         relsubs["uid"] = newUID
         relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
@@ -7235,7 +7173,7 @@ END:VCALENDAR
         # Create one event without active split
         self.patch(config.Scheduling.Options.Splitting, "Enabled", False)
         calendar = yield self.calendarUnderTest(name="calendar", home="user01")
-        component = Component.fromString(data % self.subs)
+        component = Component.fromString(data % self.dtsubs)
         cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -7278,7 +7216,7 @@ END:VCALENDAR
 
         # Verify user01 data
         title = "user01"
-        relsubs = dict(self.subs)
+        relsubs = dict(self.dtsubs)
         relsubs["uid"] = newUID
         relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
@@ -7578,7 +7516,7 @@ END:VCALENDAR
 """
 
         # Create it
-        component = Component.fromString(data % self.subs)
+        component = Component.fromString(data % self.dtsubs)
         cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -7706,7 +7644,7 @@ END:VCALENDAR
 """
 
         # Create it
-        component = Component.fromString(data % self.subs)
+        component = Component.fromString(data % self.dtsubs)
         cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -7732,7 +7670,7 @@ END:VCALENDAR
 
         # Update it
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
-        oldobj = yield cobj.splitAt(DateTime.parseText("%(now_back14)s" % self.subs))
+        oldobj = yield cobj.splitAt(DateTime.parseText("%(now_back14)s" % self.dtsubs))
         oldname = oldobj.name()
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -7769,7 +7707,7 @@ END:VCALENDAR
 
         # Verify user01 data
         title = "user01"
-        relsubs = dict(self.subs)
+        relsubs = dict(self.dtsubs)
         relsubs["uid"] = newUID
         relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
@@ -7808,7 +7746,7 @@ END:VCALENDAR
 
         # Update it
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
-        oldobj = yield cobj.splitAt(DateTime.parseText("%(now_back15_12h)s" % self.subs))
+        oldobj = yield cobj.splitAt(DateTime.parseText("%(now_back15_12h)s" % self.dtsubs))
         oldname = oldobj.name()
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -7845,7 +7783,7 @@ END:VCALENDAR
 
         # Verify user01 data
         title = "user01"
-        relsubs = dict(self.subs)
+        relsubs = dict(self.dtsubs)
         relsubs["uid"] = newUID
         relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
@@ -7884,7 +7822,7 @@ END:VCALENDAR
 
         # Update it
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
-        oldobj = yield cobj.splitAt(DateTime.parseText("%(now_back14)s" % self.subs))
+        oldobj = yield cobj.splitAt(DateTime.parseText("%(now_back14)s" % self.dtsubs))
         oldname = oldobj.name()
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -7921,7 +7859,7 @@ END:VCALENDAR
 
         # Verify user01 data
         title = "user01"
-        relsubs = dict(self.subs)
+        relsubs = dict(self.dtsubs)
         relsubs["uid"] = newUID
         relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
@@ -7940,7 +7878,7 @@ END:VCALENDAR
         cal = yield self.calendarUnderTest(name="calendar", home="user02")
         cobjs = yield cal.calendarObjects()
         self.assertEqual(len(cobjs), 1)
-        yield self.failUnlessFailure(cobjs[0].splitAt(DateTime.parseText("%(now_back14)s" % self.subs)), InvalidSplit)
+        yield self.failUnlessFailure(cobjs[0].splitAt(DateTime.parseText("%(now_back14)s" % self.dtsubs)), InvalidSplit)
 
 
     @inlineCallbacks
@@ -7955,7 +7893,7 @@ END:VCALENDAR
         cal = yield self.calendarUnderTest(name="calendar", home="user02")
         cobjs = yield cal.calendarObjects()
         self.assertEqual(len(cobjs), 1)
-        yield self.failUnlessFailure(cobjs[0].splitAt(DateTime.parseText("%(now_back30)s" % self.subs)), InvalidSplit)
+        yield self.failUnlessFailure(cobjs[0].splitAt(DateTime.parseText("%(now_back30)s" % self.dtsubs)), InvalidSplit)
 
 
     @inlineCallbacks
@@ -7970,7 +7908,7 @@ END:VCALENDAR
         cal = yield self.calendarUnderTest(name="calendar", home="user02")
         cobjs = yield cal.calendarObjects()
         self.assertEqual(len(cobjs), 1)
-        yield self.failUnlessFailure(cobjs[0].splitAt(DateTime.parseText("%(now_fwd25)s" % self.subs)), InvalidSplit)
+        yield self.failUnlessFailure(cobjs[0].splitAt(DateTime.parseText("%(now_fwd25)s" % self.dtsubs)), InvalidSplit)
 
 
     @inlineCallbacks
@@ -7984,7 +7922,7 @@ END:VCALENDAR
 
         # Update it
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
-        oldobj = yield cobj.splitAt(DateTime.parseText("%(now_back14)s" % self.subs), pastUID=pastUID)
+        oldobj = yield cobj.splitAt(DateTime.parseText("%(now_back14)s" % self.dtsubs), pastUID=pastUID)
         oldname = oldobj.name()
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
@@ -8023,7 +7961,7 @@ END:VCALENDAR
 
         # Verify user01 data
         title = "user01"
-        relsubs = dict(self.subs)
+        relsubs = dict(self.dtsubs)
         relsubs["uid"] = newUID
         relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
@@ -8063,7 +8001,7 @@ END:VCALENDAR
 
         # Update it
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
-        yield self.failUnlessFailure(cobj.splitAt(DateTime.parseText("%(now_back14)s" % self.subs), pastUID="12345-67890"), InvalidSplit)
+        yield self.failUnlessFailure(cobj.splitAt(DateTime.parseText("%(now_back14)s" % self.dtsubs), pastUID="12345-67890"), InvalidSplit)
 
 
     @inlineCallbacks
@@ -8093,13 +8031,13 @@ END:VCALENDAR
         yield self._setupSplitAt()
 
         calendar = yield self.calendarUnderTest(name="calendar", home="user01")
-        component = Component.fromString(data_existing % self.subs)
+        component = Component.fromString(data_existing % self.dtsubs)
         yield calendar.createCalendarObjectWithName("data2.ics", component)
         yield self.commit()
 
         # Update it
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
-        yield self.failUnlessFailure(cobj.splitAt(DateTime.parseText("%(now_back14)s" % self.subs), pastUID="12345-67890-existing"), InvalidSplit)
+        yield self.failUnlessFailure(cobj.splitAt(DateTime.parseText("%(now_back14)s" % self.dtsubs), pastUID="12345-67890-existing"), InvalidSplit)
 
 
     @inlineCallbacks
@@ -8114,10 +8052,10 @@ END:VCALENDAR
         cal = yield self.calendarUnderTest(name="calendar", home="user02")
         cobjs = yield cal.calendarObjects()
         self.assertEqual(len(cobjs), 1)
-        yield self.failUnlessFailure(cobjs[0].splitAt(DateTime.parseText("%(nowDate)s" % self.subs)), InvalidSplit)
+        yield self.failUnlessFailure(cobjs[0].splitAt(DateTime.parseText("%(nowDate)s" % self.dtsubs)), InvalidSplit)
 
         # DTSTART DATE-TIME UTC/rid DATE-TIME floating
-        yield self.failUnlessFailure(cobjs[0].splitAt(DateTime.parseText("%(nowFloating)s" % self.subs)), InvalidSplit)
+        yield self.failUnlessFailure(cobjs[0].splitAt(DateTime.parseText("%(nowFloating)s" % self.dtsubs)), InvalidSplit)
 
         data_floating = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -8137,20 +8075,20 @@ END:VCALENDAR
 """
 
         calendar = yield self.calendarUnderTest(name="calendar", home="user01")
-        component = Component.fromString(data_floating % self.subs)
+        component = Component.fromString(data_floating % self.dtsubs)
         yield calendar.createCalendarObjectWithName("data2.ics", component)
         yield self.commit()
 
         # DTSTART DATE/rid DATE-TIME floating
         cobj = yield self.calendarObjectUnderTest(name="data2.ics", calendar_name="calendar", home="user01")
-        yield self.failUnlessFailure(cobj.splitAt(DateTime.parseText("%(nowFloating)s" % self.subs)), InvalidSplit)
+        yield self.failUnlessFailure(cobj.splitAt(DateTime.parseText("%(nowFloating)s" % self.dtsubs)), InvalidSplit)
 
         # DTSTART DATE/rid DATE-TIME UTC
-        yield self.failUnlessFailure(cobj.splitAt(DateTime.parseText("%(now)s" % self.subs)), InvalidSplit)
+        yield self.failUnlessFailure(cobj.splitAt(DateTime.parseText("%(now)s" % self.dtsubs)), InvalidSplit)
 
 
 
-class TimeRangeUpdateOptimization(CommonCommonTests, unittest.TestCase):
+class TimeRangeUpdateOptimization(CommonCommonTests, DateTimeSubstitutionsMixin, unittest.TestCase):
     """
     CalendarObject time range optimization tests.
     """
@@ -8162,7 +8100,7 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-DTSTART:{now}T120000Z
+DTSTART:{nowDate}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -8177,7 +8115,7 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-DTSTART:{now}T120000Z
+DTSTART:{nowDate}T120000Z
 DURATION:PT1H
 SUMMARY:New Event #2
 DTSTAMP:20100203T013909Z
@@ -8192,7 +8130,7 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-DTSTART:{now}T130000Z
+DTSTART:{nowDate}T130000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -8207,7 +8145,7 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-DTSTART:{now}T120000Z
+DTSTART:{nowDate}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -8223,7 +8161,7 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-DTSTART:{now}T120000Z
+DTSTART:{nowDate}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 STATUS:CANCELLED
@@ -8239,7 +8177,7 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-DTSTART:{now}T120000Z
+DTSTART:{nowDate}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -8255,7 +8193,7 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-DTSTART:{now}T120000Z
+DTSTART:{nowDate}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -8271,7 +8209,7 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-DTSTART:{now}T120000Z
+DTSTART:{nowDate}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -8287,12 +8225,12 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-DTSTART:{now}T120000Z
+DTSTART:{nowDate}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
 RRULE:FREQ=DAILY
-EXDATE:{now}T120000Z
+EXDATE:{nowDate}T120000Z
 END:VEVENT
 END:VCALENDAR
 """
@@ -8304,12 +8242,12 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-DTSTART:{now}T120000Z
+DTSTART:{nowDate}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
 RRULE:FREQ=DAILY
-RDATE:{now}T150000Z
+RDATE:{nowDate}T150000Z
 END:VEVENT
 END:VCALENDAR
 """
@@ -8321,12 +8259,7 @@ END:VCALENDAR
         yield self.buildStoreAndDirectory()
         yield self.populate()
 
-        self.now = DateTime.getNowUTC()
-        self.now.setDateOnly(True)
-        self.now1 = self.now.duplicate()
-        self.now1.offsetDay(1)
-        self.now2 = self.now.duplicate()
-        self.now2.offsetDay(2)
+        self.setupDateTimeValues()
 
         self.trcount = 0
         base_addInstances = CalendarObject._addInstances
@@ -8370,7 +8303,7 @@ END:VCALENDAR
 
         # First PUT causes T-R change
         cal = yield self.calendarUnderTest()
-        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(now=self.now.getText())))
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 1)
@@ -8384,14 +8317,14 @@ END:VCALENDAR
 
         # First PUT causes T-R change
         cal = yield self.calendarUnderTest()
-        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(now=self.now.getText())))
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 1)
 
         # Second PUT does not cause T-R change
         cobj = yield self.calendarObjectUnderTest()
-        yield cobj.setComponent(Component.fromString(self.EVENT2.format(now=self.now.getText())))
+        yield cobj.setComponent(Component.fromString(self.EVENT2.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 1)
@@ -8407,14 +8340,14 @@ END:VCALENDAR
 
         # First PUT causes T-R change
         cal = yield self.calendarUnderTest()
-        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(now=self.now.getText())))
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 1)
 
         # Second PUT does cause T-R change
         cobj = yield self.calendarObjectUnderTest()
-        yield cobj.setComponent(Component.fromString(self.EVENT2.format(now=self.now.getText())))
+        yield cobj.setComponent(Component.fromString(self.EVENT2.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 2)
@@ -8428,14 +8361,14 @@ END:VCALENDAR
 
         # First PUT causes T-R change
         cal = yield self.calendarUnderTest()
-        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(now=self.now.getText())))
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 1)
 
         # Second PUT causes T-R change
         cobj = yield self.calendarObjectUnderTest()
-        yield cobj.setComponent(Component.fromString(self.EVENT3.format(now=self.now.getText())))
+        yield cobj.setComponent(Component.fromString(self.EVENT3.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 2)
@@ -8449,14 +8382,14 @@ END:VCALENDAR
 
         # First PUT causes T-R change
         cal = yield self.calendarUnderTest()
-        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(now=self.now.getText())))
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 1)
 
         # Second PUT causes T-R change
         cobj = yield self.calendarObjectUnderTest()
-        yield cobj.setComponent(Component.fromString(self.EVENT4.format(now=self.now.getText())))
+        yield cobj.setComponent(Component.fromString(self.EVENT4.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 2)
@@ -8470,14 +8403,14 @@ END:VCALENDAR
 
         # First PUT causes T-R change
         cal = yield self.calendarUnderTest()
-        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(now=self.now.getText())))
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 1)
 
         # Second PUT causes T-R change
         cobj = yield self.calendarObjectUnderTest()
-        yield cobj.setComponent(Component.fromString(self.EVENT5.format(now=self.now.getText())))
+        yield cobj.setComponent(Component.fromString(self.EVENT5.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 2)
@@ -8491,14 +8424,14 @@ END:VCALENDAR
 
         # First PUT causes T-R change
         cal = yield self.calendarUnderTest()
-        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(now=self.now.getText())))
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 1)
 
         # Second PUT causes T-R change
         cobj = yield self.calendarObjectUnderTest()
-        yield cobj.setComponent(Component.fromString(self.EVENT6.format(now=self.now.getText())))
+        yield cobj.setComponent(Component.fromString(self.EVENT6.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 2)
@@ -8512,14 +8445,14 @@ END:VCALENDAR
 
         # First PUT causes T-R change
         cal = yield self.calendarUnderTest()
-        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT7.format(now=self.now.getText())))
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT7.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 1)
 
         # Second PUT causes T-R change
         cobj = yield self.calendarObjectUnderTest()
-        yield cobj.setComponent(Component.fromString(self.EVENT8.format(now=self.now.getText())))
+        yield cobj.setComponent(Component.fromString(self.EVENT8.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 2)
@@ -8533,14 +8466,14 @@ END:VCALENDAR
 
         # First PUT causes T-R change
         cal = yield self.calendarUnderTest()
-        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT7.format(now=self.now.getText())))
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT7.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 1)
 
         # Second PUT causes T-R change
         cobj = yield self.calendarObjectUnderTest()
-        yield cobj.setComponent(Component.fromString(self.EVENT9.format(now=self.now.getText())))
+        yield cobj.setComponent(Component.fromString(self.EVENT9.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 2)
@@ -8554,14 +8487,14 @@ END:VCALENDAR
 
         # First PUT causes T-R change
         cal = yield self.calendarUnderTest()
-        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT7.format(now=self.now.getText())))
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT7.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 1)
 
         # Second PUT causes T-R change
         cobj = yield self.calendarObjectUnderTest()
-        yield cobj.setComponent(Component.fromString(self.EVENT10.format(now=self.now.getText())))
+        yield cobj.setComponent(Component.fromString(self.EVENT10.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 2)
@@ -8574,7 +8507,7 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-DTSTART:{now}T120000Z
+DTSTART:{nowDate}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -8592,7 +8525,7 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-DTSTART:{now}T120000Z
+DTSTART:{nowDate}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -8610,7 +8543,7 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-DTSTART:{now}T120000Z
+DTSTART:{nowDate}T120000Z
 DURATION:PT1H
 SUMMARY:New Event #2
 DTSTAMP:20100203T013909Z
@@ -8628,7 +8561,7 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-DTSTART:{now}T140000Z
+DTSTART:{nowDate}T140000Z
 DURATION:PT1H
 SUMMARY:New Event #2
 DTSTAMP:20100203T013909Z
@@ -8650,7 +8583,7 @@ END:VCALENDAR
 
         # First PUT causes T-R change
         cal = yield self.calendarUnderTest(home="user01", name="calendar")
-        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.INVITE1.format(now=self.now.getText())))
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.INVITE1.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 3)
@@ -8659,21 +8592,21 @@ END:VCALENDAR
         cal = yield self.calendarUnderTest(home="user02", name="calendar")
         cobjs = yield cal.calendarObjects()
         self.assertEqual(len(cobjs), 1)
-        yield cobjs[0].setComponent(Component.fromString(self.INVITE2.format(now=self.now.getText())))
+        yield cobjs[0].setComponent(Component.fromString(self.INVITE2.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 5)
 
         # Organizer summary change does not cause T-R change (except for inbox item)
         cobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar")
-        yield cobj.setComponent(Component.fromString(self.INVITE3.format(now=self.now.getText())))
+        yield cobj.setComponent(Component.fromString(self.INVITE3.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 6)
 
         # Organizer dtstart change causes T-R change
         cobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar")
-        yield cobj.setComponent(Component.fromString(self.INVITE4.format(now=self.now.getText())))
+        yield cobj.setComponent(Component.fromString(self.INVITE4.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 9)
@@ -8692,7 +8625,7 @@ END:VCALENDAR
 
         # First PUT causes T-R change
         cal = yield self.calendarUnderTest(home="user01", name="calendar")
-        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.INVITE1.format(now=self.now.getText())))
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.INVITE1.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 3)
@@ -8701,21 +8634,21 @@ END:VCALENDAR
         cal = yield self.calendarUnderTest(home="user02", name="calendar")
         cobjs = yield cal.calendarObjects()
         self.assertEqual(len(cobjs), 1)
-        yield cobjs[0].setComponent(Component.fromString(self.INVITE2.format(now=self.now.getText())))
+        yield cobjs[0].setComponent(Component.fromString(self.INVITE2.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 5)
 
         # Organizer summary change causes T-R change
         cobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar")
-        yield cobj.setComponent(Component.fromString(self.INVITE3.format(now=self.now.getText())))
+        yield cobj.setComponent(Component.fromString(self.INVITE3.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 8)
 
         # Organizer dtstart change causes T-R change
         cobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar")
-        yield cobj.setComponent(Component.fromString(self.INVITE4.format(now=self.now.getText())))
+        yield cobj.setComponent(Component.fromString(self.INVITE4.format(**self.dtsubs)))
         yield self.commit()
 
         self.assertEqual(self.trcount, 11)
@@ -8728,7 +8661,7 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-DTSTART:{now}T120000Z
+DTSTART:{nowDate}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -8739,8 +8672,8 @@ END:VEVENT
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-RECURRENCE-ID:{now1}T120000Z
-DTSTART:{now1}T120000Z
+RECURRENCE-ID:{nowDate_fwd1}T120000Z
+DTSTART:{nowDate_fwd1}T120000Z
 DURATION:PT1H
 SUMMARY:New Event now1
 DTSTAMP:20100203T013909Z
@@ -8758,8 +8691,8 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-RECURRENCE-ID:{now1}T120000Z
-DTSTART:{now1}T120000Z
+RECURRENCE-ID:{nowDate_fwd1}T120000Z
+DTSTART:{nowDate_fwd1}T120000Z
 DURATION:PT1H
 SUMMARY:New Event now1
 DTSTAMP:20100203T013909Z
@@ -8777,7 +8710,7 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-DTSTART:{now}T120000Z
+DTSTART:{nowDate}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -8788,8 +8721,8 @@ END:VEVENT
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-RECURRENCE-ID:{now1}T120000Z
-DTSTART:{now1}T120000Z
+RECURRENCE-ID:{nowDate_fwd1}T120000Z
+DTSTART:{nowDate_fwd1}T120000Z
 DURATION:PT1H
 SUMMARY:New Event now1
 DTSTAMP:20100203T013909Z
@@ -8800,8 +8733,8 @@ END:VEVENT
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-RECURRENCE-ID:{now2}T120000Z
-DTSTART:{now2}T120000Z
+RECURRENCE-ID:{nowDate_fwd2}T120000Z
+DTSTART:{nowDate_fwd2}T120000Z
 DURATION:PT1H
 SUMMARY:New Event now2
 DTSTAMP:20100203T013909Z
@@ -8819,7 +8752,7 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-DTSTART:{now}T120000Z
+DTSTART:{nowDate}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -8830,8 +8763,8 @@ END:VEVENT
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-RECURRENCE-ID:{now1}T120000Z
-DTSTART:{now1}T120000Z
+RECURRENCE-ID:{nowDate_fwd1}T120000Z
+DTSTART:{nowDate_fwd1}T120000Z
 DURATION:PT1H
 SUMMARY:New Event now1
 DTSTAMP:20100203T013909Z
@@ -8841,8 +8774,8 @@ END:VEVENT
 BEGIN:VEVENT
 CREATED:20100203T013849Z
 UID:uid1
-RECURRENCE-ID:{now2}T120000Z
-DTSTART:{now2}T120000Z
+RECURRENCE-ID:{nowDate_fwd2}T120000Z
+DTSTART:{nowDate_fwd2}T120000Z
 DURATION:PT1H
 SUMMARY:New Event now2
 DTSTAMP:20100203T013909Z
@@ -8866,11 +8799,7 @@ END:VCALENDAR
 
         # First PUT causes T-R change
         cal = yield self.calendarUnderTest(home="user01", name="calendar")
-        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.INVITE_OVERRIDE1.format(
-            now=self.now.getText(),
-            now1=self.now1.getText(),
-            now2=self.now2.getText(),
-        )))
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.INVITE_OVERRIDE1.format(**self.dtsubs)))
         yield self.commit()
 
         # Wait for it to complete
@@ -8880,11 +8809,7 @@ END:VCALENDAR
 
         # Organizer adds attendee to override causes T-R change (except for their item)
         cobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar")
-        yield cobj.setComponent(Component.fromString(self.INVITE_OVERRIDE3.format(
-            now=self.now.getText(),
-            now1=self.now1.getText(),
-            now2=self.now2.getText(),
-        )))
+        yield cobj.setComponent(Component.fromString(self.INVITE_OVERRIDE3.format(**self.dtsubs)))
         yield self.commit()
 
         # Wait for it to complete
@@ -8894,11 +8819,7 @@ END:VCALENDAR
 
         # Organizer removes attendee from override causes T-R change (except for their item)
         cobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar")
-        yield cobj.setComponent(Component.fromString(self.INVITE_OVERRIDE4.format(
-            now=self.now.getText(),
-            now1=self.now1.getText(),
-            now2=self.now2.getText(),
-        )))
+        yield cobj.setComponent(Component.fromString(self.INVITE_OVERRIDE4.format(**self.dtsubs)))
         yield self.commit()
 
         # Wait for it to complete
@@ -8908,7 +8829,7 @@ END:VCALENDAR
 
 
 
-class GroupExpand(CommonCommonTests, unittest.TestCase):
+class GroupExpand(CommonCommonTests, DateTimeSubstitutionsMixin, unittest.TestCase):
     """
     CalendarObject group attendee expansion.
     """
@@ -8926,26 +8847,11 @@ class GroupExpand(CommonCommonTests, unittest.TestCase):
 
         yield self.populate()
 
-        now = DateTime.getNowUTC()
-        now.setDateOnly(True)
-        past1 = now.duplicate()
-        past1.offsetDay(-1)
-        past2 = now.duplicate()
-        past2.offsetDay(-2)
-        past400 = now.duplicate()
+        self.setupDateTimeValues()
+
+        past400 = self.nowDate.duplicate()
         past400.offsetDay(-400)
-        now1 = now.duplicate()
-        now1.offsetDay(1)
-        now2 = now.duplicate()
-        now2.offsetDay(2)
-        self.subs = {
-            "now": now,
-            "past1": past1,
-            "past2": past2,
-            "past400": past400,
-            "now1": now1,
-            "now2": now2,
-        }
+        self.dtsubs["nowDate_back400"] = past400
 
 
     @inlineCallbacks
@@ -8984,7 +8890,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 CALSCALE:GREGORIAN
 BEGIN:VEVENT
 UID:uid1
-DTSTART:{now1}T120000Z
+DTSTART:{nowDate_fwd1}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -8993,7 +8899,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
 ATTENDEE:urn:x-uid:group01
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         result = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9002,7 +8908,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:uid1
 DTSTAMP:20100203T013909Z
-DTSTART:{now1}T120000Z
+DTSTART:{nowDate_fwd1}T120000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
@@ -9011,7 +8917,7 @@ ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 SUMMARY:New Event
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         # PUT causes expansion
         cal = yield self.calendarUnderTest(home="user01", name="calendar")
@@ -9038,7 +8944,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 CALSCALE:GREGORIAN
 BEGIN:VEVENT
 UID:uid1
-DTSTART:{now1}T120000Z
+DTSTART:{nowDate_fwd1}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -9046,7 +8952,7 @@ ORGANIZER:mailto:user01@example.com
 ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         event2 = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9054,7 +8960,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 CALSCALE:GREGORIAN
 BEGIN:VEVENT
 UID:uid1
-DTSTART:{now1}T120000Z
+DTSTART:{nowDate_fwd1}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -9063,7 +8969,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
 ATTENDEE:urn:x-uid:group01
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         result = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9072,7 +8978,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:uid1
 DTSTAMP:20100203T013909Z
-DTSTART:{now1}T120000Z
+DTSTART:{nowDate_fwd1}T120000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
@@ -9082,7 +8988,16 @@ SEQUENCE:1
 SUMMARY:New Event
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
+
+        # Group user has no data
+        cal = yield self.calendarUnderTest(home="user02", name="calendar")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 0)
+        cal = yield self.calendarUnderTest(home="user02", name="inbox")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 0)
+        yield self.commit()
 
         # PUT does not cause expansion
         cal = yield self.calendarUnderTest(home="user01", name="calendar")
@@ -9106,6 +9021,17 @@ END:VCALENDAR
         links = yield calobj.groupEventLinks()
         self.assertEqual(len(links), 1)
 
+        # Group user has invite data
+        cal = yield self.calendarUnderTest(home="user02", name="calendar")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 1)
+        cal = yield self.calendarUnderTest(home="user02", name="inbox")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 1)
+        comp = yield cobjs[0].componentForUser()
+        self.assertTrue("METHOD:REQUEST" in str(comp))
+        yield self.commit()
+
 
     @inlineCallbacks
     def test_expand_update_existing(self):
@@ -9119,7 +9045,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 CALSCALE:GREGORIAN
 BEGIN:VEVENT
 UID:uid1
-DTSTART:{now1}T120000Z
+DTSTART:{nowDate_fwd1}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -9128,7 +9054,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
 ATTENDEE:urn:x-uid:group01
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         event2 = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9137,7 +9063,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:uid1
 DTSTAMP:20100203T013909Z
-DTSTART:{now1}T120000Z
+DTSTART:{nowDate_fwd1}T120000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
@@ -9147,7 +9073,7 @@ SEQUENCE:1
 SUMMARY:New Event #2
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         event3 = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9156,7 +9082,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:uid1
 DTSTAMP:20100203T013909Z
-DTSTART:{now1}T130000Z
+DTSTART:{nowDate_fwd1}T130000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
@@ -9166,7 +9092,7 @@ SEQUENCE:1
 SUMMARY:New Event #2
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         result = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9175,7 +9101,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:uid1
 DTSTAMP:20100203T013909Z
-DTSTART:{now1}T130000Z
+DTSTART:{nowDate_fwd1}T130000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
@@ -9185,7 +9111,7 @@ SEQUENCE:2
 SUMMARY:New Event #2
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         # PUT causes expansion
         cal = yield self.calendarUnderTest(home="user01", name="calendar")
@@ -9231,7 +9157,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 CALSCALE:GREGORIAN
 BEGIN:VEVENT
 UID:uid1
-DTSTART:{now1}T120000Z
+DTSTART:{nowDate_fwd1}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -9241,7 +9167,7 @@ ATTENDEE:urn:x-uid:group01
 RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         result = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9250,7 +9176,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:uid1
 DTSTAMP:20100203T013909Z
-DTSTART:{now1}T120000Z
+DTSTART:{nowDate_fwd1}T120000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
@@ -9260,7 +9186,7 @@ RRULE:FREQ=DAILY
 SUMMARY:New Event
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         # PUT causes expansion
         cal = yield self.calendarUnderTest(home="user01", name="calendar")
@@ -9287,7 +9213,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 CALSCALE:GREGORIAN
 BEGIN:VEVENT
 UID:uid1
-DTSTART:{now1}T120000Z
+DTSTART:{nowDate_fwd1}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -9296,7 +9222,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
 RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         event2 = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9304,7 +9230,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 CALSCALE:GREGORIAN
 BEGIN:VEVENT
 UID:uid1
-DTSTART:{now1}T120000Z
+DTSTART:{nowDate_fwd1}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -9314,7 +9240,7 @@ ATTENDEE:urn:x-uid:group01
 RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         result = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9323,7 +9249,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:uid1
 DTSTAMP:20100203T013909Z
-DTSTART:{now1}T120000Z
+DTSTART:{nowDate_fwd1}T120000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
@@ -9334,7 +9260,7 @@ SEQUENCE:1
 SUMMARY:New Event
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         # PUT does not cause expansion
         cal = yield self.calendarUnderTest(home="user01", name="calendar")
@@ -9371,7 +9297,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 CALSCALE:GREGORIAN
 BEGIN:VEVENT
 UID:uid1
-DTSTART:{now1}T120000Z
+DTSTART:{nowDate_fwd1}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -9381,7 +9307,7 @@ ATTENDEE:urn:x-uid:group01
 RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         event2 = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9390,7 +9316,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:uid1
 DTSTAMP:20100203T013909Z
-DTSTART:{now1}T120000Z
+DTSTART:{nowDate_fwd1}T120000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
@@ -9401,7 +9327,7 @@ SEQUENCE:1
 SUMMARY:New Event #2
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         event3 = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9410,7 +9336,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:uid1
 DTSTAMP:20100203T013909Z
-DTSTART:{now1}T130000Z
+DTSTART:{nowDate_fwd1}T130000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
@@ -9421,7 +9347,7 @@ SEQUENCE:1
 SUMMARY:New Event #2
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         result = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9430,7 +9356,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:uid1
 DTSTAMP:20100203T013909Z
-DTSTART:{now1}T130000Z
+DTSTART:{nowDate_fwd1}T130000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
@@ -9441,7 +9367,7 @@ SEQUENCE:2
 SUMMARY:New Event #2
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         # PUT causes expansion
         cal = yield self.calendarUnderTest(home="user01", name="calendar")
@@ -9487,7 +9413,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 CALSCALE:GREGORIAN
 BEGIN:VEVENT
 UID:uid1
-DTSTART:{past1}T120000Z
+DTSTART:{nowDate_back1}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -9496,7 +9422,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
 ATTENDEE:urn:x-uid:group01
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         result = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9505,7 +9431,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:uid1
 DTSTAMP:20100203T013909Z
-DTSTART:{past1}T120000Z
+DTSTART:{nowDate_back1}T120000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
@@ -9514,7 +9440,7 @@ ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 SUMMARY:New Event
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         # PUT causes expansion
         cal = yield self.calendarUnderTest(home="user01", name="calendar")
@@ -9541,7 +9467,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 CALSCALE:GREGORIAN
 BEGIN:VEVENT
 UID:uid1
-DTSTART:{past1}T120000Z
+DTSTART:{nowDate_back1}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -9549,7 +9475,7 @@ ORGANIZER:mailto:user01@example.com
 ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         event2 = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9557,7 +9483,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 CALSCALE:GREGORIAN
 BEGIN:VEVENT
 UID:uid1
-DTSTART:{past1}T120000Z
+DTSTART:{nowDate_back1}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -9566,7 +9492,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
 ATTENDEE:urn:x-uid:group01
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         result = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9575,7 +9501,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:uid1
 DTSTAMP:20100203T013909Z
-DTSTART:{past1}T120000Z
+DTSTART:{nowDate_back1}T120000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
@@ -9585,7 +9511,7 @@ SEQUENCE:1
 SUMMARY:New Event
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         # PUT does not cause expansion
         cal = yield self.calendarUnderTest(home="user01", name="calendar")
@@ -9622,7 +9548,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 CALSCALE:GREGORIAN
 BEGIN:VEVENT
 UID:uid1
-DTSTART:{past1}T120000Z
+DTSTART:{nowDate_back1}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -9631,7 +9557,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
 ATTENDEE:urn:x-uid:group01
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         event2 = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9640,7 +9566,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:uid1
 DTSTAMP:20100203T013909Z
-DTSTART:{past1}T120000Z
+DTSTART:{nowDate_back1}T120000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
@@ -9650,7 +9576,7 @@ SEQUENCE:1
 SUMMARY:New Event #2
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         event3 = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9659,7 +9585,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:uid1
 DTSTAMP:20100203T013909Z
-DTSTART:{past1}T130000Z
+DTSTART:{nowDate_back1}T130000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
@@ -9669,7 +9595,7 @@ SEQUENCE:1
 SUMMARY:New Event #2
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         result = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9678,7 +9604,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:uid1
 DTSTAMP:20100203T013909Z
-DTSTART:{past1}T130000Z
+DTSTART:{nowDate_back1}T130000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
@@ -9688,7 +9614,7 @@ SEQUENCE:2
 SUMMARY:New Event #2
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         # PUT causes expansion
         cal = yield self.calendarUnderTest(home="user01", name="calendar")
@@ -9735,7 +9661,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 CALSCALE:GREGORIAN
 BEGIN:VEVENT
 UID:uid1
-DTSTART:{past1}T120000Z
+DTSTART:{nowDate_back1}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -9745,7 +9671,7 @@ ATTENDEE:urn:x-uid:group01
 RRULE:FREQ=YEARLY;INTERVAL=2
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         result = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9754,7 +9680,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:uid1
 DTSTAMP:20100203T013909Z
-DTSTART:{past1}T120000Z
+DTSTART:{nowDate_back1}T120000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
@@ -9764,7 +9690,7 @@ RRULE:FREQ=YEARLY;INTERVAL=2
 SUMMARY:New Event
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         # PUT causes expansion
         cal = yield self.calendarUnderTest(home="user01", name="calendar")
@@ -9792,7 +9718,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 CALSCALE:GREGORIAN
 BEGIN:VEVENT
 UID:uid1
-DTSTART:{past400}T120000Z
+DTSTART:{nowDate_back400}T120000Z
 DURATION:PT1H
 SUMMARY:New Event
 DTSTAMP:20100203T013909Z
@@ -9802,7 +9728,7 @@ ATTENDEE:urn:x-uid:group01
 RRULE:FREQ=YEARLY;INTERVAL=4
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         result = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9811,7 +9737,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:uid1
 DTSTAMP:20100203T013909Z
-DTSTART:{past400}T120000Z
+DTSTART:{nowDate_back400}T120000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
@@ -9821,7 +9747,7 @@ RRULE:FREQ=YEARLY;INTERVAL=4
 SUMMARY:New Event
 END:VEVENT
 END:VCALENDAR
-""".format(**self.subs)
+""".format(**self.dtsubs)
 
         # PUT causes expansion
         cal = yield self.calendarUnderTest(home="user01", name="calendar")

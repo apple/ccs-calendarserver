@@ -15,8 +15,10 @@
 # limitations under the License.
 ##
 from twisted.trial.unittest import TestCase
-from twext.python.clsprop import classproperty
 from twisted.internet.defer import inlineCallbacks
+from twext.python.clsprop import classproperty
+from twistedcaldav.ical import Component, normalize_iCalStr, diff_iCalStrs
+from pycalendar.datetime import DateTime
 
 """
 Store test utility functions
@@ -70,3 +72,96 @@ class CommonStoreTests(CommonCommonTests, TestCase):
                 },
             },
         }
+
+
+
+class DateTimeSubstitutionsMixin(object):
+    """
+    Mix-in class for tests that defines a set of str.format() substitutions for date-time values
+    relative to the current time. This allows tests to always use relative-to-now values rather
+    than fixed values which may become in valid in the future (e.g., a test that needs an event
+    in the future and uses 2017 works fine up until 2017 and then starts to fail.
+    """
+
+    def setupDateTimeValues(self):
+
+        self.dtsubs = {}
+
+        # Set of "now" values that are directly accessible
+        self.now = DateTime.getNowUTC()
+        self.now.setHHMMSS(0, 0, 0)
+        self.now12 = DateTime.getNowUTC()
+        self.now12.setHHMMSS(12, 0, 0)
+        self.nowDate = self.now.duplicate()
+        self.nowDate.setDateOnly(True)
+        self.nowFloating = self.now.duplicate()
+        self.nowFloating.setTimezoneID(None)
+
+        self.dtsubs["now"] = self.now
+        self.dtsubs["now12"] = self.now12
+        self.dtsubs["nowDate"] = self.nowDate
+        self.dtsubs["nowFloating"] = self.nowFloating
+
+        # Values going 30 days back from now
+        for i in range(30):
+            attrname = "now_back%s" % (i + 1,)
+            setattr(self, attrname, self.now.duplicate())
+            getattr(self, attrname).offsetDay(-(i + 1))
+            self.dtsubs[attrname] = getattr(self, attrname)
+
+            attrname_12h = "now_back%s_12h" % (i + 1,)
+            setattr(self, attrname_12h, getattr(self, attrname).duplicate())
+            getattr(self, attrname_12h).offsetHours(12)
+            self.dtsubs[attrname_12h] = getattr(self, attrname_12h)
+
+            attrname_1 = "now_back%s_1" % (i + 1,)
+            setattr(self, attrname_1, getattr(self, attrname).duplicate())
+            getattr(self, attrname_1).offsetSeconds(-1)
+            self.dtsubs[attrname_1] = getattr(self, attrname_1)
+
+            attrname = "nowDate_back%s" % (i + 1,)
+            setattr(self, attrname, self.nowDate.duplicate())
+            getattr(self, attrname).offsetDay(-(i + 1))
+            self.dtsubs[attrname] = getattr(self, attrname)
+
+            attrname = "nowFloating_back%s" % (i + 1,)
+            setattr(self, attrname, self.nowFloating.duplicate())
+            getattr(self, attrname).offsetDay(-(i + 1))
+            self.dtsubs[attrname] = getattr(self, attrname)
+
+            attrname_1 = "nowFloating_back%s_1" % (i + 1,)
+            setattr(self, attrname_1, getattr(self, attrname).duplicate())
+            getattr(self, attrname_1).offsetSeconds(-1)
+            self.dtsubs[attrname_1] = getattr(self, attrname_1)
+
+        # Values going 30 days forward from now
+        for i in range(30):
+            attrname = "now_fwd%s" % (i + 1,)
+            setattr(self, attrname, self.now.duplicate())
+            getattr(self, attrname).offsetDay(i + 1)
+            self.dtsubs[attrname] = getattr(self, attrname)
+
+            attrname_12h = "now_fwd%s_12h" % (i + 1,)
+            setattr(self, attrname_12h, getattr(self, attrname).duplicate())
+            getattr(self, attrname_12h).offsetHours(12)
+            self.dtsubs[attrname_12h] = getattr(self, attrname_12h)
+
+            attrname = "nowDate_fwd%s" % (i + 1,)
+            setattr(self, attrname, self.nowDate.duplicate())
+            getattr(self, attrname).offsetDay(i + 1)
+            self.dtsubs[attrname] = getattr(self, attrname)
+
+            attrname = "nowFloating_fwd%s" % (i + 1,)
+            setattr(self, attrname, self.nowFloating.duplicate())
+            getattr(self, attrname).offsetDay(i + 1)
+            self.dtsubs[attrname] = getattr(self, attrname)
+
+
+    def assertEqualCalendarData(self, cal1, cal2):
+        if isinstance(cal1, str):
+            cal1 = Component.fromString(cal1)
+        if isinstance(cal2, str):
+            cal2 = Component.fromString(cal2)
+        ncal1 = normalize_iCalStr(cal1)
+        ncal2 = normalize_iCalStr(cal2)
+        self.assertEqual(ncal1, ncal2, msg=diff_iCalStrs(ncal1, ncal2))
