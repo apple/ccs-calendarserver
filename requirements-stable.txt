@@ -59,6 +59,7 @@
 
     pyOpenSSL==0.14
         cryptography==0.9
+        	idna
             #pyasn1
             #cffi
             enum34==1.0.4
