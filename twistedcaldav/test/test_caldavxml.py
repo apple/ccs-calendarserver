@@ -76,7 +76,7 @@ DTSTAMP:20080601T120000Z
 EXDATE:20080602T120000Z
 EXDATE:20080603T120000Z
 ORGANIZER;CN=User 01:mailto:user1@example.com
-RRULE:FREQ=DAILY;COUNT=400
+RRULE:FREQ=DAILY
 SUMMARY:Test
 END:VEVENT
 END:VCALENDAR
@@ -103,7 +103,7 @@ END:VCALENDAR
         ["exdate", {}, "date-time", "2008-06-02T12:00:00Z"],
         ["exdate", {}, "date-time", "2008-06-03T12:00:00Z"],
         ["organizer", {"cn": "User 01"}, "cal-address", "mailto:user1@example.com"],
-        ["rrule", {}, "recur", {"count": 400, "freq": "DAILY"}],
+        ["rrule", {}, "recur", {"freq": "DAILY"}],
         ["summary", {}, "text", "Test"]
       ],
       [
