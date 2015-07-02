@@ -3070,6 +3070,77 @@ END:VCALENDAR
         yield self.commit()
 
 
+
+    @inlineCallbacks
+    def test_setComponent_structuredLocation_MissingValue(self):
+        """
+        Verify we detect a change to X-APPLE-STRUCTURED-LOCATION and update it.
+        (This also works if the client neglects to provide a value)
+        """
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//Mac OS X 10.9.1//EN
+BEGIN:VEVENT
+UID:561F5DBB-3F38-4B3A-986F-DD05CBAF554F
+DTSTART:20131211T164500Z
+DURATION:PT1H
+ATTENDEE;CN=Room with Address 1;CUTYPE=ROOM;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICIPAN
+ T;SCHEDULE-STATUS=2.0:urn:x-uid:room-addr-1
+ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL;EMAIL=user01@example.com;PARTSTAT=AC
+ CEPTED:urn:x-uid:user01
+X-APPLE-STRUCTURED-LOCATION;VALUE=URI;X-TITLE=Room with Address 1:
+CREATED:20131211T221854Z
+DTSTAMP:20131211T230632Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+SEQUENCE:1
+SUMMARY:locations
+LOCATION:Room with Address 1
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        yield calendar.createCalendarObjectWithName(
+            "structured.ics",
+            Component.fromString(data)
+        )
+
+        yield self.commit()
+
+        cobj = yield self.calendarObjectUnderTest(
+            name="structured.ics",
+            calendar_name="calendar",
+            home="user01"
+        )
+        comp = yield cobj.componentForUser()
+        components = list(comp.subcomponents())
+
+        # Check first component -- LOCATION now has the street addresses, and
+        # location values that don't have an ATTENDEE or X-APPLE-STRUCTURED-LOCATIONs
+        # are retained
+        locProp = components[0].getProperty("LOCATION")
+        self.assertEquals(
+            locProp.value(),
+            "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014"
+        )
+        structProps = tuple(components[0].properties("X-APPLE-STRUCTURED-LOCATION"))
+        self.assertEqual(len(structProps), 1)
+        self.assertEquals(
+            structProps[0].value(),
+            "geo:37.331741,-122.030333",
+        )
+        # Make sure server has also added X-CUADDR
+        self.assertEquals(
+            structProps[0].parameterValue("X-CUADDR"),
+            "urn:x-uid:room-addr-1"
+        )
+
+        yield self.commit()
+
+
     @inlineCallbacks
     def test_setComponent_externalPrincipal(self):
         """

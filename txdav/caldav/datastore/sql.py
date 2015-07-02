@@ -3388,6 +3388,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                             sub.addProperty(structured)
                         else:
                             # Update existing one
+                            prevGeo = structured.value()
+                            if geo != prevGeo:
+                                structured.setValue(geo)
+                                changed = True
                             prevTitle = structured.parameterValue("X-TITLE")
                             for paramName, paramValue in params.iteritems():
                                 prevValue = structured.parameterValue(paramName)
@@ -3421,6 +3425,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     attendeeProp = sub.getAttendeeProperty((cuAddr,))
                     if attendeeProp is None: # ...remove it if no matching ATTENDEE
                         sub.removeProperty(structured)
+                        changed = True
 
             # Update the LOCATION
             newLocationValue = ";".join(existingLocations)
