@@ -2504,6 +2504,24 @@ class Calendar(CommonHomeChild):
 
 
     @inlineCallbacks
+    def ownerDeleteShare(self):
+        """
+        This share is being deleted (by the owner) - we also need to clean up the group sharees.
+        """
+
+        yield super(Calendar, self).ownerDeleteShare()
+
+        # Delete referenced group sharees. Note that whilst the table uses an on delete cascade,
+        # we do need to remove the sharees for the case where the calendar is trashed and not
+        # removed. Since the cascade is not triggered in that case and we have to do it by hand.
+        gs = schema.GROUP_SHAREE
+        yield Delete(
+            From=gs,
+            Where=(gs.CALENDAR_ID == self._resourceID),
+        ).on(self._txn)
+
+
+    @inlineCallbacks
     def allInvitations(self):
         """
         Get list of all invitations (non-direct) to this object.
