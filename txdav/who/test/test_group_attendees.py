@@ -87,23 +87,26 @@ class GroupAttendeeTestBase(CommonCommonTests, DateTimeSubstitutionsMixin, unitt
 
     def _assertICalStrEqual(self, iCalStr1, iCalStr2):
 
-        def orderMemberValues(event):
+        def orderAttendeePropAndMemberValues(event):
 
             for component in event.subcomponents(ignore=True):
                 # remove all values and add them again
                 # this is sort of a hack, better pycalendar has ordering
-                for attendeeProp in tuple(component.properties("ATTENDEE")):
+                attendees = sorted(list(component.properties("ATTENDEE")), key=lambda x: x.value())
+                component.removeProperty("ATTENDEE")
+                for attendeeProp in attendees:
                     if attendeeProp.hasParameter("MEMBER"):
                         parameterValues = tuple(attendeeProp.parameterValues("MEMBER"))
                         for paramterValue in parameterValues:
                             attendeeProp.removeParameterValue("MEMBER", paramterValue)
                         attendeeProp.setParameter("MEMBER", sorted(parameterValues))
+                    component.addProperty(attendeeProp)
 
             return event
 
         self.assertEqualCalendarData(
-            orderMemberValues(Component.fromString(normalize_iCalStr(iCalStr1))),
-            orderMemberValues(Component.fromString(normalize_iCalStr(iCalStr2)))
+            orderAttendeePropAndMemberValues(Component.fromString(normalize_iCalStr(iCalStr1))),
+            orderAttendeePropAndMemberValues(Component.fromString(normalize_iCalStr(iCalStr2)))
         )
 
 
@@ -216,7 +219,7 @@ END:VCALENDAR
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
         vcalendar = yield cobj.component()
-        self.assertEqualCalendarData(vcalendar, data_get_1.format(**self.dtsubs))
+        self._assertICalStrEqual(vcalendar, data_get_1.format(**self.dtsubs))
 
 
     @inlineCallbacks
@@ -267,7 +270,7 @@ END:VCALENDAR
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
         vcalendar = yield cobj.component()
-        self.assertEqualCalendarData(vcalendar, data_get_1.format(**self.dtsubs))
+        self._assertICalStrEqual(vcalendar, data_get_1.format(**self.dtsubs))
 
 
     @inlineCallbacks
@@ -462,7 +465,7 @@ END:VCALENDAR
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
         vcalendar = yield cobj.component()
-        self.assertEqualCalendarData(vcalendar, data_get_1.format(**self.dtsubs))
+        self._assertICalStrEqual(vcalendar, data_get_1.format(**self.dtsubs))
 
 
 
@@ -567,7 +570,7 @@ END:VCALENDAR
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
         vcalendar = yield cobj.component()
-        self.assertEqualCalendarData(vcalendar, data_get_2.format(**self.dtsubs))
+        self._assertICalStrEqual(vcalendar, data_get_2.format(**self.dtsubs))
 
         yield self._verifyObjectResourceCount("user01", 0)
         yield self.commit()
@@ -585,7 +588,7 @@ END:VCALENDAR
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
         vcalendar = yield cobj.component()
-        self.assertEqualCalendarData(vcalendar, data_get_3.format(**self.dtsubs))
+        self._assertICalStrEqual(vcalendar, data_get_3.format(**self.dtsubs))
 
         yield self._verifyObjectResourceCount("user01", 1)
         yield self.commit()
@@ -598,7 +601,7 @@ END:VCALENDAR
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
         vcalendar = yield cobj.component()
-        self.assertEqualCalendarData(vcalendar, data_get_4.format(**self.dtsubs))
+        self._assertICalStrEqual(vcalendar, data_get_4.format(**self.dtsubs))
 
         cal = yield self.calendarUnderTest(name="calendar", home="user01")
         cobjs = yield cal.objectResources()
@@ -709,7 +712,7 @@ END:VCALENDAR
 
             cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user0{0}".format(i))
             vcalendar = yield cobj.component()
-            self.assertEqualCalendarData(vcalendar, data_get_2.format(i, **self.dtsubs))
+            self._assertICalStrEqual(vcalendar, data_get_2.format(i, **self.dtsubs))
 
         yield self._verifyObjectResourceCount("user01", 0)
         yield self.commit()
@@ -728,7 +731,7 @@ END:VCALENDAR
         for i in userRange:
             cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user0{0}".format(i))
             vcalendar = yield cobj.component()
-            self.assertEqualCalendarData(vcalendar, data_get_3.format(i, **self.dtsubs))
+            self._assertICalStrEqual(vcalendar, data_get_3.format(i, **self.dtsubs))
 
         yield self._verifyObjectResourceCount("user01", len(userRange))
         yield self.commit()
@@ -742,7 +745,7 @@ END:VCALENDAR
         for i in userRange:
             cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user0{0}".format(i))
             vcalendar = yield cobj.component()
-            self.assertEqualCalendarData(vcalendar, data_get_4.format(i, **self.dtsubs))
+            self._assertICalStrEqual(vcalendar, data_get_4.format(i, **self.dtsubs))
 
         cal = yield self.calendarUnderTest(name="calendar", home="user01")
         cobjs = yield cal.objectResources()
@@ -851,7 +854,7 @@ END:VCALENDAR
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
         vcalendar = yield cobj.component()
-        self.assertEqualCalendarData(vcalendar, data_get_1.format(**self.dtsubs))
+        self._assertICalStrEqual(vcalendar, data_get_1.format(**self.dtsubs))
 
         yield self._verifyObjectResourceCount("user01", 1)
 
@@ -863,7 +866,7 @@ END:VCALENDAR
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
         vcalendar = yield cobj.component()
-        self.assertEqualCalendarData(vcalendar, data_get_2.format(**self.dtsubs))
+        self._assertICalStrEqual(vcalendar, data_get_2.format(**self.dtsubs))
 
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "group01")
         self.assertEqual(len(wps), 0)
@@ -887,7 +890,7 @@ END:VCALENDAR
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
         vcalendar = yield cobj.component()
-        self.assertEqualCalendarData(vcalendar, data_get_2.format(**self.dtsubs))
+        self._assertICalStrEqual(vcalendar, data_get_2.format(**self.dtsubs))
 
         '''
         cal = yield self.calendarUnderTest(name="calendar", home="user01")
@@ -1009,7 +1012,7 @@ END:VCALENDAR
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
         vcalendar = yield cobj.component()
-        self.assertEqualCalendarData(vcalendar, data_get_1.format(**self.dtsubs))
+        self._assertICalStrEqual(vcalendar, data_get_1.format(**self.dtsubs))
 
         yield self._verifyObjectResourceCount("user01", 1)
 
@@ -1021,7 +1024,7 @@ END:VCALENDAR
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
         vcalendar = yield cobj.component()
-        self.assertEqualCalendarData(vcalendar, data_get_2.format(**self.dtsubs))
+        self._assertICalStrEqual(vcalendar, data_get_2.format(**self.dtsubs))
 
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "group01")
         if len(wps): # This is needed because the test currently fails and does actually create job items we have to wait for
@@ -1046,7 +1049,7 @@ END:VCALENDAR
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
         vcalendar = yield cobj.component()
-        self.assertEqualCalendarData(vcalendar, data_get_2.format(**self.dtsubs))
+        self._assertICalStrEqual(vcalendar, data_get_2.format(**self.dtsubs))
 
 
     @inlineCallbacks
@@ -1200,13 +1203,13 @@ END:VCALENDAR
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
         vcalendar = yield cobj.component()
-        self.assertEqualCalendarData(vcalendar, data_get_1.format(**self.dtsubs))
+        self._assertICalStrEqual(vcalendar, data_get_1.format(**self.dtsubs))
 
         cal = yield self.calendarUnderTest(name="calendar", home="user01")
         cobjs = yield cal.objectResources()
         self.assertEqual(len(cobjs), 1)
         vcalendar = yield cobjs[0].componentForUser()
-        self.assertEqualCalendarData(vcalendar, data_get_1_user01.format(**self.dtsubs))
+        self._assertICalStrEqual(vcalendar, data_get_1_user01.format(**self.dtsubs))
         user01_cname = cobjs[0].name()
 
         cal = yield self.calendarUnderTest(name="inbox", home="user01")
@@ -1236,10 +1239,10 @@ END:VCALENDAR
             props.update(self.dtsubs)
 
             if cobj.name() == "data1.ics":
-                self.assertEqualCalendarData(vcalendar, data_get_2.format(**props))
+                self._assertICalStrEqual(vcalendar, data_get_2.format(**props))
                 props_orig = props
             else:
-                self.assertEqualCalendarData(vcalendar, data_get_3.format(**props))
+                self._assertICalStrEqual(vcalendar, data_get_3.format(**props))
                 props_new = props
 
         cal = yield self.calendarUnderTest(name="calendar", home="user01")
@@ -1247,9 +1250,9 @@ END:VCALENDAR
         for cobj in cobjs:
             vcalendar = yield cobj.componentForUser()
             if cobj.name() == user01_cname:
-                self.assertEqualCalendarData(vcalendar, data_get_2_user01.format(**props_orig))
+                self._assertICalStrEqual(vcalendar, data_get_2_user01.format(**props_orig))
             else:
-                self.assertEqualCalendarData(vcalendar, data_get_3_user01.format(**props_new))
+                self._assertICalStrEqual(vcalendar, data_get_3_user01.format(**props_new))
 
         cal = yield self.calendarUnderTest(name="inbox", home="user01")
         cobjs = yield cal.objectResources()
@@ -1374,7 +1377,7 @@ END:VCALENDAR
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
         vcalendar = yield cobj.component()
-        self.assertEqualCalendarData(vcalendar, data_get_1.format(**self.dtsubs))
+        self._assertICalStrEqual(vcalendar, data_get_1.format(**self.dtsubs))
 
         yield self._verifyObjectResourceCount("user01", 0)
 
@@ -1400,16 +1403,16 @@ END:VCALENDAR
             props.update(self.dtsubs)
 
             if cobj.name() == "data1.ics":
-                self.assertEqualCalendarData(vcalendar, data_get_2.format(**props))
+                self._assertICalStrEqual(vcalendar, data_get_2.format(**props))
                 props_orig = props
             else:
-                self.assertEqualCalendarData(vcalendar, data_get_3.format(**props))
+                self._assertICalStrEqual(vcalendar, data_get_3.format(**props))
 
         cal = yield self.calendarUnderTest(name="calendar", home="user01")
         cobjs = yield cal.objectResources()
         self.assertEqual(len(cobjs), 1)
         vcalendar = yield cobjs[0].componentForUser()
-        self.assertEqualCalendarData(vcalendar, data_get_2_user01.format(**props_orig))
+        self._assertICalStrEqual(vcalendar, data_get_2_user01.format(**props_orig))
 
 
     @inlineCallbacks
@@ -1805,7 +1808,7 @@ END:VCALENDAR
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
         vcalendar = yield cobj.component()
-        self.assertEqualCalendarData(vcalendar, data_get_2.format(**self.dtsubs))
+        self._assertICalStrEqual(vcalendar, data_get_2.format(**self.dtsubs))
 
         yield self._verifyObjectResourceCount("user01", 1)
         groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
@@ -1909,7 +1912,7 @@ END:VCALENDAR
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
         vcalendar = yield cobj.component()
-        self.assertEqualCalendarData(vcalendar, data_get_2.format(**self.dtsubs))
+        self._assertICalStrEqual(vcalendar, data_get_2.format(**self.dtsubs))
 
         yield self._verifyObjectResourceCount("user01", 1)
         groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
