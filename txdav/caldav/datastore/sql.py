@@ -82,7 +82,8 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     UnknownTimezone, SetComponentOptions
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
-from txdav.common.datastore.sql_directory import GroupsRecord
+from txdav.common.datastore.sql_directory import GroupsRecord, \
+    GroupMembershipRecord
 from txdav.common.datastore.sql_tables import _ATTACHMENTS_MODE_NONE, \
     _ATTACHMENTS_MODE_READ, _ATTACHMENTS_MODE_WRITE, _BIND_MODE_DIRECT, \
     _BIND_MODE_GROUP, _BIND_MODE_GROUP_READ, _BIND_MODE_GROUP_WRITE, \
@@ -2127,33 +2128,52 @@ class Calendar(CommonHomeChild):
 
         # First check that the actual group membership has changed
         if (yield self.updateShareeGroupLink(groupUID)):
-            group = yield self._txn.groupByUID(groupUID)
-            memberUIDs = yield self._txn.groupMemberUIDs(group.groupID)
-            boundUIDs = set()
 
+            # First find all the members of all the groups being shared to
+            groupMembers = yield GroupMembershipRecord.query(
+                self._txn,
+                GroupMembershipRecord.groupID.In(
+                    GroupShareeRecord.queryExpr(
+                        expr=GroupShareeRecord.calendarID == self.id(),
+                        attributes=[GroupShareeRecord.groupID, ]
+                    )
+                ),
+                distinct=True,
+            )
+            memberUIDs = set([grp.memberUID for grp in groupMembers])
+
+            # Find each currently bound group sharee UID along with their bind mode
+            boundUIDs = set()
             home = self._homeSchema
             bind = self._bindSchema
             rows = yield Select(
-                [home.OWNER_UID],
-                From=home,
-                Where=home.RESOURCE_ID.In(
-                    Select(
-                        [bind.HOME_RESOURCE_ID],
-                        From=bind,
-                        Where=(bind.CALENDAR_RESOURCE_ID == self._resourceID).And(
-                            (bind.BIND_MODE == _BIND_MODE_GROUP)
-                            .Or(bind.BIND_MODE == _BIND_MODE_GROUP_READ)
-                            .Or(bind.BIND_MODE == _BIND_MODE_GROUP_WRITE)
-                        )
-                    )
+                [home.OWNER_UID, bind.BIND_MODE],
+                From=bind.join(home, on=bind.HOME_RESOURCE_ID == home.RESOURCE_ID),
+                Where=(bind.CALENDAR_RESOURCE_ID == self._resourceID).And(
+                    bind.BIND_MODE.In((_BIND_MODE_GROUP, _BIND_MODE_GROUP_READ, _BIND_MODE_GROUP_WRITE))
                 )
             ).on(self._txn)
-            for [shareeHomeUID] in rows:
+            for shareeHomeUID, shareeBindMode in rows:
+
                 if shareeHomeUID in memberUIDs:
+                    # Group sharee still referenced via a group - make a note of it
                     boundUIDs.add(shareeHomeUID)
-                else:
+
+                elif shareeBindMode == _BIND_MODE_GROUP:
+                    # Group only sharee is no longer referenced by any group - uninvite them
                     yield self.uninviteUIDFromShare(shareeHomeUID)
                     changed = True
+
+                else:
+                    # Group+individual sharee is no longer referenced by a group so update the bind
+                    # mode to reflect just the individual mode
+                    yield super(Calendar, self).inviteUIDToShare(
+                        shareeHomeUID,
+                        {
+                            _BIND_MODE_GROUP_READ: _BIND_MODE_READ,
+                            _BIND_MODE_GROUP_WRITE: _BIND_MODE_WRITE,
+                        }.get(shareeBindMode),
+                    )
 
             for memberUID in memberUIDs - boundUIDs:
                 # Never reconcile the sharer
