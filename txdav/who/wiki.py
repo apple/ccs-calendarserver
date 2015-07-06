@@ -33,9 +33,11 @@ from twext.who.directory import (
 from twext.who.idirectory import FieldName as BaseFieldName
 from twext.who.util import ConstantsContainer
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.internet.defer import (
+    inlineCallbacks, returnValue, succeed, TimeoutError
+)
 from twisted.python.constants import Names, NamedConstant
-from twisted.web.client import HTTPPageGetter, HTTPClientFactory
+from twisted.web.client import HTTPClientFactory
 from twisted.web.error import Error as WebError
 from txdav.who.directory import CalendarDirectoryRecordMixin
 from txdav.who.idirectory import FieldName
@@ -215,6 +217,12 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
             self.log.error(
                 "Unable to look up wiki access: {error}",
                 record=record, error=e
+            )
+            returnValue(WikiAccessLevel.none)
+
+        except TimeoutError as e:
+            self.log.error(
+                "Wiki request timed out"
             )
             returnValue(WikiAccessLevel.none)
 
@@ -439,7 +447,6 @@ def _getPage(url, descriptor):
         otherwise a twisted.web.error.Error is the result.
     """
     point = endpoints.clientFromString(reactor, descriptor)
-    factory = HTTPClientFactory(url)
-    factory.protocol = HTTPPageGetter
+    factory = HTTPClientFactory(url, timeout=10)
     point.connect(factory)
     return factory.deferred
