@@ -466,7 +466,6 @@ class GatewayTestCase(RunCommandTestCase):
         self.assertEquals(results["result"]["DefaultLogLevel"], "warn")
 
         self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["Enabled"], False)
-        self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["CalDAV"]["CertificatePath"], "/example/calendar.cer")
 
         # This is a read only key that is returned
         self.assertEquals(results["result"]["ServerRoot"], self.absoluteServerRoot)
@@ -489,7 +488,6 @@ class GatewayTestCase(RunCommandTestCase):
         self.assertEquals(results["result"]["EnableCardDAV"], False)
         self.assertEquals(results["result"]["EnableSSL"], True)
         self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["Enabled"], True)
-        self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["CalDAV"]["CertificatePath"], "/example/changed.cer")
         hostName = "hostname_%s_%s" % (unichr(208), u"\ud83d\udca3")
         self.assertTrue(results["result"]["ServerHostName"].endswith(hostName))
 
@@ -972,8 +970,6 @@ command_writeConfig = """<?xml version="1.0" encoding="UTF-8"?>
             <true/>
             <key>Notifications.Services.APNS.Enabled</key>
             <true/>
-            <key>Notifications.Services.APNS.CalDAV.CertificatePath</key>
-            <string>/example/changed.cer</string>
             <key>ServerHostName</key>
             <string>hostname_%s_%s</string>
         </dict>
