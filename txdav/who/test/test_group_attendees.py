@@ -186,7 +186,7 @@ VERSION:2.0
 BEGIN:VEVENT
 DTSTAMP:20051222T205953Z
 CREATED:20060101T150000Z
-DTSTART:{nowDate}T100000Z
+DTSTART:{nowDate_fwd1}T100000Z
 DURATION:PT1H
 SUMMARY:event 1
 UID:event1@ninevah.local
@@ -202,7 +202,7 @@ CALSCALE:GREGORIAN
 PRODID:-//Example Inc.//Example Calendar//EN
 BEGIN:VEVENT
 UID:event1@ninevah.local
-DTSTART:{nowDate}T100000Z
+DTSTART:{nowDate_fwd1}T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:x-uid:user01
 ATTENDEE;CUTYPE=X-SERVER-GROUP;SCHEDULE-STATUS=3.7:urn:uuid:FFFFFFFF-EEEE-DDDD-CCCC-BBBBBBBBBBBB
@@ -410,7 +410,7 @@ END:VCALENDAR"""
     @inlineCallbacks
     def test_groupPutOldEvent(self):
         """
-        Test that old event with group attendee is expaned but not linked to group update
+        Test that old event with group attendee is expanded but not linked to group update
         """
 
         data_put_1 = """BEGIN:VCALENDAR
@@ -420,7 +420,7 @@ VERSION:2.0
 BEGIN:VEVENT
 DTSTAMP:20051222T205953Z
 CREATED:20060101T150000Z
-DTSTART:{nowDate}T100000Z
+DTSTART:{nowDate_back2}T100000Z
 DURATION:PT1H
 SUMMARY:event 1
 UID:event1@ninevah.local
@@ -436,7 +436,7 @@ CALSCALE:GREGORIAN
 PRODID:-//Example Inc.//Example Calendar//EN
 BEGIN:VEVENT
 UID:event1@ninevah.local
-DTSTART:{nowDate}T100000Z
+DTSTART:{nowDate_back2}T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01

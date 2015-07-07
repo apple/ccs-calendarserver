@@ -2843,6 +2843,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             else:
                 groupUID = uidFromCalendarUserAddress(groupCUA)
             group = yield self._txn.groupByUID(groupUID)
+            if group is None:
+                continue
 
             if group.groupID in groupIDToMembershipHashMap:
                 if groupIDToMembershipHashMap[group.groupID].membershipHash != group.membershipHash:
