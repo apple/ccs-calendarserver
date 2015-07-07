@@ -413,12 +413,6 @@ create table IMIP_TOKENS (
     primary key ("ORGANIZER", "ATTENDEE", "ICALUID")
 );
 
-create table TEST_WORK (
-    "WORK_ID" integer primary key,
-    "JOB_ID" integer not null references JOB,
-    "DELAY" integer
-);
-
 create table IMIP_INVITATION_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB,
@@ -675,7 +669,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '56');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '55');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
@@ -825,10 +819,6 @@ create index APN_SUBSCRIPTIONS_RES_9610d78e on APN_SUBSCRIPTIONS (
 
 create index IMIP_TOKENS_TOKEN_e94b918f on IMIP_TOKENS (
     "TOKEN"
-);
-
-create index TEST_WORK_JOB_ID_228ede32 on TEST_WORK (
-    "JOB_ID"
 );
 
 create index IMIP_INVITATION_WORK__586d064c on IMIP_INVITATION_WORK (
