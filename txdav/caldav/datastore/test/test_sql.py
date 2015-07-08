@@ -3142,6 +3142,92 @@ END:VCALENDAR
 
 
     @inlineCallbacks
+    def test_setComponent_changed_stripStandardTimezones(self):
+        """
+        Verify we let the client know we stripped standard timezones
+        """
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//Mac OS X 10.9.1//EN
+BEGIN:VEVENT
+UID:561F5DBB-3F38-4B3A-986F-DD05CBAF554F
+DTSTART:20131211T164500Z
+DURATION:PT1H
+CREATED:20131211T221854Z
+DTSTAMP:20131211T230632Z
+SEQUENCE:1
+SUMMARY:testing
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        tzdata = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//Mac OS X 10.9.1//EN
+BEGIN:VTIMEZONE
+TZID:US/Pacific
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0800
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+DTSTART:20070311T020000
+TZNAME:PDT
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0700
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+DTSTART:20071104T020000
+TZNAME:PST
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        TimezoneCache.create()
+        self.addCleanup(TimezoneCache.clear)
+
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        yield calendar.createCalendarObjectWithName(
+            "structured.ics",
+            Component.fromString(data)
+        )
+
+        yield self.commit()
+
+        cobj = yield self.calendarObjectUnderTest(
+            name="structured.ics",
+            calendar_name="calendar",
+            home="user01"
+        )
+        comp = yield cobj.componentForUser()
+        comp = comp.duplicate()
+
+        # create timezone component
+        tzCalendar = Component.fromString(tzdata)
+        tzComponent = list(tzCalendar.subcomponents())[0]
+        comp.addComponent(tzComponent)
+
+        # update DTSTART to reference that tz
+        main = comp.mainComponent()
+        newStart = Property(
+            "DTSTART",
+            DateTime(2015, 7, 7, 5, 0, 0, tzid=Timezone(tzid="US/Pacific"))
+        )
+        main.replaceProperty(newStart)
+        yield cobj.setComponent(comp)
+        comp = yield cobj.componentForUser()
+        self.assertTrue(cobj._componentChanged)
+
+        yield self.commit()
+
+
+
+    @inlineCallbacks
     def test_setComponent_externalPrincipal(self):
         """
         Verify attendees who are not locally hosted have X-APPLE-HOSTED-STATUS=EXTERNAL
