@@ -3788,6 +3788,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 self._componentChanged = True
 
             # Fix broken VTODOs
+            # Note: if this does recover lost organizer/attendee properties, the
+            # implicit code below will set _componentChanged
             yield self.replaceMissingToDoProperties(component, inserting, internal_state)
 
             # Handle sharing dropbox normalization

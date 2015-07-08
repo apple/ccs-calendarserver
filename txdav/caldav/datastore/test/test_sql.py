@@ -56,7 +56,7 @@ from txdav.caldav.datastore.sql import CalendarStoreFeatures, CalendarObject
 from txdav.common.datastore.sql import ECALENDARTYPE, CommonObjectResource, \
     CommonStoreTransactionMonitor
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT, \
-    _BIND_STATUS_ACCEPTED, _TRANSP_OPAQUE
+    _BIND_STATUS_ACCEPTED, _TRANSP_OPAQUE, _BIND_MODE_WRITE
 from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests, \
     test_event_text, cal1Root
 from txdav.caldav.datastore.test.test_file import setUpCalendarStore
@@ -3283,6 +3283,70 @@ END:VCALENDAR
         )
 
         comp = Component.fromString(dataWithout % self.dtsubs)
+        yield cobj.setComponent(comp)
+        comp = yield cobj.componentForUser()
+        self.assertTrue(cobj._componentChanged)
+
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_setComponent_changed_dropboxPathNormalization(self):
+        """
+        Verify we let the client know we normalized dropbox paths
+        """
+
+        dataWithout = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//Mac OS X 10.9.1//EN
+BEGIN:VEVENT
+UID:561F5DBB-3F38-4B3A-986F-DD05CBAF554F
+DTSTART:%(now_fwd30)s
+DURATION:PT1H
+DTSTAMP:%(now)s
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        dataWith = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//Mac OS X 10.9.1//EN
+BEGIN:VEVENT
+UID:561F5DBB-3F38-4B3A-986F-DD05CBAF554F
+DTSTART:%(now_fwd30)s
+DURATION:PT1H
+DTSTAMP:%(now)s
+SEQUENCE:2
+X-APPLE-DROPBOX:https://example.com/calendars/users/user02/dropbox/123.dropbox
+ATTACH;VALUE=URI:https://example.com/calendars/users/user02/dropbox/123.dropbox/1.txt
+ATTACH;VALUE=URI:https://example.org/attachments/2.txt
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        calendarCollection = (yield self.calendarUnderTest(name="calendar", home="user01"))
+        shareeHome = (yield self.homeUnderTest(name="user02"))
+        sharedName = (yield calendarCollection.shareWith(shareeHome, _BIND_MODE_WRITE,))
+        yield self.commit()
+
+        calendar = yield self.calendarUnderTest(name=sharedName, home="user02")
+        yield calendar.createCalendarObjectWithName(
+            "attach.ics",
+            Component.fromString(dataWithout % self.dtsubs)
+        )
+
+        yield self.commit()
+
+        cobj = yield self.calendarObjectUnderTest(
+            name="attach.ics",
+            calendar_name=sharedName,
+            home="user02"
+        )
+
+        comp = Component.fromString(dataWith % self.dtsubs)
         yield cobj.setComponent(comp)
         comp = yield cobj.componentForUser()
         self.assertTrue(cobj._componentChanged)
