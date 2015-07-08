@@ -3129,6 +3129,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         comment (which will trigger scheduling with the organizer to remove the comment on the organizer's
         side).
         """
+        changed = False
+
         if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
             old_has_private_comments = not inserting and self.hasPrivateComment
             new_has_private_comments = component.hasPropertyInAnyComponent((
@@ -3142,6 +3144,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 component.transferProperties(old_calendar, (
                     "X-CALENDARSERVER-ATTENDEE-COMMENT",
                 ))
+                changed = True
 
             self.hasPrivateComment = new_has_private_comments
 
@@ -3151,6 +3154,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # Look for properties with duplicate "X-CALENDARSERVER-ATTENDEE-REF" values in the same component
             if component.hasDuplicatePrivateComments(doFix=config.RemoveDuplicatePrivateComments) and internal_state == ComponentUpdateState.NORMAL:
                 raise DuplicatePrivateCommentsError("Duplicate X-CALENDARSERVER-ATTENDEE-COMMENT properties present.")
+
+        returnValue(changed)
 
 
     @inlineCallbacks
@@ -3778,7 +3783,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             yield self._lockAndCheckUID(component, inserting, internal_state)
 
             # Preserve private comments
-            yield self.preservePrivateComments(component, inserting, internal_state)
+            changed = yield self.preservePrivateComments(component, inserting, internal_state)
+            if changed:
+                self._componentChanged = True
 
             # Fix broken VTODOs
             yield self.replaceMissingToDoProperties(component, inserting, internal_state)

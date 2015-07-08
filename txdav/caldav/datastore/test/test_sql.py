@@ -2550,7 +2550,7 @@ END:VCALENDAR
 
 
 
-class SchedulingTests(CommonCommonTests, unittest.TestCase):
+class SchedulingTests(CommonCommonTests, DateTimeSubstitutionsMixin, unittest.TestCase):
     """
     CalendarObject splitting tests
     """
@@ -2559,6 +2559,7 @@ class SchedulingTests(CommonCommonTests, unittest.TestCase):
     def setUp(self):
         yield super(SchedulingTests, self).setUp()
         yield self.buildStoreAndDirectory()
+        self.setupDateTimeValues()
 
         # Make sure homes are provisioned
         txn = self.transactionUnderTest()
@@ -3225,6 +3226,68 @@ END:VCALENDAR
 
         yield self.commit()
 
+
+    @inlineCallbacks
+    def test_setComponent_changed_preservePrivateComments(self):
+        """
+        Verify we let the client know we preserved private comments
+        """
+
+        dataWith = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//Mac OS X 10.9.1//EN
+BEGIN:VEVENT
+UID:561F5DBB-3F38-4B3A-986F-DD05CBAF554F
+DTSTART:%(now_fwd30)s
+DURATION:PT1H
+CREATED:%(now)s
+DTSTAMP:%(now)s
+SEQUENCE:1
+SUMMARY:testing
+TRANSP:OPAQUE
+X-CALENDARSERVER-ATTENDEE-COMMENT;X-CALENDARSERVER-ATTENDEE-REF="urn:uuid:user01";X-CALENDARSERVER-DTSTAMP=%(now)s:Message1
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        dataWithout = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//Mac OS X 10.9.1//EN
+BEGIN:VEVENT
+UID:561F5DBB-3F38-4B3A-986F-DD05CBAF554F
+DTSTART:%(now_fwd30)s
+DURATION:PT1H
+CREATED:%(now)s
+DTSTAMP:%(now)s
+SEQUENCE:1
+SUMMARY:testing
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        yield calendar.createCalendarObjectWithName(
+            "comments.ics",
+            Component.fromString(dataWith % self.dtsubs)
+        )
+
+        yield self.commit()
+
+        cobj = yield self.calendarObjectUnderTest(
+            name="comments.ics",
+            calendar_name="calendar",
+            home="user01"
+        )
+
+        comp = Component.fromString(dataWithout % self.dtsubs)
+        yield cobj.setComponent(comp)
+        comp = yield cobj.componentForUser()
+        self.assertTrue(cobj._componentChanged)
+
+        yield self.commit()
 
 
     @inlineCallbacks
