@@ -181,6 +181,13 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                     format += " fwd=%(fwd)s"
                     formatArgs["fwd"] = forwardedFor
 
+            if formatArgs["host"] == "0.0.0.0":
+                fwdHeaders = request.headers.getRawHeaders("x-forwarded-for", "")
+                if fwdHeaders:
+                    formatArgs["host"] = fwdHeaders[-1].split(",")[-1].strip()
+                    format += " unix=%(unix)s"
+                    formatArgs["unix"] = "true"
+
         elif "overloaded" in eventDict:
             overloaded = eventDict.get("overloaded")
 
