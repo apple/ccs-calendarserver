@@ -3071,7 +3071,6 @@ END:VCALENDAR
         yield self.commit()
 
 
-
     @inlineCallbacks
     def test_setComponent_structuredLocation_MissingValue(self):
         """
