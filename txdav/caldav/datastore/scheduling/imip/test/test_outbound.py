@@ -585,6 +585,7 @@ END:VCALENDAR
             txn, inputOriginator, inputRecipient,
             Component.fromString(inputCalendar.replace("\n", "\r\n")),
             onlyAfter=DateTime(2010, 1, 1, 0, 0, 0))
+        yield txn.commit()
 
         # Verify we didn't create a new token...
         txn = self.store.newTransaction()
@@ -632,6 +633,17 @@ END:VCALENDAR
             if part.get_content_type().startswith("text/")
         ])
         self.assertEquals(actualTypes, expectedTypes)
+
+
+    def test_messageID(self):
+        """
+        L{SMTPSender.betterMessageID} generates a Message-ID domain matching
+        the L{config.ServerHostName} value.
+        """
+        self.patch(config, "ServerHostName", "calendar.example.com")
+        msgID, message = self.generateSampleEmail()
+        self.assertEquals(message['Message-ID'], msgID)
+        self.assertEqual(msgID[:-1].split("@")[1], config.ServerHostName)
 
 
     def test_alwaysIncludeTimezones(self):

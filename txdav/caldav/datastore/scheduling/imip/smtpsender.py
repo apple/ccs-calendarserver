@@ -24,7 +24,8 @@ from twext.internet.adaptendpoint import connect
 from twext.internet.gaiendpoint import GAIEndpoint
 from twext.python.log import Logger
 from twisted.internet import defer, ssl, reactor as _reactor
-from twisted.mail.smtp import ESMTPSenderFactory
+from twisted.mail.smtp import ESMTPSenderFactory, messageid
+from twistedcaldav.config import config
 
 log = Logger()
 
@@ -81,3 +82,15 @@ class SMTPSender(object):
         deferred.addCallback(_success, msgId, fromAddr, toAddr)
         deferred.addErrback(_failure, msgId, fromAddr, toAddr)
         return deferred
+
+
+    @staticmethod
+    def betterMessageID():
+        """
+        Strip out the domain in the default Twisted Message-ID value and replace with our configured
+        server host name. That will avoid leaking internal app-server host names in a multi-host setup.
+
+        @return: our safe message-id value
+        @rtype: L{str}
+        """
+        return "{}@{}>".format(messageid().split("@")[0], config.ServerHostName)

@@ -27,7 +27,6 @@ from twisted.application import service
 from twisted.internet import protocol, defer, ssl
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.mail import pop3client, imap4
-from twisted.mail.smtp import messageid
 
 from twistedcaldav.config import config
 from twistedcaldav.ical import Property, Component
@@ -392,7 +391,7 @@ class MailReceiver(object):
             del msg["To"]
             msg["To"] = toAddr
             log.warn("Mail gateway forwarding reply back to organizer")
-            yield smtpSender.sendMessage(fromAddr, toAddr, messageid(), msg.as_string())
+            yield smtpSender.sendMessage(fromAddr, toAddr, SMTPSender.betterMessageID(), msg.as_string())
             returnValue(self.REPLY_FORWARDED_TO_ORGANIZER)
 
         # Process the imip attachment; inject to calendar server

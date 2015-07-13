@@ -32,7 +32,7 @@ from twext.enterprise.dal.record import fromTable
 from twext.enterprise.jobqueue import WorkItem
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.mail.smtp import messageid, rfc822date
+from twisted.mail.smtp import rfc822date
 from twisted.web.microdom import Text as DOMText, Element as DOMElement
 from twisted.web.microdom import parseString
 from twisted.web.template import XMLString, TEMPLATE_NAMESPACE, Element, renderer, flattenString, tags
@@ -558,7 +558,7 @@ class MailSender(object):
         msg["Reply-To"] = replyToAddress
         msg["To"] = toAddress
         msg["Date"] = rfc822date()
-        msgId = messageid()
+        msgId = SMTPSender.betterMessageID()
         msg["Message-ID"] = msgId
 
         msgAlt = MIMEMultipart("alternative")
