@@ -32,7 +32,7 @@ from twext.enterprise.dal.record import fromTable
 from twext.enterprise.queue import WorkItem
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.mail.smtp import messageid, rfc822date
+from twisted.mail.smtp import rfc822date
 from twisted.web.microdom import Text as DOMText, Element as DOMElement
 from twisted.web.microdom import parseString
 from twisted.web.template import XMLString, TEMPLATE_NAMESPACE, Element, renderer, flattenString, tags
@@ -449,6 +449,8 @@ class MailSender(object):
             orgEmail = organizerMailto[7:]
 
             orgCN = calendar.getOrganizerProperty().parameterValue('CN', None)
+            if orgCN:
+                orgCN = orgCN.decode("utf-8")
             addressWithToken = formattedFrom
 
         # At the point we've created the token in the db, which we always
@@ -552,7 +554,7 @@ class MailSender(object):
         msg["Reply-To"] = replyToAddress
         msg["To"] = toAddress
         msg["Date"] = rfc822date()
-        msgId = messageid()
+        msgId = SMTPSender.betterMessageID()
         msg["Message-ID"] = msgId
 
         msgAlt = MIMEMultipart("alternative")
@@ -654,8 +656,9 @@ class MailSender(object):
         # template stuff, and once again, it's just a 'mailto:'.
         # tags.a(href="mailto:"+email)[cn]
         if orgEmail:
-            details['htmlOrganizer'] = tags.a(href="mailto:%s" % (orgEmail,))(
-                orgCN)
+            if not orgCN:
+                orgCN = orgEmail
+            details['htmlOrganizer'] = tags.a(href="mailto:%s" % (orgEmail,))(orgCN)
         else:
             details['htmlOrganizer'] = orgCN
 

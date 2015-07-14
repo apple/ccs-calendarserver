@@ -57,7 +57,7 @@ SUMMARY:t\xe9sting outbound( )
 DESCRIPTION:awesome description with "<" and "&"
 END:VEVENT
 END:VCALENDAR
-"""
+""".encode("utf-8")
 
 inviteTextNoTimezone = u"""BEGIN:VCALENDAR
 VERSION:2.0
@@ -80,7 +80,7 @@ SUMMARY:t\xe9sting outbound( )
 DESCRIPTION:awesome description with "<" and "&"
 END:VEVENT
 END:VCALENDAR
-"""
+""".encode("utf-8")
 
 inviteTextWithTimezone = u"""BEGIN:VCALENDAR
 VERSION:2.0
@@ -246,7 +246,7 @@ SUMMARY:t\xe9sting outbound( )
 DESCRIPTION:awesome description with "<" and "&"
 END:VEVENT
 END:VCALENDAR
-"""
+""".encode("utf-8")
 
 ORGANIZER = "urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A"
 ATTENDEE = "mailto:attendee@example.com"
@@ -391,63 +391,63 @@ class OutboundTests(unittest.TestCase):
 
             # Update
             (
-                """BEGIN:VCALENDAR
+                u"""BEGIN:VCALENDAR
 VERSION:2.0
 METHOD:REQUEST
 BEGIN:VEVENT
 UID:CFDD5E46-4F74-478A-9311-B3FF905449C3
 DTSTART:20100325T154500Z
 DTEND:20100325T164500Z
-ATTENDEE;CN=The Attendee;CUTYPE=INDIVIDUAL;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:
+ATTENDEE;CN=Th\xe9 Attendee;CUTYPE=INDIVIDUAL;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:
  mailto:attendee@example.com
-ATTENDEE;CN=The Organizer;CUTYPE=INDIVIDUAL;EMAIL=organizer@example.com;PAR
+ATTENDEE;CN=Th\xe9 Organizer;CUTYPE=INDIVIDUAL;EMAIL=organizer@example.com;PAR
  TSTAT=ACCEPTED:urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A
-ORGANIZER;CN=The Organizer;EMAIL=organizer@example.com:urn:uuid:C3B38B00-41
+ORGANIZER;CN=Th\xe9 Organizer;EMAIL=organizer@example.com:urn:uuid:C3B38B00-41
  66-11DD-B22C-A07C87E02F6A
-SUMMARY:testing outbound( ) *update*
+SUMMARY:t\xe9sting outbound( ) *update*
 END:VEVENT
 END:VCALENDAR
-""",
+""".encode("utf-8"),
                 "CFDD5E46-4F74-478A-9311-B3FF905449C3",
                 "urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A",
                 "mailto:attendee@example.com",
                 "update",
                 "organizer@example.com",
-                "The Organizer",
+                u"Th\xe9 Organizer",
                 [
-                    (u'The Attendee', u'attendee@example.com'),
-                    (u'The Organizer', u'organizer@example.com')
+                    (u'Th\xe9 Attendee', u'attendee@example.com'),
+                    (u'Th\xe9 Organizer', u'organizer@example.com')
                 ],
-                "The Organizer <organizer@example.com>",
-                "The Organizer <organizer@example.com>",
+                u"Th\xe9 Organizer <organizer@example.com>",
+                "=?utf-8?q?Th=C3=A9_Organizer_=3Corganizer=40example=2Ecom=3E?=",
                 "attendee@example.com",
             ),
 
             # Reply
             (
-                """BEGIN:VCALENDAR
+                u"""BEGIN:VCALENDAR
 VERSION:2.0
 METHOD:REPLY
 BEGIN:VEVENT
 UID:DFDD5E46-4F74-478A-9311-B3FF905449C4
 DTSTART:20100325T154500Z
 DTEND:20100325T164500Z
-ATTENDEE;CN=The Attendee;CUTYPE=INDIVIDUAL;EMAIL=attendee@example.com;PARTST
+ATTENDEE;CN=Th\xe9 Attendee;CUTYPE=INDIVIDUAL;EMAIL=attendee@example.com;PARTST
  AT=ACCEPTED:urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A
-ORGANIZER;CN=The Organizer;EMAIL=organizer@example.com:mailto:organizer@exam
+ORGANIZER;CN=Th\xe9 Organizer;EMAIL=organizer@example.com:mailto:organizer@exam
  ple.com
-SUMMARY:testing outbound( ) *reply*
+SUMMARY:t\xe9sting outbound( ) *reply*
 END:VEVENT
 END:VCALENDAR
-""",
+""".encode("utf-8"),
                 None,
                 "urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A",
                 "mailto:organizer@example.com",
                 "reply",
                 "organizer@example.com",
-                "The Organizer",
+                u"Th\xe9 Organizer",
                 [
-                    (u'The Attendee', u'attendee@example.com'),
+                    (u'Th\xe9 Attendee', u'attendee@example.com'),
                 ],
                 "attendee@example.com",
                 "attendee@example.com",
@@ -619,6 +619,59 @@ END:VCALENDAR
             if part.get_content_type().startswith("text/")
         ])
         self.assertEquals(actualTypes, expectedTypes)
+
+
+    def test_generateEmail_noOrganizerCN(self):
+        """
+        L{MailHandler.generateEmail} generates a MIME-formatted email when
+        the organizer property has no CN parameter.
+        """
+        calendar = Component.fromString(initialInviteText)
+        _ignore_msgID, msgTxt = self.sender.generateEmail(
+            inviteState='new',
+            calendar=calendar,
+            orgEmail=u"user01@localhost",
+            orgCN=None,
+            attendees=[(u"Us\xe9r One", "user01@localhost"),
+                       (u"User 2", "user02@localhost")],
+            fromAddress="user01@localhost",
+            replyToAddress="imip-system@localhost",
+            toAddress="user03@localhost",
+        )
+        message = email.message_from_string(msgTxt)
+        self.assertTrue(message is not None)
+
+
+    def test_generateEmail_noAttendeeCN(self):
+        """
+        L{MailHandler.generateEmail} generates a MIME-formatted email when
+        the attendee property has no CN parameter.
+        """
+        calendar = Component.fromString(initialInviteText)
+        _ignore_msgID, msgTxt = self.sender.generateEmail(
+            inviteState='new',
+            calendar=calendar,
+            orgEmail=u"user01@localhost",
+            orgCN=u"User Z\xe9ro One",
+            attendees=[(None, "user01@localhost"),
+                       (None, "user02@localhost")],
+            fromAddress="user01@localhost",
+            replyToAddress="imip-system@localhost",
+            toAddress="user03@localhost",
+        )
+        message = email.message_from_string(msgTxt)
+        self.assertTrue(message is not None)
+
+
+    def test_messageID(self):
+        """
+        L{SMTPSender.betterMessageID} generates a Message-ID domain matching
+        the L{config.ServerHostName} value.
+        """
+        self.patch(config, "ServerHostName", "calendar.example.com")
+        msgID, message = self.generateSampleEmail()
+        self.assertEquals(message['Message-ID'], msgID)
+        self.assertEqual(msgID[:-1].split("@")[1], config.ServerHostName)
 
 
     def test_alwaysIncludeTimezones(self):
