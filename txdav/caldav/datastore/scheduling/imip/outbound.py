@@ -453,6 +453,8 @@ class MailSender(object):
             orgEmail = organizerMailto[7:]
 
             orgCN = calendar.getOrganizerProperty().parameterValue('CN', None)
+            if orgCN:
+                orgCN = orgCN.decode("utf-8")
             addressWithToken = formattedFrom
 
         # At the point we've created the token in the db, which we always
@@ -663,8 +665,9 @@ class MailSender(object):
         # template stuff, and once again, it's just a 'mailto:'.
         # tags.a(href="mailto:"+email)[cn]
         if orgEmail:
-            details['htmlOrganizer'] = tags.a(href="mailto:%s" % (orgEmail,))(
-                orgCN)
+            if not orgCN:
+                orgCN = orgEmail
+            details['htmlOrganizer'] = tags.a(href="mailto:%s" % (orgEmail,))(orgCN)
         else:
             details['htmlOrganizer'] = orgCN
 
