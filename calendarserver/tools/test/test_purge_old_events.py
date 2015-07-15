@@ -642,28 +642,118 @@ class PurgeOldEventsTests(StoreTestCase):
         # Dry run
         total = (yield PurgeOldEventsService.purgeOldEvents(
             self._sqlCalendarStore,
+            None,
             DateTime(now, 4, 1, 0, 0, 0),
             2,
             dryrun=True,
-            verbose=False
+            debug=True
         ))
         self.assertEquals(total, 13)
 
         # Actually remove
         total = (yield PurgeOldEventsService.purgeOldEvents(
             self._sqlCalendarStore,
+            None,
             DateTime(now, 4, 1, 0, 0, 0),
             2,
-            verbose=False
+            debug=True
         ))
         self.assertEquals(total, 13)
 
         # There should be no more left
         total = (yield PurgeOldEventsService.purgeOldEvents(
             self._sqlCalendarStore,
+            None,
             DateTime(now, 4, 1, 0, 0, 0),
             2,
-            verbose=False
+            debug=True
+        ))
+        self.assertEquals(total, 0)
+
+
+    @inlineCallbacks
+    def test_purgeOldEvents_home_filtering(self):
+
+        # Dry run
+        total = (yield PurgeOldEventsService.purgeOldEvents(
+            self._sqlCalendarStore,
+            "ho",
+            DateTime(now, 4, 1, 0, 0, 0),
+            2,
+            dryrun=True,
+            debug=True
+        ))
+        self.assertEquals(total, 13)
+
+        # Dry run
+        total = (yield PurgeOldEventsService.purgeOldEvents(
+            self._sqlCalendarStore,
+            "home",
+            DateTime(now, 4, 1, 0, 0, 0),
+            2,
+            dryrun=True,
+            debug=True
+        ))
+        self.assertEquals(total, 13)
+
+        # Dry run
+        total = (yield PurgeOldEventsService.purgeOldEvents(
+            self._sqlCalendarStore,
+            "home1",
+            DateTime(now, 4, 1, 0, 0, 0),
+            2,
+            dryrun=True,
+            debug=True
+        ))
+        self.assertEquals(total, 5)
+
+        # Dry run
+        total = (yield PurgeOldEventsService.purgeOldEvents(
+            self._sqlCalendarStore,
+            "home2",
+            DateTime(now, 4, 1, 0, 0, 0),
+            2,
+            dryrun=True,
+            debug=True
+        ))
+        self.assertEquals(total, 8)
+
+
+    @inlineCallbacks
+    def test_purgeOldEvents_old_cutoff(self):
+
+        # Dry run
+        cutoff = DateTime.getToday()
+        cutoff.setDateOnly(False)
+        cutoff.offsetDay(-400)
+
+        total = (yield PurgeOldEventsService.purgeOldEvents(
+            self._sqlCalendarStore,
+            "ho",
+            cutoff,
+            2,
+            dryrun=True,
+            debug=True
+        ))
+        self.assertEquals(total, 12)
+
+        # Actually remove
+        total = (yield PurgeOldEventsService.purgeOldEvents(
+            self._sqlCalendarStore,
+            None,
+            cutoff,
+            2,
+            debug=True
+        ))
+        self.assertEquals(total, 12)
+
+        total = (yield PurgeOldEventsService.purgeOldEvents(
+            self._sqlCalendarStore,
+            "ho",
+            cutoff,
+            2,
+            dryrun=True,
+            debug=True
         ))
         self.assertEquals(total, 0)
 
@@ -753,9 +843,10 @@ class PurgeOldEventsTests(StoreTestCase):
         # Remove old events first
         total = (yield PurgeOldEventsService.purgeOldEvents(
             self._sqlCalendarStore,
+            None,
             DateTime(now, 4, 1, 0, 0, 0),
             2,
-            verbose=False
+            debug=False
         ))
         self.assertEquals(total, 13)
 
