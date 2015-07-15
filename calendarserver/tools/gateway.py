@@ -583,7 +583,7 @@ class Runner(object):
         cutoff = PyCalendarDateTime.getToday()
         cutoff.setDateOnly(False)
         cutoff.offsetDay(-retainDays)
-        eventCount = (yield PurgeOldEventsService.purgeOldEvents(self.store, cutoff, DEFAULT_BATCH_SIZE))
+        eventCount = (yield PurgeOldEventsService.purgeOldEvents(self.store, None, cutoff, DEFAULT_BATCH_SIZE))
         self.respond(command, {'EventsRemoved' : eventCount, "RetainDays" : retainDays})
 
 
