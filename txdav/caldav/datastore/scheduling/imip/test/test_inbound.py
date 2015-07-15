@@ -60,6 +60,13 @@ class InboundTests(unittest.TestCase):
         module = getModule(__name__)
         self.dataPath = module.filePath.sibling("data")
 
+        self.wp = None
+        self.store.queuer.callWithNewProposals(self._proposalCallback)
+
+
+    def _proposalCallback(self, wp):
+        self.wp = wp
+
 
     def dataFile(self, name):
         """
@@ -183,6 +190,7 @@ END:VCALENDAR
         calBody = template % token
         result = (yield self.receiver.processDSN(calBody, "xyzzy"))
         self.assertEquals(result, MailReceiver.INJECTION_SUBMITTED)
+        yield self.wp.whenExecuted()
 
 
     @inlineCallbacks
@@ -205,6 +213,7 @@ END:VCALENDAR
 
         result = (yield self.receiver.processReply(msg))
         self.assertEquals(result, MailReceiver.INJECTION_SUBMITTED)
+        yield self.wp.whenExecuted()
 
 
     def test_processReplyMissingOrganizer(self):
@@ -434,6 +443,33 @@ END:VCALENDAR
         self.flagDeletedResult = None
         yield proto.cbGotMessage(results, "xyzzy")
         self.assertEquals(self.flagDeletedResult, "xyzzy")
+
+
+    @inlineCallbacks
+    def test_missingIMAPMessages(self):
+        """
+        Make sure L{IMAP4DownloadProtocol.cbGotMessage} can deal with missing messages.
+        """
+
+        class DummyResult(object):
+            def __init__(self):
+                self._values = []
+
+            def values(self):
+                return self._values
+
+        noResult = DummyResult()
+        missingKey = DummyResult()
+        missingKey.values().append({})
+
+        imap4 = IMAP4DownloadProtocol()
+        imap4.messageUIDs = []
+        imap4.fetchNextMessage = lambda : None
+
+        result = yield imap4.cbGotMessage(noResult, [])
+        self.assertTrue(result is None)
+        result = yield imap4.cbGotMessage(missingKey, [])
+        self.assertTrue(result is None)
 
 
 
