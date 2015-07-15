@@ -690,7 +690,7 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
         self.log.debug("IMAP in cbGotMessage")
         try:
             messageData = results.values()[0]['RFC822']
-        except IndexError:
+        except (IndexError, KeyError):
             # results will be empty unless the "twistedmail-imap-flags-anywhere"
             # patch from http://twistedmatrix.com/trac/ticket/1105 is applied
             self.log.error("Skipping empty results -- apply twisted patch!")

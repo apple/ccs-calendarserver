@@ -457,6 +457,33 @@ END:VCALENDAR
         self.assertEquals(self.flagDeletedResult, "xyzzy")
 
 
+    @inlineCallbacks
+    def test_missingIMAPMessages(self):
+        """
+        Make sure L{IMAP4DownloadProtocol.cbGotMessage} can deal with missing messages.
+        """
+
+        class DummyResult(object):
+            def __init__(self):
+                self._values = []
+
+            def values(self):
+                return self._values
+
+        noResult = DummyResult()
+        missingKey = DummyResult()
+        missingKey.values().append({})
+
+        imap4 = IMAP4DownloadProtocol()
+        imap4.messageUIDs = []
+        imap4.fetchNextMessage = lambda : None
+
+        result = yield imap4.cbGotMessage(noResult, [])
+        self.assertTrue(result is None)
+        result = yield imap4.cbGotMessage(missingKey, [])
+        self.assertTrue(result is None)
+
+
 
 class StubFactory(object):
 
