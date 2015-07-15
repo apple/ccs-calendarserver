@@ -150,7 +150,7 @@ main () {
 
   cd "${destination}/lib";
 
-  find "../roots" -type f -o -type l  \
+  find "../roots" "(" -type f -o -type l ")"  \
     "("                    \
       -name '*.so'     -o  \
       -name '*.so.*'   -o  \
@@ -168,6 +168,10 @@ export          CPPFLAGS="-I${dst}/include \${CPPFLAGS:-} ";
 export           LDFLAGS="-L${dst}/lib -L${dst}/lib64 \${LDFLAGS:-} ";
 export DYLD_LIBRARY_PATH="${dst}/lib:${dst}/lib64:\${DYLD_LIBRARY_PATH:-}:\$ORACLE_HOME";
 __EOF__
+
+  # Install CalendarServer into venv
+  cd ${wd}
+  ${python} setup.py install
 
 }
 
