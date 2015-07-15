@@ -52,6 +52,7 @@ def httploop(ctr, config, complete):
         "action": "testwork",
         "when": config["when"],
         "delay": config["delay"],
+        "jobs": config["jobs"],
         "priority": PRIORITY[config["priority"]],
         "weight": config["weight"],
     })
@@ -99,6 +100,7 @@ Options:
     -n NUM         Number of child processes [10]
     -i MSEC        Millisecond delay between each request [1000]
     -r RATE        Requests/second rate [10]
+    -j JOBS        Number of jobs per HTTP request [1]
     -s HOST:PORT   Host/port to connect to [localhost:8443]
     -b SEC         Number of seconds for notBefore [0]
     -d MSEC        Number of milliseconds for the work [10]
@@ -136,6 +138,7 @@ if __name__ == '__main__':
     config = {
         "numProcesses": 10,
         "interval": 1000,
+        "jobs": 1,
         "server": "localhost:8443",
         "when": 0,
         "delay": 10,
@@ -147,7 +150,7 @@ if __name__ == '__main__':
     interval = None
     rate = None
 
-    options, args = getopt.getopt(sys.argv[1:], "b:d:hi:l:n:p:r:s:w:", [])
+    options, args = getopt.getopt(sys.argv[1:], "b:d:hi:j:l:n:p:r:s:w:", [])
 
     for option, value in options:
         if option == "-h":
@@ -156,6 +159,8 @@ if __name__ == '__main__':
             numProcesses = int(value)
         elif option == "-i":
             interval = int(value)
+        elif option == "-j":
+            config["jobs"] = int(value)
         elif option == "-r":
             rate = int(value)
             if rate <= 100:
@@ -205,6 +210,8 @@ if __name__ == '__main__':
     print("  Number of processes: {}".format(config["numProcesses"]))
     print("  Interval between requests: {} ms".format(config["interval"]))
     print("  Effective request rate: {} req/sec".format(effective_rate))
+    print("  Jobs per request: {}".format(config["jobs"]))
+    print("  Effective job rate: {} jobs/sec".format(effective_rate * config["jobs"]))
     print("  Total number of requests: {}").format(config["limit"] if config["limit"] != 0 else "unlimited")
     print("")
     print("Work details:")

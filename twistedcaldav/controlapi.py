@@ -377,14 +377,19 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
             delay = j["delay"]
         except KeyError:
             delay = 0
+        try:
+            jobs = j["jobs"]
+        except KeyError:
+            jobs = 1
 
-        yield TestWork.schedule(
-            self._store,
-            when,
-            priority,
-            weight,
-            delay,
-        )
+        for _ in range(jobs):
+            yield TestWork.schedule(
+                self._store,
+                when,
+                priority,
+                weight,
+                delay,
+            )
 
         returnValue(self._ok("ok", "Test work scheduled"))
 
