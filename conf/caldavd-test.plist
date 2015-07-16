@@ -344,6 +344,8 @@
          <string></string>
          <key>autoScheduleAttr</key>
          <string></string>
+         <key>autoScheduleModeAttr</key>
+         <string></string>
          <key>autoScheduleEnabledValue</key>
          <string></string>
          <key>proxyAttr</key>

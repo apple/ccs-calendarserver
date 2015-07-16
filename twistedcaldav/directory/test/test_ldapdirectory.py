@@ -587,6 +587,7 @@ else:
                 "resourceSchema": {
                     "resourceInfoAttr": "apple-resource-info", # contains location/resource info
                     "autoScheduleAttr": None,
+                    "autoScheduleModeAttr": None,
                     "proxyAttr": "read-write-proxy",
                     "readOnlyProxyAttr": "read-only-proxy",
                     "autoAcceptGroupAttr": None,
@@ -803,6 +804,7 @@ else:
                 "resourceSchema": {
                     "resourceInfoAttr": "apple-resource-info", # contains location/resource info
                     "autoScheduleAttr": None,
+                    "autoScheduleModeAttr": None,
                     "proxyAttr": None,
                     "readOnlyProxyAttr": None,
                     "autoAcceptGroupAttr": None,
@@ -1021,6 +1023,7 @@ else:
                 "resourceSchema": {
                     "resourceInfoAttr": "apple-resource-info", # contains location/resource info
                     "autoScheduleAttr": None,
+                    "autoScheduleModeAttr": None,
                     "proxyAttr": None,
                     "readOnlyProxyAttr": None,
                     "autoAcceptGroupAttr": None,
@@ -1235,6 +1238,7 @@ else:
                 "resourceSchema": {
                     "resourceInfoAttr": "apple-resource-info", # contains location/resource info
                     "autoScheduleAttr": None,
+                    "autoScheduleModeAttr": None,
                     "proxyAttr": None,
                     "readOnlyProxyAttr": None,
                     "autoAcceptGroupAttr": None,
@@ -1481,6 +1485,7 @@ else:
             self.service.resourceSchema = {
                 "resourceInfoAttr" : "",
                 "autoScheduleAttr" : "auto-schedule",
+                "autoScheduleModeAttr": None,
                 "autoScheduleEnabledValue" : "yes",
                 "proxyAttr" : "proxy",
                 "readOnlyProxyAttr" : "read-only-proxy",
