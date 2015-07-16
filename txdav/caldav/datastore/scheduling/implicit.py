@@ -427,7 +427,10 @@ class ImplicitScheduler(object):
         self.originatorPrincipal = self.calendar_home.directoryService().recordWithUID(self.calendar_home.uid())
 
         # Pick the canonical CUA:
-        self.originator = self.originatorPrincipal.canonicalCalendarUserAddress()
+        if self.originatorPrincipal is not None:
+            self.originator = self.originatorPrincipal.canonicalCalendarUserAddress()
+        else:
+            self.originator = "urn:uuid:{}".format(self.calendar_home.uid())
 
         # Get the ORGANIZER and verify it is the same for all components
         try:

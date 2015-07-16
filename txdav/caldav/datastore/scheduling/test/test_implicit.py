@@ -40,6 +40,7 @@ from txdav.common.datastore.test.util import CommonCommonTests, populateCalendar
 
 import hashlib
 import sys
+from calendarserver.platform.darwin.od.opendirectory import Directory
 
 class FakeScheduler(object):
     """
@@ -1560,6 +1561,91 @@ END:VCALENDAR
             self.assertTrue("PARTSTAT=ACCEPTED" in calendar3)
 
         yield deferLater(reactor, 2.0, _test_user03_refresh)
+
+
+    @inlineCallbacks
+    def test_doImplicitScheduling_refreshAllAttendeesExceptSome_MissingOriginator(self):
+        """
+        Test that doImplicitScheduling delivers scheduling messages to attendees who can then reply,
+        even in the case of a missing originator record.
+        """
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+        data2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        # Need refreshes to occur immediately, not via reactor.callLater
+        self.patch(config.Scheduling.Options, "AttendeeRefreshBatch", False)
+
+        yield self._createCalendarObject(data1, "user01", "test.ics")
+
+        list1 = (yield self._listCalendarObjects("user01", "inbox"))
+        self.assertEqual(len(list1), 0)
+
+        calendar1 = (yield self._getCalendarData("user01", "test.ics"))
+        self.assertTrue("SCHEDULE-STATUS=1.2" in calendar1)
+
+        list2 = (yield self._listCalendarObjects("user02", "inbox"))
+        self.assertEqual(len(list2), 1)
+
+        calendar2 = (yield self._getCalendarData("user02"))
+        self.assertTrue("PARTSTAT=ACCEPTED" not in calendar2)
+
+        list3 = (yield self._listCalendarObjects("user03", "inbox"))
+        self.assertEqual(len(list3), 1)
+
+        calendar3 = (yield self._getCalendarData("user03"))
+        self.assertTrue("PARTSTAT=ACCEPTED" not in calendar3)
+
+        self._sqlCalendarStore.directoryService().destroyRecord("user01")
+
+        yield self._setCalendarData(data2, "user02")
+
+        list1 = (yield self._listCalendarObjects("user01", "inbox"))
+        self.assertEqual(len(list1), 1)
+
+        calendar1 = (yield self._getCalendarData("user01", "test.ics"))
+        self.assertTrue("SCHEDULE-STATUS=2.0" in calendar1)
+        self.assertTrue("PARTSTAT=ACCEPTED" in calendar1)
+
+        list2 = (yield self._listCalendarObjects("user02", "inbox"))
+        self.assertEqual(len(list2), 1)
+
+        calendar2 = (yield self._getCalendarData("user02"))
+        self.assertTrue("PARTSTAT=ACCEPTED" in calendar2)
+
+        list3 = (yield self._listCalendarObjects("user03", "inbox"))
+        self.assertEqual(len(list3), 1)
+
+        calendar3 = (yield self._getCalendarData("user03"))
+        self.assertTrue("PARTSTAT=ACCEPTED" in calendar3)
 
 
     @inlineCallbacks

@@ -123,6 +123,10 @@ class TestStoreDirectoryService(object):
         self.records[record.uid] = record
 
 
+    def destroyRecord(self, uid):
+        del self.records[uid]
+
+
 
 class TestStoreDirectoryRecord(object):
 
