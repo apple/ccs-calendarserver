@@ -484,7 +484,7 @@ class ImplicitProcessor(object):
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring UID: '%s' - split already done" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
                 returnValue((True, False, False, None,))
             else:
-                self.message.removeProperty("X-CALENDARSERVER-SPLIT-OLDER-UID")
+                self.message.removeProperty("X-CALENDARSERVER-SPLIT-NEWER-UID")
                 self.message.removeProperty("X-CALENDARSERVER-SPLIT-RID")
 
         # Different based on method

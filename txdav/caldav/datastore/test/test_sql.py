@@ -3791,6 +3791,7 @@ END:VCALENDAR
         self.assertEqual(attachment.value(), location)
 
         relsubs["past_mid"] = attachment.parameterValue("MANAGED-ID")
+        attachment = ical_past.masterComponent().getProperty("ATTACH")
         relsubs["att_past_uri"] = attachment.value()
 
         # Verify user01 data

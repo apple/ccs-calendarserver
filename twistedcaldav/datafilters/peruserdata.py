@@ -275,7 +275,7 @@ class PerUserDataFilter(CalendarFilter):
             if master_perinstance:
                 peruser_component.addComponent(master_perinstance)
                 peruser_component_different = True
-            for rid, perinstance in perinstance_components.iteritems():
+            for rid, perinstance in sorted(perinstance_components.iteritems(), key=lambda x: x[0]):
                 if rid is None:
                     continue
                 if master_perinstance is None or perinstance != master_perinstance:

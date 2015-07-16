@@ -1521,7 +1521,7 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         for attach in attachments:
             if attach.hasParameter("MANAGED-ID"):
                 managed_count += 1
-                self.assertTrue(attach.value().find("/dropbox/") == -1)
+                self.assertTrue(attach.value().find("/dropbox/") != -1)
                 self.assertTrue(attach.parameterValue("FILENAME") in filenames)
             else:
                 dropbox_count += 1
@@ -1699,7 +1699,7 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         for attach in attachments:
             if attach.hasParameter("MANAGED-ID"):
                 managed_count += 1
-                self.assertTrue(attach.value().find("1.2.dropbox") == -1)
+                self.assertTrue(attach.value().find("1.2.dropbox") != -1)
                 self.assertEqual(attach.parameterValue("MANAGED-ID"), mnew.managedID())
                 self.assertEqual(attach.parameterValue("FILENAME"), mnew.name())
             else:
@@ -1737,7 +1737,7 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         for attach in attachments:
             if attach.hasParameter("MANAGED-ID"):
                 managed_count += 1
-                self.assertTrue(attach.value().find("1.2.dropbox") == -1)
+                self.assertTrue(attach.value().find("1.2.dropbox") != -1)
                 self.assertTrue(attach.parameterValue("FILENAME") in ("attach_1_2_1.txt", "attach_1_2_2.txt"))
             else:
                 dropbox_count += 1
