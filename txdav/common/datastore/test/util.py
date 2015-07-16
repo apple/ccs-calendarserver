@@ -260,10 +260,7 @@ class SQLStoreBuilder(object):
             {"push": notifierFactory} if notifierFactory is not None else {},
             directoryService,
             attachmentRoot,
-            (
-                "https://example.com/calendars/__uids__/"
-                "%(home)s/attachments/%(name)s"
-            ),
+            "https://example.com/calendars/__uids__/%(home)s/dropbox/%(dropbox_id)s/%(name)s",
             quota=quota
         )
         store.label = currentTestID

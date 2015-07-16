@@ -2629,7 +2629,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         self.scheduleTag = options.get("scheduleTag", "")
         self.scheduleEtags = options.get("scheduleEtags", "")
         self.hasPrivateComment = options.get("hasPrivateComment", False)
-        self._dropboxID = None
+        self._dropboxID = options.get("dropboxID", None)
 
         # Component caching
         self._cachedComponent = None
@@ -5310,6 +5310,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             olderResourceName,
             calendar_old,
             ComponentUpdateState.SPLIT_OWNER,
+            options={"dropboxID": olderUID},
             split_details=(rid, newerUID, False, False)
         )
 
@@ -5368,7 +5369,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Create a new resource and store its data (but not if the parent is "inbox", or if it is empty)
         if not self.calendar().isInbox() and ical_old.mainType() is not None:
-            olderObject = yield self.calendar()._createCalendarObjectWithNameInternal("{0}.ics".format(olderUID,), ical_old, ComponentUpdateState.SPLIT_ATTENDEE)
+            olderObject = yield self.calendar()._createCalendarObjectWithNameInternal(
+                "{0}.ics".format(olderUID,),
+                ical_old,
+                ComponentUpdateState.SPLIT_ATTENDEE,
+                options={"dropboxID": olderUID},
+            )
 
             # Reconcile trash state
             if self.isInTrash():

@@ -976,7 +976,7 @@ END:VCALENDAR
         from txdav.caldav.datastore.sql_external import ManagedAttachmentExternal
         self.assertTrue(isinstance(attachment, ManagedAttachmentExternal))
         self.assertEqual(attachment.size(), len(data))
-        self.assertTrue("user01/attachments/test" in location)
+        self.assertTrue("user01/dropbox/" in location)
         yield self.commitTransaction(1)
 
         cobjs = yield ManagedAttachment.referencesTo(self.theTransactionUnderTest(0), managedID)
@@ -1013,7 +1013,7 @@ END:VCALENDAR
         from txdav.caldav.datastore.sql_external import ManagedAttachmentExternal
         self.assertTrue(isinstance(attachment, ManagedAttachmentExternal))
         self.assertEqual(attachment.size(), len(data))
-        self.assertTrue("user01/attachments/test" in location)
+        self.assertTrue("user01/dropbox/" in location)
         yield self.commitTransaction(1)
 
         cobjs = yield ManagedAttachment.referencesTo(self.theTransactionUnderTest(0), managedID)
