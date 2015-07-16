@@ -18,24 +18,27 @@ from txweb2 import responsecode
 from txweb2.dav.util import allDataFromStream
 from txweb2.http_headers import MimeType
 from txweb2.iweb import IResponse
+from txweb2.stream import MemoryStream
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
 from twistedcaldav import customxml
 from twistedcaldav.config import config
+from twistedcaldav.ical import Component
 from twistedcaldav.test.test_cache import StubResponseCacheResource
 from twistedcaldav.test.util import norequest, StoreTestCase, SimpleStoreRequest
 
 from txdav.common.datastore.sql_tables import _BIND_MODE_DIRECT
 from txdav.xml import element as davxml
 from txdav.xml.parser import WebDAVDocument
-
-from xml.etree.cElementTree import XML
 from txdav.who.wiki import (
     DirectoryRecord as WikiDirectoryRecord,
     DirectoryService as WikiDirectoryService,
     WikiAccessLevel
 )
+
+from xml.etree.cElementTree import XML
+import urlparse
 
 sharedOwnerType = davxml.ResourceType.sharedownercalendar  # @UndefinedVariable
 regularCalendarType = davxml.ResourceType.calendar  # @UndefinedVariable
@@ -51,13 +54,13 @@ def normalize(x):
 
 
 
-class SharingTests(StoreTestCase):
+class BaseSharingTests(StoreTestCase):
 
     def configure(self):
         """
         Override configuration hook to turn on sharing.
         """
-        super(SharingTests, self).configure()
+        super(BaseSharingTests, self).configure()
         self.patch(config.Sharing, "Enabled", True)
         self.patch(config.Sharing.Calendars, "Enabled", True)
         self.patch(config.Authentication.Wiki, "Enabled", True)
@@ -65,7 +68,7 @@ class SharingTests(StoreTestCase):
 
     @inlineCallbacks
     def setUp(self):
-        yield super(SharingTests, self).setUp()
+        yield super(BaseSharingTests, self).setUp()
         self.resource = yield self._getResource()
 
 
@@ -73,7 +76,7 @@ class SharingTests(StoreTestCase):
     def _refreshRoot(self, request=None):
         if request is None:
             request = norequest()
-        result = yield super(SharingTests, self)._refreshRoot(request)
+        result = yield super(BaseSharingTests, self)._refreshRoot(request)
         self.resource = (
             yield self.site.resource.locateChild(request, ["calendar"])
         )[0]
@@ -227,6 +230,9 @@ class SharingTests(StoreTestCase):
                 return href.children[0].data
         return None
 
+
+
+class SharingTests(BaseSharingTests):
 
     @inlineCallbacks
     def test_upgradeToShare(self):
@@ -1499,3 +1505,156 @@ class SharingTests(StoreTestCase):
                 customxml.InviteStatusAccepted(),
             ),
         ))
+
+
+
+class DropboxSharingTests(BaseSharingTests):
+
+    def configure(self):
+        """
+        Override configuration hook to turn on dropbox.
+        """
+        super(DropboxSharingTests, self).configure()
+        self.patch(config, "EnableDropBox", True)
+        self.patch(config, "EnableManagedAttachments", False)
+
+
+    @inlineCallbacks
+    def test_dropboxWithMissingInvitee(self):
+
+        yield self.resource.upgradeToShare()
+
+        yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:set>
+                    <D:href>mailto:user02@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+            </CS:share>
+            """)
+
+        propInvite = (yield self.resource.readProperty(customxml.Invite, None))
+        uid = self._getUIDElementValue(propInvite)
+
+        yield self._doPOSTSharerAccept("""<?xml version='1.0' encoding='UTF-8'?>
+            <invite-reply xmlns='http://calendarserver.org/ns/'>
+              <href xmlns='DAV:'>mailto:user01@example.com</href>
+              <invite-accepted/>
+              <hosturl>
+                <href xmlns='DAV:'>/calendars/__uids__/user01/calendar/</href>
+              </hosturl>
+              <in-reply-to>%s</in-reply-to>
+              <summary>The Shared Calendar</summary>
+              <common-name>User 02</common-name>
+              <first-name>user</first-name>
+              <last-name>02</last-name>
+            </invite-reply>
+            """ % (uid,)
+        )
+
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        component = Component.fromString("""BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ATTACH;VALUE=URI:/calendars/users/home1/some-dropbox-id/some-dropbox-id/caldavd.plist
+X-APPLE-DROPBOX:/calendars/users/home1/dropbox/some-dropbox-id
+END:VEVENT
+END:VCALENDAR
+""")
+        yield calendar.createCalendarObjectWithName("dropbox.ics", component)
+        yield self.commit()
+
+        yield self.directory.removeRecords(((yield self.userUIDFromShortName("user02")),))
+        self.assertTrue((yield self.userUIDFromShortName("user02")) is None)
+
+        # Get dropbox and test ACLs
+        request = SimpleStoreRequest(self, "GET", "/calendars/__uids__/user01/dropbox/some-dropbox-id/")
+        resource = yield request.locateResource("/calendars/__uids__/user01/dropbox/some-dropbox-id/")
+        acl = yield resource.accessControlList(request)
+        self.assertTrue(acl is not None)
+
+
+
+class MamnagedAttachmentSharingTests(BaseSharingTests):
+
+    def configure(self):
+        """
+        Override configuration hook to turn on managed attachments.
+        """
+        super(MamnagedAttachmentSharingTests, self).configure()
+        self.patch(config, "EnableDropBox", False)
+        self.patch(config, "EnableManagedAttachments", True)
+
+
+    @inlineCallbacks
+    def test_attachmentWithMissingInvitee(self):
+
+        yield self.resource.upgradeToShare()
+
+        yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:set>
+                    <D:href>mailto:user02@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+            </CS:share>
+            """)
+
+        propInvite = (yield self.resource.readProperty(customxml.Invite, None))
+        uid = self._getUIDElementValue(propInvite)
+
+        yield self._doPOSTSharerAccept("""<?xml version='1.0' encoding='UTF-8'?>
+            <invite-reply xmlns='http://calendarserver.org/ns/'>
+              <href xmlns='DAV:'>mailto:user01@example.com</href>
+              <invite-accepted/>
+              <hosturl>
+                <href xmlns='DAV:'>/calendars/__uids__/user01/calendar/</href>
+              </hosturl>
+              <in-reply-to>%s</in-reply-to>
+              <summary>The Shared Calendar</summary>
+              <common-name>User 02</common-name>
+              <first-name>user</first-name>
+              <last-name>02</last-name>
+            </invite-reply>
+            """ % (uid,)
+        )
+
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        component = Component.fromString("""BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+END:VEVENT
+END:VCALENDAR
+""")
+        obj = yield calendar.createCalendarObjectWithName("dropbox.ics", component)
+        _ignore_attachment, location = yield obj.addAttachment(None, MimeType("text", "plain"), "new.txt", MemoryStream("new attachment text"))
+        yield self.commit()
+
+        yield self.directory.removeRecords(((yield self.userUIDFromShortName("user02")),))
+        self.assertTrue((yield self.userUIDFromShortName("user02")) is None)
+
+        # Get dropbox and test ACLs
+        location = urlparse.urlparse(location)[2]
+        location = "/".join(location.split("/")[:-1])
+        request = SimpleStoreRequest(self, "GET", location)
+        resource = yield request.locateResource(location)
+        acl = yield resource.accessControlList(request)
+        self.assertTrue(acl is not None)

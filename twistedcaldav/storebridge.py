@@ -2011,33 +2011,34 @@ class AttachmentsChildCollection(_GetChildHelper):
                 userprivs.extend(privileges)
 
             principal = yield self.principalForUID(invite.shareeUID)
-            aces += (
-                # Inheritable specific access for the resource's associated principal.
-                davxml.ACE(
-                    davxml.Principal(davxml.HRef(principal.principalURL())),
-                    davxml.Grant(*userprivs),
-                    davxml.Protected(),
-                    TwistedACLInheritable(),
-                ),
-            )
-
-            if config.EnableProxyPrincipals:
+            if principal is not None:
                 aces += (
-                    # DAV:read/DAV:read-current-user-privilege-set access for this principal's calendar-proxy-read users.
+                    # Inheritable specific access for the resource's associated principal.
                     davxml.ACE(
-                        davxml.Principal(davxml.HRef(joinURL(principal.principalURL(), "calendar-proxy-read/"))),
-                        davxml.Grant(*userprivs),
-                        davxml.Protected(),
-                        TwistedACLInheritable(),
-                    ),
-                    # DAV:read/DAV:read-current-user-privilege-set/DAV:write access for this principal's calendar-proxy-write users.
-                    davxml.ACE(
-                        davxml.Principal(davxml.HRef(joinURL(principal.principalURL(), "calendar-proxy-write/"))),
+                        davxml.Principal(davxml.HRef(principal.principalURL())),
                         davxml.Grant(*userprivs),
                         davxml.Protected(),
                         TwistedACLInheritable(),
                     ),
                 )
+
+                if config.EnableProxyPrincipals:
+                    aces += (
+                        # DAV:read/DAV:read-current-user-privilege-set access for this principal's calendar-proxy-read users.
+                        davxml.ACE(
+                            davxml.Principal(davxml.HRef(joinURL(principal.principalURL(), "calendar-proxy-read/"))),
+                            davxml.Grant(*userprivs),
+                            davxml.Protected(),
+                            TwistedACLInheritable(),
+                        ),
+                        # DAV:read/DAV:read-current-user-privilege-set/DAV:write access for this principal's calendar-proxy-write users.
+                        davxml.ACE(
+                            davxml.Principal(davxml.HRef(joinURL(principal.principalURL(), "calendar-proxy-write/"))),
+                            davxml.Grant(*userprivs),
+                            davxml.Protected(),
+                            TwistedACLInheritable(),
+                        ),
+                    )
 
         returnValue(aces)
 
