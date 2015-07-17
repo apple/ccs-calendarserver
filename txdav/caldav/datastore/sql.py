@@ -3182,7 +3182,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
                 # Get the originator who is the owner of the calendar resource being modified
                 originatorPrincipal = yield self.calendar().ownerHome().directoryRecord()
-                originatorAddresses = originatorPrincipal.calendarUserAddresses
+                if originatorPrincipal is not None:
+                    originatorAddresses = originatorPrincipal.calendarUserAddresses
+                else:
+                    originatorAddresses = ("urn:x-uid:{}".format(self.calendar().ownerHome().uid),)
 
                 for component in calendar.subcomponents():
                     if component.name() != "VTODO":
@@ -3219,7 +3222,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
                 # Get the originator who is the owner of the calendar resource being modified
                 originatorPrincipal = yield self.calendar().ownerHome().directoryRecord()
-                originatorAddresses = originatorPrincipal.calendarUserAddresses
+                if originatorPrincipal is not None:
+                    originatorAddresses = originatorPrincipal.calendarUserAddresses
+                else:
+                    originatorAddresses = ("urn:x-uid:{}".format(self.calendar().ownerHome().uid),)
 
                 for component in calendar.subcomponents():
                     if component.name() != "VTODO":

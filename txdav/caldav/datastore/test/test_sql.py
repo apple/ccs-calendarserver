@@ -58,7 +58,7 @@ from txdav.common.datastore.sql import ECALENDARTYPE, CommonObjectResource, \
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT, \
     _BIND_STATUS_ACCEPTED, _TRANSP_OPAQUE, _BIND_MODE_WRITE
 from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests, \
-    test_event_text, cal1Root
+    test_event_text, cal1Root, OTHER_HOME_UID
 from txdav.caldav.datastore.test.test_file import setUpCalendarStore
 from txdav.caldav.datastore.test.util import DateTimeSubstitutionsMixin
 from txdav.common.datastore.test.util import populateCalendarsFrom, \
@@ -2206,6 +2206,71 @@ END:VCALENDAR
         self.assertTrue("mailto:user01@example.com" not in txt)
         self.assertTrue("urn:x-uid:user01" in txt)
         self.assertEqual(obj._dataversion, obj._currentDataVersion)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_sharedTasksMissingSharer(self):
+        """
+        Make sure that a sharee can store tasks when the sharer has been removed from
+        the directory.
+        """
+        home = yield self.homeUnderTest()
+        cal = yield home.createCalendarWithName("shared_tasks")
+        yield cal.setSupportedComponents("VTODO")
+        yield self.commit()
+
+        cal = yield self.calendarUnderTest(name="shared_tasks")
+        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
+        newCalName = yield cal.shareWith(other, _BIND_MODE_WRITE)
+        self.sharedName = newCalName
+        yield self.commit()
+
+        cal = yield self.calendarUnderTest(name="shared_tasks")
+        yield cal.createCalendarObjectWithName("data1.ics", Component.fromString("""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTODO
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+SUMMARY:original
+END:VTODO
+END:VCALENDAR
+"""))
+        yield self.commit()
+
+        yield self._sqlCalendarStore.directoryService().removeRecords(((yield self.userUIDFromShortName("home1")),))
+
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name=self.sharedName, home=OTHER_HOME_UID)
+        yield cobj.setComponent(Component.fromString("""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTODO
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+COMPLETED:20080601T130000Z
+SUMMARY:changed
+END:VTODO
+END:VCALENDAR
+"""))
+        yield self.commit()
+
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name=self.sharedName, home=OTHER_HOME_UID)
+        comp = yield cobj.componentForUser()
+        self.assertEqual(normalize_iCalStr(comp), normalize_iCalStr("""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTODO
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+COMPLETED:20080601T130000Z
+SUMMARY:changed
+END:VTODO
+END:VCALENDAR
+"""))
         yield self.commit()
 
 
