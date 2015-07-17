@@ -1990,6 +1990,71 @@ END:VCALENDAR
         self.assertTrue(token is not None)
 
 
+    @inlineCallbacks
+    def test_sharedTasksMissingSharer(self):
+        """
+        Make sure that a sharee can store tasks when the sharer has been removed from
+        the directory.
+        """
+        home = yield self.homeUnderTest()
+        cal = yield home.createCalendarWithName("shared_tasks")
+        yield cal.setSupportedComponents("VTODO")
+        yield self.commit()
+
+        cal = yield self.calendarUnderTest(name="shared_tasks")
+        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
+        newCalName = yield cal.shareWith(other, _BIND_MODE_WRITE)
+        self.sharedName = newCalName
+        yield self.commit()
+
+        cal = yield self.calendarUnderTest(name="shared_tasks")
+        yield cal.createCalendarObjectWithName("data1.ics", Component.fromString("""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTODO
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+SUMMARY:original
+END:VTODO
+END:VCALENDAR
+"""))
+        yield self.commit()
+
+        self._sqlCalendarStore.directoryService().destroyRecord("home1")
+
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name=self.sharedName, home=OTHER_HOME_UID)
+        yield cobj.setComponent(Component.fromString("""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTODO
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+COMPLETED:20080601T130000Z
+SUMMARY:changed
+END:VTODO
+END:VCALENDAR
+"""))
+        yield self.commit()
+
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name=self.sharedName, home=OTHER_HOME_UID)
+        comp = yield cobj.componentForUser()
+        self.assertEqual(normalize_iCalStr(comp), normalize_iCalStr("""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTODO
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+COMPLETED:20080601T130000Z
+SUMMARY:changed
+END:VTODO
+END:VCALENDAR
+"""))
+        yield self.commit()
+
+
 
 class SchedulingTests(CommonCommonTests, unittest.TestCase):
     """
