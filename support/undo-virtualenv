@@ -1,0 +1,33 @@
+#!/bin/sh
+
+set -e
+set -u
+
+base="${1}";
+
+# Remove python binaries
+rm -f "${base}/bin/python";
+rm -f "${base}/bin/python2";
+rm -f "${base}/bin/python2.7";
+
+# Remove unused virtualenv files
+rm -f "${base}/lib/python2.7/"*.py*;
+rm -f "${base}/lib/python2.7/config";
+rm -rf "${base}/lib/python2.7/distutils";
+rm -f "${base}/lib/python2.7/encodings";
+rm -f "${base}/lib/python2.7/lib-dynload";
+rm -f "${base}/lib/python2.7/orig-prefix.txt";
+
+# New python shim that sets up paths and runs the system python
+cat - > "${base}/bin/python" <<EOF
+#!/bin/sh
+
+export PATH=/Applications/Server.app/Contents/ServerRoot/Library/CalendarServer/bin:\${PATH};
+export PYTHONPATH=/Applications/Server.app/Contents/ServerRoot/Library/CalendarServer/lib/python2.7/site-packages;
+
+exec /usr/bin/python "\${@}";
+EOF
+
+chmod a+x "${base}/bin/python";
+ln -s "${base}/bin/python" "${base}/bin/python2";
+ln -s "${base}/bin/python" "${base}/bin/python2.7";
