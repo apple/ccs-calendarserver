@@ -88,12 +88,15 @@ install-python:: build
 	@# (almost) all of our dependencies in it.
 	@# Use --system-site-packages so that we use the packages provided by the
 	@# OS, such as PyObjC.
+	@# Use --always-copy because we want copies of, not links to, the system
+	@# python, as Server.app is an independent product train.
 	@#
 	@echo "Creating virtual environment...";
 	$(_v) $(RMDIR) "$(DSTROOT)$(CS_VIRTUALENV)";
 	$(_v) PYTHONPATH="$(BuildDirectory)/pytools/lib" \
 	          "$(PYTHON)" -m virtualenv              \
 		          --system-site-packages             \
+		          --always-copy                      \
 		          "$(DSTROOT)$(CS_VIRTUALENV)";
 	@#
 	@# Use the pip in the virtual environment (as opposed to pip in the OS) to
@@ -150,15 +153,13 @@ install-python:: build
 	$(_v) perl -i -pe "s|#PATH|export PYTHON=$(CS_VIRTUALENV)/bin/python;|" "$(DSTROOT)$(CS_VIRTUALENV)/bin/caldavd";
 	@echo "Stripping binaries...";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -name "*.so" -print0 | xargs -0 $(STRIP) -Sx;
+	@echo "Updating install location of Python library...";
+	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)/bin" -type f -name "python*" -print0 | \
+	          xargs -0 -n 1 install_name_tool -change "@executable_path/../.Python" "$(CS_VIRTUALENV)/.Python";
+	$(_v) install_name_tool -id "$(CS_VIRTUALENV)/.Python" "$(DSTROOT)$(CS_VIRTUALENV)/.Python";
 	@echo "Putting comments into empty files...";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -name "*.py" -exec sh -c 'printf "# empty\n" > {}' ";";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -name "*.h" -exec sh -c 'printf "/* empty */\n" > {}' ";";
-
-	@#
-	@# Undo virtualenv so we use the system Python
-	@#
-	@echo "Undo virtualenv...";
-	$(_v) "$(Sources)/support/undo-virtualenv" "$(DSTROOT)$(CS_VIRTUALENV)"
 
 install:: install-config
 install-config::
