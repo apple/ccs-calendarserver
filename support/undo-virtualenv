@@ -4,6 +4,11 @@ set -e
 set -u
 
 base="${1}";
+if [ $# == 1 ]; then
+  appbase="/Applications/Server.app/Contents/ServerRoot/Library/CalendarServer";
+else
+  appbase="${2}";
+fi;
 
 # Remove python binaries
 rm -f "${base}/bin/python";
@@ -22,12 +27,12 @@ rm -f "${base}/lib/python2.7/orig-prefix.txt";
 cat - > "${base}/bin/python" <<EOF
 #!/bin/sh
 
-export PATH=/Applications/Server.app/Contents/ServerRoot/Library/CalendarServer/bin:\${PATH};
-export PYTHONPATH=/Applications/Server.app/Contents/ServerRoot/Library/CalendarServer/lib/python2.7/site-packages;
+export PATH=${appbase}/bin:\${PATH};
+export PYTHONPATH=${appbase}/lib/python2.7/site-packages;
 
 exec /usr/bin/python "\${@}";
 EOF
 
 chmod a+x "${base}/bin/python";
-ln -s "${base}/bin/python" "${base}/bin/python2";
-ln -s "${base}/bin/python" "${base}/bin/python2.7";
+ln -s "${appbase}/bin/python" "${base}/bin/python2";
+ln -s "${appbase}/bin/python" "${base}/bin/python2.7";
