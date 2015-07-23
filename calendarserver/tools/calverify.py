@@ -173,8 +173,7 @@ def new_validRecurrenceIDs(self, doFix=True):
             brokenRID = brokenComponent.propertyValue("RECURRENCE-ID")
             if doFix:
                 master.addProperty(Property("RDATE", [brokenRID, ]))
-                fixed.append("Added RDATE for invalid occurrence: %s" %
-                    (brokenRID,))
+                fixed.append("Added RDATE for invalid occurrence: %s" % (brokenRID,))
             else:
                 unfixed.append("Invalid occurrence: %s" % (brokenRID,))
 
@@ -336,6 +335,7 @@ class CalVerifyOptions(Options):
         ['missing', 'm', "Show 'orphaned' homes."],
         ['double', 'd', "Detect double-bookings."],
         ['dark-purge', 'p', "Purge room/resource events with invalid organizer."],
+        ['missing-location', 'g', "Room events with missing location."],
         ['split', 'l', "Split an event."],
         ['fix', 'x', "Fix problems."],
         ['verbose', 'v', "Verbose logging."],
@@ -346,7 +346,7 @@ class CalVerifyOptions(Options):
         ['no-organizer', '', "Detect dark events without an organizer"],
         ['invalid-organizer', '', "Detect dark events with an organizer not in the directory"],
         ['disabled-organizer', '', "Detect dark events with a disabled organizer"],
-]
+    ]
 
     optParameters = [
         ['config', 'f', DEFAULT_CONFIG_FILE, "Specify caldavd.plist configuration path."],
@@ -487,11 +487,11 @@ class CalVerifyService(WorkerService, object):
 
         if inbox:
             cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN)
+                cb.BIND_MODE == _BIND_MODE_OWN)
         else:
             cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN).And(
-                    cb.CALENDAR_RESOURCE_NAME != "inbox")
+                cb.BIND_MODE == _BIND_MODE_OWN).And(
+                cb.CALENDAR_RESOURCE_NAME != "inbox")
 
         kwds = {}
         rows = (yield Select(
@@ -512,11 +512,11 @@ class CalVerifyService(WorkerService, object):
 
         if inbox:
             cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN)
+                cb.BIND_MODE == _BIND_MODE_OWN)
         else:
             cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN).And(
-                    cb.CALENDAR_RESOURCE_NAME != "inbox")
+                cb.BIND_MODE == _BIND_MODE_OWN).And(
+                cb.CALENDAR_RESOURCE_NAME != "inbox")
 
         kwds = {"uuid": uuid}
         if len(uuid) != 36:
@@ -567,11 +567,11 @@ class CalVerifyService(WorkerService, object):
 
         if inbox:
             cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN)
+                cb.BIND_MODE == _BIND_MODE_OWN)
         else:
             cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN).And(
-                    cb.CALENDAR_RESOURCE_NAME != "inbox")
+                cb.BIND_MODE == _BIND_MODE_OWN).And(
+                cb.CALENDAR_RESOURCE_NAME != "inbox")
 
         kwds = {
             "UID" : uid,
@@ -620,8 +620,8 @@ class CalVerifyService(WorkerService, object):
         tr = schema.TIME_RANGE
 
         cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
-                cb.BIND_MODE == _BIND_MODE_OWN).And(
-                cb.CALENDAR_RESOURCE_NAME != "inbox")
+            cb.BIND_MODE == _BIND_MODE_OWN).And(
+            cb.CALENDAR_RESOURCE_NAME != "inbox")
 
         kwds = {
             "Start" : pyCalendarTodatetime(start),
@@ -2669,6 +2669,240 @@ class DarkPurgeService(CalVerifyService):
 
 
 
+class MissingLocationService(CalVerifyService):
+    """
+    Service which detects room/resource events that have an ATTENDEE;CUTYPE=ROOM property but no Location.
+    """
+
+    def title(self):
+        return "Missing Location Service"
+
+
+    @inlineCallbacks
+    def doAction(self):
+
+        self.output.write("\n---- Scanning calendar data ----\n")
+
+        self.tzid = PyCalendarTimezone(tzid=self.options["tzid"] if self.options["tzid"] else "America/Los_Angeles")
+        self.now = PyCalendarDateTime.getNowUTC()
+        self.start = self.options["start"] if "start" in self.options else PyCalendarDateTime.getToday()
+        self.start.setDateOnly(False)
+        self.start.setTimezone(self.tzid)
+        self.fix = self.options["fix"]
+
+        if self.options["verbose"] and self.options["summary"]:
+            ot = time.time()
+
+        # Check loop over uuid
+        UUIDDetails = collections.namedtuple("UUIDDetails", ("uuid", "rname", "purged",))
+        self.uuid_details = []
+        if len(self.options["uuid"]) != 36:
+            self.txn = self.store.newTransaction()
+            if self.options["uuid"]:
+                homes = yield self.getMatchingHomeUIDs(self.options["uuid"])
+            else:
+                homes = yield self.getAllHomeUIDs()
+            yield self.txn.commit()
+            self.txn = None
+            uuids = []
+            if self.options["verbose"]:
+                self.output.write("%d uuids to check\n" % (len(homes,)))
+            for uuid in sorted(homes):
+                record = self.directoryService().recordWithGUID(uuid)
+                if record is not None and record.recordType == DirectoryService.recordType_locations:
+                    uuids.append(uuid)
+        else:
+            uuids = [self.options["uuid"], ]
+        if self.options["verbose"]:
+            self.output.write("%d uuids to scan\n" % (len(uuids,)))
+
+        count = 0
+        for uuid in uuids:
+            self.results = {}
+            self.summary = []
+            self.total = 0
+            count += 1
+
+            record = self.directoryService().recordWithGUID(uuid)
+            if record is None:
+                continue
+            if not record.thisServer() or not record.enabledForCalendaring:
+                continue
+
+            rname = record.fullName
+
+            if len(uuids) > 1 and not self.options["summary"]:
+                self.output.write("\n\n-----------------------------\n")
+
+            self.txn = self.store.newTransaction()
+
+            if self.options["verbose"]:
+                t = time.time()
+            rows = yield self.getAllResourceInfoTimeRangeWithUUID(self.start, uuid)
+            descriptor = "getAllResourceInfoTimeRangeWithUUID"
+
+            yield self.txn.commit()
+            self.txn = None
+
+            if self.options["verbose"]:
+                if not self.options["summary"]:
+                    self.output.write("%s time: %.1fs\n" % (descriptor, time.time() - t,))
+                else:
+                    self.output.write("%s (%d/%d)" % (uuid, count, len(uuids),))
+                    self.output.flush()
+
+            self.total = len(rows)
+            if not self.options["summary"]:
+                self.logResult("UUID to process", uuid)
+                self.logResult("Record name", rname)
+                self.addSummaryBreak()
+                self.logResult("Number of events to process", self.total)
+
+            if rows:
+                if not self.options["summary"]:
+                    self.addSummaryBreak()
+                purged = yield self.missingLocation(rows, uuid)
+            else:
+                purged = False
+
+            self.uuid_details.append(UUIDDetails(uuid, rname, purged))
+
+            if not self.options["summary"]:
+                self.printSummary()
+            else:
+                self.output.write(" - %s\n" % ("Bad Events" if purged else "OK",))
+                self.output.flush()
+
+        if count == 0:
+            self.output.write("Nothing to scan\n")
+
+        if self.options["summary"]:
+            table = tables.Table()
+            table.addHeader(("GUID", "Name", "RID", "UID",))
+            purged = 0
+            for item in sorted(self.uuid_details):
+                if not item.purged:
+                    continue
+                uuid = item.uuid
+                rname = item.rname
+                for detail in item.purged:
+                    table.addRow((
+                        uuid,
+                        rname,
+                        detail.resid,
+                        detail.uid,
+                    ))
+                    uuid = ""
+                    rname = ""
+                    purged += 1
+            table.addFooter(("Total", "%d" % (purged,), "", "", "",))
+            self.output.write("\n")
+            table.printTable(os=self.output)
+
+            if self.options["verbose"]:
+                self.output.write("%s time: %.1fs\n" % ("Summary", time.time() - ot,))
+
+
+    @inlineCallbacks
+    def missingLocation(self, rows, uuid):
+        """
+        Check each calendar resource by looking at any ORGANIER property value and verifying it is valid.
+        """
+
+        if not self.options["summary"]:
+            self.output.write("\n---- Checking for missing location events ----\n")
+        self.txn = self.store.newTransaction()
+
+        if self.options["verbose"]:
+            t = time.time()
+
+        Details = collections.namedtuple("Details", ("resid", "uid",))
+
+        count = 0
+        total = len(rows)
+        details = []
+        fixed = 0
+        rjust = 10
+        for resid in rows:
+            resid = resid[1]
+            caldata = yield self.getCalendar(resid, self.fix)
+            if caldata is None:
+                if self.parseError:
+                    returnValue((False, self.parseError))
+                else:
+                    returnValue((True, "Nothing to scan"))
+
+            cal = Component(None, pycalendar=caldata)
+            uid = cal.resourceUID()
+
+            fail = False
+            if cal.getOrganizer() is not None:
+                for comp in cal.subcomponents():
+                    if comp.name() != "VEVENT":
+                        continue
+                    location = comp.propertyValue("LOCATION")
+                    if location is None:
+                        fail = True
+                        break
+                    else:
+                        # Test the actual location value matches this location name?
+                        pass
+
+            if fail:
+                details.append(Details(resid, uid,))
+                if self.fix:
+                    # Add location value
+                    # TODO: locate organizer's copy of event
+                    #     Add LOCATION property to components
+                    #     Write it back to trigger scheduling
+                    fixed += 1
+
+            if self.options["verbose"] and not self.options["summary"]:
+                if count == 1:
+                    self.output.write("Current".rjust(rjust) + "Total".rjust(rjust) + "Complete".rjust(rjust) + "\n")
+                if divmod(count, 100)[1] == 0:
+                    self.output.write((
+                        "\r" +
+                        ("%s" % count).rjust(rjust) +
+                        ("%s" % total).rjust(rjust) +
+                        ("%d%%" % safePercent(count, total)).rjust(rjust)
+                    ).ljust(80))
+                    self.output.flush()
+
+            # To avoid holding locks on all the rows scanned, commit every 100 resources
+            if divmod(count, 100)[1] == 0:
+                yield self.txn.commit()
+                self.txn = self.store.newTransaction()
+
+        yield self.txn.commit()
+        self.txn = None
+        if self.options["verbose"] and not self.options["summary"]:
+            self.output.write((
+                "\r" +
+                ("%s" % count).rjust(rjust) +
+                ("%s" % total).rjust(rjust) +
+                ("%d%%" % safePercent(count, total)).rjust(rjust)
+            ).ljust(80) + "\n")
+
+        # Print table of results
+        if not self.options["summary"]:
+            self.logResult("Number of bad events", len(details))
+
+        self.results["Bad Events"] = details
+        if self.fix:
+            self.results["Fix bad events"] = fixed
+
+        if self.options["verbose"] and not self.options["summary"]:
+            diff_time = time.time() - t
+            self.output.write("Time: %.2f s  Average: %.1f ms/resource\n" % (
+                diff_time,
+                safePercent(diff_time, total, 1000.0),
+            ))
+
+        returnValue(details)
+
+
+
 class EventSplitService(CalVerifyService):
     """
     Service which splits a recurring event at a specific date-time value.
@@ -2818,6 +3052,8 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
             return DoubleBookingService(store, options, output, reactor, config)
         elif options["dark-purge"]:
             return DarkPurgeService(store, options, output, reactor, config)
+        elif options["missing-location"]:
+            return MissingLocationService(store, options, output, reactor, config)
         elif options["split"]:
             return EventSplitService(store, options, output, reactor, config)
         else:
