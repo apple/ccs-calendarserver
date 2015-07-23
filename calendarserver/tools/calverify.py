@@ -292,6 +292,13 @@ Options for --dark-purge:
 --invalid-organizer  : only detect events with an organizer not in the directory
 --disabled-organizer : only detect events with an organizer disabled for calendaring
 
+Options for --missing-location:
+
+--uuid     : only scan specified calendar homes. Can be a partial GUID
+             to scan all GUIDs with that as a prefix or "*" for all GUIDS
+             (that are marked as locations in the directory).
+--summary  : report only which GUIDs have bad events - no details.
+
 Options for --split:
 
 --path     : URI path to resource to split.
