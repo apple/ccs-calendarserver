@@ -223,12 +223,14 @@ install-caldavtester::
 	@echo "Installing CalDAVTester package...";
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/AppleInternal/ServerTools";
 	$(_v) tar -C "$(DSTROOT)/AppleInternal/ServerTools" -xvzf "$(Sources)/CalDAVTester.tgz";
+	$(_v) chown -R root:wheel "$(DSTROOT)/AppleInternal/ServerTools/CalDAVTester";
 
 install:: install-caldavsim
 install-caldavsim::
 	@echo "Installing caldavsim...";
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/AppleInternal/ServerTools";
 	$(_v) cp -a "$(Sources)/contrib/performance/" "$(DSTROOT)/AppleInternal/ServerTools/CalDAVSim/";
+	$(_v) chown -R root:wheel "$(DSTROOT)/AppleInternal/ServerTools/CalDAVSim";
 
 #
 # Automatic Extract
