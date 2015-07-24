@@ -677,8 +677,13 @@ class PostgresService(MultiService):
 
                 if self._pgCtlInode != newInode:
                     # send SIGTERM to postgres
+                    log.info("Postgres control script mismatch")
                     if self._postgresPid:
-                        os.kill(self._postgresPid, signal.SIGTERM)
+                        log.info("Sending SIGTERM to Postgres")
+                        try:
+                            os.kill(self._postgresPid, signal.SIGTERM)
+                        except OSError:
+                            pass
                     return succeed(None)
                 else:
                     # use pg_ctl stop
