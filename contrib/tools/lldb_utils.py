@@ -22,8 +22,11 @@ The steps are as follows:
 
     > lldb
     (lldb) target symbols add <path to Python.framework.dSYM>
+    (lldb) command script import contrib/tools/lldb_utils.py
     (lldb) script
-    >>> <paste in functions>
+    Python Interactive Interpreter. To exit, type 'quit()', 'exit()' or Ctrl-D.
+    >>> lldb_utils.pybt()
+    >>> lldb_utils.pybtall()
 
 pybt - generate a python function call backtrace of the currently selected thread
 pybtall - generate a python function call backtrace of all threads
