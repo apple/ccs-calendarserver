@@ -506,9 +506,11 @@ END:VEVENT
 END:VCALENDAR
 """
         calendar = Component.fromString(data)
+        self.assertFalse(calendar.hasProperty("PRODID"))
+        self.assertTrue(calendar.masterComponent().hasProperty("STATUS"))
         sanitizeCalendar(calendar)
         self.assertTrue(calendar.hasProperty("PRODID"))
-        self.assertFalse(calendar.hasProperty("STATUS"))
+        self.assertFalse(calendar.masterComponent().hasProperty("STATUS"))
 
 
 
