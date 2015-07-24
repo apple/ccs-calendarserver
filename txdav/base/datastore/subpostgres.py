@@ -35,7 +35,7 @@ from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath
 
 from twisted.protocols.basic import LineReceiver
-from twisted.internet.defer import Deferred
+from twisted.internet.defer import Deferred, succeed
 from txdav.base.datastore.dbapiclient import DBAPIConnector
 from txdav.base.datastore.dbapiclient import postgres
 from txdav.common.icommondatastore import InternalDataStoreError
@@ -280,6 +280,15 @@ class PostgresService(MultiService):
             )
 
         self._pgCtl = locateCommand("pg_ctl", pgCtl)
+
+        # Make note of the inode for the pg_ctl script; if it changes or is
+        # missing when it comes time to stop postgres, instead send SIGTERM
+        # to stop our postgres (since we can't do a graceful shutdown)
+        try:
+            self._pgCtlInode = os.stat(self._pgCtl).st_ino
+        except:
+            self._pgCtlInode = 0
+
         self._initdb = locateCommand("initdb", initDB)
         self._reactor = reactor
         self._postgresPid = None
@@ -657,28 +666,36 @@ class PostgresService(MultiService):
             # If pg_ctl's startup wasn't successful, don't bother to stop the
             # database.  (This also happens in command-line tools.)
             if self.shouldStopDatabase:
-                monitor = PostgresMonitor()
-                args = [
-                    self._pgCtl, "stop",
-                    "--log={}".format(self.logFile),
-                ]
-                log.info("Requesting postgres stop via: {args}", args=args)
-                self.reactor.spawnProcess(
-                    monitor, self._pgCtl,
-                    args,
-                    env=self.env, path=self.workingDir.path,
-                    uid=self.uid, gid=self.gid,
-                )
-                return monitor.completionDeferred
-        return d.addCallback(superStopped)
 
-#        def maybeStopSubprocess(result):
-#            if self.monitor is not None:
-#                self.monitor.transport.signalProcess("INT")
-#                return self.monitor.completionDeferred
-#            return result
-#        d.addCallback(maybeStopSubprocess)
-#        return d
+                # Compare pg_ctl inode with one we saw at the start; if different
+                # (or missing), fall back to SIGTERM
+                try:
+                    newInode = os.stat(self._pgCtl).st_ino
+                except OSError:
+                    # Missing
+                    newInode = -1
+
+                if self._pgCtlInode != newInode:
+                    # send SIGTERM to postgres
+                    if self._postgresPid:
+                        os.kill(self._postgresPid, signal.SIGTERM)
+                    return succeed(None)
+                else:
+                    # use pg_ctl stop
+                    monitor = PostgresMonitor()
+                    args = [
+                        self._pgCtl, "stop",
+                        "--log={}".format(self.logFile),
+                    ]
+                    log.info("Requesting postgres stop via: {args}", args=args)
+                    self.reactor.spawnProcess(
+                        monitor, self._pgCtl,
+                        args,
+                        env=self.env, path=self.workingDir.path,
+                        uid=self.uid, gid=self.gid,
+                    )
+                    return monitor.completionDeferred
+        return d.addCallback(superStopped)
 
 
     def hardStop(self):
