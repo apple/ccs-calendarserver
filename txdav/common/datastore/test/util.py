@@ -546,8 +546,13 @@ def updateToCurrentYear(data):
     current year.
     """
 
+    subs = {}
     nowYear = DateTime.getToday().getYear()
-    return data % {"now": nowYear}
+    subs["now"] = nowYear
+    for i in range(1, 10):
+        subs["now-{}".format(i)] = nowYear - 1
+        subs["now+{}".format(i)] = nowYear + 1
+    return data % subs
 
 
 

@@ -65,14 +65,19 @@ def setUpCalendarStore(test):
     storePath.copyTo(calendarPath)
 
     # Set year values to current year
+    subs = {}
     nowYear = DateTime.getToday().getYear()
+    subs["now"] = nowYear
+    for i in range(1, 10):
+        subs["now-{}".format(i)] = nowYear - 1
+        subs["now+{}".format(i)] = nowYear + 1
     for home in calendarPath.child("ho").child("me").children():
         if not home.basename().startswith("."):
             for calendar in home.children():
                 if not calendar.basename().startswith("."):
                     for resource in calendar.children():
                         if resource.basename().endswith(".ics"):
-                            resource.setContent(resource.getContent() % {"now": nowYear})
+                            resource.setContent(resource.getContent() % subs)
 
     testID = test.id()
     test.counter = 0
