@@ -18,7 +18,10 @@
 -- Upgrade database schema from VERSION 56 to 57 --
 ---------------------------------------------------
 
+-- pre-delete any that would conflict during the update
 delete from IMIP_TOKENS where (ORGANIZER, ATTENDEE, ICALUID) in (select concat('urn:uuid:', substr(ORGANIZER, 11)), ATTENDEE, ICALUID from IMIP_TOKENS where substr(ORGANIZER, 1, 10) = 'urn:x-uid:');
+
+-- convert the old-style urn:uuid: CUAs to new style urn:x-uid:
 update IMIP_TOKENS set ORGANIZER = concat('urn:x-uid:', substr(ORGANIZER, 10)) where substr(ORGANIZER, 1, 9) = 'urn:uuid:';
 
 -- update the version
