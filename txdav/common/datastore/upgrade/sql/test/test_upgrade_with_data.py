@@ -298,3 +298,45 @@ END:VCALENDAR
         self.assertEqual(workers[0].workType, "SCHEDULE_REPLY_WORK")
 
         yield txn.commit()
+
+
+    @inlineCallbacks
+    def test_upgrade_imipTokens(self):
+        """
+        Old-style canonical CUAs (urn:uuid:) are converted to new style (urn:x-uid:)
+        """
+        schema = yield self._loadOldSchema(self.upgradePath.child("v56.sql"))
+
+        txn = self.store.newTransaction("loadData")
+
+        # Add two tokens records crafted to simulate conflicting old-style and
+        # new style CUAs -- the result should be only the new-style copy.
+        yield Insert(
+            {
+                schema.IMIP_TOKENS.TOKEN: "123",
+                schema.IMIP_TOKENS.ORGANIZER: "urn:uuid:PLUGH",
+                schema.IMIP_TOKENS.ATTENDEE: "mailto:user@example.com",
+                schema.IMIP_TOKENS.ICALUID: "XYZZY",
+            }
+        ).on(txn)
+        yield Insert(
+            {
+                schema.IMIP_TOKENS.TOKEN: "456",
+                schema.IMIP_TOKENS.ORGANIZER: "urn:x-uid:PLUGH",
+                schema.IMIP_TOKENS.ATTENDEE: "mailto:user@example.com",
+                schema.IMIP_TOKENS.ICALUID: "XYZZY",
+            }
+        ).on(txn)
+
+        yield txn.commit()
+        upgrader = UpgradeDatabaseSchemaStep(self.store)
+        yield upgrader.databaseUpgrade()
+
+        txn = self.store.newTransaction("loadData")
+        tokens = yield Select(
+            From=schema.IMIP_TOKENS,
+        ).on(txn)
+
+        self.assertEqual(len(tokens), 1)
+        self.assertEqual(list(tokens[0])[1], "urn:x-uid:PLUGH")
+        yield txn.commit()
