@@ -3455,7 +3455,7 @@ END:VCALENDAR
             calendar_name="calendar",
             home="user01"
         )
-        comp = yield cobj.component()
+        comp = yield cobj.componentForUser()
         components = list(comp.subcomponents())
 
         # Check attendees...
@@ -3470,6 +3470,22 @@ END:VCALENDAR
             external.parameterValue(config.HostedStatus.Parameter),
             config.HostedStatus.Values["external"]
         )
+        yield self.commit()
+
+        cobj = yield self.calendarObjectUnderTest(
+            name="external.ics",
+            calendar_name="calendar",
+            home="user01"
+        )
+        comp = yield cobj.componentForUser()
+        comp = comp.duplicate()
+        main = comp.mainComponent()
+        # Remove the parameter so it gets added back and then we can check
+        # _componentChanged
+        external = main.getAttendeeProperty(["mailto:someone_external@example.com"])
+        external.removeParameter(config.HostedStatus.Parameter)
+        yield cobj.setComponent(comp)
+        self.assertTrue(cobj._componentChanged)
 
         yield self.commit()
 

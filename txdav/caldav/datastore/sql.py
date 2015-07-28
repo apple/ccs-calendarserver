@@ -3512,6 +3512,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 else:
                     status = "local"
 
+                prevValue = attendee.parameterValue(config.HostedStatus.Parameter)
                 if config.HostedStatus.Values[status]:
                     attendee.setParameter(
                         config.HostedStatus.Parameter,
@@ -3519,6 +3520,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     )
                 else:
                     attendee.removeParameter(config.HostedStatus.Parameter)
+                if attendee.parameterValue(config.HostedStatus.Parameter) != prevValue:
+                    self._componentChanged = True
 
 
     @inlineCallbacks
@@ -3798,17 +3801,17 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # implicit code below will set _componentChanged
             yield self.replaceMissingToDoProperties(component, inserting, internal_state)
 
-            # Handle sharing dropbox normalization
+            # Handle sharing dropbox normalization (and set _componentChanged)
             yield self.dropboxPathNormalization(component)
 
             # Pre-process managed attachments
             if internal_state == ComponentUpdateState.NORMAL:
                 managed_copied, managed_removed = (yield self.resourceCheckAttachments(component, inserting))
 
-            # Default/duplicate alarms
+            # Default/duplicate alarms (and set _componentChanged)
             self.processAlarms(component, inserting)
 
-            # Process hosted status
+            # Process hosted status (and set _componentChanged)
             if config.HostedStatus.Enabled:
                 yield self.decorateHostedStatus(component)
 
