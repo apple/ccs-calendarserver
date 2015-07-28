@@ -159,7 +159,9 @@ def pylocals(debugger=None, command=None, result=None, dict=None):
     for i in range(numlocals):
         localname = _toStr(names.GetValueForExpressionPath("->ob_item[{}]".format(i)), pystring_t)
         local = frame.EvaluateExpression("PyString_AsString(PyObject_Repr(f->f_localsplus[{}]))".format(i)).summary
-        print("    {} = {}".format(
+        localtype = frame.EvaluateExpression("PyString_AsString(PyObject_Repr(PyObject_Type(f->f_localsplus[{}])))".format(i)).summary
+        print("{}: {} = {}".format(
+            localtype[1:-1] if localtype else ".",
             localname[1:-1] if localname else ".",
             local[1:-1] if local else ".",
         ))
