@@ -808,9 +808,12 @@ class DirectoryProxyServiceMaker(object):
         else:
             setproctitle("CalendarServer Directory Proxy Service")
 
+        multiService = MultiService()
+
         try:
-            _ignore_pool, txnFactory = getDBPool(config)
+            pool, txnFactory = getDBPool(config)
             store = storeFromConfigWithDPSServer(config, txnFactory)
+            pool.setServiceParent(multiService)
         except Exception as e:
             log.error("Failed to create directory service", error=e)
             raise
@@ -832,10 +835,9 @@ class DirectoryProxyServiceMaker(object):
             ),
             DirectoryProxyAMPFactory(store.directoryService())
         )
+        dpsService.setServiceParent(multiService)
 
         if config.Manhole.Enabled:
-            multiService = MultiService()
-            dpsService.setServiceParent(multiService)
             try:
                 from twisted.conch.manhole_tap import (
                     makeService as manholeMakeService
@@ -864,6 +866,4 @@ class DirectoryProxyServiceMaker(object):
                     "manhole_tap could not be imported"
                 )
 
-            return multiService
-        else:
-            return dpsService
+        return multiService

@@ -68,8 +68,16 @@ calendarserver_sharing_no_scheduling_compliance = (
     "calendarserver-sharing-no-scheduling",
 )
 
+calendarserver_group_sharee_compliance = (
+    "calendarserver-group-sharee",
+)
+
 calendarserver_partstat_changes_compliance = (
     "calendarserver-partstat-changes",
+)
+
+calendarserver_group_attendee_compliance = (
+    "calendarserver-group-attendee",
 )
 
 calendarserver_home_sync_compliance = (

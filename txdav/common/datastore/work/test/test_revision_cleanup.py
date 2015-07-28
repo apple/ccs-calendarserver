@@ -23,12 +23,14 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial.unittest import TestCase
 from twistedcaldav.config import config
+from twistedcaldav.ical import Component
 from twistedcaldav.vcard import Component as VCard
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_READ
 from txdav.common.datastore.test.util import CommonCommonTests, populateCalendarsFrom
 from txdav.common.datastore.work.revision_cleanup import FindMinValidRevisionWork, RevisionCleanupWork
 from txdav.common.icommondatastore import SyncTokenValidException
 import datetime
+import time
 
 
 
@@ -84,6 +86,21 @@ DURATION:PT1H
 CREATED:20060102T190000Z
 DTSTAMP:20051222T210507Z
 SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR
+"""
+
+    cal1_mod = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid1
+DTSTART:20131122T140000
+DURATION:PT1H
+CREATED:20060102T190000Z
+DTSTAMP:20051222T210507Z
+SUMMARY:event 1.1
 END:VEVENT
 END:VCALENDAR
 """
@@ -242,6 +259,10 @@ END:VCARD
         Verify that all extra calendar object revisions are deleted by FindMinValidRevisionWork and RevisionCleanupWork
         """
 
+        # get home sync token
+        home = yield self.homeUnderTest(name="user01")
+        hometoken = yield home.syncToken()
+
         # get sync token
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         token = yield calendar.syncToken()
@@ -267,7 +288,7 @@ END:VCARD
 
         # Get the minimum valid revision and check it
         minValidRevision = yield self.transactionUnderTest().calendarserverValue("MIN-VALID-REVISION")
-        self.assertEqual(int(minValidRevision), max([row[0] for row in revisionRows]))
+        self.assertEqual(int(minValidRevision), max([row[0] for row in revisionRows]) + 1)
 
         # do RevisionCleanupWork
         yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
@@ -280,11 +301,108 @@ END:VCARD
             [rev.REVISION],
             From=rev,
         ).on(self.transactionUnderTest())
-        self.assertEqual(len(revisionRows), 1)  # deleteRevisionsBefore() leaves 1 revision behind
+        self.assertEqual(len(revisionRows), 0)
 
         # old sync token fails
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         yield self.failUnlessFailure(calendar.resourceNamesSinceToken(token), SyncTokenValidException)
+        yield self.commit()
+
+        # old sync token fails
+        home = yield self.homeUnderTest(name="user01")
+        yield self.failUnlessFailure(home.resourceNamesSinceToken(hometoken, 1), SyncTokenValidException)
+        yield self.commit()
+
+        # calendar sync token changed
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        newtoken = yield calendar.syncToken()
+        self.assertGreater(newtoken, token)
+        yield self.commit()
+
+        # home sync token changed
+        home = yield self.homeUnderTest(name="user01")
+        newhometoken = yield home.syncToken()
+        self.assertGreater(newhometoken, hometoken)
+        yield self.commit()
+
+        # Depth:1 tokens match
+        home = yield self.homeUnderTest(name="user01")
+        yield home.loadChildren()
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        newtoken1 = yield calendar.syncToken()
+        self.assertEqual(newtoken1, newtoken)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_calendarObjectRevisions_Modified(self):
+        """
+        Verify that a calendar object created before the revision cut-off, but modified after it is correctly reported as changed
+        after revision clean-up
+        """
+
+        # Need to add one non-event change that creates a revision after the last event change revisions in order
+        # for the logic in this test to work correctly
+        home = yield self.homeUnderTest(name="user01")
+        yield home.createCalendarWithName("_ignore_me")
+        yield self.commit()
+
+        # get initial sync token
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        initial_token = yield calendar.syncToken()
+        yield self.commit()
+
+        # Pause to give some space in the modified time
+        time.sleep(1)
+        modified = datetime.datetime.utcnow()
+        time.sleep(1)
+
+        # Patch the work item to use the modified cut-off we need
+        def _dateCutoff(self):
+            return modified
+        self.patch(FindMinValidRevisionWork, "dateCutoff", _dateCutoff)
+
+        # Make a change to get a pre-update token
+        cal2Object = yield self.calendarObjectUnderTest(self.transactionUnderTest(), name="cal2.ics", calendar_name="calendar", home="user01")
+        yield cal2Object.remove()
+        yield self.commit()
+
+        # get changed sync token
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        pre_update_token = yield calendar.syncToken()
+        yield self.commit()
+
+        # make changes
+        cal1Object = yield self.calendarObjectUnderTest(self.transactionUnderTest(), name="cal1.ics", calendar_name="calendar", home="user01")
+        yield cal1Object.setComponent(Component.fromString(self.cal1_mod))
+        yield self.commit()
+
+        # get changed sync token
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        update_token = yield calendar.syncToken()
+        yield self.commit()
+
+        # do FindMinValidRevisionWork and RevisionCleanupWork
+        yield FindMinValidRevisionWork.reschedule(self.transactionUnderTest(), 0)
+        yield self.commit()
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
+
+        # initial sync token fails
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield self.failUnlessFailure(calendar.resourceNamesSinceToken(initial_token), SyncTokenValidException)
+        yield self.commit()
+
+        # Pre-update sync token returns one item
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        names = yield calendar.resourceNamesSinceToken(pre_update_token)
+        self.assertEqual(names, (['cal1.ics'], [], []))
+        yield self.commit()
+
+        # Post-update sync token returns one item
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        names = yield calendar.resourceNamesSinceToken(update_token)
+        self.assertEqual(names, ([], [], []))
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -315,7 +433,7 @@ END:VCARD
 
         # Get the minimum valid revision and check it
         minValidRevision = yield self.transactionUnderTest().calendarserverValue("MIN-VALID-REVISION")
-        self.assertEqual(int(minValidRevision), max([row[0] for row in revisionRows]))
+        self.assertEqual(int(minValidRevision), max([row[0] for row in revisionRows]) + 1)
 
         # do RevisionCleanupWork
         yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
@@ -328,7 +446,7 @@ END:VCARD
             [rev.REVISION],
             From=rev,
         ).on(self.transactionUnderTest())
-        self.assertEqual(len(revisionRows), 1)  # deleteRevisionsBefore() leaves 1 revision behind
+        self.assertEqual(len(revisionRows), 0)
 
         # old sync token fails
         home = yield self.homeUnderTest(name="user01")
@@ -367,7 +485,7 @@ END:VCARD
 
         # Get the minimum valid revision and check it
         minValidRevision = yield self.transactionUnderTest().calendarserverValue("MIN-VALID-REVISION")
-        self.assertEqual(int(minValidRevision), max([row[0] for row in revisionRows]))
+        self.assertEqual(int(minValidRevision), max([row[0] for row in revisionRows]) + 1)
 
         # do RevisionCleanupWork
         yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
@@ -380,7 +498,7 @@ END:VCARD
             [rev.REVISION],
             From=rev,
         ).on(self.transactionUnderTest())
-        self.assertEqual(len(revisionRows), 1)  # deleteRevisionsBefore() leaves 1 revision behind
+        self.assertEqual(len(revisionRows), 0)
 
         # old sync token fails
         addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
@@ -440,7 +558,7 @@ END:VCARD
 
         # Get the minimum valid revision and check it
         minValidRevision = yield self.transactionUnderTest().calendarserverValue("MIN-VALID-REVISION")
-        self.assertEqual(int(minValidRevision), max([row[3] for row in group1Rows + group2Rows]))
+        self.assertEqual(int(minValidRevision), max([row[3] for row in group1Rows + group2Rows]) + 1)
 
         # do RevisionCleanupWork
         yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())

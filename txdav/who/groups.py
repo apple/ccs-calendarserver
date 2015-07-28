@@ -184,8 +184,10 @@ class GroupShareeReconciliationWork(
             homeID = rows[0][0]
             home = yield self.transaction.calendarHomeWithResourceID(homeID)
             calendar = yield home.childWithID(self.calendarID)
-            group = (yield self.transaction.groupByID(self.groupID))
-            yield calendar.reconcileGroupSharee(group.groupUID)
+            # Might be None if the calendar is in the trash or was removed before the work started
+            if calendar is not None:
+                group = (yield self.transaction.groupByID(self.groupID))
+                yield calendar.reconcileGroupSharee(group.groupUID)
 
 
 

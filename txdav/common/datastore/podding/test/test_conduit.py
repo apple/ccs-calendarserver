@@ -970,11 +970,13 @@ END:VCALENDAR
         yield self.commitTransaction(0)
 
         shared_object = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", calendar_name="shared-calendar", name="1.ics")
-        attachment, location = yield shared_object.addAttachment(None, MimeType.fromString("text/plain"), "test.txt", MemoryStream("Here is some text."))
+        data = "Here is some text."
+        attachment, location = yield shared_object.addAttachment(None, MimeType.fromString("text/plain"), "test.txt", MemoryStream(data))
         managedID = attachment.managedID()
         from txdav.caldav.datastore.sql_external import ManagedAttachmentExternal
         self.assertTrue(isinstance(attachment, ManagedAttachmentExternal))
-        self.assertTrue("user01/attachments/test" in location)
+        self.assertEqual(attachment.size(), len(data))
+        self.assertTrue("user01/dropbox/" in location)
         yield self.commitTransaction(1)
 
         cobjs = yield ManagedAttachment.referencesTo(self.theTransactionUnderTest(0), managedID)
@@ -1005,11 +1007,13 @@ END:VCALENDAR
         yield self.commitTransaction(0)
 
         shared_object = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", calendar_name="shared-calendar", name="1.ics")
-        attachment, location = yield shared_object.updateAttachment(managedID, MimeType.fromString("text/plain"), "test.txt", MemoryStream("Here is some more text."))
+        data = "Here is some more text."
+        attachment, location = yield shared_object.updateAttachment(managedID, MimeType.fromString("text/plain"), "test.txt", MemoryStream(data))
         managedID = attachment.managedID()
         from txdav.caldav.datastore.sql_external import ManagedAttachmentExternal
         self.assertTrue(isinstance(attachment, ManagedAttachmentExternal))
-        self.assertTrue("user01/attachments/test" in location)
+        self.assertEqual(attachment.size(), len(data))
+        self.assertTrue("user01/dropbox/" in location)
         yield self.commitTransaction(1)
 
         cobjs = yield ManagedAttachment.referencesTo(self.theTransactionUnderTest(0), managedID)

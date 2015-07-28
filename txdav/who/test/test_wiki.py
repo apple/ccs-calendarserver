@@ -23,7 +23,7 @@ Tests for L{txdav.who.wiki}.
 
 
 from twisted.trial import unittest
-from twisted.internet.defer import inlineCallbacks, succeed
+from twisted.internet.defer import inlineCallbacks, succeed, TimeoutError
 from twistedcaldav.test.util import StoreTestCase
 
 from ..wiki import (
@@ -94,6 +94,8 @@ class AccessForRecordTestCase(StoreTestCase):
 
 
     def stubAccessForUserToWiki(self, *args, **kwds):
+        if hasattr(self, "raiseTimeout"):
+            raise TimeoutError
         return succeed(self.access)
 
 
@@ -116,6 +118,12 @@ class AccessForRecordTestCase(StoreTestCase):
         self.access = "admin"
         access = yield record.accessForRecord(None)
         self.assertEquals(access, WikiAccessLevel.write)
+
+        self.access = "write"
+        self.raiseTimeout = True
+        access = yield record.accessForRecord(None)
+        self.assertEquals(access, WikiAccessLevel.none)
+
 
 
 

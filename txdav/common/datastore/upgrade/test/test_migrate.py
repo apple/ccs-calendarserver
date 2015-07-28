@@ -295,6 +295,15 @@ END:VCALENDAR
         L{UpgradeToDatabaseService.startService} will do the upgrade, then
         start its dependent service by adding it to its service hierarchy.
         """
+
+        # Create a fake directory in the same place as a home, but with a non-existent uid
+        fake_dir = self.filesPath.child("calendars").child("__uids__").child("ho").child("me").child("foobar")
+        fake_dir.makedirs()
+
+        # Create a fake file in the same place as a home,with a name that matches the hash uid prefix
+        fake_file = self.filesPath.child("calendars").child("__uids__").child("ho").child("me").child("home_file")
+        fake_file.setContent("")
+
         yield self.upgrader.stepWithResult(None)
         txn = self.sqlStore.newTransaction()
         self.addCleanup(txn.commit)

@@ -115,6 +115,7 @@ main () {
     bootstrap_virtualenv;
     "${bootstrap_python}" -m virtualenv  \
       --always-copy                      \
+      --system-site-packages             \
       --no-setuptools                    \
       "${py_virtualenv}";
   fi;
@@ -149,13 +150,29 @@ main () {
 
   cd "${destination}/lib";
 
-  find "../roots" -type f  \
+  find "../roots" "(" -type f -o -type l ")"  \
     "("                    \
       -name '*.so'     -o  \
       -name '*.so.*'   -o  \
       -name '*.dylib'      \
     ")" -print0            \
     | xargs -0 -I % ln -s % .;
+
+  # Write out environment.sh
+  local dst="${destination}";
+  cat > "${dst}/environment.sh" << __EOF__
+export              PATH="${dst}/bin:\${PATH}";
+export    C_INCLUDE_PATH="${dst}/include:\${C_INCLUDE_PATH:-}";
+export   LD_LIBRARY_PATH="${dst}/lib:${dst}/lib64:\${LD_LIBRARY_PATH:-}:\$ORACLE_HOME";
+export          CPPFLAGS="-I${dst}/include \${CPPFLAGS:-} ";
+export           LDFLAGS="-L${dst}/lib -L${dst}/lib64 \${LDFLAGS:-} ";
+export DYLD_LIBRARY_PATH="${dst}/lib:${dst}/lib64:\${DYLD_LIBRARY_PATH:-}:\$ORACLE_HOME";
+__EOF__
+
+  # Install CalendarServer into venv
+  cd ${wd}
+  ${python} setup.py install
+
 }
 
 

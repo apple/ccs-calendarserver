@@ -765,6 +765,19 @@ create index IMIP_TOKENS_TOKEN
 
 create sequence WORKITEM_SEQ;
 
+---------------
+-- Test Work --
+---------------
+
+create table TEST_WORK (
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  JOB_ID                        integer      references JOB not null,
+  DELAY 						integer
+);
+
+create index TEST_WORK_JOB_ID on
+  TEST_WORK(JOB_ID);
+
 
 ---------------------------
 -- IMIP Inivitation Work --
@@ -1269,7 +1282,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '55');
+insert into CALENDARSERVER values ('VERSION', '57');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

@@ -385,6 +385,20 @@ class ConfigTests(TestCase):
         config.EnableProxyPrincipals = False
         self.assertTrue("calendar-proxy" not in resource.davComplianceClasses())
 
+        self.assertTrue("calendarserver-group-sharee" in resource.davComplianceClasses())
+        config.Sharing.Calendars.Groups.Enabled = False
+        config.update()
+        self.assertTrue("calendarserver-group-sharee" not in resource.davComplianceClasses())
+        config.Sharing.Calendars.Groups.Enabled = True
+        config.update()
+
+        self.assertTrue("calendarserver-group-attendee" in resource.davComplianceClasses())
+        config.GroupAttendees.Enabled = False
+        config.update()
+        self.assertTrue("calendarserver-group-attendee" not in resource.davComplianceClasses())
+        config.GroupAttendees.Enabled = True
+        config.update()
+
 
     def test_logging(self):
         """

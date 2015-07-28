@@ -27,7 +27,6 @@ from twisted.application import service
 from twisted.internet import protocol, defer, ssl
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.mail import pop3client, imap4
-from twisted.mail.smtp import messageid
 
 from twistedcaldav.config import config
 from twistedcaldav.ical import Property, Component
@@ -186,6 +185,30 @@ def scheduleNextMailPoll(store, seconds):
     log.debug("Scheduling next mail poll: %s" % (notBefore,))
     yield txn.enqueue(IMIPPollingWork, notBefore=notBefore)
     yield txn.commit()
+
+
+
+def sanitizeCalendar(calendar):
+    """
+    Clean up specific issues seen in the wild from third party IMIP capable
+    servers.
+
+    @param calendar: the calendar Component to sanitize
+    @type calendar: L{Component}
+    """
+    # Don't let a missing PRODID prevent the reply from being processed
+    if not calendar.hasProperty("PRODID"):
+        calendar.addProperty(
+            Property(
+                "PRODID", "Unknown"
+            )
+        )
+
+    # For METHOD:REPLY we can remove STATUS properties
+    methodProperty = calendar.getProperty("METHOD")
+    if methodProperty is not None:
+        if methodProperty.value() == "REPLY":
+            calendar.removeAllPropertiesWithName("STATUS")
 
 
 
@@ -392,7 +415,7 @@ class MailReceiver(object):
             del msg["To"]
             msg["To"] = toAddr
             log.warn("Mail gateway forwarding reply back to organizer")
-            yield smtpSender.sendMessage(fromAddr, toAddr, messageid(), msg.as_string())
+            yield smtpSender.sendMessage(fromAddr, toAddr, SMTPSender.betterMessageID(), msg.as_string())
             returnValue(self.REPLY_FORWARDED_TO_ORGANIZER)
 
         # Process the imip attachment; inject to calendar server
@@ -401,13 +424,7 @@ class MailReceiver(object):
         calendar = Component.fromString(calBody)
         event = calendar.mainComponent()
 
-        # Don't let a missing PRODID prevent the reply from being processed
-        if not calendar.hasProperty("PRODID"):
-            calendar.addProperty(
-                Property(
-                    "PRODID", "Unknown"
-                )
-            )
+        sanitizeCalendar(calendar)
 
         calendar.removeAllButOneAttendee(record.attendee)
         organizerProperty = calendar.getOrganizerProperty()
@@ -691,7 +708,7 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
         self.log.debug("IMAP in cbGotMessage")
         try:
             messageData = results.values()[0]['RFC822']
-        except IndexError:
+        except (IndexError, KeyError):
             # results will be empty unless the "twistedmail-imap-flags-anywhere"
             # patch from http://twistedmatrix.com/trac/ticket/1105 is applied
             self.log.error("Skipping empty results -- apply twisted patch!")

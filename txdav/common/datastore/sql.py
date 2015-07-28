@@ -3409,8 +3409,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             )
 
             # Get revisions
-            revisions = (yield cls._revisionsForResourceIDs(childResourceIDs).on(home._txn, resourceIDs=childResourceIDs))
-            revisions = dict(revisions)
+            revisions = yield cls.childSyncTokenRevisions(home, childResourceIDs)
 
         # Create the actual objects merging in properties
         for dataRow in dataRows:
@@ -3421,7 +3420,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             propstore = propertyStores.get(resourceID, None)
 
             child = yield cls.makeClass(home, bindData, additionalBindData, metadataData, propstore)
-            child._syncTokenRevision = revisions.get(resourceID, 0)
+            child._syncTokenRevision = revisions.get(resourceID, None)
             results.append(child)
 
         returnValue(results)

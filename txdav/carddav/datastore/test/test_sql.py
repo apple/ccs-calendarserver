@@ -28,20 +28,21 @@ from twisted.internet.task import deferLater
 from twisted.trial import unittest
 
 from twistedcaldav import carddavxml
-from twistedcaldav.vcard import Component as VCard
+from twistedcaldav.vcard import Component as VCard, Component
 from twistedcaldav.vcard import Component as VComponent
 
 from txdav.base.propertystore.base import PropertyName
 
 from txdav.carddav.datastore.test.common import CommonTests as AddressBookCommonTests, \
-    vcard4_text
+    vcard4_text, adbk1Root
 from txdav.carddav.datastore.test.test_file import setUpAddressBookStore
 from txdav.carddav.datastore.util import _migrateAddressbook, migrateHome
 
 from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.common.datastore.sql import EADDRESSBOOKTYPE, CommonObjectResource
 from txdav.common.datastore.sql_tables import _ABO_KIND_PERSON, _ABO_KIND_GROUP, schema
-from txdav.common.datastore.test.util import cleanStore
+from txdav.common.datastore.test.util import cleanStore, CommonCommonTests, \
+    populateAddressBooksFrom
 from txdav.carddav.datastore.sql import AddressBook
 
 from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
@@ -919,6 +920,37 @@ END:VCARD
         yield self.commit()
 
 
+
+class SyncTests(CommonCommonTests, unittest.TestCase):
+    """
+    Revision table/sync report tests.
+    """
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(SyncTests, self).setUp()
+        yield self.buildStoreAndDirectory()
+        yield self.populate()
+
+
+    requirements = {
+        "user01": {
+            "addressbook": {
+                "1.vcf": adbk1Root.child("1.vcf").getContent(),
+                "2.vcf": adbk1Root.child("2.vcf").getContent(),
+                "3.vcf": adbk1Root.child("3.vcf").getContent(),
+            },
+            "not_a_addressbook": None
+        },
+    }
+
+
+    @inlineCallbacks
+    def populate(self):
+        yield populateAddressBooksFrom(self.requirements, self.storeUnderTest())
+        self.notifierFactory.reset()
+
+
     @inlineCallbacks
     def test_updateAfterRevisionCleanup(self):
         """
@@ -957,26 +989,26 @@ X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:uid-person
 END:VCARD
 """
 
-        yield self.homeUnderTest()
-        adbk = yield self.addressbookUnderTest(name="addressbook")
+        yield self.addressbookHomeUnderTest(name="user01")
+        adbk = yield self.addressbookUnderTest(home="user01", name="addressbook")
         yield adbk.createAddressBookObjectWithName("person.vcf", VCard.fromString(person))
         yield adbk.createAddressBookObjectWithName("group.vcf", VCard.fromString(group))
         yield self.commit()
 
         # Remove the revision
-        adbk = yield self.addressbookUnderTest(name="addressbook")
+        adbk = yield self.addressbookUnderTest(home="user01", name="addressbook")
         yield adbk.syncToken()
         yield self.transactionUnderTest().deleteRevisionsBefore(adbk._syncTokenRevision + 1)
         yield self.commit()
 
         # Update the object
-        obj = yield self.addressbookObjectUnderTest(name="group.vcf", addressbook_name="addressbook")
+        obj = yield self.addressbookObjectUnderTest(name="group.vcf", addressbook_name="addressbook", home="user01")
         yield obj.setComponent(VCard.fromString(group_update))
         yield self.commit()
 
-        obj = yield self.addressbookObjectUnderTest(name="group.vcf", addressbook_name="addressbook")
+        obj = yield self.addressbookObjectUnderTest(name="group.vcf", addressbook_name="addressbook", home="user01")
         self.assertTrue(obj is not None)
-        obj = yield self.addressbookObjectUnderTest(name="person.vcf", addressbook_name="addressbook")
+        obj = yield self.addressbookObjectUnderTest(name="person.vcf", addressbook_name="addressbook", home="user01")
         self.assertTrue(obj is not None)
         yield self.commit()
 
@@ -1010,26 +1042,76 @@ X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:uid-person
 END:VCARD
 """
 
-        yield self.homeUnderTest()
-        adbk = yield self.addressbookUnderTest(name="addressbook")
+        yield self.addressbookHomeUnderTest(name="user01")
+        adbk = yield self.addressbookUnderTest(home="user01", name="addressbook")
         yield adbk.createAddressBookObjectWithName("person.vcf", VCard.fromString(person))
         yield adbk.createAddressBookObjectWithName("group.vcf", VCard.fromString(group))
         yield self.commit()
 
         # Remove the revision
-        adbk = yield self.addressbookUnderTest(name="addressbook")
+        adbk = yield self.addressbookUnderTest(home="user01", name="addressbook")
         yield adbk.syncToken()
         yield self.transactionUnderTest().deleteRevisionsBefore(adbk._syncTokenRevision + 1)
         yield self.commit()
 
         # Remove the object
-        obj = yield self.addressbookObjectUnderTest(name="group.vcf", addressbook_name="addressbook")
+        obj = yield self.addressbookObjectUnderTest(name="group.vcf", addressbook_name="addressbook", home="user01")
         self.assertTrue(obj is not None)
         yield obj.remove()
         yield self.commit()
 
-        obj = yield self.addressbookObjectUnderTest(name="group.vcf", addressbook_name="addressbook")
+        obj = yield self.addressbookObjectUnderTest(name="group.vcf", addressbook_name="addressbook", home="user01")
         self.assertTrue(obj is None)
-        obj = yield self.addressbookObjectUnderTest(name="person.vcf", addressbook_name="addressbook")
+        obj = yield self.addressbookObjectUnderTest(name="person.vcf", addressbook_name="addressbook", home="user01")
         self.assertTrue(obj is not None)
         yield self.commit()
+
+
+    @inlineCallbacks
+    def test_revisionModified(self):
+        """
+        Make sure the revision table MODIFIED value changes for an update or delete
+        """
+
+        @inlineCallbacks
+        def _getModified():
+            home = yield self.addressbookHomeUnderTest(name="user01")
+            addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
+            rev = addressbook._revisionsSchema
+            modified = yield Select(
+                [rev.MODIFIED, ],
+                From=rev,
+                Where=(
+                    rev.ADDRESSBOOK_HOME_RESOURCE_ID == Parameter("homeID")).And(
+                    rev.RESOURCE_NAME == Parameter("resourceName")
+                )
+            ).on(
+                home._txn,
+                homeID=home.id(),
+                resourceName="1.vcf",
+            )
+            yield self.commit()
+            returnValue(modified[0][0])
+
+        # Get current modified
+        old_modified = yield _getModified()
+        self.assertNotEqual(old_modified, None)
+
+        # Update resource
+        aobj = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="1.vcf")
+        yield aobj.setComponent(Component.fromString(adbk1Root.child("1.vcf").getContent()))
+        yield self.commit()
+
+        # Modified changed
+        update_modified = yield _getModified()
+        self.assertGreater(update_modified, old_modified)
+
+        # Delete resource
+        aobj = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="1.vcf")
+        yield aobj.remove()
+        yield self.commit()
+
+        # Modified changed
+        delete_modified = yield _getModified()
+        self.assertGreater(delete_modified, old_modified)
+        self.assertGreater(delete_modified, update_modified)

@@ -49,7 +49,7 @@ from twisted.trial.unittest import TestCase
 
 from twistedcaldav import ical
 from twistedcaldav.config import config, ConfigDict
-from twistedcaldav.ical import Component as VComponent, Component
+from twistedcaldav.ical import Component as VComponent
 from twistedcaldav.stdconfig import DEFAULT_CONFIG
 from twistedcaldav.vcard import Component as ABComponent
 
@@ -260,10 +260,7 @@ class SQLStoreBuilder(object):
             {"push": notifierFactory} if notifierFactory is not None else {},
             directoryService,
             attachmentRoot,
-            (
-                "https://example.com/calendars/__uids__/"
-                "%(home)s/attachments/%(name)s"
-            ),
+            "https://example.com/calendars/__uids__/%(home)s/dropbox/%(dropbox_id)s/%(name)s",
             quota=quota
         )
         store.label = currentTestID
@@ -549,37 +546,13 @@ def updateToCurrentYear(data):
     current year.
     """
 
+    subs = {}
     nowYear = DateTime.getToday().getYear()
-    return data % {"now": nowYear}
-
-
-relativeDateSubstitutions = {}
-
-
-def componentUpdate(data):
-    """
-    Update the supplied iCalendar data so that all dates are updated to the
-    current year.
-    """
-
-    if len(relativeDateSubstitutions) == 0:
-        now = DateTime.getToday()
-
-        relativeDateSubstitutions["now"] = now
-
-        for i in range(30):
-            attrname = "now_back%s" % (i + 1,)
-            dt = now.duplicate()
-            dt.offsetDay(-(i + 1))
-            relativeDateSubstitutions[attrname] = dt
-
-        for i in range(30):
-            attrname = "now_fwd%s" % (i + 1,)
-            dt = now.duplicate()
-            dt.offsetDay(i + 1)
-            relativeDateSubstitutions[attrname] = dt
-
-    return Component.fromString(data.format(**relativeDateSubstitutions))
+    subs["now"] = nowYear
+    for i in range(1, 10):
+        subs["now-{}".format(i)] = nowYear - 1
+        subs["now+{}".format(i)] = nowYear + 1
+    return data % subs
 
 
 

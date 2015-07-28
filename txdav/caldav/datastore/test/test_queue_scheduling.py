@@ -19,11 +19,10 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.python.clsprop import classproperty
 from twistedcaldav.config import config
 from txdav.caldav.datastore.scheduling.work import ScheduleWorkMixin
-from txdav.caldav.datastore.test.util import CommonStoreTests
-from txdav.common.datastore.test.util import componentUpdate
-from twistedcaldav.ical import normalize_iCalStr
+from txdav.caldav.datastore.test.util import CommonStoreTests, \
+    DateTimeSubstitutionsMixin
 
-class BaseQueueSchedulingTests(CommonStoreTests):
+class BaseQueueSchedulingTests(CommonStoreTests, DateTimeSubstitutionsMixin):
 
     """
     Test store-based calendar sharing.
@@ -40,6 +39,8 @@ class BaseQueueSchedulingTests(CommonStoreTests):
         self.patch(config.Scheduling.Options.WorkQueues, "AutoReplyDelaySeconds", 1)
         self.patch(config.Scheduling.Options.WorkQueues, "AttendeeRefreshBatchDelaySeconds", 1)
         self.patch(config.Scheduling.Options.WorkQueues, "AttendeeRefreshBatchIntervalSeconds", 1)
+
+        self.setupDateTimeValues()
 
 
     @classproperty(cache=False)
@@ -87,7 +88,7 @@ class BaseQueueSchedulingTests(CommonStoreTests):
         self.assertEqual(len(objs), 1)
 
         caldata = yield objs[0].componentForUser()
-        self.assertEqual(normalize_iCalStr(caldata), normalize_iCalStr(componentUpdate(data)))
+        self.assertEqualCalendarData(caldata, data.format(**self.dtsubs))
 
 
 
@@ -104,7 +105,7 @@ VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890
-DTSTART:{now}T000000Z
+DTSTART:{nowDate}T000000Z
 DURATION:PT1H
 ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
 ATTENDEE:mailto:user02@example.com
@@ -120,7 +121,7 @@ VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890
-DTSTART:{now}T000000Z
+DTSTART:{nowDate}T000000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
@@ -137,7 +138,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 METHOD:REQUEST
 BEGIN:VEVENT
 UID:12345-67890
-DTSTART:{now}T000000Z
+DTSTART:{nowDate}T000000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
@@ -153,7 +154,7 @@ VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890
-DTSTART:{now}T000000Z
+DTSTART:{nowDate}T000000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
@@ -170,7 +171,7 @@ VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890
-DTSTART:{now}T000000Z
+DTSTART:{nowDate}T000000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user02
@@ -186,7 +187,7 @@ VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890
-DTSTART:{now}T000000Z
+DTSTART:{nowDate}T000000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:urn:x-uid:user02
@@ -203,7 +204,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 METHOD:REPLY
 BEGIN:VEVENT
 UID:12345-67890
-DTSTART:{now}T000000Z
+DTSTART:{nowDate}T000000Z
 DURATION:PT1H
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
@@ -219,7 +220,7 @@ VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890
-DTSTART:{now}T000000Z
+DTSTART:{nowDate}T000000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user02
@@ -232,7 +233,7 @@ END:VCALENDAR
 
         waitForWork = ScheduleWorkMixin.allDone()
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
-        yield calendar.createCalendarObjectWithName("data1.ics", componentUpdate(data1))
+        yield calendar.createCalendarObjectWithName("data1.ics", data1.format(**self.dtsubs))
         yield self.commit()
 
         yield waitForWork
@@ -244,7 +245,7 @@ END:VCALENDAR
 
         waitForWork = ScheduleWorkMixin.allDone()
         cobj = yield self._getOneResource("user02", "calendar")
-        yield cobj.setComponent(componentUpdate(data5))
+        yield cobj.setComponent(data5.format(**self.dtsubs))
         yield self.commit()
 
         yield waitForWork

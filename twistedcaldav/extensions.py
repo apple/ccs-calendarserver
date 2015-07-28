@@ -1041,7 +1041,9 @@ def extractCalendarServerPrincipalSearchData(doc):
             applyTo = True
 
         elif child.qname() == (calendarserver_namespace, "search-token"):
-            tokens.append(child.toString())
+            tokenValue = child.toString().strip()
+            if tokenValue:
+                tokens.append(tokenValue)
 
         elif child.qname() == (calendarserver_namespace, "limit"):
             try:

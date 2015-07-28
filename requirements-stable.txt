@@ -36,7 +36,7 @@
             #pyOpenSSL
         pycrypto==2.6.1
 
-    --editable svn+http://svn.calendarserver.org/repository/calendarserver/twext/branches/users/cdaboo/cfod@14909#egg=twextpy
+    --editable svn+http://svn.calendarserver.org/repository/calendarserver/twext/branches/users/cdaboo/cfod@15010#egg=twextpy
         cffi==1.1.0
             pycparser==2.13
         #twisted
@@ -56,16 +56,18 @@
 
     pyOpenSSL==0.14
         cryptography==0.9
+        	idna
             #pyasn1
             #cffi
             enum34==1.0.4
+            ipaddress
             setuptools==17.0
             #six
         six==1.9.0
 
     --editable svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk@13420#egg=kerberos
 
-    --editable svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk@14695#egg=pycalendar
+    --editable svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk@14915#egg=pycalendar
     python-dateutil==1.5  # Note: v2.0+ is for Python 3
     pytz==2015.4
 

@@ -255,15 +255,15 @@ class CalendarObjectExternal(CommonObjectResourceExternal, CalendarObject):
     @inlineCallbacks
     def addAttachment(self, rids, content_type, filename, stream):
         result = yield self._txn.store().conduit.send_add_attachment(self, rids, content_type, filename, stream)
-        managedID, location = result
-        returnValue((ManagedAttachmentExternal(str(managedID)), str(location),))
+        managedID, size, location = result
+        returnValue((ManagedAttachmentExternal(str(managedID), size), str(location),))
 
 
     @inlineCallbacks
     def updateAttachment(self, managed_id, content_type, filename, stream):
         result = yield self._txn.store().conduit.send_update_attachment(self, managed_id, content_type, filename, stream)
-        managedID, location = result
-        returnValue((ManagedAttachmentExternal(str(managedID)), str(location),))
+        managedID, size, location = result
+        returnValue((ManagedAttachmentExternal(str(managedID), size), str(location),))
 
 
     @inlineCallbacks
@@ -279,12 +279,17 @@ class ManagedAttachmentExternal(object):
     L{CalendarObjectExternal.updateAttachment}.
     """
 
-    def __init__(self, managedID):
+    def __init__(self, managedID, size):
         self._managedID = managedID
+        self._size = size
 
 
     def managedID(self):
         return self._managedID
+
+
+    def size(self):
+        return self._size
 
 
 CalendarExternal._objectResourceClass = CalendarObjectExternal

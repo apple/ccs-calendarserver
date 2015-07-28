@@ -276,7 +276,8 @@ class CommonDataStore(DataStore):
                             continue
                         txn = self.newTransaction("enumerate home %r" % (uid,))
                         home = txn.homeWithUID(storeType, uid, False)
-                        yield (txn, home)
+                        if home is not None:
+                            yield (txn, home)
 
 
     def _eachCalendarHome(self):

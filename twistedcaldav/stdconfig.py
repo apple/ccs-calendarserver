@@ -316,6 +316,10 @@ DEFAULT_CONFIG = {
 
     "DirectoryRealmName": "",
 
+    # Apply an additional filter for attendee lookups where names must start
+    # with the search tokens rather than just contain them.
+    "DirectoryFilterStartsWith": False,
+
     #
     # Locations and Resources service
     #
@@ -817,16 +821,16 @@ DEFAULT_CONFIG = {
                 "EnableStaggering" : False,
                 "StaggerSeconds" : 3,
                 "CalDAV" : {
-                    "CertificatePath" : "",
-                    "PrivateKeyPath" : "",
-                    "AuthorityChainPath" : "",
+                    "CertificatePath" : "Certificates/apns:com.apple.calendar.cert.pem",
+                    "PrivateKeyPath" : "Certificates/apns:com.apple.calendar.key.pem",
+                    "AuthorityChainPath" : "Certificates/apns:com.apple.calendar.chain.pem",
                     "Passphrase" : "",
                     "Topic" : "",
                 },
                 "CardDAV" : {
-                    "CertificatePath" : "",
-                    "PrivateKeyPath" : "",
-                    "AuthorityChainPath" : "",
+                    "CertificatePath" : "Certificates/apns:com.apple.contact.cert.pem",
+                    "PrivateKeyPath" : "Certificates/apns:com.apple.contact.key.pem",
+                    "AuthorityChainPath" : "Certificates/apns:com.apple.contact.chain.pem",
                     "Passphrase" : "",
                     "Topic" : "",
                 },
@@ -1218,6 +1222,12 @@ RELATIVE_PATHS = [
     ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PublicKeyFile",)),
     ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PrivateExchanges",)),
     ("ConfigRoot", "WritableConfigFile"),
+    ("ConfigRoot", ("Notifications", "Services", "APNS", "CalDAV", "AuthorityChainPath",)),
+    ("ConfigRoot", ("Notifications", "Services", "APNS", "CalDAV", "CertificatePath",)),
+    ("ConfigRoot", ("Notifications", "Services", "APNS", "CalDAV", "PrivateKeyPath",)),
+    ("ConfigRoot", ("Notifications", "Services", "APNS", "CardDAV", "AuthorityChainPath",)),
+    ("ConfigRoot", ("Notifications", "Services", "APNS", "CardDAV", "CertificatePath",)),
+    ("ConfigRoot", ("Notifications", "Services", "APNS", "CardDAV", "PrivateKeyPath",)),
     ("LogRoot", "AccessLogFile"),
     ("LogRoot", "ErrorLogFile"),
     ("LogRoot", "AgentLogFile"),
@@ -1717,6 +1727,8 @@ def _updateCompliance(configDict, reloading=False):
             compliance += customxml.calendarserver_sharing_compliance
             # TODO: This is only needed whilst we do not support scheduling in shared calendars
             compliance += customxml.calendarserver_sharing_no_scheduling_compliance
+            if config.Sharing.Calendars.Enabled and config.Sharing.Calendars.Groups.Enabled:
+                compliance += customxml.calendarserver_group_sharee_compliance
         if configDict.EnableCalendarQueryExtended:
             compliance += caldavxml.caldav_query_extended_compliance
         if configDict.EnableDefaultAlarms:
@@ -1725,6 +1737,8 @@ def _updateCompliance(configDict, reloading=False):
             compliance += caldavxml.caldav_managed_attachments_compliance
         if configDict.Scheduling.Options.TimestampAttendeePartStatChanges:
             compliance += customxml.calendarserver_partstat_changes_compliance
+        if config.GroupAttendees.Enabled:
+            compliance += customxml.calendarserver_group_attendee_compliance
         if configDict.EnableTimezonesByReference:
             compliance += caldavxml.caldav_timezones_by_reference_compliance
         compliance += customxml.calendarserver_recurrence_split

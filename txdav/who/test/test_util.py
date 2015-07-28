@@ -114,6 +114,7 @@ class UtilTest(TestCase):
                     "InProcessCachingSeconds": 60,
                     "InSidecarCachingSeconds": 120,
                 },
+                "DirectoryFilterStartsWith": False,
             }
         )
 

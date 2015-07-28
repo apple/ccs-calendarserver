@@ -45,7 +45,6 @@ America/Aruba	America/Curacao
 America/Atka	America/Adak
 America/Buenos_Aires	America/Argentina/Buenos_Aires
 America/Catamarca	America/Argentina/Catamarca
-America/Cayman	America/Panama
 America/Coral_Harbour	America/Atikokan
 America/Cordoba	America/Argentina/Cordoba
 America/Dominica	America/Port_of_Spain

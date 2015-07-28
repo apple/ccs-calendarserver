@@ -69,7 +69,7 @@ class AttachmentsConduitMixin(object):
             request["stream"],
         )
 
-        returnValue((attachment.managedID(), location,))
+        returnValue((attachment.managedID(), attachment.size(), location,))
 
 
     @inlineCallbacks
@@ -115,7 +115,7 @@ class AttachmentsConduitMixin(object):
             request["stream"],
         )
 
-        returnValue((attachment.managedID(), location,))
+        returnValue((attachment.managedID(), attachment.size(), location,))
 
 
     @inlineCallbacks

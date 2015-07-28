@@ -97,20 +97,6 @@ def recordsFromCSVFile(path):
 
 
 
-def recordsFromCount(count, uid=u"user%02d", password=u"user%02d",
-                     commonName=u"User %02d", email=u"user%02d@example.com",
-                     guid="10000000-0000-0000-0000-000000000%03d"):
-    for i in range(1, count + 1):
-        yield _DirectoryRecord(
-            uid % i,
-            password % i,
-            commonName % i,
-            email % i,
-            guid % i,
-        )
-
-
-
 class LagTrackingReactor(object):
     """
     This reactor wraps another reactor and proxies all attribute
@@ -292,15 +278,9 @@ class LoadSimulator(object):
             workerID = config.get("workerID", 0)
             workerCount = config.get("workerCount", 1)
             configTemplate = None
-            server = 'http://127.0.0.1:8008'
-            principalPathTemplate = "/principals/users/%s/"
+            server = config.get('server', 'http://127.0.0.1:8008')
+            principalPathTemplate = config.get('principalPathTemplate', '/principals/users/%s/')
             serializationPath = None
-
-            if 'server' in config:
-                server = config['server']
-
-            if 'principalPathTemplate' in config:
-                principalPathTemplate = config['principalPathTemplate']
 
             if 'clientDataSerialization' in config:
                 serializationPath = config['clientDataSerialization']['Path']

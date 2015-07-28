@@ -28,7 +28,7 @@ __all__ = [
 
 from calendarserver.tools.util import recordForPrincipalID
 
-from twext.enterprise.jobqueue import JobItem
+from twext.enterprise.jobqueue import JobItem, WORK_PRIORITY_HIGH, WORK_WEIGHT_1
 from twext.python.log import Logger
 
 from twisted.internet import reactor
@@ -42,6 +42,7 @@ from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn
 from txdav.caldav.datastore.scheduling.work import ScheduleOrganizerWork, \
     ScheduleOrganizerSendWork, ScheduleReplyWork, ScheduleRefreshWork, \
     ScheduleAutoReplyWork
+from txdav.common.datastore.work.load_work import TestWork
 from txdav.who.groups import GroupCacherPollingWork, GroupRefreshWork, \
     GroupAttendeeReconciliationWork, GroupDelegateChangesWork, \
     GroupShareeReconciliationWork
@@ -352,6 +353,45 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
         ))
 
         returnValue(self._ok("ok", "Scheduling done"))
+
+
+    @inlineCallbacks
+    def action_testwork(self, j):
+        """
+        Wait for all schedule queue items to complete.
+        """
+
+        try:
+            when = j["when"]
+        except KeyError:
+            when = 0
+        try:
+            priority = j["priority"]
+        except KeyError:
+            priority = WORK_PRIORITY_HIGH
+        try:
+            weight = j["weight"]
+        except KeyError:
+            weight = WORK_WEIGHT_1
+        try:
+            delay = j["delay"]
+        except KeyError:
+            delay = 0
+        try:
+            jobs = j["jobs"]
+        except KeyError:
+            jobs = 1
+
+        for _ in range(jobs):
+            yield TestWork.schedule(
+                self._store,
+                when,
+                priority,
+                weight,
+                delay,
+            )
+
+        returnValue(self._ok("ok", "Test work scheduled"))
 
 
     @inlineCallbacks

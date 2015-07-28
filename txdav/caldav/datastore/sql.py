@@ -82,7 +82,8 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     UnknownTimezone, SetComponentOptions
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
-from txdav.common.datastore.sql_directory import GroupsRecord
+from txdav.common.datastore.sql_directory import GroupsRecord, \
+    GroupMembershipRecord
 from txdav.common.datastore.sql_tables import _ATTACHMENTS_MODE_NONE, \
     _ATTACHMENTS_MODE_READ, _ATTACHMENTS_MODE_WRITE, _BIND_MODE_DIRECT, \
     _BIND_MODE_GROUP, _BIND_MODE_GROUP_READ, _BIND_MODE_GROUP_WRITE, \
@@ -2127,40 +2128,61 @@ class Calendar(CommonHomeChild):
 
         # First check that the actual group membership has changed
         if (yield self.updateShareeGroupLink(groupUID)):
-            group = yield self._txn.groupByUID(groupUID)
-            memberUIDs = yield self._txn.groupMemberUIDs(group.groupID)
-            boundUIDs = set()
 
+            # First find all the members of all the groups being shared to
+            groupMembers = yield GroupMembershipRecord.query(
+                self._txn,
+                GroupMembershipRecord.groupID.In(
+                    GroupShareeRecord.queryExpr(
+                        expr=GroupShareeRecord.calendarID == self.id(),
+                        attributes=[GroupShareeRecord.groupID, ]
+                    )
+                ),
+                distinct=True,
+            )
+            memberUIDs = set([grp.memberUID for grp in groupMembers])
+
+            # Find each currently bound group sharee UID along with their bind mode
+            boundUIDs = set()
             home = self._homeSchema
             bind = self._bindSchema
             rows = yield Select(
-                [home.OWNER_UID],
-                From=home,
-                Where=home.RESOURCE_ID.In(
-                    Select(
-                        [bind.HOME_RESOURCE_ID],
-                        From=bind,
-                        Where=(bind.CALENDAR_RESOURCE_ID == self._resourceID).And(
-                            (bind.BIND_MODE == _BIND_MODE_GROUP)
-                            .Or(bind.BIND_MODE == _BIND_MODE_GROUP_READ)
-                            .Or(bind.BIND_MODE == _BIND_MODE_GROUP_WRITE)
-                        )
-                    )
+                [home.OWNER_UID, bind.BIND_MODE],
+                From=bind.join(home, on=bind.HOME_RESOURCE_ID == home.RESOURCE_ID),
+                Where=(bind.CALENDAR_RESOURCE_ID == self._resourceID).And(
+                    bind.BIND_MODE.In((_BIND_MODE_GROUP, _BIND_MODE_GROUP_READ, _BIND_MODE_GROUP_WRITE))
                 )
             ).on(self._txn)
-            for [shareeHomeUID] in rows:
+            for shareeHomeUID, shareeBindMode in rows:
+
                 if shareeHomeUID in memberUIDs:
+                    # Group sharee still referenced via a group - make a note of it
                     boundUIDs.add(shareeHomeUID)
-                else:
+
+                elif shareeBindMode == _BIND_MODE_GROUP:
+                    # Group only sharee is no longer referenced by any group - uninvite them
                     yield self.uninviteUIDFromShare(shareeHomeUID)
                     changed = True
 
+                else:
+                    # Group+individual sharee is no longer referenced by a group so update the bind
+                    # mode to reflect just the individual mode
+                    yield super(Calendar, self).inviteUIDToShare(
+                        shareeHomeUID,
+                        {
+                            _BIND_MODE_GROUP_READ: _BIND_MODE_READ,
+                            _BIND_MODE_GROUP_WRITE: _BIND_MODE_WRITE,
+                        }.get(shareeBindMode),
+                    )
+
             for memberUID in memberUIDs - boundUIDs:
-                shareeView = yield self.shareeView(memberUID)
-                newMode = _BIND_MODE_GROUP if shareeView is None else shareeView._groupModeAfterAddingOneGroupSharee()
-                if newMode is not None:
-                    yield super(Calendar, self).inviteUIDToShare(memberUID, newMode)
-                    changed = True
+                # Never reconcile the sharer
+                if memberUID != self._home.uid():
+                    shareeView = yield self.shareeView(memberUID)
+                    newMode = _BIND_MODE_GROUP if shareeView is None else shareeView._groupModeAfterAddingOneGroupSharee()
+                    if newMode is not None:
+                        yield super(Calendar, self).inviteUIDToShare(memberUID, newMode)
+                        changed = True
 
         returnValue(changed)
 
@@ -2502,6 +2524,24 @@ class Calendar(CommonHomeChild):
 
 
     @inlineCallbacks
+    def ownerDeleteShare(self):
+        """
+        This share is being deleted (by the owner) - we also need to clean up the group sharees.
+        """
+
+        yield super(Calendar, self).ownerDeleteShare()
+
+        # Delete referenced group sharees. Note that whilst the table uses an on delete cascade,
+        # we do need to remove the sharees for the case where the calendar is trashed and not
+        # removed. Since the cascade is not triggered in that case and we have to do it by hand.
+        gs = schema.GROUP_SHAREE
+        yield Delete(
+            From=gs,
+            Where=(gs.CALENDAR_ID == self._resourceID),
+        ).on(self._txn)
+
+
+    @inlineCallbacks
     def allInvitations(self):
         """
         Get list of all invitations (non-direct) to this object.
@@ -2568,9 +2608,6 @@ accessMode_to_type = {
 }
 accesstype_to_accessMode = dict([(v, k) for k, v in accessMode_to_type.items()])
 
-def _pathToName(path):
-    return path.rsplit(".", 1)[0]
-
 
 
 class CalendarObject(CommonObjectResource, CalendarObjectBase):
@@ -2592,7 +2629,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         self.scheduleTag = options.get("scheduleTag", "")
         self.scheduleEtags = options.get("scheduleEtags", "")
         self.hasPrivateComment = options.get("hasPrivateComment", False)
-        self._dropboxID = None
+        self._dropboxID = options.get("dropboxID", None)
 
         # Component caching
         self._cachedComponent = None
@@ -2694,7 +2731,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Possible timezone stripping
         if config.EnableTimezonesByReference:
-            component.stripStandardTimezones()
+            changed = component.stripStandardTimezones()
+            if changed:
+                self._componentChanged = True
 
         # Do validation on external requests
         if internal_state == ComponentUpdateState.NORMAL:
@@ -2747,6 +2786,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             if attendeeProp.parameterValue("CUTYPE") == "X-SERVER-GROUP"
         ])
 
+        # Map each group attendee to a list of potential member properties
         groupCUAToAttendeeMemberPropMap = {}
         for groupCUA in groupCUAs:
 
@@ -2805,6 +2845,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             else:
                 groupUID = uidFromCalendarUserAddress(groupCUA)
             group = yield self._txn.groupByUID(groupUID)
+            if group is None:
+                continue
 
             if group.groupID in groupIDToMembershipHashMap:
                 if groupIDToMembershipHashMap[group.groupID].membershipHash != group.membershipHash:
@@ -3087,6 +3129,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         comment (which will trigger scheduling with the organizer to remove the comment on the organizer's
         side).
         """
+        changed = False
+
         if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
             old_has_private_comments = not inserting and self.hasPrivateComment
             new_has_private_comments = component.hasPropertyInAnyComponent((
@@ -3100,6 +3144,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 component.transferProperties(old_calendar, (
                     "X-CALENDARSERVER-ATTENDEE-COMMENT",
                 ))
+                changed = True
 
             self.hasPrivateComment = new_has_private_comments
 
@@ -3109,6 +3154,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # Look for properties with duplicate "X-CALENDARSERVER-ATTENDEE-REF" values in the same component
             if component.hasDuplicatePrivateComments(doFix=config.RemoveDuplicatePrivateComments) and internal_state == ComponentUpdateState.NORMAL:
                 raise DuplicatePrivateCommentsError("Duplicate X-CALENDARSERVER-ATTENDEE-COMMENT properties present.")
+
+        returnValue(changed)
 
 
     @inlineCallbacks
@@ -3135,7 +3182,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
                 # Get the originator who is the owner of the calendar resource being modified
                 originatorPrincipal = yield self.calendar().ownerHome().directoryRecord()
-                originatorAddresses = originatorPrincipal.calendarUserAddresses
+                if originatorPrincipal is not None:
+                    originatorAddresses = originatorPrincipal.calendarUserAddresses
+                else:
+                    originatorAddresses = ("urn:x-uid:{}".format(self.calendar().ownerHome().uid),)
 
                 for component in calendar.subcomponents():
                     if component.name() != "VTODO":
@@ -3172,7 +3222,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
                 # Get the originator who is the owner of the calendar resource being modified
                 originatorPrincipal = yield self.calendar().ownerHome().directoryRecord()
-                originatorAddresses = originatorPrincipal.calendarUserAddresses
+                if originatorPrincipal is not None:
+                    originatorAddresses = originatorPrincipal.calendarUserAddresses
+                else:
+                    originatorAddresses = ("urn:x-uid:{}".format(self.calendar().ownerHome().uid),)
 
                 for component in calendar.subcomponents():
                     if component.name() != "VTODO":
@@ -3296,14 +3349,39 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         Scan the component for ROOM attendees; if any are associated with an
         address record which has street address and geo coordinates, add an
         X-APPLE-STRUCTURED-LOCATION property and update the LOCATION property
-        to contain the name and street address.
+        to contain the name and street address.  X-APPLE-STRUCTURED-LOCATION
+        with X-CUADDR but no corresponding ATTENDEE are removed.
         """
-
-        cache = {}
         dir = self.directoryService()
+
+        changed = False
+        cache = {}
+
         for sub in component.subcomponents():
-            locations = []
-            removed = False
+            existingLocationProps = list(sub.properties("LOCATION"))
+            if len(existingLocationProps) == 0:
+                existingLocationValue = ""
+            else:
+                existingLocationValue = existingLocationProps[0].value()
+            existingLocations = []
+            for value in existingLocationValue.split(";"):
+                if value:
+                    existingLocations.append(value.strip())
+
+            # index the structured locations on X-CUADDR and X-TITLE
+            allStructured = {
+                "cua": {},
+                "title": {}
+            }
+            for structured in sub.properties("X-APPLE-STRUCTURED-LOCATION"):
+                cuAddr = structured.parameterValue("X-CUADDR")
+                if cuAddr:
+                    allStructured["cua"][cuAddr] = structured
+                else:
+                    title = structured.parameterValue("X-TITLE")
+                    if title:
+                        allStructured["title"][title] = structured
+
             for attendee in sub.getAllAttendeeProperties():
                 if attendee.parameterValue("CUTYPE") == "ROOM":
                     value = attendee.value()
@@ -3326,32 +3404,94 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     # Use the cached data if present
                     entry = cache[value]
                     if entry is not None:
+
                         street, geo, title = entry
+                        newLocationValue = "{0}\n{1}".format(title, street.encode("utf-8"))
+
+                        # Is there already a structured location property for
+                        # this attendee?  If so, we'll update it.
+                        # Unfortunately, we can only depend on X-CUADDR
+                        # going forward, but there is going to be old existing
+                        # X-APPLE-STRUCTURED-LOCATIONs that haven't yet had
+                        # those added.  So let's first look up by X-CUADDR and
+                        # then by X-TITLE.
+                        if value in allStructured["cua"]:
+                            structured = allStructured["cua"][value]
+                        elif title in allStructured["title"]:
+                            structured = allStructured["title"][title]
+                        else:
+                            structured = None
+
                         params = {
                             "X-ADDRESS": street,
                             "X-APPLE-RADIUS": "71",
                             "X-TITLE": title,
+                            "X-CUADDR": value,
                         }
-                        structured = Property(
-                            "X-APPLE-STRUCTURED-LOCATION",
-                            geo.encode("utf-8"), params=params,
-                            valuetype=Value.VALUETYPE_URI
-                        )
 
-                        # The first time we have any X- prop, remove all existing ones
-                        if not removed:
-                            sub.removeProperty("X-APPLE-STRUCTURED-LOCATION")
-                            removed = True
-                        sub.addProperty(structured)
-                        locations.append("{0}\n{1}".format(title, street.encode("utf-8")))
+                        if structured is None:
+                            # Create a new one
+                            prevTitle = attendee.parameterValue("CN")
+                            structured = Property(
+                                "X-APPLE-STRUCTURED-LOCATION",
+                                geo.encode("utf-8"), params=params,
+                                valuetype=Value.VALUETYPE_URI
+                            )
+                            changed = True
+                            sub.addProperty(structured)
+                        else:
+                            # Update existing one
+                            prevGeo = structured.value()
+                            if geo != prevGeo:
+                                structured.setValue(geo)
+                                changed = True
+                            prevTitle = structured.parameterValue("X-TITLE")
+                            for paramName, paramValue in params.iteritems():
+                                prevValue = structured.parameterValue(paramName)
+                                if paramValue != prevValue:
+                                    structured.setParameter(paramName, paramValue)
+                                    changed = True
 
-            # Update the LOCATION if X-'s were added
-            if locations:
+                        if changed:
+                            # Replace old location values with the new ones
+                            for i in xrange(len(existingLocations)):
+                                existingLocation = existingLocations[i]
+                                if (
+                                    prevTitle is not None and
+                                    (
+                                        # it's either an exact match or matches
+                                        # up to the newline which precedes the
+                                        # street address
+                                        existingLocation == prevTitle or
+                                        existingLocation.startswith("{}\n".format(prevTitle))
+                                    )
+                                ):
+                                    existingLocations[i] = newLocationValue
+                                    break
+                            else:
+                                existingLocations.append(newLocationValue)
+
+            # Remove any server-generated structured locations without an ATTENDEE
+            for structured in sub.properties("X-APPLE-STRUCTURED-LOCATION"):
+                cuAddr = structured.parameterValue("X-CUADDR")
+                if cuAddr is not None: # therefore it's one that requires an ATTENDEE...
+                    attendeeProp = sub.getAttendeeProperty((cuAddr,))
+                    if attendeeProp is None: # ...remove it if no matching ATTENDEE
+                        sub.removeProperty(structured)
+                        changed = True
+
+            # Update the LOCATION
+            newLocationValue = ";".join(existingLocations)
+            if newLocationValue != existingLocationValue:
                 newLocProperty = Property(
                     "LOCATION",
-                    "; ".join(locations)
+                    newLocationValue
                 )
                 sub.replaceProperty(newLocProperty)
+                changed = True
+
+        if changed:
+            self._componentChanged = True
 
 
     @inlineCallbacks
@@ -3649,9 +3789,13 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             yield self._lockAndCheckUID(component, inserting, internal_state)
 
             # Preserve private comments
-            yield self.preservePrivateComments(component, inserting, internal_state)
+            changed = yield self.preservePrivateComments(component, inserting, internal_state)
+            if changed:
+                self._componentChanged = True
 
             # Fix broken VTODOs
+            # Note: if this does recover lost organizer/attendee properties, the
+            # implicit code below will set _componentChanged
             yield self.replaceMissingToDoProperties(component, inserting, internal_state)
 
             # Handle sharing dropbox normalization
@@ -5071,6 +5215,19 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         if organizer is not None and organizerAddress.record.uid != self.calendar().ownerHome().uid():
             raise InvalidSplit("Only organizers can split events.")
 
+        # rid value type must match
+        dtstart = component.mainComponent().propertyValue("DTSTART")
+        if dtstart.isDateOnly():
+            if not rid.isDateOnly():
+                # We ought to reject this but for now we will fix it
+                rid.setDateOnly(True)
+        elif dtstart.floating():
+            if not rid.floating() or rid.isDateOnly():
+                raise InvalidSplit("rid parameter value type must match DTSTART value type.")
+        else:
+            if rid.floating():
+                raise InvalidSplit("rid parameter value type must match DTSTART value type.")
+
         # Determine valid split point
         splitter = iCalSplitter(1024, 14)
         rid = splitter.whereSplit(component, break_point=rid, allow_past_the_end=False)
@@ -5159,6 +5316,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             olderResourceName,
             calendar_old,
             ComponentUpdateState.SPLIT_OWNER,
+            options={"dropboxID": olderUID},
             split_details=(rid, newerUID, False, False)
         )
 
@@ -5217,7 +5375,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Create a new resource and store its data (but not if the parent is "inbox", or if it is empty)
         if not self.calendar().isInbox() and ical_old.mainType() is not None:
-            olderObject = yield self.calendar()._createCalendarObjectWithNameInternal("{0}.ics".format(olderUID,), ical_old, ComponentUpdateState.SPLIT_ATTENDEE)
+            olderObject = yield self.calendar()._createCalendarObjectWithNameInternal(
+                "{0}.ics".format(olderUID,),
+                ical_old,
+                ComponentUpdateState.SPLIT_ATTENDEE,
+                options={"dropboxID": olderUID},
+            )
 
             # Reconcile trash state
             if self.isInTrash():

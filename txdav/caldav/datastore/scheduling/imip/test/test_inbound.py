@@ -29,6 +29,7 @@ from txdav.caldav.datastore.scheduling.imip.inbound import MailRetriever
 from txdav.caldav.datastore.scheduling.imip.inbound import injectMessage
 from txdav.caldav.datastore.scheduling.imip.inbound import shouldDeleteAllMail
 from txdav.caldav.datastore.scheduling.imip.inbound import IMAP4DownloadProtocol
+from txdav.caldav.datastore.scheduling.imip.inbound import sanitizeCalendar
 from txdav.common.datastore.test.util import CommonCommonTests
 
 from twext.enterprise.jobqueue import JobItem
@@ -455,6 +456,63 @@ END:VCALENDAR
         self.flagDeletedResult = None
         yield proto.cbGotMessage(results, "xyzzy")
         self.assertEquals(self.flagDeletedResult, "xyzzy")
+
+
+    @inlineCallbacks
+    def test_missingIMAPMessages(self):
+        """
+        Make sure L{IMAP4DownloadProtocol.cbGotMessage} can deal with missing messages.
+        """
+
+        class DummyResult(object):
+            def __init__(self):
+                self._values = []
+
+            def values(self):
+                return self._values
+
+        noResult = DummyResult()
+        missingKey = DummyResult()
+        missingKey.values().append({})
+
+        imap4 = IMAP4DownloadProtocol()
+        imap4.messageUIDs = []
+        imap4.fetchNextMessage = lambda : None
+
+        result = yield imap4.cbGotMessage(noResult, [])
+        self.assertTrue(result is None)
+        result = yield imap4.cbGotMessage(missingKey, [])
+        self.assertTrue(result is None)
+
+
+    def test_sanitizeCalendar(self):
+        """
+        Verify certain inbound third party mistakes are corrected.
+        """
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890
+DTSTAMP:20130208T120000Z
+DTSTART:20180601T120000Z
+DTEND:20180601T130000Z
+ORGANIZER:urn:x-uid:user01
+ATTENDEE:mailto:xyzzy@example.com;PARTSTAT=ACCEPTED
+STATUS:ACCEPTED
+STATUS:ACCEPTED
+END:VEVENT
+END:VCALENDAR
+"""
+        calendar = Component.fromString(data)
+        self.assertFalse(calendar.hasProperty("PRODID"))
+        self.assertTrue(calendar.masterComponent().hasProperty("STATUS"))
+        sanitizeCalendar(calendar)
+        self.assertTrue(calendar.hasProperty("PRODID"))
+        self.assertFalse(calendar.masterComponent().hasProperty("STATUS"))
+
+
 
 
 

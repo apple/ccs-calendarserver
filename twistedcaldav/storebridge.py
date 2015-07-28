@@ -2011,33 +2011,34 @@ class AttachmentsChildCollection(_GetChildHelper):
                 userprivs.extend(privileges)
 
             principal = yield self.principalForUID(invite.shareeUID)
-            aces += (
-                # Inheritable specific access for the resource's associated principal.
-                davxml.ACE(
-                    davxml.Principal(davxml.HRef(principal.principalURL())),
-                    davxml.Grant(*userprivs),
-                    davxml.Protected(),
-                    TwistedACLInheritable(),
-                ),
-            )
-
-            if config.EnableProxyPrincipals:
+            if principal is not None:
                 aces += (
-                    # DAV:read/DAV:read-current-user-privilege-set access for this principal's calendar-proxy-read users.
+                    # Inheritable specific access for the resource's associated principal.
                     davxml.ACE(
-                        davxml.Principal(davxml.HRef(joinURL(principal.principalURL(), "calendar-proxy-read/"))),
-                        davxml.Grant(*userprivs),
-                        davxml.Protected(),
-                        TwistedACLInheritable(),
-                    ),
-                    # DAV:read/DAV:read-current-user-privilege-set/DAV:write access for this principal's calendar-proxy-write users.
-                    davxml.ACE(
-                        davxml.Principal(davxml.HRef(joinURL(principal.principalURL(), "calendar-proxy-write/"))),
+                        davxml.Principal(davxml.HRef(principal.principalURL())),
                         davxml.Grant(*userprivs),
                         davxml.Protected(),
                         TwistedACLInheritable(),
                     ),
                 )
+
+                if config.EnableProxyPrincipals:
+                    aces += (
+                        # DAV:read/DAV:read-current-user-privilege-set access for this principal's calendar-proxy-read users.
+                        davxml.ACE(
+                            davxml.Principal(davxml.HRef(joinURL(principal.principalURL(), "calendar-proxy-read/"))),
+                            davxml.Grant(*userprivs),
+                            davxml.Protected(),
+                            TwistedACLInheritable(),
+                        ),
+                        # DAV:read/DAV:read-current-user-privilege-set/DAV:write access for this principal's calendar-proxy-write users.
+                        davxml.ACE(
+                            davxml.Principal(davxml.HRef(joinURL(principal.principalURL(), "calendar-proxy-write/"))),
+                            davxml.Grant(*userprivs),
+                            davxml.Protected(),
+                            TwistedACLInheritable(),
+                        ),
+                    )
 
         returnValue(aces)
 
@@ -3162,12 +3163,18 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 content_type, filename = _getContentInfo()
                 attachment, location = (yield self._newStoreObject.addAttachment(rids, content_type, filename, request.stream))
                 post_result = Response(CREATED)
+                if not hasattr(request, "extendedLogItems"):
+                    request.extendedLogItems = {}
+                request.extendedLogItems["cl"] = str(attachment.size())
 
             elif action == "attachment-update":
                 mid = _getMID()
                 content_type, filename = _getContentInfo()
                 attachment, location = (yield self._newStoreObject.updateAttachment(mid, content_type, filename, request.stream))
                 post_result = Response(NO_CONTENT)
+                if not hasattr(request, "extendedLogItems"):
+                    request.extendedLogItems = {}
+                request.extendedLogItems["cl"] = str(attachment.size())
 
             elif action == "attachment-remove":
                 rids = _getRIDs()

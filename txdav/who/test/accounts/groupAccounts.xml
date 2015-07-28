@@ -136,4 +136,21 @@ limitations under the License.
 	    <member-uid>group03</member-uid>
 	    <member-uid>user10</member-uid>
 	</record>
+	<record type="group">
+	    <short-name>group05</short-name>
+	    <uid>group05</uid>
+	    <guid>20000000-0000-0000-0000-000000000005</guid>
+	    <full-name>Group 05</full-name>
+	    <email>group05@example.com</email>
+	    <member-uid>user01</member-uid>
+	    <member-uid>user02</member-uid>
+	</record>
+	<record type="group">
+	    <short-name>group06</short-name>
+	    <uid>group06</uid>
+	    <guid>20000000-0000-0000-0000-000000000006</guid>
+	    <full-name>Group 06</full-name>
+	    <email>group06@example.com</email>
+	    <member-uid>user02</member-uid>
+	</record>
 </directory>

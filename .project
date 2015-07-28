@@ -1,19 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>CalendarServer</name>
+	<name>CalendarServer-4</name>
 	<comment></comment>
 	<projects>
 		<project>CalDAVClientLibrary</project>
 		<project>cffi</project>
-		<project>cx_Oracle</project>
-		<project>kerberos</project>
 		<project>pg8000</project>
 		<project>psutil</project>
 		<project>pycalendar</project>
-		<project>pycparser</project>
 		<project>pycrypto</project>
-		<project>pyOpenSSL</project>
-		<project>service_identity</project>
+		<project>PyKerberos</project>
+		<project>PyOpenDirectory</project>
 		<project>twextpy</project>
 		<project>Twisted</project>
 		<project>zope.interface-4.0.3</project>
@@ -28,24 +25,4 @@
 	<natures>
 		<nature>org.python.pydev.pythonNature</nature>
 	</natures>
-	<filteredResources>
-		<filter>
-			<id>1396668930421</id>
-			<name></name>
-			<type>10</type>
-			<matcher>
-				<id>org.eclipse.ui.ide.multiFilter</id>
-				<arguments>1.0-projectRelativePath-matches-true-false-.develop</arguments>
-			</matcher>
-		</filter>
-		<filter>
-			<id>1396668930422</id>
-			<name></name>
-			<type>10</type>
-			<matcher>
-				<id>org.eclipse.ui.ide.multiFilter</id>
-				<arguments>1.0-name-matches-true-false-subprojects</arguments>
-			</matcher>
-		</filter>
-	</filteredResources>
 </projectDescription>

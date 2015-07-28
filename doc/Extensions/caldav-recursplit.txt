@@ -4,11 +4,11 @@
 
                                                                 C. Daboo
                                                                    Apple
-                                                        October 30, 2014
+                                                           June 26, 2015
 
 
              Smart Splitting of Recurring Events in CalDAV
-                          caldav-recursplit-01
+                          caldav-recursplit-02
 
 Abstract
 
@@ -22,7 +22,7 @@ Table of Contents
    1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   1
    2.  Conventions Used in This Document . . . . . . . . . . . . . .   2
    3.  New behavior  . . . . . . . . . . . . . . . . . . . . . . . .   3
-     3.1.  Example . . . . . . . . . . . . . . . . . . . . . . . . .   5
+     3.1.  Example . . . . . . . . . . . . . . . . . . . . . . . . .   6
    4.  Server Initiated Splitting  . . . . . . . . . . . . . . . . .   8
    5.  Security Considerations . . . . . . . . . . . . . . . . . . .   8
    6.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .   8
@@ -53,9 +53,9 @@ Table of Contents
 
 
 
-Daboo                      Expires May 3, 2015                  [Page 1]
+Daboo                   Expires December 28, 2015               [Page 1]
 
-                       CalDAV Recurrence Splitting          October 2014
+                       CalDAV Recurrence Splitting             June 2015
 
 
    instances from that point onwards.  Typically this is done by
@@ -109,9 +109,9 @@ Daboo                      Expires May 3, 2015                  [Page 1]
 
 
 
-Daboo                      Expires May 3, 2015                  [Page 2]
+Daboo                   Expires December 28, 2015               [Page 2]
 
-                       CalDAV Recurrence Splitting          October 2014
+                       CalDAV Recurrence Splitting             June 2015
 
 
 3.  New behavior
@@ -128,16 +128,30 @@ Daboo                      Expires May 3, 2015                  [Page 2]
 
    1.  "action" set to the value "split" - REQUIRED
 
-   2.  "rid" set to an iCalendar format DATE-TIME value in UTC
-       ("YYYYMMDDTHHMMSSZ" style format) - REQUIRED
+   2.  "rid" set to an iCalendar format DATE or DATE-TIME value (with
+       format choice determined as per description below) - REQUIRED
 
    3.  "uid" set to an iCalendar UID property value - OPTIONAL
 
    The "action" parameter is used to distinguish this operation from
    others that might be defined in the future for calendar object
-   resources.  The "rid" parameter specified the UTC date-time where the
-   split is to occur.  The actual split occurs at the next recurrence
-   instance on or after the "rid" parameter value - the "split point".
+   resources.
+
+   The "rid" parameter specifies the date or date-time where the split
+   is to occur.  The actual split occurs at the next recurrence instance
+   on or after the "rid" parameter value - the "split point".  The "rid"
+   parameter value is an iCalendar DATE or DATE-TIME value that follows
+   that matched the event's DTSTART value as follows:
+
+   +---------------------------+--------------------+------------------+
+   | DTSTART value             | rid value          | rid example      |
+   +---------------------------+--------------------+------------------+
+   | DATE                      | DATE               | 20150626         |
+   | DATE-TIME UTC             | DATE-TIME UTC      | 20150626T120000Z |
+   | DATE-TIME local+time zone | DATE-TIME UTC      | 20150626T120000Z |
+   | DATE-TIME floating        | DATE-TIME floating | 20150626T120000  |
+   +---------------------------+--------------------+------------------+
+
    The optional "uid" parameter can be used by the client to specify the
    iCalendar UID property value used in the new calendar object resource
    created by the server.  In the absence of the "uid" parameter, the
@@ -145,9 +159,17 @@ Daboo                      Expires May 3, 2015                  [Page 2]
    resource.
 
    Clients MUST include both "action" and "rid" parameters in the POST
-   request and MUST ensure a valid date-time value is used.  The date-
-   time value MUST NOT be earlier than the start time of the first
+   request and MUST ensure a valid date-time value is used.  The "rid"
+   parameter value MUST NOT be earlier than the start time of the first
    instance of the recurrence set, and it MUST NOT be later than the
+
+
+
+Daboo                   Expires December 28, 2015               [Page 3]
+
+                       CalDAV Recurrence Splitting             June 2015
+
+
    start time of the last instance of the recurrence set.  If the "rid"
    parameter value is not of the correct format or missing, the server
    MUST return a DAV:error response with the CALDAV:valid-rid-parameter
@@ -161,14 +183,6 @@ Daboo                      Expires May 3, 2015                  [Page 2]
    determines that the specified value is invalid (e.g., too short or
    too long as per reasonable requirements), then it MUST return a
    DAV:error response with the CS:invalid-split pre-condition code.
-
-
-
-
-Daboo                      Expires May 3, 2015                  [Page 3]
-
-                       CalDAV Recurrence Splitting          October 2014
-
 
    Clients MAY include an HTTP "Prefer" request header including the
    value "return=representation" (see [RFC7240]).  That instructs the
@@ -203,6 +217,15 @@ Daboo                      Expires May 3, 2015                  [Page 3]
            by subtracting the number of instances prior to the split
            point.
 
+
+
+
+
+Daboo                   Expires December 28, 2015               [Page 4]
+
+                       CalDAV Recurrence Splitting             June 2015
+
+
        E.  The "DTSTART" property of the master instance is adjusted to
            the value of the first instance of the "RRULE" on or after
            the split point, or, in the absence of an "RRULE", to the
@@ -219,16 +242,10 @@ Daboo                      Expires May 3, 2015                  [Page 3]
        C.  Any "RRULE" property that only generates instances on or
            after the split point is removed.
 
-
-
-Daboo                      Expires May 3, 2015                  [Page 4]
-
-                       CalDAV Recurrence Splitting          October 2014
-
-
        D.  Any remaining "RRULE" property has an "UNTIL" value applied,
-           with the until value being one second less than the split
-           point.
+           with the until value being one second (for a "rid" DATE-TIME
+           value) or one day (for a "rid" DATE value) less than the
+           split point.
 
        E.  The "UID" property of all components is changed to (the same)
            new value.
@@ -256,6 +273,15 @@ Daboo                      Expires May 3, 2015                  [Page 4]
        attendee with both the modified (old) resource data and the new
        resource.  This will likely result in loss of per-attendee data
        such as alarms (though the participation status might be
+
+
+
+
+Daboo                   Expires December 28, 2015               [Page 5]
+
+                       CalDAV Recurrence Splitting             June 2015
+
+
        preserved if the calendar user agent processing the new iTIP
        message for the new resource allows it).
 
@@ -271,16 +297,6 @@ Daboo                      Expires May 3, 2015                  [Page 4]
 
    Assume the following iCalendar data is stored in the resource with
    URI "/event.ics":
-
-
-
-
-
-
-Daboo                      Expires May 3, 2015                  [Page 5]
-
-                       CalDAV Recurrence Splitting          October 2014
-
 
    BEGIN:VCALENDAR
    PRODID:-//Example Inc.//Example Calendar//EN
@@ -314,6 +330,14 @@ Daboo                      Expires May 3, 2015                  [Page 5]
    Content-Type: text/xml
    Content-Length: xxxx
 
+
+
+
+Daboo                   Expires December 28, 2015               [Page 6]
+
+                       CalDAV Recurrence Splitting             June 2015
+
+
    <?xml version='1.0' encoding='UTF-8'?>
    <multistatus xmlns='DAV:'>
      <response>
@@ -330,14 +354,6 @@ Daboo                      Expires May 3, 2015                  [Page 5]
    DTSTART:20140110T120000Z
    DURATION:PT1H
    DTSTAMP:20140110T135358Z
-
-
-
-Daboo                      Expires May 3, 2015                  [Page 6]
-
-                       CalDAV Recurrence Splitting          October 2014
-
-
    RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:8DE45ECB-8145-
     4AEC-B3E1-11A9DB22A578
    RRULE:FREQ=DAILY;COUNT=11
@@ -370,6 +386,14 @@ Daboo                      Expires May 3, 2015                  [Page 6]
    END:VEVENT
    END:VCALENDAR
    </calendar-data>
+
+
+
+Daboo                   Expires December 28, 2015               [Page 7]
+
+                       CalDAV Recurrence Splitting             June 2015
+
+
          </prop>
          <status>HTTP/1.1 200 OK</status>
        </propstat>
@@ -385,14 +409,6 @@ Daboo                      Expires May 3, 2015                  [Page 6]
    split point.  Both resources have a "RELATED-TO" property with a
    "RELTYPE" parameter set to "X-CALENDARSERVER-RECURRENCE-SET" and a
    value set to a new "UID" value.
-
-
-
-
-Daboo                      Expires May 3, 2015                  [Page 7]
-
-                       CalDAV Recurrence Splitting          October 2014
-
 
 4.  Server Initiated Splitting
 
@@ -426,6 +442,14 @@ Daboo                      Expires May 3, 2015                  [Page 7]
               "Calendaring Extensions to WebDAV (CalDAV)", RFC 4791,
               March 2007.
 
+
+
+
+Daboo                   Expires December 28, 2015               [Page 8]
+
+                       CalDAV Recurrence Splitting             June 2015
+
+
    [RFC5545]  Desruisseaux, B., "Internet Calendaring and Scheduling
               Core Object Specification (iCalendar)", RFC 5545,
               September 2009.
@@ -439,23 +463,20 @@ Daboo                      Expires May 3, 2015                  [Page 7]
 
    [RFC7240]  Snell, J., "Prefer Header for HTTP", RFC 7240, June 2014.
 
-
-
-
-
-
-
-Daboo                      Expires May 3, 2015                  [Page 8]
-
-                       CalDAV Recurrence Splitting          October 2014
-
-
 Appendix A.  Acknowledgments
 
    This specification is the result of discussions between the Apple
    calendar server and client teams.
 
 Appendix B.  Change History
+
+   Changes since -02
+
+   1.  Clarify that rid query parameter value matches the event DTSTART
+       value type using the UNTIL "rules"
+
+   2.  Clarify that earlier event uses an UNTIL one second or one day
+       less that the "rid" value depending on the value type.
 
    Changes since -01
 
@@ -480,25 +501,4 @@ Author's Address
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Daboo                      Expires May 3, 2015                  [Page 9]
+Daboo                   Expires December 28, 2015               [Page 9]

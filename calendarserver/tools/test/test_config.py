@@ -131,7 +131,6 @@ class ConfigTestCase(RunCommandTestCase):
         self.assertEquals(results["result"]["DefaultLogLevel"], "warn")
 
         self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["Enabled"], False)
-        self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["CalDAV"]["CertificatePath"], "/example/calendar.cer")
 
         # Verify not all keys are present, such as umask which is not accessible
         self.assertFalse("umask" in results["result"])
@@ -150,7 +149,6 @@ class ConfigTestCase(RunCommandTestCase):
         self.assertEquals(results["result"]["EnableCardDAV"], False)
         self.assertEquals(results["result"]["EnableSSL"], True)
         self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["Enabled"], True)
-        self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["CalDAV"]["CertificatePath"], "/example/changed.cer")
         hostName = "hostname_%s_%s" % (unichr(208), u"\ud83d\udca3")
         self.assertTrue(results["result"]["ServerHostName"].endswith(hostName))
 
@@ -242,8 +240,6 @@ command_writeConfig = """<?xml version="1.0" encoding="UTF-8"?>
             <true/>
             <key>Notifications.Services.APNS.Enabled</key>
             <true/>
-            <key>Notifications.Services.APNS.CalDAV.CertificatePath</key>
-            <string>/example/changed.cer</string>
             <key>ServerRoot</key>
             <string>/You/Shall/Not/Pass</string>
             <key>ServerHostName</key>

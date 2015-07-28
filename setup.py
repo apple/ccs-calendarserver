@@ -322,11 +322,11 @@ setup_requirements = []
 install_requirements = [
     # Core frameworks
     "zope.interface",
-    "Twisted>=13.2.0",
+    "Twisted>=15.2.1",
     "twextpy",
 
     # Security frameworks
-    "pyOpenSSL>=0.13.1",  # also for Twisted
+    "pyOpenSSL>=0.14",    # also for Twisted
     "service_identity",   # for Twisted
     "pycrypto",           # for Twisted
     "kerberos",

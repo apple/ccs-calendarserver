@@ -53,6 +53,10 @@ class FindMinValidRevisionWork(RegeneratingWorkItem, fromTable(schema.FIND_MIN_V
         return float(config.RevisionCleanup.CleanupPeriodDays) * 24 * 60 * 60
 
 
+    def dateCutoff(self):
+        return datetime.datetime.utcnow() - datetime.timedelta(days=float(config.RevisionCleanup.SyncTokenLifetimeDays))
+
+
     @inlineCallbacks
     def doWork(self):
 
@@ -60,10 +64,7 @@ class FindMinValidRevisionWork(RegeneratingWorkItem, fromTable(schema.FIND_MIN_V
         minValidRevision = int((yield self.transaction.calendarserverValue("MIN-VALID-REVISION")))
 
         # get max revision on table rows before dateLimit
-        dateLimit = (
-            datetime.datetime.utcnow() -
-            datetime.timedelta(days=float(config.RevisionCleanup.SyncTokenLifetimeDays))
-        )
+        dateLimit = self.dateCutoff()
         maxRevOlderThanDate = 0
 
         # TODO: Use one Select statement

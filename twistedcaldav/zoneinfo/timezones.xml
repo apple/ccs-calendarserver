@@ -2,7 +2,7 @@
 <!DOCTYPE timezones SYSTEM "timezones.dtd">
 
 <timezones>
-  <dtstamp>2015-04-24T16:13:20Z</dtstamp>
+  <dtstamp>2015-07-01T14:44:04Z</dtstamp>
   <timezone>
     <tzid>AUS Central Standard Time</tzid>
     <dtstamp>2014-08-25T14:48:40Z</dtstamp>
@@ -104,9 +104,9 @@
   </timezone>
   <timezone>
     <tzid>Africa/Casablanca</tzid>
-    <dtstamp>2015-04-24T16:13:20Z</dtstamp>
+    <dtstamp>2015-07-01T14:44:04Z</dtstamp>
     <alias>Morocco Standard Time</alias>
-    <md5>5d06f7259ed2bf2162e69a5dffd2954b</md5>
+    <md5>bc9dfe82c24d4798a1c952fa92ed4746</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Ceuta</tzid>
@@ -140,8 +140,8 @@
   </timezone>
   <timezone>
     <tzid>Africa/El_Aaiun</tzid>
-    <dtstamp>2015-04-24T16:13:20Z</dtstamp>
-    <md5>d73f03e09cb199fb0349281b9b2d349f</md5>
+    <dtstamp>2015-07-01T14:44:04Z</dtstamp>
+    <md5>2404746bd6c906d84ba245b48ba0ebcb</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Freetown</tzid>
@@ -554,8 +554,8 @@
   </timezone>
   <timezone>
     <tzid>America/Cayman</tzid>
-    <dtstamp>2015-04-24T16:13:20Z</dtstamp>
-    <md5>8319a9f7d2931dbc39b4960360992fa3</md5>
+    <dtstamp>2015-07-01T14:44:04Z</dtstamp>
+    <md5>32249cf2917460aa068887267d979a5d</md5>
   </timezone>
   <timezone>
     <tzid>America/Chicago</tzid>
@@ -3112,8 +3112,8 @@
   </timezone>
   <timezone>
     <tzid>Morocco Standard Time</tzid>
-    <dtstamp>2015-04-24T16:13:20Z</dtstamp>
-    <md5>a10813c9508c9e96a26c67edbd803e4d</md5>
+    <dtstamp>2015-07-01T14:44:04Z</dtstamp>
+    <md5>1e27973c6723a745831c474ebedbf11a</md5>
   </timezone>
   <timezone>
     <tzid>Mountain Standard Time</tzid>
