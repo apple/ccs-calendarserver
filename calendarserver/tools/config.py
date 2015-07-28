@@ -108,8 +108,21 @@ def usage(e=None):
         sys.exit(0)
 
 
+def runAsRootCheck():
+    """
+    If we're running in Server.app context and are not running as root, exit.
+    """
+
+    if os.path.abspath(__file__).startswith("/Applications/Server.app/"):
+        if os.getuid() != 0:
+            print("Must be run as root")
+            sys.exit(1)
+
 
 def main():
+
+    runAsRootCheck()
+
     try:
         (optargs, args) = getopt(
             sys.argv[1:], "hf:rw:", [
