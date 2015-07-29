@@ -175,7 +175,7 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
             "UID": FieldName.uid,
             "ADR": (
                 CalFieldName.streetAddress,
-                CalFieldName.floor,
+                # CalFieldName.floor,
             ),
             "KIND": FieldName.recordType,
             # LATER "X-ADDRESSBOOKSERVER-MEMBER": FieldName.membersUIDs,

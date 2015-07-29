@@ -36,3 +36,8 @@ from .idirectory import RecordType as _CSRecordType
 
 _ODRecordType.place.recordType = _CSRecordType.location     # Use dsRecTypeStandard:Places for calendar locations
 _ODRecordType.resource.recordType = _CSRecordType.resource
+
+from twext.who.opendirectory._constants import ODAttribute as _ODAttribute
+from .idirectory import FieldName as _CSFieldName
+
+_ODAttribute.streetAddress.fieldName = _CSFieldName.streetAddress
