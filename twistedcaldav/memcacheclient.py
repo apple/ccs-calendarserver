@@ -776,7 +776,7 @@ class Client(local):
         check_key(key)
         server, key = self._get_server(key)
         if not server:
-            return 0
+            raise MemcacheError("Memcache connection error")
 
         self._statlog(cmd)
 

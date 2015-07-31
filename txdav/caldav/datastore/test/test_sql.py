@@ -197,7 +197,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         toHome = yield self.transactionUnderTest().calendarHomeWithUID(
             "new-home", create=True)
         toCalendar = yield toHome.calendarWithName("calendar")
-        ok, bad = (yield _migrateCalendar(fromCalendar, toCalendar, lambda x: x.component()))
+        ok, bad = (yield _migrateCalendar(fromCalendar, toCalendar, lambda x: succeed(x.component())))
         self.assertEqual(ok, 1)
         self.assertEqual(bad, 2)
 
@@ -4814,7 +4814,8 @@ END:VCALENDAR
         yield self.abort()
 
         # Wait for it to complete
-        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+        result = yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+        self.assertTrue(result)
 
         rows = yield Select(
             [w.RESOURCE_ID, ],
