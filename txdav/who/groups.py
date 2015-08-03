@@ -116,7 +116,7 @@ class GroupRefreshWork(AggregatedWorkItem, fromTable(schema.GROUP_REFRESH_WORK))
 
 class GroupDelegateChangesWork(AggregatedWorkItem, fromTable(schema.GROUP_DELEGATE_CHANGES_WORK)):
 
-    delegator = property(lambda self: (self.table.DELEGATOR_UID == self.delegatorUID))
+    group = property(lambda self: (self.table.DELEGATOR_UID == self.delegatorUID))
 
     @inlineCallbacks
     def doWork(self):
