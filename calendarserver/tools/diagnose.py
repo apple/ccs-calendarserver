@@ -26,15 +26,8 @@ import re
 import subprocess
 import urllib2
 
-from twext.internet.ssl import ChainingOpenSSLContextFactory
-import OpenSSL
-
 
 PREFS_PLIST = "/Library/Server/Preferences/Calendar.plist"
-SSLPrivateKey = ""
-SSLCertAdmin = ""
-SSLPassPhraseDialog = ""
-SSLPort = ""
 ServerHostName = ""
 
 
@@ -153,16 +146,6 @@ def main():
     password = getPasswordFromKeychain("com.apple.calendarserver")
 
     connectToAgent(password)
-
-    if keys.get("EnableSSL", "False") == "True":
-        success, message = verifyTLSCertificate(keys)
-        if success:
-            print("TLS Certificate OK")
-        else:
-            print("Problem with TLS certificate: {}".format(message))
-            print("Try resetting the certificate for Calendar and Contacts in Server.app")
-    else:
-        print("TLS is disabled")
 
     connectToCaldavd(keys)
 
@@ -415,29 +398,12 @@ def showConfigKeys():
         "Authentication.Basic.Enabled",
         "Authentication.Digest.Enabled",
         "Authentication.Kerberos.Enabled",
-        "EnableSSL",
+        "ServerHostName",
         "HTTPPort",
         "SSLPort",
-        "RedirectHTTPToHTTPS",
-        "SSLCertificate",
-        "SSLPrivateKey",
-        "SSLAuthorityChain",
-        "SSLCertAdmin",
-        "SSLPassPhraseDialog",
-        "ServerHostName",
     )
     hidden = [
-        "SSLCertificate",
-        "SSLPrivateKey",
-        "SSLAuthorityChain",
-        "SSLCertAdmin",
-        "SSLPassPhraseDialog",
         "ServerHostName",
-    ]
-    ifHasValue = [
-        "SSLCertificate",
-        "SSLPrivateKey",
-        "SSLAuthorityChain",
     ]
     keys = {}
     for line in stdout.split("\n"):
@@ -446,8 +412,6 @@ def showConfigKeys():
             keys[key] = value
             if key not in hidden:
                 print("{key} : {value}".format(key=key, value=value))
-            if key in ifHasValue and value:
-                print("{key} is set".format(key=key))
     return keys
 
 
@@ -637,210 +601,31 @@ def connectToCaldavd(keys):
     print()
     print("Server connection:")
 
-    httpPort = keys.get("HTTPPort", "8008")
-    sslPort = keys.get("SSLPort", "8443")
-    # redirect = keys.get("RedirectHTTPToHTTPS", "False") == "True"
-    sslEnabled = keys.get("EnableSSL", "False") == "True"
-
-    if httpPort:
-        url = "http://localhost:{}/".format(httpPort)
-        try:
-            print("Attempting to send a request to port {}...".format(httpPort))
-            response = urllib2.urlopen(url, timeout=30)
-            html = response.read()
-            code = response.getcode()
-            print(code, html)
-            if code == 200:
-                print("Received 200 response")
-
-        except urllib2.HTTPError as e:
-            code = e.code
-            reason = e.reason
-
-            if code == 401:
-                print("Got the expected response")
-            else:
-                print(
-                    "Got an unexpected response: {code} {reason}".format(
-                        code=code, reason=reason
-                    )
-                )
-
-        except Exception as e:
-            print(
-                "Can't connect to port {port}: {error}".format(
-                    port=httpPort, error=e
-                )
-            )
-
-
-    if sslPort and sslEnabled:
-        url = "https://localhost:{}/".format(sslPort)
-        try:
-            print("Attempting to send a request to port {}...".format(sslPort))
-            response = urllib2.urlopen(url, timeout=30)
-            html = response.read()
-            code = response.getcode()
-            print(code, html)
-            if code == 200:
-                print("Received 200 response")
-
-        except urllib2.HTTPError as e:
-            code = e.code
-            reason = e.reason
-
-            if code == 401:
-                print("Got the expected response")
-            else:
-                print(
-                    "Got an unexpected response: {code} {reason}".format(
-                        code=code, reason=reason
-                    )
-                )
-
-        except Exception as e:
-            print(
-                "Can't connect to port {port}: {error}".format(
-                    port=sslPort, error=e
-                )
-            )
-    else:
-        print("Skipping TLS port since it's disabled")
-
-
-
-def getSSLPassphrase(*ignored):
-
-    if not SSLPrivateKey:
-        return None
-
-    if SSLCertAdmin and os.path.isfile(SSLCertAdmin):
-        child = subprocess.Popen(
-            args=[
-                "sudo", SSLCertAdmin,
-                "--get-private-key-passphrase", SSLPrivateKey,
-            ],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        )
-        output, error = child.communicate()
-
-        if child.returncode:
-            print(
-                "Could not get passphrase for key: {error}".format(
-                    error=error
-                )
-            )
-        else:
-            print("Obtained passphrase for key")
-            return output.strip()
-
-    if (
-        SSLPassPhraseDialog and
-        os.path.isfile(SSLPassPhraseDialog)
-    ):
-        sslPrivKey = open(SSLPrivateKey)
-        try:
-            keyType = None
-            for line in sslPrivKey.readlines():
-                if "-----BEGIN RSA PRIVATE KEY-----" in line:
-                    keyType = "RSA"
-                    break
-                elif "-----BEGIN DSA PRIVATE KEY-----" in line:
-                    keyType = "DSA"
-                    break
-        finally:
-            sslPrivKey.close()
-
-        if keyType is None:
-            print("Could not get private key type for key")
-        else:
-            child = subprocess.Popen(
-                args=[
-                    SSLPassPhraseDialog,
-                    "{}:{}".format(ServerHostName, SSLPort),
-                    keyType,
-                ],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            )
-            output, error = child.communicate()
-
-            if child.returncode:
-                print(
-                    "Could not get passphrase for key: {error}".format(
-                        error=error
-                    )
-                )
-            else:
-                return output.strip()
-
-    return None
-
-
-
-def verifyTLSCertificate(keys):
-    """
-    If a TLS certificate is configured, make sure it exists, is non empty,
-    and that it's valid.
-    """
-    global SSLPrivateKey
-    global SSLCertAdmin
-    global SSLPassPhraseDialog
-    global SSLPort
-    global ServerHostName
-
-    certPath = keys.get("SSLCertificate", "")
-    keyPath = keys.get("SSLPrivateKey", "")
-    chainPath = keys.get("SSLAuthorityChain", "")
-
-    SSLPrivateKey = keyPath
-    SSLCertAdmin = keys.get("SSLCertAdmin", "")
-    SSLPassPhraseDialog = keys.get("SSLPassPhraseDialog", "")
-    SSLPort = keys.get("SSLPort", "")
-    ServerHostName = keys.get("ServerHostName", "")
-
-    print()
-    print("Checking TLS Certificate:")
-
-    if certPath:
-        if not os.path.exists(certPath):
-            message = (
-                "The configured TLS certificate ({cert}) is missing".format(
-                    cert=certPath
-                )
-            )
-            return False, message
-    else:
-        return False, "EnableSSL is set to true, but certificate path not set"
-
-    length = os.stat(certPath).st_size
-    if length == 0:
-            message = (
-                "The configured TLS certificate ({cert}) is empty".format(
-                    cert=certPath
-                )
-            )
-            return False, message
-
+    url = "https://{host}/principals/".format(host=keys["ServerHostName"])
     try:
-        ChainingOpenSSLContextFactory(
-            keyPath,
-            certPath,
-            certificateChainFile=chainPath,
-            passwdCallback=getSSLPassphrase,
-            sslmethod=getattr(OpenSSL.SSL, "SSLv23_METHOD"),
-            ciphers="RC4-SHA:HIGH:!ADH"
-        )
-    except Exception as e:
-        message = (
-            "The configured TLS certificate ({cert}) cannot be used: {reason}".format(
-                cert=certPath,
-                reason=str(e)
+        print("Attempting to send a request to port 443...")
+        response = urllib2.urlopen(url, timeout=30)
+        html = response.read()
+        code = response.getcode()
+        print(code, html)
+        if code == 200:
+            print("Received 200 response")
+
+    except urllib2.HTTPError as e:
+        code = e.code
+        reason = e.reason
+
+        if code == 401:
+            print("Got the expected response")
+        else:
+            print(
+                "Got an unexpected response: {code} {reason}".format(
+                    code=code, reason=reason
+                )
             )
-        )
-        return False, message
 
-    return True, "TLS enabled"
-
+    except Exception as e:
+        print("Can't connect to port 443: {error}".format(error=e))
 
 
 if __name__ == "__main__":
