@@ -5240,8 +5240,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # Do split and return new resource
         try:
             olderObject = yield self.split(rid=rid, olderUID=pastUID)
-        except (UIDExistsError, UIDExistsElsewhereError):
+        except (ObjectResourceNameAlreadyExistsError, UIDExistsError, UIDExistsElsewhereError):
             raise InvalidSplit("Chosen UID exists elsewhere.")
+        except Exception as e:
+            log.error("Unknown split exception: {}".format(str(e)))
+            raise InvalidSplit("Unknown error.")
         returnValue(olderObject)
 
 
