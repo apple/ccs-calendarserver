@@ -41,7 +41,7 @@ The sim should begin logging its activity, which might look something like:
  user01 request 207✓[ 0.19 s] PROPFIND /calendars/__uids__/user01/
  ...
 
-- To stop the sim, simply control-c it.
+- To stop the sim, control-c it.
 
 ---------------------
 Reporting
