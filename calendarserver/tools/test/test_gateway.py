@@ -144,7 +144,8 @@ class RunCommandTestCase(TestCase):
 
     @inlineCallbacks
     def runCommand(
-        self, command, error=False, script="calendarserver_command_gateway"
+        self, command, error=False, script="calendarserver_command_gateway",
+        additionalArgs=None, parseOutput=True
     ):
         """
         Run the given command by feeding it as standard input to
@@ -163,18 +164,24 @@ class RunCommandTestCase(TestCase):
         if error:
             args.append("--error")
 
+        if additionalArgs:
+            args.extend(additionalArgs)
+
         cwd = sourceRoot
 
         deferred = Deferred()
         reactor.spawnProcess(CapturingProcessProtocol(deferred, command), cmd, args, env=os.environ, path=cwd)
         output = yield deferred
-        try:
-            plist = readPlistFromString(output)
-        except xml.parsers.expat.ExpatError, e:
-            print("Error (%s) parsing (%s)" % (e, output))
-            raise
+        if parseOutput:
+            try:
+                plist = readPlistFromString(output)
+                returnValue(plist)
+            except xml.parsers.expat.ExpatError, e:
+                print("Error (%s) parsing (%s)" % (e, output))
+                raise
+        else:
+            returnValue(output)
 
-        returnValue(plist)
 
 
 

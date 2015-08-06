@@ -171,6 +171,247 @@ class ConfigTestCase(RunCommandTestCase):
         self.assertEquals(results["error"], "Unknown command 'bogus'")
 
 
+    @inlineCallbacks
+    def test_commandLineArgs(self):
+        """
+        Verify commandline assignments works
+        """
+
+        # Check current values
+
+        results = yield self.runCommand(
+            command_readConfig,
+            script="calendarserver_config")
+
+        self.assertEquals(results["result"]["DefaultLogLevel"], "warn")
+        self.assertEquals(results["result"]["Scheduling"]["iMIP"]["Enabled"], False)
+
+        # Set a single-level key and a multi-level key
+
+        results = yield self.runCommand(
+            None,
+            script="calendarserver_config",
+            additionalArgs=["DefaultLogLevel=debug", "Scheduling.iMIP.Enabled=True"],
+            parseOutput=False
+        )
+
+        results = yield self.runCommand(
+            command_readConfig,
+            script="calendarserver_config")
+
+        self.assertEquals(results["result"]["DefaultLogLevel"], "debug")
+        self.assertEquals(results["result"]["Scheduling"]["iMIP"]["Enabled"], True)
+        self.assertEquals(results["result"]["LogLevels"], {})
+
+        # Directly set some LogLevels sub-keys
+
+        results = yield self.runCommand(
+            None,
+            script="calendarserver_config",
+            additionalArgs=["LogLevels.testing=debug", "LogLevels.testing2=warn"],
+            parseOutput=False
+        )
+
+        results = yield self.runCommand(
+            command_readConfig,
+            script="calendarserver_config")
+
+        self.assertEquals(
+            results["result"]["LogLevels"],
+            {"testing": "debug", "testing2" : "warn"}
+        )
+
+        # Test that setting additional sub-keys retains previous sub-keys
+
+        results = yield self.runCommand(
+            None,
+            script="calendarserver_config",
+            additionalArgs=["LogLevels.testing3=info", "LogLevels.testing4=warn"],
+            parseOutput=False
+        )
+
+        results = yield self.runCommand(
+            command_readConfig,
+            script="calendarserver_config")
+
+        self.assertEquals(
+            results["result"]["LogLevels"],
+            {"testing": "debug", "testing2" : "warn", "testing3": "info", "testing4" : "warn"}
+        )
+
+        # Test that an empty value deletes the key
+
+        results = yield self.runCommand(
+            None,
+            script="calendarserver_config",
+            additionalArgs=["LogLevels="],
+            parseOutput=False
+        )
+
+        results = yield self.runCommand(
+            command_readConfig,
+            script="calendarserver_config")
+
+        self.assertEquals(
+            results["result"]["LogLevels"], # now an empty dict
+            {}
+        )
+
+
+    @inlineCallbacks
+    def test_loggingCategories(self):
+        """
+        Verify logging categories get mapped to the correct python module names
+        """
+
+
+        # Check existing values
+
+        results = yield self.runCommand(
+            command_readConfig,
+            script="calendarserver_config")
+
+        self.assertEquals(results["result"]["LogLevels"], {})
+
+        # Set to directory and imip
+
+        results = yield self.runCommand(
+            None,
+            script="calendarserver_config",
+            additionalArgs=["--logging=directory,imip"],
+            parseOutput=False
+        )
+
+        results = yield self.runCommand(
+            command_readConfig,
+            script="calendarserver_config")
+
+        self.assertEquals(
+            results["result"]["LogLevels"],
+            {
+                "twext.who": "debug",
+                "txdav.who": "debug",
+                "txdav.caldav.datastore.scheduling.imip": "debug",
+            }
+        )
+
+        # Set up to imip, and the directory modules should go away
+
+        results = yield self.runCommand(
+            None,
+            script="calendarserver_config",
+            additionalArgs=["--logging=imip"],
+            parseOutput=False
+        )
+
+        results = yield self.runCommand(
+            command_readConfig,
+            script="calendarserver_config")
+
+        self.assertEquals(
+            results["result"]["LogLevels"],
+            {
+                "txdav.caldav.datastore.scheduling.imip": "debug",
+            }
+        )
+
+        # Set to default, and all modules should go away
+
+        results = yield self.runCommand(
+            None,
+            script="calendarserver_config",
+            additionalArgs=["--logging=default"],
+            parseOutput=False
+        )
+
+        results = yield self.runCommand(
+            command_readConfig,
+            script="calendarserver_config")
+
+        self.assertEquals(
+            results["result"]["LogLevels"], {}
+        )
+
+
+    @inlineCallbacks
+    def test_accountingCategories(self):
+        """
+        Verify accounting categories get mapped to the correct keys
+        """
+        # Check existing values
+
+        results = yield self.runCommand(
+            command_readConfig,
+            script="calendarserver_config")
+
+        self.assertEquals(
+            results["result"]["AccountingCategories"],
+            {
+                'AutoScheduling': False,
+                'HTTP': False,
+                'Implicit Errors': False,
+                'iSchedule': False,
+                'iTIP': False,
+                'iTIP-VFREEBUSY': False,
+                'migration': False,
+            }
+        )
+
+        # Set to http and itip
+
+        results = yield self.runCommand(
+            None,
+            script="calendarserver_config",
+            additionalArgs=["--accounting=http,itip"],
+            parseOutput=False
+        )
+
+        results = yield self.runCommand(
+            command_readConfig,
+            script="calendarserver_config")
+
+        self.assertEquals(
+            results["result"]["AccountingCategories"],
+            {
+                'AutoScheduling': False,
+                'HTTP': True,
+                'Implicit Errors': False,
+                'iSchedule': False,
+                'iTIP': True,
+                'iTIP-VFREEBUSY': True,
+                'migration': False,
+            }
+        )
+
+        # Set to off, so all are off
+
+        results = yield self.runCommand(
+            None,
+            script="calendarserver_config",
+            additionalArgs=["--accounting=off"],
+            parseOutput=False
+        )
+
+        results = yield self.runCommand(
+            command_readConfig,
+            script="calendarserver_config")
+
+        self.assertEquals(
+            results["result"]["AccountingCategories"],
+            {
+                'AutoScheduling': False,
+                'HTTP': False,
+                'Implicit Errors': False,
+                'iSchedule': False,
+                'iTIP': False,
+                'iTIP-VFREEBUSY': False,
+                'migration': False,
+            }
+        )
+
+
+
+
     def test_keyPath(self):
         d = ConfigDict()
         setKeyPath(d, "one", "A")

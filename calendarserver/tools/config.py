@@ -43,6 +43,7 @@ from twisted.python.filepath import FilePath
 
 
 WRITABLE_CONFIG_KEYS = [
+    "AccountingCategories",
     "Authentication.Basic.AllowedOverWireUnencrypted",
     "Authentication.Basic.Enabled",
     "Authentication.Digest.AllowedOverWireUnencrypted",
@@ -83,6 +84,19 @@ READONLY_CONFIG_KEYS = [
     "ServerRoot",
 ]
 
+ACCOUNTING_CATEGORIES = {
+    "http": ("HTTP",),
+    "itip": ("iTIP", "iTIP-VFREEBUSY",),
+    "implicit": ("Implicit Errors",),
+    "autoscheduling": ("AutoScheduling",),
+    "ischedule": ("iSchedule",),
+    "migration": ("migration",),
+}
+
+LOGGING_CATEGORIES = {
+    "directory": ("twext^who", "txdav^who",),
+    "imip": ("txdav^caldav^datastore^scheduling^imip",),
+}
 
 
 def usage(e=None):
@@ -95,8 +109,10 @@ def usage(e=None):
     print("")
     print("Print the value of the given config key.")
     print("options:")
+    print("  -a --accounting: Specify accounting categories (combinations of http, itip, implicit, autoscheduling, ischedule, migration, or off)")
     print("  -h --help: print this help and exit")
     print("  -f --config: Specify caldavd.plist configuration path")
+    print("  -l --logging: Specify logging categories (combinations of directory, imip, or default)")
     print("  -r --restart: Restart the calendar service")
     print("  --start: Start the calendar service and agent")
     print("  --stop: Stop the calendar service and agent")
@@ -125,13 +141,15 @@ def main():
 
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "hf:rw:", [
+            sys.argv[1:], "hf:rw:a:l:", [
                 "help",
                 "config=",
                 "writeconfig=",
                 "restart",
                 "start",
                 "stop",
+                "accounting=",
+                "logging=",
             ],
         )
     except GetoptError, e:
@@ -139,6 +157,8 @@ def main():
 
     configFileName = DEFAULT_CONFIG_FILE
     writeConfigFileName = ""
+    accountingCategories = None
+    loggingCategories = None
     doStop = False
     doStart = False
     doRestart = False
@@ -152,6 +172,12 @@ def main():
 
         elif opt in ("-w", "--writeconfig"):
             writeConfigFileName = arg
+
+        elif opt in ("-a", "--accounting"):
+            accountingCategories = arg.split(",")
+
+        elif opt in ("-l", "--logging"):
+            loggingCategories = arg.split(",")
 
         if opt == "--stop":
             doStop = True
@@ -197,6 +223,24 @@ def main():
 
     writable = WritableConfig(config, writeConfigFileName)
     writable.read()
+
+    # Convert logging categories to actual config key changes
+    if loggingCategories is not None:
+        args = ["LogLevels="]
+        if loggingCategories != ["default"]:
+            for cat in loggingCategories:
+                if cat in LOGGING_CATEGORIES:
+                    for moduleName in LOGGING_CATEGORIES[cat]:
+                        args.append("LogLevels.{}=debug".format(moduleName))
+
+    # Convert accounting categories to actual config key changes
+    if accountingCategories is not None:
+        args = ["AccountingCategories="]
+        if accountingCategories != ["off"]:
+            for cat in accountingCategories:
+                if cat in ACCOUNTING_CATEGORIES:
+                    for key in ACCOUNTING_CATEGORIES[cat]:
+                        args.append("AccountingCategories.{}=True".format(key))
 
     processArgs(writable, args)
 
@@ -265,8 +309,12 @@ def processArgs(writable, args, restart=True):
             if "=" in configKey:
                 # This is an assignment
                 configKey, stringValue = configKey.split("=")
-                value = writable.convertToValue(stringValue)
-                writable.set({configKey: value})
+                if stringValue:
+                    value = writable.convertToValue(stringValue)
+                    valueDict = setKeyPath({}, configKey, value)
+                    writable.set(valueDict)
+                else:
+                    writable.delete(configKey)
             else:
                 # This is a read
                 c = config
@@ -416,7 +464,14 @@ def setKeyPath(parent, keyPath, value):
     @return: parent
     """
     original = parent
-    parts = keyPath.split(".")
+
+    # Embedded ^ should be replaced by .
+    # That way, we can still use . as key path separator even though sometimes
+    # a key part wants to have a . in it (such as a LogLevels module).
+    # For example:  LogLevels.twext^who, will get converted to a "LogLevels"
+    # dict containing a the key "twext.who"
+    parts = [p.replace("^", ".") for p in keyPath.split(".")]
+
     for part in parts[:-1]:
         child = parent.get(part, None)
         if child is None:
@@ -531,6 +586,20 @@ class WritableConfig(object):
         self.dirty = True
 
 
+    def delete(self, key):
+        """
+        Deletes the specified key
+
+        @param key: the key to delete
+        @type key: C{str}
+        """
+        try:
+            del self.currentConfigSubset[key]
+            self.dirty = True
+        except:
+            pass
+
+
     def read(self):
         """
         Reads in the data contained in the writable plist file.
@@ -568,7 +637,7 @@ class WritableConfig(object):
     def convertToValue(cls, string):
         """
         Inspect string and convert the value into an appropriate Python data type
-        TODO: change this to look at actual types definied within stdconfig
+        TODO: change this to look at actual types defined within stdconfig
         """
         if "." in string:
             try:
