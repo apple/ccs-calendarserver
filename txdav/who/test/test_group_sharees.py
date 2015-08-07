@@ -18,7 +18,7 @@
     group sharee tests
 """
 
-from twext.enterprise.jobqueue import JobItem
+from twext.enterprise.jobs.jobitem import JobItem
 from twext.python.filepath import CachingFilePath as FilePath
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed

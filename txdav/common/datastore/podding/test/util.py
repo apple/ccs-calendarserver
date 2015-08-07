@@ -35,7 +35,7 @@ from txweb2.http_headers import MimeDisposition, MimeType
 from txweb2.stream import ProducerStream
 
 from twext.enterprise.ienterprise import AlreadyFinishedError
-from twext.enterprise.jobqueue import JobItem
+from twext.enterprise.jobs.jobitem import JobItem
 
 import json
 

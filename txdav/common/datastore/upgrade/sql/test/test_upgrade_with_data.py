@@ -20,7 +20,7 @@ Tests for L{txdav.common.datastore.upgrade.sql.upgrade}.
 
 from twext.enterprise.dal.syntax import Insert, Select
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
-from twext.enterprise.jobqueue import JobItem
+from twext.enterprise.jobs.jobitem import JobItem
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial.unittest import TestCase

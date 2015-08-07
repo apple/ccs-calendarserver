@@ -74,7 +74,7 @@ from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 from twext.enterprise.dal.syntax import Select, Parameter, Insert, Delete, \
     Update
 from twext.enterprise.ienterprise import AlreadyFinishedError
-from twext.enterprise.jobqueue import JobItem
+from twext.enterprise.jobs.jobitem import JobItem
 from twext.enterprise.util import parseSQLTimestamp
 
 import datetime

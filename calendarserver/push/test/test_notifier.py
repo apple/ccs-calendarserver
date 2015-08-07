@@ -24,7 +24,7 @@ from txdav.common.datastore.test.util import populateCalendarsFrom
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
 from calendarserver.push.util import PushPriority
 from txdav.idav import ChangeCategory
-from twext.enterprise.jobqueue import JobItem
+from twext.enterprise.jobs.jobitem import JobItem
 from twisted.internet import reactor
 
 class StubService(object):

@@ -20,7 +20,7 @@ Trash-specific tests for L{txdav.common.datastore.sql}.
 
 from calendarserver.tools.trash import emptyTrashForPrincipal
 from pycalendar.datetime import DateTime
-from twext.enterprise.jobqueue import JobItem
+from twext.enterprise.jobs.jobitem import JobItem
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav.ical import Component

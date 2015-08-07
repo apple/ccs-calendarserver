@@ -24,6 +24,22 @@
 create sequence RESOURCE_ID_SEQ;
 
 
+-------------------------
+-- Cluster Bookkeeping --
+-------------------------
+
+-- Information about a process connected to this database.
+
+-- Note that this must match the node info schema in twext.enterprise.queue.
+create table NODE_INFO (
+  HOSTNAME  varchar(255) not null,
+  PID       integer      not null,
+  PORT      integer      not null,
+  TIME      timestamp    not null default timezone('UTC', CURRENT_TIMESTAMP),
+
+  primary key (HOSTNAME, PORT)
+);
+
 -- Unique named locks.  This table should always be empty, but rows are
 -- temporarily created in order to prevent undesirable concurrency.
 create table NAMED_LOCK (
@@ -1266,7 +1282,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '58');
+insert into CALENDARSERVER values ('VERSION', '57');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

@@ -32,7 +32,7 @@ from twisted.python.log import FileLogObserver
 import sys
 from calendarserver.tap.util import getRootResource
 from errno import ENOENT, EACCES
-from twext.enterprise.jobqueue import NonPerformingQueuer
+from twext.enterprise.jobs.queue import NonPerformingQueuer
 from twistedcaldav.timezones import TimezoneCache
 
 # TODO: direct unit tests for these functions.

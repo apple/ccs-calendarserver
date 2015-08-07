@@ -37,7 +37,8 @@ from twext.python.filepath import CachingFilePath as FilePath
 from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.ienterprise import AlreadyFinishedError, POSTGRES_DIALECT, \
     ORACLE_DIALECT
-from twext.enterprise.jobqueue import PeerConnectionPool, JobItem
+from twext.enterprise.jobs.jobitem import JobItem
+from twext.enterprise.jobs.queue import ControllerQueue
 from twext.who.directory import DirectoryRecord
 
 from twisted.application.service import Service
@@ -112,7 +113,6 @@ class SQLStoreBuilder(object):
     def __init__(self, count=0, **options):
         self.sharedService = None
         self.currentTestID = None
-        self.ampPort = config.WorkQueue.ampPort + count
 
         self.sharedDBPath = "_test_sql_db-{}-{}".format(
             os.getpid(), count
@@ -300,11 +300,10 @@ class SQLStoreBuilder(object):
 
         # Start the job queue after store is up and cleaned
         if enableJobProcessing:
-            pool = PeerConnectionPool(
-                reactor, store.newTransaction, None, useWorkerPool=False
+            pool = ControllerQueue(
+                reactor, store.newTransaction, useWorkerPool=False
             )
-            store.queuer = store.queuer.transferProposalCallbacks(pool)
-            store.pool = pool
+            store.queuer = store.pool = pool
             pool.startService()
 
         returnValue(store)

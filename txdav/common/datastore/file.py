@@ -74,8 +74,7 @@ UIDPATH = "__uids__"
 
 
 class _StubQueuer(object):
-    def transferProposalCallbacks(self, otherQueuer):
-        return otherQueuer
+    pass
 
 
 

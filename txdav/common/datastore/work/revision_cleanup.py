@@ -21,7 +21,7 @@ Remove old and unused REVISION rows
 
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Select, Max
-from twext.enterprise.jobqueue import SingletonWorkItem, RegeneratingWorkItem
+from twext.enterprise.jobs.workitem import SingletonWorkItem, RegeneratingWorkItem
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, succeed
 from twistedcaldav.config import config

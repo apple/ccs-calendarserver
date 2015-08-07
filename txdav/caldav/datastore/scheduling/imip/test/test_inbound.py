@@ -32,7 +32,7 @@ from txdav.caldav.datastore.scheduling.imip.inbound import IMAP4DownloadProtocol
 from txdav.caldav.datastore.scheduling.imip.inbound import sanitizeCalendar
 from txdav.common.datastore.test.util import CommonCommonTests
 
-from twext.enterprise.jobqueue import JobItem
+from twext.enterprise.jobs.jobitem import JobItem
 
 import email
 
@@ -511,8 +511,6 @@ END:VCALENDAR
         sanitizeCalendar(calendar)
         self.assertTrue(calendar.hasProperty("PRODID"))
         self.assertFalse(calendar.masterComponent().hasProperty("STATUS"))
-
-
 
 
 

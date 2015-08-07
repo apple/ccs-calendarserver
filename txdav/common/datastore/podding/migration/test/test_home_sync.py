@@ -16,7 +16,7 @@
 
 from pycalendar.datetime import DateTime
 from twext.enterprise.dal.syntax import Select
-from twext.enterprise.jobqueue import JobItem
+from twext.enterprise.jobs.jobitem import JobItem
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.filepath import FilePath

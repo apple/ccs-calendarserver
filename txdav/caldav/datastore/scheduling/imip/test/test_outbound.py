@@ -32,7 +32,7 @@ from txdav.caldav.datastore.scheduling.imip.outbound import MailSender
 from txdav.caldav.datastore.scheduling.imip.outbound import StringFormatTemplateLoader
 from txdav.common.datastore.test.util import buildStore
 
-from twext.enterprise.jobqueue import JobItem
+from twext.enterprise.jobs.jobitem import JobItem
 
 import email
 from email.iterators import typed_subpart_iterator
@@ -294,24 +294,16 @@ class OutboundTests(unittest.TestCase):
             return self.sender
         self.patch(IMIPInvitationWork, "getMailSender", _getSender)
 
-        self.wp = None
-        self.store.queuer.callWithNewProposals(self._proposalCallback)
-
-
-    def _proposalCallback(self, wp):
-        self.wp = wp
-
 
     @inlineCallbacks
     def test_work(self):
         txn = self.store.newTransaction()
-        wp = (yield txn.enqueue(
+        yield txn.enqueue(
             IMIPInvitationWork,
             fromAddr=ORGANIZER,
             toAddr=ATTENDEE,
             icalendarText=initialInviteText.replace("\n", "\r\n"),
-        ))
-        self.assertEquals(wp, self.wp)
+        )
         yield txn.commit()
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
 
@@ -334,16 +326,14 @@ class OutboundTests(unittest.TestCase):
         self.sender.smtpSender.shouldSucceed = False
 
         txn = self.store.newTransaction()
-        wp = (yield txn.enqueue(
+        yield txn.enqueue(
             IMIPInvitationWork,
             fromAddr=ORGANIZER,
             toAddr=ATTENDEE,
             icalendarText=initialInviteText.replace("\n", "\r\n"),
-        ))
+        )
         yield txn.commit()
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
-        # Verify a new work proposal was not created
-        self.assertEquals(wp, self.wp)
 
 
     def _interceptEmail(

@@ -37,7 +37,7 @@ from txdav.caldav.icalendarstore import AttendeeAllowedError, \
 from txdav.caldav.datastore.sql import CalendarObject
 from txdav.common.datastore.test.util import CommonCommonTests, populateCalendarsFrom
 
-from twext.enterprise.jobqueue import JobItem
+from twext.enterprise.jobs.jobitem import JobItem
 from twext.python.clsprop import classproperty
 
 import hashlib

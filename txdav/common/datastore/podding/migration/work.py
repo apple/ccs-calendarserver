@@ -15,7 +15,7 @@
 ##
 
 from twext.enterprise.dal.record import fromTable
-from twext.enterprise.jobqueue import WorkItem
+from twext.enterprise.jobs.workitem import WorkItem
 
 from twisted.internet.defer import inlineCallbacks
 

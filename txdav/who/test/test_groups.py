@@ -18,7 +18,7 @@
 Group membership caching implementation tests
 """
 
-from twext.enterprise.jobqueue import JobItem
+from twext.enterprise.jobs.jobitem import JobItem
 from twext.who.idirectory import RecordType
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks

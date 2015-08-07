@@ -17,7 +17,7 @@
 
 
 from twext.enterprise.dal.syntax import Select
-from twext.enterprise.jobqueue import JobItem
+from twext.enterprise.jobs.jobitem import JobItem
 from twext.python.clsprop import classproperty
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue

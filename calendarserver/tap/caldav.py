@@ -67,9 +67,10 @@ from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
-from twext.enterprise.jobqueue import NonPerformingQueuer, JobItem
-from twext.enterprise.jobqueue import PeerConnectionPool
-from twext.enterprise.jobqueue import WorkerFactory as QueueWorkerFactory
+from twext.enterprise.jobs.jobitem import JobItem
+from twext.enterprise.jobs.queue import NonPerformingQueuer
+from twext.enterprise.jobs.queue import ControllerQueue
+from twext.enterprise.jobs.queue import WorkerFactory as QueueWorkerFactory
 from twext.application.service import ReExecService
 from txdav.who.groups import GroupCacherPollingWork
 from calendarserver.tools.purge import PrincipalPurgePollingWork
@@ -880,9 +881,7 @@ class CalDAVServiceMaker (object):
 
         if isinstance(store, SQLStore):
             def queueMasterAvailable(connectionFromMaster):
-                store.queuer = store.queuer.transferProposalCallbacks(
-                    connectionFromMaster
-                )
+                store.queuer = connectionFromMaster
             queueFactory = QueueWorkerFactory(
                 store.newTransaction, queueMasterAvailable
             )
@@ -1296,19 +1295,13 @@ class CalDAVServiceMaker (object):
             # Job queues always required
             from twisted.internet import reactor
 
-            if config.WorkQueue.enableAMP:
-                ampPort = config.WorkQueue.ampPort
-            else:
-                ampPort = None
-
-            pool = PeerConnectionPool(
-                reactor, store.newTransaction, ampPort,
+            pool = ControllerQueue(
+                reactor, store.newTransaction,
                 useWorkerPool=False,
                 disableWorkProcessing=config.MigrationOnly,
             )
             self._initJobQueue(pool)
-            store.queuer = store.queuer.transferProposalCallbacks(pool)
-            store.pool = pool
+            store.queuer = store.pool = pool
             pool.setServiceParent(result)
 
             # Optionally set up mail retrieval
@@ -1868,13 +1861,8 @@ class CalDAVServiceMaker (object):
 
             from twisted.internet import reactor
 
-            if config.WorkQueue.enableAMP:
-                ampPort = config.WorkQueue.ampPort
-            else:
-                ampPort = None
-
-            pool = PeerConnectionPool(
-                reactor, store.newTransaction, ampPort,
+            pool = ControllerQueue(
+                reactor, store.newTransaction,
                 disableWorkProcessing=config.MigrationOnly,
             )
             self._initJobQueue(pool)

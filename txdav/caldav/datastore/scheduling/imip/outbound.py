@@ -29,7 +29,7 @@ import email.utils
 from pycalendar.datetime import DateTime
 from pycalendar.duration import Duration
 from twext.enterprise.dal.record import fromTable
-from twext.enterprise.jobqueue import WorkItem
+from twext.enterprise.jobs.workitem import WorkItem
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.mail.smtp import rfc822date

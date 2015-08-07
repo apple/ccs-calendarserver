@@ -30,8 +30,9 @@ from twext.enterprise.dal.record import fromTable, SerializableRecord
 from twext.enterprise.dal.syntax import Count, ColumnSyntax, Delete, \
     Insert, Len, Max, Parameter, Select, Update, utcNowSQL
 from twext.enterprise.locking import NamedLock
-from twext.enterprise.jobqueue import WorkItem, AggregatedWorkItem, \
-    WORK_PRIORITY_LOW, WORK_WEIGHT_5, WORK_WEIGHT_3, JobItem
+from twext.enterprise.jobs.jobitem import JobItem
+from twext.enterprise.jobs.workitem import WorkItem, AggregatedWorkItem, \
+    WORK_PRIORITY_LOW, WORK_WEIGHT_5, WORK_WEIGHT_3
 from twext.enterprise.util import parseSQLTimestamp
 from twext.python.clsprop import classproperty
 from twext.python.log import Logger

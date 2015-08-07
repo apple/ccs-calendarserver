@@ -18,7 +18,7 @@
     group attendee tests
 """
 
-from twext.enterprise.jobqueue import JobItem
+from twext.enterprise.jobs.jobitem import JobItem
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.who.directory import DirectoryService
 from twisted.internet import reactor

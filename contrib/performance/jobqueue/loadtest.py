@@ -38,7 +38,7 @@ def httploop(ctr, config, complete):
     headers = {}
     headers["User-Agent"] = "httploop/1"
     headers["Depth"] = "1"
-    headers["Authorization"] = "Basic " + "admin:admin".encode("base64")
+    headers["Authorization"] = "Basic " + "admin:admin".encode("base64")[:-1]
     headers["Content-Type"] = "application/json"
 
     host, port = config["server"].split(":")

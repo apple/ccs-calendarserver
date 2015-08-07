@@ -31,7 +31,7 @@ from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
 from txdav.caldav.datastore.scheduling.imip.outbound import IMIPInvitationWork
 from txdav.common.datastore.test.util import CommonCommonTests
 
-from twext.enterprise.jobqueue import JobItem
+from twext.enterprise.jobs.jobitem import JobItem
 
 class iMIPProcessing (CommonCommonTests, unittest.TestCase):
     """

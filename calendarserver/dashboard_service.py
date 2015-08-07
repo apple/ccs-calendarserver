@@ -15,7 +15,7 @@
 ##
 
 
-from twext.enterprise.jobqueue import JobItem
+from twext.enterprise.jobs.jobitem import JobItem
 
 from twisted.internet.defer import inlineCallbacks, succeed, returnValue
 from twisted.internet.error import ConnectError

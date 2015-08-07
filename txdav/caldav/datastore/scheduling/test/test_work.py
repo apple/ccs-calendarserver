@@ -14,7 +14,8 @@
 # limitations under the License.
 ##
 from twistedcaldav.ical import Component, diff_iCalStrs, normalize_iCalStr
-from twext.enterprise.jobqueue import JobItem, WorkItem
+from twext.enterprise.jobs.jobitem import JobItem
+from twext.enterprise.jobs.workitem import WorkItem
 from txdav.common.datastore.sql_tables import scheduleActionFromSQL
 from twisted.internet import reactor
 

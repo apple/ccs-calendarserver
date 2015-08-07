@@ -4,6 +4,14 @@ create sequence INSTANCE_ID_SEQ;
 create sequence ATTACHMENT_ID_SEQ;
 create sequence REVISION_SEQ;
 create sequence WORKITEM_SEQ;
+create table NODE_INFO (
+    "HOSTNAME" nvarchar2(255),
+    "PID" integer not null,
+    "PORT" integer not null,
+    "TIME" timestamp default CURRENT_TIMESTAMP at time zone 'UTC' not null, 
+    primary key ("HOSTNAME", "PORT")
+);
+
 create table NAMED_LOCK (
     "LOCK_NAME" nvarchar2(255) primary key
 );
@@ -667,7 +675,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '58');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '57');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');

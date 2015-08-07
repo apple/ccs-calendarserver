@@ -28,7 +28,8 @@ __all__ = [
 
 from calendarserver.tools.util import recordForPrincipalID
 
-from twext.enterprise.jobqueue import JobItem, WORK_PRIORITY_HIGH, WORK_WEIGHT_1
+from twext.enterprise.jobs.jobitem import JobItem
+from twext.enterprise.jobs.workitem import WORK_PRIORITY_HIGH, WORK_WEIGHT_1
 from twext.python.log import Logger
 
 from twisted.internet import reactor
@@ -330,8 +331,8 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
     def action_refreshgroups(self, j):
         txn = self._store.newTransaction()
         yield txn.directoryService().flush()
-        wp = yield GroupCacherPollingWork.reschedule(txn, 0, force=True)
-        jobID = wp.workItem.jobID
+        work = yield GroupCacherPollingWork.reschedule(txn, 0, force=True)
+        jobID = work.jobID
         yield txn.commit()
 
         if "wait" in j and j["wait"]:

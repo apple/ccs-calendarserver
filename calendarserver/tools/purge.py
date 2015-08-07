@@ -30,7 +30,7 @@ from pycalendar.datetime import DateTime
 
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete, Select, Union, Parameter, Max
-from twext.enterprise.jobqueue import WorkItem, RegeneratingWorkItem
+from twext.enterprise.jobs.workitem import WorkItem, RegeneratingWorkItem
 from twext.python.log import Logger
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed

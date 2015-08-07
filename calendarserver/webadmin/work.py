@@ -33,7 +33,7 @@ from zope.interface import implementer
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twext.python.log import Logger
-from twext.enterprise.jobqueue import JobItem
+from twext.enterprise.jobs.jobitem import JobItem
 
 from txdav.caldav.datastore.scheduling.imip.inbound import (
     IMIPPollingWork, IMIPReplyWork

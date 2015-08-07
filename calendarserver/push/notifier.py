@@ -20,7 +20,8 @@ Notification framework for Calendar Server
 
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete, Select, Parameter
-from twext.enterprise.jobqueue import JobItem, WorkItem, WORK_PRIORITY_HIGH, \
+from twext.enterprise.jobs.jobitem import JobItem
+from twext.enterprise.jobs.workitem import WorkItem, WORK_PRIORITY_HIGH, \
     WORK_WEIGHT_1
 from twext.python.log import Logger
 

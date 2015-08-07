@@ -21,7 +21,7 @@ Group membership caching
 
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Select
-from twext.enterprise.jobqueue import AggregatedWorkItem, RegeneratingWorkItem
+from twext.enterprise.jobs.workitem import AggregatedWorkItem, RegeneratingWorkItem
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed, \
     DeferredList
@@ -467,16 +467,16 @@ class GroupCacher(object):
 
         records = yield GroupAttendeeRecord.querysimple(txn, groupID=groupID)
 
-        wps = []
+        workItems = []
         for record in records:
-            wp = yield GroupAttendeeReconciliationWork.reschedule(
+            work = yield GroupAttendeeReconciliationWork.reschedule(
                 txn,
                 seconds=float(config.GroupAttendees.ReconciliationDelaySeconds),
                 resourceID=record.resourceID,
                 groupID=groupID,
             )
-            wps.append(wp)
-        returnValue(tuple(wps))
+            workItems.append(work)
+        returnValue(tuple(workItems))
 
 
     @inlineCallbacks
@@ -493,16 +493,16 @@ class GroupCacher(object):
             Where=gs.GROUP_ID == groupID,
         ).on(txn)
 
-        wps = []
+        workItems = []
         for [calendarID] in rows:
-            wp = yield GroupShareeReconciliationWork.reschedule(
+            work = yield GroupShareeReconciliationWork.reschedule(
                 txn,
                 seconds=float(config.Sharing.Calendars.Groups.ReconciliationDelaySeconds),
                 calendarID=calendarID,
                 groupID=groupID,
             )
-            wps.append(wp)
-        returnValue(tuple(wps))
+            workItems.append(work)
+        returnValue(tuple(workItems))
 
 
     @inlineCallbacks

@@ -19,7 +19,7 @@ Inbound IMIP mail handling for Calendar Server
 """
 
 from twext.enterprise.dal.record import fromTable
-from twext.enterprise.jobqueue import WorkItem, RegeneratingWorkItem
+from twext.enterprise.jobs.workitem import WorkItem, RegeneratingWorkItem
 from twext.internet.gaiendpoint import GAIEndpoint
 from twext.python.log import Logger, LegacyLogger
 

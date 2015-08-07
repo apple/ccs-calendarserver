@@ -24,7 +24,7 @@ from txweb2.dav.test.util import SimpleRequest
 from twext.internet.gaiendpoint import MultiFailure
 from twisted.python.failure import Failure
 from twisted.internet.error import ConnectionRefusedError
-from twext.enterprise.jobqueue import JobItem
+from twext.enterprise.jobs.jobitem import JobItem
 
 class TestCrossPodScheduling (MultiStoreConduitTest):
 

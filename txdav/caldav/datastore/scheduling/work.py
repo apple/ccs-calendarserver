@@ -17,8 +17,9 @@
 from twext.enterprise.dal.record import fromTable, Record
 from twext.enterprise.dal.syntax import Select, Insert, Delete, Parameter
 from twext.enterprise.locking import NamedLock
-from twext.enterprise.jobqueue import WorkItem, WORK_PRIORITY_MEDIUM, JobItem, \
-    WORK_WEIGHT_5, JobTemporaryError
+from twext.enterprise.jobs.jobitem import JobItem, JobTemporaryError
+from twext.enterprise.jobs.workitem import WorkItem, WORK_PRIORITY_MEDIUM, \
+    WORK_WEIGHT_5
 from twext.python.log import Logger
 
 from twisted.internet.defer import inlineCallbacks, returnValue, Deferred, \
@@ -383,7 +384,7 @@ class ScheduleOrganizerWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORGANIZ
         if isinstance(calendar_new, Component):
             calendar_new = calendar_new.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference)
 
-        proposal = (yield txn.enqueue(
+        work = (yield txn.enqueue(
             cls,
             notBefore=notBefore,
             icalendarUID=uid,
@@ -397,7 +398,7 @@ class ScheduleOrganizerWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORGANIZ
             pause=pause,
         ))
         cls._enqueued()
-        log.debug("ScheduleOrganizerWork - enqueued for ID: {id}, UID: {uid}, organizer: {org}", id=proposal.workItem.workID, uid=uid, org=organizer)
+        log.debug("ScheduleOrganizerWork - enqueued for ID: {id}, UID: {uid}, organizer: {org}", id=work.workID, uid=uid, org=organizer)
 
 
     @inlineCallbacks
@@ -511,7 +512,7 @@ class ScheduleOrganizerSendWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORG
         # Always queue up new work - coalescing happens when work is executed
         notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.WorkQueues.RequestDelaySeconds + stagger)
         uid = itipmsg.resourceUID()
-        proposal = (yield txn.enqueue(
+        work = (yield txn.enqueue(
             cls,
             notBefore=notBefore,
             icalendarUID=uid,
@@ -526,7 +527,7 @@ class ScheduleOrganizerSendWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORG
         cls._enqueued()
         log.debug(
             "ScheduleOrganizerSendWork - enqueued for ID: {id}, UID: {uid}, organizer: {org}, attendee: {att}",
-            id=proposal.workItem.workID,
+            id=work.workID,
             uid=uid,
             org=organizer,
             att=attendee
@@ -648,7 +649,7 @@ class ScheduleReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REPLY_WORK)
         # Always queue up new work - coalescing happens when work is executed
         notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.WorkQueues.ReplyDelaySeconds)
         uid = itipmsg.resourceUID()
-        proposal = (yield txn.enqueue(
+        work = (yield txn.enqueue(
             cls,
             notBefore=notBefore,
             icalendarUID=uid,
@@ -658,7 +659,7 @@ class ScheduleReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REPLY_WORK)
             pause=pause,
         ))
         cls._enqueued()
-        log.debug("ScheduleReplyWork - enqueued for ID: {id}, UID: {uid}, attendee: {att}", id=proposal.workItem.workID, uid=uid, att=attendee)
+        log.debug("ScheduleReplyWork - enqueued for ID: {id}, UID: {uid}, attendee: {att}", id=work.workID, uid=uid, att=attendee)
 
 
     @inlineCallbacks
@@ -810,7 +811,7 @@ class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_W
 
         # Always queue up new work - coalescing happens when work is executed
         notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.WorkQueues.AttendeeRefreshBatchDelaySeconds)
-        proposal = (yield txn.enqueue(
+        work = (yield txn.enqueue(
             cls,
             icalendarUID=organizer_resource.uid(),
             homeResourceID=organizer_resource._home.id(),
@@ -820,7 +821,7 @@ class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_W
             pause=pause,
         ))
         cls._enqueued()
-        log.debug("ScheduleRefreshWork - enqueued for ID: {id}, UID: {uid}, attendees: {att}", id=proposal.workItem.workID, uid=organizer_resource.uid(), att=",".join(attendeesToRefresh))
+        log.debug("ScheduleRefreshWork - enqueued for ID: {id}, UID: {uid}, attendees: {att}", id=work.workID, uid=organizer_resource.uid(), att=",".join(attendeesToRefresh))
 
 
     @inlineCallbacks
@@ -1012,7 +1013,7 @@ class ScheduleAutoReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_AUTO_RE
     def autoReply(cls, txn, resource, partstat, pause=0):
         # Always queue up new work - coalescing happens when work is executed
         notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.WorkQueues.AutoReplyDelaySeconds)
-        proposal = (yield txn.enqueue(
+        work = (yield txn.enqueue(
             cls,
             icalendarUID=resource.uid(),
             homeResourceID=resource._home.id(),
@@ -1022,7 +1023,7 @@ class ScheduleAutoReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_AUTO_RE
             pause=pause,
         ))
         cls._enqueued()
-        log.debug("ScheduleAutoReplyWork - enqueued for ID: {id}, UID: {uid}", id=proposal.workItem.workID, uid=resource.uid())
+        log.debug("ScheduleAutoReplyWork - enqueued for ID: {id}, UID: {uid}", id=work.workID, uid=resource.uid())
 
 
     @inlineCallbacks

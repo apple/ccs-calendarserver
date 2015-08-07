@@ -16,7 +16,7 @@
 ##
 
 from twext.enterprise.dal.record import fromTable
-from twext.enterprise.jobqueue import WorkItem
+from twext.enterprise.jobs.workitem import WorkItem
 from twext.python.log import Logger
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, Deferred
