@@ -508,7 +508,7 @@ class GroupCacher(object):
     @inlineCallbacks
     def groupsToRefresh(self, txn):
         delegatedUIDs = set((yield txn.allGroupDelegates()))
-        self.log.info(
+        self.log.debug(
             "There are {count} group delegates", count=len(delegatedUIDs)
         )
 
@@ -521,7 +521,7 @@ class GroupCacher(object):
             for result in results:
                 if result and result[0]:
                     delegatedUIDs.update(result[1])
-            self.log.info(
+            self.log.debug(
                 "There are {count} group delegates on this and other pods", count=len(delegatedUIDs)
             )
 
@@ -535,7 +535,7 @@ class GroupCacher(object):
             ))
         )
         attendeeGroupUIDs = frozenset([group.groupUID for group in groups])
-        self.log.info(
+        self.log.debug(
             "There are {count} group attendees", count=len(attendeeGroupUIDs)
         )
 
@@ -554,7 +554,7 @@ class GroupCacher(object):
             )
         ).on(txn)
         shareeGroupUIDs = frozenset([row[0] for row in rows])
-        self.log.info(
+        self.log.debug(
             "There are {count} group sharees", count=len(shareeGroupUIDs)
         )
 
