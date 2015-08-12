@@ -3870,7 +3870,8 @@ class Attachment(object):
         """
         Remove the actual file and up to attachment parent directory if empty.
         """
-        self._path.remove()
+        if self._path.exists():
+            self._path.remove()
         self.removeParentPaths()
 
 
