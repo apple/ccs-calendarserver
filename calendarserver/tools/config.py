@@ -56,6 +56,7 @@ WRITABLE_CONFIG_KEYS = [
     "DirectoryAddressBook.params.queryUserRecords",
     "EnableCalDAV",
     "EnableCardDAV",
+    "EnableSACLs",
     "EnableSearchAddressBook",
     "EnableSSL",
     "HTTPPort",
