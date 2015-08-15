@@ -331,10 +331,14 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         matchingResources = []
         matchcount = 0
 
+        limitResults = config.MaxPrincipalSearchReportResults
+        if clientLimit is not None:
+            limitResults = min(clientLimit, limitResults)
+
         records = (yield dir.recordsMatchingTokens(
             tokens,
             context=context,
-            limitResults=clientLimit,
+            limitResults=limitResults,
             timeoutSeconds=10
         ))
 
