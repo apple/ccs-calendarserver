@@ -31,7 +31,7 @@
 
 				<!-- Here is a OS X client simulator. -->
 				<key>software</key>
-				<string>contrib.performance.loadtest.ical.OS_X_10_7</string>
+				<string>contrib.performance.loadtest.clients.OS_X_10_7</string>
 
 				<!-- Arguments to use to initialize the OS_X_10_7 instance. -->
 				<key>params</key>
@@ -80,7 +80,7 @@
 							<!-- Define the interval (in seconds) at which this profile will use
 								its client to create a new event. -->
 							<key>interval</key>
-							<integer>60</integer>
+							<integer>300</integer>
 
 							<!-- Define how start times (DTSTART) for the randomly generated events
 								will be selected. This is an example of a "Distribution" parameter. The value
@@ -183,7 +183,7 @@
 							<!-- Define the interval (in seconds) at which this profile will use
 								its client to create a new event. -->
 							<key>interval</key>
-							<integer>5</integer>
+							<integer>300</integer>
 
 							<!-- Define how start times (DTSTART) for the randomly generated events
 								will be selected. This is an example of a "Distribution" parameter. The value
@@ -493,46 +493,25 @@
 								its client to create a new task. -->
 							<key>interval</key>
 							<integer>300</integer>
+						</dict>
+					</dict>
 
-							<!-- Define how due times (DUE) for the randomly generated tasks
-								will be selected. This is an example of a "Distribution" parameter. The value
-								for most "Distribution" parameters are interchangeable and extensible. -->
-							<key>taskDueDistribution</key>
-							<dict>
+					<!-- A task-updating profile, which will periodically create
+						new tasks at a random time on a random calendar and then
+						update them in some way -->
+					<dict>
+						<key>class</key>
+						<string>contrib.performance.loadtest.profiles.TaskUpdater</string>
 
-								<!-- This distribution is pretty specialized. It produces timestamps
-									in the near future, limited to certain days of the week and certain hours
-									of the day. -->
-								<key>type</key>
-								<string>contrib.performance.stats.WorkDistribution</string>
+						<key>params</key>
+						<dict>
+							<key>enabled</key>
+							<true/>
 
-								<key>params</key>
-								<dict>
-									<!-- These are the days of the week the distribution will use. -->
-									<key>daysOfWeek</key>
-									<array>
-										<string>mon</string>
-										<string>tue</string>
-										<string>wed</string>
-										<string>thu</string>
-										<string>fri</string>
-									</array>
-
-									<!-- The earliest hour of a day at which an event might be scheduled. -->
-									<key>beginHour</key>
-									<integer>8</integer>
-
-									<!-- And the latest hour of a day (at which an event will be scheduled
-										to begin!). -->
-									<key>endHour</key>
-									<integer>16</integer>
-
-									<!-- The timezone in which the event is scheduled. (XXX Does this
-										really work right?) -->
-									<key>tzname</key>
-									<string>America/Los_Angeles</string>
-								</dict>
-							</dict>
+							<!-- Define the interval (in seconds) at which this profile will use
+								its client to create a new task. -->
+							<key>interval</key>
+							<integer>60</integer>
 						</dict>
 					</dict>
 
