@@ -1,0 +1,113 @@
+config = {
+    "server": "https://127.0.0.1:8443",
+    "webadmin": {
+        "enabled": true,
+        "HTTPPort": 8080
+    },
+    "serverStats": {
+        "enabled": true,
+        "Port": 8100
+    },
+    "clientDataSerialization": {
+        "UseOldData": true,
+        "Path": "/tmp/sim"
+    },
+    "accounts": {
+        "loader": "contrib.performance.loadtest.sim.recordsFromCSVFile",
+        "params": {
+            "path": "contrib/performance/loadtest/accounts.csv"
+        }
+    },
+    "arrival": {
+        "factory": "contrib.performance.loadtest.population.SmoothRampUp",
+        "params": {
+            "groups": 2,
+            "groupSize": 1,
+            "interval": 3,
+            "clientsPerUser": 1
+        }
+    },
+    "observers": [
+        {
+            "type": "contrib.performance.loadtest.logger.ReportStatistics",
+            "params": {
+                "thresholdsPath": "contrib/performance/loadtest/thresholds.json",
+                "benchmarksPath": "contrib/performance/loadtest/benchmarks.json",
+                "failCutoff": 1.0
+            }
+        },
+        {
+            "type": "contrib.performance.loadtest.logger.RequestLogger",
+            "params": {}
+        },
+        {
+            "type": "contrib.performance.loadtest.logger.OperationLogger",
+            "params": {
+                "thresholdsPath": "contrib/performance/loadtest/thresholds.json",
+                "lagCutoff": 1.0,
+                "failCutoff": 1.0
+            }
+        }
+    ]
+}
+
+config-dist = {
+    "workers": [
+        "./bin/python contrib/performance/loadtest/ampsim.py",
+        "./bin/python contrib/performance/loadtest/ampsim.py",
+        "./bin/python contrib/performance/loadtest/ampsim.py",
+        "./bin/python contrib/performance/loadtest/ampsim.py",
+        "./bin/python contrib/performance/loadtest/ampsim.py",
+        "./bin/python contrib/performance/loadtest/ampsim.py"
+    ],
+    "server": "https://127.0.0.1:8443",
+    "webadmin": {
+        "enabled": true,
+        "HTTPPort": 8080
+    },
+    "serverStats": {
+        "enabled": true,
+        "Port": 8100
+    },
+    "clientDataSerialization": {
+        "UseOldData": true,
+        "Path": "/tmp/sim"
+    },
+    "accounts": {
+        "loader": "contrib.performance.loadtest.sim.recordsFromCSVFile",
+        "params": {
+            "path": "contrib/performance/loadtest/accounts.csv"
+        }
+    },
+        "arrival": {
+        "factory": "contrib.performance.loadtest.population.SmoothRampUp",
+        "params": {
+            "groups": 99,
+            "groupSize": 1,
+            "interval": 3,
+            "clientsPerUser": 1
+        }
+    },
+    "observers": [
+        {
+            "type": "contrib.performance.loadtest.logger.ReportStatistics",
+            "params": {
+                "thresholdsPath": "contrib/performance/loadtest/thresholds.json",
+                "benchmarksPath": "contrib/performance/loadtest/benchmarks.json",
+                "failCutoff": 1.0
+            }
+        },
+        {
+            "type": "contrib.performance.loadtest.logger.RequestLogger",
+            "params": {}
+        },
+        {
+            "type": "contrib.performance.loadtest.logger.OperationLogger",
+            "params": {
+                "thresholdsPath": "contrib/performance/loadtest/thresholds.json",
+                "lagCutoff": 1.0,
+                "failCutoff": 1.0
+            }
+        }
+    ]
+}

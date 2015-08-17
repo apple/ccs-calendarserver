@@ -1,0 +1,211 @@
+
+
+calendars-only = {
+	"clients": [
+		{
+			"software": "contrib.performance.loadtest.clients.OS_X_10_11",
+			"params": {
+				"title": "10.11",
+				"calendarHomePollInterval": 5,
+				"supportPush": false,
+				"supportAmpPush": true
+			},
+			"profiles": [
+				{
+					"class": "contrib.performance.loadtest.profiles.CalendarMaker",
+					"params": {
+						"enabled": false,
+						"interval": 15
+					}
+				},
+				{
+					"class": "contrib.performance.loadtest.profiles.CalendarUpdater",
+					"params": {
+						"enabled": true,
+						"interval": 5
+					}
+				},
+				{
+					"class": "contrib.performance.loadtest.profiles.CalendarSharer",
+					"params": {
+						"enabled": true,
+						"interval": 30
+					}
+				},
+				{
+					"class": "contrib.performance.loadtest.profiles.CalendarDeleter",
+					"params": {
+						"enabled": false,
+						"interval": 30
+					}
+				}
+			],
+			"weight": 1
+		}
+	]
+}
+
+event-updates-only = {
+	"clients": [
+		{
+			"software": "contrib.performance.loadtest.clients.OS_X_10_11",
+			"params": {
+				"title": "10.7",
+				"calendarHomePollInterval": 300000,
+				"supportPush": false,
+				"supportAmpPush": false
+			},
+			"profiles": [
+				{
+					"class": "contrib.performance.loadtest.profiles.Eventer",
+					"params": {
+						"enabled": false,
+						"interval": 20,
+						"eventStartDistribution": {
+							"type": "contrib.performance.stats.WorkDistribution",
+							"params": {
+								"daysOfWeek": ["mon", "tue", "wed", "thu", "fri"],
+								"beginHour": 8,
+								"endHour": 8,
+								"tzname": "America/Los_Angeles"
+							}
+						},
+						"recurrenceDistibution": {
+							"type": "contrib.performance.stats.RecurrenceDistribution",
+							"params": {
+								"allowRecurrence": false,
+								"weights": {
+									"none": 50,
+									"daily": 10,
+									"weekly": 20,
+									"monthly": 2,
+									"yearly": 1,
+									"dailylimit": 2,
+									"weeklylimit": 5,
+									"workdays": 10
+								}
+							}
+						}
+					}
+				},
+				{
+					"class": "contrib.performance.loadtest.profiles.EventUpdater",
+					"params": {
+						"enabled": true,
+						"interval": 5,
+						"eventStartDistribution": {
+							"type": "contrib.performance.stats.WorkDistribution",
+							"params": {
+								"daysOfWeek": ["mon", "tue", "wed", "thu", "fri"],
+								"beginHour": 8,
+								"endHour": 8,
+								"tzname": "America/Los_Angeles"
+							}
+						},
+						"recurrenceDistibution": {
+							"type": "contrib.performance.stats.RecurrenceDistribution",
+							"params": {
+								"allowRecurrence": true,
+								"weights": {
+									"none": 50,
+									"daily": 25,
+									"weekly": 25,
+									"monthly": 0,
+									"yearly": 0,
+									"dailylimit": 0,
+									"weeklylimit": 0,
+									"workdays": 0
+								}
+							}
+						}
+					}
+				},
+				{
+					"class": "contrib.performance.loadtest.profiles.RealisticInviter",
+					"params": {
+						"enabled": false,
+						"sendInvitationDistribution": {
+							"type": "contrib.performance.stats.NormalDistribution",
+							"params": {
+								"mu": 10,
+								"sigma": 5
+							}
+						},
+						"inviteeDistribution": {
+							"type": "contrib.performance.stats.UniformIntegerDistribution",
+							"params": {
+								"min": 0,
+								"max": 99
+							}
+						},
+						"inviteeClumping": true,
+						"inviteeCountDistribution": {
+							"type": "contrib.performance.stats.LogNormalDistribution",
+							"params": {
+								"mode": 1,
+								"median": 6,
+								"maximum": 100
+							}
+						},
+						"eventStartDistribution": {
+							"type": "contrib.performance.stats.WorkDistribution",
+							"params": {
+								"daysOfWeek": ["mon", "tue", "wed", "thu", "fri"],
+								"beginHour": 8,
+								"endHour": 8,
+								"tzname": "America/Los_Angeles"
+							}
+						},
+						"recurrenceDistibution": {
+							"type": "contrib.performance.stats.RecurrenceDistribution",
+							"params": {
+								"allowRecurrence": false,
+								"weights": {
+									"none": 50,
+									"daily": 10,
+									"weekly": 20,
+									"monthly": 2,
+									"yearly": 1,
+									"dailylimit": 2,
+									"weeklylimit": 5,
+									"workdays": 10
+								}
+							}
+						}
+					}
+				},
+				{
+					"class": "contrib.performance.loadtest.profiles.Accepter",
+					"params": {
+						"enabled": false,
+						"acceptDelayDistribution": {
+							"type": "contrib.performance.stats.LogNormalDistribution",
+							"params": {
+								"mode": 300,
+								"median": 1800
+							}
+						}
+					}
+				},
+				{
+					"class": "contrib.performance.loadtest.profiles.Tasker",
+					"params": {
+						"enabled": false,
+						"interval": 300,
+						"taskDueDistribution": {
+							"type": "contrib.performance.stats.WorkDistribution",
+							"params": {
+								"daysOfWeek": ["mon", "tue", "wed", "thu", "fri"],
+								"beginHour": 8,
+								"endHour": 8,
+								"tzname": "America/Los_Angeles"
+							}
+						}
+					}
+				}
+			],
+			"weight": 1
+		}
+	]
+}
+

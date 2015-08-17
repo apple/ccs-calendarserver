@@ -1,0 +1,267 @@
+PROPFIND ./well-known/caldav				->	/principals/
+	current-user-principal
+	principal-URL
+	resourcetype
+
+PROPFIND /principals/						->
+	current-user-principal						/principals/__uids__/<uid>
+	principal-URL								----
+	resourcetype								collection
+
+OPTIONS /principals/__uids__/<uid>/
+
+PROPFIND /principals/__uids__/<uid>/
+	calendar-home-set							/calendars/__uids__/<uid>/
+	calendar-user-address-set					mailto:user#@example.com
+												urn:uuid:<uid>
+												urn:x-uid:<uid>
+	current-user-principal						/principals/__uids__/<uid>/
+	displayname									User #
+	dropbox-home-URL							/calendars/__uids__/<uid>/dropbox/
+	email-address-set							user#@example.com
+	notification-URL							/calendars/__uids__/<uid>/notification/
+	principal-collection-set					/principals/
+	principal-URL								/principals/__uids__/<uid>/
+	resource-id									urn:x-uid:<uid>
+	schedule-inbox-URL							/calendars/__uids__/<uid>/inbox/
+	schedule-outbox-URL							/calendars/__uids__/<uid>/outbox/
+	supported-report-set						acl-principal-prop-set
+												principal-match
+												principal-property-search
+												expand-property
+												calendarserver-principal-search
+
+OPTIONS /principals/__uids__/<uid>
+
+REPORT /principals/							-> 
+	principal-search-property-set				displayname
+												email-address-set
+												calendar-user-address-set
+												calendar-user-type 
+
+PROPFIND /calendars/__uids__/<uid>/inbox/	->	
+	calendar-availability						???
+
+PROPFIND /calendars/__uids__/<uid>/
+Depth 1
+	add-member									
+	allowed-sharing-modes									
+	autoprovisioned									
+	bulk-requests									
+	calendar-alarm									
+	calendar-color									
+	calendar-description									
+	calendar-free-busy-set									
+	calendar-order									
+	calendar-timezone									
+	current-user-privilege-set					all/read/read-free-busy/write/write-properties/write-content/bind/unbind/unlock/read-acl/write-acl/read-current-user-privilege-set				
+	default-alarm-vevent-date									
+	default-alarm-vevent-datetime									
+	displayname									User #
+	getctag									
+	invite									
+	language-code									
+	location-code									
+	owner										/principals/__uids__/<uid>/
+	pre-publish-url									
+	publish-url									
+	push-transports									
+	pushkey										/CalDAV/localhost/<uid>/
+	quota-available-bytes						104857600
+	quota-used-bytes							0
+	refreshrate									
+	resource-id									
+	resourcetype								collection	
+	schedule-calendar-transp									
+	schedule-default-calendar-URL									
+	source									
+	subscribed-strip-alarms									
+	subscribed-strip-attachments									
+	subscribed-strip-todos									
+	supported-calendar-component-set			VEVENT/VTODO						
+	supported-calendar-component-sets									
+	supported-report-set						acl-principal-prop-set/principal-match/principal-property-search/expand-property/calendarserver-principal-search/calendar-query/calendar-multiget/free-busy-query/addressbook-query/addressbook-multiget/sync-collection			
+	sync-token									data:,36_58/<hex>
+ 	** and more **
+
+PROPPATCH /calendars/__uids__/<uid>/		->		default-alarm-vevent-date
+PROPPATCH /calendars/__uids__/<uid>/		->		default-alarm-vevent-datetime
+
+PROPPATCH /calendars/__uids__/<uid>/calendar/	->		calendar-order
+PROPPATCH /calendars/__uids__/<uid>/calendar/	->		displayname
+PROPPATCH /calendars/__uids__/<uid>/calendar/	->		calendar-color
+PROPPATCH /calendars/__uids__/<uid>/calendar/	->		calendar-order
+PROPPATCH /calendars/__uids__/<uid>/calendar/	->		calendar-timezone
+
+PROPPATCH /calendars/__uids__/<uid>/tasks/	->		calendar-order
+PROPPATCH /calendars/__uids__/<uid>/tasks/	->		displayname
+PROPPATCH /calendars/__uids__/<uid>/tasks/	->		calendar-color
+PROPPATCH /calendars/__uids__/<uid>/tasks/	->		calendar-order
+PROPPATCH /calendars/__uids__/<uid>/tasks/	->		calendar-timezone
+
+PROPFIND /calendars/__uids__/<uid>/calendar/->
+	getctag										37_63
+	sync-token									data:,37_63/<hex>
+
+REPORT /calendars/__uids__/<uid>/calendar/ 	->
+	getcontenttype
+	getetag
+REPORT /calendar/__uids__/<uid>/calendar/
+	getcontenttype
+	getetag
+
+PROPFIND /calendars/__uids__/<uid>/			->
+	checksum-versions							???
+
+PROPFIND /calendars/__uids__/<uid>/calendar/	->
+	getctag										
+	sync-token										
+PROPFIND /calendars/__uids__/<uid>/calendar/
+	getcontenttype								httpd/unix-directory
+	getetag										"<hex>"
+
+PROPFIND /calendars/__uids__/<uid>/			-> (again?) 
+	checksum-versions
+
+PROPFIND /calendars/__uids__/<uid>/tasks/	->
+	getctag
+	sync-token
+PROPFIND /calendars/__uids__/<uid>/tasks/	->
+	getcontenttype
+	getetag
+
+PROPFIND /calendars/__uids__/<uid>/inbox/	->
+	getctag
+	sync-token
+PROPFIND /calendars/__uids__/<uid>/inbox/	->
+	getcontenttype
+	getetag
+
+PROPFIND /calendars/__uids__/<uid>/tasks/	->
+	getctag
+	sync-token
+PROPFIND /calendars/__uids__/<uid>/tasks/	->
+	getcontenttype
+	getetag
+
+PROPFIND /calendars/__uids__/<uid>/notification/	->
+	getctag
+	sync-token
+PROPFIND /calendars/__uids__/<uid>/notification/	->
+	notificationtype
+	getetag
+
+REPORT /principals/__uids__/<uid>/
+	calendar-proxy-write-for
+		calendar-user-address-set
+		email-address-set
+		displayname
+	calendar-proxy-read-for
+		calendar-user-address-set
+		email-address-set
+		displayname
+
+REPORT /calendars/__uids__/<uid>/
+	sync-collection
+		sync-token
+		sync-level
+		*lots of properties*
+
+PROPFIND /calendars/__uids__/<uid>/inbox/
+	getctag
+	sync-token
+
+PROPFIND /principals/__uids__/<uid>/
+	calendar-proxy-write-for
+		calendar-user-address-set
+		email-address-set
+		displayname
+	calendar-proxy-read-for
+		calendar-user-address-set
+		email-address-set
+		displayname
+
+----------------------------------------------------------------
+Deep Refresh (CMD + SHIFT + R)
+
+PROPFIND /principals/__uids__/<uid>/
+	<B:calendar-home-set xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <B:calendar-user-address-set xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <A:current-user-principal/>
+    <A:displayname/>
+    <C:dropbox-home-URL xmlns:C="http://calendarserver.org/ns/"/>
+    <C:email-address-set xmlns:C="http://calendarserver.org/ns/"/>
+    <C:notification-URL xmlns:C="http://calendarserver.org/ns/"/>
+    <A:principal-collection-set/>
+    <A:principal-URL/>
+    <A:resource-id/>
+    <B:schedule-inbox-URL xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <B:schedule-outbox-URL xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <A:supported-report-set/>
+
+OPTIONS /principals/__uids__/10000000-0000-0000-0000-000000000001/
+
+REPORT /principals/
+	principal-search-property-set
+
+PROPFIND /calendars/__uids__/10000000-0000-0000-0000-000000000001/inbox/
+	calendar-availability
+
+PROPFIND /calendars/__uids__/10000000-0000-0000-0000-000000000001/
+Depth 1
+	<A:add-member/>
+    <C:allowed-sharing-modes xmlns:C="http://calendarserver.org/ns/"/>
+    <D:autoprovisioned xmlns:D="http://apple.com/ns/ical/"/>
+    <E:bulk-requests xmlns:E="http://me.com/_namespace/"/>
+    <B:calendar-alarm xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <D:calendar-color xmlns:D="http://apple.com/ns/ical/"/>
+    <B:calendar-description xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <B:calendar-free-busy-set xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <D:calendar-order xmlns:D="http://apple.com/ns/ical/"/>
+    <B:calendar-timezone xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <A:current-user-privilege-set/>
+    <B:default-alarm-vevent-date xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <B:default-alarm-vevent-datetime xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <A:displayname/>
+    <C:getctag xmlns:C="http://calendarserver.org/ns/"/>
+    <C:invite xmlns:C="http://calendarserver.org/ns/"/>
+    <D:language-code xmlns:D="http://apple.com/ns/ical/"/>
+    <D:location-code xmlns:D="http://apple.com/ns/ical/"/>
+    <A:owner/>
+    <C:pre-publish-url xmlns:C="http://calendarserver.org/ns/"/>
+    <C:publish-url xmlns:C="http://calendarserver.org/ns/"/>
+    <C:push-transports xmlns:C="http://calendarserver.org/ns/"/>
+    <C:pushkey xmlns:C="http://calendarserver.org/ns/"/>
+    <A:quota-available-bytes/>
+    <A:quota-used-bytes/>
+    <D:refreshrate xmlns:D="http://apple.com/ns/ical/"/>
+    <A:resource-id/>
+    <A:resourcetype/>
+    <B:schedule-calendar-transp xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <B:schedule-default-calendar-URL xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <C:source xmlns:C="http://calendarserver.org/ns/"/>
+    <C:subscribed-strip-alarms xmlns:C="http://calendarserver.org/ns/"/>
+    <C:subscribed-strip-attachments xmlns:C="http://calendarserver.org/ns/"/>
+    <C:subscribed-strip-todos xmlns:C="http://calendarserver.org/ns/"/>
+    <B:supported-calendar-component-set xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <B:supported-calendar-component-sets xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <A:supported-report-set/>
+    <A:sync-token/>
+
+PROPFIND on calendar/tasks/inbox/notifications as before
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+									

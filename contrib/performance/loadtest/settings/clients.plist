@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+    Copyright (c) 2011-2015 Apple Inc. All rights reserved.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+  -->
+
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+	<dict>
+		<!-- Define the kinds of software and user behavior the load simulation
+			will simulate. -->
+		<key>clients</key>
+
+		<!-- Have as many different kinds of software and user behavior configurations
+			as you want. Each is a dict -->
+		<array>
+
+			<dict>
+
+				<!-- Here is a OS X client simulator. -->
+				<key>software</key>
+				<string>contrib.performance.loadtest.clients.OS_X_10_11</string>
+
+				<!-- Arguments to use to initialize the OS_X_10_7 instance. -->
+				<key>params</key>
+				<dict>
+					<!-- Name that appears in logs. -->
+					<key>title</key>
+					<string>10.11 Intern</string>
+
+					<!-- OS_X_10_7 can poll the calendar home at some interval. This is
+						in seconds. -->
+					<key>calendarHomePollInterval</key>
+					<integer>30</integer>
+
+					<!-- If the server advertises AMP push, the client can wait for notifications about calendar home changes in addition to polling them periodically. If this option is true, look for the server advertisement for AMP push and use it if possible
+						about calendar home changes instead of polling for them periodically. If
+						this option is true, then look for the server advertisement for xmpp push
+						and use it if possible. Still fall back to polling if there is no xmpp push
+						advertised. -->
+					<key>supportAmpPush</key>
+					<true/>
+					<key>ampPushHost</key>
+					<string>localhost</string>
+					<key>ampPushPort</key>
+					<integer>62311</integer>
+				</dict>
+
+				<!-- The profiles define certain types of user behavior on top of the
+					client software being simulated. -->
+				<key>profiles</key>
+				<array>
+					<dict>
+						<key>class</key>
+						<string>contrib.performance.loadtest.profiles.Inviter</string>
+
+						<key>params</key>
+						<dict>
+							<key>enabled</key>
+							<true/>
+
+							<!-- Define the interval (in seconds) at which this profile will use
+								its client to create a new event. -->
+							<key>interval</key>
+							<integer>1</integer>
+						</dict>
+					</dict>
+				</array>
+
+				<!-- Determine the frequency at which this client configuration will
+					appear in the clients which are created by the load tester. -->
+				<key>weight</key>
+				<integer>1</integer>
+			</dict>
+		</array>
+	</dict>
+</plist>
