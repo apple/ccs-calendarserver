@@ -35,8 +35,10 @@ from twisted.web.http import PRECONDITION_FAILED
 
 from twistedcaldav.ical import Property
 
-from contrib.performance.stats import NearFutureDistribution, NormalDistribution, UniformDiscreteDistribution, BernoulliDistribution
-from contrib.performance.stats import LogNormalDistribution, RecurrenceDistribution
+from contrib.performance.loadtest.distributions import (
+    NearFutureDistribution, NormalDistribution, UniformDiscreteDistribution, BernoulliDistribution,
+    LogNormalDistribution, RecurrenceDistribution
+)
 from contrib.performance.loadtest.ical import IncorrectResponseCode
 from contrib.performance.loadtest.resources import Calendar, Event
 from contrib.performance.loadtest.templates import eventTemplate, alarmTemplate, taskTemplate

@@ -1,6 +1,6 @@
 from contrib.performance.loadtest.clients import iOS_5, OS_X_10_6, OS_X_10_7, OS_X_10_11
 from contrib.performance.loadtest.profiles import CalendarMaker, CalendarUpdater, CalendarSharer, CalendarDeleter
-from contrib.performance.stats import WorkDistribution, RecurrenceDistribution
+from contrib.performance.loadtest.distributions import WorkDistribution, RecurrenceDistribution
 
 from contrib.performance.loadtest.population import ProfileType
 

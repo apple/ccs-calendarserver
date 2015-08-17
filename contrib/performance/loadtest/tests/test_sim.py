@@ -24,7 +24,7 @@ from twisted.python.filepath import FilePath
 from twisted.internet.defer import Deferred, succeed
 from twisted.trial.unittest import TestCase
 
-from contrib.performance.stats import NormalDistribution
+from contrib.performance.loadtest.distributions import NormalDistribution
 from contrib.performance.loadtest.ical import OS_X_10_6
 from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter
 from contrib.performance.loadtest.population import (

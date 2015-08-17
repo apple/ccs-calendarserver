@@ -87,7 +87,7 @@
 									in the near future, limited to certain days of the week and certain hours 
 									of the day. -->
 								<key>type</key>
-								<string>contrib.performance.stats.WorkDistribution</string>
+								<string>contrib.performance.loadtest.distributions.WorkDistribution</string>
 
 								<key>params</key>
 								<dict>
@@ -125,7 +125,7 @@
 								     RRULEs defined for this distribution and pick each based on a
 								     weight. -->
 								<key>type</key>
-								<string>contrib.performance.stats.RecurrenceDistribution</string>
+								<string>contrib.performance.loadtest.distributions.RecurrenceDistribution</string>
 
 								<key>params</key>
 								<dict>
@@ -190,7 +190,7 @@
 									in the near future, limited to certain days of the week and certain hours
 									of the day. -->
 								<key>type</key>
-								<string>contrib.performance.stats.WorkDistribution</string>
+								<string>contrib.performance.loadtest.distributions.WorkDistribution</string>
 
 								<key>params</key>
 								<dict>
@@ -228,7 +228,7 @@
 								     RRULEs defined for this distribution and pick each based on a
 								     weight. -->
 								<key>type</key>
-								<string>contrib.performance.stats.RecurrenceDistribution</string>
+								<string>contrib.performance.loadtest.distributions.RecurrenceDistribution</string>
 
 								<key>params</key>
 								<dict>
@@ -282,7 +282,7 @@
 							<key>sendInvitationDistribution</key>
 							<dict>
 								<key>type</key>
-								<string>contrib.performance.stats.FixedDistribution</string>
+								<string>contrib.performance.loadtest.distributions.FixedDistribution</string>
 								<key>params</key>
 								<dict>
 									<!-- interval (in seconds). -->
@@ -305,7 +305,7 @@
 							<key>inviteeDistribution</key>
 							<dict>
 								<key>type</key>
-								<string>contrib.performance.stats.UniformIntegerDistribution</string>
+								<string>contrib.performance.loadtest.distributions.UniformIntegerDistribution</string>
 								<key>params</key>
 								<dict>
 									<!-- The minimum value (inclusive) of the uniform distribution. -->
@@ -332,7 +332,7 @@
 							<key>inviteeCountDistribution</key>
 							<dict>
 								<key>type</key>
-								<string>contrib.performance.stats.FixedDistribution</string>
+								<string>contrib.performance.loadtest.distributions.FixedDistribution</string>
 								<key>params</key>
 								<dict>
 									<!-- Number of attendees. -->
@@ -351,7 +351,7 @@
 									in the near future, limited to certain days of the week and certain hours 
 									of the day. -->
 								<key>type</key>
-								<string>contrib.performance.stats.WorkDistribution</string>
+								<string>contrib.performance.loadtest.distributions.WorkDistribution</string>
 
 								<key>params</key>
 								<dict>
@@ -389,7 +389,7 @@
 								     RRULEs defined for this distribution and pick each based on a
 								     weight. -->
 								<key>type</key>
-								<string>contrib.performance.stats.RecurrenceDistribution</string>
+								<string>contrib.performance.loadtest.distributions.RecurrenceDistribution</string>
 
 								<key>params</key>
 								<dict>
@@ -429,7 +429,7 @@
 							<key>acceptDelayDistribution</key>
 							<dict>
 								<key>type</key>
-								<string>contrib.performance.stats.LogNormalDistribution</string>
+								<string>contrib.performance.loadtest.distributions.LogNormalDistribution</string>
 								<key>params</key>
 								<dict>
 									<!-- mode - peak-->
@@ -469,7 +469,7 @@
 									in the near future, limited to certain days of the week and certain hours 
 									of the day. -->
 								<key>type</key>
-								<string>contrib.performance.stats.WorkDistribution</string>
+								<string>contrib.performance.loadtest.distributions.WorkDistribution</string>
 
 								<key>params</key>
 								<dict>

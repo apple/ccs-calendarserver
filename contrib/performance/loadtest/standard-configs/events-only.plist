@@ -87,7 +87,7 @@
 									in the near future, limited to certain days of the week and certain hours 
 									of the day. -->
 								<key>type</key>
-								<string>contrib.performance.stats.WorkDistribution</string>
+								<string>contrib.performance.loadtest.distributions.WorkDistribution</string>
 
 								<key>params</key>
 								<dict>
@@ -125,7 +125,7 @@
 								     RRULEs defined for this distribution and pick each based on a
 								     weight. -->
 								<key>type</key>
-								<string>contrib.performance.stats.RecurrenceDistribution</string>
+								<string>contrib.performance.loadtest.distributions.RecurrenceDistribution</string>
 
 								<key>params</key>
 								<dict>
@@ -190,7 +190,7 @@
 									in the near future, limited to certain days of the week and certain hours
 									of the day. -->
 								<key>type</key>
-								<string>contrib.performance.stats.WorkDistribution</string>
+								<string>contrib.performance.loadtest.distributions.WorkDistribution</string>
 
 								<key>params</key>
 								<dict>
@@ -228,7 +228,7 @@
 								     RRULEs defined for this distribution and pick each based on a
 								     weight. -->
 								<key>type</key>
-								<string>contrib.performance.stats.RecurrenceDistribution</string>
+								<string>contrib.performance.loadtest.distributions.RecurrenceDistribution</string>
 
 								<key>params</key>
 								<dict>

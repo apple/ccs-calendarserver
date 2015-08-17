@@ -75,7 +75,7 @@
 									in the near future, limited to certain days of the week and certain hours
 									of the day. -->
 								<key>type</key>
-								<string>contrib.performance.stats.WorkDistribution</string>
+								<string>contrib.performance.loadtest.distributions.WorkDistribution</string>
 
 								<key>params</key>
 								<dict>
@@ -123,7 +123,7 @@
 									in the near future, limited to certain days of the week and certain hours
 									of the day. -->
 								<key>type</key>
-								<string>contrib.performance.stats.WorkDistribution</string>
+								<string>contrib.performance.loadtest.distributions.WorkDistribution</string>
 
 								<key>params</key>
 								<dict>

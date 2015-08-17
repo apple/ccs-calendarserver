@@ -24,7 +24,7 @@ Try to log messages in a more intelligent way
 class Requester(object):
     """
     Utility to create requests on behalf of a client. Public methods are:
-    method     url     body     headers     status     method_label
+    method     url     body     headers     status     method_label 
     ------------------------------------------------------------------------
     GET        req     ---
     POST       req     req
