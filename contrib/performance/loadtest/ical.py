@@ -18,40 +18,28 @@ from __future__ import print_function
 
 from caldavclientlibrary.protocol.caldav.definitions import caldavxml
 from caldavclientlibrary.protocol.caldav.definitions import csxml
-from caldavclientlibrary.protocol.url import URL
 from caldavclientlibrary.protocol.webdav.definitions import davxml
-from caldavclientlibrary.protocol.webdav.propfindparser import PropFindParser
+from caldavclientlibrary.protocol.url import URL
 
-from calendarserver.push.amppush import subscribeToIDs
-from calendarserver.tools.notifications import PubSubClientFactory
-
-from contrib.performance.httpauth import AuthHandlerAgent
-from contrib.performance.httpclient import StringProducer, readBody
+from contrib.performance.httpclient import readBody
 from contrib.performance.loadtest.subscribe import Periodical
+from contrib.performance.loadtest.resources import Event, Calendar
+from contrib.performance.loadtest.requester import Requester, IncorrectResponseCode
+from contrib.performance.loadtest.push import PushMonitor
 
 from pycalendar.datetime import DateTime
 from pycalendar.duration import Duration
 from pycalendar.timezone import Timezone
 
-from twext.internet.adaptendpoint import connect
-from twext.internet.gaiendpoint import GAIEndpoint
-from twisted.internet.ssl import ClientContextFactory
-
-from twisted.internet.defer import Deferred, inlineCallbacks, returnValue, \
-    succeed
 from twisted.internet.task import LoopingCall
-from twisted.python.filepath import FilePath
-from twisted.python.log import addObserver, err, msg
-from twisted.python.util import FancyEqMixin
-from twisted.web.client import Agent, ContentDecoderAgent, GzipDecoder, \
-    _DeprecatedToCurrentPolicyForHTTPS
-from twisted.web.http import OK, MULTI_STATUS, CREATED, NO_CONTENT, PRECONDITION_FAILED, MOVED_PERMANENTLY, \
-    FORBIDDEN, FOUND
+from twisted.internet.defer import succeed, Deferred, inlineCallbacks, returnValue
+from twisted.python.log import err, msg
+from twisted.web.http import OK, MULTI_STATUS, CREATED, NO_CONTENT, FORBIDDEN, PRECONDITION_FAILED, MOVED_PERMANENTLY, FOUND
 from twisted.web.http_headers import Headers
 
 from twistedcaldav.ical import Component, Property
 
-from urlparse import urlparse, urlunparse, urlsplit, urljoin
+from urlparse import urlparse, urlsplit
 from uuid import uuid4
 from xml.etree import ElementTree
 
@@ -59,191 +47,30 @@ import json
 import os
 import random
 
+"""
+run
+  startup
+    deserialize
+    _startupPropfindWellKnown
+    _principalPropfindInitial
+    _extractPrincipalDetails
+    _checkCalendarsForEvents
+"""
+
+
 ElementTree.QName.__repr__ = lambda self: '<QName %r>' % (self.text,)
 
-def loadRequestBody(clientType, label):
-    return FilePath(__file__).sibling('request-data').child(clientType).child(label + '.request').getContent()
+SUPPORTED_REPORT_SET = davxml.supported_report_set.text
 
-
-SUPPORTED_REPORT_SET = '{DAV:}supported-report-set'
-
-class IncorrectResponseCode(Exception):
-    """
-    Raised when a response has a code other than the one expected.
-
-    @ivar expected: The response codes which was expected.
-    @type expected: C{tuple} of C{int}
-
-    @ivar response: The response which was received
-    @type response: L{twisted.web.client.Response}
-    """
-    def __init__(self, expected, response):
-        self.expected = expected
-        self.response = response
-
+class Attendee(Property):
+    def __init__(self, ):
+        pass
 
 
 class MissingCalendarHome(Exception):
     """
     Raised when the calendar home for a user is 404
     """
-
-
-
-class XMPPPush(object, FancyEqMixin):
-    """
-    This represents an XMPP PubSub location where push notifications for
-    particular calendar home might be received.
-    """
-    compareAttributes = ('server', 'uri', 'pushkey')
-
-    def __init__(self, server, uri, pushkey):
-        self.server = server
-        self.uri = uri
-        self.pushkey = pushkey
-
-
-
-def u2str(data):
-    return data.encode("utf-8") if type(data) is unicode else data
-
-
-
-class Event(object):
-    def __init__(self, serializeBasePath, url, etag, component=None):
-        self.serializeBasePath = serializeBasePath
-        self.url = url
-        self.etag = etag
-        self.scheduleTag = None
-        if component is not None:
-            self.component = component
-        self.uid = component.resourceUID() if component is not None else None
-
-
-    def getUID(self):
-        """
-        Return the UID of the calendar resource.
-        """
-        return self.uid
-
-
-    def serializePath(self):
-        if self.serializeBasePath:
-            calendar = os.path.join(self.serializeBasePath, self.url.split("/")[-2])
-            if not os.path.exists(calendar):
-                os.makedirs(calendar)
-            return os.path.join(calendar, self.url.split("/")[-1])
-        else:
-            return None
-
-
-    def serialize(self):
-        """
-        Create a dict of the data so we can serialize as JSON.
-        """
-
-        result = {}
-        for attr in ("url", "etag", "scheduleTag", "uid",):
-            result[attr] = getattr(self, attr)
-        return result
-
-
-    @staticmethod
-    def deserialize(serializeLocation, data):
-        """
-        Convert dict (deserialized from JSON) into an L{Event}.
-        """
-
-        event = Event(serializeLocation, None, None)
-        for attr in ("url", "etag", "scheduleTag", "uid",):
-            setattr(event, attr, u2str(data[attr]))
-        return event
-
-
-    @property
-    def component(self):
-        """
-        Data always read from disk - never cached in the object.
-        """
-        path = self.serializePath()
-        if path and os.path.exists(path):
-            f = open(path)
-            comp = Component.fromString(f.read())
-            f.close()
-            return comp
-        else:
-            return None
-
-
-    @component.setter
-    def component(self, component):
-        """
-        Data always written to disk - never cached on the object.
-        """
-        path = self.serializePath()
-        if path:
-            if component is None:
-                os.remove(path)
-            else:
-                f = open(path, "w")
-                f.write(str(component))
-                f.close()
-        self.uid = component.resourceUID() if component is not None else None
-
-
-    def removed(self):
-        """
-        Resource no longer exists on the server - remove associated data.
-        """
-        path = self.serializePath()
-        if path and os.path.exists(path):
-            os.remove(path)
-
-
-
-class Calendar(object):
-    def __init__(self, resourceType, componentTypes, name, url, changeToken):
-        self.resourceType = resourceType
-        self.componentTypes = componentTypes
-        self.name = name
-        self.url = url
-        self.changeToken = changeToken
-        self.events = {}
-
-
-    def serialize(self):
-        """
-        Create a dict of the data so we can serialize as JSON.
-        """
-
-        result = {}
-        for attr in ("resourceType", "name", "url", "changeToken"):
-            result[attr] = getattr(self, attr)
-        result["componentTypes"] = list(sorted(self.componentTypes))
-        result["events"] = sorted(self.events.keys())
-        return result
-
-
-    @staticmethod
-    def deserialize(data, events):
-        """
-        Convert dict (deserialized from JSON) into an L{Calendar}.
-        """
-
-        calendar = Calendar(None, None, None, None, None)
-        for attr in ("resourceType", "name", "url", "changeToken"):
-            setattr(calendar, attr, u2str(data[attr]))
-        calendar.componentTypes = set(map(u2str, data["componentTypes"]))
-
-        for event in data["events"]:
-            url = urljoin(calendar.url, event)
-            if url in events:
-                calendar.events[event] = events[url]
-            else:
-                # Ughh - an event is missing - force changeToken to empty to trigger full resync
-                calendar.changeToken = ""
-        return calendar
-
 
 
 class BaseClient(object):
@@ -259,7 +86,7 @@ class BaseClient(object):
     _client_id = None   # Unique id for the client itself
 
 
-    def _setEvent(self, href, event):
+    def _cacheEvent(self, href, event):
         """
         Cache the provided event
         """
@@ -268,7 +95,7 @@ class BaseClient(object):
         self._calendars[calendar + '/'].events[basePath] = event
 
 
-    def _removeEvent(self, href):
+    def _invalidateEvent(self, href):
         """
         Remove event from local cache.
         """
@@ -276,6 +103,21 @@ class BaseClient(object):
         del self._events[href]
         calendar, basePath = href.rsplit('/', 1)
         del self._calendars[calendar + '/'].events[basePath]
+
+
+    def _cacheCalendar(self, href, calendar):
+        """
+        Cache the provided L{Calendar}
+        """
+        self._calendars[href] = calendar
+
+
+    def _invalidateCalendar(self, href):
+        """
+        Remove calendar from the local cache
+        """
+        if href in self._calendars:
+            del self._calendars[href]
 
 
     def addEvent(self, href, calendar):
@@ -321,43 +163,26 @@ class BaseClient(object):
         """
         raise NotImplementedError("%r does not implement changeEventAttendee" % (self.__class__,))
 
+    def addCalendar(self, href, calendar):
+        """
+        Called when a profile needs to add a new calendar.
+        """
+        raise NotImplementedError("%r does not implement addCalendar" % (self.__class__,))
+
+    def changeCalendar(self, href, calendar):
+        """
+        Called when a profile needs to change a calendar.
+        """
+        raise NotImplementedError("%r does not implement changeCalendar" % (self.__class__,))
 
 
-class _PubSubClientFactory(PubSubClientFactory):
-    """
-    Factory for XMPP pubsub functionality.
-    """
-    def __init__(self, client, *args, **kwargs):
-        PubSubClientFactory.__init__(self, *args, **kwargs)
-        self._client = client
+    def deleteCalendar(self, href):
+        """
+        Called when a profile needs to delete a calendar.
+        """
+        raise NotImplementedError("%r does not implement deleteCalendar" % (self.__class__,))
 
 
-    def initFailed(self, reason):
-        print('XMPP initialization failed', reason)
-
-
-    def authFailed(self, reason):
-        print('XMPP Authentication failed', reason)
-
-
-    def handleMessageEventItems(self, iq):
-        item = iq.firstChildElement().firstChildElement()
-        if item:
-            node = item.getAttribute("node")
-            if node:
-                url, _ignore_name, _ignore_kind = self.nodes.get(node, (None, None, None))
-                if url is not None:
-                    self._client._checkCalendarsForEvents(url, push=True)
-
-
-
-class WebClientContextFactory(ClientContextFactory):
-    """
-    A web context factory which ignores the hostname and port and does no
-    certificate verification.
-    """
-    def getContext(self, hostname, port):
-        return ClientContextFactory.getContext(self)
 
 
 
@@ -368,7 +193,8 @@ class BaseAppleClient(BaseClient):
 
     _client_type = "Generic"
 
-    USER_AGENT = None   # Override this for specific clients
+    # Override this for specific clients
+    USER_AGENT = None
 
     # The default interval, used if none is specified in external
     # configuration.
@@ -379,9 +205,6 @@ class BaseAppleClient(BaseClient):
 
     # Override and turn on if client supports Sync REPORT
     _SYNC_REPORT = False
-
-    # Override and turn on if client syncs using time-range queries
-    _SYNC_TIMERANGE = False
 
     # Override and turn off if client does not support attendee lookups
     _ATTENDEE_LOOKUPS = True
@@ -416,32 +239,23 @@ class BaseAppleClient(BaseClient):
         self,
         reactor,
         root,
-        principalPathTemplate,
         serializePath,
         record,
         auth,
         title=None,
         calendarHomePollInterval=None,
-        supportPush=True,
         supportAmpPush=True,
         ampPushHost=None,
         ampPushPort=62311,
     ):
-
         self._client_id = str(uuid4())
 
         self.reactor = reactor
 
-        # The server might use gzip encoding
-        agent = Agent(
-            self.reactor,
-            contextFactory=_DeprecatedToCurrentPolicyForHTTPS(WebClientContextFactory()),
+        self.requester = Requester(
+            root, self.getDefaultHeaders(), title,
+            record.uid, self._client_id, auth, self.reactor
         )
-        agent = ContentDecoderAgent(agent, [("gzip", GzipDecoder)])
-        self.agent = AuthHandlerAgent(agent, auth)
-
-        self.root = root
-        self.principalPathTemplate = principalPathTemplate
         self.record = record
 
         self.title = title if title else self._client_type
@@ -450,21 +264,16 @@ class BaseAppleClient(BaseClient):
             calendarHomePollInterval = self.CALENDAR_HOME_POLL_INTERVAL
         self.calendarHomePollInterval = calendarHomePollInterval
 
-        self.supportPush = supportPush
-
-        self.supportAmpPush = supportAmpPush
-        if ampPushHost is None:
-            ampPushHost = urlparse(self.root)[1].split(":")[0]
-        self.ampPushHost = ampPushHost
-        self.ampPushPort = ampPushPort
+        if supportAmpPush:
+            if ampPushHost is None:
+                ampPushHost = urlparse(root)[1].split(":")[0]
+            self.monitor = PushMonitor(self.reactor, ampPushHost, ampPushPort, self.updateCalendarHomeFromPush)
+        else:
+            self.monitor = None
 
         self.serializePath = serializePath
 
         self.supportSync = self._SYNC_REPORT
-
-        # Keep track of the calendars on this account, keys are
-        # Calendar URIs, values are Calendar instances.
-        self._calendars = {}
 
         # The principalURL found during discovery
         self.principalURL = None
@@ -472,177 +281,36 @@ class BaseAppleClient(BaseClient):
         # The principal collection found during startup
         self.principalCollection = None
 
+        # Keep track of the calendars on this account, keys are
+        # Calendar URIs, values are Calendar instances.
+        self._calendars = {}
+
         # Keep track of the events on this account, keys are event
         # URIs (which are unambiguous across different calendars
         # because they start with the uri of the calendar they are
         # part of), values are Event instances.
         self._events = {}
 
-        # Keep track of which calendar homes are being polled
-        self._checking = set()
-
-        # Keep track of XMPP parameters for calendar homes we encounter.  This
-        # dictionary has calendar home URLs as keys and XMPPPush instances as
-        # values.
-        self.xmpp = {}
-
-        self.ampPushKeys = {}
-
-        # Keep track of push factories so we can unsubscribe at shutdown
-        self._pushFactories = []
-
         # Allow events to go out into the world.
         self.catalog = {
             "eventChanged": Periodical(),
         }
 
-
-    def _addDefaultHeaders(self, headers):
-        """
-        Add the clients default set of headers to ones being used in a request.
-        Default is to add User-Agent, sub-classes should override to add other
-        client specific things, Accept etc.
-        """
-        headers.setRawHeaders('User-Agent', [self.USER_AGENT])
-
-
-    @inlineCallbacks
-    def _request(self, expectedResponseCodes, method, url, headers=None, body=None, method_label=None):
-        """
-        Execute a request and check against the expected response codes.
-        """
-        if type(expectedResponseCodes) is int:
-            expectedResponseCodes = (expectedResponseCodes,)
-        if headers is None:
-            headers = Headers({})
-        self._addDefaultHeaders(headers)
-        msg(
-            type="request",
-            method=method_label if method_label else method,
-            url=url,
-            user=self.record.uid,
-            client_type=self.title,
-            client_id=self._client_id,
-        )
-
-        before = self.reactor.seconds()
-        response = yield self.agent.request(method, url, headers, body)
-
-        # XXX This is time to receive response headers, not time
-        # to receive full response.  Should measure the latter, if
-        # not both.
-        after = self.reactor.seconds()
-
-        success = response.code in expectedResponseCodes
-
-        msg(
-            type="response",
-            success=success,
-            method=method_label if method_label else method,
-            headers=headers,
-            body=body,
-            code=response.code,
-            user=self.record.uid,
-            client_type=self.title,
-            client_id=self._client_id,
-            duration=(after - before),
-            url=url,
-        )
-
-        if success:
-            returnValue(response)
-
-        raise IncorrectResponseCode(expectedResponseCodes, response)
-
-
-    def _parseMultiStatus(self, response, otherTokens=False):
-        """
-        Parse a <multistatus> - might need to return other top-level elements
-        in the response - e.g. DAV:sync-token
-        I{PROPFIND} request for the principal URL.
-
-        @type response: C{str}
-        @rtype: C{cls}
-        """
-        parser = PropFindParser()
-        parser.parseData(response)
-        if otherTokens:
-            return (parser.getResults(), parser.getOthers(),)
-        else:
-            return parser.getResults()
+        self._checking = set()
 
     _CALENDAR_TYPES = set([
         caldavxml.calendar,
         caldavxml.schedule_inbox,
     ])
 
-    @inlineCallbacks
-    def _propfind(self, url, body, depth='0', allowedStatus=(MULTI_STATUS,), method_label=None):
-        """
-        Issue a PROPFIND on the chosen URL
-        """
-        hdrs = Headers({'content-type': ['text/xml']})
-        if depth is not None:
-            hdrs.addRawHeader('depth', depth)
-        response = yield self._request(
-            allowedStatus,
-            'PROPFIND',
-            self.root + url.encode('utf-8'),
-            hdrs,
-            StringProducer(body),
-            method_label=method_label,
-        )
-
-        body = yield readBody(response)
-        result = self._parseMultiStatus(body) if response.code == MULTI_STATUS else None
-
-        returnValue((response, result,))
-
-
-    @inlineCallbacks
-    def _proppatch(self, url, body, method_label=None):
-        """
-        Issue a PROPPATCH on the chosen URL
-        """
-        hdrs = Headers({'content-type': ['text/xml']})
-        response = yield self._request(
-            (OK, MULTI_STATUS,),
-            'PROPPATCH',
-            self.root + url.encode('utf-8'),
-            hdrs,
-            StringProducer(body),
-            method_label=method_label,
-        )
-        if response.code == MULTI_STATUS:
-            body = yield readBody(response)
-            result = self._parseMultiStatus(body)
-            returnValue(result)
-        else:
-            returnValue(None)
-
-
-    @inlineCallbacks
-    def _report(self, url, body, depth='0', allowedStatus=(MULTI_STATUS,), otherTokens=False, method_label=None):
-        """
-        Issue a REPORT on the chosen URL
-        """
-        hdrs = Headers({'content-type': ['text/xml']})
-        if depth is not None:
-            hdrs.addRawHeader('depth', depth)
-        response = yield self._request(
-            allowedStatus,
-            'REPORT',
-            self.root + url.encode('utf-8'),
-            hdrs,
-            StringProducer(body),
-            method_label=method_label,
-        )
-
-        body = yield readBody(response)
-        result = self._parseMultiStatus(body, otherTokens) if response.code == MULTI_STATUS else None
-
-        returnValue(result)
-
+    def getDefaultHeaders(self):
+        return {
+            'User-Agent': [self.USER_AGENT],
+            'Accept': ['*/*'],
+            'Accept-Language': ['en-us'],
+            'Accept-Encoding': ['gzip,deflate'],
+            'Connection': ['keep-alive']
+        }
 
     @inlineCallbacks
     def _startupPropfindWellKnown(self):
@@ -651,7 +319,7 @@ class BaseAppleClient(BaseClient):
         """
 
         location = "/.well-known/caldav/"
-        response, result = yield self._propfind(
+        response, result = yield self.requester.propfind(
             location,
             self._STARTUP_WELL_KNOWN,
             allowedStatus=(MULTI_STATUS, MOVED_PERMANENTLY, FOUND,),
@@ -662,7 +330,7 @@ class BaseAppleClient(BaseClient):
         if response.code in (MOVED_PERMANENTLY, FOUND,):
             location = response.headers.getRawHeaders("location")[0]
             location = urlsplit(location)[2]
-            response, result = yield self._propfind(
+            response, result = yield self.requester.propfind(
                 location,
                 self._STARTUP_WELL_KNOWN,
                 allowedStatus=(MULTI_STATUS),
@@ -678,8 +346,8 @@ class BaseAppleClient(BaseClient):
         Issue a PROPFIND on the /principals/users/<uid> URL to retrieve
         the /principals/__uids__/<guid> principal URL
         """
-        principalPath = self.principalPathTemplate % (user,)
-        _ignore_response, result = yield self._propfind(
+        principalPath = '/principals/users/%s' % (user,)
+        _ignore_response, result = yield self.requester.propfind(
             principalPath,
             self._STARTUP_PRINCIPAL_PROPFIND_INITIAL,
             method_label="PROPFIND{find-principal}",
@@ -694,7 +362,7 @@ class BaseAppleClient(BaseClient):
         user and return a L{Principal} instance constructed from the
         response.
         """
-        _ignore_response, result = yield self._propfind(
+        _ignore_response, result = yield self.requester.propfind(
             self.principalURL,
             self._STARTUP_PRINCIPAL_PROPFIND,
             method_label="PROPFIND{principal}",
@@ -706,7 +374,7 @@ class BaseAppleClient(BaseClient):
         """
         Issue a principal-search-property-set REPORT against the chosen URL
         """
-        return self._report(
+        return self.requester.report(
             principalCollectionSet,
             self._STARTUP_PRINCIPALS_REPORT,
             allowedStatus=(OK,),
@@ -715,28 +383,14 @@ class BaseAppleClient(BaseClient):
 
 
     @inlineCallbacks
-    def _calendarHomePropfind(self, calendarHomeSet):
-        """
-        Do the poll Depth:1 PROPFIND on the calendar home.
-        """
-        if not calendarHomeSet.endswith('/'):
-            calendarHomeSet = calendarHomeSet + '/'
-        _ignore_response, result = yield self._propfind(
-            calendarHomeSet,
-            self._POLL_CALENDARHOME_PROPFIND,
-            depth='1',
-            method_label="PROPFIND{home}",
-        )
-        calendars = self._extractCalendars(result, calendarHomeSet)
-        returnValue((calendars, result,))
-
-
-    @inlineCallbacks
     def _extractPrincipalDetails(self):
         # Using the actual principal URL, retrieve principal information
+        # XXX We could be recording more information here
         principal = yield self._principalPropfind()
 
         hrefs = principal.getHrefProperties()
+        # from pprint import pprint
+        # pprint(hrefs)
 
         # Remember our outbox and ignore notifications
         self.outbox = hrefs[caldavxml.schedule_outbox_URL].toString()
@@ -764,270 +418,35 @@ class BaseAppleClient(BaseClient):
 
         returnValue(principal)
 
-
-    def _extractCalendars(self, results, calendarHome=None):
+    def startup(self):
         """
-        Parse a calendar home PROPFIND response and create local state
-        representing the calendars it contains.
-
-        If XMPP push is enabled, also look for and record information about
-        that from the response.
+        Overridden by subclasses of BaseAppleClient.
         """
-        calendars = []
-        for href in results:
+        raise NotImplementedError
 
-            if href == calendarHome:
-                text = results[href].getTextProperties()
-
-                try:
-                    pushkey = text[csxml.pushkey]
-                except KeyError:
-                    pass
-                else:
-                    if pushkey:
-                        self.ampPushKeys[href] = pushkey
-
-                try:
-                    server = text[csxml.xmpp_server]
-                    uri = text[csxml.xmpp_uri]
-                    pushkey = text[csxml.pushkey]
-                except KeyError:
-                    pass
-                else:
-                    if server and uri:
-                        self.xmpp[href] = XMPPPush(server, uri, pushkey)
-
-            nodes = results[href].getNodeProperties()
-            for nodeType in nodes[davxml.resourcetype]:
-                if nodeType.tag in self._CALENDAR_TYPES:
-                    textProps = results[href].getTextProperties()
-                    componentTypes = set()
-                    if nodeType.tag == caldavxml.calendar:
-                        if caldavxml.supported_calendar_component_set in nodes:
-                            for comp in nodes[caldavxml.supported_calendar_component_set]:
-                                componentTypes.add(comp.get("name").upper())
-
-                    changeTag = davxml.sync_token if self.supportSync else csxml.getctag
-                    calendars.append(Calendar(
-                        nodeType.tag,
-                        componentTypes,
-                        textProps.get(davxml.displayname, None),
-                        href,
-                        textProps.get(changeTag, None),
-                    ))
-                    break
-        return calendars
-
-
-    def _updateCalendar(self, calendar, newToken):
+    def calendarCheckLoop(self, calendarHome):
         """
-        Update the local cached data for a calendar in an appropriate manner.
+        Periodically check the calendar home for changes to calendars.
         """
-        if self.supportSync:
-            return self._updateCalendar_SYNC(calendar, newToken)
-        else:
-            return self._updateCalendar_PROPFIND(calendar, newToken)
-
+        pollCalendarHome = LoopingCall(
+            self.checkCalendarsForEvents, calendarHome)
+        return pollCalendarHome.start(self.calendarHomePollInterval, now=False)
 
     @inlineCallbacks
-    def _updateCalendar_PROPFIND(self, calendar, newToken):
+    def updateCalendarHomeFromPush(self, calendarHomeSet):
         """
-        Sync a collection by doing a full PROPFIND Depth:1 on it and then sync
-        the results with local cached data.
+        Emulate the client behavior upon receiving a notification that the
+        given calendar home has changed.
         """
+        # Todo - ensure that the self._checking set is properly cleared even if there is an error
+        self._checking.add(calendarHomeSet)
+        result = yield self._poll(calendarHomeSet, firstTime=False)
 
-        # Grab old hrefs prior to the PROPFIND so we sync with the old state. We need this because
-        # the sim can fire a PUT between the PROPFIND and when process the removals.
-        old_hrefs = set([calendar.url + child for child in calendar.events.keys()])
-
-        _ignore_response, result = yield self._propfind(
-            calendar.url,
-            self._POLL_CALENDAR_PROPFIND_D1,
-            depth='1',
-            method_label="PROPFIND{calendar}"
-        )
-
-        yield self._updateApplyChanges(calendar, result, old_hrefs)
-
-        # Now update calendar to the new token
-        self._calendars[calendar.url].changeToken = newToken
-
+        # Todo - should this be a returnValue?
+        yield self._newOperation("push", result)
 
     @inlineCallbacks
-    def _updateCalendar_SYNC(self, calendar, newToken):
-        """
-        Execute a sync REPORT against a calendar and apply changes to the local cache.
-        The new token from the changed collection is passed in and must be applied to
-        the existing calendar once sync is done.
-        """
-
-        # Grab old hrefs prior to the REPORT so we sync with the old state. We need this because
-        # the sim can fire a PUT between the REPORT and when process the removals.
-        old_hrefs = set([calendar.url + child for child in calendar.events.keys()])
-
-        # Get changes from sync REPORT (including the other nodes at the top-level
-        # which will have the new sync token.
-        fullSync = not calendar.changeToken
-        result = yield self._report(
-            calendar.url,
-            self._POLL_CALENDAR_SYNC_REPORT % {'sync-token': calendar.changeToken},
-            depth='1',
-            allowedStatus=(MULTI_STATUS, FORBIDDEN,),
-            otherTokens=True,
-            method_label="REPORT{sync}" if calendar.changeToken else "REPORT{sync-init}",
-        )
-        if result is None:
-            if not fullSync:
-                fullSync = True
-                result = yield self._report(
-                    calendar.url,
-                    self._POLL_CALENDAR_SYNC_REPORT % {'sync-token': ''},
-                    depth='1',
-                    otherTokens=True,
-                    method_label="REPORT{sync}" if calendar.changeToken else "REPORT{sync-init}",
-                )
-            else:
-                raise IncorrectResponseCode((MULTI_STATUS,), None)
-
-        result, others = result
-
-        changed = []
-        for responseHref in result:
-            if responseHref == calendar.url:
-                continue
-
-            try:
-                etag = result[responseHref].getTextProperties()[davxml.getetag]
-            except KeyError:
-                # XXX Ignore things with no etag?  Seems to be dropbox.
-                continue
-
-            # Differentiate a remove vs new/update result
-            if result[responseHref].getStatus() / 100 == 2:
-                if responseHref not in self._events:
-                    self._setEvent(responseHref, Event(self.serializeLocation(), responseHref, None))
-
-                event = self._events[responseHref]
-                if event.etag != etag:
-                    changed.append(responseHref)
-            elif result[responseHref].getStatus() == 404:
-                self._removeEvent(responseHref)
-
-        yield self._updateChangedEvents(calendar, changed)
-
-        # Handle removals only when doing an initial sync
-        if fullSync:
-            # Detect removed items and purge them
-            remove_hrefs = old_hrefs - set(changed)
-            for href in remove_hrefs:
-                self._removeEvent(href)
-
-        # Now update calendar to the new token taken from the report
-        for node in others:
-            if node.tag == davxml.sync_token:
-                newToken = node.text
-                break
-        self._calendars[calendar.url].changeToken = newToken
-
-
-    @inlineCallbacks
-    def _updateApplyChanges(self, calendar, multistatus, old_hrefs):
-        """
-        Given a multistatus for an entire collection, sync the reported items
-        against the cached items.
-        """
-
-        # Detect changes and new items
-        all_hrefs = []
-        changed_hrefs = []
-        for responseHref in multistatus:
-            if responseHref == calendar.url:
-                continue
-            all_hrefs.append(responseHref)
-            try:
-                etag = multistatus[responseHref].getTextProperties()[davxml.getetag]
-            except KeyError:
-                # XXX Ignore things with no etag?  Seems to be dropbox.
-                continue
-
-            if responseHref not in self._events:
-                self._setEvent(responseHref, Event(self.serializeLocation(), responseHref, None))
-
-            event = self._events[responseHref]
-            if event.etag != etag:
-                changed_hrefs.append(responseHref)
-
-        # Retrieve changes
-        yield self._updateChangedEvents(calendar, changed_hrefs)
-
-        # Detect removed items and purge them
-        remove_hrefs = old_hrefs - set(all_hrefs)
-        for href in remove_hrefs:
-            self._removeEvent(href)
-
-
-    @inlineCallbacks
-    def _updateChangedEvents(self, calendar, changed):
-        """
-        Given a set of changed hrefs, batch multiget them all to update the
-        local cache.
-        """
-
-        changed.sort()
-        while changed:
-            batchedHrefs = changed[:self.MULTIGET_BATCH_SIZE]
-            changed = changed[self.MULTIGET_BATCH_SIZE:]
-
-            multistatus = yield self._eventReport(calendar.url, batchedHrefs)
-            for responseHref in batchedHrefs:
-                try:
-                    res = multistatus[responseHref]
-                except KeyError:
-                    # Resource might have been deleted
-                    continue
-                if res.getStatus() == 200:
-                    text = res.getTextProperties()
-                    etag = text[davxml.getetag]
-                    try:
-                        scheduleTag = text[caldavxml.schedule_tag]
-                    except KeyError:
-                        scheduleTag = None
-                    body = text[caldavxml.calendar_data]
-                    self.eventChanged(responseHref, etag, scheduleTag, body)
-
-
-    def eventChanged(self, href, etag, scheduleTag, body):
-        event = self._events[href]
-        event.etag = etag
-        if scheduleTag is not None:
-            event.scheduleTag = scheduleTag
-        event.component = Component.fromString(body)
-        self.catalog["eventChanged"].issue(href)
-
-
-    def _eventReport(self, calendar, events):
-        # Next do a REPORT on events that might have information
-        # we don't know about.
-        hrefs = "".join([self._POLL_CALENDAR_MULTIGET_REPORT_HREF % {'href': event} for event in events])
-
-        label_suffix = "small"
-        if len(events) > 5:
-            label_suffix = "medium"
-        if len(events) > 20:
-            label_suffix = "large"
-        if len(events) > 75:
-            label_suffix = "huge"
-
-        return self._report(
-            calendar,
-            self._POLL_CALENDAR_MULTIGET_REPORT % {'hrefs': hrefs},
-            depth=None,
-            method_label="REPORT{multiget-%s}" % (label_suffix,),
-        )
-
-
-    @inlineCallbacks
-    def _checkCalendarsForEvents(self, calendarHomeSet, firstTime=False, push=False):
+    def checkCalendarsForEvents(self, calendarHomeSet, firstTime=False):
         """
         The actions a client does when polling for changes, or in response to a
         push notification of a change. There are some actions done on the first poll
@@ -1036,7 +455,7 @@ class BaseAppleClient(BaseClient):
 
         result = True
         try:
-            result = yield self._newOperation("push" if push else "poll", self._poll(calendarHomeSet, firstTime))
+            result = yield self._newOperation("poll", self._poll(calendarHomeSet, firstTime))
         finally:
             if result:
                 try:
@@ -1045,6 +464,9 @@ class BaseAppleClient(BaseClient):
                     pass
         returnValue(result)
 
+    """
+    REFRESH UTILITIES
+    """
 
     @inlineCallbacks
     def _poll(self, calendarHomeSet, firstTime):
@@ -1078,9 +500,69 @@ class BaseAppleClient(BaseClient):
 
         # One time delegate expansion
         if firstTime:
-            yield self._pollFirstTime2()
+            # yield self._pollFirstTime2()
+            pass
 
         returnValue(True)
+
+    @inlineCallbacks
+    def _calendarHomePropfind(self, calendarHomeSet):
+        """
+        Do the poll Depth:1 PROPFIND on the calendar home.
+        """
+        if not calendarHomeSet.endswith('/'):
+            calendarHomeSet = calendarHomeSet + '/'
+        _ignore_response, result = yield self.requester.propfind(
+            calendarHomeSet,
+            self._POLL_CALENDARHOME_PROPFIND,
+            depth='1',
+            method_label="PROPFIND{home}",
+        )
+        calendars = self._extractCalendars(result, calendarHomeSet)
+        returnValue((calendars, result,))
+
+
+    def _extractCalendars(self, results, calendarHome=None):
+        """
+        Parse a calendar home PROPFIND response and create local state
+        representing the calendars it contains.
+        """
+        calendars = []
+        for href in results:
+
+            if href == calendarHome:
+                text = results[href].getTextProperties()
+
+                try:
+                    pushkey = text[csxml.pushkey]
+                except KeyError:
+                    pass
+                else:
+                    if pushkey:
+                        self.monitor.addPushkey(href, pushkey)
+
+            nodes = results[href].getNodeProperties()
+            for nodeType in nodes[davxml.resourcetype]:
+                if nodeType.tag in self._CALENDAR_TYPES:
+                    textProps = results[href].getTextProperties()
+                    componentTypes = set()
+                    if nodeType.tag == caldavxml.calendar:
+                        if caldavxml.supported_calendar_component_set in nodes:
+                            for comp in nodes[caldavxml.supported_calendar_component_set]:
+                                componentTypes.add(comp.get("name").upper())
+
+                    changeTag = davxml.sync_token if self.supportSync else csxml.getctag
+                    calendars.append(Calendar(
+                        nodeType.tag,
+                        componentTypes,
+                        textProps.get(davxml.displayname, None),
+                        href,
+                        textProps.get(changeTag, None),
+                    ))
+                    break
+        return calendars
+
+
 
 
     @inlineCallbacks
@@ -1098,30 +580,225 @@ class BaseAppleClient(BaseClient):
         # Patch calendar properties
         for cal in calendars:
             if cal.name != "inbox":
-                yield self._proppatch(
-                    cal.url,
-                    self._STARTUP_PROPPATCH_CALENDAR_COLOR,
-                    method_label="PROPPATCH{calendar}",
-                )
-                yield self._proppatch(
+                # yield self.requester.proppatch(
+                #     cal.url,
+                #     self._STARTUP_PROPPATCH_CALENDAR_COLOR,
+                #     method_label="PROPPATCH{calendar}",
+                # )
+                yield self.requester.proppatch(
                     cal.url,
                     self._STARTUP_PROPPATCH_CALENDAR_ORDER,
                     method_label="PROPPATCH{calendar}",
                 )
-                yield self._proppatch(
+                yield self.requester.proppatch(
                     cal.url,
                     self._STARTUP_PROPPATCH_CALENDAR_TIMEZONE,
                     method_label="PROPPATCH{calendar}",
                 )
 
 
-    def _pollFirstTime2(self):
-        return self._principalExpand(self.principalURL)
+    def _updateCalendar(self, calendar, newToken):
+        """
+        Update the local cached data for a calendar in an appropriate manner.
+        """
+        if self.supportSync:
+            return self._updateCalendar_SYNC(calendar, newToken)
+        else:
+            return self._updateCalendar_PROPFIND(calendar, newToken)
+
+
+    @inlineCallbacks
+    def _updateCalendar_PROPFIND(self, calendar, newToken):
+        """
+        Sync a collection by doing a full PROPFIND Depth:1 on it and then sync
+        the results with local cached data.
+        """
+
+        # Grab old hrefs prior to the PROPFIND so we sync with the old state. We need this because
+        # the sim can fire a PUT between the PROPFIND and when process the removals.
+        old_hrefs = set([calendar.url + child for child in calendar.events.keys()])
+
+        _ignore_response, result = yield self.requester.propfind(
+            calendar.url,
+            self._POLL_CALENDAR_PROPFIND_D1,
+            method_label="PROPFIND{calendar}",
+            depth='1',
+        )
+
+        yield self._updateApplyChanges(calendar, result, old_hrefs)
+
+        # Now update calendar to the new token
+        self._calendars[calendar.url].changeToken = newToken
+
+
+    @inlineCallbacks
+    def _updateCalendar_SYNC(self, calendar, newToken):
+        """
+        Execute a sync REPORT against a calendar and apply changes to the local cache.
+        The new token from the changed collection is passed in and must be applied to
+        the existing calendar once sync is done.
+        """
+
+        # Grab old hrefs prior to the REPORT so we sync with the old state. We need this because
+        # the sim can fire a PUT between the REPORT and when process the removals.
+        old_hrefs = set([calendar.url + child for child in calendar.events.keys()])
+
+        # Get changes from sync REPORT (including the other nodes at the top-level
+        # which will have the new sync token.
+        fullSync = not calendar.changeToken
+        result = yield self.requester.report(
+            calendar.url,
+            self._POLL_CALENDAR_SYNC_REPORT % {'sync-token': calendar.changeToken},
+            depth='1',
+            allowedStatus=(MULTI_STATUS, FORBIDDEN,),
+            otherTokens=True,
+            method_label="REPORT{sync}" if calendar.changeToken else "REPORT{sync-init}",
+        )
+        if result is None:
+            if not fullSync:
+                fullSync = True
+                result = yield self.requester.report(
+                    calendar.url,
+                    self._POLL_CALENDAR_SYNC_REPORT % {'sync-token': ''},
+                    depth='1',
+                    otherTokens=True,
+                    method_label="REPORT{sync}" if calendar.changeToken else "REPORT{sync-init}",
+                )
+            else:
+                raise IncorrectResponseCode((MULTI_STATUS,), None)
+
+        result, others = result
+
+        changed = []
+        for responseHref in result:
+            if responseHref == calendar.url:
+                continue
+
+            try:
+                etag = result[responseHref].getTextProperties()[davxml.getetag]
+            except KeyError:
+                # XXX Ignore things with no etag?  Seems to be dropbox.
+                continue
+
+            # Differentiate a remove vs new/update result
+            if result[responseHref].getStatus() / 100 == 2:
+                if responseHref not in self._events:
+                    self._cacheEvent(responseHref, Event(self.serializeLocation(), responseHref, None))
+
+                event = self._events[responseHref]
+                if event.etag != etag:
+                    changed.append(responseHref)
+            elif result[responseHref].getStatus() == 404:
+                self._invalidateEvent(responseHref)
+
+        yield self._updateChangedEvents(calendar, changed)
+
+        # Handle removals only when doing an initial sync
+        if fullSync:
+            # Detect removed items and purge them
+            remove_hrefs = old_hrefs - set(changed)
+            for href in remove_hrefs:
+                self._invalidateEvent(href)
+
+        # Now update calendar to the new token taken from the report
+        for node in others:
+            if node.tag == davxml.sync_token:
+                newToken = node.text
+                break
+        self._calendars[calendar.url].changeToken = newToken
+
+
+    @inlineCallbacks
+    def _updateApplyChanges(self, calendar, multistatus, old_hrefs):
+        """
+        Given a multistatus for an entire collection, sync the reported items
+        against the cached items.
+        """
+
+        # Detect changes and new items
+        all_hrefs = []
+        changed_hrefs = []
+        for responseHref in multistatus:
+            if responseHref == calendar.url:
+                continue
+            all_hrefs.append(responseHref)
+            try:
+                etag = multistatus[responseHref].getTextProperties()[davxml.getetag]
+            except KeyError:
+                # XXX Ignore things with no etag?  Seems to be dropbox.
+                continue
+
+            if responseHref not in self._events:
+                self._cacheEvent(responseHref, Event(self.serializeLocation(), responseHref, None))
+
+            event = self._events[responseHref]
+            if event.etag != etag:
+                changed_hrefs.append(responseHref)
+
+        # Retrieve changes
+        yield self._updateChangedEvents(calendar, changed_hrefs)
+
+        # Detect removed items and purge them
+        remove_hrefs = old_hrefs - set(all_hrefs)
+        for href in remove_hrefs:
+            self._invalidateEvent(href)
+
+
+    @inlineCallbacks
+    def _updateChangedEvents(self, calendar, changed):
+        """
+        Given a set of changed hrefs, batch multiget them all to update the
+        local cache.
+        """
+
+        changed.sort()
+        while changed:
+            batchedHrefs = changed[:self.MULTIGET_BATCH_SIZE]
+            changed = changed[self.MULTIGET_BATCH_SIZE:]
+
+            multistatus = yield self._eventReport(calendar.url, batchedHrefs)
+            for href in batchedHrefs:
+                try:
+                    res = multistatus[href]
+                except KeyError:
+                    # Resource might have been deleted
+                    continue
+                if res.getStatus() == 200:
+                    text = res.getTextProperties()
+                    etag = text[davxml.getetag]
+                    try:
+                        scheduleTag = text[caldavxml.schedule_tag]
+                    except KeyError:
+                        scheduleTag = None
+                    body = text[caldavxml.calendar_data]
+                    component = Component.fromString(body)
+                    self._updateEventCache(href, etag, scheduleTag, component)
+
+
+    def _eventReport(self, calendar, events):
+        # Next do a REPORT on events that might have information
+        # we don't know about.
+        hrefs = "".join([self._POLL_CALENDAR_MULTIGET_REPORT_HREF % {'href': event} for event in events])
+
+        label_suffix = "small"
+        if len(events) > 5:
+            label_suffix = "medium"
+        if len(events) > 20:
+            label_suffix = "large"
+        if len(events) > 75:
+            label_suffix = "huge"
+
+        return self.requester.report(
+            calendar,
+            self._POLL_CALENDAR_MULTIGET_REPORT % {'hrefs': hrefs},
+            depth=None,
+            method_label="REPORT{multiget-%s}" % (label_suffix,),
+        )
 
 
     @inlineCallbacks
     def _notificationPropfind(self, notificationURL):
-        _ignore_response, result = yield self._propfind(
+        _ignore_response, result = yield self.requester.propfind(
             notificationURL,
             self._POLL_NOTIFICATION_PROPFIND,
             method_label="PROPFIND{notification}",
@@ -1131,7 +808,7 @@ class BaseAppleClient(BaseClient):
 
     @inlineCallbacks
     def _notificationChangesPropfind(self, notificationURL):
-        _ignore_response, result = yield self._propfind(
+        _ignore_response, result = yield self.requester.propfind(
             notificationURL,
             self._POLL_NOTIFICATION_PROPFIND_D1,
             depth='1',
@@ -1139,10 +816,12 @@ class BaseAppleClient(BaseClient):
         )
         returnValue(result)
 
+    def _pollFirstTime2(self):
+        return self._principalExpand(self.principalURL)
 
     @inlineCallbacks
     def _principalExpand(self, principalURL):
-        result = yield self._report(
+        result = yield self.requester.report(
             principalURL,
             self._STARTUP_PRINCIPAL_EXPAND,
             depth=None,
@@ -1150,18 +829,6 @@ class BaseAppleClient(BaseClient):
         )
         returnValue(result)
 
-
-    def startup(self):
-        raise NotImplementedError
-
-
-    def _calendarCheckLoop(self, calendarHome):
-        """
-        Periodically check the calendar home for changes to calendars.
-        """
-        pollCalendarHome = LoopingCall(
-            self._checkCalendarsForEvents, calendarHome)
-        return pollCalendarHome.start(self.calendarHomePollInterval, now=False)
 
 
     @inlineCallbacks
@@ -1202,54 +869,6 @@ class BaseAppleClient(BaseClient):
         returnValue(result)
 
 
-    def _monitorPubSub(self, home, params):
-        """
-        Start monitoring the
-        """
-        host, port = params.server.split(':')
-        port = int(port)
-
-        service, _ignore_stuff = params.uri.split('?')
-        service = service.split(':', 1)[1]
-
-        # XXX What is the domain of the 2nd argument supposed to be?  The
-        # hostname we use to connect, or the same as the email address in the
-        # user record?
-        factory = _PubSubClientFactory(
-            self, "%s@%s" % (self.record.uid, host),
-            self.record.password, service,
-            {params.pushkey: (home, home, "Calendar home")}, False,
-            sigint=False)
-        self._pushFactories.append(factory)
-        connect(GAIEndpoint(self.reactor, host, port), factory)
-
-
-    def _receivedPush(self, inboundID, dataChangedTimestamp, priority=5):
-        for href, id in self.ampPushKeys.iteritems():
-            if inboundID == id:
-                self._checkCalendarsForEvents(href, push=True)
-                break
-        else:
-            # somehow we are not subscribed to this id
-            pass
-
-
-    def _monitorAmpPush(self, home, pushKeys):
-        """
-        Start monitoring for AMP-based push notifications
-        """
-        subscribeToIDs(
-            self.ampPushHost, self.ampPushPort, pushKeys,
-            self._receivedPush, self.reactor
-        )
-
-
-    @inlineCallbacks
-    def _unsubscribePubSub(self):
-        for factory in self._pushFactories:
-            yield factory.unsubscribeAll()
-
-
     @inlineCallbacks
     def run(self):
         """
@@ -1262,37 +881,28 @@ class BaseAppleClient(BaseClient):
             calendarHome = hrefs[caldavxml.calendar_home_set].toString()
             if calendarHome is None:
                 raise MissingCalendarHome
-            yield self._checkCalendarsForEvents(calendarHome, firstTime=True)
+            yield self.checkCalendarsForEvents(calendarHome, firstTime=True)
             returnValue(calendarHome)
         calendarHome = yield self._newOperation("startup: %s" % (self.title,), startup())
-
         self.started = True
 
-        # Start monitoring PubSub notifications, if possible.
-        # _checkCalendarsForEvents populates self.xmpp if it finds
-        # anything.
-        if self.supportPush and calendarHome in self.xmpp:
-            self._monitorPubSub(calendarHome, self.xmpp[calendarHome])
-            # Run indefinitely.
-            yield Deferred()
-        elif self.supportAmpPush and calendarHome in self.ampPushKeys:
-            pushKeys = self.ampPushKeys.values()
-            self._monitorAmpPush(calendarHome, pushKeys)
+        # Start monitoring AMP push notifications, if possible
+        if self.monitor and self.monitor.isSubscribedTo(calendarHome):
+            self.monitor.begin()
             # Run indefinitely.
             yield Deferred()
         else:
             # This completes when the calendar home poll loop completes, which
             # currently it never will except due to an unexpected error.
-            yield self._calendarCheckLoop(calendarHome)
+            yield self.calendarCheckLoop(calendarHome)
 
 
     def stop(self):
         """
         Called before connections are closed, giving a chance to clean up
         """
-
         self.serialize()
-        return self._unsubscribePubSub()
+        return self.monitor.unsubscribeFromAll()
 
 
     def serializeLocation(self):
@@ -1384,92 +994,65 @@ class BaseAppleClient(BaseClient):
         )
         return organizer
 
+    def _getEventSizeDescription(self, numAttendees):
+        if numAttendees > 75:
+            return "huge"
+        if numAttendees > 20:
+            return "large"
+        if numAttendees > 5:
+            return "medium"
+        return "small"
 
+    """ literally wtf is this event stuff
+submitEvent(event: Event, )
+
+"""
     @inlineCallbacks
     def addEventAttendee(self, href, attendee):
+        individual = attendee.parameterValue('CUTYPE') == 'INDIVIDUAL'
 
         event = self._events[href]
         component = event.component
+        vevent = component.mainComponent()
 
+        query = attendee.parameterValue('CN')
+
+        from pprint import pprint
         # Trigger auto-complete behavior
-        yield self._attendeeAutoComplete(component, attendee)
+        matchingPrincipals = yield self._principalSearchReport(query, isAttendeeSearch=individual)
+        for k, v in matchingPrincipals.items():
+            pprint(k)
+            for prop, val in v.getNodeProperties().items():
+                print("%s %s" % (prop, val.__dict__))
+                for child in val._children:
+                    print(child.text)
 
-        # If the event has no attendees, add ourselves as an attendee.
-        attendees = list(component.mainComponent().properties('ATTENDEE'))
-        if len(attendees) == 0:
-            # First add ourselves as a participant and as the
-            # organizer.  In the future for this event we should
-            # already have those roles.
-            component.mainComponent().addProperty(self._makeSelfOrganizer())
-            component.mainComponent().addProperty(self._makeSelfAttendee())
-        attendees.append(attendee)
-        component.mainComponent().addProperty(attendee)
+        uuids = []
 
-        label_suffix = "small"
-        if len(attendees) > 5:
-            label_suffix = "medium"
-        if len(attendees) > 20:
-            label_suffix = "large"
-        if len(attendees) > 75:
-            label_suffix = "huge"
+        for principal_url, propfindresult in matchingPrincipals.items():
+            props = propfindresult.getNodeProperties()
+            for cuaddr in props.get(caldavxml.calendar_user_address_set):
+                # print(cuaddr)
+                uuids.append(cuaddr.text)
+                break
 
-        # At last, upload the new event definition
-        response = yield self._request(
-            (NO_CONTENT, PRECONDITION_FAILED,),
-            'PUT',
-            self.root + href.encode('utf-8'),
-            Headers({
-                    'content-type': ['text/calendar'],
-                    'if-match': [event.etag]}),
-            StringProducer(component.getTextWithTimezones(includeTimezones=True)),
-            method_label="PUT{organizer-%s}" % (label_suffix,)
-        )
-
-        # Finally, re-retrieve the event to update the etag
-        yield self._updateEvent(response, href)
+        print(uuids)
 
 
-    @inlineCallbacks
-    def _attendeeAutoComplete(self, component, attendee):
+        start = vevent.getStartDateUTC()
+        end = vevent.getEndDateUTC()
 
-        if self._ATTENDEE_LOOKUPS:
-            # Temporarily use some non-test names (some which will return
-            # many results, and others which will return fewer) because the
-            # test account names are all too similar
-            # name = attendee.parameterValue('CN').encode("utf-8")
-            # prefix = name[:4].lower()
-            prefix = random.choice([
-                "chris", "cyru", "dre", "eric", "morg",
-                "well", "wilfr", "witz"
-            ])
+        yield self.requestAvailability(start, end, uuids)
 
-            email = attendee.value()
-            if email.startswith("mailto:"):
-                email = email[7:]
-            elif attendee.hasParameter('EMAIL'):
-                email = attendee.parameterValue('EMAIL').encode("utf-8")
-
-            # First try to discover some names to supply to the
-            # auto-completion
-            yield self._report(
-                self.principalCollection,
-                self._USER_LIST_PRINCIPAL_PROPERTY_SEARCH % {
-                    'displayname': prefix,
-                    'email': prefix,
-                    'firstname': prefix,
-                    'lastname': prefix,
-                },
-                depth=None,
-                method_label="REPORT{psearch}",
-            )
-
-            # Now learn about the attendee's availability
-            yield self.requestAvailability(
-                component.mainComponent().getStartDateUTC(),
-                component.mainComponent().getEndDateUTC(),
-                [self.email, u'mailto:' + email],
-                [component.resourceUID()]
-            )
+        # # Do free-busy lookups
+        # if individual:
+        #     # When adding individual attendees, we only look up the availability
+        #     # of the specific attendee
+        #     yield self.checkAvailability()
+        # else:
+        #     # When adding a location, we look up the availability of each location
+        #     # returned by the principal search.
+        #     yield self.checkAvailability()
 
 
     @inlineCallbacks
@@ -1480,34 +1063,128 @@ class BaseAppleClient(BaseClient):
         # Change the event to have the new attendee instead of the old attendee
         component.mainComponent().removeProperty(oldAttendee)
         component.mainComponent().addProperty(newAttendee)
-        okCodes = NO_CONTENT
-        headers = Headers({
-            'content-type': ['text/calendar'],
-        })
+
+        headers = Headers()
         if event.scheduleTag is not None:
             headers.addRawHeader('if-schedule-tag-match', event.scheduleTag)
-            okCodes = (NO_CONTENT, PRECONDITION_FAILED,)
-
+        event.component = component
         attendees = list(component.mainComponent().properties('ATTENDEE'))
-        label_suffix = "small"
-        if len(attendees) > 5:
-            label_suffix = "medium"
-        if len(attendees) > 20:
-            label_suffix = "large"
-        if len(attendees) > 75:
-            label_suffix = "huge"
+        label_suffix = self._getEventSizeDescription(len(attendees))
+        method_label = "PUT{attendee-%s}" % (label_suffix,)
 
-        response = yield self._request(
-            okCodes,
-            'PUT',
-            self.root + href.encode('utf-8'),
-            headers, StringProducer(component.getTextWithTimezones(includeTimezones=True)),
-            method_label="PUT{attendee-%s}" % (label_suffix,),
+        yield self.putEvent(href, event, headers=headers, method_label=method_label, new=False)
+
+
+    @inlineCallbacks
+    def addInvite(self, event):
+        """
+        Add an event that is an invite - i.e., has attendees. Presumably the appropriate principal searches and
+        free-busy lookups have already been accounted for (in addEventAttendee)
+        """
+        vevent = event.component.mainComponent()
+        # If the event has no attendees, add ourselves as an attendee.
+        attendees = list(vevent.properties('ATTENDEE'))
+        if len(attendees) == 0:
+            # First add ourselves as a participant and as the
+            # organizer.  In the future for this event we should
+            # already have those roles.
+            vevent.addProperty(self._makeSelfOrganizer())
+            vevent.addProperty(self._makeSelfAttendee())
+
+        label_suffix = self._getEventSizeDescription(len(attendees))
+        method_label = "PUT{organizer-%s}" % (label_suffix,)
+
+        yield self.updateEvent(event, method_label=method_label)
+
+
+    @inlineCallbacks
+    def addEvent(self, href, event):
+        """
+        client.addEvent(
+            Event e
+        """
+        headers = Headers({
+            'if-none-match': ['*']
+        })
+        yield self.putEvent(
+            href,
+            event,
+            headers=headers,
+            method_label="PUT{event}"
         )
 
-        # Finally, re-retrieve the event to update the etag
-        yield self._updateEvent(response, href)
+    # attendees = list(component.mainComponent().properties('ATTENDEE'))
+    # label_suffix = self._getEventSizeDescription(len(attendees))
+    # method_label = "PUT{organizer-%s}" % (label_suffix,) if invite else "PUT{event}"
 
+    @inlineCallbacks
+    def updateEvent(self, event, method_label="PUT{event}"):
+        headers = Headers({
+            'if-match': [event.etag]
+        })
+        yield self.putEvent(event.url, event, headers=headers, method_label=method_label)
+
+
+    @inlineCallbacks
+    def putEvent(self, href, event, headers=None, method_label=None):
+        """
+        PUT an event to the server
+        """
+        if headers == None:
+            headers = Headers()
+        headers.addRawHeader('content-type', 'text/calendar')
+
+        okCodes = (CREATED, NO_CONTENT, PRECONDITION_FAILED)
+
+        # At last, upload the new event definition
+        response = yield self.requester.put(
+            okCodes,
+            href,
+            event.component,
+            headers=headers,
+            method_label=method_label
+        )
+        # If the server doesn't return an etag, it has changed the resource
+        # and we need to refetch it
+        if not response.headers.hasHeader('etag'):
+            yield self._refreshEvent(href)
+        else:
+            etag, scheduleTag = self.extractTags(response)
+            yield succeed(self._updateEventCache(href, etag=etag, scheduleTag=scheduleTag, component=event.component))
+
+
+    @inlineCallbacks
+    def _refreshEvent(self, href):
+        """
+        Issues a GET to the specified href (representing an event that already exists on the server)
+        and uses the response to update local state associated with that event
+        """
+        response = yield self.requester.get(href, method_label="GET{event}")
+        etag, scheduleTag = self.extractTags(response)
+        body = yield readBody(response)
+        component = Component.fromString(body)
+        self._updateEventCache(href, etag=etag, scheduleTag=scheduleTag, component=component)
+
+    def _updateEventCache(self, href, etag=None, scheduleTag=None, component=None):
+        """
+        Update local state associated with the event at href
+        """
+
+        if href in self._events:
+            event = self._events[href]
+        else: # This is a new resource
+            event = Event(self.serializeLocation(), href, None, None)
+
+        if etag:
+            event.etag = etag
+        if scheduleTag:
+            event.scheduleTag = scheduleTag
+        if component:
+            event.component = component
+
+        if True: # XXX some other test
+            self.catalog["eventChanged"].issue(href)
+        self._cacheEvent(href, event)
 
     @inlineCallbacks
     def deleteEvent(self, href):
@@ -1515,113 +1192,67 @@ class BaseAppleClient(BaseClient):
         Issue a DELETE for the given URL and remove local state
         associated with that event.
         """
+        self._invalidateEvent(href)
+        yield self.requester.delete(href, method_label="DELETE{event}")
 
-        self._removeEvent(href)
-
-        response = yield self._request(
-            NO_CONTENT,
-            'DELETE',
-            self.root + href.encode('utf-8'),
-            method_label="DELETE{event}",
-        )
-        returnValue(response)
-
-
-    @inlineCallbacks
-    def addEvent(self, href, component, invite=False):
-        headers = Headers({
-            'content-type': ['text/calendar'],
-        })
-
-        attendees = list(component.mainComponent().properties('ATTENDEE'))
-        label_suffix = "small"
-        if len(attendees) > 5:
-            label_suffix = "medium"
-        if len(attendees) > 20:
-            label_suffix = "large"
-        if len(attendees) > 75:
-            label_suffix = "huge"
-
-        response = yield self._request(
-            CREATED,
-            'PUT',
-            self.root + href.encode('utf-8'),
-            headers,
-            StringProducer(component.getTextWithTimezones(includeTimezones=True)),
-            method_label="PUT{organizer-%s}" % (label_suffix,) if invite else "PUT{event}",
-        )
-        self._localUpdateEvent(response, href, component)
-
-
-    @inlineCallbacks
-    def addInvite(self, href, component):
-        """
-        Add an event that is an invite - i.e., has attendees. We will do attendee lookups and freebusy
-        checks on each attendee to simulate what happens when an organizer creates a new invite.
-        """
-
-        # Do lookup and free busy of each attendee (not self)
-        attendees = list(component.mainComponent().properties('ATTENDEE'))
-        for attendee in attendees:
-            if attendee.value() in (self.uuid, self.email):
-                continue
-            yield self._attendeeAutoComplete(component, attendee)
-
-        # Now do a normal PUT
-        yield self.addEvent(href, component, invite=True)
-
-
-    @inlineCallbacks
-    def changeEvent(self, href):
-
-        event = self._events[href]
-        component = event.component
-
-        # At last, upload the new event definition
-        response = yield self._request(
-            (NO_CONTENT, PRECONDITION_FAILED,),
-            'PUT',
-            self.root + href.encode('utf-8'),
-            Headers({
-                'content-type': ['text/calendar'],
-                'if-match': [event.etag]
-            }),
-            StringProducer(component.getTextWithTimezones(includeTimezones=True)),
-            method_label="PUT{update}"
-        )
-
-        # Finally, re-retrieve the event to update the etag
-        yield self._updateEvent(response, href)
-
-
-    def _localUpdateEvent(self, response, href, component):
+    def extractTags(self, response):
         headers = response.headers
         etag = headers.getRawHeaders("etag", [None])[0]
         scheduleTag = headers.getRawHeaders("schedule-tag", [None])[0]
+        return etag, scheduleTag
 
-        event = Event(self.serializeLocation(), href, etag, component)
-        event.scheduleTag = scheduleTag
-        self._setEvent(href, event)
+    # @inlineCallbacks
+    # def _attendeeAutoComplete(self, component, attendee):
 
+    #     if self._ATTENDEE_LOOKUPS:
+    #         # Temporarily use some non-test names (some which will return
+    #         # many results, and others which will return fewer) because the
+    #         # test account names are all too similar
+    #         # name = attendee.parameterValue('CN').encode("utf-8")
+    #         # prefix = name[:4].lower()
+    #         prefix = random.choice([
+    #             "chris", "cyru", "dre", "eric", "morg",
+    #             "well", "wilfr", "witz"
+    #         ])
 
-    def updateEvent(self, href):
-        return self._updateEvent(None, href)
+    #         email = attendee.value()
+    #         if email.startswith("mailto:"):
+    #             email = email[7:]
+    #         elif attendee.hasParameter('EMAIL'):
+    #             email = attendee.parameterValue('EMAIL').encode("utf-8")
 
+    #         # First try to discover some names to supply to the
+    #         # auto-completion
+    #         yield self.requester.report(
+    #             self.principalCollection,
+    #             self._USER_LIST_PRINCIPAL_PROPERTY_SEARCH % {
+    #                 'displayname': prefix,
+    #                 'email': prefix,
+    #                 'firstname': prefix,
+    #                 'lastname': prefix,
+    #             },
+    #             depth=None,
+    #             method_label="REPORT{psearch}",
+    #         )
+
+    #         # Now learn about the attendee's availability
+    #         yield self.requestAvailability(
+    #             component.mainComponent().getStartDateUTC(),
+    #             component.mainComponent().getEndDateUTC(),
+    #             [self.email, u'mailto:' + email],
+    #             [component.resourceUID()]
+    #         )
 
     @inlineCallbacks
-    def _updateEvent(self, ignored, href):
-        response = yield self._request(
-            OK,
-            'GET',
-            self.root + href.encode('utf-8'),
-            method_label="GET{event}",
-        )
-        headers = response.headers
-        etag = headers.getRawHeaders('etag')[0]
-        scheduleTag = headers.getRawHeaders('schedule-tag', [None])[0]
-        body = yield readBody(response)
-        self.eventChanged(href, etag, scheduleTag, body)
-
+    def _principalSearchReport(self, query, isAttendeeSearch):
+        """ context = attendee if isAttendeeSearch else location """
+        context = "attendee" if isAttendeeSearch else "location"
+        tokens = query.split()
+        search = '\n'.join(["<C:search-token>%s</C:search-token>" % (token, ) for token in tokens])
+        body = self._CALENDARSERVER_PRINCIPAL_SEARCH_REPORT.format(context=context, searchTokens=search)
+        principals = yield self.requester.report('/principals/', body, depth=None)
+        print("Found some principals:")
+        returnValue(principals)
 
     @inlineCallbacks
     def requestAvailability(self, start, end, users, mask=set()):
@@ -1644,8 +1275,6 @@ class BaseAppleClient(BaseClient):
         @return: A C{Deferred} which fires with a C{dict}.  Keys in the dict
             are user UUIDs (those requested) and values are something else.
         """
-        outbox = self.root + self.outbox
-
         if mask:
             maskStr = u'\r\n'.join(['X-CALENDARSERVER-MASK-UID:' + uid
                                     for uid in mask]) + u'\r\n'
@@ -1669,21 +1298,16 @@ class BaseAppleClient(BaseClient):
         end = end.getText()
         now = DateTime.getNowUTC().getText()
 
-        label_suffix = "small"
-        if len(users) > 5:
-            label_suffix = "medium"
-        if len(users) > 20:
-            label_suffix = "large"
-        if len(users) > 75:
-            label_suffix = "huge"
+        label_suffix = self._getEventSizeDescription(len(users))
 
-        response = yield self._request(
-            OK, 'POST', outbox,
-            Headers({
-                    'content-type': ['text/calendar'],
-                    'originator': [self.email],
-                    'recipient': [u', '.join(users).encode('utf-8')]}),
-            StringProducer(self._POST_AVAILABILITY % {
+        headers = Headers({
+            'content-type': ['text/calendar'],
+            'originator': [self.email],
+            'recipient': [u', '.join(users).encode('utf-8')]
+        })
+        response = yield self.requester.post(
+            self.outbox,
+            self._POST_AVAILABILITY % {
                 'attendees': attendeeStr,
                 'summary': (u'Availability for %s' % (', '.join(users),)).encode('utf-8'),
                 'organizer': self.email.encode('utf-8'),
@@ -1692,385 +1316,103 @@ class BaseAppleClient(BaseClient):
                 'start': start,
                 'end': end,
                 'now': now,
-            }),
+            },
+            headers=headers,
             method_label="POST{fb-%s}" % (label_suffix,),
         )
+
         body = yield readBody(response)
         returnValue(body)
 
-
-
-class OS_X_10_6(BaseAppleClient):
-    """
-    Implementation of the OS X 10.6 iCal network behavior.
-
-    Anything OS X 10.6 iCal does on its own, or any particular
-    network behaviors it takes in response to a user action, belong on
-    this class.
-
-    Usage-profile based behaviors ("the user modifies an event every
-    3.2 minutes") belong elsewhere.
-    """
-
-    _client_type = "OS X 10.6"
-
-    USER_AGENT = "DAVKit/4.0.3 (732); CalendarStore/4.0.3 (991); iCal/4.0.3 (1388); Mac OS X/10.6.4 (10F569)"
-
-    # The default interval, used if none is specified in external
-    # configuration.  This is also the actual value used by Snow
-    # Leopard iCal.
-    CALENDAR_HOME_POLL_INTERVAL = 15 * 60
-
-    # The maximum number of resources to retrieve in a single multiget
-    MULTIGET_BATCH_SIZE = 200
-
-    # Override and turn on if client supports Sync REPORT
-    _SYNC_REPORT = False
-
-    # Override and turn on if client syncs using time-range queries
-    _SYNC_TIMERANGE = False
-
-    # Override and turn off if client does not support attendee lookups
-    _ATTENDEE_LOOKUPS = True
-
-    # Request body data
-    _LOAD_PATH = "OS_X_10_6"
-
-    _STARTUP_WELL_KNOWN = loadRequestBody(_LOAD_PATH, 'startup_well_known')
-    _STARTUP_PRINCIPAL_PROPFIND_INITIAL = loadRequestBody(_LOAD_PATH, 'startup_principal_propfind_initial')
-    _STARTUP_PRINCIPAL_PROPFIND = loadRequestBody(_LOAD_PATH, 'startup_principal_propfind')
-    _STARTUP_PRINCIPALS_REPORT = loadRequestBody(_LOAD_PATH, 'startup_principals_report')
-    _STARTUP_PRINCIPAL_EXPAND = loadRequestBody(_LOAD_PATH, 'startup_principal_expand')
-    _STARTUP_PROPPATCH_CALENDAR_COLOR = loadRequestBody(_LOAD_PATH, 'startup_calendar_color_proppatch')
-    _STARTUP_PROPPATCH_CALENDAR_ORDER = loadRequestBody(_LOAD_PATH, 'startup_calendar_order_proppatch')
-    _STARTUP_PROPPATCH_CALENDAR_TIMEZONE = loadRequestBody(_LOAD_PATH, 'startup_calendar_timezone_proppatch')
-
-    _POLL_CALENDARHOME_PROPFIND = loadRequestBody(_LOAD_PATH, 'poll_calendarhome_propfind')
-    _POLL_CALENDAR_PROPFIND = loadRequestBody(_LOAD_PATH, 'poll_calendar_propfind')
-    _POLL_CALENDAR_PROPFIND_D1 = loadRequestBody(_LOAD_PATH, 'poll_calendar_propfind_d1')
-    _POLL_CALENDAR_MULTIGET_REPORT = loadRequestBody(_LOAD_PATH, 'poll_calendar_multiget')
-    _POLL_CALENDAR_MULTIGET_REPORT_HREF = loadRequestBody(_LOAD_PATH, 'poll_calendar_multiget_hrefs')
-    _POLL_CALENDAR_SYNC_REPORT = None
-    _POLL_NOTIFICATION_PROPFIND = loadRequestBody(_LOAD_PATH, 'poll_calendar_propfind')
-    _POLL_NOTIFICATION_PROPFIND_D1 = loadRequestBody(_LOAD_PATH, 'poll_notification_propfind_d1')
-
-    _USER_LIST_PRINCIPAL_PROPERTY_SEARCH = loadRequestBody(_LOAD_PATH, 'user_list_principal_property_search')
-    _POST_AVAILABILITY = loadRequestBody(_LOAD_PATH, 'post_availability')
-
     @inlineCallbacks
-    def startup(self):
-
-        # Try to read data from disk - if it succeeds self.principalURL will be set
-        self.deserialize()
-
-        if self.principalURL is None:
-            # PROPFIND principal path to retrieve actual principal-URL
-            response = yield self._principalPropfindInitial(self.record.uid)
-            hrefs = response.getHrefProperties()
-            self.principalURL = hrefs[davxml.principal_URL].toString()
-
-        # Using the actual principal URL, retrieve principal information
-        principal = (yield self._extractPrincipalDetails())
-        returnValue(principal)
-
-
-
-class OS_X_10_7(BaseAppleClient):
-    """
-    Implementation of the OS X 10.7 iCal network behavior.
-    """
-
-    _client_type = "OS X 10.7"
-
-    USER_AGENT = "CalendarStore/5.0.2 (1166); iCal/5.0.2 (1571); Mac OS X/10.7.3 (11D50)"
-
-    # The default interval, used if none is specified in external
-    # configuration.  This is also the actual value used by Snow
-    # Leopard iCal.
-    CALENDAR_HOME_POLL_INTERVAL = 15 * 60
-
-    # The maximum number of resources to retrieve in a single multiget
-    MULTIGET_BATCH_SIZE = 50
-
-    # Override and turn on if client supports Sync REPORT
-    _SYNC_REPORT = True
-
-    # Override and turn on if client syncs using time-range queries
-    _SYNC_TIMERANGE = False
-
-    # Override and turn off if client does not support attendee lookups
-    _ATTENDEE_LOOKUPS = True
-
-    # Request body data
-    _LOAD_PATH = "OS_X_10_7"
-
-    _STARTUP_WELL_KNOWN = loadRequestBody(_LOAD_PATH, 'startup_well_known')
-    _STARTUP_PRINCIPAL_PROPFIND_INITIAL = loadRequestBody(_LOAD_PATH, 'startup_principal_propfind_initial')
-    _STARTUP_PRINCIPAL_PROPFIND = loadRequestBody(_LOAD_PATH, 'startup_principal_propfind')
-    _STARTUP_PRINCIPALS_REPORT = loadRequestBody(_LOAD_PATH, 'startup_principals_report')
-    _STARTUP_PRINCIPAL_EXPAND = loadRequestBody(_LOAD_PATH, 'startup_principal_expand')
-    _STARTUP_PROPPATCH_CALENDAR_COLOR = loadRequestBody(_LOAD_PATH, 'startup_calendar_color_proppatch')
-    _STARTUP_PROPPATCH_CALENDAR_ORDER = loadRequestBody(_LOAD_PATH, 'startup_calendar_order_proppatch')
-    _STARTUP_PROPPATCH_CALENDAR_TIMEZONE = loadRequestBody(_LOAD_PATH, 'startup_calendar_timezone_proppatch')
-
-    _POLL_CALENDARHOME_PROPFIND = loadRequestBody(_LOAD_PATH, 'poll_calendarhome_propfind')
-    _POLL_CALENDAR_PROPFIND = loadRequestBody(_LOAD_PATH, 'poll_calendar_propfind')
-    _POLL_CALENDAR_PROPFIND_D1 = loadRequestBody(_LOAD_PATH, 'poll_calendar_propfind_d1')
-    _POLL_CALENDAR_MULTIGET_REPORT = loadRequestBody(_LOAD_PATH, 'poll_calendar_multiget')
-    _POLL_CALENDAR_MULTIGET_REPORT_HREF = loadRequestBody(_LOAD_PATH, 'poll_calendar_multiget_hrefs')
-    _POLL_CALENDAR_SYNC_REPORT = loadRequestBody(_LOAD_PATH, 'poll_calendar_sync')
-    _POLL_NOTIFICATION_PROPFIND = loadRequestBody(_LOAD_PATH, 'poll_calendar_propfind')
-    _POLL_NOTIFICATION_PROPFIND_D1 = loadRequestBody(_LOAD_PATH, 'poll_notification_propfind_d1')
-
-    _USER_LIST_PRINCIPAL_PROPERTY_SEARCH = loadRequestBody(_LOAD_PATH, 'user_list_principal_property_search')
-    _POST_AVAILABILITY = loadRequestBody(_LOAD_PATH, 'post_availability')
-
-
-    def _addDefaultHeaders(self, headers):
-        """
-        Add the clients default set of headers to ones being used in a request.
-        Default is to add User-Agent, sub-classes should override to add other
-        client specific things, Accept etc.
-        """
-
-        super(OS_X_10_7, self)._addDefaultHeaders(headers)
-        headers.setRawHeaders('Accept', ['*/*'])
-        headers.setRawHeaders('Accept-Language', ['en-us'])
-        headers.setRawHeaders('Accept-Encoding', ['gzip,deflate'])
-        headers.setRawHeaders('Connection', ['keep-alive'])
-
-
-    @inlineCallbacks
-    def startup(self):
-
-        # Try to read data from disk - if it succeeds self.principalURL will be set
-        self.deserialize()
-
-        if self.principalURL is None:
-            # PROPFIND well-known with redirect
-            response = yield self._startupPropfindWellKnown()
-            hrefs = response.getHrefProperties()
-            if davxml.current_user_principal in hrefs:
-                self.principalURL = hrefs[davxml.current_user_principal].toString()
-            elif davxml.principal_URL in hrefs:
-                self.principalURL = hrefs[davxml.principal_URL].toString()
-            else:
-                # PROPFIND principal path to retrieve actual principal-URL
-                response = yield self._principalPropfindInitial(self.record.uid)
-                hrefs = response.getHrefProperties()
-                self.principalURL = hrefs[davxml.principal_URL].toString()
-
-        # Using the actual principal URL, retrieve principal information
-        principal = yield self._extractPrincipalDetails()
-        returnValue(principal)
-
-
-
-class iOS_5(BaseAppleClient):
-    """
-    Implementation of the iOS 5 network behavior.
-    """
-
-    _client_type = "iOS 5"
-
-    USER_AGENT = "iOS/5.1 (9B179) dataaccessd/1.0"
-
-    # The default interval, used if none is specified in external
-    # configuration.  This is also the actual value used by Snow
-    # Leopard iCal.
-    CALENDAR_HOME_POLL_INTERVAL = 15 * 60
-
-    # The maximum number of resources to retrieve in a single multiget
-    MULTIGET_BATCH_SIZE = 50
-
-    # Override and turn on if client supports Sync REPORT
-    _SYNC_REPORT = False
-
-    # Override and turn on if client syncs using time-range queries
-    _SYNC_TIMERANGE = True
-
-    # Override and turn off if client does not support attendee lookups
-    _ATTENDEE_LOOKUPS = False
-
-    # Request body data
-    _LOAD_PATH = "iOS_5"
-
-    _STARTUP_WELL_KNOWN = loadRequestBody(_LOAD_PATH, 'startup_well_known')
-    _STARTUP_PRINCIPAL_PROPFIND_INITIAL = loadRequestBody(_LOAD_PATH, 'startup_principal_propfind_initial')
-    _STARTUP_PRINCIPAL_PROPFIND = loadRequestBody(_LOAD_PATH, 'startup_principal_propfind')
-    _STARTUP_PRINCIPALS_REPORT = loadRequestBody(_LOAD_PATH, 'startup_principals_report')
-    _STARTUP_PROPPATCH_CALENDAR_COLOR = loadRequestBody(_LOAD_PATH, 'startup_calendar_color_proppatch')
-    _STARTUP_PROPPATCH_CALENDAR_ORDER = loadRequestBody(_LOAD_PATH, 'startup_calendar_order_proppatch')
-
-    _POLL_CALENDARHOME_PROPFIND = loadRequestBody(_LOAD_PATH, 'poll_calendarhome_propfind')
-    _POLL_CALENDAR_PROPFIND = loadRequestBody(_LOAD_PATH, 'poll_calendar_propfind')
-    _POLL_CALENDAR_VEVENT_TR_QUERY = loadRequestBody(_LOAD_PATH, 'poll_calendar_vevent_tr_query')
-    _POLL_CALENDAR_VTODO_QUERY = loadRequestBody(_LOAD_PATH, 'poll_calendar_vtodo_query')
-    _POLL_CALENDAR_PROPFIND_D1 = loadRequestBody(_LOAD_PATH, 'poll_calendar_propfind_d1')
-    _POLL_CALENDAR_MULTIGET_REPORT = loadRequestBody(_LOAD_PATH, 'poll_calendar_multiget')
-    _POLL_CALENDAR_MULTIGET_REPORT_HREF = loadRequestBody(_LOAD_PATH, 'poll_calendar_multiget_hrefs')
-
-
-    def _addDefaultHeaders(self, headers):
-        """
-        Add the clients default set of headers to ones being used in a request.
-        Default is to add User-Agent, sub-classes should override to add other
-        client specific things, Accept etc.
-        """
-
-        super(iOS_5, self)._addDefaultHeaders(headers)
-        headers.setRawHeaders('Accept', ['*/*'])
-        headers.setRawHeaders('Accept-Language', ['en-us'])
-        headers.setRawHeaders('Accept-Encoding', ['gzip,deflate'])
-        headers.setRawHeaders('Connection', ['keep-alive'])
-
-
-    @inlineCallbacks
-    def _pollFirstTime1(self, homeNode, calendars):
-        # Patch calendar properties
-        for cal in calendars:
-            if cal.name != "inbox":
-                yield self._proppatch(
-                    cal.url,
-                    self._STARTUP_PROPPATCH_CALENDAR_COLOR,
-                    method_label="PROPPATCH{calendar}",
-                )
-                yield self._proppatch(
-                    cal.url,
-                    self._STARTUP_PROPPATCH_CALENDAR_ORDER,
-                    method_label="PROPPATCH{calendar}",
-                )
-
-
-    def _pollFirstTime2(self):
-        # Nothing here
-        return succeed(None)
-
-
-    def _updateCalendar(self, calendar, newToken):
-        """
-        Update the local cached data for a calendar in an appropriate manner.
-        """
-        if calendar.name == "inbox":
-            # Inbox is done as a PROPFIND Depth:1
-            return self._updateCalendar_PROPFIND(calendar, newToken)
-        elif "VEVENT" in calendar.componentTypes:
-            # VEVENTs done as time-range VEVENT-only queries
-            return self._updateCalendar_VEVENT(calendar, newToken)
-        elif "VTODO" in calendar.componentTypes:
-            # VTODOs done as VTODO-only queries
-            return self._updateCalendar_VTODO(calendar, newToken)
-
-
-    @inlineCallbacks
-    def _updateCalendar_VEVENT(self, calendar, newToken):
-        """
-        Sync all locally cached VEVENTs using a VEVENT-only time-range query.
-        """
-
-        # Grab old hrefs prior to the PROPFIND so we sync with the old state. We need this because
-        # the sim can fire a PUT between the PROPFIND and when process the removals.
-        old_hrefs = set([calendar.url + child for child in calendar.events.keys()])
-
-        now = DateTime.getNowUTC()
-        now.setDateOnly(True)
-        now.offsetMonth(-1) # 1 month back default
-        result = yield self._report(
-            calendar.url,
-            self._POLL_CALENDAR_VEVENT_TR_QUERY % {"start-date": now.getText()},
-            depth='1',
-            method_label="REPORT{vevent}",
+    def postAttachment(self, href, content):
+        url = "{0}?{1}".format(href, "action=attachment-add")
+        filename = 'file-{}.txt'.format(len(content))
+        headers = Headers({
+        #     'Transfer-Encoding': ['Chunked'],
+            'Content-Disposition': ['attachment; filename="{}"'.format(filename)]
+        })
+        l = len(content)
+        # lengthPrefix = hex(l)[2:].upper() # For some reason, this attachment is length-prefixed in hex
+        label_suffix = self._getEventSizeDescription(l / 1024)
+        # body = "{0}\n{1}\n0\n".format(lengthPrefix, content) # XXX There HAS to be a better way to do this
+        yield self.requester.post(
+            url,
+            content,
+            headers=headers,
+            method_label="POST{attach-%s}" % (label_suffix,)
         )
 
-        yield self._updateApplyChanges(calendar, result, old_hrefs)
-
-        # Now update calendar to the new token
-        self._calendars[calendar.url].changeToken = newToken
+    @inlineCallbacks
+    def addCalendar(self, href, calendar_xml):
+        """
+        client.addCalendar(
+            '/calendars/__uids__/10000000-0000-0000-0000-000000000001/1C1A8475-2671-4B97-AC58-DD9777B5CD93/',
+            # <Component: 'BEGIN:VCALENDAR\r\n...END:VCALENDAR\r\n'>)
+        )
+        """
+        response = yield self.requester.mkcalendar(
+            href,
+            calendar_xml,
+            method_label="MK{calendar}",
+        )
+        # self._cacheCalendar(href, calendar)
 
 
     @inlineCallbacks
-    def _updateCalendar_VTODO(self, calendar, newToken):
-        """
-        Sync all locally cached VTODOs using a VTODO-only query.
-        """
+    def changeCalendar(self, href, body):
 
-        # Grab old hrefs prior to the PROPFIND so we sync with the old state. We need this because
-        # the sim can fire a PUT between the PROPFIND and when process the removals.
-        old_hrefs = set([calendar.url + child for child in calendar.events.keys()])
+        calendar = self._calendars[href]
+        headers = Headers({
+            'content-type': ['text/xml']
+        })
 
-        result = yield self._report(
-            calendar.url,
-            self._POLL_CALENDAR_VTODO_QUERY,
-            depth='1',
-            method_label="REPORT{vtodo}",
+        # At last, upload the new event definition
+        response = yield self.requester.proppatch(
+            href,
+            body,
+            headers=headers,
+            method_label="PATCH{calendar}"
         )
 
-        yield self._updateApplyChanges(calendar, result, old_hrefs)
+        # Finally, re-retrieve the event to update the etag
+        # yield self._updateEvent(response, href)
 
-        # Now update calendar to the new token
-        self._calendars[calendar.url].changeToken = newToken
+    @inlineCallbacks
+    def postXML(self, href, xml):
+        headers = Headers({
+            'content-type': ['text/xml']
+        })
+        response = yield self.requester.post(
+            href,
+            xml,
+            headers=headers,
+            method_label="SHARE{calendar}"
+        )
 
 
     @inlineCallbacks
-    def startup(self):
+    def deleteCalendar(self, href):
+        """
+        Issue a DELETE for the given URL and remove local state
+        associated with that calendar.
 
-        # Try to read data from disk - if it succeeds self.principalURL will be set
-        self.deserialize()
+        Usage: client.deleteCalendar('/calendars/__uids__/<user-uid>/<calendar-uid>/')
+        """
 
-        if self.principalURL is None:
-            # PROPFIND well-known with redirect
-            response = yield self._startupPropfindWellKnown()
-            hrefs = response.getHrefProperties()
-            if davxml.current_user_principal in hrefs:
-                self.principalURL = hrefs[davxml.current_user_principal].toString()
-            elif davxml.principal_URL in hrefs:
-                self.principalURL = hrefs[davxml.principal_URL].toString()
-            else:
-                # PROPFIND principal path to retrieve actual principal-URL
-                response = yield self._principalPropfindInitial(self.record.uid)
-                hrefs = response.getHrefProperties()
-                self.principalURL = hrefs[davxml.principal_URL].toString()
+        self._invalidateCalendar(href)
 
-        # Using the actual principal URL, retrieve principal information
-        principal = yield self._extractPrincipalDetails()
-        returnValue(principal)
-
-
-
-class RequestLogger(object):
-    format = u"%(user)s request %(code)s%(success)s[%(duration)5.2f s] %(method)8s %(url)s"
-    success = u"\N{CHECK MARK}"
-    failure = u"\N{BALLOT X}"
-
-    def observe(self, event):
-        if event.get("type") == "response":
-            formatArgs = dict(
-                user=event['user'],
-                method=event['method'],
-                url=urlunparse(('', '') + urlparse(event['url'])[2:]),
-                code=event['code'],
-                duration=event['duration'],
-            )
-
-            if event['success']:
-                formatArgs['success'] = self.success
-            else:
-                formatArgs['success'] = self.failure
-            print((self.format % formatArgs).encode('utf-8'))
-
-
-    def report(self, output):
-        pass
-
-
-    def failures(self):
-        return []
+        response = yield self.requester.delete(href, method_label="DELETE{calendar}")
+        returnValue(response)
 
 
 
 def main():
     from urllib2 import HTTPDigestAuthHandler
     from twisted.internet import reactor
+    from twisted.python.log import addObserver
+    from contrib.performance.loadtest.logger import RequestLogger
+    from contrib.performance.loadtest.clients import OS_X_10_11
     auth = HTTPDigestAuthHandler()
     auth.add_password(
         realm="Test Realm",
@@ -2080,14 +1422,17 @@ def main():
 
     addObserver(RequestLogger().observe)
 
-    from sim import _DirectoryRecord
-    client = OS_X_10_6(
-        reactor, 'http://127.0.0.1:8008/',
-        _DirectoryRecord(
-            u'user01', u'user01', u'User 01', u'user01@example.org'),
-        auth)
+    from contrib.performance.loadtest.records import DirectoryRecord
+    client = OS_X_10_11(
+        reactor,
+        'http://127.0.0.1:8008/',   # root
+        '/tmp/sim',                 # serializePath
+        DirectoryRecord(u'user01', u'user01', u'User 01', u'user01@example.org', u'10000000-0000-0000-0000-000000000001'),
+        auth,
+        title='OS X 10.11 Client Simulator'
+    )
     d = client.run()
-    d.addErrback(err, "10.6 client run() problem")
+    d.addErrback(err, "10.11 client run() problem")
     d.addCallback(lambda ignored: reactor.stop())
     reactor.run()
 

@@ -39,6 +39,7 @@ class LoadSimAdminResource (resource.Resource):
     HEAD = """\
 <html>
 <head>
+<meta http-equiv="refresh" content="1" >
 <style type="text/css">
 body {color:#000000;}
 h1 h2 h3 {color:#333333;}
@@ -80,9 +81,11 @@ table.rounded-corners {
     def __init__(self, loadsim):
         self.loadsim = loadsim
         self.token = str(uuid.uuid4())
+        self.count = 0
 
 
     def render_GET(self, request):
+        self.count += 1
         return self._renderReport()
 
 
@@ -109,5 +112,5 @@ table.rounded-corners {
             html = self.HEAD + self.BODY_RESULTS_STOPPED
             return html % (None, report.getvalue(), ms)
         else:
-            html = self.HEAD + self.BODY_RESULTS
+            html = self.HEAD + "<h3>Request #" + str(self.count) + "</h3>" + self.BODY_RESULTS
             return html % (self.token, report.getvalue(), ms)

@@ -56,7 +56,8 @@ from twisted.protocols.amp import AMP, Command, String, Unicode
 
 from twext.enterprise.adbapi2 import Pickle
 
-from contrib.performance.loadtest.sim import _DirectoryRecord, LoadSimulator
+from contrib.performance.loadtest.sim import LoadSimulator
+from contrib.performance.loadtest.records import DirectoryRecord
 
 class Configure(Command):
     """
@@ -79,7 +80,7 @@ class LogMessage(Command):
 
 class Account(Command):
     """
-    This message represents a L{_DirectoryRecord} loaded by the manager process
+    This message represents a L{DirectoryRecord} loaded by the manager process
     being relayed to a worker.
     """
     arguments = [
@@ -106,7 +107,7 @@ class Worker(AMP):
 
     @Account.responder
     def account(self, **kw):
-        self.records.append(_DirectoryRecord(**kw))
+        self.records.append(DirectoryRecord(**kw))
         return {}
 
 

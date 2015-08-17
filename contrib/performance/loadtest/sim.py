@@ -45,57 +45,15 @@ from twisted.internet.protocol import ProcessProtocol
 
 from twisted.web.server import Site
 
-from contrib.performance.loadtest.ical import OS_X_10_6
+from contrib.performance.loadtest.clients import OS_X_10_6
 from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter
 from contrib.performance.loadtest.population import (
     Populator, ProfileType, ClientType, PopulationParameters, SmoothRampUp,
     CalendarClientSimulator)
 from contrib.performance.loadtest.webadmin import LoadSimAdminResource
 
-
-
-class _DirectoryRecord(object):
-    def __init__(self, uid, password, commonName, email, guid):
-        self.uid = uid
-        self.password = password
-        self.commonName = commonName
-        self.email = email
-        self.guid = guid
-
-
-
 def safeDivision(value, total, factor=1):
     return value * factor / total if total else 0
-
-
-
-def generateRecords(
-    count, uidPattern="user%d", passwordPattern="user%d",
-    namePattern="User %d", emailPattern="user%d@example.com",
-    guidPattern="user%d"
-):
-    for i in xrange(count):
-        i += 1
-        uid = uidPattern % (i,)
-        password = passwordPattern % (i,)
-        name = namePattern % (i,)
-        email = emailPattern % (i,)
-        guid = guidPattern % (i,)
-        yield _DirectoryRecord(uid, password, name, email, guid)
-
-
-
-def recordsFromCSVFile(path):
-    if path:
-        pathObj = FilePath(path)
-    else:
-        pathObj = FilePath(__file__).sibling("accounts.csv")
-    return [
-        _DirectoryRecord(*line.decode('utf-8').split(u','))
-        for line
-        in pathObj.getContent().splitlines()]
-
-
 
 class LagTrackingReactor(object):
     """
@@ -129,8 +87,9 @@ class SimOptions(Options):
     Command line configuration options for the load simulator.
     """
     config = None
-    _defaultConfig = FilePath(__file__).sibling("config.plist")
-    _defaultClients = FilePath(__file__).sibling("clients.plist")
+    settings = FilePath(__file__).sibling("settings")
+    _defaultConfig = settings.child("config.plist")
+    _defaultClients = settings.child("clients.plist")
 
     optParameters = [
         ("runtime", "t", None,
@@ -195,6 +154,8 @@ class SimOptions(Options):
             configFile.close()
 
         try:
+            # from importlib import import_module
+            # client_config = import_module("contrib.performance.loadtest.settings.clients")
             clientFile = self['clients'].open()
         except IOError, e:
             raise UsageError("--clients %s: %s" % (
@@ -202,13 +163,15 @@ class SimOptions(Options):
         try:
             try:
                 client_config = readPlist(clientFile)
+                # self.config["clients"] = client_config.calendars_only# client_config["clients"]
                 self.config["clients"] = client_config["clients"]
                 if "arrivalInterval" in client_config:
                     self.config["arrival"]["params"]["interval"] = client_config["arrivalInterval"]
             except ExpatError, e:
                 raise UsageError("--clients %s: %s" % (self['clients'].path, e))
         finally:
-            clientFile.close()
+            # clientFile.close()
+            pass
 
 
 Arrival = namedtuple('Arrival', 'factory parameters')
@@ -224,17 +187,16 @@ class LoadSimulator(object):
     @type arrival: L{Arrival}
     @type parameters: L{PopulationParameters}
 
-    @ivar records: A C{list} of L{_DirectoryRecord} instances giving
+    @ivar records: A C{list} of L{DirectoryRecord} instances giving
         user information about the accounts on the server being put
         under load.
     """
-    def __init__(self, server, principalPathTemplate, webadminPort, serverStats, serializationPath, arrival, parameters, observers=None,
+    def __init__(self, server, webadminPort, serverStats, serializationPath, arrival, parameters, observers=None,
                  records=None, reactor=None, runtime=None, workers=None,
                  configTemplate=None, workerID=None, workerCount=1):
         if reactor is None:
             from twisted.internet import reactor
         self.server = server
-        self.principalPathTemplate = principalPathTemplate
         self.webadminPort = webadminPort
         self.serverStats = serverStats
         self.serializationPath = serializationPath
@@ -270,6 +232,8 @@ class LoadSimulator(object):
         """
         Create a L{LoadSimulator} from a parsed instance of a configuration
         property list.
+
+        @type{config} L{Config} object
         """
 
         workers = config.get("workers")
@@ -279,7 +243,6 @@ class LoadSimulator(object):
             workerCount = config.get("workerCount", 1)
             configTemplate = None
             server = config.get('server', 'http://127.0.0.1:8008')
-            principalPathTemplate = config.get('principalPathTemplate', '/principals/users/%s/')
             serializationPath = None
 
             if 'clientDataSerialization' in config:
@@ -306,6 +269,14 @@ class LoadSimulator(object):
             parameters = PopulationParameters()
             if 'clients' in config:
                 for clientConfig in config['clients']:
+                    # parameters.addClient(
+                    #     clientConfig["weight"],
+                    #     ClientType(
+                    #         clientConfig["software"],
+                    #         clientConfig["params"],
+                    #         clientConfig["profiles"]
+                    #     )
+                    # )
                     parameters.addClient(
                         clientConfig["weight"],
                         ClientType(
@@ -316,7 +287,8 @@ class LoadSimulator(object):
                                     namedAny(profile["class"]),
                                     cls._convertParams(profile["params"])
                                 ) for profile in clientConfig["profiles"]
-                            ]))
+                            ])),
+                        
             if not parameters.clients:
                 parameters.addClient(1,
                                      ClientType(OS_X_10_6, {},
@@ -324,7 +296,6 @@ class LoadSimulator(object):
         else:
             # Manager / observer process.
             server = ''
-            principalPathTemplate = ''
             serializationPath = None
             arrival = None
             parameters = None
@@ -359,7 +330,6 @@ class LoadSimulator(object):
 
         return cls(
             server,
-            principalPathTemplate,
             webadminPort,
             serverStats,
             serializationPath,
@@ -375,6 +345,104 @@ class LoadSimulator(object):
             workerCount=workerCount,
         )
 
+
+    @classmethod
+    def fromConfigObject(cls, config, runtime=None, output=stdout):
+        workers = config['workers']
+        if workers is None:
+            # Client / place where the simulator actually runs configuration
+            workerID = config.get("workerID", 0)
+            workerCount = config.get("workerCount", 1)
+            configTemplate = None
+            server = config.get('server', 'http://127.0.0.1:8008')
+            serializationPath = None
+
+            serializationPath = config['serializationPath']
+
+            if 'arrival' in config:
+                arrival = Arrival(
+                    namedAny(config['arrival']['factory']),
+                    config['arrival']['params'])
+            else:
+                arrival = Arrival(
+                    SmoothRampUp, dict(groups=10, groupSize=1, interval=3))
+
+            parameters = PopulationParameters()
+            if 'clients' in config:
+                for clientConfig in config['clients']:
+                    parameters.addClient(
+                        clientConfig["weight"],
+                        ClientType(
+                            clientConfig["software"],
+                            clientConfig["params"],
+                            clientConfig["profiles"]
+                        )
+                    )
+                        # ClientType(
+                        #     namedAny(clientConfig["software"]),
+                        #     cls._convertParams(clientConfig["params"]),
+                        #     [
+                        #         ProfileType(
+                        #             namedAny(profile["class"]),
+                        #             cls._convertParams(profile["params"])
+                        #         ) for profile in clientConfig["profiles"]
+                        #     ]))
+            if not parameters.clients:
+                parameters.addClient(1,
+                                     ClientType(OS_X_10_6, {},
+                                                [Eventer, Inviter, Accepter]))
+        else:
+            # Manager / observer process.
+            server = ''
+            serializationPath = None
+            arrival = None
+            parameters = None
+            workerID = 0
+            configTemplate = config
+            workerCount = 1
+
+        # webadminPort = 
+        webadminPort = None
+        if 'webadmin' in config:
+            if config['webadmin']['enabled']:
+                webadminPort = config['webadmin']['HTTPPort']
+
+        serverStats = None
+        if 'serverStats' in config:
+            if config['serverStats']['enabled']:
+                serverStats = config['serverStats']
+                serverStats['server'] = config['server'] if 'server' in config else ''
+
+        observers = []
+        if 'observers' in config:
+            for observer in config['observers']:
+                observerName = observer["type"]
+                observerParams = observer["params"]
+                observers.append(namedAny(observerName)(**observerParams))
+
+        records = []
+        if 'accounts' in config:
+            loader = config['accounts']['loader']
+            params = config['accounts']['params']
+            records.extend(namedAny(loader)(**params))
+            output.write("Loaded {0} accounts.\n".format(len(records)))
+
+        return cls(
+            server,
+            webadminPort,
+            serverStats,
+            serializationPath,
+            arrival,
+            parameters,
+            observers=observers,
+            records=records,
+            runtime=runtime,
+            reactor=reactor,
+            workers=workers,
+            configTemplate=configTemplate,
+            workerID=workerID,
+            workerCount=workerCount,
+        )
 
     @classmethod
     def _convertParams(cls, params):
@@ -415,7 +483,6 @@ class LoadSimulator(object):
             self.parameters,
             self.reactor,
             self.server,
-            self.principalPathTemplate,
             self.serializationPath,
             self.workerID,
             self.workerCount,
@@ -423,6 +490,7 @@ class LoadSimulator(object):
 
 
     def createArrivalPolicy(self):
+        # print(self.arrival.parameters)
         return self.arrival.factory(self.reactor, **self.arrival.parameters)
 
 
@@ -431,16 +499,14 @@ class LoadSimulator(object):
         Return a list of L{SimService} subclasses for C{attachServices} to
         instantiate and attach to the reactor.
         """
-        if self.workers is not None:
-            return [
-                ObserverService,
-                WorkerSpawnerService,
-                ReporterService,
-            ]
+        if self.workers:
+            PrimaryService = WorkerSpawnerService
+        else:
+            PrimaryService = SimulatorService
         return [
             ObserverService,
-            SimulatorService,
             ReporterService,
+            PrimaryService
         ]
 
 
