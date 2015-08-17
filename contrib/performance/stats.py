@@ -15,10 +15,9 @@
 ##
 
 """
-Implementation of a statistics library for Calendar performance analysis.
+Implementation of a statistics library for performance analysis.
 Exports:
-
-_Statistic object
+_Statistic
   Duration
   SQLDuration
   Bytes
