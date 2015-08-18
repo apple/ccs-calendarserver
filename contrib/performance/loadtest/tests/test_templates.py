@@ -23,24 +23,25 @@ from twisted.trial.unittest import TestCase
 
 from contrib.performance.loadtest.templates import eventTemplate, alarmTemplate, taskTemplate
 
-"""
-ensure they're all comps
-and that they are all vcalendars
-with the right prodid and calscale and version
-and that they have the corresponding component
-and that each comp has its required properties
-and that they are all v***
-
-"""
 
 class TemplateTests(TestCase):
-
-
-    def assertTemplateIs(self, component, ):
-        pass
-
-    def test_components(self):
-
+    def assertVCalendar(self, vcal):
+        self.assertEqual(vcal.name(), 'VCALENDAR')
+        self.assertEqual(vcal.propertyValue('VERSION'), '2.0')
 
     def test_eventTemplate(self):
-        runTests(eventTemplate, component_name="VEVENT", required="")
+        self.assertVCalendar(eventTemplate)
+        vevent = eventTemplate.mainComponent()
+        self.assertEqual(vevent.name(), 'VEVENT')
+
+    def test_taskTemplate(self):
+        self.assertVCalendar(taskTemplate)
+        vtodo = taskTemplate.mainComponent()
+        self.assertEqual(vtodo.name(), 'VTODO')
+
+    def test_alarmTemplate(self):
+        self.assertVCalendar(alarmTemplate)
+        valarm = alarmTemplate.mainComponent()
+        self.assertEqual(valarm.name(), 'VALARM')
+        self.assertTrue(valarm.hasProperty('ACTION'))
+        self.assertTrue(valarm.hasProperty('TRIGGER'))

@@ -54,7 +54,7 @@ class IDistribution(Interface):
     def sample(): #@NoSelf
         pass
 
-class Bounded
+# class Bounded
 
 
 class UniformDiscreteDistribution(object, FancyEqMixin):

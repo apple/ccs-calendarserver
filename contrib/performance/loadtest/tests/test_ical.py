@@ -404,30 +404,6 @@ END:VCALENDAR
 """.replace("\n", "\r\n") % {'UID': EVENT_UID}
 
 
-
-class EventTests(TestCase):
-    """
-    Tests for L{Event}.
-    """
-    def test_uid(self):
-        """
-        When the C{vevent} attribute of an L{Event} instance is set,
-        L{Event.getUID} returns the UID value from it.
-        """
-        event = Event(None, u'/foo/bar', u'etag', Component.fromString(EVENT))
-        self.assertEquals(event.getUID(), EVENT_UID)
-
-
-    def test_withoutUID(self):
-        """
-        When an L{Event} has a C{vevent} attribute set to C{None},
-        L{Event.getUID} returns C{None}.
-        """
-        event = Event(None, u'/bar/baz', u'etag')
-        self.assertIdentical(event.getUID(), None)
-
-
-
 PRINCIPAL_PROPFIND_RESPONSE = """\
 <?xml version='1.0' encoding='UTF-8'?>
 <multistatus xmlns='DAV:'>

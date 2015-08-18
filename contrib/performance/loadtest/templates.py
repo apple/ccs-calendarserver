@@ -1,4 +1,3 @@
-# -*- test-case-name: contrib.performance.loadtest.test_population -*-
 ##
 # Copyright (c) 2010-2015 Apple Inc. All rights reserved.
 #
@@ -21,9 +20,9 @@ A list of predefined component templates for use in the client sim
 
 from twistedcaldav.ical import Component
 
-_baseTemplate = Component.newCalendar()
 
-_veventTemplate = Component.fromString("""\
+# Default Event
+eventTemplate = Component.fromString("""
 BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Apple Inc.//Mac OS X 10.11//EN
@@ -34,53 +33,14 @@ SUMMARY:Sample Event
 UID:00000000-0000-0000-0000-000000000000
 CREATED:00000000T000000Z
 DTSTAMP:00000000T000000Z
-DTSTART;TZID=America/Los_Angeles:00000000T000000
-DTEND;TZID=America/Los_Angeles:00000000T000000
-SEQUENCE:0
+DTSTART:00000000T000000
+DTEND:00000000T000000
 END:VEVENT
-END:VCALENDAR
-""".replace("\n", "\r\n"))
-
-_valarmTemplate = Component.fromString("""\
-BEGIN:VALARM
-X-WR-ALARMUID:00000000-0000-0000-0000-000000000000
-UID:00000000-0000-0000-0000-000000000000
-DESCRIPTION:Sample Alarm
-TRIGGER:-PT5M
-ACTION:DISPLAY
-END:VALARM
-""".replace("\n", "\r\n"))
-
-_vtodoTemplate = Component.fromString("""\
-BEGIN:VTODO
-SUMMARY:Sample Task
-UID:00000000-0000-0000-0000-000000000000
-CREATED:00000000T000000Z
-DTSTAMP:00000000T000000Z
-SEQUENCE:0
-END:VTODO
-""".replace("\n", "\r\n"))
-
-# Default Event
-eventTemplate = _baseTemplate.duplicate()
-
-# Default Alarm
-alarmTemplate = Component.fromString("""\
-BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Apple Inc.//Mac OS X 10.11//EN
-CALSCALE:GREGORIAN
-BEGIN:VALARM
-X-WR-ALARMUID:00000000-0000-0000-0000-000000000000
-UID:00000000-0000-0000-0000-000000000000
-DESCRIPTION:Sample Alarm
-TRIGGER:-PT5M
-ACTION:DISPLAY
-END:VALARM
 END:VCALENDAR
 """)
 
-# Default task
+
+# Default Task
 taskTemplate = Component.fromString("""\
 BEGIN:VCALENDAR
 VERSION:2.0
@@ -91,7 +51,22 @@ SUMMARY:Sample Task
 UID:00000000-0000-0000-0000-000000000000
 CREATED:00000000T000000Z
 DTSTAMP:00000000T000000Z
-SEQUENCE:0
 END:VTODO
 END:VCALENDAR
-""".replace("\n", "\r\n"))
+""")
+
+
+# Default Alarm
+alarmTemplate = Component.fromString("""\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//Mac OS X 10.11//EN
+CALSCALE:GREGORIAN
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT5M
+UID:00000000-0000-0000-0000-000000000000
+DESCRIPTION:Sample Alarm
+END:VALARM
+END:VCALENDAR
+""")

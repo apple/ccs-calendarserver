@@ -25,36 +25,41 @@ class PushMonitor(object):
             for that resource
         @type callback: one-argument callable
         """
-        self.reactor = reactor
-        self.ampPushHost = ampPushHost
-        self.ampPushPort = ampPushPort
+        self._reactor = reactor
+        self._ampPushHost = ampPushHost
+        self._ampPushPort = ampPushPort
 
         # Keep track of AMP parameters for calendar homes we encounter.  This
         # dictionary has calendar home URLs as keys and pushkeys as
         # values.
-        self.ampPushkeys = {}
+        self._ampPushkeys = {}
 
     def begin(self):
-        self._monitorAmpPush()
-
-    def end(self):
-        pass
-
-
-    def _monitorAmpPush(self):
         """
         Start monitoring for AMP-based push notifications
         """
-        subscribeToIDs(
-            self.ampPushHost, self.ampPushPort, self.ampPushkeys,
-            self._receivedAMPPush, self.reactor
-        )
+        self._subscribeToIDs(self.ampPushkeys)
 
+    def end(self):
+        """
+        Finish monitoring push notifications. Any other cleanup should be done here
+        """
+        self._unsubscribeFromAll()
+
+    def _subscribeToIDs(self, ids):
+
+        subscribeToIDs(
+            self._ampPushHost,
+            self._ampPushPort,
+            ids,
+            self._receivedAmpPush,
+            self._reactor
+        )
 
     def _receivedAMPPush(self, inboundID, dataChangedTimestamp, priority=5):
         print("-" * 64)
         print("{} received a PUSH with ID={}, timestamp={}, priority={}".format(self.record.commonName, inboundID, dataChangedTimestamp, priority))
-        print("By the way, my AMP keys are {}".format(self.ampPushkeys))
+        print("By the way, my AMP keys are {}".format(self._ampPushkeys))
         print("-" * 64)
 
         for href, calendar_id in self.ampPushkeys.iteritems():
@@ -66,15 +71,21 @@ class PushMonitor(object):
             print("*" * 16 + "Oh no - we're not subscribed to " + str(inboundID) + " but we received a notification anyway!")
             pass
 
-    def unsubscribeFromAll(self):
-        return succeed(None)
+    def _unsubscribeFromAll(self):
+        # For now, the server doesn't support unsubscribing from pushkeys, so we simply
+        # "forget" about our registered pushkeys
+        self._ampPushkeys = {}
 
 
     def addPushkey(self, href, pushkey):
-        pass # Should I subscribe to IDs right now?
+        self._ampPushkeys[href] = pushkey
+        self.subscribeToIDs()
+
 
     def removePushkey(self, pushkey):
-        pass # Should I unsubscribe right now
+        # if self.ampPushkeys.has_value(pushkey):
+        #     del self.ampPushKeys
+        pass
 
     def isSubscribedTo(self, href):
         return href in self.ampPushkeys

@@ -5,8 +5,8 @@ from calendarserver.push.amppush import AMPPushMaster
 from contrib.performance.loadtest.push import PushMonitor
 
 class PushMonitorTests(TestCase):
-    def receivedPush(self, href):
-        print href
+    def fakePush(self, inboundID, dataChangedTimestamp, priority=5):
+        self.monitor._receivedAMPPush(inboundID, dataChangedTimestamp, priority)
 
     def setUp(self):
         self.pushMaster = AMPPushMaster()
@@ -17,6 +17,7 @@ class PushMonitorTests(TestCase):
             62311,
             self.receivedPush
         )
+        self.monitor.begin()
 
     def sendNotification(self, href, pushkey):
         self.pushMaster.notify(href, pushkey, None, None)
@@ -26,3 +27,6 @@ class PushMonitorTests(TestCase):
 
     def test_removePushkey(self):
         pass
+
+    def tearDown(self):
+        self.monitor.end()

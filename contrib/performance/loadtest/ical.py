@@ -902,7 +902,7 @@ class BaseAppleClient(BaseClient):
         Called before connections are closed, giving a chance to clean up
         """
         self.serialize()
-        return self.monitor.unsubscribeFromAll()
+        return self.monitor.end()
 
 
     def serializeLocation(self):

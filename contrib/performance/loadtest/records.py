@@ -11,19 +11,6 @@ class DirectoryRecord(object):
     def __repr__(self):
         return "Record(%s:%s %s %s %s)" % (self.uid, self.password, self.commonName, self.email, self.guid)
 
-# def generateRecords(
-#     count, uidPattern="user%d", passwordPattern="user%d",
-#     namePattern="User %d", emailPattern="user%d@example.com",
-#     guidPattern="user%d"
-# ):
-#     for i in xrange(count):
-#         i += 1
-#         uid = uidPattern % (i,)
-#         password = passwordPattern % (i,)
-#         name = namePattern % (i,)
-#         email = emailPattern % (i,)
-#         guid = guidPattern % (i,)
-#         yield DirectoryRecord(uid, password, name, email, guid)
 
 def recordsFromCSVFile(path):
     if path:
