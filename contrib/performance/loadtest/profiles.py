@@ -864,10 +864,7 @@ class Prioritizer(TaskBase):
     PRIORITY_LOW = 9
 
     def _setPriority(self, priority, vtodo):
-        if priority == self.PRIORITY_NONE:
-            vtodo.removeProperty("PRIORITY")
-        else:
-            vtodo.replaceProperty(Property("PRIORITY", priority))
+        vtodo.replaceProperty(Property("PRIORITY", priority))
 
 class Completer(TaskBase):
     def _markTaskComplete(vtodo):

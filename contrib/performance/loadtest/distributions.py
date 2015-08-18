@@ -20,12 +20,12 @@ Exports:
 Base statistical functions
   mean / median / stddev / mad / residuals
 
-IPopulation interface exposes:
+IDistribution interface exposes:
   sample()
 
 Sampling from this distribution must *not* change the underlying behavior of a distribution
 
-Distributions (all of which implement IPopulation):
+Distributions (all of which implement IDistribution):
   UniformDiscreteDistribution
   LogNormalDistribution
   FixedDistribution
@@ -49,17 +49,19 @@ from zope.interface import Interface, implements
 from twisted.python.util import FancyEqMixin
 
 
-class IPopulation(Interface):
+class IDistribution(Interface):
     """Interface for a class that provides a single function, `sample`, which returns a float"""
     def sample(): #@NoSelf
         pass
+
+class Bounded
 
 
 class UniformDiscreteDistribution(object, FancyEqMixin):
     """
 
     """
-    implements(IPopulation)
+    implements(IDistribution)
 
     compareAttributes = ['_values']
 
@@ -85,7 +87,7 @@ class UniformDiscreteDistribution(object, FancyEqMixin):
 class LogNormalDistribution(object, FancyEqMixin):
     """
     """
-    implements(IPopulation)
+    implements(IDistribution)
 
     compareAttributes = ['_mu', '_sigma', '_maximum']
 
@@ -134,7 +136,7 @@ class LogNormalDistribution(object, FancyEqMixin):
 class FixedDistribution(object, FancyEqMixin):
     """
     """
-    implements(IPopulation)
+    implements(IDistribution)
 
     compareAttributes = ['_value']
 
@@ -395,30 +397,16 @@ class RecurrenceDistribution(object, FancyEqMixin):
 
         return None
 
-class HappyFaceStartDistribution(object, FancyEqMixin):
-    compareAttributes = []
-    def __init__(self, scale):
-        self._scale = scale
-
-    def sample(self):
-        return nprandom.exponential(self._scale)
-
-class HappyFaceDurationDistribution(object, FancyEqMixin):
-    compareAttributes = []
-    def __init__(self):
-        self._distribution = UniformDiscreteDistribution(60 * 15, 60 * 30)
-
-    def sample(self):
-        return self._distribution.sample()
-
-
 if __name__ == '__main__':
     from collections import defaultdict
-    mu = 1.5
-    sigma = 1.22
+    mu = 15
+    sigma = 12
+    print("Testing LogNormalDistribution with mu={mu}, sigma={sigma}".format(
+        mu=mu, sigma=sigma
+    ))
     distribution = LogNormalDistribution(mu, sigma, 100)
     result = defaultdict(int)
-    for i in range(100000):
+    for _ignore_i in xrange(100000):
         s = int(distribution.sample())
         if s > 300:
             continue

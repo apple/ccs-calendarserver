@@ -8,7 +8,18 @@ from contrib.performance.loadtest.distributions import (
 from pycalendar.datetime import DateTime
 from pycalendar.timezone import Timezone
 
+class DistributionTestBase(TestCase):
+    def getSamples(self, n):
+        samples = []
+        for _ignore_i in xrange(n):
+            samples.append()
+
+    def close(self, n):
+        pass
+
 class DistributionTests(TestCase):
+
+
     def test_lognormal(self):
         dist = LogNormalDistribution(mu=1, sigma=1)
         for _ignore_i in range(100):

@@ -22,7 +22,7 @@ from caldavclientlibrary.protocol.webdav.definitions import davxml
 from caldavclientlibrary.protocol.url import URL
 
 from contrib.performance.httpclient import readBody
-from contrib.performance.loadtest.subscribe import Periodical
+from contrib.performance.loadtest.pubsub import Publisher
 from contrib.performance.loadtest.resources import Event, Calendar
 from contrib.performance.loadtest.requester import Requester, IncorrectResponseCode
 from contrib.performance.loadtest.push import PushMonitor
@@ -293,7 +293,7 @@ class BaseAppleClient(BaseClient):
 
         # Allow events to go out into the world.
         self.catalog = {
-            "eventChanged": Periodical(),
+            "eventChanged": Publisher(),
         }
 
         self._checking = set()

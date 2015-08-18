@@ -21,16 +21,15 @@ A list of predefined component templates for use in the client sim
 
 from twistedcaldav.ical import Component
 
-# Default event
-# Todo - decide on default timezone, also should we have X-ATAB?
-eventTemplate = Component.fromString("""\
+_baseTemplate = Component.newCalendar()
+
+_veventTemplate = Component.fromString("""\
 BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Apple Inc.//Mac OS X 10.11//EN
 CALSCALE:GREGORIAN
 BEGIN:VEVENT
 TRANSP:OPAQUE
-X-APPLE-TRAVEL-ADVISORY-BEHAVIOR:AUTOMATIC
 SUMMARY:Sample Event
 UID:00000000-0000-0000-0000-000000000000
 CREATED:00000000T000000Z
@@ -42,6 +41,30 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n"))
 
+_valarmTemplate = Component.fromString("""\
+BEGIN:VALARM
+X-WR-ALARMUID:00000000-0000-0000-0000-000000000000
+UID:00000000-0000-0000-0000-000000000000
+DESCRIPTION:Sample Alarm
+TRIGGER:-PT5M
+ACTION:DISPLAY
+END:VALARM
+""".replace("\n", "\r\n"))
+
+_vtodoTemplate = Component.fromString("""\
+BEGIN:VTODO
+SUMMARY:Sample Task
+UID:00000000-0000-0000-0000-000000000000
+CREATED:00000000T000000Z
+DTSTAMP:00000000T000000Z
+SEQUENCE:0
+END:VTODO
+""".replace("\n", "\r\n"))
+
+# Default Event
+eventTemplate = _baseTemplate.duplicate()
+
+# Default Alarm
 alarmTemplate = Component.fromString("""\
 BEGIN:VCALENDAR
 VERSION:2.0
@@ -55,8 +78,9 @@ TRIGGER:-PT5M
 ACTION:DISPLAY
 END:VALARM
 END:VCALENDAR
-""".replace("\n", "\r\n"))
+""")
 
+# Default task
 taskTemplate = Component.fromString("""\
 BEGIN:VCALENDAR
 VERSION:2.0

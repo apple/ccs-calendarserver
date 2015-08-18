@@ -293,6 +293,9 @@ class IncorrectResponseCode(Exception):
         self.expected = expected
         self.response = response
 
+    def __repr__(self):
+        return "%s "
+
 
 class WebClientContextFactory(ClientContextFactory):
     """

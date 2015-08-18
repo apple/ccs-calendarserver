@@ -3,8 +3,7 @@ from twisted.internet.defer import succeed
 
 class PushMonitor(object):
     """
-    Representation of a watchguard that monitors
-    push notifications (AMP Push)
+    Watchguard that monitors push notifications (AMP Push)
     """
 
     def __init__(
@@ -15,11 +14,16 @@ class PushMonitor(object):
         callback
     ):
         """
-        reactor: Twisted reactor
-        ampPushHost: localhost
-        ampPushPort: 62311
-        callback: a one-argument function that is fired with a calendar href
-                  upon receipt of a push notification for that resource
+        @param reactor: Twisted reactor
+        @type reactor: twisted.web.reactor
+        @param ampPushHost: AMP host to connect to (e.g. 'localhost')
+        @type ampPushHost: string
+        @param ampPushPort: AMP port to connect to (e.g. 62311)
+        @type ampPushPort: integer
+        @param callback: a one-argument function that is fired
+            with a calendar hrefupon receipt of a push notification
+            for that resource
+        @type callback: one-argument callable
         """
         self.reactor = reactor
         self.ampPushHost = ampPushHost
