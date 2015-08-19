@@ -54,6 +54,7 @@ def usage(e=None):
     print("  -s --server <postgres db server hostname>")
     print("  -u --user <username>")
     print("  -p --password <password>")
+    print("  -P --pod <pod name>")
     print("  -d --database <database name> (default = 'proxies')")
     print("  -t --dbtype <database type> (default = 'ProxyDB')")
     print("")
