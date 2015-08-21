@@ -4719,7 +4719,7 @@ SUMMARY:Test
 END:VEVENT
 END:VCALENDAR
 """,
-                {},
+                {"20080602T120000Z": None},
                 {},
             ),
             (
@@ -4794,7 +4794,7 @@ SUMMARY:Test
 END:VEVENT
 END:VCALENDAR
 """,
-                {"20080602T120000Z": {"DTSTART": set()}},
+                {"20080602T120000Z": None},
                 {},
             ),
             (
@@ -4830,7 +4830,7 @@ SUMMARY:Test
 END:VEVENT
 END:VCALENDAR
 """,
-                {"20080602T120000Z": {"DTSTART": set()}},
+                {"20080602T120000Z": {}},
                 {},
             ),
         )
@@ -4845,7 +4845,8 @@ END:VCALENDAR
 
         for description, calendar1, calendar2, rids, changes in itertools.chain(data5,):
             differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
-            got_rids, got_changes = differ.whatIsDifferent(isiTip=False)
+            got_rids, got_changes = differ.whatIsDifferent()
+            rids = dict([(DateTime.parseText(k) if k else None, v) for k, v in rids.items()])
             self.assertEqual(got_rids, rids, msg="%s expected R-IDs: '%s', got: '%s'" % (description, rids, got_rids,))
             self.assertEqual(got_changes, changes, msg="%s expected changes R-IDs: '%s', got: '%s'" % (description, changes, got_changes,))
 

@@ -858,6 +858,10 @@ class ImplicitScheduler(object):
             checkOrganizerValue = False
             for rid, props in diffs.iteritems():
 
+                # Ignore this case - it should only happen when there is no master component
+                if not props:
+                    continue
+
                 # Ignore sequence only changes
                 if "SEQUENCE" in props and len(props) == 1:
                     continue

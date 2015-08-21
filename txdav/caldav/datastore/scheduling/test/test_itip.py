@@ -115,7 +115,7 @@ TRANSP:TRANSPARENT
 END:VEVENT
 END:VCALENDAR
 """,
-                0,
+                1,
             ),
             (
                 "2.1 partstat change pinned to sequence - changed",

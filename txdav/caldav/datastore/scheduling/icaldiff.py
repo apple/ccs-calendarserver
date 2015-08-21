@@ -756,7 +756,7 @@ class iCalDiff(object):
         return partstatChanged
 
 
-    def whatIsDifferent(self, isiTip=True):
+    def whatIsDifferent(self, timeRangeCheck=False):
         """
         Compare the two calendar objects in their entirety and return a list of properties
         and PARTSTAT parameters that are different.
@@ -786,7 +786,7 @@ class iCalDiff(object):
         for key in (oldset & newset):
             component1 = oldmap[key]
             component2 = newmap[key]
-            self._diffComponents(component1, component2, rids, needs_action_changes, isiTip)
+            self._diffComponents(component1, component2, rids, needs_action_changes, timeRangeCheck)
 
         # Now verify that each additional component in oldset matches a derived component in newset
         for key in oldset - newset:
@@ -794,27 +794,21 @@ class iCalDiff(object):
             oldcomponent = oldmap[key]
             newcomponent = self.newcalendar.deriveInstance(rid)
             if newcomponent is None:
-                # For the non iTIP case we must report missing components on either side. Marking
-                # the DTSTART as changed is enough to trigger logic in the caller to treat this
-                # as a significant change.
-                if not isiTip:
-                    rids[rid.getText() if rid is not None else ""] = {"DTSTART": set()}
+                # Set the entry to None to indicate removal
+                rids[rid] = None
                 continue
-            self._diffComponents(oldcomponent, newcomponent, rids, needs_action_changes, isiTip)
+            self._diffComponents(oldcomponent, newcomponent, rids, needs_action_changes, timeRangeCheck)
 
         # Now verify that each additional component in oldset matches a derived component in newset
         for key in newset - oldset:
             rid = key[2]
             oldcomponent = self.oldcalendar.deriveInstance(rid)
             if oldcomponent is None:
-                # For the non iTIP case we must report missing components on either side. Marking
-                # the DTSTART as changed is enough to trigger logic in the caller to treat this
-                # as a significant change.
-                if not isiTip:
-                    rids[rid.getText() if rid is not None else ""] = {"DTSTART": set()}
+                # Set the entry to an empty dict to indicate addition
+                rids[rid] = {}
                 continue
             newcomponent = newmap[key]
-            self._diffComponents(oldcomponent, newcomponent, rids, needs_action_changes, isiTip)
+            self._diffComponents(oldcomponent, newcomponent, rids, needs_action_changes, timeRangeCheck)
 
         return (rids, needs_action_changes,)
 
@@ -843,8 +837,11 @@ class iCalDiff(object):
         @rtype: L{bool}
         """
 
-        rids, _ignore_changes = self.whatIsDifferent(isiTip=False)
+        rids, _ignore_changes = self.whatIsDifferent(timeRangeCheck=True)
         for props in rids.values():
+            if not props:
+                # Component was added (props == {}) or removed (props is None)
+                return True
             props = frozenset(props.keys())
             if props & self.TRPROPS:
                 return True
@@ -868,6 +865,8 @@ class iCalDiff(object):
         recurrence_reschedule = False
 
         for rid, props in diffs.iteritems():
+            if props is None:
+                continue
             if any([testprop in props for testprop in (
                 "DTSTART",
                 "DTEND",
@@ -921,13 +920,13 @@ class iCalDiff(object):
         return (date_changed_rids, recurrence_reschedule,)
 
 
-    def _componentDuplicateAndNormalize(self, comp, isiTip=True):
+    def _componentDuplicateAndNormalize(self, comp, timeRangeCheck=False):
         comp = comp.duplicate()
         comp.normalizePropertyValueLists("EXDATE")
         comp.removeAlarms()
         comp.normalizeAll()
         comp.normalizeAttachments()
-        if isiTip:
+        if not timeRangeCheck:
             comp.removePropertyParameters("ORGANIZER", ("SCHEDULE-STATUS",))
             comp.removePropertyParameters("ATTENDEE", ("SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND",))
             comp.removePropertyParameters("VOTER", ("SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND",))
@@ -935,7 +934,7 @@ class iCalDiff(object):
         return comp
 
 
-    def _diffComponents(self, comp1, comp2, rids, needs_action_rids, isiTip=True):
+    def _diffComponents(self, comp1, comp2, rids, needs_action_rids, timeRangeCheck=False):
 
         assert isinstance(comp1, Component) and isinstance(comp2, Component)
 
@@ -944,8 +943,8 @@ class iCalDiff(object):
             return
 
         # Duplicate then normalize for comparison
-        comp1 = self._componentDuplicateAndNormalize(comp1, isiTip)
-        comp2 = self._componentDuplicateAndNormalize(comp2, isiTip)
+        comp1 = self._componentDuplicateAndNormalize(comp1, timeRangeCheck)
+        comp2 = self._componentDuplicateAndNormalize(comp2, timeRangeCheck)
 
         # Diff all the properties
         propdiff = set(comp1.properties()) ^ set(comp2.properties())

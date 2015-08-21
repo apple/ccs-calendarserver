@@ -572,6 +572,11 @@ class ImplicitProcessor(object):
                 # Build the schedule-changes XML element
                 update_details = []
                 for rid, props_changed in sorted(rids.iteritems(), key=lambda x: x[0]):
+
+                    # We do not report removals as those will already have been processed via a CANCEL
+                    if props_changed is None:
+                        continue
+
                     recurrence = []
                     if rid is None:
                         recurrence.append(customxml.Master())
