@@ -493,6 +493,8 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         current["user-agent"][adjustedClient] += 1
         if stats["statusCode"] >= 500:
             current["500"] += 1
+        elif stats["statusCode"] == 401:
+            current["401"] += 1
         current["t"] += stats.get("t", 0.0)
         current["t-resp-wr"] += stats.get("t-resp-wr", 0.0)
         current["slots"] += stats.get("outstandingRequests", 0)

@@ -195,6 +195,7 @@ class Dashboard(object):
                         self.displayWindow(self.registered_windows["h"])
 
             self.resetWindows()
+
         # Reset the screen to the default config
         else:
             if self.windows:
@@ -209,15 +210,18 @@ class Dashboard(object):
                 self.windows.append(wtype(self.usesCurses, self.client).makeWindow(top=top))
                 self.windows[-1].activate()
                 top += self.windows[-1].nlines + 1
-            # Don't display help panel if the window is too narrow
-            term_w, term_h = terminal_size()
-            logging.debug("logger displayWindow: rows: %s  cols: %s" % (term_h, term_w))
-            if int(term_w) > 100:
-                logging.debug('term_w > 100, making window with top at %d' % (top))
-                self.windows.append(HelpWindow(self.usesCurses, self.client).makeWindow(top=top))
-                self.windows[-1].activate()
 
-        curses.panel.update_panels()
+            # Don't display help panel if the window is too narrow
+            if self.usesCurses:
+                term_w, term_h = terminal_size()
+                logging.debug("logger displayWindow: rows: %s  cols: %s" % (term_h, term_w))
+                if int(term_w) > 100:
+                    logging.debug('term_w > 100, making window with top at %d' % (top))
+                    self.windows.append(HelpWindow(self.usesCurses, self.client).makeWindow(top=top))
+                    self.windows[-1].activate()
+
+        if self.usesCurses:
+            curses.panel.update_panels()
         self.updateDisplay(True)
 
 
@@ -350,7 +354,8 @@ class DashboardClient(object):
         Update the current data from the server.
         """
 
-        self.currentData = self.readSock(self.items)
+        # Only read each item once
+        self.currentData = self.readSock(list(set(self.items)))
 
 
     def getOneItem(self, item):
@@ -513,6 +518,9 @@ class HelpWindow(BaseWindow):
         x = 1
         y = 1
 
+        if not self.usesCurses:
+            print("------------ {}".format(self.title))
+
         items = []
         for keypress, wtype in sorted(
             Dashboard.registered_windows.items(), key=lambda x: x[0]
@@ -525,6 +533,9 @@ class HelpWindow(BaseWindow):
             else:
                 print(item)
             y += 1
+
+        if not self.usesCurses:
+            print("")
 
         if self.usesCurses:
             self.window.refresh()
@@ -574,6 +585,7 @@ class JobsWindow(BaseWindow):
             self.window.addstr(y, x, s1, curses.A_REVERSE)
             self.window.addstr(y + 1, x, s2, curses.A_REVERSE)
         else:
+            print("------------ {}".format(self.title))
             print(s1)
             print(s2)
         y += 2
@@ -633,6 +645,7 @@ class JobsWindow(BaseWindow):
             self.window.addstr(y, x, s)
         else:
             print(s)
+            print("")
         y += 1
 
         if self.usesCurses:
@@ -685,6 +698,7 @@ class AssignmentsWindow(BaseWindow):
         if self.usesCurses:
             self.window.addstr(y, x, s, curses.A_REVERSE)
         else:
+            print("------------ {}".format(self.title))
             print(s)
         y += 1
         total_assigned = 0
@@ -727,6 +741,7 @@ class AssignmentsWindow(BaseWindow):
             self.window.addstr(y, x, s)
         else:
             print(s)
+            print("")
         y += 1
 
         if self.usesCurses:
@@ -780,6 +795,7 @@ class HTTPSlotsWindow(BaseWindow):
         if self.usesCurses:
             self.window.addstr(y, x, s, curses.A_REVERSE)
         else:
+            print("------------ {}".format(self.title))
             print(s)
         y += 1
         for record in sorted(records, key=lambda x: x["slot"]):
@@ -837,6 +853,7 @@ class HTTPSlotsWindow(BaseWindow):
             if data["overloaded"]:
                 s += "    OVERLOADED"
             print(s)
+            print("")
         y += 1
 
         if self.usesCurses:
@@ -887,6 +904,7 @@ class SystemWindow(BaseWindow):
         if self.usesCurses:
             self.window.addstr(y, x, s, curses.A_REVERSE)
         else:
+            print("------------ {}".format(self.title))
             print(s)
         y += 1
 
@@ -916,6 +934,9 @@ class SystemWindow(BaseWindow):
             except curses.error:
                 pass
             y += 1
+
+        if not self.usesCurses:
+            print("")
 
         if self.usesCurses:
             self.window.refresh()
@@ -959,6 +980,7 @@ class RequestStatsWindow(BaseWindow):
             self.window.addstr(y, x, s1, curses.A_REVERSE)
             self.window.addstr(y + 1, x, s2, curses.A_REVERSE)
         else:
+            print("------------ {}".format(self.title))
             print(s1)
             print(s2)
         y += 2
@@ -992,10 +1014,135 @@ class RequestStatsWindow(BaseWindow):
                 pass
             y += 1
 
+        if not self.usesCurses:
+            print("")
+
         if self.usesCurses:
             self.window.refresh()
 
         self.lastResult = records
+
+
+
+class MethodsWindow(BaseWindow):
+    """
+    Display the status of the server's request methods.
+    """
+
+    help = "server methods"
+    clientItem = "stats"
+    FORMAT_WIDTH = 116
+    stats_keys = ("current", "1m", "5m", "1h",)
+
+    def makeWindow(self, top=0, left=0):
+        stats = defaultIfNone(self.clientData(), {})
+        methods = set()
+        for key in self.stats_keys:
+            methods.update(stats.get(key, {}).get("method", {}).keys())
+        nlines = len(methods)
+        self.rowCount = nlines
+        self._createWindow("Methods", self.rowCount + 7, ncols=self.FORMAT_WIDTH, begin_y=top, begin_x=left)
+        return self
+
+
+    def update(self):
+        stats = defaultIfNone(self.clientData(), {})
+        methods = set()
+        for key in self.stats_keys:
+            methods.update(stats.get(key, {}).get("method", {}).keys())
+
+        records = {}
+        records_t = {}
+        for key in self.stats_keys:
+            records[key] = defaultIfNone(self.clientData(), {}).get(key, {}).get("method", {})
+            records_t[key] = defaultIfNone(self.clientData(), {}).get(key, {}).get("method-t", {})
+        self.iter += 1
+
+        if self.usesCurses:
+            self.window.erase()
+            self.window.border()
+            self.window.addstr(
+                0, 2,
+                self.title + " {} ({})".format(len(records), self.iter)
+            )
+
+        x = 1
+        y = 1
+        s1 = " {:<40}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10} ".format(
+            "", "------", "current---", "------", "1m--------", "------", "5m--------", "------", "1h--------",
+        )
+        s2 = " {:<40}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10} ".format(
+            "Method", "Number", "Av-Time", "Number", "Av-Time", "Number", "Av-Time", "Number", "Av-Time",
+        )
+        s3 = " {:<40}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10} ".format(
+            "", "", "(ms)", "", "(ms)", "", "(ms)", "", "(ms)",
+        )
+        if self.usesCurses:
+            self.window.addstr(y, x, s1, curses.A_REVERSE)
+            self.window.addstr(y + 1, x, s2, curses.A_REVERSE)
+            self.window.addstr(y + 2, x, s3, curses.A_REVERSE)
+        else:
+            print("------------ {}".format(self.title))
+            print(s1)
+            print(s2)
+            print(s3)
+        y += 2
+        total_methods = dict([(key, 0) for key in self.stats_keys])
+        total_time = dict([(key, 0.0) for key in self.stats_keys])
+        for method_type in sorted(methods):
+            for key in self.stats_keys:
+                total_methods[key] += records[key].get(method_type, 0)
+                total_time[key] += records_t[key].get(method_type, 0.0)
+            changed = self.lastResult.get(method_type, 0) != records["current"].get(method_type, 0)
+            items = [method_type]
+            for key in self.stats_keys:
+                items.append(records[key].get(method_type, 0))
+                items.append(safeDivision(records_t[key].get(method_type, 0), records[key].get(method_type, 0)))
+            s = " {:<40}{:>8}{:>10.1f}{:>8}{:>10.1f}{:>8}{:>10.1f}{:>8}{:>10.1f} ".format(
+                *items
+            )
+            try:
+                if self.usesCurses:
+                    self.window.addstr(
+                        y, x, s,
+                        curses.A_REVERSE if changed else curses.A_NORMAL,
+                    )
+                else:
+                    print(s)
+            except curses.error:
+                pass
+            y += 1
+
+        items = ["Total:"]
+        for key in self.stats_keys:
+            items.append(total_methods[key])
+            items.append(safeDivision(total_time[key], total_methods[key]))
+        s1 = " {:<40}{:>8}{:>10.1f}{:>8}{:>10.1f}{:>8}{:>10.1f}{:>8}{:>10.1f} ".format(
+            *items
+        )
+        items = ["401s:"]
+        for key in self.stats_keys:
+            items.append(defaultIfNone(self.clientData(), {}).get(key, {}).get("401", 0))
+            items.append("")
+        s2 = " {:<40}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10} ".format(
+            *items
+        )
+        if self.usesCurses:
+            self.window.hline(y, x, "-", self.FORMAT_WIDTH - 2)
+            y += 1
+            self.window.addstr(y, x, s1)
+            y += 1
+            self.window.addstr(y, x, s2)
+        else:
+            print(s1)
+            print(s2)
+            print("")
+        y += 1
+
+        if self.usesCurses:
+            self.window.refresh()
+
+        self.lastResult = defaultIfNone(self.clientData(), {}).get("current", {}).get("method", {})
 
 
 
@@ -1044,6 +1191,7 @@ class DirectoryStatsWindow(BaseWindow):
             self.window.addstr(y, x, s1, curses.A_REVERSE)
             self.window.addstr(y + 1, x, s2, curses.A_REVERSE)
         else:
+            print("------------ {}".format(self.title))
             print(s1)
             print(s2)
         y += 2
@@ -1111,6 +1259,7 @@ class DirectoryStatsWindow(BaseWindow):
             print(s)
             print(s1)
             print(s2)
+            print("")
         y += 3
 
         if self.usesCurses:
@@ -1122,6 +1271,7 @@ Dashboard.registerWindow(HelpWindow, "h")
 Dashboard.registerWindow(SystemWindow, "s")
 Dashboard.registerWindow(AssignmentsWindow, "w")
 Dashboard.registerWindow(RequestStatsWindow, "r")
+Dashboard.registerWindow(MethodsWindow, "m")
 Dashboard.registerWindow(JobsWindow, "j")
 Dashboard.registerWindow(HTTPSlotsWindow, "c")
 Dashboard.registerWindow(DirectoryStatsWindow, "d")

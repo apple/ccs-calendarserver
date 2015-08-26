@@ -36,6 +36,7 @@ def http_POST(self, request):
     if request.params:
         if request.params == "add-member":
             if config.EnableAddMember and hasattr(self, "POST_handler_add_member"):
+                request.submethod = "add-member"
                 result = (yield self.POST_handler_add_member(request))
                 returnValue(result)
 
@@ -45,6 +46,7 @@ def http_POST(self, request):
         if len(action) == 1:
             action = action[0]
             if hasattr(self, "POST_handler_action"):
+                request.submethod = action
                 result = (yield self.POST_handler_action(request, action))
                 returnValue(result)
 

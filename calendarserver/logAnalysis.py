@@ -36,10 +36,12 @@ METHOD_PROPPATCH_ADDRESSBOOK = "PROPPATCH Adbk Home"
 METHOD_REPORT_CALENDAR_MULTIGET = "REPORT cal-multi"
 METHOD_REPORT_CALENDAR_QUERY = "REPORT cal-query"
 METHOD_REPORT_CALENDAR_FREEBUSY = "REPORT freebusy"
+METHOD_REPORT_CALENDAR_HOME_SYNC = "REPORT cal-home-sync"
 METHOD_REPORT_CALENDAR_SYNC = "REPORT cal-sync"
 METHOD_REPORT_ADDRESSBOOK_MULTIGET = "REPORT adbk-multi"
 METHOD_REPORT_ADDRESSBOOK_QUERY = "REPORT adbk-query"
 METHOD_REPORT_DIRECTORY_QUERY = "REPORT dir-query"
+METHOD_REPORT_ADDRESSBOOK_HOME_SYNC = "REPORT adbk-home-sync"
 METHOD_REPORT_ADDRESSBOOK_SYNC = "REPORT adbk-sync"
 METHOD_REPORT_P_SEARCH_P_SET = "REPORT p-set"
 METHOD_REPORT_P_P_SEARCH = "REPORT p-search"
@@ -48,9 +50,15 @@ METHOD_REPORT_EXPAND_P = "REPORT expand"
 # POSTs
 METHOD_POST_CALENDAR_HOME = "POST Calendar Home"
 METHOD_POST_CALENDAR = "POST Calendar"
-METHOD_POST_CALENDAR_OBJECT = "POST Calendar Object"
+METHOD_POST_CALENDAR_ADD_MEMBER = "POST Calendar-add"
+METHOD_POST_CALENDAR_OBJECT = "POST ics"
+METHOD_POST_CALENDAR_OBJECT_SPLIT = "POST split"
+METHOD_POST_CALENDAR_OBJECT_ATTACHMENT_ADD = "POST att-add"
+METHOD_POST_CALENDAR_OBJECT_ATTACHMENT_UPDATE = "POST att-update"
+METHOD_POST_CALENDAR_OBJECT_ATTACHMENT_REMOVE = "POST att-remove"
 METHOD_POST_ADDRESSBOOK_HOME = "POST Adbk Home"
 METHOD_POST_ADDRESSBOOK = "POST Adbk"
+METHOD_POST_ADDRESSBOOK_ADD_MEMBER = "POST Adbk-add"
 METHOD_POST_ISCHEDULE_FREEBUSY = "POST Freebusy iSchedule"
 METHOD_POST_ISCHEDULE = "POST iSchedule"
 METHOD_POST_TIMEZONES = "POST Timezones"
@@ -89,12 +97,15 @@ METHOD_DELETE_ADDRESSBOOK = "DELETE Adbk"
 METHOD_DELETE_VCF = "DELETE vcf"
 
 
-def getAdjustedMethodName(stats):
+def getAdjustedMethodName(stats, method=None, uri=None):
 
-    method = stats["method"]
-    uribits = stats["uri"].rstrip("/").split('/')[1:]
+    if method is None:
+        method = stats["method"]
+    if uri is None:
+        uri = stats["uri"]
+    uribits = uri.rstrip("/").split('/')[1:]
     if len(uribits) == 0:
-        uribits = [stats["uri"]]
+        uribits = [uri]
 
     calendar_specials = ("attachments", "dropbox", "notification", "freebusy", "outbox",)
     adbk_specials = ("notification",)
@@ -143,17 +154,25 @@ def getAdjustedMethodName(stats):
                     report_type = "directory-query"
             if report_type == "sync-collection":
                 if uribits[0] == "calendars":
-                    report_type = "cal-sync"
+                    if len(uribits) == 3:
+                        report_type = "cal-home-sync"
+                    else:
+                        report_type = "cal-sync"
                 elif uribits[0] == "addressbooks":
-                    report_type = "adbk-sync"
+                    if len(uribits) == 3:
+                        report_type = "adbk-home-sync"
+                    else:
+                        report_type = "adbk-sync"
             mappedNames = {
                 "calendar-multiget"             : METHOD_REPORT_CALENDAR_MULTIGET,
                 "calendar-query"                : METHOD_REPORT_CALENDAR_QUERY,
                 "free-busy-query"               : METHOD_REPORT_CALENDAR_FREEBUSY,
+                "cal-home-sync"                 : METHOD_REPORT_CALENDAR_HOME_SYNC,
                 "cal-sync"                      : METHOD_REPORT_CALENDAR_SYNC,
                 "addressbook-multiget"          : METHOD_REPORT_ADDRESSBOOK_MULTIGET,
                 "addressbook-query"             : METHOD_REPORT_ADDRESSBOOK_QUERY,
                 "directory-query"               : METHOD_REPORT_DIRECTORY_QUERY,
+                "adbk-home-sync"                : METHOD_REPORT_ADDRESSBOOK_HOME_SYNC,
                 "adbk-sync"                     : METHOD_REPORT_ADDRESSBOOK_SYNC,
                 "principal-search-property-set" : METHOD_REPORT_P_SEARCH_P_SET,
                 "principal-property-search"     : METHOD_REPORT_P_P_SEARCH,
@@ -178,7 +197,18 @@ def getAdjustedMethodName(stats):
 
         if uribits[0] == "calendars":
 
-            if len(uribits) == 3:
+            if "(" in method:
+                post_type = method.split("(")[1][:-1]
+                mappedNames = {
+                    "add-member"            : METHOD_POST_CALENDAR_ADD_MEMBER,
+                    "split"                 : METHOD_POST_CALENDAR_OBJECT_SPLIT,
+                    "attachment-add"        : METHOD_POST_CALENDAR_OBJECT_ATTACHMENT_ADD,
+                    "attachment-update"     : METHOD_POST_CALENDAR_OBJECT_ATTACHMENT_UPDATE,
+                    "attachment-remove"     : METHOD_POST_CALENDAR_OBJECT_ATTACHMENT_REMOVE,
+                }
+                return mappedNames.get(post_type, "POST %s" % (post_type,))
+
+            elif len(uribits) == 3:
                 return METHOD_POST_CALENDAR_HOME
             elif len(uribits) == 4:
                 if uribits[3] == "outbox":
@@ -334,6 +364,7 @@ def getAdjustedMethodName(stats):
 
 osClients = (
     "Mac OS X/",
+    "Mac+OS+X/",
     "Mac_OS_X/",
     "iOS/",
 )
