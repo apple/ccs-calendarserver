@@ -14,6 +14,7 @@
 # limitations under the License.
 ##
 from __future__ import print_function
+from twext.enterprise.jobs.jobitem import JobItem
 
 """
 Tests for calendarserver.tools.calverify
@@ -21,7 +22,7 @@ Tests for calendarserver.tools.calverify
 
 from calendarserver.tools.calverify import BadDataService, \
     SchedulingMismatchService, DoubleBookingService, DarkPurgeService, \
-    EventSplitService
+    EventSplitService, MissingLocationService
 
 from pycalendar.datetime import DateTime
 
@@ -505,7 +506,7 @@ class CalVerifyDataTests(StoreTestCase):
         sync_token_new = (yield (yield self.calendarUnderTest()).syncToken())
         self.assertNotEqual(sync_token_old, sync_token_new)
 
-        # Make sure mailto: fix results in urn:uuid value without SCHEDULE-AGENT
+        # Make sure mailto: fix results in urn:x-uid value without SCHEDULE-AGENT
         obj = yield self.calendarObjectUnderTest(name="bad10.ics")
         ical = yield obj.component()
         org = ical.getOrganizerProperty()
@@ -2793,3 +2794,209 @@ END:VCALENDAR
         self.assertTrue("%(now_fwd10)s" % self.subs in result)
         self.assertTrue("%(now_fwd11)s *" % self.subs in result)
         self.assertTrue("%(now_fwd12)s" % self.subs in result)
+
+
+
+class CalVerifyMissingLocations(CalVerifyMismatchTestsBase):
+    """
+    Tests calverify for events.
+    """
+
+    subs = {
+        "year": nowYear,
+        "month": nowMonth,
+        "uuid1": CalVerifyMismatchTestsBase.uuid1,
+        "uuid2": CalVerifyMismatchTestsBase.uuid2,
+        "uuid3": CalVerifyMismatchTestsBase.uuid3,
+        "uuidl1": CalVerifyMismatchTestsBase.uuidl1,
+    }
+
+    # Valid event
+    VALID_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:VALID_ICS
+TRANSP:OPAQUE
+SUMMARY:VALID_ICS
+DTSTART:%(year)s%(month)02d08T100000Z
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:x-uid:%(uuid1)s
+ATTENDEE:urn:x-uid:%(uuid1)s
+ATTENDEE:urn:x-uid:%(uuid2)s
+ATTENDEE:urn:x-uid:%(uuidl1)s
+LOCATION:Location 1
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % subs
+
+    # Invalid event
+    INVALID_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVALID_ICS
+TRANSP:OPAQUE
+SUMMARY:INVALID_ICS
+DTSTART:%(year)s%(month)02d08T120000Z
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:x-uid:%(uuid1)s
+ATTENDEE:urn:x-uid:%(uuid1)s
+ATTENDEE:urn:x-uid:%(uuid2)s
+ATTENDEE:urn:x-uid:%(uuidl1)s
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % subs
+
+    allEvents = {
+        "invite1.ics"      : (VALID_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite2.ics"      : (INVALID_ICS, CalVerifyMismatchTestsBase.metadata,),
+    }
+
+    requirements = {
+        CalVerifyMismatchTestsBase.uuid1 : {
+            "calendar" : allEvents,
+            "inbox" : {},
+        },
+        CalVerifyMismatchTestsBase.uuid2 : {
+            "calendar" : allEvents,
+            "inbox" : {},
+        },
+        CalVerifyMismatchTestsBase.uuid3 : {
+            "calendar" : {},
+            "inbox" : {},
+        },
+        CalVerifyMismatchTestsBase.uuidl1 : {
+            "calendar" : allEvents,
+            "inbox" : {},
+        },
+    }
+
+    @inlineCallbacks
+    def test_scanMissingLocations(self):
+        """
+        MissingLocationService.doAction without fix for missing locations. Make sure it detects
+        as much as it can. Make sure sync-token is not changed.
+        """
+
+        sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
+        yield self.commit()
+
+        options = {
+            "ical": False,
+            "badcua": False,
+            "mismatch": False,
+            "nobase64": False,
+            "double": False,
+            "dark-purge": False,
+            "missing-location": True,
+            "fix": False,
+            "verbose": False,
+            "details": False,
+            "summary": False,
+            "days": 365,
+            "uid": "",
+            "uuid": self.uuidl1,
+            "tzid": "utc",
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
+            "no-organizer": False,
+            "invalid-organizer": False,
+            "disabled-organizer": False,
+        }
+        output = StringIO()
+        calverify = MissingLocationService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
+
+        self.assertEqual(calverify.results["Number of events to process"], len(self.requirements[CalVerifyMismatchTestsBase.uuidl1]["calendar"]))
+        self.assertEqual(
+            sorted([i.uid for i in calverify.results["Bad Events"]]),
+            ["INVALID_ICS", ]
+        )
+        self.assertEqual(calverify.results["Number of bad events"], 1)
+        self.assertTrue("Fix bad events" not in calverify.results)
+
+        sync_token_newl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
+        self.assertEqual(sync_token_oldl1, sync_token_newl1)
+
+
+    @inlineCallbacks
+    def test_fixMissingLocations(self):
+        """
+        MissingLocationService.doAction with fix for missing locations. Make sure it detects
+        as much as it can. Make sure sync-token is changed.
+        """
+
+        # Make sure location is in each users event
+        for uid in (self.uuid1, self.uuid2, self.uuidl1,):
+            calobj = yield self.calendarObjectUnderTest(home=uid, calendar_name="calendar", name="invite2.ics")
+            caldata = yield calobj.componentForUser()
+            self.assertTrue("LOCATION:" not in str(caldata))
+        yield self.commit()
+
+        sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
+        yield self.commit()
+
+        options = {
+            "ical": False,
+            "badcua": False,
+            "mismatch": False,
+            "nobase64": False,
+            "double": False,
+            "dark-purge": False,
+            "missing-location": True,
+            "fix": True,
+            "verbose": False,
+            "details": False,
+            "summary": False,
+            "days": 365,
+            "uid": "",
+            "uuid": self.uuidl1,
+            "tzid": "utc",
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
+            "no-organizer": False,
+            "invalid-organizer": False,
+            "disabled-organizer": False,
+        }
+        output = StringIO()
+        calverify = MissingLocationService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
+
+        self.assertEqual(calverify.results["Number of events to process"], len(self.requirements[CalVerifyMismatchTestsBase.uuidl1]["calendar"]))
+        self.assertEqual(
+            sorted([i.uid for i in calverify.results["Bad Events"]]),
+            ["INVALID_ICS", ]
+        )
+        self.assertEqual(calverify.results["Number of bad events"], 1)
+        self.assertEqual(calverify.results["Fix bad events"], 1)
+
+        sync_token_newl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
+        self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
+        yield self.commit()
+
+        # Wait for it to complete
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+
+        # Re-scan after changes to make sure there are no errors
+        options["fix"] = False
+        options["uuid"] = self.uuidl1
+        calverify = MissingLocationService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
+
+        self.assertEqual(calverify.results["Number of events to process"], len(self.requirements[CalVerifyMismatchTestsBase.uuidl1]["calendar"]))
+        self.assertEqual(len(calverify.results["Bad Events"]), 0)
+        self.assertTrue("Fix bad events" not in calverify.results)
+
+        # Make sure location is in each users event
+        for uid in (self.uuid1, self.uuid2, self.uuidl1,):
+            calobj = yield self.calendarObjectUnderTest(home=uid, calendar_name="calendar", name="invite2.ics")
+            caldata = yield calobj.componentForUser()
+            self.assertTrue("LOCATION:" in str(caldata))
+        yield self.commit()
