@@ -2701,7 +2701,7 @@ class MissingLocationService(CalVerifyService):
             ot = time.time()
 
         # Check loop over uuid
-        UUIDDetails = collections.namedtuple("UUIDDetails", ("uuid", "rname", "purged",))
+        UUIDDetails = collections.namedtuple("UUIDDetails", ("uuid", "rname", "missing",))
         self.uuid_details = []
         if len(self.options["uuid"]) != 36:
             self.txn = self.store.newTransaction()
@@ -2768,16 +2768,16 @@ class MissingLocationService(CalVerifyService):
             if rows:
                 if not self.options["summary"]:
                     self.addSummaryBreak()
-                purged = yield self.missingLocation(rows, uuid)
+                missing = yield self.missingLocation(rows, uuid, rname)
             else:
-                purged = False
+                missing = False
 
-            self.uuid_details.append(UUIDDetails(uuid, rname, purged))
+            self.uuid_details.append(UUIDDetails(uuid, rname, missing))
 
             if not self.options["summary"]:
                 self.printSummary()
             else:
-                self.output.write(" - %s\n" % ("Bad Events" if purged else "OK",))
+                self.output.write(" - %s\n" % ("Bad Events" if missing else "OK",))
                 self.output.flush()
 
         if count == 0:
@@ -2786,7 +2786,7 @@ class MissingLocationService(CalVerifyService):
         if self.options["summary"]:
             table = tables.Table()
             table.addHeader(("GUID", "Name", "RID", "UID",))
-            purged = 0
+            missing = 0
             for item in sorted(self.uuid_details):
                 if not item.purged:
                     continue
@@ -2801,8 +2801,8 @@ class MissingLocationService(CalVerifyService):
                     ))
                     uuid = ""
                     rname = ""
-                    purged += 1
-            table.addFooter(("Total", "%d" % (purged,), "", "", "",))
+                    missing += 1
+            table.addFooter(("Total", "%d" % (missing,), "", "", "",))
             self.output.write("\n")
             table.printTable(os=self.output)
 
@@ -2811,9 +2811,9 @@ class MissingLocationService(CalVerifyService):
 
 
     @inlineCallbacks
-    def missingLocation(self, rows, uuid):
+    def missingLocation(self, rows, uuid, rname):
         """
-        Check each calendar resource by looking at any ORGANIER property value and verifying it is valid.
+        Check each calendar resource by looking at any ORGANIZER property value and verifying it is valid.
         """
 
         if not self.options["summary"]:
@@ -2858,10 +2858,7 @@ class MissingLocationService(CalVerifyService):
             if fail:
                 details.append(Details(resid, uid,))
                 if self.fix:
-                    # Add location value
-                    # TODO: locate organizer's copy of event
-                    #     Add LOCATION property to components
-                    #     Write it back to trigger scheduling
+                    yield self.fixCalendarData(cal, rname)
                     fixed += 1
 
             if self.options["verbose"] and not self.options["summary"]:
@@ -2907,6 +2904,53 @@ class MissingLocationService(CalVerifyService):
             ))
 
         returnValue(details)
+
+
+    @inlineCallbacks
+    def fixCalendarData(self, cal, rname):
+        """
+        Fix problems in calendar data using store APIs.
+        """
+
+        # Extract organizer (strip off urn:uuid:) and UID
+        organizer = cal.getOrganizer()[9:]
+        uid = cal.resourceUID()
+        _ignore_calendar, resid, _ignore_created, _ignore_modified = yield self.getCalendarForOwnerByUID(organizer, uid)
+
+        # Get the organizer's calendar object and data
+        homeID, calendarID = yield self.getAllResourceInfoForResourceID(resid)
+        home = yield self.txn.calendarHomeWithResourceID(homeID)
+        calendar = yield home.childWithID(calendarID)
+        calendarObj = yield calendar.objectResourceWithID(resid)
+
+        try:
+            component = yield calendarObj.componentForUser()
+        except InternalDataStoreError:
+            returnValue((False, "Failed parse: "))
+
+        # Add missing location to all components (need to dup component when modifying)
+        component = component.duplicate()
+        for comp in component.subcomponents():
+            if comp.name() != "VEVENT":
+                continue
+            location = comp.propertyValue("LOCATION")
+            if location is None:
+                comp.addProperty(Property("LOCATION", rname))
+
+        # Write out fix, commit and get a new transaction
+        result = True
+        message = ""
+        try:
+            yield calendarObj.setComponent(component)
+        except Exception, e:
+            print(e, component)
+            print(traceback.print_exc())
+            result = False
+            message = "Exception fix: "
+        yield self.txn.commit()
+        self.txn = self.store.newTransaction()
+
+        returnValue((result, message,))
 
 
 
