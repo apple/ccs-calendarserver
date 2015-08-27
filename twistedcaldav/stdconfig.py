@@ -236,7 +236,7 @@ DEFAULT_CONFIG = {
                                    # upgrade.
 
     "UpgradeHomePrefix": "",    # When upgrading, only upgrade homes where the owner UID starts with
-                                # with the specified prefix. The upgrade will only be partial and only
+                                # the specified prefix. The upgrade will only be partial and only
                                 # apply to upgrade pieces that affect entire homes. The upgrade will
                                 # need to be run again without this prefix set to complete the overall
                                 # upgrade.

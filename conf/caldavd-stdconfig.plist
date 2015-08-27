@@ -1,0 +1,1317 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+    Copyright (c) 2006-2015 Apple Inc. All rights reserved.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+  -->
+
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Public network address information -->
+	<key>ServerHostName</key>
+	<string></string>
+	<key>HTTPPort</key>
+	<integer>0</integer>
+	<key>SSLPort</key>
+	<integer>0</integer>
+	<key>EnableSSL</key>
+	<false/>
+	<key>RedirectHTTPToHTTPS</key>
+	<false/>
+	<key>SSLMethod</key>
+	<string>SSLv23_METHOD</string>
+	<key>SSLCiphers</key>
+	<string>RC4-SHA:HIGH:!ADH</string>
+
+	<key>StrictTransportSecuritySeconds</key>
+	<integer>604800</integer>
+
+	<!-- Network address configuration information -->
+	<key>SocketFiles</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
+		<key>Group</key>
+		<string></string>
+		<key>Owner</key>
+		<string></string>
+		<key>Permissions</key>
+		<integer>504</integer>
+		<key>Secured</key>
+		<string>secured.sock</string>
+		<key>Unsecured</key>
+		<string>unsecured.sock</string>
+	</dict>
+	<key>SocketRoot</key>
+	<string>/tmp/calendarserver</string>
+
+	<key>BindAddresses</key>
+	<array>
+	</array>
+	<key>BindHTTPPorts</key>
+	<array>
+	</array>
+	<key>BindSSLPorts</key>
+	<array>
+	</array>
+	<key>InheritFDs</key>
+	<array>
+	</array>
+	<key>InheritSSLFDs</key>
+	<array>
+	</array>
+	<key>MetaFD</key>
+	<integer>0</integer>
+	<key>UseMetaFD</key>
+	<true/>
+
+	<!-- Database configuration -->
+	<key>UseDatabase</key>
+	<true/>
+
+	<key>TransactionTimeoutSeconds</key>
+	<integer>300</integer>
+
+	<key>TransactionHTTPRetrySeconds</key>
+	<integer>300</integer>
+
+	<key>DBType</key>
+	<string></string>
+
+	<key>SpawnedDBUser</key>
+	<string>caldav</string>
+
+	<key>DatabaseConnection</key>
+	<dict>
+		<key>database</key>
+		<string></string>
+		<key>endpoint</key>
+		<string></string>
+		<key>password</key>
+		<string></string>
+		<key>user</key>
+		<string></string>
+	</dict>
+
+	<key>DBAMPFD</key>
+	<integer>0</integer>
+
+	<key>SharedConnectionPool</key>
+	<false/>
+
+	<key>FailIfUpgradeNeeded</key>
+	<true/>
+
+	<key>UpgradeHomePrefix</key>
+	<string></string>
+
+	<!-- Work queue configuration information -->
+	<key>WorkQueue</key>
+	<dict>
+		<key>failureRescheduleInterval</key>
+		<integer>60</integer>
+		<key>highPriorityLevel</key>
+		<integer>80</integer>
+		<key>lockRescheduleInterval</key>
+		<integer>60</integer>
+		<key>mediumPriorityLevel</key>
+		<integer>50</integer>
+		<key>overloadLevel</key>
+		<integer>95</integer>
+		<key>queueOverdueTimeout</key>
+		<integer>300</integer>
+		<key>queuePollInterval</key>
+		<real>0.1</real>
+	</dict>
+
+	<!-- Types of service provided -->
+	<key>EnableCalDAV</key>
+	<true/>
+	<key>EnableCardDAV</key>
+	<true/>
+	<key>MigrationOnly</key>
+	<false/>
+
+	<!-- Data store -->
+	<key>ServerRoot</key>
+	<string>/var/db/caldavd</string>
+	<key>DataRoot</key>
+	<string>Data</string>
+	<key>DatabaseRoot</key>
+	<string>Database</string>
+	<key>AttachmentsRoot</key>
+	<string>Attachments</string>
+	<key>DocumentRoot</key>
+	<string>Documents</string>
+	<key>ConfigRoot</key>
+	<string>Config</string>
+	<key>LogRoot</key>
+	<string>/var/log/caldavd</string>
+	<key>RunRoot</key>
+	<string>/var/run/caldavd</string>
+	<key>WebCalendarRoot</key>
+	<string>/Applications/Server.app/Contents/ServerRoot/usr/share/collabd/webcal/public</string>
+
+	<!--  Quotas -->
+	<key>UserQuota</key>
+	<integer>104857600</integer>
+	<key>MaximumAttachmentSize</key>
+	<integer>10485760</integer>
+
+	<key>MaxCollectionsPerHome</key>
+	<integer>50</integer>
+	<key>MaxResourcesPerCollection</key>
+	<integer>10000</integer>
+	<key>MaxResourceSize</key>
+	<integer>1048576</integer>
+	<key>MaxAttendeesPerInstance</key>
+	<integer>100</integer>
+	<key>MaxAllowedInstances</key>
+	<integer>3000</integer>
+
+	<key>WebCalendarAuthPath</key>
+	<string></string>
+
+	<key>Aliases</key>
+	<array>
+	</array>
+
+	<!-- Directory service -->
+	<key>DirectoryService</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+		<key>params</key>
+		<dict>
+			<key>recordTypes</key>
+			<array>
+				<string>users</string>
+				<string>groups</string>
+			</array>
+			<key>xmlFile</key>
+			<string>accounts.xml</string>
+		</dict>
+		<key>type</key>
+		<string>xml</string>
+	</dict>
+
+	<key>DirectoryRealmName</key>
+	<string></string>
+
+	<key>DirectoryFilterStartsWith</key>
+	<false/>
+
+	<!-- Locations and Resources service -->
+	<key>ResourceService</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+		<key>params</key>
+		<dict>
+			<key>recordTypes</key>
+			<array>
+				<string>locations</string>
+				<string>resources</string>
+				<string>addresses</string>
+			</array>
+			<key>xmlFile</key>
+			<string>resources.xml</string>
+		</dict>
+		<key>type</key>
+		<string>xml</string>
+	</dict>
+
+	<!-- Augment service -->
+	<key>AugmentService</key>
+	<dict>
+		<key>params</key>
+		<dict>
+			<key>statSeconds</key>
+			<integer>15</integer>
+			<key>xmlFiles</key>
+			<array>
+				<string>augments.xml</string>
+			</array>
+		</dict>
+		<key>type</key>
+		<string>twistedcaldav.directory.augment.AugmentXMLDB</string>
+	</dict>
+
+	<!-- Proxies -->
+	<key>ProxyLoadFromFile</key>
+	<string></string>
+
+	<!-- Special principals -->
+	<key>AdminPrincipals</key>
+	<array>
+	</array>
+	<key>ReadPrincipals</key>
+	<array>
+	</array>
+	<key>EnableProxyPrincipals</key>
+	<true/>
+
+	<!-- Permissions -->
+	<key>EnableAnonymousReadRoot</key>
+	<true/>
+	<key>EnableAnonymousReadNav</key>
+	<false/>
+	<key>EnablePrincipalListings</key>
+	<true/>
+	<key>EnableMonolithicCalendars</key>
+	<true/>
+
+	<!-- Client controls -->
+	<key>RejectClients</key>
+	<array>
+	</array>
+
+	<!-- Authentication -->
+	<key>Authentication</key>
+	<dict>
+		<key>Basic</key>
+		<dict>
+			<key>AllowedOverWireUnencrypted</key>
+			<false/>
+			<key>Enabled</key>
+			<true/>
+		</dict>
+		<key>Digest</key>
+		<dict>
+			<key>Algorithm</key>
+			<string>md5</string>
+			<key>AllowedOverWireUnencrypted</key>
+			<true/>
+			<key>Enabled</key>
+			<true/>
+			<key>Qop</key>
+			<string></string>
+		</dict>
+		<key>Kerberos</key>
+		<dict>
+			<key>AllowedOverWireUnencrypted</key>
+			<true/>
+			<key>Enabled</key>
+			<false/>
+			<key>ServicePrincipal</key>
+			<string></string>
+		</dict>
+		<key>ClientCertificate</key>
+		<dict>
+			<key>AllowedOverWireUnencrypted</key>
+			<true/>
+			<key>CAFiles</key>
+			<array>
+			</array>
+			<key>Enabled</key>
+			<false/>
+			<key>Required</key>
+			<true/>
+			<key>SendCAsToClient</key>
+			<true/>
+		</dict>
+		<key>Wiki</key>
+		<dict>
+			<key>Cookie</key>
+			<string>cc.collabd_session_guid</string>
+			<key>Enabled</key>
+			<false/>
+			<key>EndpointDescriptor</key>
+			<string>unix:path=/var/run/collabd</string>
+		</dict>
+	</dict>
+
+	<!-- Logging -->
+	<key>AccessLogFile</key>
+	<string>access.log</string>
+	<key>ErrorLogFile</key>
+	<string>error.log</string>
+	<key>AgentLogFile</key>
+	<string>agent.log</string>
+	<key>UtilityLogFile</key>
+	<string>.log</string>
+	<key>ErrorLogEnabled</key>
+	<true/>
+	<key>ErrorLogRotateMB</key>
+	<integer>10</integer>
+	<key>ErrorLogMaxRotatedFiles</key>
+	<integer>5</integer>
+	<key>PIDFile</key>
+	<string>caldavd.pid</string>
+	<key>RotateAccessLog</key>
+	<false/>
+	<key>EnableExtendedAccessLog</key>
+	<true/>
+	<key>EnableExtendedTimingAccessLog</key>
+	<false/>
+	<key>DefaultLogLevel</key>
+	<string></string>
+	<key>LogLevels</key>
+	<dict>
+	</dict>
+	<key>LogID</key>
+	<string></string>
+
+	<key>AccountingCategories</key>
+	<dict>
+		<key>HTTP</key>
+		<false/>
+		<key>iTIP</key>
+		<false/>
+		<key>iTIP-VFREEBUSY</key>
+		<false/>
+		<key>Implicit Errors</key>
+		<false/>
+		<key>AutoScheduling</key>
+		<false/>
+		<key>iSchedule</key>
+		<false/>
+		<key>migration</key>
+		<false/>
+	</dict>
+	<key>AccountingPrincipals</key>
+	<array>
+	</array>
+	<key>AccountingLogRoot</key>
+	<string>accounting</string>
+
+	<key>Stats</key>
+	<dict>
+		<key>EnableTCPStatsSocket</key>
+		<false/>
+		<key>EnableUnixStatsSocket</key>
+		<false/>
+		<key>TCPStatsPort</key>
+		<integer>8100</integer>
+		<key>UnixStatsSocket</key>
+		<string>caldavd-stats.sock</string>
+	</dict>
+
+	<key>LogDatabase</key>
+	<dict>
+		<key>LabelsInSQL</key>
+		<false/>
+		<key>SQLStatements</key>
+		<false/>
+		<key>Statistics</key>
+		<false/>
+		<key>StatisticsLogFile</key>
+		<string>sqlstats.log</string>
+		<key>TransactionWaitSeconds</key>
+		<integer>0</integer>
+	</dict>
+
+	<!-- SSL/TLS -->
+	<key>SSLCertificate</key>
+	<string></string>
+	<key>SSLPrivateKey</key>
+	<string></string>
+	<key>SSLAuthorityChain</key>
+	<string></string>
+	<key>SSLPassPhraseDialog</key>
+	<string>/etc/apache2/getsslpassphrase</string>
+	<key>SSLCertAdmin</key>
+	<string>/Applications/Server.app/Contents/ServerRoot/usr/sbin/certadmin</string>
+
+	<!-- Process management -->
+	<key>UserName</key>
+	<string></string>
+	<key>GroupName</key>
+	<string></string>
+	<key>ProcessType</key>
+	<string>Combined</string>
+	<key>MultiProcess</key>
+	<dict>
+		<key>MinProcessCount</key>
+		<integer>2</integer>
+		<key>PerCPU</key>
+		<integer>1</integer>
+		<key>PerGB</key>
+		<integer>1</integer>
+		<key>ProcessCount</key>
+		<integer>0</integer>
+		<key>StaggeredStartup</key>
+		<dict>
+			<key>Enabled</key>
+			<false/>
+			<key>Interval</key>
+			<integer>15</integer>
+		</dict>
+	</dict>
+
+	<key>MemoryLimiter</key>
+	<dict>
+		<key>Bytes</key>
+		<integer>2147483648</integer>
+		<key>Enabled</key>
+		<true/>
+		<key>ResidentOnly</key>
+		<true/>
+		<key>Seconds</key>
+		<integer>60</integer>
+	</dict>
+
+	<!-- Service ACLs -->
+	<key>EnableSACLs</key>
+	<false/>
+
+	<key>EnableReadOnlyServer</key>
+	<false/>
+
+	<!-- Standard (or draft) WebDAV extensions -->
+	<key>EnableAddMember</key>
+	<true/>
+	<key>EnableSyncReport</key>
+	<true/>
+	<key>EnableSyncReportHome</key>
+	<true/>
+	<key>EnableConfigSyncToken</key>
+	<true/>
+	<key>EnableWellKnown</key>
+	<true/>
+	<key>EnableCalendarQueryExtended</key>
+	<true/>
+
+	<key>EnableManagedAttachments</key>
+	<false/>
+
+	<!-- Generic CalDAV/CardDAV extensions -->
+	<key>EnableJSONData</key>
+	<true/>
+
+	<!-- Non-standard CalDAV extensions -->
+	<key>EnableDropBox</key>
+	<false/>
+	<key>EnablePrivateEvents</key>
+	<false/>
+	<key>EnableTimezoneService</key>
+	<false/>
+
+	<key>TimezoneService</key>
+	<dict>
+		<key>BasePath</key>
+		<string></string>
+		<key>Enabled</key>
+		<true/>
+		<key>Mode</key>
+		<string>primary</string>
+		<key>PrettyPrintJSON</key>
+		<true/>
+		<key>SecondaryService</key>
+		<dict>
+			<key>Host</key>
+			<string></string>
+			<key>URI</key>
+			<string></string>
+			<key>UpdateIntervalMinutes</key>
+			<integer>1440</integer>
+		</dict>
+		<key>URI</key>
+		<string>/stdtimezones</string>
+		<key>XMLInfoPath</key>
+		<string></string>
+	</dict>
+
+	<key>EnableTimezonesByReference</key>
+	<true/>
+	<key>UsePackageTimezones</key>
+	<false/>
+
+	<key>EnableBatchUpload</key>
+	<true/>
+	<key>MaxResourcesBatchUpload</key>
+	<integer>100</integer>
+	<key>MaxBytesBatchUpload</key>
+	<integer>10485760</integer>
+
+	<key>Sharing</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+		<key>AllowExternalUsers</key>
+		<false/>
+
+		<key>Calendars</key>
+		<dict>
+			<key>Enabled</key>
+			<true/>
+			<key>IgnorePerUserProperties</key>
+			<array>
+				<string>X-APPLE-STRUCTURED-LOCATION</string>
+			</array>
+			<key>CollectionProperties</key>
+			<dict>
+				<key>Global</key>
+				<array>
+				</array>
+				<key>ProxyOverride</key>
+				<array>
+					<string>{urn:ietf:params:xml:ns:caldav}calendar-description</string>
+					<string>{com.apple.ical:}calendarcolor</string>
+					<string>{http://apple.com/ns/ical/}calendar-color</string>
+					<string>{http://apple.com/ns/ical/}calendar-order</string>
+				</array>
+				<key>Shadowable</key>
+				<array>
+					<string>{urn:ietf:params:xml:ns:caldav}calendar-description</string>
+				</array>
+			</dict>
+			<key>Groups</key>
+			<dict>
+				<key>Enabled</key>
+				<true/>
+				<key>ReconciliationDelaySeconds</key>
+				<integer>5</integer>
+			</dict>
+		</dict>
+
+		<key>AddressBooks</key>
+		<dict>
+			<key>Enabled</key>
+			<false/>
+			<key>CollectionProperties</key>
+			<dict>
+				<key>Global</key>
+				<array>
+				</array>
+				<key>ProxyOverride</key>
+				<array>
+				</array>
+				<key>Shadowable</key>
+				<array>
+					<string>{urn:ietf:params:xml:ns:carddav}addressbook-description</string>
+				</array>
+			</dict>
+			<key>Groups</key>
+			<dict>
+				<key>Enabled</key>
+				<false/>
+			</dict>
+		</dict>
+	</dict>
+
+	<key>RestrictCalendarsToOneComponentType</key>
+	<true/>
+
+	<key>SupportedComponents</key>
+	<array>
+		<string>VEVENT</string>
+		<string>VTODO</string>
+	</array>
+
+	<key>EnableTrashCollection</key>
+	<false/>
+	<key>ExposeTrashCollection</key>
+	<false/>
+
+	<key>ParallelUpgrades</key>
+	<false/>
+
+	<key>MergeUpgrades</key>
+	<false/>
+
+	<key>EnableDefaultAlarms</key>
+	<true/>
+	<key>RemoveDuplicateAlarms</key>
+	<true/>
+
+	<key>RemoveDuplicatePrivateComments</key>
+	<false/>
+
+	<key>HostedStatus</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
+		<key>Parameter</key>
+		<string>X-APPLE-HOSTED-STATUS</string>
+		<key>Values</key>
+		<dict>
+			<key>external</key>
+			<string>EXTERNAL</string>
+			<key>local</key>
+			<string></string>
+		</dict>
+	</dict>
+
+	<key>RevisionCleanup</key>
+	<dict>
+		<key>CleanupPeriodDays</key>
+		<real>2.0</real>
+		<key>Enabled</key>
+		<true/>
+		<key>SyncTokenLifetimeDays</key>
+		<real>14.0</real>
+	</dict>
+
+	<key>InboxCleanup</key>
+	<dict>
+		<key>CleanupPeriodDays</key>
+		<real>2.0</real>
+		<key>Enabled</key>
+		<true/>
+		<key>ItemLifeBeyondEventEndDays</key>
+		<real>14.0</real>
+		<key>ItemLifetimeDays</key>
+		<real>14.0</real>
+	</dict>
+
+	<!-- CardDAV Features -->
+	<key>DirectoryAddressBook</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+		<key>MaxQueryResults</key>
+		<integer>1000</integer>
+		<key>name</key>
+		<string>directory</string>
+		<key>params</key>
+		<dict>
+			<key>addDSAttrXProperties</key>
+			<false/>
+			<key>additionalAttributes</key>
+			<array>
+			</array>
+			<key>allowedAttributes</key>
+			<array>
+			</array>
+			<key>appleInternalServer</key>
+			<false/>
+			<key>cacheQuery</key>
+			<false/>
+			<key>cacheTimeout</key>
+			<integer>30</integer>
+			<key>dsLocalCacheTimeout</key>
+			<integer>30</integer>
+			<key>fakeETag</key>
+			<true/>
+			<key>ignoreSystemRecords</key>
+			<true/>
+			<key>liveQuery</key>
+			<true/>
+			<key>maxDSQueryRecords</key>
+			<integer>0</integer>
+			<key>peopleNode</key>
+			<string>/Search/Contacts</string>
+			<key>queryDSLocal</key>
+			<false/>
+			<key>queryPeopleRecords</key>
+			<true/>
+			<key>queryUserRecords</key>
+			<true/>
+			<key>standardizeSyntheticUIDs</key>
+			<false/>
+			<key>userNode</key>
+			<string>/Search/Contacts</string>
+		</dict>
+		<key>type</key>
+		<string>twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService</string>
+	</dict>
+	<key>EnableSearchAddressBook</key>
+	<false/>
+	<key>AnonymousDirectoryAddressBookAccess</key>
+	<false/>
+
+	<!-- Web-based administration -->
+	<key>EnableWebAdmin</key>
+	<true/>
+
+	<!-- JSON control API - only for testing -->
+	<key>EnableControlAPI</key>
+	<false/>
+
+	<!-- Scheduling related options -->
+	<key>Scheduling</key>
+	<dict>
+		<key>CalDAV</key>
+		<dict>
+			<key>EmailDomain</key>
+			<string></string>
+			<key>HTTPDomain</key>
+			<string></string>
+			<key>AddressPatterns</key>
+			<array>
+			</array>
+			<key>OldDraftCompatibility</key>
+			<true/>
+			<key>ScheduleTagCompatibility</key>
+			<true/>
+			<key>EnablePrivateComments</key>
+			<true/>
+			<key>PerAttendeeProperties</key>
+			<array>
+				<string>X-APPLE-NEEDS-REPLY</string>
+				<string>X-APPLE-TRAVEL-DURATION</string>
+				<string>X-APPLE-TRAVEL-START</string>
+				<string>X-APPLE-TRAVEL-RETURN-DURATION</string>
+				<string>X-APPLE-TRAVEL-RETURN</string>
+			</array>
+			<key>OrganizerPublicProperties</key>
+			<array>
+				<string>X-APPLE-DROPBOX</string>
+				<string>X-APPLE-STRUCTURED-LOCATION</string>
+			</array>
+		</dict>
+		<key>iSchedule</key>
+		<dict>
+			<key>Enabled</key>
+			<false/>
+			<key>AddressPatterns</key>
+			<array>
+			</array>
+			<key>RemoteServers</key>
+			<string>remoteservers.xml</string>
+			<key>SerialNumber</key>
+			<integer>1</integer>
+			<key>DNSDebug</key>
+			<string></string>
+			<key>DKIM</key>
+			<dict>
+				<key>Enabled</key>
+				<true/>
+				<key>Domain</key>
+				<string></string>
+				<key>KeySelector</key>
+				<string>ischedule</string>
+				<key>SignatureAlgorithm</key>
+				<string>rsa-sha256</string>
+				<key>UseDNSKey</key>
+				<true/>
+				<key>UseHTTPKey</key>
+				<true/>
+				<key>UsePrivateExchangeKey</key>
+				<true/>
+				<key>ExpireSeconds</key>
+				<integer>3600</integer>
+				<key>PrivateKeyFile</key>
+				<string></string>
+				<key>PublicKeyFile</key>
+				<string></string>
+				<key>PrivateExchanges</key>
+				<string></string>
+				<key>ProtocolDebug</key>
+				<false/>
+			</dict>
+		</dict>
+		<key>iMIP</key>
+		<dict>
+			<key>Enabled</key>
+			<false/>
+			<key>Sending</key>
+			<dict>
+				<key>Address</key>
+				<string></string>
+				<key>Password</key>
+				<string></string>
+				<key>Port</key>
+				<integer>587</integer>
+				<key>Server</key>
+				<string></string>
+				<key>SuppressionDays</key>
+				<integer>7</integer>
+				<key>UseSSL</key>
+				<true/>
+				<key>Username</key>
+				<string></string>
+			</dict>
+			<key>Receiving</key>
+			<dict>
+				<key>Password</key>
+				<string></string>
+				<key>PollingSeconds</key>
+				<integer>30</integer>
+				<key>Port</key>
+				<integer>0</integer>
+				<key>Server</key>
+				<string></string>
+				<key>Type</key>
+				<string></string>
+				<key>UseSSL</key>
+				<true/>
+				<key>Username</key>
+				<string></string>
+			</dict>
+			<key>AddressPatterns</key>
+			<array>
+			</array>
+			<key>MailTemplatesDirectory</key>
+			<string>/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/share/email_templates</string>
+			<key>MailIconsDirectory</key>
+			<string>/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/share/date_icons</string>
+			<key>InvitationDaysToLive</key>
+			<integer>90</integer>
+		</dict>
+		<key>Options</key>
+		<dict>
+			<key>AllowGroupAsOrganizer</key>
+			<false/>
+			<key>AllowLocationAsOrganizer</key>
+			<false/>
+			<key>AllowLocationWithoutOrganizer</key>
+			<true/>
+			<key>AllowResourceAsOrganizer</key>
+			<false/>
+			<key>AllowResourceWithoutOrganizer</key>
+			<true/>
+			<key>AttendeeRefreshBatch</key>
+			<integer>5</integer>
+			<key>AttendeeRefreshCountLimit</key>
+			<integer>50</integer>
+			<key>AutoSchedule</key>
+			<dict>
+				<key>Enabled</key>
+				<true/>
+				<key>AllowUsers</key>
+				<false/>
+				<key>Always</key>
+				<false/>
+				<key>DefaultMode</key>
+				<string>automatic</string>
+				<key>FutureFreeBusyDays</key>
+				<integer>1095</integer>
+			</dict>
+			<key>DelegeteRichFreeBusy</key>
+			<true/>
+			<key>LimitFreeBusyAttendees</key>
+			<integer>30</integer>
+			<key>PrincipalHostAliases</key>
+			<array>
+			</array>
+			<key>RoomResourceRichFreeBusy</key>
+			<true/>
+			<key>Splitting</key>
+			<dict>
+				<key>Enabled</key>
+				<false/>
+				<key>Delay</key>
+				<integer>60</integer>
+				<key>PastDays</key>
+				<integer>14</integer>
+				<key>Size</key>
+				<integer>102400</integer>
+			</dict>
+			<key>TimestampAttendeePartStatChanges</key>
+			<true/>
+			<key>TrackUnscheduledLocationData</key>
+			<true/>
+			<key>TrackUnscheduledResourceData</key>
+			<true/>
+			<key>UIDLockExpirySeconds</key>
+			<integer>300</integer>
+			<key>UIDLockTimeoutSeconds</key>
+			<integer>60</integer>
+			<key>WorkQueues</key>
+			<dict>
+				<key>Enabled</key>
+				<true/>
+				<key>AttendeeRefreshBatchDelaySeconds</key>
+				<integer>5</integer>
+				<key>AttendeeRefreshBatchIntervalSeconds</key>
+				<integer>5</integer>
+				<key>AutoReplyDelaySeconds</key>
+				<integer>5</integer>
+				<key>MaxTemporaryFailures</key>
+				<integer>10</integer>
+				<key>ReplyDelaySeconds</key>
+				<integer>1</integer>
+				<key>RequestDelaySeconds</key>
+				<integer>5</integer>
+				<key>TemporaryFailureDelay</key>
+				<integer>60</integer>
+			</dict>
+		</dict>
+	</dict>
+
+	<key>FreeBusyURL</key>
+	<dict>
+		<key>AnonymousAccess</key>
+		<false/>
+		<key>Enabled</key>
+		<false/>
+		<key>TimePeriod</key>
+		<integer>14</integer>
+	</dict>
+
+	<!-- Notifications -->
+	<key>Notifications</key>
+	<dict>
+		<key>CoalesceSeconds</key>
+		<integer>3</integer>
+		<key>Enabled</key>
+		<false/>
+		<key>Services</key>
+		<dict>
+			<key>APNS</key>
+			<dict>
+				<key>Enabled</key>
+				<false/>
+				<key>SubscriptionURL</key>
+				<string>apns</string>
+				<key>SubscriptionRefreshIntervalSeconds</key>
+				<integer>172800</integer>
+				<key>SubscriptionPurgeIntervalSeconds</key>
+				<integer>43200</integer>
+				<key>SubscriptionPurgeSeconds</key>
+				<integer>1209600</integer>
+				<key>ProviderHost</key>
+				<string>gateway.push.apple.com</string>
+				<key>ProviderPort</key>
+				<integer>2195</integer>
+				<key>FeedbackHost</key>
+				<string>feedback.push.apple.com</string>
+				<key>FeedbackPort</key>
+				<integer>2196</integer>
+				<key>FeedbackUpdateSeconds</key>
+				<integer>28800</integer>
+				<key>Environment</key>
+				<string>PRODUCTION</string>
+				<key>EnableStaggering</key>
+				<false/>
+				<key>StaggerSeconds</key>
+				<integer>3</integer>
+				<key>CalDAV</key>
+				<dict>
+					<key>AuthorityChainPath</key>
+					<string>Certificates/apns:com.apple.calendar.chain.pem</string>
+					<key>CertificatePath</key>
+					<string>Certificates/apns:com.apple.calendar.cert.pem</string>
+					<key>Passphrase</key>
+					<string></string>
+					<key>PrivateKeyPath</key>
+					<string>Certificates/apns:com.apple.calendar.key.pem</string>
+					<key>Topic</key>
+					<string></string>
+				</dict>
+				<key>CardDAV</key>
+				<dict>
+					<key>AuthorityChainPath</key>
+					<string>Certificates/apns:com.apple.contact.chain.pem</string>
+					<key>CertificatePath</key>
+					<string>Certificates/apns:com.apple.contact.cert.pem</string>
+					<key>Passphrase</key>
+					<string></string>
+					<key>PrivateKeyPath</key>
+					<string>Certificates/apns:com.apple.contact.key.pem</string>
+					<key>Topic</key>
+					<string></string>
+				</dict>
+			</dict>
+			<key>AMP</key>
+			<dict>
+				<key>Enabled</key>
+				<false/>
+				<key>Port</key>
+				<integer>62311</integer>
+				<key>EnableStaggering</key>
+				<false/>
+				<key>StaggerSeconds</key>
+				<integer>3</integer>
+			</dict>
+		</dict>
+	</dict>
+
+	<key>DirectoryProxy</key>
+	<dict>
+		<key>InProcessCachingSeconds</key>
+		<integer>60</integer>
+		<key>InSidecarCachingSeconds</key>
+		<integer>120</integer>
+		<key>SocketPath</key>
+		<string>directory-proxy.sock</string>
+	</dict>
+
+	<!-- Support multiple hosts within a domain -->
+	<key>Servers</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
+		<key>ConduitName</key>
+		<string>conduit</string>
+		<key>ConfigFile</key>
+		<string>localservers.xml</string>
+		<key>InboxName</key>
+		<string>podding</string>
+		<key>MaxClients</key>
+		<integer>5</integer>
+	</dict>
+
+	<!-- Performance tuning -->
+	<key>MaxRequests</key>
+	<integer>3</integer>
+	<key>MaxAccepts</key>
+	<integer>1</integer>
+
+	<key>MaxDBConnectionsPerPool</key>
+	<integer>10</integer>
+
+	<key>ListenBacklog</key>
+	<integer>2024</integer>
+
+	<key>IncomingDataTimeOut</key>
+	<integer>60</integer>
+	<key>PipelineIdleTimeOut</key>
+	<integer>15</integer>
+	<key>IdleConnectionTimeOut</key>
+	<integer>360</integer>
+	<key>CloseConnectionTimeOut</key>
+	<integer>15</integer>
+
+	<key>UIDReservationTimeOut</key>
+	<integer>1800</integer>
+
+	<key>MaxMultigetWithDataHrefs</key>
+	<integer>5000</integer>
+	<key>MaxQueryWithDataResults</key>
+	<integer>1000</integer>
+
+	<key>MaxPrincipalSearchReportResults</key>
+	<integer>500</integer>
+
+	<!-- Client fixes per user-agent match -->
+	<key>ClientFixes</key>
+	<dict>
+		<key>ForceAttendeeTRANSP</key>
+		<array>
+			<string>iOS/8\.0(\..*)?</string>
+			<string>iOS/8\.1(\..*)?</string>
+			<string>iOS/8\.2(\..*)?</string>
+		</array>
+	</dict>
+
+	<!-- Localization -->
+	<key>Localization</key>
+	<dict>
+		<key>Language</key>
+		<string></string>
+		<key>LocalesDirectory</key>
+		<string>/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/share/locales</string>
+		<key>TranslationsDirectory</key>
+		<string>/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/share/translations</string>
+	</dict>
+
+	<!-- Implementation details -->
+	<key>Twisted</key>
+	<dict>
+		<key>reactor</key>
+		<string>select</string>
+	</dict>
+	<key>umask</key>
+	<integer>18</integer>
+
+	<key>ControlPort</key>
+	<integer>0</integer>
+
+	<key>ControlSocket</key>
+	<string>caldavd.sock</string>
+
+	<key>ResponseCompression</key>
+	<false/>
+
+	<key>HTTPRetryAfter</key>
+	<integer>180</integer>
+
+	<key>Profiling</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
+		<key>BaseDirectory</key>
+		<string>/tmp/stats</string>
+	</dict>
+
+	<key>Memcached</key>
+	<dict>
+		<key>MaxClients</key>
+		<integer>5</integer>
+		<key>Pools</key>
+		<dict>
+			<key>Default</key>
+			<dict>
+				<key>BindAddress</key>
+				<string>127.0.0.1</string>
+				<key>ClientEnabled</key>
+				<true/>
+				<key>HandleCacheTypes</key>
+				<array>
+					<string>Default</string>
+				</array>
+				<key>MemcacheSocket</key>
+				<string>memcache.sock</string>
+				<key>Port</key>
+				<integer>11311</integer>
+				<key>ServerEnabled</key>
+				<true/>
+			</dict>
+		</dict>
+		<key>memcached</key>
+		<string>memcached</string>
+		<key>MaxMemory</key>
+		<integer>0</integer>
+		<key>Options</key>
+		<array>
+		</array>
+		<key>ProxyDBKeyNormalization</key>
+		<true/>
+	</dict>
+
+	<key>Postgres</key>
+	<dict>
+		<key>BuffersToConnectionsRatio</key>
+		<real>1.5</real>
+		<key>ClusterName</key>
+		<string>cluster</string>
+		<key>Ctl</key>
+		<string>pg_ctl</string>
+		<key>DatabaseName</key>
+		<string>caldav</string>
+		<key>ExtraConnections</key>
+		<integer>3</integer>
+		<key>Init</key>
+		<string>initdb</string>
+		<key>ListenAddresses</key>
+		<array>
+		</array>
+		<key>LogFile</key>
+		<string>postgres.log</string>
+		<key>LogRotation</key>
+		<false/>
+		<key>MaxConnections</key>
+		<integer>0</integer>
+		<key>Options</key>
+		<array>
+			<string>-c standard_conforming_strings=on</string>
+		</array>
+		<key>SharedBuffers</key>
+		<integer>0</integer>
+		<key>SocketDirectory</key>
+		<string></string>
+		<key>SocketName</key>
+		<string></string>
+	</dict>
+
+	<key>QueryCaching</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+		<key>ExpireSeconds</key>
+		<integer>3600</integer>
+		<key>MemcachedPool</key>
+		<string>Default</string>
+	</dict>
+
+	<key>GroupCaching</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+		<key>UpdateSeconds</key>
+		<integer>300</integer>
+		<key>UseDirectoryBasedDelegates</key>
+		<false/>
+	</dict>
+
+	<key>GroupAttendees</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+		<key>AutoUpdateSecondsFromNow</key>
+		<integer>3600</integer>
+		<key>ReconciliationDelaySeconds</key>
+		<integer>5</integer>
+	</dict>
+
+	<key>AutomaticPurging</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+		<key>CheckStaggerSeconds</key>
+		<integer>0</integer>
+		<key>GroupPurgeIntervalSeconds</key>
+		<integer>604800</integer>
+		<key>HomePurgeDelaySeconds</key>
+		<integer>60</integer>
+		<key>PollingIntervalSeconds</key>
+		<integer>604800</integer>
+		<key>PurgeIntervalSeconds</key>
+		<integer>604800</integer>
+	</dict>
+
+	<key>Manhole</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
+		<key>StartingPortNumber</key>
+		<integer>5000</integer>
+		<key>DPSPortNumber</key>
+		<integer>4999</integer>
+		<key>PasswordFilePath</key>
+		<string></string>
+	</dict>
+
+	<key>EnableKeepAlive</key>
+	<false/>
+
+	<key>EnableResponseCache</key>
+	<true/>
+	<key>ResponseCacheTimeout</key>
+	<integer>30</integer>
+
+	<key>EnableFreeBusyCache</key>
+	<true/>
+	<key>FreeBusyCacheDaysBack</key>
+	<integer>7</integer>
+	<key>FreeBusyCacheDaysForward</key>
+	<integer>84</integer>
+
+	<key>FreeBusyIndexLowerLimitDays</key>
+	<integer>365</integer>
+	<key>FreeBusyIndexExpandAheadDays</key>
+	<integer>365</integer>
+	<key>FreeBusyIndexExpandMaxDays</key>
+	<integer>1825</integer>
+	<key>FreeBusyIndexDelayedExpand</key>
+	<false/>
+	<key>FreeBusyIndexSmartUpdate</key>
+	<true/>
+
+	<key>RootResourcePropStoreClass</key>
+	<string>txweb2.dav.xattrprops.xattrPropertyStore</string>
+
+	<key>UtilityServiceClass</key>
+	<string></string>
+
+	<key>MigratedInboxDaysCutoff</key>
+	<integer>60</integer>
+
+	<key>DefaultTimezone</key>
+	<string></string>
+
+	<key>AgentInactivityTimeoutSeconds</key>
+	<integer>300</integer>
+
+	<key>ServiceDisablingProgram</key>
+	<string></string>
+
+	<key>AlertPostingProgram</key>
+	<string></string>
+
+	<key>ImportConfig</key>
+	<string></string>
+
+	<key>Includes</key>
+	<array>
+	</array>
+
+	<key>WritableConfigFile</key>
+	<string></string>
+</dict>
+</plist>

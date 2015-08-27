@@ -486,12 +486,8 @@
         <true/>
         <key>Cookie</key>
         <string>sessionID</string>
-        <key>URL</key>
-        <string>http://127.0.0.1/RPC2</string>
-        <key>UserMethod</key>
-        <string>userForSession</string>
-        <key>WikiMethod</key>
-        <string>accessLevelForUserWikiCalendar</string>
+        <key>EndpointDescriptor</key>
+        <string>unix:path=/var/run/collabd</string>
       </dict>
 
     </dict>
