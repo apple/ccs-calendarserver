@@ -27,7 +27,7 @@ from calendarserver.tools.cmdline import utilityMain, WorkerService
 from pycalendar.datetime import DateTime
 
 from twext.enterprise.dal.syntax import Select, Parameter, Count, Delete, \
-    Constant
+    ALL_COLUMNS
 from twext.who.idirectory import RecordType
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
@@ -164,7 +164,7 @@ class TableSizes(Cmd):
     @inlineCallbacks
     def getTableSize(self, txn, dbtable):
         rows = (yield Select(
-            [Count(Constant(1)), ],
+            [Count(ALL_COLUMNS), ],
             From=dbtable,
         ).on(txn))
         returnValue(rows[0][0])
