@@ -2858,7 +2858,7 @@ class MissingLocationService(CalVerifyService):
             if fail:
                 details.append(Details(resid, uid,))
                 if self.fix:
-                    yield self.fixCalendarData(cal, rname)
+                    yield self.fixCalendarData(cal, rname, resid)
                     fixed += 1
 
             if self.options["verbose"] and not self.options["summary"]:
@@ -2907,15 +2907,22 @@ class MissingLocationService(CalVerifyService):
 
 
     @inlineCallbacks
-    def fixCalendarData(self, cal, rname):
+    def fixCalendarData(self, cal, rname, location_resid):
         """
         Fix problems in calendar data using store APIs.
         """
+
+        result = True
+        message = ""
 
         # Extract organizer (strip off urn:uuid:) and UID
         organizer = cal.getOrganizer()[9:]
         uid = cal.resourceUID()
         _ignore_calendar, resid, _ignore_created, _ignore_modified = yield self.getCalendarForOwnerByUID(organizer, uid)
+        if resid is None:
+            # No organizer copy exists - it is safe to delete the location resource
+            yield self.removeEvent(location_resid)
+            returnValue((result, message,))
 
         # Get the organizer's calendar object and data
         homeID, calendarID = yield self.getAllResourceInfoForResourceID(resid)
@@ -2938,8 +2945,6 @@ class MissingLocationService(CalVerifyService):
                 comp.addProperty(Property("LOCATION", rname))
 
         # Write out fix, commit and get a new transaction
-        result = True
-        message = ""
         try:
             yield calendarObj.setComponent(component)
         except Exception, e:
