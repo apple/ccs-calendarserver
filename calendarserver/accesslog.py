@@ -469,6 +469,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
             "uid"        : collections.defaultdict(int),
             "user-agent" : collections.defaultdict(int),
             "500"        : 0,
+            "401"        : 0,
             "t"          : 0.0,
             "t-resp-wr"  : 0.0,
             "slots"      : 0,
@@ -543,6 +544,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         for ua in stats["user-agent"].keys():
             current["user-agent"][ua] += stats["user-agent"][ua]
         current["500"] += stats["500"]
+        current["401"] += stats["401"]
         current["t"] += stats["t"]
         current["t-resp-wr"] += stats["t-resp-wr"]
         current["slots"] += stats["slots"]
