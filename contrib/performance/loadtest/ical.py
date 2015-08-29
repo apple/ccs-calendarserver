@@ -210,6 +210,9 @@ class Calendar(object):
         self.changeToken = changeToken
         self.events = {}
 
+        if self.name is None:
+            self.name = self.url.rstrip("/").split("/")[-1]
+
 
     def serialize(self):
         """
