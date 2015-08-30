@@ -210,7 +210,7 @@ class Calendar(object):
         self.changeToken = changeToken
         self.events = {}
 
-        if self.name is None:
+        if self.name is None and self.url is not None:
             self.name = self.url.rstrip("/").split("/")[-1]
 
 
