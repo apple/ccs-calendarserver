@@ -292,13 +292,10 @@ class CalendarClientSimulator(object):
                     self.getUserRecord(number),
                     auth
                 )
-                import random
                 self.clients.append(client)
                 client.run().addErrback(self._clientFailure, reactor)
                 for profileTemplate in clientFactory.profiles:
-                    print("Templated interval is:" + str(profileTemplate._interval))
                     profile = profileTemplate.duplicate()
-                    print("I see the interval as:" + str(profile._interval))
                     profile.setUp(self.reactor, self, client, number)
                     profile.run().addErrback(self._profileFailure, reactor)
 
