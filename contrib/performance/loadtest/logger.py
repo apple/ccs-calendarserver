@@ -114,6 +114,13 @@ class MessageLogger(object):
             identifier = random.random()
             print(TerminalColors.WARNING + str(identifier) + '/' + event.get('val') + ':' + event.get('text') + TerminalColors.ENDC)
 
+    def report(self, output):
+        pass
+
+
+    def failures(self):
+        return []
+
 
 class EverythingLogger(object):
     def observe(self, event):
@@ -122,6 +129,12 @@ class EverythingLogger(object):
         #     pprint(event)
         pass
 
+    def report(self, output):
+        pass
+
+
+    def failures(self):
+        return []
 
 
 class RequestLogger(object):
