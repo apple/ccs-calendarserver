@@ -42,7 +42,7 @@ class SubscribeToID(amp.Command):
 
 
 class UnsubscribeFromID(amp.Command):
-    arguments = [('token', amp.String()), ('id', amp.String())]
+    arguments = [('id', amp.String())]
     response = [('status', amp.String())]
 
 
@@ -257,7 +257,7 @@ class AMPPushNotifierProtocol(amp.AMP):
         return {"status" : "OK"}
     SubscribeToID.responder(subscribe)
 
-    def unsubscribe(self, token, id):
+    def unsubscribe(self, id):
         try:
             del self.subscriptions[id]
         except KeyError:
@@ -353,7 +353,8 @@ def subscribeToIDs(host, port, ids, callback, reactor=None):
     @type host: string
     @param port: AMP port to connect to
     @type port: integer
-    @param ids: The push IDs to subscribe to
+    @param ids: The push IDs to subscribe to (if 'any', the client
+        will be subscribed to all notifications)
     @type ids: list of strings
     @param callback: The method to call whenever a notification is
         received.

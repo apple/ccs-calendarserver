@@ -73,7 +73,6 @@ class MonitorAMPNotifications(WorkerService):
 
 
 def main():
-
     try:
         (optargs, args) = getopt(
             sys.argv[1:], "f:hp:s:v", [
