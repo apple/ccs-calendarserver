@@ -43,51 +43,51 @@ from contrib.performance.loadtest.trafficlogger import loggedReactor
 from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter
 
 
-class ProfileType(object, FancyEqMixin):
+# class ProfileType(object, FancyEqMixin):
+#     """
+#     @ivar profileType: A L{ProfileBase} subclass
+#     @type profileType: C{type}
+
+#     @ivar params: A C{dict} which will be passed to C{profileType} as keyword
+#         arguments to create a new profile instance.
+#     """
+#     compareAttributes = ("profileType", "params")
+
+#     def __init__(self, profileType, params):
+#         self.profileType = profileType
+#         self.params = params
+
+
+#     def __call__(self, reactor, simulator, client, number):
+#         base = self.profileType(**self.params)
+#         base.setUp(reactor, simulator, client, number)
+#         return base
+
+
+#     def __repr__(self):
+#         return "ProfileType(%s, params=%s)" % (self.profileType.__name__, self.params)
+
+
+
+class ClientFactory(object, FancyEqMixin):
     """
-    @ivar profileType: A L{ProfileBase} subclass, or an L{ICalendarUserProfile}
-        implementation.
-
-    @ivar params: A C{dict} which will be passed to C{profileType} as keyword
-        arguments to create a new profile instance.
-    """
-    compareAttributes = ("profileType", "params")
-
-    def __init__(self, profileType, params):
-        self.profileType = profileType
-        self.params = params
-
-
-    def __call__(self, reactor, simulator, client, number):
-        base = self.profileType(**self.params)
-        base.setUp(reactor, simulator, client, number)
-        return base
-
-
-    def __repr__(self):
-        return "ProfileType(%s, params=%s)" % (self.profileType.__name__, self.params)
-
-
-
-class ClientType(object, FancyEqMixin):
-    """
-    @ivar clientType: An L{ICalendarClient} implementation
+    @ivar clientType: An L{BaseAppleClient} subclass
+    @ivar params: A C{dict} which will be passed to C{clientType} as keyword
+        arguements to create a new client
     @ivar profileTypes: A list of L{ProfileType} instances
     """
     compareAttributes = ("clientType", "profileTypes")
 
-    def __init__(self, clientType, clientParams, profileTypes):
+    def __init__(self, clientType, clientParams, profiles):
         self.clientType = clientType
         self.clientParams = clientParams
-        self.profileTypes = profileTypes
+        self.profiles = profiles
 
 
     def new(self, reactor, serverAddress, serializationPath, userRecord, authInfo):
         """
         Create a new instance of this client type.
         """
-        # print(self.clientType)
-        # print(self.clientParams)
         return self.clientType(
             reactor, serverAddress, serializationPath,
             userRecord, authInfo, **self.clientParams
@@ -120,60 +120,67 @@ class PopulationParameters(object, FancyEqMixin):
         self.clients.append((weight, clientType))
 
 
-    def clientTypes(self):
-        """
-        Return a list of two-tuples giving the weights and types of
-        clients in the population.
-        """
-        return self.clients
-
-
-
-class Populator(object):
-    """
-    @ivar userPattern: A C{str} giving a formatting pattern to use to
-        construct usernames.  The string will be interpolated with a
-        single integer, the incrementing counter of how many users
-        have thus far been "used".
-
-    @ivar passwordPattern: Similar to C{userPattern}, but for
-        passwords.
-    """
-    def __init__(self, random):
-        self._random = random
-
-
-    def _cycle(self, elements):
+    def clientGenerator(self):
         while True:
-            for (weight, value) in elements:
-                for _ignore_i in range(weight):
-                    yield value
+            for (weight, clientFactory) in self.clients:
+                for _ignore_i in xrange(weight):
+                    yield clientFactory
 
 
-    def populate(self, parameters):
-        """
-        Generate individuals such as might be randomly selected from a
-        population with the given parameters.
+    # def clientTypes(self):
+    #     """
+    #     Return a list of two-tuples giving the weights and types of
+    #     clients in the population.
+    #     """
+    #     return self.clients
 
-        @type parameters: L{PopulationParameters}
-        @rtype: generator of L{ClientType} instances
-        """
-        for (clientType,) in izip(self._cycle(parameters.clientTypes())):
-            yield clientType
+
+
+
+
+# class Populator(object):
+#     """
+#     """
+#     def __init__(self):
+#         self._random = random
+
+
+#     def _cycle(self, elements):
+#         while True:
+#             for (weight, value) in elements:
+#                 for _ignore_i in range(weight):
+#                     yield value
+
+
+#     def populate(self, parameters):
+#         """
+#         Generate individuals such as might be randomly selected from a
+#         population with the given parameters.
+
+#         @type parameters: L{PopulationParameters}
+#         @rtype: generator of L{ClientType} instances
+#         """
+#         for (clientType,) in izip(self._cycle(parameters.clientTypes())):
+#             yield clientType
 
 
 
 class CalendarClientSimulator(object):
-    def __init__(self, records, populator, parameters, reactor, server,
+    def __init__(self, records, parameters, reactor, server,
                  serializationPath, workerIndex=0, workerCount=1):
+        import random
+        # i = random.randint(0, 1000)
+        # with open('log%d.txt'.format(i), 'a') as f:
+        #     f.write('wtf')
+        val = random.random()
+        msg(type="log", text="In create client sim", val=str(val))
         from pprint import pprint
         pprint(records)
         self._records = records
-        self.populator = populator
         self.reactor = reactor
         self.server = server
         self.serializationPath = serializationPath
-        self._pop = self.populator.populate(parameters)
+        self._populator = parameters.clientGenerator()
         self._user = 0
         self._stopped = False
         self.workerIndex = workerIndex
@@ -228,61 +235,72 @@ class CalendarClientSimulator(object):
 
 
     def add(self, numClients, clientsPerUser):
-        for _ignore_n in range(numClients):
-            number = self._nextUserNumber()
+        # for _ignore_n in range(numClients):
+        #     number = self._nextUserNumber()
 
-            for _ignore_peruser in range(clientsPerUser):
-                clientType = self._pop.next()
+        #     for _ignore_peruser in range(clientsPerUser):
+        #         clientType = self._populator.next()
+        #         if (number % self.workerCount) != self.workerIndex:
+        #             # If we're in a distributed work scenario and we are worker N,
+        #             # we have to skip all but every Nth request (since every node
+        #             # runs the same arrival policy).
+        #             continue
+
+        #         _ignore_user, auth = self._createUser(number)
+
+        #         reactor = loggedReactor(self.reactor)
+        #         client = clientType.new(
+        #             reactor,
+        #             self.server,
+        #             self.serializationPath,
+        #             self.getUserRecord(number),
+        #             auth,
+        #         )
+        #         self.clients.append(client)
+        #         d = client.run()
+        #         d.addErrback(self._clientFailure, reactor)
+
+        #         for profileType in clientType.profileTypes:
+        #             print(profileType)
+        #             profile = profileType(reactor, self, client, number)
+        #             if profile.enabled:
+        #                 d = profile.initialize()
+        #                 def _run(result):
+        #                     d2 = profile.run()
+        #                     d2.addErrback(self._profileFailure, profileType, reactor)
+        #                     return d2
+        #                 d.addCallback(_run)
+
+        for i in range(numClients):
+            number = self._nextUserNumber()
+            # What user are we representing?
+            for j in range(clientsPerUser):
                 if (number % self.workerCount) != self.workerIndex:
                     # If we're in a distributed work scenario and we are worker N,
                     # we have to skip all but every Nth request (since every node
                     # runs the same arrival policy).
                     continue
+                clientFactory = self._populator.next()
 
                 _ignore_user, auth = self._createUser(number)
-
                 reactor = loggedReactor(self.reactor)
-                client = clientType.new(
-                    reactor,
+
+                client = clientFactory.new(
+                    self.reactor,
                     self.server,
                     self.serializationPath,
                     self.getUserRecord(number),
-                    auth,
+                    auth
                 )
+                import random
                 self.clients.append(client)
-                d = client.run()
-                d.addErrback(self._clientFailure, reactor)
-
-                for profileType in clientType.profileTypes:
-                    print(profileType)
-                    profile = profileType(reactor, self, client, number)
-                    if profile.enabled:
-                        d = profile.initialize()
-                        def _run(result):
-                            d2 = profile.run()
-                            d2.addErrback(self._profileFailure, profileType, reactor)
-                            return d2
-                        d.addCallback(_run)
-
-        # XXX this status message is prone to be slightly inaccurate, but isn't
-        # really used by much anyway.
-        msg(type="status", clientCount=self._user - 1)
-
-        # for i in range(numClients):
-        #     for j in range(clientsPerUser):
-        #         client = self._pop.next()
-        #         # Reactor magic goes here
-        #         client.setUp(
-        #             self.reactor,
-        #             self.server,
-        #             self.serializationPath,
-        #             self.getUserRecord(number),
-        #             auth
-        #         )
-        #         for profile in client.profiles:
-        #             profile.setUp(self.reactor, self, client, number)
-
-
+                client.run().addErrback(self._clientFailure, reactor)
+                for profileTemplate in clientFactory.profiles:
+                    print("Templated interval is:" + str(profileTemplate._interval))
+                    profile = profileTemplate.duplicate()
+                    print("I see the interval as:" + str(profile._interval))
+                    profile.setUp(self.reactor, self, client, number)
+                    profile.run().addErrback(self._profileFailure, reactor)
 
 
     def _dumpLogs(self, loggingReactor, reason):
@@ -297,7 +315,7 @@ class CalendarClientSimulator(object):
         return path
 
 
-    def _profileFailure(self, reason, profileType, reactor):
+    def _profileFailure(self, reason, reactor):
         if not self._stopped:
             where = self._dumpLogs(reactor, reason)
             err(reason, "Profile stopped with error; recent traffic in %r" % (
@@ -321,17 +339,16 @@ class CalendarClientSimulator(object):
 
 
 class SmoothRampUp(object):
-    def __init__(self, reactor, groups, groupSize, interval, clientsPerUser):
-        self.reactor = reactor
+    def __init__(self, groups, groupSize, interval, clientsPerUser):
         self.groups = groups
         self.groupSize = groupSize
         self.interval = interval
         self.clientsPerUser = clientsPerUser
 
 
-    def run(self, simulator):
+    def run(self, reactor, simulator):
         for i in range(self.groups):
-            self.reactor.callLater(
+            reactor.callLater(
                 self.interval * i, simulator.add, self.groupSize, self.clientsPerUser)
 
 

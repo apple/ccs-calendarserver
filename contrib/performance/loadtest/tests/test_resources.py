@@ -37,4 +37,3 @@ class EventTests(TestCase):
         """
         event = Event(None, u'/bar/baz', u'etag')
         self.assertIdentical(event.getUID(), None)
-

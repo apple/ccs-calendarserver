@@ -24,7 +24,7 @@ Try to log messages in a more intelligent way
 class Requester(object):
     """
     Utility to create requests on behalf of a client. Public methods are:
-    method     url     body     headers     status     method_label 
+    method     url     body     headers     status     method_label
     ------------------------------------------------------------------------
     GET        req     ---
     POST       req     req
@@ -99,6 +99,7 @@ class Requester(object):
             client_type=self._title,
             client_id=self._client_id,
         )
+
 
         before = self._reactor.seconds()
         response = yield self._agent.request(method, url, headers, StringProducer(body) if body else None)

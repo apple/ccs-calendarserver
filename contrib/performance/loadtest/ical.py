@@ -249,7 +249,6 @@ class BaseAppleClient(BaseClient):
         ampPushPort=62311,
     ):
         self._client_id = str(uuid4())
-
         self.reactor = reactor
 
         self.requester = Requester(
@@ -432,6 +431,7 @@ class BaseAppleClient(BaseClient):
             self.checkCalendarsForEvents, calendarHome)
         return pollCalendarHome.start(self.calendarHomePollInterval, now=False)
 
+    ### TODO this doesn't seem to always work
     @inlineCallbacks
     def updateCalendarHomeFromPush(self, calendarHomeSet):
         """
@@ -538,8 +538,8 @@ class BaseAppleClient(BaseClient):
                 except KeyError:
                     pass
                 else:
-                    if pushkey:
-                        self.monitor.addPushkey(href, pushkey)
+                    if pushkey and self.monitor:
+                        self.monitor.addPushkey(pushkey, href)
 
             nodes = results[href].getNodeProperties()
             for nodeType in nodes[davxml.resourcetype]:
@@ -888,7 +888,7 @@ class BaseAppleClient(BaseClient):
 
         # Start monitoring AMP push notifications, if possible
         if self.monitor and self.monitor.isSubscribedTo(calendarHome):
-            self.monitor.begin()
+            yield self.monitor.begin()
             # Run indefinitely.
             yield Deferred()
         else:
@@ -902,6 +902,8 @@ class BaseAppleClient(BaseClient):
         Called before connections are closed, giving a chance to clean up
         """
         self.serialize()
+        if not self.monitor:
+            return succeed(None)
         return self.monitor.end()
 
 

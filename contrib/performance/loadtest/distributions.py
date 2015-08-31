@@ -26,14 +26,36 @@ IDistribution interface exposes:
 Sampling from this distribution must *not* change the underlying behavior of a distribution
 
 Distributions (all of which implement IDistribution):
-  UniformDiscreteDistribution
-  LogNormalDistribution
-  FixedDistribution
-  NearFutureDistribution
-  NormalDistribution
-  UniformIntegerDistribution
-  WorkDistribution
-  RecurrenceDistribution
+  # Discrete Distributions / Finite Support
+  Bernoulli
+  Binomial
+  Rademacher
+  Fixed
+  UniformDiscrete
+  UniformInteger
+
+  # Discrete Distributions / Infinite Support (> 0)
+  Poisson
+  Geometric
+
+  LogNormal
+
+  Normal
+  UniformReal
+  Triangular
+  Beta
+  ChiSquared
+  Exponential
+  Gamma
+
+  # CalendarServer Specific
+  NearFuture
+  Work
+  Recurrence
+
+# TODO
+Implement simple ones through large ones
+Squeeze / pinch
 """
 from math import log, sqrt
 from time import mktime
@@ -54,8 +76,6 @@ class IDistribution(Interface):
     def sample(): #@NoSelf
         pass
 
-# class Bounded
-
 
 class UniformDiscreteDistribution(object, FancyEqMixin):
     """
@@ -65,22 +85,11 @@ class UniformDiscreteDistribution(object, FancyEqMixin):
 
     compareAttributes = ['_values']
 
-    def __init__(self, values, randomize=True):
+    def __init__(self, values):
         self._values = values
-        self._randomize = randomize
-        self._refill()
-
-
-    def _refill(self):
-        self._remaining = self._values[:]
-        if self._randomize:
-            random.shuffle(self._remaining)
-
 
     def sample(self):
-        if not self._remaining:
-            self._refill()
-        return self._remaining.pop()
+        return random.choice(self._values)
 
 
 
@@ -216,6 +225,19 @@ class BernoulliDistribution(object, FancyEqMixin):
 
     def sample(self):
         return 1 if random.random() <= self._p else 0
+
+
+class RademacherDistribution(object, FancyEqMixin):
+    """
+    Takes value 1 with probability 1/2 and value -1 with probability 1/2
+    """
+    def __init__(self):
+        """
+        """
+        self._d = BernoulliDistribution(proportion=0.5)
+
+    def sample(self):
+        return [-1, 1][self._d.sample()]
 
 
 

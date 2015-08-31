@@ -48,8 +48,9 @@ from twisted.web.server import Site
 from contrib.performance.loadtest.clients import OS_X_10_6
 from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter
 from contrib.performance.loadtest.population import (
-    Populator, ProfileType, ClientType, PopulationParameters, SmoothRampUp,
+    ClientFactory, PopulationParameters, SmoothRampUp,
     CalendarClientSimulator)
+from contrib.performance.loadtest.config import Config
 from contrib.performance.loadtest.webadmin import LoadSimAdminResource
 
 def safeDivision(value, total, factor=1):
@@ -88,19 +89,30 @@ class SimOptions(Options):
     """
     config = None
     settings = FilePath(__file__).sibling("settings")
-    _defaultConfig = settings.child("config.plist")
-    _defaultClients = settings.child("clients.plist")
+    # plists = settings.child('alt-settings').child('plist')
+    # _defaultConfig = plists.child("config.plist")
+    # _defaultClients = plists.child("clients.plist")
+    # _defaultConfig = settings.child('settings.config')
+    # _defaultClients = settings.child('settings.clients')
+    _defaultConfig = 'contrib.performance.loadtest.settings.config'
+    _defaultClients = 'contrib.performance.loadtest.settings.clients'
+
+    optFlags = [
+        ("debug", "d", "Enable Deferred and Failure debugging"),
+        ("debug-deferred", None, "Enable only Deferred debugging"),
+        ("debug-failure", None, "Enable only Failure debugging"),
+        ("use-plist", None, "Interpret configuration files as XML property lists (default false)")
+    ]
 
     optParameters = [
         ("runtime", "t", None,
          "Specify the limit (seconds) on the time to run the simulation.",
          int),
         ("config", None, _defaultConfig,
-         "Configuration plist file name from which to read simulation parameters.",
-         FilePath),
+         "Configuration plist file name from which to read simulation parameters."),
         ("clients", None, _defaultClients,
-         "Configuration plist file name from which to read client parameters.",
-         FilePath),
+         "Configuration plist file name from which to read client parameters."),
+        ("logfile", "l", '-', FilePath)
     ]
 
 
@@ -140,38 +152,46 @@ class SimOptions(Options):
 
 
     def postOptions(self):
-        try:
-            configFile = self['config'].open()
-        except IOError, e:
-            raise UsageError("--config %s: %s" % (
-                self['config'].path, e.strerror))
-        try:
+        """
+        Convert the given configuration files to dictionaries, respectively in
+        self.config and self.clients
+        """
+        configPath = self["config"]
+        clientsPath = self["clients"]
+        if self['use-plist']:
             try:
-                self.config = readPlist(configFile)
+                with open(configPath) as configFile: # Could raise an IOError
+                    self.config = readPlist(configFile) # Could raise an ExpatError
+            except IOError, e:
+                raise UsageError("--config %s: %s" % (configPath.path, e.strerror))
             except ExpatError, e:
-                raise UsageError("--config %s: %s" % (self['config'].path, e))
-        finally:
-            configFile.close()
+                raise UsageError("--config %s: %s" % (configPath.path, e))
 
-        try:
-            # from importlib import import_module
-            # client_config = import_module("contrib.performance.loadtest.settings.clients")
-            clientFile = self['clients'].open()
-        except IOError, e:
-            raise UsageError("--clients %s: %s" % (
-                self['clients'].path, e.strerror))
-        try:
             try:
-                client_config = readPlist(clientFile)
-                # self.config["clients"] = client_config.calendars_only# client_config["clients"]
-                self.config["clients"] = client_config["clients"]
-                if "arrivalInterval" in client_config:
-                    self.config["arrival"]["params"]["interval"] = client_config["arrivalInterval"]
+                with open(clientsPath) as clientFile: # Could raise an IOError
+                    self.clients = readPlist(clientFile) # Could raise an ExpatError
+            except IOError, e:
+                raise UsageError("--clients %s: %s" % (clientsPath.path, e.strerror))
             except ExpatError, e:
-                raise UsageError("--clients %s: %s" % (self['clients'].path, e))
-        finally:
-            # clientFile.close()
-            pass
+                raise UsageError("--clients %s: %s" % (clientsPath.path, e))
+
+            self.config["clients"] = self.clients["clients"]
+
+        else:
+            from importlib import import_module
+            try:
+                config = import_module(configPath) # Could raise ImportError
+                self.config = config.config # Could raise attribute error
+            except (ImportError, AttributeError), e:
+                raise UsageError("--config %s: %s" % (configPath, e))
+            try:
+                clients = import_module(clientsPath) # Could raise ImportError
+                self.clients = clients.config # Could raise attribute error
+            except (ImportError, AttributeError), e:
+                raise UsageError("--clients %s: %s" % (clientsPath, e))
+
+        self.configObj = Config()
+        self.configObj.populateFrom(self.config, self.clients)
 
 
 Arrival = namedtuple('Arrival', 'factory parameters')
@@ -194,6 +214,8 @@ class LoadSimulator(object):
     def __init__(self, server, webadminPort, serverStats, serializationPath, arrival, parameters, observers=None,
                  records=None, reactor=None, runtime=None, workers=None,
                  configTemplate=None, workerID=None, workerCount=1):
+        if configTemplate == {}:
+            raise Exception('Got here!')
         if reactor is None:
             from twisted.internet import reactor
         self.server = server
@@ -224,7 +246,7 @@ class LoadSimulator(object):
         except UsageError, e:
             raise SystemExit(str(e))
 
-        return cls.fromConfig(options.config, options['runtime'], output)
+        return cls.fromConfigObject(options.configObj, options['runtime'], output)
 
 
     @classmethod
@@ -338,7 +360,6 @@ class LoadSimulator(object):
             observers=observers,
             records=records,
             runtime=runtime,
-            reactor=reactor,
             workers=workers,
             configTemplate=configTemplate,
             workerID=workerID,
@@ -348,125 +369,36 @@ class LoadSimulator(object):
 
     @classmethod
     def fromConfigObject(cls, config, runtime=None, output=stdout):
-        workers = config['workers']
-        if workers is None:
-            # Client / place where the simulator actually runs configuration
-            workerID = config.get("workerID", 0)
-            workerCount = config.get("workerCount", 1)
-            configTemplate = None
-            server = config.get('server', 'http://127.0.0.1:8008')
-            serializationPath = None
+        # if config.isManaging:
+        #     observers = 
 
-            serializationPath = config['serializationPath']
-
-            if 'arrival' in config:
-                arrival = Arrival(
-                    namedAny(config['arrival']['factory']),
-                    config['arrival']['params'])
-            else:
-                arrival = Arrival(
-                    SmoothRampUp, dict(groups=10, groupSize=1, interval=3))
-
-            parameters = PopulationParameters()
-            if 'clients' in config:
-                for clientConfig in config['clients']:
-                    parameters.addClient(
-                        clientConfig["weight"],
-                        ClientType(
-                            clientConfig["software"],
-                            clientConfig["params"],
-                            clientConfig["profiles"]
-                        )
-                    )
-                        # ClientType(
-                        #     namedAny(clientConfig["software"]),
-                        #     cls._convertParams(clientConfig["params"]),
-                        #     [
-                        #         ProfileType(
-                        #             namedAny(profile["class"]),
-                        #             cls._convertParams(profile["params"])
-                        #         ) for profile in clientConfig["profiles"]
-                        #     ]))
-            if not parameters.clients:
-                parameters.addClient(1,
-                                     ClientType(OS_X_10_6, {},
-                                                [Eventer, Inviter, Accepter]))
-        else:
-            # Manager / observer process.
-            server = ''
-            serializationPath = None
-            arrival = None
-            parameters = None
-            workerID = 0
-            configTemplate = config
-            workerCount = 1
-
-        # webadminPort = 
-        webadminPort = None
-        if 'webadmin' in config:
-            if config['webadmin']['enabled']:
-                webadminPort = config['webadmin']['HTTPPort']
-
-        serverStats = None
-        if 'serverStats' in config:
-            if config['serverStats']['enabled']:
-                serverStats = config['serverStats']
-                serverStats['server'] = config['server'] if 'server' in config else ''
-
-        observers = []
-        if 'observers' in config:
-            for observer in config['observers']:
-                observerName = observer["type"]
-                observerParams = observer["params"]
-                observers.append(namedAny(observerName)(**observerParams))
-
-        records = []
-        if 'accounts' in config:
-            loader = config['accounts']['loader']
-            params = config['accounts']['params']
-            records.extend(namedAny(loader)(**params))
-            output.write("Loaded {0} accounts.\n".format(len(records)))
+        # if config.isWorking:
+        #     simulator = CalendarClientSimulator(
+        #         config.records,
+        #         config.parameters,
+        #         config.reactor,
+        #         config.server,
+        #         config.serializationPath,
+        #         config.workerID,
+        #         config.workerCount,
+        #     )
+        #     arrival = config.arrival
 
         return cls(
-            server,
-            webadminPort,
-            serverStats,
-            serializationPath,
-            arrival,
-            parameters,
-            observers=observers,
-            records=records,
+            config.server,
+            config.webadminPort,
+            config.serverStats,
+            config.serializationPath,
+            config.arrival,
+            config.parameters,
+            observers=config.observers,
+            records=config.records,
             runtime=runtime,
-            reactor=reactor,
-            workers=workers,
-            configTemplate=configTemplate,
-            workerID=workerID,
-            workerCount=workerCount,
+            configTemplate=config.serializeForWorker,
+            workers=config.workers,
+            workerID=config.workerID,
+            workerCount=config.workerCount,
         )
-
-    @classmethod
-    def _convertParams(cls, params):
-        """
-        Find parameter values which should be more structured than plistlib is
-        capable of constructing and replace them with the more structured form.
-
-        Specifically, find keys that end with C{"Distribution"} and convert
-        them into some kind of distribution object using the associated
-        dictionary of keyword arguments.
-        """
-        for k, v in params.iteritems():
-            if k.endswith('Distribution'):
-                params[k] = cls._convertDistribution(v)
-        return params
-
-
-    @classmethod
-    def _convertDistribution(cls, value):
-        """
-        Construct and return a new distribution object using the type and
-        params specified by C{value}.
-        """
-        return namedAny(value['type'])(**value['params'])
 
 
     @classmethod
@@ -476,10 +408,8 @@ class LoadSimulator(object):
 
 
     def createSimulator(self):
-        populator = Populator(Random())
         return CalendarClientSimulator(
             self.records,
-            populator,
             self.parameters,
             self.reactor,
             self.server,
@@ -491,7 +421,8 @@ class LoadSimulator(object):
 
     def createArrivalPolicy(self):
         # print(self.arrival.parameters)
-        return self.arrival.factory(self.reactor, **self.arrival.parameters)
+        # return zory(self.reactor, **self.arrival.parameters)
+        return self.arrival
 
 
     def serviceClasses(self):
@@ -503,6 +434,7 @@ class LoadSimulator(object):
             PrimaryService = WorkerSpawnerService
         else:
             PrimaryService = SimulatorService
+
         return [
             ObserverService,
             ReporterService,
@@ -575,6 +507,7 @@ class LoadSimulator(object):
             data = ""
             while not data.endswith("\n"):
                 d = s.recv(1024)
+                print("Received data from stats socket: ", d)
                 if d:
                     data += d
                 else:
@@ -622,6 +555,9 @@ class ObserverService(SimService):
         """
         super(ObserverService, self).startService()
         for obs in self.loadsim.observers:
+            import random
+            val = random.random()
+            msg(type='log', text='Adding observer: ' + obs.__class__.__name__, val=str(val))
             addObserver(obs.observe)
 
 
@@ -639,16 +575,19 @@ class SimulatorService(SimService):
     """
 
     def startService(self):
+        print("Starting simulator service")
         super(SimulatorService, self).startService()
         self.clientsim = self.loadsim.createSimulator()
         arrivalPolicy = self.loadsim.createArrivalPolicy()
-        arrivalPolicy.run(self.clientsim)
+        arrivalPolicy.run(self.loadsim.reactor, self.clientsim)
+        # self.loadsim.arrival.run(self.loadsim.reactor, self.loadsim.simulator)
 
 
     @inlineCallbacks
     def stopService(self):
         yield super(SimulatorService, self).stopService()
         yield self.clientsim.stop()
+        # yield self.loadsim.simulator.stop()
 
 
 
@@ -662,6 +601,7 @@ class ReporterService(SimService):
         """
         Start observing.
         """
+        print("Starting reporter service")
         super(ReporterService, self).startService()
         self.loadsim.reporter = self
 
@@ -736,6 +676,7 @@ class WorkerSpawnerService(SimService):
         super(WorkerSpawnerService, self).startService()
         self.bridges = []
         for workerID, worker in enumerate(self.loadsim.workers):
+            print("Building bridge for #" + str(workerID))
             bridge = ProcessProtocolBridge(
                 self, Manager(self.loadsim, workerID, len(self.loadsim.workers),
                               self.output)

@@ -38,7 +38,7 @@
 				<dict>
 					<!-- Name that appears in logs. -->
 					<key>title</key>
-					<string>10.11 Intern</string>
+					<string>10.11</string>
 
 					<!-- OS_X_10_7 can poll the calendar home at some interval. This is
 						in seconds. -->
@@ -64,7 +64,7 @@
 				<array>
 					<dict>
 						<key>class</key>
-						<string>contrib.performance.loadtest.profiles.Inviter</string>
+						<string>contrib.performance.loadtest.profiles.Eventer</string>
 
 						<key>params</key>
 						<dict>
@@ -74,7 +74,7 @@
 							<!-- Define the interval (in seconds) at which this profile will use
 								its client to create a new event. -->
 							<key>interval</key>
-							<integer>1</integer>
+							<integer>2</integer>
 						</dict>
 					</dict>
 				</array>

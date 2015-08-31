@@ -107,6 +107,22 @@ class SummarizingMixin(object):
             self._printRow(output, formats, self._summarizeData(method, data))
 
 
+class MessageLogger(object):
+    def observe(self, event):
+        if event.get("type") == "log":
+            import random
+            identifier = random.random()
+            print(TerminalColors.WARNING + str(identifier) + '/' + event.get('val') + ':' + event.get('text') + TerminalColors.ENDC)
+
+
+class EverythingLogger(object):
+    def observe(self, event):
+        # if event.get("type") == "response":
+        #     from pprint import pprint
+        #     pprint(event)
+        pass
+
+
 
 class RequestLogger(object):
     format = u"%(user)s request %(code)s%(success)s[%(duration)5.2f s] %(method)8s %(url)s"
@@ -129,7 +145,7 @@ class RequestLogger(object):
             else:
                 formatArgs['success'] = self.failure
                 start = TerminalColors.FAIL
-            print(start + (self.format % formatArgs).encode('utf-8') + TerminalColors.ENDC)
+            print(start + (self.format % formatArgs).encode('utf-8') + "from Logger w/ id: " + str(id(self)) + TerminalColors.ENDC)
 
 
     def report(self, output):

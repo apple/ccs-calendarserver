@@ -1,24 +1,90 @@
 from twisted.trial.unittest import TestCase
 
 from contrib.performance.loadtest.distributions import (
-    LogNormalDistribution, UniformDiscreteDistribution,
-    UniformIntegerDistribution, WorkDistribution, RecurrenceDistribution
+    # Continuous distributions
+    LogNormalDistribution, NormalDistribution,
+    # Discrete distributions
+    UniformDiscreteDistribution, UniformIntegerDistribution,
+    BernoulliDistribution, BinomialDistribution, FixedDistribution,
+    # Calendar-specific distributions
+    WorkDistribution, RecurrenceDistribution,
 )
 
 from pycalendar.datetime import DateTime
 from pycalendar.timezone import Timezone
 
+from scipy import stats
+from scipy.optimize import curve_fit
+import itertools
+
+"""
+Disclaimer: These tests are nondeterministic, so be careful
+"""
+
 class DistributionTestBase(TestCase):
-    def getSamples(self, n):
+    def get_n_samples(self, dist, n):
         samples = []
         for _ignore_i in xrange(n):
-            samples.append()
+            samples.append(dist.sample())
+        return samples
 
-    def close(self, n):
-        pass
+class DiscreteDistributionTests(DistributionTestBase):
+    def test_bernoulli(self):
+        sample_count = 1000
+        proportions = [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1]
+        for prop in proportions:
+            dist = BernoulliDistribution(proportion=prop)
+            samples = self.get_n_samples(dist, sample_count)
+            successes = samples.count(True)
 
-class DistributionTests(TestCase):
+            # This representes the likelihood that we would see as many successes
+            # as we did given that the true proportion is prop
+            p_value = stats.binom_test(successes, n=sample_count, p=prop)
+            self.assertFalse(p_value <= 0.01, "%d/%d, expected %f" % (successes, sample_count, prop))
 
+    def test_binomial(self):
+        sample_counts = [100, 1000, 10000]
+        proportions = [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1]
+        for sample_count, prop in itertools.product(sample_counts, proportions):
+            dist = BinomialDistribution(p=prop, n=sample_count)
+            successes = dist.sample()
+
+            # This representes the likelihood that we would see as many successes
+            # as we did given that the true proportion is prop
+            p_value = stats.binom_test(successes, n=sample_count, p=prop)
+            self.assertFalse(p_value <= 0.01, "%d/%d, expected %f" % (successes, sample_count, prop))
+
+    def test_fixed(self):
+        dist = FixedDistribution(4) # https://xkcd.com/221/
+        for _ignore_i in xrange(100):
+            self.assertEqual(dist.sample(), 4)
+
+    def test_uniformdiscrete(self):
+        population = [82, 101, 100, 109, 111, 110, 100]
+        counts = dict.fromkeys(population, 0)
+        dist = UniformDiscreteDistribution(population)
+        for _ignore_i in range(len(population) * 10):
+            counts[dist.sample()] += 1
+        self.assertEqual(dict.fromkeys(population, 10), counts)
+        # Do some chi squared stuff
+
+    def test_uniform(self):
+        dist = UniformIntegerDistribution(-5, 10)
+        for _ignore_i in range(100):
+            value = dist.sample()
+            self.assertTrue(-5 <= value < 10)
+            self.assertIsInstance(value, int)
+
+class ContinuousDistributionTests(TestCase):
+    def is_fit(self, pdf, xdata, ydata, pexp):
+        """
+        expected parameters
+        """
+        popt, pcov = curve_fit(pdf, xdata, ydata)
+        print popt
+
+    def test_normal(self):
+        dist = NormalDistribution()
 
     def test_lognormal(self):
         dist = LogNormalDistribution(mu=1, sigma=1)
@@ -48,15 +114,7 @@ class DistributionTests(TestCase):
         self.assertRaises(ValueError, LogNormalDistribution, mean=1)
         self.assertRaises(ValueError, LogNormalDistribution, median=1)
 
-
-    def test_uniformdiscrete(self):
-        population = [1, 5, 6, 9]
-        counts = dict.fromkeys(population, 0)
-        dist = UniformDiscreteDistribution(population)
-        for _ignore_i in range(len(population) * 10):
-            counts[dist.sample()] += 1
-        self.assertEqual(dict.fromkeys(population, 10), counts)
-
+class CalendarDistributionTests(TestCase):
 
     def test_workdistribution(self):
         tzname = "US/Eastern"
@@ -91,7 +149,7 @@ class DistributionTests(TestCase):
             self.assertTrue(value is None)
 
         dist = RecurrenceDistribution(True, {"daily": 1, "none": 2, "weekly": 1})
-        dist._helperDistribution = UniformDiscreteDistribution([0, 3, 2, 1, 0], randomize=False)
+        dist._helperDistribution = UniformDiscreteDistribution([0, 3, 2, 1, 0])
         value = dist.sample()
         self.assertTrue(value is not None)
         value = dist.sample()
@@ -102,11 +160,3 @@ class DistributionTests(TestCase):
         self.assertTrue(value is not None)
         value = dist.sample()
         self.assertTrue(value is not None)
-
-
-    def test_uniform(self):
-        dist = UniformIntegerDistribution(-5, 10)
-        for _ignore_i in range(100):
-            value = dist.sample()
-            self.assertTrue(-5 <= value < 10)
-            self.assertIsInstance(value, int)

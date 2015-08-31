@@ -114,13 +114,6 @@ class Calendar(object):
         self.url = url
         self.changeToken = changeToken
         self.events = {}
-        # print("----\nNew Calendar")
-        # print("Resource Type: ", self.resourceType)
-        # print("Component Types: ", self.componentTypes)
-        # print("Name: ", self.name)
-        # print("URL: ", self.url)
-        # print("Change Token: ", self.changeToken)
-        # print("Events: ", self.events)
 
 
     def serialize(self):
@@ -156,19 +149,6 @@ class Calendar(object):
                 calendar.changeToken = ""
         return calendar
 
-    @staticmethod
-    def buildCalendarXML(order=0, component_type='VEVENT', rgba_color='FB524FFF', name='Simple Calendar'):
-        # TODO add timezone information
-
-        # MakeCalendar(None, '/', name, )
-
-        # body = _STARTUP_CREATE_CALENDAR.format(
-        #     order=order,
-        #     component_type=component_type,
-        #     color=rgba_color,
-        #     name=name)
-        # return body
-        return ""
 
     @staticmethod
     def addInviteeXML(uid, summary, readwrite=True):
@@ -231,11 +211,3 @@ class Calendar(object):
         el = ElementTree.Element(qn)
         el.text = order
         return Calendar._buildPropPatchXML(el)
-
-    # @inlineCallbacks
-    # def setCalendarProperty(self, calendar):
-
-    # def do_stuff(...):
-    #     body = 
-    #     yield self.requester.proppatch(href, body, method_label="PROPPATCH{calendar}")
-    #     

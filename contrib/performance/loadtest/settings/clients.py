@@ -1,35 +1,26 @@
 from contrib.performance.loadtest.clients import iOS_5, OS_X_10_6, OS_X_10_7, OS_X_10_11
-from contrib.performance.loadtest.profiles import CalendarMaker, CalendarUpdater, CalendarSharer, CalendarDeleter
-from contrib.performance.loadtest.population import ProfileType
+from contrib.performance.loadtest.profiles import (
+    Eventer, EventDeleter,
+    Titler,
+    Tasker, TaskDeleter,
+    TaskTitler, TaskNoter, Completer, Prioritizer,
+
+    CalendarMaker, CalendarUpdater, CalendarSharer, CalendarDeleter
+)
+from contrib.performance.loadtest.distributions import FixedDistribution, BernoulliDistribution
+
 
 from preset_distributions import STANDARD_WORK_DISTRIBUTION, LOW_RECURRENCE_DISTRIBUTION, MEDIUM_RECURRENCE_DISTRIBUTION
 
-# We have to roll our own deep copy method because you can't deep copy Twisted's reactor
-class ClientFactory(object):
-
-    def __init__(self, client, weight):
-        pass
-
-    @staticmethod
-    def _duplicateClient(client):
-        return type(client)(
-            # some params
-        )
-
-    def new(reactor, ):
-        pass
-
-class ProfileFactory(object):
-    def __init__(self, profile):
-        pass
-
-    @staticmethod
-    def _duplicateProfile(profile):
-        return type(profile)()
-
-calendars_only = [
+config = [
     {
         "software": OS_X_10_11,
+        #     title="10.11",
+        #     calendarHomePollInterval=5,
+        #     supportAmpPush=True,
+        #     ampPushHost="localhost",
+        #     ampPushPort62311
+        # )
         "params": {
             "title": "10.11",
             "calendarHomePollInterval": 5,
@@ -38,33 +29,41 @@ calendars_only = [
             "ampPushPort": 62311
         },
         "profiles": [
-            ProfileType(CalendarMaker, dict(enabled=True, interval=15)),
+            # Eventer(enabled=True, interval=0.01, eventStartDistribution=STANDARD_WORK_DISTRIBUTION),
+            # Titler(enabled=True, interval=1, titleLengthDistribution=FixedDistribution(10)),
 
-            # CalendarMaker(enabled=True, interval=15),
+            # Tasker(enabled=False, interval=1),
+            # Completer(enabled=True, interval=0.5, completeLikelihood=BernoulliDistribution(0.5)),
+            # Prioritizer(enabled=True, interval=0.1),
+            TaskTitler(enabled=True, interval=1),
+            TaskNoter(enabled=True, interval=1),
+            # TaskDeleter(enabled=True, interval=1),
+
+            # CalendarMaker(enabled=True, interval=1),
             # CalendarUpdater(enabled=True, interval=5),
             # CalendarSharer(enabled=True, interval=30),
             # CalendarDeleter(false=True, interval=30)
         ],
-        "weight": 1
+        "weight": 3
     }
 ]
 
-# TBD what about multiple weights?
-calendars_only_ideal = [
-    OS_X_10_11(
-        title="10.11",
-        calendarHomePollInterval=5,
-        supportAmpPush=True,
-        ampPushHost="localhost",
-        ampPushPort=62311,
-        profiles=[
-            CalendarMaker(enabled=True, interval=15),
-            # CalendarUpdater(enabled=True, interval=5),
-            # CalendarSharer(enabled=False, interval=30),
-            # CalendarDeleter(enabled=False, interval=30)
-        ]
-    )
-]
+# # TBD what about multiple weights?
+# calendars_only_ideal = [
+#     OS_X_10_11(
+#         title="10.11",
+#         calendarHomePollInterval=5,
+#         supportAmpPush=True,
+#         ampPushHost="localhost",
+#         ampPushPort=62311,
+#         profiles=[
+#             CalendarMaker(enabled=True, interval=15),
+#             # CalendarUpdater(enabled=True, interval=5),
+#             # CalendarSharer(enabled=False, interval=30),
+#             # CalendarDeleter(enabled=False, interval=30)
+#         ]
+#     )
+# ]
 
 # event_updates_only = [
 #     {
@@ -111,7 +110,3 @@ calendars_only_ideal = [
 #         "weight": 1
 #     }
 # ]
-
-
-# clientConfiguration = calendars_only
-# __all__ = [clientConfiguration]

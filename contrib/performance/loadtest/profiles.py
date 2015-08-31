@@ -23,6 +23,7 @@ from __future__ import division
 
 import random
 from uuid import uuid4
+from numbers import Number
 
 from caldavclientlibrary.protocol.caldav.definitions import caldavxml
 
@@ -37,7 +38,7 @@ from twistedcaldav.ical import Property
 
 from contrib.performance.loadtest.distributions import (
     NearFutureDistribution, NormalDistribution, UniformDiscreteDistribution, BernoulliDistribution,
-    LogNormalDistribution, RecurrenceDistribution
+    LogNormalDistribution, RecurrenceDistribution, FixedDistribution
 )
 from contrib.performance.loadtest.ical import IncorrectResponseCode
 from contrib.performance.loadtest.resources import Calendar, Event
@@ -47,6 +48,23 @@ from pycalendar.datetime import DateTime
 from pycalendar.duration import Duration
 from pycalendar.value import Value
 
+def _loopWithDistribution(reactor, distribution, function):
+    result = Deferred()
+    print(distribution)
+
+    def repeat(ignored):
+        reactor.callLater(distribution.sample(), iterate)
+
+    def iterate():
+        d = function()
+        if d is not None:
+            d.addCallbacks(repeat, result.errback)
+        else:
+            repeat(None)
+
+    repeat(None)
+    return result
+
 class ProfileBase(object):
     """
     Base class which provides some conveniences for profile
@@ -55,10 +73,18 @@ class ProfileBase(object):
     random = random
 
     def __init__(self, enabled, interval, **params):
+        print("Creating new profile: %s" % (self.__class__.__name__,))
         self.enabled = enabled
+        if isinstance(interval, Number):
+            interval = FixedDistribution(interval)
         self._interval = interval
-        self.setParameters(**params)
+        print "**" + str(self._interval)
+        self._params = params
+        self.setDistributions(**params)
         self._initialized = False
+
+    def duplicate(self):
+        return type(self)(enabled=self.enabled, interval=self._interval, **self._params)
 
     def setUp(self, reactor, simulator, client, record):
         self._reactor = reactor
@@ -67,48 +93,18 @@ class ProfileBase(object):
         self._record = record
         self._initialized = True
 
-    def setParameters(self):
+    def setDistributions(self):
         pass
 
+    def _wrapper(self):
+        if not self.enabled:
+            return succeed(None)
+        if not self._client.started:
+            return succeed(None)
+        return self.action()
+
     def run(self):
-        # def action(self):
-        #     if self.enabled:
-        #         return self.action()
-
-        print("Hello from run")
-        _call = LoopingCall(self.action)
-        _call.clock = self._reactor
-        return _call.start(self._interval)
-
-        # OR
-
-    #     return self._loopWithDistribution(
-    #         self._reactor, self._sendInvitationDistribution, self._invite)
-
-    # def _loopWithDistribution(reactor, distribution, function):
-    #     result = Deferred()
-
-    #     def repeat(ignored):
-    #         reactor.callLater(distribution.sample(), iterate)
-
-    #     def iterate():
-    #         d = function()
-    #         if d is not None:
-    #             d.addCallbacks(repeat, result.errback)
-    #         else:
-    #             repeat(None)
-
-    #     repeat(None)
-    #     return result
-
-    def initialize(self):
-        """
-        Called before the profile runs for real. Can be used to initialize client state.
-
-        @return: a L{Deferred} that fires when initialization is done
-        """
-        return succeed(None)
-
+        return _loopWithDistribution(self._reactor, self._interval, self._wrapper)
 
     def _calendarsOfType(self, calendarType, componentType):
         return [
@@ -127,12 +123,12 @@ class ProfileBase(object):
         return attendee.parameterValue('EMAIL') == self._client.email[len('mailto:'):]
 
 
-    def _getRandomCalendar(self):
+    def _getRandomCalendarOfType(self, component_type):
         """
         Return a random L{Calendar} object from the current user
         or C{None} if there are no calendars to work with
         """
-        calendars = self._calendarsOfType(caldavxml.calendar, "VEVENT")
+        calendars = self._calendarsOfType(caldavxml.calendar, component_type)
         if not calendars: # Oh no! There are no calendars to play with
             return None
         # Choose a random calendar
@@ -140,12 +136,12 @@ class ProfileBase(object):
         return calendar
 
 
-    def _getRandomEvent(self):
+    def _getRandomEventOfType(self, component_type):
         """
         Return a random L{Event} object from the current user
         or C{None} if there are no events to work with
         """
-        calendars = self._calendarsOfType(caldavxml.calendar, "VEVENT")
+        calendars = self._calendarsOfType(caldavxml.calendar, component_type)
         while calendars:
             calendar = self.random.choice(calendars)
             calendars.remove(calendar)
@@ -232,50 +228,42 @@ class CannotAddAttendee(Exception):
     """
     pass
 
-    """ Event-Interaction Profiles
-Event Creation - Eventer
-Event Changing - EventUpdaterBase
-                    TitlerMixin
-                    RelocaterMixin
-                    ReschedulerMixin
-                    RepeaterMixin
-                    AlerterMixin
-                    InviterMixin
-                    NoterMixin
-                    InviterMixin
-                    LinkerMixin
-                    AttacherMixin
-Event Deletion - EventerDeleter
-"""
 
 #####################
-# Eventer Behaviors #
+# Eventer Hierarchy #
+# ----------------- #
+# EventBase         #
+#   Eventer         #
+#   EventUpdaterBase#
+#     Titler        #
+#     Noter         #
+#     Linker        #
+#     Relocater     #
+#     Repeater      #
+#     Rescheduler   #
+#     ~Alerter~     #
+#     Attacher      #
+#     InviterBase   #
+#       Inviter     #
+#       Relocater   #
+#   EventDeleter    #
 #####################
 
-class EventerBase(ProfileBase):
+class EventBase(ProfileBase):
     """
     Base profile for a calendar user who interacts with events
     """
-    def setParameters(
-        self,
-        enabled=True,
-        interval=25,
-        **params
-    ):
-        self.enabled = enabled
-        self._interval = interval
-        self.setDistributions(**params)
+    def _getRandomCalendar(self):
+        return self._getRandomCalendarOfType('VEVENT')
+
+    def _getRandomEvent(self):
+        return self._getRandomEventOfType('VEVENT')
 
 
-
-class Eventer(EventerBase):
+class Eventer(EventBase):
     """
     A Calendar user who creates new events.
     """
-    def initialize(self):
-        self.action = self._addEvent
-        return succeed(None)
-
     def setDistributions(
         self,
         eventStartDistribution=NearFutureDistribution(),
@@ -285,30 +273,25 @@ class Eventer(EventerBase):
             120 * 60
         ])
     ):
-        self._eventStartDistribution = eventStartDistribution
-        self._eventDurationDistribution = eventDurationDistribution
+        """
+        @param eventStartDistribution: Generates datetimes at which an event starts
+        @param eventDurationDistribution: Generates length of event (in seconds)
+        """
+        self._eventStart = eventStartDistribution
+        self._eventDuration = eventDurationDistribution
 
     def _addEvent(self):
-        print "Hello a bit"
-
-        if not self._client.started:
-            return succeed(None)
-
-
-
+        # Choose a random calendar on which to add an event
         calendar = self._getRandomCalendar()
         if not calendar:
             return succeed(None)
 
-        print "Made it"
-
-        # Copy the template event and fill in some of its fields
-        # to make a new event to create on the calendar.
+        # Form a new event by modifying fields of the template event
         vcalendar = eventTemplate.duplicate()
         vevent = vcalendar.mainComponent()
         uid = str(uuid4())
-        dtstart = self._eventStartDistribution.sample()
-        dtend = dtstart + Duration(seconds=self._eventDurationDistribution.sample())
+        dtstart = self._eventStart.sample()
+        dtend = dtstart + Duration(seconds=self._eventDuration.sample())
 
         vevent.replaceProperty(Property("UID", uid))
         vevent.replaceProperty(Property("CREATED", DateTime.getNowUTC()))
@@ -319,17 +302,18 @@ class Eventer(EventerBase):
         href = '%s%s.ics' % (calendar.url, uid)
         event = Event(self._client.serializeLocation(), href, None, component=vcalendar)
         d = self._client.addEvent(href, event)
-        return self._newOperation("create", d)
+        return self._newOperation("create{event}", d)
+
+    action = _addEvent
 
 # Could have better handling for not changing events once they're modified
 # esp re: repeating
-class EventUpdaterBase(EventerBase):
+class EventUpdaterBase(EventBase):
     """Superclass of all event mixins.
     Accepts two parameters
     enabled: bool on or off
     interval: distibution that generates integers representing delays
     """
-    # COMPONENT_TYPE = None
     def action(self):
         event = self._getRandomEvent()
         if not event:
@@ -346,7 +330,7 @@ class EventUpdaterBase(EventerBase):
 
         return self._newOperation(label, d)
 
-    def modifyEvent(self):
+    def modifyEvent(self, href, vevent):
         """Overriden by subclasses"""
         pass
 
@@ -450,19 +434,21 @@ class Rescheduler(EventUpdaterBase):
         return "reschedule{event}"
 
 # class Alerter(EventUpdaterBase):
+# component.replaceProperty(Property("ACKNOWLEDGED", DateTime.getNowUTC()))
 #     pass
 
 class Attacher(EventUpdaterBase):
     def setDistributions(
         self,
+        filesizeDistribution=NormalDistribution(24, 3),
+        numAttachmentsDistribution=LogNormalDistribution(2, 1),
+        attachLikelihoodDistribution=BernoulliDistribution(0.9),
+
     ):
-    # filesizeDistribution=NormalDistribution(24, 3),
-    # numAttachmentsDistribution=LogNormalDistribution(2, 1),
-    # attachLikelihoodDistribution=BernoulliDistribution(0.9)
-        # self._filesize = filesizeDistribution
+        self._filesize = filesizeDistribution
         # self._numAttachments = numAttachmentsDistribution
         # self._attachLikelihood = attachLikelihoodDistribution
-        pass
+        # pass
 
     def modifyEvent(self, href, vevent):
         d = self._client.postAttachment(href, 'x' * 1024)
@@ -487,88 +473,42 @@ class Attacher(EventUpdaterBase):
     def unattachFile(self):
         pass
 
-class InviterBase(EventerBase):
-    """
-    Base profile for a calendar user that invites and deinvites other principals to events
-    """
-    def setParameters(
+class InviterBase(EventUpdaterBase):
+    def setDistributions(
         self,
-        enabled=True,
+        numInvitees=NormalDistribution(7, 2),
         sendInvitationDistribution=NormalDistribution(600, 60),
-        inviteeDistribution=UniformDiscreteDistribution(range(-10, 11)),
-        **params
+        numInviteesDistribution=UniformDiscreteDistribution(range(-10, 11))
     ):
         self.enabled = enabled
         self._sendInvitationDistribution = sendInvitationDistribution
-        self._inviteeDistribution = inviteeDistribution
-        if len(params) > 0:
-            pass
+        self._numInvitees = inviteeDistribution
 
-    def getAttendees():
+    def _findUninvitedRecord(self, vevent):
         pass
 
-    # def _invitePrincipal(self, ...):
-
-    # def _uninvitePrincipal(self, ...):
-
-
-
-
-    def _loopWithDistribution(reactor, distribution, function):
-        result = Deferred()
-
-        def repeat(ignored):
-            reactor.callLater(distribution.sample(), iterate)
-
-        def iterate():
-            d = function()
-            if d is not None:
-                d.addCallbacks(repeat, result.errback)
-            else:
-                repeat(None)
-
-        repeat(None)
-        return result
+    def _addAttendee(self, some_id):
+        attendeeProp = self._buildAttendee()
+        self._client.attendeeAutocomplete
 
     # def _didSelfOrganize(self, vevent):
 
+    # TODO handle alternate roles
+    def _buildAttendee(self, commonname, cuaddr, isIndividual=True, isRequired=False):
+        return Property(
+            name=u'ATTENDEE',
+            value=cuaddr.encode("utf-8"),
+            params={
+                'CN': commonname,
+                'CUTYPE': 'INDIVIDUAL' if isIndividual else 'ROOM',
+                'PARTSTAT': 'NEEDS-ACTION',
+                'ROLE': 'REQ-PARTICIPANT',
+                'RSVP': 'TRUE',
+            },
+        )
 
-    # def _buildIndividualAttendee(self, commonName, record, ):
-
-    #     # ATTENDEE;CN="Super User";CUTYPE=INDIVIDUAL;EMAIL="admin@example.com":mailto:admin@example.com
-    #     # ATTENDEE;CN="User 04";CUTYPE=INDIVIDUAL;EMAIL="user04@example.com":mailto:user04@example.com
-
-    #     role = ['REQ-PARTICIPANT', '']
-    #     attendee = Property(
-    #         name=u'ATTENDEE',
-    #         value=cuaddr.encode("utf-8"),
-    #         params={
-    #             'CN': commonName,
-    #             'CUTYPE': 'INDIVIDUAL',
-    #             'PARTSTAT': 'NEEDS-ACTION',
-    #             'ROLE': 'REQ-PARTICIPANT',
-    #             'RSVP': 'TRUE',
-    #         },
-    #     )
-    #     return attendee
-
-    # def _buildLocationAttendee(self, cn, cuaddr):
-    #     """
-    #     Example Usage: profile._buildLocationAttendee("Location 01", "urn:uuid:...")
-    #     """
-    #     role = ['REQ-PARTICIPANT', '']
-    #     attendee = Property(
-    #         name=u'ATTENDEE',
-    #         value=cuaddr.encode("utf-8"),
-    #         params={
-    #             'CN': commonName,
-    #             'CUTYPE': 'ROOM',
-    #             'PARTSTAT': 'NEEDS-ACTION',
-    #             'ROLE': 'REQ-PARTICIPANT',
-    #             'RSVP': 'TRUE',
-    #         },
-    #     )
-    #     return attendee
+    def _getAttendees(self, vevent):
+        return vevent.properties('ATTENDEE')
 
     def _invite():
         raise NotImplementedError
@@ -576,314 +516,7 @@ class InviterBase(EventerBase):
     def _addAttendee():
         raise NotImplementedError
 
-# TODO - invite groups
-# class Inviter(EventUpdaterBase): pass
-
-class Relocater(EventUpdaterBase):
-    def setParameters(
-        self,
-    ):
-        pass
-
-class AppleEventer(EventerBase):
-    """
-    Calendar user who makes events in the form of Apple logo
-    """
-    def initialize(self):
-        self.action = self._addEvent
-        return succeed(None)
-
-    def setDistributions(
-        self
-    ):
-        pass
-
-    def _addEvent(self):
-        if not self._client.started:
-            return succeed(None)
-
-        calendar = self._getRandomCalendar()
-        if not calendar:
-            return succeed(None)
-
-        # Copy the template event and fill in some of its fields
-        # to make a new event to create on the calendar.
-        vcalendar = eventTemplate.duplicate()
-        vevent = vcalendar.mainComponent()
-        uid = str(uuid4())
-        dtstart = self._eventStartDistribution.sample()
-        dtend = dtstart + Duration(seconds=self._eventDurationDistribution.sample())
-
-        vevent.replaceProperty(Property("UID", uid))
-        vevent.replaceProperty(Property("CREATED", DateTime.getNowUTC()))
-        vevent.replaceProperty(Property("DTSTAMP", DateTime.getNowUTC()))
-        vevent.replaceProperty(Property("DTSTART", dtstart))
-        vevent.replaceProperty(Property("DTEND", dtend))
-
-        href = '%s%s.ics' % (calendar.url, uid)
-        event = Event(self._client.serializeLocation(), href, None, component=vcalendar)
-        d = self._client.addEvent(href, event)
-        return self._newOperation("create", d)
-
-class HappyEventer(EventerBase):
-    """
-    Calendar user who makes events in the form of Apple logo
-    """
-    def initialize(self):
-        self.action = self._addEvent
-        return succeed(None)
-
-    def setDistributions(
-        self
-    ):
-        self._eventStart = UniformDiscreteDistribution([
-            # August 3
-            DateTime(year=2015, month=8, day=3, hours=15, minutes=0, seconds=0, tzid=None, utcoffset=None),
-            DateTime(year=2015, month=8, day=3, hours=15, minutes=30, seconds=0, tzid=None, utcoffset=None),
-            DateTime(year=2015, month=8, day=3, hours=16, minutes=0, seconds=0, tzid=None, utcoffset=None),
-            DateTime(year=2015, month=8, day=3, hours=16, minutes=30, seconds=0, tzid=None, utcoffset=None),
-
-            # August 4
-            DateTime(year=2015, month=8, day=4, hours=10, minutes=0, seconds=0, tzid=None, utcoffset=None),
-            DateTime(year=2015, month=8, day=4, hours=10, minutes=30, seconds=0, tzid=None, utcoffset=None),
-            DateTime(year=2015, month=8, day=4, hours=11, minutes=0, seconds=0, tzid=None, utcoffset=None),
-            DateTime(year=2015, month=8, day=4, hours=11, minutes=30, seconds=0, tzid=None, utcoffset=None),
-
-            DateTime(year=2015, month=8, day=4, hours=16, minutes=0, seconds=0, tzid=None, utcoffset=None),
-            DateTime(year=2015, month=8, day=4, hours=16, minutes=30, seconds=0, tzid=None, utcoffset=None),
-            DateTime(year=2015, month=8, day=4, hours=17, minutes=0, seconds=0, tzid=None, utcoffset=None),
-
-            # August 5
-            DateTime(year=2015, month=8, day=5, hours=13, minutes=0, seconds=0, tzid=None, utcoffset=None),
-            DateTime(year=2015, month=8, day=5, hours=13, minutes=30, seconds=0, tzid=None, utcoffset=None),
-            DateTime(year=2015, month=8, day=5, hours=17, minutes=0, seconds=0, tzid=None, utcoffset=None),
-            DateTime(year=2015, month=8, day=5, hours=17, minutes=30, seconds=0, tzid=None, utcoffset=None),
-
-            # August 6
-            DateTime(year=2015, month=8, day=6, hours=10, minutes=0, seconds=0, tzid=None, utcoffset=None),
-            DateTime(year=2015, month=8, day=6, hours=10, minutes=30, seconds=0, tzid=None, utcoffset=None),
-            DateTime(year=2015, month=8, day=6, hours=11, minutes=0, seconds=0, tzid=None, utcoffset=None),
-            DateTime(year=2015, month=8, day=6, hours=11, minutes=30, seconds=0, tzid=None, utcoffset=None),
-
-            DateTime(year=2015, month=8, day=6, hours=16, minutes=0, seconds=0, tzid=None, utcoffset=None),
-            DateTime(year=2015, month=8, day=6, hours=16, minutes=30, seconds=0, tzid=None, utcoffset=None),
-            DateTime(year=2015, month=8, day=6, hours=17, minutes=0, seconds=0, tzid=None, utcoffset=None),
-
-            # August 7
-            DateTime(year=2015, month=8, day=7, hours=15, minutes=0, seconds=0, tzid=None, utcoffset=None),
-            DateTime(year=2015, month=8, day=7, hours=15, minutes=30, seconds=0, tzid=None, utcoffset=None),
-            DateTime(year=2015, month=8, day=7, hours=16, minutes=0, seconds=0, tzid=None, utcoffset=None),
-            DateTime(year=2015, month=8, day=7, hours=16, minutes=30, seconds=0, tzid=None, utcoffset=None),
-        ])
-        self._eventDuration = UniformDiscreteDistribution([
-            30 * 60,
-            60 * 60
-        ])
-
-    def _addEvent(self):
-        if not self._client.started:
-            return succeed(None)
-
-        calendar = self._getRandomCalendar()
-        if not calendar:
-            return succeed(None)
-
-        # Copy the template event and fill in some of its fields
-        # to make a new event to create on the calendar.
-        vcalendar = eventTemplate.duplicate()
-        vevent = vcalendar.mainComponent()
-        uid = str(uuid4())
-        dtstart = self._eventStart.sample()
-        dtend = dtstart + Duration(seconds=self._eventDuration.sample())
-
-        vevent.replaceProperty(Property("UID", uid))
-        vevent.replaceProperty(Property("CREATED", DateTime.getNowUTC()))
-        vevent.replaceProperty(Property("DTSTAMP", DateTime.getNowUTC()))
-
-        vevent.replaceProperty(Property("DTSTART", dtstart))
-        vevent.replaceProperty(Property("DTEND", dtend))
-
-        href = '%s%s.ics' % (calendar.url, uid)
-        event = Event(self._client.serializeLocation(), href, None, component=vcalendar)
-        d = self._client.addEvent(href, event)
-        return self._newOperation("create", d)
-
-
-
-# class EventDeleter(ProfileBase):
-
-
-
-""" TEST """
-# class Intern(object):
-#     def __init__(self):
-#         self.behaviors = [
-#             Eventer(asdfjadsf),
-#             Attacher(asjadsfjasdf),
-#             Inviter(enabled=True, **params)
-#         ]
-
-#     def run(self):
-#         deferreds = []
-#         for behavior in self.behaviors:
-#             deferreds.append(behavior.run())
-#         return DeferredList(deferreds)
-
-
-
-####################
-# Class Hierarchy
-# ---------------
-# TaskBase
-#   Tasker
-#   TaskUpdaterBase
-#     Titler
-#     Alerter
-#     Noter
-#     Prioritizer
-#     Completer
-#   TaskDeleter
-####################
-class TaskBase(ProfileBase):
-    """
-    Base profile for a calendar user who interacts with tasks
-    """
-    def setParameters(self, enabled=True, interval=25, **params):
-        self.enabled = enabled
-        self._interval = interval
-
-class Tasker(TaskBase):
-    """
-    A Calendar user who creates new tasks.
-    """
-    def initialize(self):
-        self.action = self._addTask
-        return succeed(None)
-
-    def _addTask(self, title="Simple Task"):
-        if not self._client.started:
-            return succeed(None)
-
-        calendars = self._calendarsOfType(caldavxml.calendar, "VTODO")
-
-        while calendars:
-            calendar = self.random.choice(calendars)
-            calendars.remove(calendar)
-
-            # Copy the template task and fill in some of its fields
-            # to make a new task to create on the calendar.
-            vcalendar = taskTemplate.duplicate()
-            vtodo = vcalendar.mainComponent()
-            uid = str(uuid4())
-            vtodo.replaceProperty(Property("UID", uid))
-            vtodo.replaceProperty(Property("CREATED", DateTime.getNowUTC()))
-            vtodo.replaceProperty(Property("DTSTAMP", DateTime.getNowUTC()))
-
-            href = '%s%s.ics' % (calendar.url, uid)
-            d = self._client.addEvent(href, vcalendar)
-            return self._newOperation("create", d)
-
-
-class TaskUpdaterBase(TaskBase):
-    def action(self):
-        task = self._getRandomTask()
-        if not task:
-            return succeed(None)
-        component = task.component
-        vtodo = component.mainComponent()
-
-        label = self.modifyEvent(task.url, vtodo)
-        vtodo.replaceProperty(Property("DTSTAMP", DateTime.getNowUTC()))
-
-        task.component = component
-        d = self._client.updateEvent(task)
-        return self._newOperation(label, d)
-
-    def modifyEvent(self):
-        """Overriden by subclasses"""
-        pass
-
-
-
-
-class TaskUpdater(TaskBase):
-    """
-    A Calendar user who creates and updates complex tasks with:
-      Mark as completed/not completed
-      Change name
-      Change priority
-      Change notes
-      Sets due dates
-    """
-
-    def setParameters(
-        self,
-        taskDueDistribution=NearFutureDistribution(),
-    ):
-        pass
-
-
-    def _addTask(self):
-        if not self._client.started:
-            return succeed(None)
-
-        calendars = self._calendarsOfType(caldavxml.calendar, "VTODO")
-
-        while calendars:
-            calendar = self.random.choice(calendars)
-            calendars.remove(calendar)
-
-            # Copy the template task and fill in some of its fields
-            # to make a new task to create on the calendar.
-            vcalendar = taskTemplate.duplicate()
-            vtodo = vcalendar.mainComponent()
-            uid = str(uuid4())
-            due = self._taskStartDistribution.sample()
-            vtodo.replaceProperty(Property("CREATED", DateTime.getNowUTC()))
-            vtodo.replaceProperty(Property("DTSTAMP", DateTime.getNowUTC()))
-            vtodo.replaceProperty(Property("UID", uid))
-            
-            # vtodo.replaceProperty(Property("SUMMARY", title))
-
-            href = '%s%s.ics' % (calendar.url, uid)
-            d = self._client.addEvent(href, vcalendar)
-            return self._newOperation("create", d)
-
-
-
-# class TaskTitlerMixin = TitlerMixin
-# class TaskAlerterMixin = AlerterMixin
-# self._taskStartDistribution = taskDueDistribution
-# vtodo.replaceProperty(Property("DUE", due))
-# class TaskNoterMixin = NoterMixin
-
-class Prioritizer(TaskBase):
-    PRIORITY_NONE = 0
-    PRIORITY_HIGH = 1
-    PRIORITY_MEDIUM = 5
-    PRIORITY_LOW = 9
-
-    def _setPriority(self, priority, vtodo):
-        vtodo.replaceProperty(Property("PRIORITY", priority))
-
-class Completer(TaskBase):
-    def _markTaskComplete(vtodo):
-        """ task is a Component representing a VTODO """
-        vtodo.replaceProperty(Property("COMPLETED", DateTime.getNowUTC()))
-        vtodo.replaceProperty(Property("PERCENT-COMPLETE", 100))
-        vtodo.replaceProperty(Property("STATUS", "COMPLETED"))
-
-
-    def _markTaskIncomplete(vtodo):
-        """ mark a VTODO as incomplete """
-        vtodo.removeProperty("COMPLETED")
-        vtodo.removeProperty("PERCENT-COMPLETE")
-        vtodo.replaceProperty(Property("STATUS", "NEEDS-ACTION"))
-
-# class TaskDeleter(ProfileBase): pass
-
-
-class Inviter(ProfileBase):
+class Inviter(InviterBase):
 
     def initialize(self):
         self.action = self.test
@@ -1014,133 +647,196 @@ class Inviter(ProfileBase):
         # Oops, either no events or no calendars to play with.
         return succeed(None)
 
-
-
-class RealisticInviter(ProfileBase):
-    """
-    A Calendar user who invites other users to new events.
-    """
-    def setParameters(
+class Relocater(InviterBase):
+    def setDistributions(
         self,
-        enabled=True,
-        sendInvitationDistribution=NormalDistribution(600, 60),
-        inviteeDistribution=UniformDiscreteDistribution(range(-10, 11)),
-        inviteeClumping=True,
-        inviteeCountDistribution=LogNormalDistribution(1.2, 1.2),
-        eventStartDistribution=NearFutureDistribution(),
-        eventDurationDistribution=UniformDiscreteDistribution([
-            15 * 60, 30 * 60,
-            45 * 60, 60 * 60,
-            120 * 60
-        ]),
-        recurrenceDistribution=RecurrenceDistribution(False),
     ):
-        self.enabled = enabled
-        self._sendInvitationDistribution = sendInvitationDistribution
-        self._inviteeDistribution = inviteeDistribution
-        self._inviteeClumping = inviteeClumping
-        self._inviteeCountDistribution = inviteeCountDistribution
-        self._eventStartDistribution = eventStartDistribution
-        self._eventDurationDistribution = eventDurationDistribution
-        self._recurrenceDistribution = recurrenceDistribution
+        pass
+
+class EventDeleter(EventBase):
+    """
+    A calendar user who deletes events at random
+    """
+    def _deleteEvent(self):
+        event = self._getRandomEvent()
+        if event is None:
+            return succeed(None)
+        d = self._client.deleteEvent(event.url)
+        return self._newOperation("delete{event}", d)
+
+    action = _deleteEvent
 
 
-    def _addAttendee(self, event, attendees):
-        """
-        Create a new attendee to add to the list of attendees for the
-        given event.
-        """
-        selfRecord = self._sim.getUserRecord(self._number)
-        invitees = set([u'mailto:%s' % (selfRecord.email,)])
-        for att in attendees:
-            invitees.add(att.value())
-
-        for _ignore_i in range(10):
-
-            sample = self._inviteeDistribution.sample()
-            if self._inviteeClumping:
-                sample = self._number + sample
-            invitee = max(0, sample)
-
-            try:
-                record = self._sim.getUserRecord(invitee)
-            except IndexError:
-                continue
-            cuaddr = u'mailto:%s' % (record.email,)
-            if cuaddr not in invitees:
-                break
-        else:
-            raise CannotAddAttendee("Can't find uninvited user to invite.")
-
-        attendee = Property(
-            name=u'ATTENDEE',
-            value=cuaddr.encode("utf-8"),
-            params={
-                'CN': record.commonName,
-                'CUTYPE': 'INDIVIDUAL',
-                'PARTSTAT': 'NEEDS-ACTION',
-                'ROLE': 'REQ-PARTICIPANT',
-                'RSVP': 'TRUE',
-            },
-        )
-
-        event.addProperty(attendee)
-        attendees.append(attendee)
 
 
-    def _invite(self):
-        """
-        Try to add a new event, or perhaps remove an
-        existing attendee from an event.
+""" TEST """
+# class Intern(object):
+#     def __init__(self):
+#         self.behaviors = [
+#             Eventer(asdfjadsf),
+#             Attacher(asjadsfjasdf),
+#             Inviter(enabled=True, **params)
+#         ]
 
-        @return: C{None} if there are no events to play with,
-            otherwise a L{Deferred} which fires when the attendee
-            change has been made.
-        """
+#     def run(self):
+#         deferreds = []
+#         for behavior in self.behaviors:
+#             deferreds.append(behavior.run())
+#         return DeferredList(deferreds)
 
-        if not self._client.started:
+
+
+####################
+# Tasker Hierarchy #
+# ---------------- #
+# TaskBase         #
+#   Tasker         #
+#   TaskDeleter    #
+#   TaskUpdaterBase#
+#     Titler       #
+#     Noter        #
+#     Prioritizer  #
+#     Completer    #
+#     Alerter      #
+####################
+
+
+class TaskBase(ProfileBase):
+    """
+    Base profile for a calendar user who interacts with tasks
+    """
+    def _getRandomCalendar(self):
+        return self._getRandomCalendarOfType('VTODO')
+
+    def _getRandomEvent(self):
+        return self._getRandomEventOfType('VTODO')
+
+
+class Tasker(TaskBase):
+    """
+    A Calendar user who creates new tasks.
+    """
+    def _addTask(self):
+        calendar = self._getRandomCalendar()
+        if not calendar:
             return succeed(None)
 
-        # Find calendars which are eligible for invites
-        calendars = self._calendarsOfType(caldavxml.calendar, "VEVENT")
+        # Form a new event by modifying fields of the template event
+        vcalendar = taskTemplate.duplicate()
+        vtodo = vcalendar.mainComponent()
+        uid = str(uuid4())
 
-        while calendars:
-            # Pick one at random from which to try to create an event
-            # to modify.
-            calendar = self.random.choice(calendars)
-            calendars.remove(calendar)
+        vtodo.replaceProperty(Property("UID", uid))
+        vtodo.replaceProperty(Property("CREATED", DateTime.getNowUTC()))
+        vtodo.replaceProperty(Property("DTSTAMP", DateTime.getNowUTC()))
 
-            # Copy the template event and fill in some of its fields
-            # to make a new event to create on the calendar.
-            vcalendar = eventTemplate.duplicate()
-            vevent = vcalendar.mainComponent()
-            uid = str(uuid4())
-            dtstart = self._eventStartDistribution.sample()
-            dtend = dtstart + Duration(seconds=self._eventDurationDistribution.sample())
-            vevent.replaceProperty(Property("CREATED", DateTime.getNowUTC()))
-            vevent.replaceProperty(Property("DTSTAMP", DateTime.getNowUTC()))
-            vevent.replaceProperty(Property("DTSTART", dtstart))
-            vevent.replaceProperty(Property("DTEND", dtend))
-            vevent.replaceProperty(Property("UID", uid))
+        href = '%s%s.ics' % (calendar.url, uid)
+        event = Event(self._client.serializeLocation(), href, None, component=vcalendar)
+        d = self._client.addEvent(href, event)
+        return self._newOperation("create{task}", d)
 
-            rrule = self._recurrenceDistribution.sample()
-            if rrule is not None:
-                vevent.addProperty(Property(None, None, None, pycalendar=rrule))
+    action = _addTask
 
-            vevent.addProperty(self._client._makeSelfOrganizer())
-            vevent.addProperty(self._client._makeSelfAttendee())
+class TaskDeleter(TaskBase):
+    def _deleteTask(self):
+        event = self._getRandomEvent()
+        if event is None:
+            return succeed(None)
 
-            attendees = list(vevent.properties('ATTENDEE'))
-            for _ignore in range(int(self._inviteeCountDistribution.sample())):
-                try:
-                    self._addAttendee(vevent, attendees)
-                except CannotAddAttendee:
-                    self._failedOperation("invite", "Cannot add attendee")
-                    return succeed(None)
+        d = self._client.deleteEvent(event.url)
+        return self._newOperation("delete{task}", d)
 
-            href = '%s%s.ics' % (calendar.url, uid)
-            d = self._client.addInvite(href, vcalendar)
-            return self._newOperation("invite", d)
+    action = _deleteTask
+
+
+class TaskUpdaterBase(TaskBase):
+    def action(self):
+        task = self._getRandomEvent()
+        if not task:
+            return succeed(None)
+        component = task.component
+        vtodo = component.mainComponent()
+
+        label = self.modifyEvent(task.url, vtodo)
+        vtodo.replaceProperty(Property("DTSTAMP", DateTime.getNowUTC()))
+
+        task.component = component
+        d = self._client.updateEvent(task, method_label="update{task}")
+        return self._newOperation(label, d)
+
+    def modifyEvent(self, href, vtodo):
+        """Overriden by subclasses"""
+        pass
+
+
+class TaskTitler(TaskUpdaterBase, Titler):
+    """
+    Changes the SUMMARY of a random VTODO
+    """
+    def modifyEvent(self, _ignore_href, vtodo):
+        vtodo.replaceProperty(Property("SUMMARY", "." * 5))
+        return "update{title}"
+
+class TaskNoter(TaskUpdaterBase, Noter):
+    """
+    Changes the NOTES of a random VTODO
+    """
+    def modifyEvent(self, _ignore_href, vtodo):
+        vtodo.replaceProperty(Property("DESCRIPTION", "." * 5))
+        return "update{notes}"
+
+
+# class TaskAlerterMixin = AlerterMixin (alarm AND due)
+# self._taskStartDistribution = taskDueDistribution
+# vtodo.replaceProperty(Property("DUE", due))
+
+
+class Prioritizer(TaskUpdaterBase):
+    PRIORITY_NONE = 0
+    PRIORITY_HIGH = 1
+    PRIORITY_MEDIUM = 5
+    PRIORITY_LOW = 9
+
+    def setDistributions(
+        self,
+        priorityDistribution=UniformDiscreteDistribution([
+            PRIORITY_NONE, PRIORITY_LOW, PRIORITY_MEDIUM, PRIORITY_HIGH
+        ])
+    ):
+        self._priority = priorityDistribution
+
+    def modifyEvent(self, _ignore_href, vtodo):
+        self._setPriority(vtodo, self._priority.sample())
+
+
+    def _setPriority(self, vtodo, priority):
+        """ Set the PRIORITY of a VTODO """
+        vtodo.replaceProperty(Property("PRIORITY", priority))
+
+class Completer(TaskUpdaterBase):
+    def setDistributions(
+        self,
+        completeLikelihood=BernoulliDistribution(0.9)
+    ):
+        self._complete = completeLikelihood
+
+    def modifyEvent(self, _ignore_href, vtodo):
+        if self._complete.sample():
+            self._markTaskComplete(vtodo)
+        else:
+            self._markTaskIncomplete(vtodo)
+
+    def _markTaskComplete(self, vtodo):
+        """ Mark a VTODO as complete """
+        vtodo.replaceProperty(Property("COMPLETED", DateTime.getNowUTC()))
+        vtodo.replaceProperty(Property("PERCENT-COMPLETE", 100))
+        vtodo.replaceProperty(Property("STATUS", "COMPLETED"))
+
+    def _markTaskIncomplete(self, vtodo):
+        """ Mark a VTODO as incomplete """
+        vtodo.removeProperty("COMPLETED")
+        vtodo.removeProperty("PERCENT-COMPLETE")
+        vtodo.replaceProperty(Property("STATUS", "NEEDS-ACTION"))
 
 
 ##########################
@@ -1151,7 +847,7 @@ class Accepter(ProfileBase):
     A Calendar user who accepts invitations to events. As well as accepting requests, this
     will also remove cancels and replies.
     """
-    def setParameters(
+    def setDistributions(
         self,
         enabled=True,
         acceptDelayDistribution=NormalDistribution(1200, 60)
@@ -1298,107 +994,6 @@ class Accepter(ProfileBase):
 
 
 
-class EventUpdater(EventerBase):
-    """
-    A Calendar user who creates a new event, and then updates its alarm.
-    """
-    def initialize(self):
-        """
-        Called before the profile runs for real. Can be used to initialize client state.
-
-        @return: a L{Deferred} that fires when initialization is done
-        """
-        self.action = self._updateEvent
-        return self._initEvent()
-
-
-    def _initEvent(self):
-        if not self._client.started:
-            return succeed(None)
-
-        # If it already exists, don't re-create
-        calendar = self._calendarsOfType(caldavxml.calendar, "VEVENT")[0]
-        if calendar.events:
-            events = [event for event in calendar.events.values() if event.url.endswith("event_to_update.ics")]
-            if events:
-                return succeed(None)
-
-        # Copy the template event and fill in some of its fields
-        # to make a new event to create on the calendar.
-        vcalendar = self._eventTemplate.duplicate()
-        vevent = vcalendar.mainComponent()
-        uid = str(uuid4())
-        dtstart = self._eventStartDistribution.sample()
-        dtend = dtstart + Duration(seconds=self._eventDurationDistribution.sample())
-        vevent.replaceProperty(Property("CREATED", DateTime.getNowUTC()))
-        vevent.replaceProperty(Property("DTSTAMP", DateTime.getNowUTC()))
-        vevent.replaceProperty(Property("DTSTART", dtstart))
-        vevent.replaceProperty(Property("DTEND", dtend))
-        vevent.replaceProperty(Property("UID", uid))
-
-        rrule = self._recurrenceDistribution.sample()
-        if rrule is not None:
-            vevent.addProperty(Property(None, None, None, pycalendar=rrule))
-
-        href = '%s%s' % (calendar.url, "event_to_update.ics")
-        d = self._client.addEvent(href, vcalendar)
-        return self._newOperation("create", d)
-
-
-    def _updateEvent(self):
-        """
-        Try to add a new attendee to an event, or perhaps remove an
-        existing attendee from an event.
-
-        @return: C{None} if there are no events to play with,
-            otherwise a L{Deferred} which fires when the attendee
-            change has been made.
-        """
-
-        if not self._client.started:
-            return succeed(None)
-
-        # If it does not exist, try to create it
-        calendar = self._calendarsOfType(caldavxml.calendar, "VEVENT")[0]
-        if not calendar.events:
-            return self._initEvent()
-        events = [event for event in calendar.events.values() if event.url.endswith("event_to_update.ics")]
-        if not events:
-            return self._initEvent()
-        event = events[0]
-
-        # Add/update the ACKNOWLEDGED property
-        component = event.component.mainComponent()
-        component.replaceProperty(Property("ACKNOWLEDGED", DateTime.getNowUTC()))
-        d = self._client.changeEvent(event.url)
-        return self._newOperation("update", d)
-
-    # def _changeEventTitle(self, event, title):
-    #     event.component = self._setEventTitle(event.component, title)
-        # event.
-
-
-
-
-
-class EventDeleter(EventerBase):
-    """
-    A calendar user who deletes events at random
-    """
-    def initialize(self):
-        self.action = self._deleteEvent
-
-    def _deleteEvent(self):
-        event = self._getRandomEvent()
-        if event is None:
-            return succeed(None)
-        d = self._client.deleteEvent(event)
-        return self._newOperation("delete", d)
-
-
-
-
-
 ######################
 # Calendar Behaviors #
 ######################
@@ -1411,7 +1006,7 @@ class CalendarBase(ProfileBase):
         return succeed(None)
 
 
-    def setParameters(self, enabled=True, interval=25):
+    def setDistributions(self, enabled=True, interval=25):
         self.enabled = enabled
         self._interval = interval
 
@@ -1419,23 +1014,23 @@ class CalendarBase(ProfileBase):
 
 class CalendarMaker(CalendarBase):
     """ A Calendar user who adds new Calendars """
-    def initialize(self):
-        self.action = self._addCalendar
-        return succeed(None)
-
 
     def _addCalendar(self):
-        if not self._client.started:
-            return None
+        print "Adding a calendar"
+        # if not self._client.started:
+        #     return None
 
-        uid = str(uuid4())
+        # uid = str(uuid4())
 
-        body = Calendar.buildCalendarXML(order=0, component_type="VEVENT", rgba_color='FB524FFF', name='Sample Calendar')
-        print("Making new calendar with uid: " + uid)
-        # XXX Just for testing! remove this soon
-        path = "/calendars/__uids__/" + self._client.record.guid + "/" + uid + "/"
-        d = self._client.addCalendar(path, body)
+        # body = Calendar.buildCalendarXML(order=0, component_type="VEVENT", rgba_color='FB524FFF', name='Sample Calendar')
+        # print("Making new calendar with uid: " + uid)
+        # # XXX Just for testing! remove this soon
+        # path = "/calendars/__uids__/" + self._client.record.guid + "/" + uid + "/"
+        # d = self._client.addCalendar(path, body)
+        d = succeed('calendar created')
         return self._newOperation("create", d)
+
+    action = _addCalendar
 
 
 
@@ -1545,3 +1140,16 @@ class CalendarDeleter(CalendarBase):
         print("Deleting " + calendar.url)
         d = self._client.deleteCalendar(calendar.url)
         return self._newOperation("delete", d)
+
+if __name__ == '__main__':
+    class TestProfile(ProfileBase):
+        def sayHello(self):
+            print("Hello!")
+        action = sayHello
+
+    from twisted.internet import reactor
+
+    profile = TestProfile(enabled=True, interval=1)
+    profile.setUp(reactor, None, None, None)
+    profile.run()
+    reactor.run()
