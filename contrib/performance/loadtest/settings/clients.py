@@ -2,12 +2,13 @@ from contrib.performance.loadtest.clients import iOS_5, OS_X_10_6, OS_X_10_7, OS
 from contrib.performance.loadtest.profiles import (
     Eventer, EventDeleter,
     Titler,
+    Inviter,
     Tasker, TaskDeleter,
     TaskTitler, TaskNoter, Completer, Prioritizer,
 
     CalendarMaker, CalendarUpdater, CalendarSharer, CalendarDeleter
 )
-from contrib.performance.loadtest.distributions import FixedDistribution, BernoulliDistribution
+from contrib.performance.loadtest.distributions import FixedDistribution, BernoulliDistribution, NormalDistribution
 
 
 from preset_distributions import STANDARD_WORK_DISTRIBUTION, LOW_RECURRENCE_DISTRIBUTION, MEDIUM_RECURRENCE_DISTRIBUTION
@@ -29,14 +30,15 @@ config = [
             "ampPushPort": 62311
         },
         "profiles": [
-            # Eventer(enabled=True, interval=0.01, eventStartDistribution=STANDARD_WORK_DISTRIBUTION),
+            Eventer(enabled=True, interval=1, eventStartDistribution=STANDARD_WORK_DISTRIBUTION),
             # Titler(enabled=True, interval=1, titleLengthDistribution=FixedDistribution(10)),
+            Inviter(enabled=True, interval=1, numInviteesDistribution=NormalDistribution(7, 2)),
 
             # Tasker(enabled=False, interval=1),
             # Completer(enabled=True, interval=0.5, completeLikelihood=BernoulliDistribution(0.5)),
             # Prioritizer(enabled=True, interval=0.1),
-            TaskTitler(enabled=True, interval=1),
-            TaskNoter(enabled=True, interval=1),
+            # TaskTitler(enabled=True, interval=1),
+            # TaskNoter(enabled=True, interval=1),
             # TaskDeleter(enabled=True, interval=1),
 
             # CalendarMaker(enabled=True, interval=1),
