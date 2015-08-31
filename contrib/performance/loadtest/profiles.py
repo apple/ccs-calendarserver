@@ -73,12 +73,10 @@ class ProfileBase(object):
     random = random
 
     def __init__(self, enabled, interval, **params):
-        print("Creating new profile: %s" % (self.__class__.__name__,))
         self.enabled = enabled
         if isinstance(interval, Number):
             interval = FixedDistribution(interval)
         self._interval = interval
-        print "**" + str(self._interval)
         self._params = params
         self.setDistributions(**params)
         self._initialized = False
@@ -285,6 +283,7 @@ class Eventer(EventBase):
         calendar = self._getRandomCalendar()
         if not calendar:
             return succeed(None)
+        # print "Going to add an event"
 
         # Form a new event by modifying fields of the template event
         vcalendar = eventTemplate.duplicate()
@@ -300,7 +299,9 @@ class Eventer(EventBase):
         vevent.replaceProperty(Property("DTEND", dtend))
 
         href = '%s%s.ics' % (calendar.url, uid)
+        # print("Vcalendar is", vcalendar)
         event = Event(self._client.serializeLocation(), href, None, component=vcalendar)
+        # print("ABout to add event", event.component)
         d = self._client.addEvent(href, event)
         return self._newOperation("create{event}", d)
 
@@ -476,13 +477,9 @@ class Attacher(EventUpdaterBase):
 class InviterBase(EventUpdaterBase):
     def setDistributions(
         self,
-        numInvitees=NormalDistribution(7, 2),
-        sendInvitationDistribution=NormalDistribution(600, 60),
-        numInviteesDistribution=UniformDiscreteDistribution(range(-10, 11))
+        numInviteesDistribution=NormalDistribution(7, 2)
     ):
-        self.enabled = enabled
-        self._sendInvitationDistribution = sendInvitationDistribution
-        self._numInvitees = inviteeDistribution
+        self._numInvitees = numInviteesDistribution
 
     def _findUninvitedRecord(self, vevent):
         pass
@@ -517,16 +514,25 @@ class InviterBase(EventUpdaterBase):
         raise NotImplementedError
 
 class Inviter(InviterBase):
+    def modifyEvent(self, href, vevent):
+        print("*" * 16)
+        numToInvite = max(0, int(self._numInvitees.sample()))
+        deferreds = []
+        for _ignore_i in xrange(numToInvite):
+            number = random.randint(1, 50)
+            record = self._sim.getUserRecord(number)
+            attendee = self._buildAttendee(record.commonName, record.email)
+            deferreds.append(self._client.addEventAttendee(href, attendee))
+            vevent.addProperty(attendee)
+        # d = self._client.addInvite(event)
+        # deferreds.append(d)
+        return DeferredList(deferreds)
 
-    def initialize(self):
-        self.action = self.test
-        return succeed(None)
 
     def test(self):
         event = self._getRandomEvent()
         if not event:
             return succeed(None)
-        print("Found event: " + str(event))
         href = event.url
 
         attendee = Property(
@@ -646,6 +652,8 @@ class Inviter(InviterBase):
 
         # Oops, either no events or no calendars to play with.
         return succeed(None)
+
+    # action = invite
 
 class Relocater(InviterBase):
     def setDistributions(
