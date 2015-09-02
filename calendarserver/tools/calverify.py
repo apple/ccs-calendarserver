@@ -2690,11 +2690,11 @@ class MissingLocationService(CalVerifyService):
             table.addHeader(("GUID", "Name", "RID", "UID",))
             missing = 0
             for item in sorted(self.uuid_details):
-                if not item.purged:
+                if not item.missing:
                     continue
                 uuid = item.uuid
                 rname = item.rname
-                for detail in item.purged:
+                for detail in item.missing:
                     table.addRow((
                         uuid,
                         rname,
