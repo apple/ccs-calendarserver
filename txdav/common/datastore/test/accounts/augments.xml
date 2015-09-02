@@ -153,6 +153,11 @@ limitations under the License.
     <enable-calendar>true</enable-calendar>
     <auto-schedule-mode>automatic</auto-schedule-mode>
   </record>
+  <record>
+    <uid>CDAF464F-9C77-4F56-A7A6-98E4ED9903D6</uid>
+    <enable-calendar>true</enable-calendar>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
+  </record>
 <record>
     <uid>user01</uid>
     <server-id>A</server-id>

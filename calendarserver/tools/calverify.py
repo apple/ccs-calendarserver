@@ -2732,6 +2732,7 @@ class MissingLocationService(CalVerifyService):
         details = []
         fixed = 0
         rjust = 10
+        cuaddr = "urn:x-uid:{}".format(uuid)
         for resid in rows:
             resid = resid[1]
             caldata = yield self.getCalendar(resid, self.fix)
@@ -2749,18 +2750,26 @@ class MissingLocationService(CalVerifyService):
                 for comp in cal.subcomponents():
                     if comp.name() != "VEVENT":
                         continue
+
+                    # Look for matching location property
                     location = comp.propertyValue("LOCATION")
-                    if location is None:
+                    if location is not None:
+                        items = location.split(";")
+                        has_location = rname in items
+                    else:
+                        has_location = False
+
+                    # Look for matching attendee property
+                    has_attendee = cuaddr in comp.getAttendees()
+
+                    if not has_location and has_attendee:
                         fail = True
                         break
-                    else:
-                        # Test the actual location value matches this location name?
-                        pass
 
             if fail:
                 details.append(Details(resid, uid,))
                 if self.fix:
-                    yield self.fixCalendarData(cal, rname, resid)
+                    yield self.fixCalendarData(cal, rname, cuaddr, resid)
                     fixed += 1
 
             if self.options["verbose"] and not self.options["summary"]:
@@ -2809,7 +2818,7 @@ class MissingLocationService(CalVerifyService):
 
 
     @inlineCallbacks
-    def fixCalendarData(self, cal, rname, location_resid):
+    def fixCalendarData(self, cal, rname, cuaddr, location_resid):
         """
         Fix problems in calendar data using store APIs.
         """
@@ -2837,14 +2846,20 @@ class MissingLocationService(CalVerifyService):
         except InternalDataStoreError:
             returnValue((False, "Failed parse: "))
 
-        # Add missing location to all components (need to dup component when modifying)
+        # Fix each component (need to dup component when modifying)
         component = component.duplicate()
         for comp in component.subcomponents():
             if comp.name() != "VEVENT":
                 continue
             location = comp.propertyValue("LOCATION")
             if location is None:
+                # Just add the location name back in
                 comp.addProperty(Property("LOCATION", rname))
+            else:
+                # Remove the matching ATTENDEE property
+                attendee = comp.getAttendeeProperty((cuaddr,))
+                if attendee is not None:
+                    comp.removeProperty(attendee)
 
         # Write out fix, commit and get a new transaction
         try:

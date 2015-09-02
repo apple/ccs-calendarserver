@@ -88,6 +88,13 @@ limitations under the License.
     <full-name>Room 01</full-name>
   </record>
   <record type="location">
+    <uid>CDAF464F-9C77-4F56-A7A6-98E4ED9903D6</uid>
+    <guid>CDAF464F-9C77-4F56-A7A6-98E4ED9903D6</guid>
+    <short-name>location02</short-name>
+    <password>location02</password>
+    <full-name>Room 02</full-name>
+  </record>
+  <record type="location">
     <uid>room-addr-1</uid>
     <guid>634A102B-6902-464F-9451-8A86A31628C1</guid>
     <short-name>room-with-address-1</short-name>
