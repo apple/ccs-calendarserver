@@ -23,6 +23,7 @@ import json
 import random
 import sys
 import time
+from urlparse import urlparse
 
 PRIORITY = {
     "low": 0,
@@ -35,14 +36,23 @@ def httploop(ctr, config, complete):
     # Random time delay
     time.sleep(random.randint(0, config["interval"]) / 1000.0)
 
+    url = urlparse(config["server"])
+    use_ssl = url[0] == "https"
+    if "@" in url[1]:
+        auth, net_loc = url[1].split("@")
+    else:
+        auth = "admin:admin"
+        net_loc = url[1]
+    host, port = net_loc.split(":")
+    port = int(port)
+    user, pswd = auth.split(":")
+
     headers = {}
     headers["User-Agent"] = "httploop/1"
     headers["Depth"] = "1"
-    headers["Authorization"] = "Basic " + "admin:admin".encode("base64")[:-1]
+    headers["Authorization"] = "Basic " + "{}:{}".format(user, pswd).encode("base64")[:-1]
     headers["Content-Type"] = "application/json"
 
-    host, port = config["server"].split(":")
-    port = int(port)
     interval = config["interval"] / 1000.0
     total = config["limit"] / config["numProcesses"]
 
@@ -59,7 +69,7 @@ def httploop(ctr, config, complete):
 
     base_time = time.time()
     while not complete.value:
-        http = SmartHTTPConnection(host, port, True, False)
+        http = SmartHTTPConnection(host, port, use_ssl, False)
 
         try:
             count += 1
@@ -101,7 +111,7 @@ Options:
     -i MSEC        Millisecond delay between each request [1000]
     -r RATE        Requests/second rate [10]
     -j JOBS        Number of jobs per HTTP request [1]
-    -s HOST:PORT   Host/port to connect to [localhost:8443]
+    -s URL         URL to connect to [https://localhost:8443]
     -b SEC         Number of seconds for notBefore [0]
     -d MSEC        Number of milliseconds for the work [10]
     -l NUM         Total number of requests from all processes
@@ -139,7 +149,7 @@ if __name__ == '__main__':
         "numProcesses": 10,
         "interval": 1000,
         "jobs": 1,
-        "server": "localhost:8443",
+        "server": "https://localhost:8443",
         "when": 0,
         "delay": 10,
         "priority": "high",

@@ -24,8 +24,11 @@ from twisted.protocols.basic import LineReceiver
 
 from twistedcaldav.config import config
 
+from txdav.common.datastore.work.load_work import TestWork
 from txdav.dps.client import DirectoryService as DirectoryProxyClientService
 from txdav.who.cache import CachingDirectoryService
+
+from twext.enterprise.jobs.queue import WorkerConnectionPool
 
 import json
 
@@ -159,6 +162,28 @@ class DashboardProtocol (LineReceiver):
             level = 0
 
         return succeed({"workers": loads, "level": level})
+
+
+    @inlineCallbacks
+    def data_test_work(self):
+        """
+        Return the number of TEST_WORK items in the job queue.
+
+        @return: a string containing the JSON result.
+        @rtype: L{str}
+        """
+
+        results = {}
+        if self.factory.store:
+            txn = self.factory.store.newTransaction()
+            results["queued"] = yield TestWork.count(txn)
+            results["completed"] = WorkerConnectionPool.completed.get(TestWork.workType(), 0)
+            yield txn.commit()
+        else:
+            results["queued"] = 0
+            results["completed"] = 0
+
+        returnValue(results)
 
 
     def data_directory(self):
