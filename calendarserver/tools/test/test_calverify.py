@@ -943,6 +943,7 @@ class CalVerifyMismatchTestsBase(StoreTestCase):
     uuid2 = "47B16BB4-DB5F-4BF6-85FE-A7DA54230F92"
     uuid3 = "AC478592-7783-44D1-B2AE-52359B4E8415"
     uuidl1 = "75EA36BE-F71B-40F9-81F9-CF59BF40CA8F"
+    uuidl2 = "CDAF464F-9C77-4F56-A7A6-98E4ED9903D6"
 
     def configure(self):
         super(CalVerifyMismatchTestsBase, self).configure()
@@ -3142,6 +3143,7 @@ class CalVerifyMissingLocations(CalVerifyMismatchTestsBase):
         "uuid2": CalVerifyMismatchTestsBase.uuid2,
         "uuid3": CalVerifyMismatchTestsBase.uuid3,
         "uuidl1": CalVerifyMismatchTestsBase.uuidl1,
+        "uuidl2": CalVerifyMismatchTestsBase.uuidl2,
     }
 
     # Valid event
@@ -3162,7 +3164,31 @@ ORGANIZER:urn:uuid:%(uuid1)s
 ATTENDEE:urn:uuid:%(uuid1)s
 ATTENDEE:urn:uuid:%(uuid2)s
 ATTENDEE:urn:uuid:%(uuidl1)s
-LOCATION:Location 1
+LOCATION:Room 01
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % subs
+
+    # Valid event
+    VALID_MULTI_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:VALID_MULTI_ICS
+TRANSP:OPAQUE
+SUMMARY:VALID_MULTI_ICS
+DTSTART:%(year)s%(month)02d08T100000Z
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:%(uuid1)s
+ATTENDEE:urn:uuid:%(uuid1)s
+ATTENDEE:urn:uuid:%(uuid2)s
+ATTENDEE:urn:uuid:%(uuidl1)s
+ATTENDEE:urn:uuid:%(uuidl2)s
+LOCATION:Room 01\\;Room 02
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n") % subs
@@ -3185,6 +3211,30 @@ ORGANIZER:urn:uuid:%(uuid1)s
 ATTENDEE:urn:uuid:%(uuid1)s
 ATTENDEE:urn:uuid:%(uuid2)s
 ATTENDEE:urn:uuid:%(uuidl1)s
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % subs
+
+    # Invalid event
+    INVALID_MULTI_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVALID_MULTI_ICS
+TRANSP:OPAQUE
+SUMMARY:INVALID_MULTI_ICS
+DTSTART:%(year)s%(month)02d08T120000Z
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:%(uuid1)s
+ATTENDEE:urn:uuid:%(uuid1)s
+ATTENDEE:urn:uuid:%(uuid2)s
+ATTENDEE:urn:uuid:%(uuidl1)s
+ATTENDEE:urn:uuid:%(uuidl2)s
+LOCATION:Room 02
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n") % subs
@@ -3252,13 +3302,21 @@ END:VCALENDAR
     allEvents = {
         "invite1.ics"      : (VALID_ICS, CalVerifyMismatchTestsBase.metadata,),
         "invite2.ics"      : (INVALID_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite3.ics"      : (VALID_MULTI_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite4.ics"      : (INVALID_MULTI_ICS, CalVerifyMismatchTestsBase.metadata,),
     }
-    allEvents_Room = {
+    allEvents_Room1 = {
         "invite1.ics"      : (VALID_ICS, CalVerifyMismatchTestsBase.metadata,),
         "invite2.ics"      : (INVALID_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite3.ics"      : (ROOM_ORGANIZER_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite4.ics"      : (ROOM_NO_ORGANIZER_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite5.ics"      : (ROOM_MISSING_ORGANIZER_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite3.ics"      : (VALID_MULTI_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite4.ics"      : (INVALID_MULTI_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite5.ics"      : (ROOM_ORGANIZER_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite6.ics"      : (ROOM_NO_ORGANIZER_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite7.ics"      : (ROOM_MISSING_ORGANIZER_ICS, CalVerifyMismatchTestsBase.metadata,),
+    }
+    allEvents_Room2 = {
+        "invite3.ics"      : (VALID_MULTI_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite4.ics"      : (INVALID_MULTI_ICS, CalVerifyMismatchTestsBase.metadata,),
     }
 
     requirements = {
@@ -3275,10 +3333,16 @@ END:VCALENDAR
             "inbox" : {},
         },
         CalVerifyMismatchTestsBase.uuidl1 : {
-            "calendar" : allEvents_Room,
+            "calendar" : allEvents_Room1,
+            "inbox" : {},
+        },
+        CalVerifyMismatchTestsBase.uuidl2 : {
+            "calendar" : allEvents_Room2,
             "inbox" : {},
         },
     }
+
+    badEvents = set(("INVALID_ICS", "INVALID_MULTI_ICS", "ROOM_MISSING_ORGANIZER_ICS", "ROOM_ORGANIZER_ICS",))
 
     @inlineCallbacks
     def test_scanMissingLocations(self):
@@ -3317,10 +3381,10 @@ END:VCALENDAR
 
         self.assertEqual(calverify.results["Number of events to process"], len(self.requirements[CalVerifyMismatchTestsBase.uuidl1]["calendar"]))
         self.assertEqual(
-            sorted([i.uid for i in calverify.results["Bad Events"]]),
-            ["INVALID_ICS", "ROOM_MISSING_ORGANIZER_ICS", "ROOM_ORGANIZER_ICS", ]
+            set([i.uid for i in calverify.results["Bad Events"]]),
+            self.badEvents,
         )
-        self.assertEqual(calverify.results["Number of bad events"], 3)
+        self.assertEqual(calverify.results["Number of bad events"], len(self.badEvents))
         self.assertTrue("Fix bad events" not in calverify.results)
 
         sync_token_newl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
@@ -3373,11 +3437,11 @@ END:VCALENDAR
 
         self.assertEqual(calverify.results["Number of events to process"], len(self.requirements[CalVerifyMismatchTestsBase.uuidl1]["calendar"]))
         self.assertEqual(
-            sorted([i.uid for i in calverify.results["Bad Events"]]),
-            ["INVALID_ICS", "ROOM_MISSING_ORGANIZER_ICS", "ROOM_ORGANIZER_ICS", ]
+            set([i.uid for i in calverify.results["Bad Events"]]),
+            self.badEvents,
         )
-        self.assertEqual(calverify.results["Number of bad events"], 3)
-        self.assertEqual(calverify.results["Fix bad events"], 3)
+        self.assertEqual(calverify.results["Number of bad events"], len(self.badEvents))
+        self.assertEqual(calverify.results["Fix bad events"], len(self.badEvents))
 
         sync_token_newl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
@@ -3399,7 +3463,7 @@ END:VCALENDAR
         calverify = MissingLocationService(self._sqlCalendarStore, options, output, reactor, config)
         yield calverify.doAction()
 
-        self.assertEqual(calverify.results["Number of events to process"], len(self.requirements[CalVerifyMismatchTestsBase.uuidl1]["calendar"]) - 1)
+        self.assertEqual(calverify.results["Number of events to process"], len(self.requirements[CalVerifyMismatchTestsBase.uuidl1]["calendar"]) - 2)
         self.assertEqual(len(calverify.results["Bad Events"]), 0)
         self.assertTrue("Fix bad events" not in calverify.results)
 
@@ -3409,15 +3473,27 @@ END:VCALENDAR
             caldata = yield calobj.componentForUser()
             self.assertTrue("LOCATION:" in str(caldata))
 
-        calobj = yield self.calendarObjectUnderTest(home=uid, calendar_name="calendar", name="invite3.ics")
+        calobj = yield self.calendarObjectUnderTest(home=self.uuidl1, calendar_name="calendar", name="invite3.ics")
+        self.assertTrue(calobj is not None)
+
+        calobj = yield self.calendarObjectUnderTest(home=self.uuidl2, calendar_name="calendar", name="invite3.ics")
+        self.assertTrue(calobj is not None)
+
+        calobj = yield self.calendarObjectUnderTest(home=self.uuidl1, calendar_name="calendar", name="invite4.ics")
+        self.assertTrue(calobj is None)
+
+        calobj = yield self.calendarObjectUnderTest(home=self.uuidl2, calendar_name="calendar", name="invite4.ics")
+        self.assertTrue(calobj is not None)
+
+        calobj = yield self.calendarObjectUnderTest(home=self.uuidl1, calendar_name="calendar", name="invite5.ics")
         caldata = yield calobj.componentForUser()
         self.assertTrue("LOCATION:" in str(caldata))
 
-        calobj = yield self.calendarObjectUnderTest(home=uid, calendar_name="calendar", name="invite4.ics")
+        calobj = yield self.calendarObjectUnderTest(home=self.uuidl1, calendar_name="calendar", name="invite6.ics")
         caldata = yield calobj.componentForUser()
         self.assertTrue("LOCATION:" not in str(caldata))
 
-        calobj = yield self.calendarObjectUnderTest(home=uid, calendar_name="calendar", name="invite5.ics")
+        calobj = yield self.calendarObjectUnderTest(home=self.uuidl1, calendar_name="calendar", name="invite7.ics")
         self.assertTrue(calobj is None)
 
         yield self.commit()

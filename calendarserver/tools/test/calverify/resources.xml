@@ -7,4 +7,10 @@
     <password>location01</password>
     <name>Room 01</name>
   </location>
+  <location>
+    <uid>location02</uid>
+    <guid>CDAF464F-9C77-4F56-A7A6-98E4ED9903D6</guid>
+    <password>location02</password>
+    <name>Room 02</name>
+  </location>
 </accounts>
