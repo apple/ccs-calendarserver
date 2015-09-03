@@ -126,7 +126,6 @@ class AccessForRecordTestCase(StoreTestCase):
 
 
 
-
 # Test getWikiACL()
 # Currently stubs out enough functionality to test that an unauthenticated
 # request can support read access when generating an ACL element
