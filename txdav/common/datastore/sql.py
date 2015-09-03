@@ -227,7 +227,7 @@ class CommonDataStore(Service, object):
         Implementation of L{ICalendarStore.withEachCalendarHomeDo} and
         L{IAddressbookStore.withEachAddressbookHomeDo}.
         """
-        txn = yield self.newTransaction()
+        txn = yield self.newTransaction(label="CommonDataStore._withEachHomeDo")
         try:
             allUIDs = yield (Select([homeTable.OWNER_UID], From=homeTable).on(txn))
             for [uid] in allUIDs:

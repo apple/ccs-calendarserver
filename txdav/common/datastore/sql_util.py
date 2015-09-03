@@ -849,7 +849,7 @@ def fixUUIDNormalization(store):
     Fix all UUIDs in the given SQL store to be in a canonical form;
     00000000-0000-0000-0000-000000000000 format and upper-case.
     """
-    t = store.newTransaction(disableCache=True)
+    t = store.newTransaction(label="fixUUIDNormalization", disableCache=True)
 
     # First, let's see if there are any calendar, addressbook, or notification
     # homes that have a de-normalized OWNER_UID.  If there are none, then we can

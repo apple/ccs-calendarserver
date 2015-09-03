@@ -114,7 +114,7 @@ class WorkEventsResource(EventSourceResource):
 
         self._polling = True
 
-        txn = self._store.newTransaction()
+        txn = self._store.newTransaction(label="WorkEventsResource.poll")
         try:
 
             # Look up all of the jobs

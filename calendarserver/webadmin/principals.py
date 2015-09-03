@@ -208,7 +208,7 @@ class PrincipalCalendarsExportResource(SimpleResource):
 
         calendarComponents = []
 
-        txn = self._store.newTransaction()
+        txn = self._store.newTransaction(label="PrincipalCalendarsExportResource")
         try:
             calendarHome = yield txn.calendarHomeWithUID(uid)
 
