@@ -210,7 +210,7 @@ class CommonDataStore(Service, object):
         Implementation of L{ICalendarStore.withEachCalendarHomeDo} and
         L{IAddressbookStore.withEachAddressbookHomeDo}.
         """
-        txn = yield self.newTransaction()
+        txn = yield self.newTransaction(label="_withEachHomeDo")
         try:
             allUIDs = yield (Select([homeTable.OWNER_UID], From=homeTable)
                              .on(txn))
@@ -252,7 +252,7 @@ class CommonDataStore(Service, object):
         """
         txn = CommonStoreTransaction(
             self,
-            self.sqlTxnFactory(),
+            self.sqlTxnFactory(label=label),
             self.enableCalendars,
             self.enableAddressBooks,
             self._notifierFactories if self._enableNotifications else {},
@@ -5855,7 +5855,7 @@ def fixUUIDNormalization(store):
     Fix all UUIDs in the given SQL store to be in a canonical form;
     00000000-0000-0000-0000-000000000000 format and upper-case.
     """
-    t = store.newTransaction(disableCache=True)
+    t = store.newTransaction(label="fixUUIDNormalization", disableCache=True)
 
     # First, let's see if there are any calendar, addressbook, or notification
     # homes that have a de-normalized OWNER_UID.  If there are none, then we can

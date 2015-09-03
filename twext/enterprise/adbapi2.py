@@ -31,6 +31,7 @@ improvement.
 
 import sys
 import weakref
+import time
 
 from cStringIO import StringIO
 from cPickle import dumps, loads
@@ -47,7 +48,6 @@ from twisted.python.failure import Failure
 from twisted.protocols.amp import Argument, String, Command, AMP, Integer
 from twisted.internet import reactor as _reactor
 from twisted.application.service import Service
-from twisted.python import log
 from twisted.internet.defer import maybeDeferred
 from twisted.python.components import proxyForInterface
 
@@ -63,6 +63,8 @@ from twext.enterprise.ienterprise import (
     AlreadyFinishedError, IAsyncTransaction, POSTGRES_DIALECT, ICommandBlock
 )
 
+from twext.python.log import Logger
+log = Logger()
 
 # FIXME: there should be no defaults for connection metadata, it should be
 # discovered dynamically everywhere.  Right now it's specified as an explicit
@@ -246,11 +248,11 @@ class _ConnectedTxn(object):
                 # Report the error before doing anything else, since doing
                 # other things may cause the traceback stack to be eliminated
                 # if they raise exceptions (even internally).
-                log.err(
-                    Failure(),
+                log.failure(
                     "Exception from execute() on first statement in "
                     "transaction.  Possibly caused by a database server "
-                    "restart.  Automatically reconnecting now."
+                    "restart.  Automatically reconnecting now.",
+                    failure=Failure(),
                 )
                 try:
                     self._connection.close()
@@ -267,10 +269,10 @@ class _ConnectedTxn(object):
                     # making debugging surprising error conditions very
                     # difficult, so let's make sure that the error is logged
                     # just in case.
-                    log.err(
-                        Failure(),
+                    log.failure(
                         "Exception from close() while automatically "
-                        "reconnecting. (Probably not serious.)"
+                        "reconnecting. (Probably not serious.)",
+                        failure=Failure(),
                     )
 
                 # Now, if either of *these* things fail, there's an error here
@@ -354,7 +356,9 @@ class _ConnectedTxn(object):
 
 
     def abort(self):
-        return self._end(self._connection.rollback).addErrback(log.err)
+        def _report(f):
+            log.failure("txn abort", failure=f)
+        return self._end(self._connection.rollback).addErrback(_report)
 
 
     def reset(self):
@@ -1043,12 +1047,32 @@ class ConnectionPool(Service, object):
             basetxn = self._free.pop(0)
             self._busy.append(basetxn)
             txn = _SingleTxn(self, basetxn)
+            log.debug(
+                "ConnectionPool: txn busy '{label}': free={free}, busy={busy}, waiting={waiting}",
+                label=label,
+                free=len(self._free),
+                busy=len(self._busy) + len(self._finishing),
+                waiting=len(self._waiting),
+            )
         else:
             txn = _SingleTxn(self, _WaitingTxn(self))
             self._waiting.append(txn)
+            blocked = self._activeConnectionCount() >= self.maxConnections
+            if blocked:
+                txn._blocked_waiting_time = time.time()
+                txn._blocked_label = label
+                log.warn("ConnectionPool: txn blocked '{label}'", label=label)
+            log.debug(
+                "ConnectionPool: txn waiting add '{label}': free={free}, busy={busy}, waiting={waiting} {blocked}",
+                label=label,
+                free=len(self._free),
+                busy=len(self._busy) + len(self._finishing),
+                waiting=len(self._waiting),
+                blocked="blocked" if blocked else "",
+            )
             # FIXME/TESTME: should be len(self._busy) + len(self._finishing)
             # (free doesn't need to be considered, as it's tested above)
-            if self._activeConnectionCount() < self.maxConnections:
+            if not blocked:
                 self._startOneMore()
         return txn
 
@@ -1087,7 +1111,7 @@ class ConnectionPool(Service, object):
             self._busy.remove(txn)
             self._repoolNow(baseTxn)
         def maybeTryAgain(f):
-            log.err(f, "Re-trying connection due to connection failure")
+            log.failure("Re-trying connection due to connection failure", failure=f)
             txn._retry = self.reactor.callLater(self.RETRY_TIMEOUT, resubmit)
         def resubmit():
             d = holder.submit(initCursor)
@@ -1124,8 +1148,26 @@ class ConnectionPool(Service, object):
             waiting = self._waiting.pop(0)
             self._busy.append(txn)
             waiting._unspoolOnto(txn)
+            if hasattr(waiting, "_blocked_waiting_time"):
+                log.warn(
+                    "ConnectionPool: txn unblocked '{label}': delay {delay:.1f}ms",
+                    label=waiting._blocked_label,
+                    delay=1000 * (time.time() - waiting._blocked_waiting_time),
+                )
+            log.debug(
+                "ConnectionPool: txn waiting remove: free={free}, busy={busy}, waiting={waiting}",
+                free=len(self._free),
+                busy=len(self._busy) + len(self._finishing),
+                waiting=len(self._waiting),
+            )
         else:
             self._free.append(txn)
+            log.debug(
+                "ConnectionPool: txn free: free={free}, busy={busy}, waiting={waiting}",
+                free=len(self._free),
+                busy=len(self._busy) + len(self._finishing),
+                waiting=len(self._waiting),
+            )
 
 
 
@@ -1213,7 +1255,7 @@ def failsafeResponder(command):
                 if f.type in command.errors:
                     returnValue(f)
                 else:
-                    log.err(Failure(), "shared database connection pool error")
+                    log.failure("shared database connection pool error", failure=f)
                     raise FailsafeException()
             else:
                 returnValue(val)
@@ -1324,7 +1366,7 @@ class ConnectionPoolConnection(AMP):
 
 
     def stopReceivingBoxes(self, why):
-        log.msg("(S) Stopped receiving boxes: " + why.getTraceback())
+        log.info("(S) Stopped receiving boxes: {tb}", tb=why.getTraceback())
 
 
     def unhandledError(self, failure):
@@ -1332,7 +1374,7 @@ class ConnectionPoolConnection(AMP):
         An unhandled error has occurred.  Since we can't really classify errors
         well on this protocol, log it and forget it.
         """
-        log.err(failure, "Shared connection pool server encountered an error.")
+        log.failure("Shared connection pool server encountered an error.", failure=failure)
 
 
     @failsafeResponder(StartTxn)
@@ -1438,11 +1480,11 @@ class ConnectionPoolClient(AMP):
         An unhandled error has occurred.  Since we can't really classify errors
         well on this protocol, log it and forget it.
         """
-        log.err(failure, "Shared connection pool client encountered an error.")
+        log.failure("Shared connection pool client encountered an error.", failure=failure)
 
 
     def stopReceivingBoxes(self, why):
-        log.msg("(C) Stopped receiving boxes: " + why.getTraceback())
+        log.info("(C) Stopped receiving boxes: {tb}", tb=why.getTraceback())
 
 
     def newTransaction(self):

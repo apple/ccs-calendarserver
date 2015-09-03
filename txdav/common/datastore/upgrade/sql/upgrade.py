@@ -48,7 +48,7 @@ class UpgradeAcquireLockStep(object):
 
     @inlineCallbacks
     def stepWithResult(self, result):
-        sqlTxn = self.sqlStore.newTransaction()
+        sqlTxn = self.sqlStore.newTransaction(label="UpgradeAcquireLockStep")
         yield sqlTxn.acquireUpgradeLock()
         yield sqlTxn.commit()
 
@@ -69,7 +69,7 @@ class UpgradeReleaseLockStep(object):
 
     @inlineCallbacks
     def stepWithResult(self, result):
-        sqlTxn = self.sqlStore.newTransaction()
+        sqlTxn = self.sqlStore.newTransaction(label="UpgradeReleaseLockStep")
         yield sqlTxn.releaseUpgradeLock()
         yield sqlTxn.commit()
 
@@ -170,7 +170,7 @@ class UpgradeDatabaseCoreStep(object):
             self.log.warn("Required database key %s: %s." % (self.versionKey, required_version,))
 
         # Get the schema version in the current database
-        sqlTxn = self.sqlStore.newTransaction()
+        sqlTxn = self.sqlStore.newTransaction(label="UpgradeDatabaseCoreStep.getVersions")
         dialect = sqlTxn.dialect
         try:
             actual_version = yield sqlTxn.calendarserverValue(self.versionKey)
@@ -313,7 +313,7 @@ class UpgradeDatabaseSchemaStep(UpgradeDatabaseCoreStep):
         Apply the schema upgrade .sql file to the database.
         """
         self.log.warn("Applying schema upgrade: %s" % (fp.basename(),))
-        sqlTxn = self.sqlStore.newTransaction()
+        sqlTxn = self.sqlStore.newTransaction(label="UpgradeDatabaseSchemaStep.applyUpgrade")
         try:
             sql = fp.getContent()
             yield sqlTxn.execSQLBlock(sql)

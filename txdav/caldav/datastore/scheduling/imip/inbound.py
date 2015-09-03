@@ -168,7 +168,7 @@ def shouldDeleteAllMail(serverHostName, inboundServer, username):
 
 @inlineCallbacks
 def scheduleNextMailPoll(store, seconds):
-    txn = store.newTransaction()
+    txn = store.newTransaction(label="iMIP:scheduleNextMailPoll")
     notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
     log.debug("Scheduling next mail poll: %s" % (notBefore,))
     yield txn.enqueue(IMIPPollingWork, notBefore=notBefore)
@@ -251,7 +251,7 @@ class MailReceiver(object):
             log.error("Mail gateway can't find token in DSN %s" % (msgId,))
             return
 
-        txn = self.store.newTransaction()
+        txn = self.store.newTransaction(label="iMIP:processDSN")
         result = (yield txn.imipLookupByToken(token))
         yield txn.commit()
         try:
@@ -277,7 +277,7 @@ class MailReceiver(object):
             pass
 
         log.warn("Mail gateway processing DSN %s" % (msgId,))
-        txn = self.store.newTransaction()
+        txn = self.store.newTransaction(label="iMIP:enqueue IMIPReplyWork")
         yield txn.enqueue(IMIPReplyWork, organizer=organizer, attendee=attendee,
             icalendarText=str(calendar))
         yield txn.commit()
@@ -300,7 +300,7 @@ class MailReceiver(object):
                            "message %s" % (msg['To'], msg['Message-ID']))
             returnValue(self.MALFORMED_TO_ADDRESS)
 
-        txn = self.store.newTransaction()
+        txn = self.store.newTransaction(label="iMIP:processReply")
         result = (yield txn.imipLookupByToken(token))
         yield txn.commit()
         try:
@@ -383,7 +383,7 @@ class MailReceiver(object):
             # the appropriate ATTENDEE.  This will require a new localizable
             # email template for the message.
 
-        txn = self.store.newTransaction()
+        txn = self.store.newTransaction(label="iMIP:enqueue IMIPReplyWork")
         yield txn.enqueue(IMIPReplyWork, organizer=organizer, attendee=attendee,
             icalendarText=str(calendar))
         yield txn.commit()

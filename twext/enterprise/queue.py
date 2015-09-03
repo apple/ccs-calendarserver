@@ -92,7 +92,6 @@ from twisted.internet.defer import (
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.protocols.amp import AMP, Command, Integer, Argument, String
 from twisted.python.reflect import qual
-from twisted.python import log
 
 from twext.enterprise.dal.syntax import SchemaSyntax, Lock, NamedValue
 
@@ -105,6 +104,9 @@ from twisted.internet.endpoints import TCP4ServerEndpoint
 from twext.enterprise.ienterprise import IQueuer
 from zope.interface.interface import Interface
 from twext.enterprise.locking import NamedLock
+
+from twext.python.log import Logger
+log = Logger()
 
 
 class _IWorkPerformer(Interface):
@@ -165,7 +167,7 @@ NodeInfoSchema = SchemaSyntax(makeNodeSchema(Schema(__file__)))
 
 
 @inlineCallbacks
-def inTransaction(transactionCreator, operation):
+def inTransaction(transactionCreator, operation, label="<unlabeled>"):
     """
     Perform the given operation in a transaction, committing or aborting as
     required.
@@ -180,7 +182,7 @@ def inTransaction(transactionCreator, operation):
         its error, unless there is an error creating, aborting or committing
         the transaction.
     """
-    txn = transactionCreator()
+    txn = transactionCreator(label=label)
     try:
         result = yield operation(txn)
     except:
@@ -839,7 +841,7 @@ def ultimatelyPerform(txnFactory, table, workID):
         except NoSuchRecord:
             # The record has already been removed
             pass
-    return inTransaction(txnFactory, work)
+    return inTransaction(txnFactory, work, label="ultimatelyPerform: {} {}".format(table.model.name, workID))
 
 
 
@@ -1278,11 +1280,17 @@ class PeerConnectionPool(_BaseQueuer, MultiService, object):
                 overdueItems = (yield itemType.query(
                     txn, (itemType.notBefore < tooLate))
                 )
+                if overdueItems:
+                    log.warn(
+                        "periodicLostWorkCheck: executing {count} items of {workType}",
+                        count=len(overdueItems),
+                        workType=itemType.table.model.name,
+                    )
                 for overdueItem in overdueItems:
                     peer = self.choosePerformer()
                     yield peer.performWork(overdueItem.table,
                                            overdueItem.workID)
-        return inTransaction(self.transactionFactory, workCheck)
+        return inTransaction(self.transactionFactory, workCheck, label="_periodicLostWorkCheck")
 
     _currentWorkDeferred = None
     _lostWorkCheckCall = None
@@ -1294,7 +1302,9 @@ class PeerConnectionPool(_BaseQueuer, MultiService, object):
         those checks in time based on the size of the cluster.
         """
         self._lostWorkCheckCall = None
-        @passthru(self._periodicLostWorkCheck().addErrback(log.err)
+        def _result(f):
+            log.failure("periodicLostWorkCheck failed", failure=f)
+        @passthru(self._periodicLostWorkCheck().addErrback(_result)
                   .addCallback)
         def scheduleNext(result):
             self._currentWorkDeferred = None
@@ -1343,7 +1353,7 @@ class PeerConnectionPool(_BaseQueuer, MultiService, object):
             for node in nodes:
                 self._startConnectingTo(node)
 
-        self._startingUp = inTransaction(self.transactionFactory, startup)
+        self._startingUp = inTransaction(self.transactionFactory, startup, label="PeerConnectionPool.startService")
         @self._startingUp.addBoth
         def done(result):
             self._startingUp = None
@@ -1405,8 +1415,10 @@ class PeerConnectionPool(_BaseQueuer, MultiService, object):
                                  noted, "identify"
                              )
         def noted(err, x="connect"):
-            log.msg("Could not {0} to cluster peer {1} because {2}"
-                    .format(x, node, str(err.value)))
+            log.info(
+                "Could not {action} to cluster peer {node} because {err}",
+                action=x, node=node, err=str(err.value),
+            )
         connected.addCallbacks(whenConnected, noted)
 
 

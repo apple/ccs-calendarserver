@@ -485,7 +485,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
         # Use a new transaction to do this update quickly without locking the row for too long. However, the original
         # transaction may have the row locked, so use wait=False and if that fails, fall back to using the original txn.
 
-        newTxn = obj.transaction().store().newTransaction()
+        newTxn = obj.transaction().store().newTransaction(label="reExpandResource")
         try:
             yield obj.lock(wait=False, txn=newTxn)
         except NoSuchObjectResourceError:
