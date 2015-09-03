@@ -667,29 +667,11 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '59');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '58');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
 insert into CALENDARSERVER (NAME, VALUE) values ('MIN-VALID-REVISION', '1');
-create index JOB_PRIORITY_ASSIGNED_6d49a082 on JOB (
-    "PRIORITY",
-    "ASSIGNED",
-    "PAUSE",
-    "NOT_BEFORE"
-);
-
-create index JOB_ASSIGNED_PAUSE_NO_b2540b3b on JOB (
-    "ASSIGNED",
-    "PAUSE",
-    "NOT_BEFORE"
-);
-
-create index JOB_ASSIGNED_OVERDUE_e88f7afc on JOB (
-    "ASSIGNED",
-    "OVERDUE"
-);
-
 create index CALENDAR_HOME_METADAT_475de898 on CALENDAR_HOME_METADATA (
     "TRASH"
 );

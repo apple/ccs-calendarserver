@@ -49,15 +49,6 @@ create table JOB (
   PAUSE       integer default 0
 );
 
-create index JOB_PRIORITY_ASSIGNED_PAUSE_NOT_BEFORE on
-  JOB(PRIORITY, ASSIGNED, PAUSE, NOT_BEFORE);
-
-create index JOB_ASSIGNED_PAUSE_NOT_BEFORE on
-  JOB(ASSIGNED, PAUSE, NOT_BEFORE);
-
-create index JOB_ASSIGNED_OVERDUE on
-  JOB(ASSIGNED, OVERDUE);
-
 -------------------
 -- Calendar Home --
 -------------------
@@ -1275,7 +1266,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '59');
+insert into CALENDARSERVER values ('VERSION', '58');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');
