@@ -58,6 +58,7 @@ from txweb2.http import Response
 from txweb2.http_headers import MimeType
 
 import json
+import time
 
 log = Logger()
 
@@ -329,7 +330,7 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
 
     @inlineCallbacks
     def action_refreshgroups(self, j):
-        txn = self._store.newTransaction()
+        txn = self._store.newTransaction(label="ControlAPIResource.action_refreshgroups")
         yield txn.directoryService().flush()
         work = yield GroupCacherPollingWork.reschedule(txn, 0, force=True)
         jobID = work.jobID
@@ -383,10 +384,12 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
         except KeyError:
             jobs = 1
 
+        start_time = time.time()
         for _ in range(jobs):
+            effective_when = max(when - (time.time() - start_time), 0)
             yield TestWork.schedule(
                 self._store,
-                when,
+                effective_when,
                 priority,
                 weight,
                 delay,
@@ -403,7 +406,7 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
         from txdav.common.datastore.work.revision_cleanup import _triggerRevisionCleanup
         from txdav.common.datastore.work.revision_cleanup import RevisionCleanupWork
 
-        txn = self._store.newTransaction()
+        txn = self._store.newTransaction(label="ControlAPIResource.action_revisioncleanup")
         yield _triggerRevisionCleanup(txn, 60)
         yield txn.commit()
 

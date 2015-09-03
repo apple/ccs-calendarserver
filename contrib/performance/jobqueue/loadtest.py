@@ -227,7 +227,7 @@ if __name__ == '__main__':
     print("Work details:")
     print("  Priority: {}").format(config["priority"])
     print("  Weight: {}").format(config["weight"])
-    print("  Start delay: {} ms").format(config["when"])
+    print("  Start delay: {} s").format(config["when"])
     print("  Execution time: {} ms").format(config["delay"])
     print("  Average queue depth: {}").format((effective_rate * config["delay"]) / 1000)
     print("")

@@ -124,6 +124,7 @@ class Monitor(object):
 
         queued = self.client.currentData["test_work"]["queued"]
         completed = self.client.currentData["test_work"]["completed"]
+        assigned = self.client.currentData["test_work"]["assigned"]
         if self.last_queued is not None:
             diff_queued = (self.last_queued - queued) / (t - self.last_time)
             diff_completed = (completed - self.last_completed) / (t - self.last_time)
@@ -133,7 +134,7 @@ class Monitor(object):
         self.last_queued = queued
         self.last_completed = completed
         self.last_time = t
-        print("{}\t{:.1f}\t{:.1f}".format(queued, diff_queued, diff_completed,))
+        print("{}\t{}\t{:.1f}\t{:.1f}".format(queued, assigned, diff_queued, diff_completed,))
 
         self.sched.enter(max(self.seconds - (time.time() - t), 0), 0, self.updateResults, ())
 

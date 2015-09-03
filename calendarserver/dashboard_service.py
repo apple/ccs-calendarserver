@@ -136,7 +136,7 @@ class DashboardProtocol (LineReceiver):
         """
 
         if self.factory.store:
-            txn = self.factory.store.newTransaction()
+            txn = self.factory.store.newTransaction("DashboardProtocol.data_jobs")
             records = (yield JobItem.histogram(txn))
             yield txn.commit()
         else:
@@ -177,10 +177,12 @@ class DashboardProtocol (LineReceiver):
         if self.factory.store:
             txn = self.factory.store.newTransaction()
             results["queued"] = yield TestWork.count(txn)
+            results["assigned"] = yield JobItem.count(txn, where=(JobItem.assigned != None))
             results["completed"] = WorkerConnectionPool.completed.get(TestWork.workType(), 0)
             yield txn.commit()
         else:
             results["queued"] = 0
+            results["assigned"] = 0
             results["completed"] = 0
 
         returnValue(results)
