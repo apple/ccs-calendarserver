@@ -164,6 +164,16 @@ class iOS_5(BaseAppleClient):
 
 
 
+class iOS_9(iOS_5): # As far as I can see, the behavior of an iOS 9 client is the same as the behavior of the iOS 5 client.
+    _client_type = "iOS 9"
+
+    USER_AGENT = "iOS/9 dataaccessd/1.0"
+
+    _SYNC_REPORT = False
+
+    _LOAD_PATH = "iOS_5" # Just use the request bodies from iOS 5
+
+
 class OS_X_10_6(BaseAppleClient):
     """
     Implementation of the OS X 10.6 iCal network behavior.
@@ -233,7 +243,6 @@ class OS_X_10_6(BaseAppleClient):
         # Using the actual principal URL, retrieve principal information
         principal = (yield self._extractPrincipalDetails())
         returnValue(principal)
-
 
 
 class OS_X_10_7(BaseAppleClient):
