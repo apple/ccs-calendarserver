@@ -1022,12 +1022,12 @@ submitEvent(event: Event, )
         from pprint import pprint
         # Trigger auto-complete behavior
         matchingPrincipals = yield self._principalSearchReport(query, isAttendeeSearch=individual)
-        for k, v in matchingPrincipals.items():
-            pprint(k)
-            for prop, val in v.getNodeProperties().items():
-                print("%s %s" % (prop, val.__dict__))
-                for child in val._children:
-                    print(child.text)
+        # for k, v in matchingPrincipals.items():
+            # pprint(k)
+            # for prop, val in v.getNodeProperties().items():
+            #     # print("%s %s" % (prop, val.__dict__))
+            #     for child in val._children:
+            #         # print(child.text)
 
         uuids = []
 

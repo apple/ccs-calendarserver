@@ -17,8 +17,6 @@
 """
 Implementation of a statistics library for Calendar performance analysis.
 Exports:
-Base statistical functions
-  mean / median / stddev / mad / residuals
 
 IDistribution interface exposes:
   sample()

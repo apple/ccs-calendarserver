@@ -683,7 +683,7 @@ class Deduplicater(EventDeleter):
     """
     Profile that will cancel or remove any double- or more-booked events
     """
-    # def 
+    events = sum([calendar.events.values() for ])
 
 
 class Emptier(EventDeleter):
@@ -894,11 +894,9 @@ class Accepter(ProfileBase):
     """
     def setDistributions(
         self,
-        enabled=True,
         acceptDelayDistribution=NormalDistribution(1200, 60),
         acceptLikelihoodDistribution=BernoulliDistribution(1),
     ):
-        self.enabled = enabled
         self._accepting = set()
         self._acceptDelayDistribution = acceptDelayDistribution
         self._acceptLikelihood = acceptLikelihoodDistribution
@@ -1049,14 +1047,14 @@ class CalendarBase(ProfileBase):
     """
     A calendar user who interacts with calendars
     """
-    def initialize(self):
-        self.action = lambda: None
-        return succeed(None)
+    # def initialize(self):
+    #     self.action = lambda: None
+    #     return succeed(None)
 
 
-    def setDistributions(self, enabled=True, interval=25):
-        self.enabled = enabled
-        self._interval = interval
+    # def setDistributions(self, enabled=True, interval=25):
+    #     self.enabled = enabled
+    #     self._interval = interval
 
 
 
