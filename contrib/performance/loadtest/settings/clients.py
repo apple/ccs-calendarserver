@@ -2,7 +2,7 @@ from contrib.performance.loadtest.clients import iOS_5, OS_X_10_6, OS_X_10_7, OS
 from contrib.performance.loadtest.profiles import (
     Eventer, EventDeleter,
     Titler,
-    Inviter,
+    Inviter, Emptier,
     Tasker, TaskDeleter,
     TaskTitler, TaskNoter, Completer, Prioritizer,
 
@@ -30,7 +30,8 @@ config = [
             "ampPushPort": 62311
         },
         "profiles": [
-            Eventer(enabled=True, interval=1, eventStartDistribution=STANDARD_WORK_DISTRIBUTION),
+            Eventer(enabled=True, interval=0.1, eventStartDistribution=STANDARD_WORK_DISTRIBUTION),
+            Emptier(enabled=True, interval=5),
             # Titler(enabled=True, interval=1, titleLengthDistribution=FixedDistribution(10)),
             Inviter(enabled=True, interval=1, numInviteesDistribution=NormalDistribution(7, 2)),
 
