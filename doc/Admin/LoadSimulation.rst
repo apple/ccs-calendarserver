@@ -117,7 +117,8 @@ Configuration
 
 The client sim's default configuration file is found here::
 
- contrib/performance/loadtest/config.plist
+ .. contrib/performance/loadtest/config.plist
+ contrib.performance.loadtest.settings.config
 
 The config file defines
 
@@ -131,9 +132,10 @@ Server Specification
 
 Specify the URI to which the client sim should connect, e.g::
 
-                <!-- Identify the server to be load tested. -->
-                <key>server</key>
-                <string>https://127.0.0.1:8443/</string>
+    "server": "https://127.0.0.1:8443"
+                .. <!-- Identify the server to be load tested. -->
+                .. <key>server</key>
+                .. <string>https://127.0.0.1:8443/</string>
 
 User Accounts
 -------------
@@ -141,29 +143,30 @@ User Accounts
 User accounts are defined in the 'accounts' key of the plist:
 
 ::
+    "accounts": recordsFromCSVFile("contrib/performance/loadtest/accounts.csv")
 
-                <!-- Define the credentials of the clients which will be used to load test 
-                        the server. These credentials must already be valid on the server. -->
-                <key>accounts</key>
-                <dict>
-                        <!-- The loader is the fully-qualified Python name of a callable which 
-                                returns a list of directory service records defining all of the client accounts 
-                                to use. contrib.performance.loadtest.sim.recordsFromCSVFile reads username, 
-                                password, mailto triples from a CSV file and returns them as a list of faked 
-                                directory service records. -->
-                        <key>loader</key>
-                        <string>contrib.performance.loadtest.sim.recordsFromCSVFile</string>
+                .. <!-- Define the credentials of the clients which will be used to load test 
+                ..         the server. These credentials must already be valid on the server. -->
+                .. <key>accounts</key>
+                .. <dict>
+                ..         <!-- The loader is the fully-qualified Python name of a callable which 
+                ..                 returns a list of directory service records defining all of the client accounts 
+                ..                 to use. contrib.performance.loadtest.sim.recordsFromCSVFile reads username, 
+                ..                 password, mailto triples from a CSV file and returns them as a list of faked 
+                ..                 directory service records. -->
+                ..         <key>loader</key>
+                ..         <string>contrib.performance.loadtest.sim.recordsFromCSVFile</string>
 
-                        <!-- Keyword arguments may be passed to the loader. -->
-                        <key>params</key>
-                        <dict>
-                                <!-- recordsFromCSVFile interprets the path relative to the config.plist, 
-                                        to make it independent of the script's working directory while still allowing 
-                                        a relative path. This isn't a great solution. -->
-                                <key>path</key>
-                                <string>contrib/performance/loadtest/accounts.csv</string>
-                        </dict>
-                </dict>
+                ..         <!-- Keyword arguments may be passed to the loader. -->
+                ..         <key>params</key>
+                ..         <dict>
+                ..                 <!-- recordsFromCSVFile interprets the path relative to the config.plist, 
+                ..                         to make it independent of the script's working directory while still allowing 
+                ..                         a relative path. This isn't a great solution. -->
+                ..                 <key>path</key>
+                ..                 <string>contrib/performance/loadtest/accounts.csv</string>
+                ..         </dict>
+                .. </dict>
 
 The accounts.csv file has lines like shown below::
 
@@ -174,37 +177,43 @@ Client Arrival
 
 This section configures the number of accounts to use, and defines how quickly clients are initialized when the sim starts::
 
-                <!-- Define how many clients will participate in the load test and how 
-                        they will show up. -->
-                <key>arrival</key>
-                <dict>
+    "arrival": SmoothRampUp(
+        groups=2,
+        groupSize=1,
+        interval=3,
+        clientsPerUser=1
+    )
+                .. <!-- Define how many clients will participate in the load test and how 
+                ..         they will show up. -->
+                .. <key>arrival</key>
+                .. <dict>
 
-                        <!-- Specify a class which creates new clients and introduces them into 
-                                the test. contrib.performance.loadtest.population.SmoothRampUp introduces 
-                                groups of new clients at fixed intervals up to a maximum. The size of the 
-                                group, interval, and maximum are configured by the parameters below. The 
-                                total number of clients is groups * groupSize, which needs to be no larger 
-                                than the number of credentials created in the accounts section. -->
-                        <key>factory</key>
-                        <string>contrib.performance.loadtest.population.SmoothRampUp</string>
+                ..         <!-- Specify a class which creates new clients and introduces them into 
+                ..                 the test. contrib.performance.loadtest.population.SmoothRampUp introduces 
+                ..                 groups of new clients at fixed intervals up to a maximum. The size of the 
+                ..                 group, interval, and maximum are configured by the parameters below. The 
+                ..                 total number of clients is groups * groupSize, which needs to be no larger 
+                ..                 than the number of credentials created in the accounts section. -->
+                ..         <key>factory</key>
+                ..         <string>contrib.performance.loadtest.population.SmoothRampUp</string>
 
-                        <key>params</key>
-                        <dict>
-                                <!-- groups gives the total number of groups of clients to introduce. -->
-                                <key>groups</key>
-                                <integer>20</integer>
+                ..         <key>params</key>
+                ..         <dict>
+                ..                 <!-- groups gives the total number of groups of clients to introduce. -->
+                ..                 <key>groups</key>
+                ..                 <integer>20</integer>
 
-                                <!-- groupSize is the number of clients in each group of clients. It's 
-                                        really only a "smooth" ramp up if this is pretty small. -->
-                                <key>groupSize</key>
-                                <integer>1</integer>
+                ..                 <!-- groupSize is the number of clients in each group of clients. It's 
+                ..                         really only a "smooth" ramp up if this is pretty small. -->
+                ..                 <key>groupSize</key>
+                ..                 <integer>1</integer>
 
-                                <!-- Number of seconds between the introduction of each group. -->
-                                <key>interval</key>
-                                <integer>3</integer>
-                        </dict>
+                ..                 <!-- Number of seconds between the introduction of each group. -->
+                ..                 <key>interval</key>
+                ..                 <integer>3</integer>
+                ..         </dict>
 
-                </dict>
+                .. </dict>
 
 In the default configuration, one client is initialized every 3 seconds, until 20 clients are initialized. As soon as a client is initialized, it begins to perform its specified behaviors at the configured rates (see "Client Behaviors").
 
@@ -223,67 +232,83 @@ The 'clients' plist key is an array of dictionaries, where each dict has the key
 
 ::
 
- <key>software</key>
- <string>contrib.performance.loadtest.ical.SnowLeopard</string>
+    "software": OS_X_10_11
+
+ .. <key>software</key>
+ .. <string>contrib.performance.loadtest.ical.SnowLeopard</string>
 
 - 'params', optionally specifying parameters accepted by this software. For example:
 
 ::
+    
+    "params": {
+        "title": "10.11",
+        "calendarHomePollInterval": 5,
+        "supportAmpPush": True,
+        "ampPushHost": "localhost",
+        "ampPushPort": 62311
+    },
 
-  <!-- Arguments to use to initialize the SnowLeopard instance. -->
-  <key>params</key>
-  <dict>
-          <!-- SnowLeopard can poll the calendar home at some interval. This is 
-                  in seconds. -->
-          <key>calendarHomePollInterval</key>
-          <integer>30</integer>
+  .. <!-- Arguments to use to initialize the SnowLeopard instance. -->
+  .. <key>params</key>
+  .. <dict>
+  ..         <!-- SnowLeopard can poll the calendar home at some interval. This is 
+  ..                 in seconds. -->
+  ..         <key>calendarHomePollInterval</key>
+  ..         <integer>30</integer>
 
-          <!-- If the server advertises xmpp push, SnowLeopard can wait for notifications 
-                  about calendar home changes instead of polling for them periodically. If 
-                  this option is true, then look for the server advertisement for xmpp push 
-                  and use it if possible. Still fall back to polling if there is no xmpp push 
-                  advertised. -->
-          <key>supportPush</key>
-          <false />
-  </dict>
+  ..         <!-- If the server advertises xmpp push, SnowLeopard can wait for notifications 
+  ..                 about calendar home changes instead of polling for them periodically. If 
+  ..                 this option is true, then look for the server advertisement for xmpp push 
+  ..                 and use it if possible. Still fall back to polling if there is no xmpp push 
+  ..                 advertised. -->
+  ..         <key>supportPush</key>
+  ..         <false />
+  .. </dict>
 
-- 'profiles' is an array of dictionaries specifying individual behaviors of this software. Each dict has a 'class' key which specifies the implementation class for this behavior, and a 'params' dict with options specific to that behavior. For example:
+- 'profiles' is an array of profiles specifying individual behaviors of this software.
 
 ::
 
- <!-- This profile accepts invitations to events, handles cancels, and
-      handles replies received. -->
- <dict>
-         <key>class</key>
-         <string>contrib.performance.loadtest.profiles.Accepter</string>
+    Eventer(enabled=True, interval=0.1, eventStartDistribution=STANDARD_WORK_DISTRIBUTION),
+    Inviter(enabled=True, interval=1, numInviteesDistribution=NormalDistribution(7, 2)),
+    Tasker(enabled=False, interval=30),
+    Completer(enabled=True, interval=180, completeLikelihood=BernoulliDistribution(0.8)),
+    CalendarMaker(enabled=True, interval=10)
 
-         <key>params</key>
-         <dict>
-                 <key>enabled</key>
-                 <true/>
+ .. <!-- This profile accepts invitations to events, handles cancels, and
+ ..      handles replies received. -->
+ .. <dict>
+ ..         <key>class</key>
+ ..         <string>contrib.performance.loadtest.profiles.Accepter</string>
 
-                 <!-- Define how long to wait after seeing a new invitation before 
-                         accepting it. -->
-                 <key>acceptDelayDistribution</key>
-                 <dict>
-                         <key>type</key>
-                         <string>contrib.performance.stats.NormalDistribution</string>
-                         <key>params</key>
-                         <dict>
-                                 <!-- mean -->
-                                 <key>mu</key>
-                                 <integer>60</integer>
-                                 <!-- standard deviation -->
-                                 <key>sigma</key>
-                                 <integer>60</integer>
-                         </dict>
-                 </dict>
-         </dict>
- </dict>
+ ..         <key>params</key>
+ ..         <dict>
+ ..                 <key>enabled</key>
+ ..                 <true/>
+
+ ..                 <!-- Define how long to wait after seeing a new invitation before 
+ ..                         accepting it. -->
+ ..                 <key>acceptDelayDistribution</key>
+ ..                 <dict>
+ ..                         <key>type</key>
+ ..                         <string>contrib.performance.stats.NormalDistribution</string>
+ ..                         <key>params</key>
+ ..                         <dict>
+ ..                                 <!-- mean -->
+ ..                                 <key>mu</key>
+ ..                                 <integer>60</integer>
+ ..                                 <!-- standard deviation -->
+ ..                                 <key>sigma</key>
+ ..                                 <integer>60</integer>
+ ..                         </dict>
+ ..                 </dict>
+ ..         </dict>
+ .. </dict>
 
 Some parameters may be safely modified to suit your purposes, for example you might choose to disable certain profiles (by setting 'enabled' to false) in order to simulate only specific types of activity. Also, you can edit the params for the various distributions to configure how often things happen.
 
-Motivated readers may also develop new behaviors for existing clients, or even entirely new clients. An example of adding a new behavior to an existing client can be found here: http://trac.calendarserver.org/changeset/8428. As of this writing, we have only the one Snow Leopard client simulator, and would happily accept patches that implement additional clients!
+Motivated readers may also develop new behaviors for existing clients, or even entirely new clients. An example of adding a new behavior to an existing client can be found here: http://trac.calendarserver.org/changeset/8428.
 
 ---------------------
 Scalability
@@ -295,6 +320,10 @@ The specific approach you take when configuring a high load depends on your goal
 
 To use four instances on the local host::
 
+Python Configuration::
+workers=["./python contrib/performance/loadtest/ampsim.py" * 4]  # Spawns for workers
+
+PList Configuration::
  <key>workers</key>
  <array>
      <string>./python contrib/performance/loadtest/ampsim.py</string>
