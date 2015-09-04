@@ -1,7 +1,7 @@
 import uuid
 
 from twisted.internet.endpoints import TCP4ClientEndpoint
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, succeed
 
 from calendarserver.push.amppush import SubscribeToID, UnsubscribeFromID, AMPPushClientFactory
 
@@ -86,8 +86,7 @@ class PushMonitor(object):
             monitor.addPushkey('/CalDAV/localhost/<uid>', '/calendars/__uids__/<uid>')
         """
         self._ampPushkeys[pushkey] = href
-        if self._connected:
-            return self._subscribeToPushkey(pushkey)
+        return self._subscribeToPushkey(pushkey)
 
     def removePushkey(self, pushkey):
         """
@@ -95,8 +94,7 @@ class PushMonitor(object):
         """
         if pushkey in self._ampPushkeys:
             del self._ampPushkeys[pushkey]
-        if self._connected:
-            return self._unsubscribeFromPushkey(pushkey)
+        return self._unsubscribeFromPushkey(pushkey)
 
     def isSubscribedTo(self, href):
         """
@@ -115,9 +113,13 @@ class PushMonitor(object):
             yield self._unsubscribeFromPushkey(pushkey)
 
     def _subscribeToPushkey(self, pushkey):
+        if not self._connected:
+            return succeed(None)
         return self._protocol.callRemote(SubscribeToID, token=self._token, id=pushkey)
 
     def _unsubscribeFromPushkey(self, pushkey):
+        if not self._connected:
+            return succeed(None)
         return self._protocol.callRemote(UnsubscribeFromID, id=pushkey)
 
 
