@@ -665,14 +665,51 @@ class EventDeleter(EventBase):
     """
     A calendar user who deletes events at random
     """
-    def _deleteEvent(self):
+    def _deleteEvent(self, event):
+        # if self organized
+        d = self._client.deleteEvent(event.url)
+        return self._newOperation("delete{event}", d)
+        # if am attendee
+
+    def _deleteRandomEvent(self):
         event = self._getRandomEvent()
         if event is None:
             return succeed(None)
-        d = self._client.deleteEvent(event.url)
-        return self._newOperation("delete{event}", d)
+        return self._deleteEvent(event)
 
-    action = _deleteEvent
+    action = _deleteRandomEvent
+
+class Deduplicater(EventDeleter):
+    """
+    Profile that will cancel or remove any double- or more-booked events
+    """
+    # def 
+
+
+class Emptier(EventDeleter):
+    """
+    Behavior that keep events underneath capacity
+    """
+    MAX_RESOURCES_PER_COLLECTION = 10
+    MAX_PERCENT_FULL = 0.9
+
+    def run(self):
+        deferreds = []
+        for calendar in self._client._calendars.values():
+            deferreds = []
+            numToDelete = max(0, int(len(calendar.events) - self.MAX_PERCENT_FULL * self.MAX_RESOURCES_PER_COLLECTION))
+            events = calendar.events.values()
+            print(events)
+            eventsToDelete = events[:numToDelete]
+            if eventsToDelete:
+                print("*" * 16)
+                print("Deleting an event because of capacity")
+                for event in eventsToDelete:
+                    d = self._deleteEvent(event)
+                    deferreds.append(d)
+        if not deferreds:
+            return succeed(None)
+        return self._newOperation("empty{calendar}", DeferredList(deferreds))
 
 
 
@@ -858,11 +895,13 @@ class Accepter(ProfileBase):
     def setDistributions(
         self,
         enabled=True,
-        acceptDelayDistribution=NormalDistribution(1200, 60)
+        acceptDelayDistribution=NormalDistribution(1200, 60),
+        acceptLikelihoodDistribution=BernoulliDistribution(1),
     ):
         self.enabled = enabled
         self._accepting = set()
         self._acceptDelayDistribution = acceptDelayDistribution
+        self._acceptLikelihood = acceptLikelihoodDistribution
 
 
     def run(self):
@@ -879,13 +918,14 @@ class Accepter(ProfileBase):
         except KeyError:
             return
 
-        if calendar.resourceType == caldavxml.schedule_inbox:
-            # Handle inbox differently
-            self.inboxEventChanged(calendar, href)
-        elif calendar.resourceType == caldavxml.calendar:
-            self.calendarEventChanged(calendar, href)
-        else:
-            return
+        if self._acceptLikelihood.sample():
+            if calendar.resourceType == caldavxml.schedule_inbox:
+                # Handle inbox differently
+                self.inboxEventChanged(calendar, href)
+            elif calendar.resourceType == caldavxml.calendar:
+                self.calendarEventChanged(calendar, href)
+            else:
+                return
 
 
     def calendarEventChanged(self, calendar, href):
