@@ -88,6 +88,7 @@ DEFAULT_SERVICE_PARAMS = {
             "resources": "",
             "addresses": "",
         },
+        "tries": 3,
     },
 }
 

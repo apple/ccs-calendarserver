@@ -186,7 +186,8 @@ def buildDirectory(
                     CalRecordType.location: extraFilters.get("locations", ""),
                     CalRecordType.resource: extraFilters.get("resources", ""),
                     CalRecordType.address: extraFilters.get("addresses", ""),
-                }
+                },
+                tries=params.tries
             )
             ldapService = directory
 
