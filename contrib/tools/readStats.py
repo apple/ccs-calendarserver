@@ -34,6 +34,9 @@ def safeDivision(value, total, factor=1):
     return value * factor / total if total else 0
 
 
+SummaryValues = collections.namedtuple("SummaryValues", ("requests", "response", "slots", "cpu", "errors"))
+
+
 
 def readSock(sockname, useTCP):
     try:
@@ -61,13 +64,15 @@ def printStats(stats, multimode, showMethods, topUsers, showAgents):
             printFailedStats(stats[0]["Failed"])
         else:
             try:
-                printStat(stats[0], multimode[0], showMethods, topUsers, showAgents)
+                summary = printStat(stats[0], multimode[0], showMethods, topUsers, showAgents)
             except KeyError, e:
                 printFailedStats("Unable to find key '%s' in statistics from server socket" % (e,))
                 sys.exit(1)
 
     else:
-        printMultipleStats(stats, multimode, showMethods, topUsers, showAgents)
+        summary = printMultipleStats(stats, multimode, showMethods, topUsers, showAgents)
+
+    return summary
 
 
 
@@ -91,7 +96,7 @@ def printStat(stats, index, showMethods, topUsers, showAgents):
         print("Current CPU: Unavailable")
         print("Current Memory Used: Unavailable")
     print
-    printRequestSummary(stats)
+    summary = printRequestSummary(stats)
     printHistogramSummary(stats[index], index)
     if showMethods:
         printMethodCounts(stats[index])
@@ -99,6 +104,8 @@ def printStat(stats, index, showMethods, topUsers, showAgents):
         printUserCounts(stats[index], topUsers)
     if showAgents:
         printAgentCounts(stats[index])
+
+    return summary
 
 
 
@@ -127,7 +134,7 @@ def printMultipleStats(stats, multimode, showMethods, topUsers, showAgents):
             cpus.append(-1)
             memories.append(-1)
 
-    printMultiRequestSummary(stats, cpus, memories, times, labels, multimode)
+    summary = printMultiRequestSummary(stats, cpus, memories, times, labels, multimode)
     printMultiHistogramSummary(stats, multimode[0])
     if showMethods:
         printMultiMethodCounts(stats, multimode[0])
@@ -135,6 +142,8 @@ def printMultipleStats(stats, multimode, showMethods, topUsers, showAgents):
         printMultiUserCounts(stats, multimode[0], topUsers)
     if showAgents:
         printMultiAgentCounts(stats, multimode[0])
+
+    return summary
 
 
 
@@ -225,6 +234,15 @@ def printRequestSummary(stats):
     table.printTable(os=os)
     print(os.getvalue())
 
+    stat = stats["1m"]
+    return SummaryValues(
+        requests=safeDivision(float(stat["requests"]), seconds),
+        response=safeDivision(stat["t"], stat["requests"]),
+        slots=safeDivision(float(stat["slots"]), stat["requests"]),
+        cpu=safeDivision(stat["cpu"], stat["requests"]),
+        errors=stat["500"],
+    )
+
 
 
 def printMultiRequestSummary(stats, cpus, memories, times, labels, index):
@@ -293,6 +311,14 @@ def printMultiRequestSummary(stats, cpus, memories, times, labels, index):
     os = StringIO()
     table.printTable(os=os)
     print(os.getvalue())
+
+    return SummaryValues(
+        requests=totals[2],
+        response=totals[3],
+        slots=totals[6],
+        cpu=totals[7],
+        errors=totals[10],
+    )
 
 
 
@@ -493,6 +519,32 @@ def printMultiAgentCounts(stats, index):
 
 
 
+def alert(summary, alerts):
+
+    alert = []
+    for attr, description in (
+        ("requests", "Request count",),
+        ("response", "Response time",),
+        ("slots", "Slot count",),
+        ("cpu", "CPU time",),
+        ("errors", "Error count",),
+    ):
+        threshold = getattr(alerts, attr)
+        value = getattr(summary, attr)
+        if threshold is not None and value > threshold:
+            if isinstance(value, float):
+                value = "{:.1f}".format(value)
+            alert.append("{} threshold exceeded: {}".format(description, value))
+
+    if alert:
+        for _ignore in range(10):
+            print('\a', end='')
+            sys.stdout.flush()
+            time.sleep(0.15)
+        print("\n".join(alert))
+
+
+
 def usage(error_msg=None):
     if error_msg:
         print(error_msg)
@@ -510,6 +562,17 @@ Options:
     --methods     Include details about HTTP method usage
     --users N     Include details about top N users
     --agents      Include details about HTTP User-Agent usage
+
+    --alert-requests N     Generate an alert if the overall request
+                            count exceeds a threshold [INT]
+    --alert-response N     Generate an alert if the overall average
+                            response time exceeds a threshold [INT]
+    --alert-slots N        Generate an alert if the overall slot
+                            count exceeds a threshold [FLOAT]
+    --alert-cpu N          Generate an alert if the overall average
+                            cpu percent use exceeds a threshold [INT]
+    --alert-errors N       Generate an alert if the overall error
+                            count exceeds a threshold [INT]
 
 Description:
     This utility will print a summary of statistics read from a
@@ -531,11 +594,21 @@ if __name__ == '__main__':
     showMethods = False
     topUsers = 0
     showAgents = False
+    alerts = SummaryValues(
+        requests=None,
+        response=None,
+        slots=None,
+        cpu=None,
+        errors=None,
+    )
 
     multimodes = (("Current", 60,), ("1 Minute", 60,), ("5 Minutes", 5 * 60,), ("1 Hour", 60 * 60,),)
     multimode = multimodes[2]
 
-    options, args = getopt.getopt(sys.argv[1:], "hs:t:", ["tcp=", "0", "1", "5", "60", "methods", "users=", "agents"])
+    options, args = getopt.getopt(sys.argv[1:], "hs:t:", [
+        "tcp=", "0", "1", "5", "60", "methods", "users=", "agents",
+        "alert-requests=", "alert-response=", "alert-slots=", "alert-cpu=", "alert-errors=",
+    ])
 
     for option, value in options:
         if option == "-h":
@@ -561,7 +634,19 @@ if __name__ == '__main__':
             topUsers = int(value)
         elif option == "--agents":
             showAgents = True
+        elif option == "--alert-requests":
+            alerts = alerts._replace(requests=int(value))
+        elif option == "--alert-response":
+            alerts = alerts._replace(response=int(value))
+        elif option == "--alert-slots":
+            alerts = alerts._replace(slots=float(value))
+        elif option == "--alert-cpu":
+            alerts = alerts._replace(cpu=int(value))
+        elif option == "--alert-errors":
+            alerts = alerts._replace(errors=int(value))
 
     while True:
-        printStats([readSock(server, useTCP) for server in servers], multimode, showMethods, topUsers, showAgents)
-        time.sleep(delay)
+        now = time.time()
+        summary = printStats([readSock(server, useTCP) for server in servers], multimode, showMethods, topUsers, showAgents)
+        alert(summary, alerts)
+        time.sleep(delay - (time.time() - now))
