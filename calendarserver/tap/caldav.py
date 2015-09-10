@@ -67,7 +67,6 @@ from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
-from twext.enterprise.jobs.jobitem import JobItem
 from twext.enterprise.jobs.queue import NonPerformingQueuer
 from twext.enterprise.jobs.queue import ControllerQueue
 from twext.enterprise.jobs.queue import WorkerFactory as QueueWorkerFactory
@@ -851,8 +850,6 @@ class CalDAVServiceMaker (object):
         if pool is not None:
             pool.setServiceParent(result)
 
-        self._initJobQueue(None)
-
         if config.ControlSocket:
             id = config.ControlSocket
             self.log.info("Control via AF_UNIX: {id}", id=id)
@@ -1300,7 +1297,6 @@ class CalDAVServiceMaker (object):
                 useWorkerPool=False,
                 disableWorkProcessing=config.MigrationOnly,
             )
-            self._initJobQueue(pool)
             store.queuer = store.pool = pool
             pool.setServiceParent(result)
 
@@ -1865,7 +1861,6 @@ class CalDAVServiceMaker (object):
                 reactor, store.newTransaction,
                 disableWorkProcessing=config.MigrationOnly,
             )
-            self._initJobQueue(pool)
 
             # The master should not perform queued work
             store.queuer = NonPerformingQueuer()
@@ -1972,33 +1967,6 @@ class CalDAVServiceMaker (object):
                             socket=checkSocket
                         )
                         remove(checkSocket)
-
-
-    def _initJobQueue(self, pool):
-        """
-        Common job queue initialization
-
-        @param pool: the connection pool to init or L{None}
-        @type pool: L{PeerConnectionPool} or C{None}
-        """
-
-        # Initialize queue polling parameters from config settings
-        if pool is not None:
-            for attr in (
-                "queuePollInterval",
-                "queueOverdueTimeout",
-                "overloadLevel",
-                "highPriorityLevel",
-                "mediumPriorityLevel",
-            ):
-                setattr(pool, attr, getattr(config.WorkQueue, attr))
-
-        # Initialize job parameters from config settings
-        for attr in (
-            "failureRescheduleInterval",
-            "lockRescheduleInterval",
-        ):
-            setattr(JobItem, attr, getattr(config.WorkQueue, attr))
 
 
 

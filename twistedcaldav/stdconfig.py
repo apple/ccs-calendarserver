@@ -15,18 +15,24 @@
 # limitations under the License.
 ##
 
-import copy
-import os
 from os.path import basename
 from plistlib import PlistParser  # @UnresolvedImport
-import re
 from socket import getfqdn, gethostbyname
+import copy
+import os
+import re
 import sys
 
 from calendarserver.push.util import getAPNTopicFromCertificate
+
+from twext.enterprise.jobs.jobitem import JobItem
+from twext.enterprise.jobs.queue import ControllerQueue
+from twext.enterprise.jobs.workitem import WorkItem
 from twext.python.log import Logger, InvalidLogLevelError, LogLevel
+
 from twisted.python.filepath import FilePath
 from twisted.python.runtime import platform
+
 from twistedcaldav import caldavxml, customxml, carddavxml, mkcolxml
 from twistedcaldav import ical
 from twistedcaldav.config import ConfigProvider, ConfigurationError, ConfigDict
@@ -35,7 +41,9 @@ from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
 from twistedcaldav.util import computeProcessCount
 from twistedcaldav.util import getPasswordFromKeychain
+
 from txdav.xml import element as davxml
+
 from txweb2.dav.resource import TwistedACLInheritable
 
 log = Logger()
@@ -255,6 +263,9 @@ DEFAULT_CONFIG = {
 
         "failureRescheduleInterval": 60,    # When a job fails, reschedule it this number of seconds in the future
         "lockRescheduleInterval": 60,       # When a job can't run because of a lock, reschedule it this number of seconds in the future
+
+        "workParameters": {},       # dict of work table name's, whose values are dicts containing "priority"
+                                    # and "weight" items to use for newly created work.
     },
 
     #
@@ -1310,6 +1321,32 @@ def _updateHostName(configDict, reloading=False):
 
 
 
+def _updateWorkQueue(configDict, reloading=False):
+    try:
+        # Initialize queue polling parameters from config settings
+        for attr in (
+            "queuePollInterval",
+            "queueOverdueTimeout",
+            "overloadLevel",
+            "highPriorityLevel",
+            "mediumPriorityLevel",
+        ):
+            setattr(ControllerQueue, attr, getattr(config.WorkQueue, attr))
+
+        # Initialize job parameters from config settings
+        for attr in (
+            "failureRescheduleInterval",
+            "lockRescheduleInterval",
+        ):
+            setattr(JobItem, attr, getattr(config.WorkQueue, attr))
+
+        # Work parameters
+        WorkItem.updateWorkTypes(configDict.WorkQueue.workParameters)
+    except Exception:
+        log.failure("Unable to apply config.workParameters changes")
+
+
+
 def _updateMultiProcess(configDict, reloading=False):
     """
     Dynamically compute ProcessCount if it's set to 0.  Always compute
@@ -1767,6 +1804,7 @@ POST_UPDATE_HOOKS = (
     _updateMultiProcess,
     _updateDataStore,
     _updateHostName,
+    _updateWorkQueue,
     _postUpdateDirectoryService,
     _postUpdateResourceService,
     _postUpdateAugmentService,
