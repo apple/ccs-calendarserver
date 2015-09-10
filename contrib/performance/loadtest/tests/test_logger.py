@@ -14,14 +14,11 @@
 # limitations under the License.
 #
 ##
-
-"""
-Tests for some things in L{loadtest.population}.
-"""
+from StringIO import StringIO
 
 from twisted.trial.unittest import TestCase
 
-from contrib.performance.loadtest.population import ReportStatistics
+from contrib.performance.loadtest.logger import ReportStatistics, OperationLogger
 
 class ReportStatisticsTests(TestCase):
     """
@@ -388,3 +385,63 @@ class ReportStatisticsTests(TestCase):
             ["Greater than 50% PUT{organizer-huge} exceeded 10 second response time"],
             logger.failures()
         )
+
+
+
+class OperationLoggerTests(TestCase):
+    """
+    Tests for L{OperationLogger}.
+    """
+    def test_noFailures(self):
+        """
+        If the median lag is below 1 second and the failure rate is below 1%,
+        L{OperationLogger.failures} returns an empty list.
+        """
+        logger = OperationLogger(outfile=StringIO())
+        logger.observe(dict(
+            type='operation', phase='start', user='user01',
+            label='testing', lag=0.5)
+        )
+        logger.observe(dict(
+            type='operation', phase='end', user='user01',
+            duration=0.35, label='testing', success=True)
+        )
+        self.assertEqual([], logger.failures())
+
+
+    def test_lagLimitExceeded(self):
+        """
+        If the median scheduling lag for any operation in the simulation
+        exceeds 1 second, L{OperationLogger.failures} returns a list containing
+        a string describing that issue.
+        """
+        logger = OperationLogger(outfile=StringIO())
+        for lag in [100.0, 1100.0, 1200.0]:
+            logger.observe(dict(
+                type='operation', phase='start', user='user01',
+                label='testing', lag=lag)
+            )
+        self.assertEqual(
+            ["Median TESTING scheduling lag greater than 1000.0ms"],
+            logger.failures())
+
+
+    def test_failureLimitExceeded(self):
+        """
+        If the failure rate for any operation exceeds 1%,
+        L{OperationLogger.failures} returns a list containing a string
+        describing that issue.
+        """
+        logger = OperationLogger(outfile=StringIO())
+        for _ignore in range(98):
+            logger.observe(dict(
+                type='operation', phase='end', user='user01',
+                duration=0.25, label='testing', success=True)
+            )
+        logger.observe(dict(
+            type='operation', phase='end', user='user01',
+            duration=0.25, label='testing', success=False)
+        )
+        self.assertEqual(
+            ["Greater than 1% TESTING failed"],
+            logger.failures())

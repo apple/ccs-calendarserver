@@ -21,8 +21,9 @@ from caldavclientlibrary.protocol.url import URL
 from caldavclientlibrary.protocol.webdav.definitions import davxml
 
 from contrib.performance.httpclient import MemoryConsumer, StringProducer
-from contrib.performance.loadtest.ical import XMPPPush, Event, Calendar, OS_X_10_6
-from contrib.performance.loadtest.sim import _DirectoryRecord
+from contrib.performance.loadtest.ical import Event, Calendar
+from contrib.performance.loadtest.records import DirectoryRecord
+from contrib.performance.loadtest.clients import OS_X_10_6
 
 from pycalendar.datetime import DateTime
 from pycalendar.timezone import Timezone
@@ -35,6 +36,7 @@ from twisted.web.client import ResponseDone
 from twisted.web.http import OK, NO_CONTENT, CREATED, MULTI_STATUS
 from twisted.web.http_headers import Headers
 
+from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE # FIXME: to get TimezoneCache to work
 from twistedcaldav.ical import Component
 from twistedcaldav.timezones import TimezoneCache
 
@@ -402,30 +404,6 @@ SEQUENCE:3
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n") % {'UID': EVENT_UID}
-
-
-
-class EventTests(TestCase):
-    """
-    Tests for L{Event}.
-    """
-    def test_uid(self):
-        """
-        When the C{vevent} attribute of an L{Event} instance is set,
-        L{Event.getUID} returns the UID value from it.
-        """
-        event = Event(None, u'/foo/bar', u'etag', Component.fromString(EVENT))
-        self.assertEquals(event.getUID(), EVENT_UID)
-
-
-    def test_withoutUID(self):
-        """
-        When an L{Event} has a C{vevent} attribute set to C{None},
-        L{Event.getUID} returns C{None}.
-        """
-        event = Event(None, u'/bar/baz', u'etag')
-        self.assertIdentical(event.getUID(), None)
-
 
 
 PRINCIPAL_PROPFIND_RESPONSE = """\
@@ -1159,7 +1137,7 @@ class OS_X_10_6Mixin:
     """
     def setUp(self):
         TimezoneCache.create()
-        self.record = _DirectoryRecord(
+        self.record = DirectoryRecord(
             u"user91", u"user91", u"User 91", u"user91@example.org", u"user91",
         )
         serializePath = self.mktemp()
@@ -1167,7 +1145,7 @@ class OS_X_10_6Mixin:
         self.client = OS_X_10_6(
             None,
             "http://127.0.0.1",
-            "/principals/users/%s/",
+            # "/principals/users/%s/",
             serializePath,
             self.record,
             None,
@@ -1252,32 +1230,6 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
 
         self.assertEqual({}, self.client.xmpp)
 
-
-    def test_extractCalendarsXMPP(self):
-        """
-        If there is XMPP push information in a calendar home PROPFIND response,
-        L{OS_X_10_6._extractCalendars} finds it and records it.
-        """
-        home = "/calendars/__uids__/user01/"
-        self.client._extractCalendars(
-            self.client._parseMultiStatus(CALENDAR_HOME_PROPFIND_RESPONSE_WITH_XMPP),
-            home
-        )
-        self.assertEqual({
-            home: XMPPPush(
-                "xmpp.example.invalid:1952",
-                "xmpp:pubsub.xmpp.example.invalid?pubsub;node=/CalDAV/another.example.invalid/user01/",
-                "/Some/Unique/Value"
-            )},
-            self.client.xmpp
-        )
-
-
-    def test_handleMissingXMPP(self):
-        home = "/calendars/__uids__/user01/"
-        self.client._extractCalendars(
-            self.client._parseMultiStatus(CALENDAR_HOME_PROPFIND_RESPONSE_XMPP_MISSING), home)
-        self.assertEqual({}, self.client.xmpp)
 
 
     @inlineCallbacks

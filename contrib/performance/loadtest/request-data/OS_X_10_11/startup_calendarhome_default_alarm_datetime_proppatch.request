@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<A:propertyupdate xmlns:A="DAV:"><A:set><A:prop><B:default-alarm-vevent-datetime xmlns:B="urn:ietf:params:xml:ns:caldav">BEGIN:VALARM&#13;
+X-WR-ALARMUID:4AD03A33-54A6-42BE-A157-47273DD60803&#13;
+UID:4AD03A33-54A6-42BE-A157-47273DD60803&#13;
+TRIGGER;VALUE=DATE-TIME:19760401T005545Z&#13;
+ACTION:NONE&#13;
+END:VALARM&#13;
+</B:default-alarm-vevent-datetime></A:prop></A:set></A:propertyupdate>

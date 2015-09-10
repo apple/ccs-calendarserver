@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+    Copyright (c) 2011-2015 Apple Inc. All rights reserved.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+  -->
+
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+	<dict>
+		<key>clients</key>
+		<array>
+			<dict>
+				<!-- Here is a OS X client simulator. -->
+				<key>software</key>
+				<string>contrib.performance.loadtest.clients.OS_X_10_11</string>
+
+				<!-- Arguments to use to initialize the OS_X_10_7 instance. -->
+				<key>params</key>
+				<dict>
+					<!-- Name that appears in logs. -->
+					<key>title</key>
+					<string>10.11</string>
+
+					<!-- OS_X_10_11 can poll the calendar home at some interval. This is
+						in seconds. -->
+					<key>calendarHomePollInterval</key>
+					<integer>30</integer>
+
+					<!-- If the server advertises AMP push, the client can wait for notifications about calendar home changes in addition to polling them periodically. If this option is true, look for the server advertisement for AMP push and use it if possible. Still fall back to polling if there is no AMP push						advertised. -->
+					<key>supportAmpPush</key>
+					<true/>
+					<key>ampPushHost</key>
+					<string>localhost</string>
+					<key>ampPushPort</key>
+					<integer>62311</integer>
+				</dict>
+
+				<!-- The profiles define certain types of user behavior on top of the
+					client software being simulated. -->
+				<key>profiles</key>
+				<array>
+					<dict>
+						<key>class</key>
+						<string>contrib.performance.loadtest.profiles.Eventer</string>
+
+						<key>params</key>
+						<dict>
+							<key>enabled</key>
+							<true/>
+
+							<!-- Define the interval (in seconds) at which this profile will use
+								its client to create a new event. -->
+							<key>interval</key>
+							<integer>1</integer>
+
+							<!-- Define how start times (DTSTART) for the randomly generated events
+								will be selected. This is an example of a "Distribution" parameter. The value
+								for most "Distribution" parameters are interchangeable and extensible. -->
+							<key>eventStartDistribution</key>
+							<dict>
+
+								<!-- This distribution is pretty specialized. It produces timestamps
+									in the near future, limited to certain days of the week and certain hours
+									of the day. -->
+								<key>type</key>
+								<string>contrib.performance.loadtest.distributions.WorkDistribution</string>
+
+								<key>params</key>
+								<dict>
+									<!-- These are the days of the week the distribution will use. -->
+									<key>daysOfWeek</key>
+									<array>
+										<string>mon</string>
+										<string>tue</string>
+										<string>wed</string>
+										<string>thu</string>
+										<string>fri</string>
+									</array>
+
+									<!-- The earliest hour of a day at which an event might be scheduled. -->
+									<key>beginHour</key>
+									<integer>8</integer>
+
+									<!-- And the latest hour of a day (at which an event will be scheduled
+										to begin!). -->
+									<key>endHour</key>
+									<integer>16</integer>
+
+									<!-- The timezone in which the event is scheduled. (XXX Does this
+										really work right?) -->
+									<key>tzname</key>
+									<string>America/Los_Angeles</string>
+								</dict>
+							</dict>
+						</dict>
+					</dict>
+					<dict>
+						<key>class</key>
+						<string>contrib.performance.loadtest.profiles.Rescheduler</string>
+
+						<key>params</key>
+						<dict>
+							<key>enabled</key>
+							<true/>
+							<key>interval</key>
+							<integer>5</integer>
+							<key>eventStartDistribution</key>
+							<dict>
+
+								<!-- This distribution is pretty specialized. It produces timestamps
+									in the near future, limited to certain days of the week and certain hours
+									of the day. -->
+								<key>type</key>
+								<string>contrib.performance.loadtest.distributions.WorkDistribution</string>
+
+								<key>params</key>
+								<dict>
+									<!-- These are the days of the week the distribution will use. -->
+									<key>daysOfWeek</key>
+									<array>
+										<string>mon</string>
+										<string>tue</string>
+										<string>wed</string>
+										<string>thu</string>
+										<string>fri</string>
+									</array>
+
+									<!-- The earliest hour of a day at which an event might be scheduled. -->
+									<key>beginHour</key>
+									<integer>8</integer>
+
+									<!-- And the latest hour of a day (at which an event will be scheduled
+										to begin!). -->
+									<key>endHour</key>
+									<integer>16</integer>
+
+									<!-- The timezone in which the event is scheduled. (XXX Does this
+										really work right?) -->
+									<key>tzname</key>
+									<string>America/Los_Angeles</string>
+								</dict>
+							</dict>
+						</dict>
+					</dict>
+				</array>
+
+				<!-- Determine the frequency at which this client configuration will
+					appear in the clients which are created by the load tester. -->
+				<key>weight</key>
+				<integer>1</integer>
+			</dict>
+		</array>
+	</dict>
+</plist>

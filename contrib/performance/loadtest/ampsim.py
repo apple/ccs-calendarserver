@@ -46,7 +46,6 @@ if __name__ == '__main__':
             exit(0)
     runmain()
 
-
 from copy import deepcopy
 
 from plistlib import writePlistToString, readPlistFromString
@@ -56,15 +55,18 @@ from twisted.protocols.amp import AMP, Command, String, Unicode
 
 from twext.enterprise.adbapi2 import Pickle
 
-from contrib.performance.loadtest.sim import _DirectoryRecord, LoadSimulator
+from contrib.performance.loadtest.sim import LoadSimulator
+from contrib.performance.loadtest.records import DirectoryRecord
+from contrib.performance.loadtest.config import Config
 
 class Configure(Command):
     """
     Configure this worker process with the text of an XML property list.
     """
-    arguments = [("plist", String())]
+    arguments = [("cfg", Pickle())]
     # Pass OSError exceptions through, presenting the exception message to the user.
-    errors = {OSError: 'OSError'}
+    # errors = {OSError: 'OSError'}
+    errors = {Exception: 'Exception'}
 
 
 
@@ -79,7 +81,7 @@ class LogMessage(Command):
 
 class Account(Command):
     """
-    This message represents a L{_DirectoryRecord} loaded by the manager process
+    This message represents a L{DirectoryRecord} loaded by the manager process
     being relayed to a worker.
     """
     arguments = [
@@ -106,16 +108,21 @@ class Worker(AMP):
 
     @Account.responder
     def account(self, **kw):
-        self.records.append(_DirectoryRecord(**kw))
+        self.records.append(DirectoryRecord(**kw))
         return {}
 
 
     @Configure.responder
-    def config(self, plist):
+    def config(self, cfg):
         from sys import stderr
-        cfg = readPlistFromString(plist)
+        # cfg = readPlistFromString(plist)
+        config = Config.deserializeFromWorker(cfg)
+        with open('logs.txt', 'a') as f:
+            f.write('here')
+            f.write(str(config.__dict__))
+
         addObserver(self.emit)
-        sim = LoadSimulator.fromConfig(cfg)
+        sim = LoadSimulator.fromConfigObject(config)
         sim.records = self.records
         sim.attachServices(stderr)
         return {}
@@ -160,26 +167,29 @@ class Manager(AMP):
                             email=record.email,
                             guid=record.guid)
 
-        workerConfig = deepcopy(self.loadsim.configTemplate)
-        # The list of workers is for the manager only; the workers themselves
-        # know they're workers because they _don't_ receive this list.
-        del workerConfig["workers"]
-        # The manager loads the accounts via the configured loader, then sends
-        # them out to the workers (right above), which look at the state at an
-        # instance level and therefore don't need a globally-named directory
-        # record loader.
-        del workerConfig["accounts"]
+        workerConfig = self.loadsim.configTemplate(self.whichWorker, self.numWorkers)
+        dupe = deepcopy(workerConfig)
+        del dupe['records']
+        print dupe
+        # # The list of workers is for the manager only; the workers themselves
+        # # know they're workers because they _don't_ receive this list.
+        # del workerConfig["workers"]
+        # # The manager loads the accounts via the configured loader, then sends
+        # # them out to the workers (right above), which look at the state at an
+        # # instance level and therefore don't need a globally-named directory
+        # # record loader.
+        # del workerConfig["accounts"]
 
-        workerConfig["workerID"] = self.whichWorker
-        workerConfig["workerCount"] = self.numWorkers
-        workerConfig["observers"] = []
-        workerConfig.pop("accounts", None)
+        # workerConfig["workerID"] = self.whichWorker
+        # workerConfig["workerCount"] = self.numWorkers
+        # workerConfig["observers"] = []
+        # workerConfig.pop("accounts", None)
 
-        plist = writePlistToString(workerConfig)
+        # plist = writePlistToString(workerConfig)
         self.output.write("Initiating worker configuration\n")
         def completed(x):
             self.output.write("Worker configuration complete.\n")
-        self.callRemote(Configure, plist=plist).addCallback(completed)
+        self.callRemote(Configure, cfg=workerConfig).addCallback(completed)
 
 
     @LogMessage.responder

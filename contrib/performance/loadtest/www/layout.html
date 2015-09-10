@@ -1,0 +1,28 @@
+<html>
+<head>
+    <style type="text/css">
+        body {color:#000000;}
+        h1 h2 h3 {color:#333333;}
+        td {text-align: center; padding: 5px;}
+        pre.light {color:#CCCCCC; font-size:12px;}
+        table.rounded-corners {
+            border: 1px solid #000000; background-color:#cccccc;
+            -moz-border-radius: 5px;
+            -webkit-border-radius: 5px;
+            -khtml-border-radius: 5px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Load Simulator Web Admin</h1>
+    <form method="POST">
+        <input name="token" type="hidden" value="%s" />
+        <table class="rounded-corners">
+            <tr><td><input name="results" type="submit" value="Refresh" /></td></tr>
+            <tr><td><input name="stop" type="submit" value="Stop Sim" /></td></tr>
+        </table>
+    </form>
+    {% block results %}
+</body>
+</html>
