@@ -35,5 +35,12 @@
       </dict>
     </array>
 
+    <key>SupportedComponents</key>
+    <array>
+        <string>VEVENT</string>
+        <string>VTODO</string>
+        <string>VPOLL</string>
+    </array>
+
   </dict>
 </plist>
