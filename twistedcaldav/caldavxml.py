@@ -1467,6 +1467,33 @@ class TimezoneServiceSet (CalDAVElement):
 
 
 #
+# RFC7529 (RSCALE)
+#
+
+@registerElement
+class SupportedRscaleSet (CalDAVElement):
+    """
+    List of supported RSCALE values.
+    """
+    name = "supported-rscale-set"
+
+    allowed_children = {(dav_namespace, "supported-rscale"): (0, None)}
+
+    hidden = True
+    protected = True
+
+
+
+@registerElement
+class SupportedRscale (CalDAVTextElement):
+    """
+    A supported RSCALE value.
+    """
+    name = "supported-rscale"
+
+
+
+#
 # Extensions to ResourceType
 #
 

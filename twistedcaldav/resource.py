@@ -470,6 +470,10 @@ class CalDAVResource (
                 caldavxml.SupportedCalendarData.qname(),
                 customxml.GETCTag.qname(),
             )
+            if config.EnableRSCALE:
+                baseProperties += (
+                    caldavxml.SupportedRscaleSet.qname(),
+                )
             if config.MaxResourceSize:
                 baseProperties += (
                     caldavxml.MaxResourceSize.qname(),
@@ -652,6 +656,13 @@ class CalDAVResource (
 
         elif qname == caldavxml.ScheduleCalendarTransp.qname() and self.isCalendarCollection():
             returnValue(caldavxml.ScheduleCalendarTransp(caldavxml.Opaque() if self._newStoreObject.isUsedForFreeBusy() else caldavxml.Transparent()))
+
+        elif qname == caldavxml.SupportedRscaleSet.qname() and self.isPseudoCalendarCollection():
+            if config.EnableRSCALE:
+                returnValue(caldavxml.SupportedRscaleSet(*[
+                    caldavxml.SupportedRscale.fromString(name)
+                    for name in Component.allowedRscales()
+                ]))
 
         elif qname == carddavxml.SupportedAddressData.qname() and self.isAddressBookCollection():
             # CardDAV, section 6.2.2
@@ -2479,6 +2490,11 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
                 caldavxml.TimezoneServiceSet.qname(),
             )
 
+        if config.EnableRSCALE:
+            existing += (
+                caldavxml.SupportedRscaleSet.qname(),
+            )
+
         return existing
 
 
@@ -2536,6 +2552,13 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
                 returnValue(caldavxml.TimezoneServiceSet(element.HRef.fromString(config.TimezoneService.URI)))
             else:
                 returnValue(None)
+
+        elif qname == caldavxml.SupportedRscaleSet.qname():
+            if config.EnableRSCALE:
+                returnValue(caldavxml.SupportedRscaleSet(*[
+                    caldavxml.SupportedRscale.fromString(name)
+                    for name in Component.allowedRscales()
+                ]))
 
         elif qname in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
             returnValue(self.getDefaultAlarmProperty(qname))

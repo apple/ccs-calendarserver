@@ -57,8 +57,10 @@ from pycalendar.icalendar.component import Component as PyComponent
 from pycalendar.componentbase import ComponentBase
 from pycalendar.datetime import DateTime
 from pycalendar.duration import Duration
-from pycalendar.exceptions import ErrorBase
+from pycalendar.exceptions import ErrorBase, InvalidProperty
 from pycalendar.period import Period
+from pycalendar.icalendar.icudatetime import ICUDateTime
+from pycalendar.icalendar.exceptions import InvalidRscaleError
 from pycalendar.icalendar.property import Property as PyProperty
 from pycalendar.timezone import Timezone
 from pycalendar.utcoffsetvalue import UTCOffsetValue
@@ -418,6 +420,11 @@ class Component (object):
 
 
     @classmethod
+    def allowedRscales(cls):
+        return tuple(map(str.upper, sorted(ICUDateTime.allRSCALEs())))
+
+
+    @classmethod
     def allFromString(clazz, string, format=None):
         """
         Just default to reading a single VCALENDAR
@@ -481,7 +488,12 @@ class Component (object):
         errmsg = "Unknown"
         try:
             result = Calendar.parseData(data, format)
-        except ErrorBase, e:
+        except InvalidProperty as e:
+            if isinstance(e.mCause, InvalidRscaleError):
+                raise e.mCause
+            errmsg = "{0}: {1}".format(e.mReason, e.mData,)
+            result = None
+        except ErrorBase as e:
             errmsg = "{0}: {1}".format(e.mReason, e.mData,)
             result = None
         if not result:

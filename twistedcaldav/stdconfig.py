@@ -547,6 +547,8 @@ DEFAULT_CONFIG = {
     "EnableTimezonesByReference" : True, # Strip out VTIMEZONES that are known
     "UsePackageTimezones"        : False, # Use timezone data from twistedcaldav.zoneinfo - don't copy to Data directory
 
+    "EnableRSCALE"               : False, # Turn on support for non-Gregorian recurrences (RSCALE)
+
     "EnableBatchUpload"       : True, # POST batch uploads
     "MaxResourcesBatchUpload" : 100, # Maximum number of resources in a batch POST
     "MaxBytesBatchUpload"     : 10485760, # Maximum size of a batch POST (10 MB)

@@ -98,6 +98,7 @@ from txweb2.responsecode import (
 )
 from txweb2.stream import ProducerStream, readStream, MemoryStream
 from twistedcaldav.timezones import TimezoneException
+from pycalendar.icalendar.exceptions import InvalidRscaleError
 
 
 """
@@ -2848,12 +2849,21 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
 
             try:
                 component = Component.fromString(calendardata, format)
-            except ValueError, e:
-                log.error(str(e))
+            except InvalidRscaleError as e:
+                msg = "Invalid RSCALE value: {ex}\n{ical}".format(ex=e.mReason, ical=calendardata)
+                log.error(msg)
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "supported-rscale"),
+                    "Can't parse calendar data: {msg}".format(msg=msg),
+                ))
+            except ValueError as e:
+                msg = str(e)
+                log.error(msg)
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     (caldav_namespace, "valid-calendar-data"),
-                    "Can't parse calendar data: %s" % (str(e),)
+                    "Can't parse calendar data: {msg}".format(msg=msg),
                 ))
 
             # Look for client fixes
