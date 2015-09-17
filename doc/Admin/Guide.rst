@@ -62,6 +62,8 @@ Before getting started with CCS, you need:
 
 * python 2.7.x, with development files
 * python setuptools
+* python virtualenv
+* pip
 * C compiler
 * subversion client
 * curl
