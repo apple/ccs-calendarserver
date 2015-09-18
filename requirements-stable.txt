@@ -68,7 +68,7 @@
             #six
         six==1.9.0
 
-    --editable svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk@13420#egg=kerberos
+    --editable svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk@15134#egg=kerberos
 
     --editable svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk@15020#egg=pycalendar
     python-dateutil==1.5  # Note: v2.0+ is for Python 3
