@@ -66,6 +66,60 @@ testConfig = """<?xml version="1.0" encoding="UTF-8"?>
     </dict>
   </dict>
 
+  <key>Notifications</key>
+  <dict>
+
+    <key>Services</key>
+    <dict>
+
+      <key>AMP</key>
+      <dict>
+        <key>Enabled</key>
+        <true/>
+        <key>Port</key>
+        <integer>62311</integer>
+        <key>EnableStaggering</key>
+        <false/>
+        <key>StaggerSeconds</key>
+        <integer>3</integer>
+      </dict>
+
+      <key>APNS</key>
+      <dict>
+        <key>CalDAV</key>
+        <dict>
+          <key>AuthorityChainPath</key>
+          <string>com.apple.calendar.chain.pem</string>
+          <key>CertificatePath</key>
+          <string>com.apple.calendar.cert.pem</string>
+          <key>PrivateKeyPath</key>
+          <string>com.apple.calendar.key.pem</string>
+          <key>Topic</key>
+          <string>calendar-topic</string>
+          <key>Passphrase</key>
+          <string>password</string>
+        </dict>
+        <key>CardDAV</key>
+        <dict>
+          <key>AuthorityChainPath</key>
+          <string>com.apple.contact.chain.pem</string>
+          <key>CertificatePath</key>
+          <string>com.apple.contact.cert.pem</string>
+          <key>PrivateKeyPath</key>
+          <string>com.apple.contact.key.pem</string>
+          <key>Topic</key>
+          <string>contact-topic</string>
+          <key>Passphrase</key>
+          <string>password</string>
+        </dict>
+        <key>Enabled</key>
+        <true/>
+      </dict>
+
+    </dict>
+
+  </dict>
+
 </dict>
 </plist>
 """
@@ -634,3 +688,36 @@ class ConfigTests(TestCase):
         config.load(self.testMaster)
         self.assertEquals(config.HTTPPort, 9008)
         self.assertEquals(config.SSLPort, 8443)
+
+
+
+    def testSyncToken(self):
+        config.load(self.testConfig)
+
+        # no sync token keys specified; need to empty this array here because
+        # stdconfig is registering keys automatically
+        config._syncTokenKeys = []
+        self.assertEquals("d41d8cd98f00b204e9800998ecf8427e", config.syncToken())
+
+        # add sync token keys (some with multiple levels)
+        config.addSyncTokenKey("DefaultLogLevel")
+        config.addSyncTokenKey("Notifications.Services.APNS.Enabled")
+        config.addSyncTokenKey("Notifications.Services.APNS.CalDAV.Topic")
+        config.addSyncTokenKey("Notifications.Services.APNS.CardDAV.Topic")
+        self.assertEquals("7473205187d7a6ff0c61a2b6b04053c5", config.syncToken())
+
+        # modify a sync token key value
+        config.Notifications.Services.APNS.CalDAV.Topic = "changed"
+        # direct manipulation of config requires explicit invalidation
+        self.assertEquals("7473205187d7a6ff0c61a2b6b04053c5", config.syncToken())
+        config.invalidateSyncToken()
+        self.assertEquals("4cdbb3841625d001dc768439f5a88cba", config.syncToken())
+
+        # add a non existent key (not an error because it could exist later)
+        config.addSyncTokenKey("Notifications.Services.APNS.CalDAV.NonExistent")
+        config.invalidateSyncToken()
+        self.assertEquals("2ffb128cee5a4b217cef82fd31ae7767", config.syncToken())
+
+        # reload automatically invalidates
+        config.reload()
+        self.assertEquals("a1c46c5aff1899658dac033ee8520b07", config.syncToken())

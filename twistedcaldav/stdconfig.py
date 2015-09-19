@@ -563,6 +563,7 @@ DEFAULT_CONFIG = {
     "EnableAddMember"             : True, # POST ;add-member extension
     "EnableSyncReport"            : True, # REPORT collection-sync
     "EnableSyncReportHome"        : True, # REPORT collection-sync on home collections
+    "EnableConfigSyncToken"       : True, # Sync token includes config component
     "EnableWellKnown"             : True, # /.well-known resource
     "EnableCalendarQueryExtended" : True, # Extended calendar-query REPORT
 
@@ -1483,6 +1484,12 @@ def _updateLogLevels(configDict, reloading=False):
 
 
 def _updateNotifications(configDict, reloading=False):
+
+    # These three keys go into producing the config sync token
+    config.addSyncTokenKey("Notifications.Services.APNS.Enabled")
+    config.addSyncTokenKey("Notifications.Services.APNS.CalDAV.Topic")
+    config.addSyncTokenKey("Notifications.Services.APNS.CardDAV.Topic")
+
     # Reloading not supported -- requires process running as root
     if reloading:
         return
