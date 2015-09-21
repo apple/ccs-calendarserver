@@ -149,6 +149,14 @@ class OracleCursorWrapper(DiagnosticCursorWrapper):
         return super(OracleCursorWrapper, self).execute(sql, realArgs)
 
 
+    def callproc(self, name, args=()):
+        return self.realCursor.callproc(name, args)
+
+
+    def callfunc(self, name, returnType, args=()):
+        return self.realCursor.callfunc(name, returnType, args)
+
+
 
 class DiagnosticConnectionWrapper(object):
     """

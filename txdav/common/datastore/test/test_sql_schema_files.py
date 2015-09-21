@@ -114,6 +114,10 @@ class SQLSchemaFiles(TestCase):
                     if constraint.affectsColumns[0].type.name in ("text", "char", "varchar"):
                         table.constraints.remove(constraint)
 
+        # Remove stored procedures which we only use on Oracle
+        schema_oracle.functions = []
+
+
         mismatched = schema_current.compare(schema_oracle)
         self.assertEqual(len(mismatched), 0, msg=", ".join(mismatched))
 

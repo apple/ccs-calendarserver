@@ -37,6 +37,68 @@ create index JOB_ASSIGNED_OVERDUE_e88f7afc on JOB (
     "OVERDUE"
 );
 
+create or replace function next_job_all(now timestamp)
+  return integer is
+  cursor c1 is
+   select JOB_ID from JOB
+   where ASSIGNED is NULL and PAUSE = 0 and NOT_BEFORE <= now
+   order by PRIORITY desc
+   for update skip locked;
+  result integer;
+begin
+  open c1;
+  fetch c1 into result;
+  close c1;
+  return result;
+end;
+/
+
+create or replace function next_job_medium_high(now timestamp)
+  return integer is
+  cursor c1 is
+    select JOB_ID from JOB
+    where PRIORITY != 0 and ASSIGNED is NULL and PAUSE = 0 and NOT_BEFORE <= now
+    order by PRIORITY desc
+    for update skip locked;
+  result integer;
+begin
+  open c1;
+  fetch c1 into result;
+  close c1;
+  return result;
+end;
+/
+
+create or replace function next_job_high(now timestamp)
+  return integer is
+  cursor c1 is
+    select JOB_ID from JOB
+    where PRIORITY = 2 and ASSIGNED is NULL and PAUSE = 0 and NOT_BEFORE <= now
+    order by PRIORITY desc
+    for update skip locked;
+  result integer;
+begin
+  open c1;
+  fetch c1 into result;
+  close c1;
+  return result;
+end;
+/
+
+create or replace function overdue_job(now timestamp)
+  return integer is
+  cursor c1 is
+   select JOB_ID from JOB
+   where ASSIGNED is not NULL and OVERDUE <= now
+   for update skip locked;
+  result integer;
+begin
+  open c1;
+  fetch c1 into result;
+  close c1;
+  return result;
+end;
+/
 
 -- update the version
 update CALENDARSERVER set VALUE = '59' where NAME = 'VERSION';

@@ -36,7 +36,7 @@
             #pyOpenSSL
         pycrypto==2.6.1
 
-    --editable svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@15118#egg=twextpy
+    --editable svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@15141#egg=twextpy
         cffi==1.1.0
             pycparser==2.13
         #twisted
@@ -68,7 +68,7 @@
             #six
         six==1.9.0
 
-    --editable svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk@15134#egg=kerberos
+    --editable svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk@15140#egg=kerberos
 
     --editable svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk@15020#egg=pycalendar
     python-dateutil==1.5  # Note: v2.0+ is for Python 3
