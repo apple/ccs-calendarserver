@@ -256,6 +256,9 @@ DEFAULT_CONFIG = {
     "WorkQueue": {
         "queuePollInterval": 0.1,   # Interval in seconds for job queue polling
         "queueOverdueTimeout": 300, # Number of seconds before an assigned job is considered overdue
+        "queuePollingBackoff": [     # Array of array that describe the threshold and new polling interval
+            [60, 60], [5, 1]         # for job queue polling back off
+        ],
 
         "overloadLevel": 95,        # Queue capacity (percentage) which causes job processing to halt
         "highPriorityLevel": 80,    # Queue capacity (percentage) at which only high priority items are run
@@ -1327,6 +1330,7 @@ def _updateWorkQueue(configDict, reloading=False):
         for attr in (
             "queuePollInterval",
             "queueOverdueTimeout",
+            "queuePollingBackoff",
             "overloadLevel",
             "highPriorityLevel",
             "mediumPriorityLevel",
