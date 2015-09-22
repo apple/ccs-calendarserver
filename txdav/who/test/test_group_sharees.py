@@ -88,7 +88,7 @@ class GroupShareeTestBase(CommonCommonTests, unittest.TestCase):
     def _check_notifications(self, uid, items):
         notifyHome = yield self.transactionUnderTest().notificationsWithUID(uid, create=True)
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(set(notifications), set(items))
+        self.assertEqual(set(notifications), set([item + ".xml" for item in items]))
 
 
     @inlineCallbacks

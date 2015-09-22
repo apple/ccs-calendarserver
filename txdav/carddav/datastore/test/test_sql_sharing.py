@@ -200,7 +200,7 @@ END:VCARD
     def _check_notifications(self, home, items):
         notifyHome = yield self.transactionUnderTest().notificationsWithUID(home, create=True)
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(set(notifications), set(items))
+        self.assertEqual(set(notifications), set([item + ".xml" for item in items]))
 
 
     @inlineCallbacks

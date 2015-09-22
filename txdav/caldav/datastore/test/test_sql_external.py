@@ -130,7 +130,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.theTransactionUnderTest(1).notificationsWithUID("puser02")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(notifications, [inviteUID, ])
+        self.assertEqual(notifications, [inviteUID + ".xml", ])
         yield self.commitTransaction(1)
 
         # Uninvite
@@ -199,7 +199,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.theTransactionUnderTest(0).notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(notifications, [inviteUID + "-reply", ])
+        self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         self.assertTrue(calendar.isShared())
@@ -217,7 +217,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.theTransactionUnderTest(0).notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(notifications, [inviteUID + "-reply", ])
+        self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         self.assertTrue(calendar.isShared())
@@ -266,7 +266,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.theTransactionUnderTest(0).notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(notifications, [inviteUID + "-reply", ])
+        self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         self.assertTrue(calendar.isShared())
@@ -284,7 +284,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.theTransactionUnderTest(0).notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(notifications, [inviteUID + "-reply", ])
+        self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         self.assertTrue(calendar.isShared())
@@ -334,7 +334,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.theTransactionUnderTest(0).notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(notifications, [inviteUID + "-reply", ])
+        self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         self.assertTrue(calendar.isShared())
@@ -352,7 +352,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.theTransactionUnderTest(0).notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(notifications, [inviteUID + "-reply", ])
+        self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         self.assertTrue(calendar.isShared())
@@ -399,7 +399,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.theTransactionUnderTest(0).notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(notifications, [inviteUID + "-reply", ])
+        self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
         yield self.commitTransaction(0)
 
@@ -416,7 +416,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.theTransactionUnderTest(0).notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(notifications, [inviteUID + "-reply", ])
+        self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
 
     @inlineCallbacks

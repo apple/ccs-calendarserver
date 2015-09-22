@@ -164,7 +164,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(notifications, [inviteUID, ])
+        self.assertEqual(notifications, [inviteUID + ".xml", ])
 
         self.assertTrue(calendar.isShared())
 
@@ -216,7 +216,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(len(notifications), 1)
+        self.assertEqual(notifications, [inviteUID + ".xml", ])
 
         self.assertTrue(calendar.isShared())
 
@@ -231,7 +231,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(notifications, [inviteUID + "-reply", ])
+        self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         self.assertTrue(calendar.isShared())
@@ -247,7 +247,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(notifications, [inviteUID + "-reply", ])
+        self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         self.assertTrue(calendar.isShared())
@@ -276,7 +276,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(len(notifications), 1)
+        self.assertEqual(notifications, [inviteUID + ".xml", ])
 
         self.assertTrue(calendar.isShared())
 
@@ -291,7 +291,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(notifications, [inviteUID + "-reply", ])
+        self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         self.assertTrue(calendar.isShared())
@@ -307,7 +307,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(notifications, [inviteUID + "-reply", ])
+        self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         self.assertTrue(calendar.isShared())
@@ -337,7 +337,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(len(notifications), 1)
+        self.assertEqual(notifications, [inviteUID + ".xml", ])
 
         self.assertTrue(calendar.isShared())
 
@@ -352,7 +352,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(notifications, [inviteUID + "-reply", ])
+        self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         self.assertTrue(calendar.isShared())
@@ -368,7 +368,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(notifications, [inviteUID + "-reply", ])
+        self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         self.assertTrue(calendar.isShared())
@@ -397,7 +397,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(len(notifications), 1)
+        self.assertEqual(notifications, [inviteUID + ".xml", ])
 
         yield self.commit()
 
@@ -410,7 +410,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(notifications, [inviteUID + "-reply", ])
+        self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
         yield self.commit()
 
@@ -423,7 +423,7 @@ class CalendarSharing(BaseSharingTests):
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(notifications, [inviteUID + "-reply", ])
+        self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
 
     @inlineCallbacks
@@ -706,7 +706,7 @@ class GroupSharingTests(BaseSharingTests):
     def _check_notifications(self, uid, items):
         notifyHome = yield self.transactionUnderTest().notificationsWithUID(uid, create=True)
         notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(set(notifications), set(items))
+        self.assertEqual(set(notifications), set([item + ".xml" for item in items]))
 
 
 

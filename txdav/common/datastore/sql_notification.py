@@ -386,10 +386,14 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
     @inlineCallbacks
     def listNotificationObjects(self):
+        """
+        List the names of all notification objects in this collection. Note that the name
+        is actually the UID value with ".xml" appended, as per L{NotificationObject.name}.
+        """
         if self._notificationNames is None:
             rows = yield self._notificationUIDsForHomeQuery.on(
                 self._txn, resourceID=self._resourceID)
-            self._notificationNames = sorted([row[0] for row in rows])
+            self._notificationNames = sorted([row[0] + ".xml" for row in rows])
         returnValue(self._notificationNames)
 
 
@@ -432,18 +436,18 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
             inserting = True
         yield notificationObject.setData(uid, notificationtype, notificationdata, inserting=inserting)
         if inserting:
-            yield self._insertRevision("%s.xml" % (uid,))
+            yield self._insertRevision(notificationObject.name())
             if self._notificationNames is not None:
-                self._notificationNames.append(notificationObject.uid())
+                self._notificationNames.append(notificationObject.name())
         else:
-            yield self._updateRevision("%s.xml" % (uid,))
+            yield self._updateRevision(notificationObject.name())
         yield self.notifyChanged()
         returnValue(notificationObject)
 
 
     def removeNotificationObjectWithName(self, name):
         if self._notificationNames is not None:
-            self._notificationNames.remove(self._nameToUID(name))
+            self._notificationNames.remove(name)
         return self.removeNotificationObjectWithUID(self._nameToUID(name))
 
     _removeByUIDQuery = Delete(
