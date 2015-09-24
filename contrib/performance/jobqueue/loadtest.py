@@ -19,11 +19,13 @@
 from caldavclientlibrary.client.httpshandler import SmartHTTPConnection
 from multiprocessing import Process, Value
 import getopt
+import itertools
 import json
 import random
 import sys
 import time
 from urlparse import urlparse
+import collections
 
 PRIORITY = {
     "low": 0,
@@ -36,22 +38,29 @@ def httploop(ctr, config, complete):
     # Random time delay
     time.sleep(random.randint(0, config["interval"]) / 1000.0)
 
-    url = urlparse(config["server"])
-    use_ssl = url[0] == "https"
-    if "@" in url[1]:
-        auth, net_loc = url[1].split("@")
-    else:
-        auth = "admin:admin"
-        net_loc = url[1]
-    host, port = net_loc.split(":")
-    port = int(port)
-    user, pswd = auth.split(":")
+    ServerDetail = collections.namedtuple("ServerDetails", ("host", "port", "use_ssl", "headers",))
+    server_details = []
+    for server in config["server"].split(","):
+        url = urlparse(server)
+        use_ssl = url[0] == "https"
+        if "@" in url[1]:
+            auth, net_loc = url[1].split("@")
+        else:
+            auth = "admin:admin"
+            net_loc = url[1]
+        host, port = net_loc.split(":")
+        port = int(port)
+        user, pswd = auth.split(":")
 
-    headers = {}
-    headers["User-Agent"] = "httploop/1"
-    headers["Depth"] = "1"
-    headers["Authorization"] = "Basic " + "{}:{}".format(user, pswd).encode("base64")[:-1]
-    headers["Content-Type"] = "application/json"
+        headers = {}
+        headers["User-Agent"] = "httploop/1"
+        headers["Depth"] = "1"
+        headers["Authorization"] = "Basic " + "{}:{}".format(user, pswd).encode("base64")[:-1]
+        headers["Content-Type"] = "application/json"
+
+        server_details.append(ServerDetail(host, port, use_ssl, headers))
+
+    random.shuffle(server_details)
 
     interval = config["interval"] / 1000.0
     total = config["limit"] / config["numProcesses"]
@@ -68,13 +77,17 @@ def httploop(ctr, config, complete):
     })
 
     base_time = time.time()
+    iter = itertools.cycle(server_details)
     while not complete.value:
-        http = SmartHTTPConnection(host, port, use_ssl, False)
+
+        server = iter.next()
+        count += 1
+
+        http = SmartHTTPConnection(server.host, server.port, server.use_ssl, False)
 
         try:
-            count += 1
-            headers["User-Agent"] = "httploop-{}/{}".format(ctr, count,)
-            http.request("POST", "/control", jstr, headers)
+            server.headers["User-Agent"] = "httploop-{}/{}".format(ctr, count,)
+            http.request("POST", "/control", jstr, server.headers)
 
             response = http.getresponse()
             response.read()
@@ -111,11 +124,14 @@ Options:
     -i MSEC        Millisecond delay between each request [1000]
     -r RATE        Requests/second rate [10]
     -j JOBS        Number of jobs per HTTP request [1]
-    -s URL         URL to connect to [https://localhost:8443]
+    -s URL         URL to connect to [https://localhost:8443],
+                    can also be a comma separated list of URLs
+                    to cycle through
     -b SEC         Number of seconds for notBefore [0]
     -d MSEC        Number of milliseconds for the work [10]
     -l NUM         Total number of requests from all processes
                     or zero for unlimited [0]
+    -t SEC         Number of seconds to run [unlimited]
     -p low|medium|high  Work priority level [high]
     -w NUM         Work weight level 1..10 [1]
 
@@ -159,8 +175,9 @@ if __name__ == '__main__':
     numProcesses = None
     interval = None
     rate = None
+    runtime = None
 
-    options, args = getopt.getopt(sys.argv[1:], "b:d:hi:j:l:n:p:r:s:w:", [])
+    options, args = getopt.getopt(sys.argv[1:], "b:d:hi:j:l:n:p:r:s:t:w:", [])
 
     for option, value in options:
         if option == "-h":
@@ -173,12 +190,6 @@ if __name__ == '__main__':
             config["jobs"] = int(value)
         elif option == "-r":
             rate = int(value)
-            if rate <= 100:
-                config["numProcesses"] = rate
-                config["interval"] = 1000
-            else:
-                config["numProcesses"] = 100
-                config["interval"] = (config["numProcesses"] * 1000) / rate
         elif option == "-s":
             config["server"] = value
         elif option == "-b":
@@ -187,6 +198,8 @@ if __name__ == '__main__':
             config["delay"] = int(value)
         elif option == "-l":
             config["limit"] = int(value)
+        elif option == "-t":
+            runtime = int(value)
         elif option == "-p":
             if value not in PRIORITY.keys():
                 usage("Unrecognized priority: {}".format(value,))
@@ -216,7 +229,11 @@ if __name__ == '__main__':
         usage("Wrong combination of -n, -i and -r")
     effective_rate = (config["numProcesses"] * 1000) / config["interval"]
 
+    if runtime:
+        config["limit"] = effective_rate * runtime
+
     print("Run details:")
+    print("  Number of servers: {}".format(len(config["server"].split(","))))
     print("  Number of processes: {}".format(config["numProcesses"]))
     print("  Interval between requests: {} ms".format(config["interval"]))
     print("  Effective request rate: {} req/sec".format(effective_rate))
