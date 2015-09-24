@@ -220,7 +220,7 @@ class ErrorLoggingMultiService(MultiService, object):
     """ Registers a rotating file logger for error logging, if
         config.ErrorLogEnabled is True. """
 
-    def __init__(self, logEnabled, logPath, logRotateLength, logMaxFiles):
+    def __init__(self, logEnabled, logPath, logRotateLength, logMaxFiles, logRotateOnStart):
         """
         @param logEnabled: Whether to write to a log file
         @type logEnabled: C{boolean}
@@ -233,12 +233,16 @@ class ErrorLoggingMultiService(MultiService, object):
 
         @param logMaxFiles: keep at most this many files
         @type logMaxFiles: C{int}
+
+        @param logRotateOnStart: rotate when service starts
+        @type logRotateOnStart: C{bool}
         """
         MultiService.__init__(self)
         self.logEnabled = logEnabled
         self.logPath = logPath
         self.logRotateLength = logRotateLength
         self.logMaxFiles = logMaxFiles
+        self.logRotateOnStart = logRotateOnStart
 
 
     def setServiceParent(self, app):
@@ -251,6 +255,8 @@ class ErrorLoggingMultiService(MultiService, object):
                 maxRotatedFiles=self.logMaxFiles
             )
             errorLogObserver = FileLogObserver(errorLogFile).emit
+            if self.logRotateOnStart:
+                errorLogFile.rotate()
 
             # Registering ILogObserver with the Application object
             # gets our observer picked up within AppLogger.start( )
@@ -268,9 +274,12 @@ class CalDAVService (ErrorLoggingMultiService):
     def __init__(self, logObserver):
         self.logObserver = logObserver  # accesslog observer
         ErrorLoggingMultiService.__init__(
-            self, config.ErrorLogEnabled,
-            config.ErrorLogFile, config.ErrorLogRotateMB * 1024 * 1024,
-            config.ErrorLogMaxRotatedFiles
+            self,
+            config.ErrorLogEnabled,
+            config.ErrorLogFile,
+            config.ErrorLogRotateMB * 1024 * 1024,
+            config.ErrorLogMaxRotatedFiles,
+            config.ErrorLogRotateOnStart,
         )
 
 
@@ -1464,7 +1473,8 @@ class CalDAVServiceMaker (object):
             config.ErrorLogEnabled,
             config.AgentLogFile,
             config.ErrorLogRotateMB * 1024 * 1024,
-            config.ErrorLogMaxRotatedFiles
+            config.ErrorLogMaxRotatedFiles,
+            config.ErrorLogRotateOnStart,
         )
         svc.setServiceParent(agentLoggingService)
         return agentLoggingService
@@ -1642,7 +1652,8 @@ class CalDAVServiceMaker (object):
             config.ErrorLogEnabled,
             config.ErrorLogFile,
             config.ErrorLogRotateMB * 1024 * 1024,
-            config.ErrorLogMaxRotatedFiles
+            config.ErrorLogMaxRotatedFiles,
+            config.ErrorLogRotateOnStart,
         )
 
         # Perform early pre-flight checks.  If this returns True, continue on.

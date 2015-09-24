@@ -422,6 +422,7 @@ DEFAULT_CONFIG = {
     "ErrorLogEnabled"   : True, # True = use log file, False = stdout
     "ErrorLogRotateMB"  : 10, # Rotate error log after so many megabytes
     "ErrorLogMaxRotatedFiles"  : 5, # Retain this many error log files
+    "ErrorLogRotateOnStart" : False, # Rotate error log when service starts
     "PIDFile"        : "caldavd.pid",
     "RotateAccessLog"   : False,
     "EnableExtendedAccessLog": True,
