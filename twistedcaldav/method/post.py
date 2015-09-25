@@ -22,13 +22,23 @@ CalDAV POST method.
 __all__ = ["http_POST"]
 
 from txweb2 import responsecode
+from txweb2.http import HTTPError
+
+from twext.python.log import Logger
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav.config import config
 
+log = Logger()
+
 @inlineCallbacks
 def http_POST(self, request):
+
+    # POST can only target an existing resource
+    if not self.exists():
+        log.error("Resource not found: %s" % (self,))
+        raise HTTPError(responsecode.NOT_FOUND)
 
     # POST can support many different APIs
 
