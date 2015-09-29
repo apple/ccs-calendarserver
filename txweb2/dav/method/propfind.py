@@ -171,9 +171,12 @@ def http_PROPFIND(self, request):
                 properties_to_enumerate = search_properties
 
             for property in properties_to_enumerate:
-                has = waitForDeferred(resource.hasProperty(property, request))
-                yield has
-                has = has.getResult()
+                if hasattr(resource, "hasProperty"):
+                    has = waitForDeferred(resource.hasProperty(property, request))
+                    yield has
+                    has = has.getResult()
+                else:
+                    has = False
                 if has:
                     try:
                         resource_property = waitForDeferred(resource.readProperty(property, request))

@@ -76,6 +76,22 @@ thisModule = getModule(__name__)
 log = Logger()
 
 
+class WebDAVServerInfoMixIn(object):
+
+    def renderHTTP(self, request):
+        def _addServerInfoToken(request, response):
+            # server-info-token processing
+            if config.EnableServerInfo and (
+                request.headers.hasHeader("server-info-token") or
+                request.method == "OPTIONS"
+            ):
+                response.headers.setRawHeaders("server-info-token", (config.ServerInfoToken,))
+            return response
+        request.addResponseFilter(_addServerInfoToken, onlyOnce=True)
+        return super(WebDAVServerInfoMixIn, self).renderHTTP(request)
+
+
+
 class DirectoryPrincipalPropertySearchMixIn(object):
 
     @inlineCallbacks
@@ -583,9 +599,13 @@ class DirectoryRenderingMixIn(object):
 
 
 
-class DAVResource (DirectoryPrincipalPropertySearchMixIn,
-                   SuperDAVResource,
-                   DirectoryRenderingMixIn, StaticRenderMixin):
+class DAVResource (
+    WebDAVServerInfoMixIn,
+    DirectoryPrincipalPropertySearchMixIn,
+    SuperDAVResource,
+    DirectoryRenderingMixIn,
+    StaticRenderMixin
+):
     """
     Extended L{txweb2.dav.resource.DAVResource} implementation.
 
@@ -712,9 +732,12 @@ class DAVResourceWithoutChildrenMixin (object):
 
 
 
-class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
-                            SuperDAVPrincipalResource,
-                            DirectoryRenderingMixIn):
+class DAVPrincipalResource (
+    WebDAVServerInfoMixIn,
+    DirectoryPrincipalPropertySearchMixIn,
+    SuperDAVPrincipalResource,
+    DirectoryRenderingMixIn
+):
     """
     Extended L{txweb2.dav.static.DAVFile} implementation.
     """
@@ -811,7 +834,7 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
 
 
 
-class DAVFile (SuperDAVFile, DirectoryRenderingMixIn):
+class DAVFile (WebDAVServerInfoMixIn, SuperDAVFile, DirectoryRenderingMixIn):
     """
     Extended L{txweb2.dav.static.DAVFile} implementation.
     """

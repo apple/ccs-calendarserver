@@ -72,6 +72,7 @@ from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
 from twistedcaldav.resource import AuthenticationWrapper
+from twistedcaldav.serverinfo import ServerInfoResource
 from twistedcaldav.simpleresource import SimpleResource, SimpleRedirectResource, \
     SimpleUnavailableResource
 from twistedcaldav.stdconfig import config
@@ -421,6 +422,7 @@ def getRootResource(config, newStore, resources=None):
     addressBookResourceClass = DirectoryAddressBookHomeProvisioningResource
     directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
     apnSubscriptionResourceClass = APNSubscriptionResource
+    serverInfoResourceClass = ServerInfoResource
     principalResourceClass = DirectoryPrincipalProvisioningResource
     controlResourceClass = ControlAPIResource
 
@@ -742,6 +744,17 @@ def getRootResource(config, newStore, resources=None):
             url=apnConfig["SubscriptionURL"])
         apnResource = apnSubscriptionResourceClass(root, newStore)
         root.putChild(apnConfig["SubscriptionURL"], apnResource)
+
+    # Server info document
+    if config.EnableServerInfo:
+        log.info(
+            "Setting up server-info resource: {cls}",
+            cls=serverInfoResourceClass)
+
+        serverInfo = serverInfoResourceClass(
+            root,
+        )
+        root.putChild("server-info", serverInfo)
 
     #
     # Configure ancillary data

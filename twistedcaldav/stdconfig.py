@@ -33,7 +33,6 @@ from twext.python.log import Logger, InvalidLogLevelError, LogLevel
 from twisted.python.filepath import FilePath
 from twisted.python.runtime import platform
 
-from twistedcaldav import caldavxml, customxml, carddavxml, mkcolxml
 from twistedcaldav import ical
 from twistedcaldav.config import ConfigProvider, ConfigurationError, ConfigDict
 from twistedcaldav.config import config, mergeData, fullServerPath
@@ -515,6 +514,8 @@ DEFAULT_CONFIG = {
     "EnableCalendarQueryExtended" : True, # Extended calendar-query REPORT
 
     "EnableManagedAttachments"    : False, # Support Managed Attachments
+
+    "EnableServerInfo"            : False, # server-info document
 
     #
     # Generic CalDAV/CardDAV extensions
@@ -1750,54 +1751,10 @@ def _updateSharing(configDict, reloading=False):
 
 
 def _updateCompliance(configDict, reloading=False):
-
-    if configDict.EnableCalDAV:
-        if configDict.Scheduling.CalDAV.OldDraftCompatibility:
-            compliance = caldavxml.caldav_full_compliance
-        else:
-            compliance = caldavxml.caldav_implicit_compliance
-        if configDict.EnableProxyPrincipals:
-            compliance += customxml.calendarserver_proxy_compliance
-        if configDict.EnablePrivateEvents:
-            compliance += customxml.calendarserver_private_events_compliance
-        if configDict.Scheduling.CalDAV.EnablePrivateComments:
-            compliance += customxml.calendarserver_private_comments_compliance
-        if config.Sharing.Enabled:
-            compliance += customxml.calendarserver_sharing_compliance
-            # TODO: This is only needed whilst we do not support scheduling in shared calendars
-            compliance += customxml.calendarserver_sharing_no_scheduling_compliance
-            if config.Sharing.Calendars.Enabled and config.Sharing.Calendars.Groups.Enabled:
-                compliance += customxml.calendarserver_group_sharee_compliance
-        if configDict.EnableCalendarQueryExtended:
-            compliance += caldavxml.caldav_query_extended_compliance
-        if configDict.EnableDefaultAlarms:
-            compliance += caldavxml.caldav_default_alarms_compliance
-        if configDict.EnableManagedAttachments:
-            compliance += caldavxml.caldav_managed_attachments_compliance
-        if configDict.Scheduling.Options.TimestampAttendeePartStatChanges:
-            compliance += customxml.calendarserver_partstat_changes_compliance
-        if config.GroupAttendees.Enabled:
-            compliance += customxml.calendarserver_group_attendee_compliance
-        if configDict.EnableTimezonesByReference:
-            compliance += caldavxml.caldav_timezones_by_reference_compliance
-        compliance += customxml.calendarserver_recurrence_split
-    else:
-        compliance = ()
-
-    if configDict.EnableCardDAV:
-        compliance += carddavxml.carddav_compliance
-
-    if configDict.EnableCalDAV or configDict.EnableCardDAV:
-        compliance += mkcolxml.mkcol_compliance
-
-    # Principal property search is always enabled
-    compliance += customxml.calendarserver_principal_property_search_compliance
-    compliance += customxml.calendarserver_principal_search_compliance
-
-    # Home Depth:1 sync report will include WebDAV property changes on home child resources
-    compliance += customxml.calendarserver_home_sync_compliance
-
-    configDict.CalDAVComplianceClasses = compliance
+    from twistedcaldav.serverinfo import buildServerInfo
+    (configDict.CalDAVComplianceClasses,
+        configDict.ServerInfo,
+        configDict.ServerInfoToken) = buildServerInfo(configDict)
 
 
 PRE_UPDATE_HOOKS = (

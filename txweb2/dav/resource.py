@@ -660,7 +660,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             reactor.callLater(0, getChild)
 
         def checkPrivileges(child):
-            if child is None:
+            if child is None or not hasattr(child, "checkPrivileges"):
                 return None
 
             if privileges is None:
