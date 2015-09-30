@@ -19,18 +19,6 @@ from txdav.xml.element import WebDAVElement, dav_namespace, registerElement, \
     SyncCollection, AddMember
 
 @registerElement
-class ServerInfoHref (WebDAVElement):
-    namespace = dav_namespace
-    name = "server-info-href"
-    hidden = True
-    protected = True
-    allowed_children = {
-        (dav_namespace, "href"): (0, 1),
-    }
-
-
-
-@registerElement
 class ServerInfo (WebDAVElement):
     namespace = dav_namespace
     name = "server-info"

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
 from __future__ import print_function
 
 """
@@ -79,15 +80,16 @@ log = Logger()
 class WebDAVServerInfoMixIn(object):
 
     def renderHTTP(self, request):
-        def _addServerInfoToken(request, response):
+        def _addServerInfoURL(request, response):
             # server-info-token processing
             if config.EnableServerInfo and (
-                request.headers.hasHeader("server-info-token") or
-                request.method == "OPTIONS"
+                request.headers.hasHeader("server-info-token") and request.headers.getRawHeaders("server-info-token")[0] != config.ServerInfoToken or
+                not request.headers.hasHeader("server-info-token") and request.method == "OPTIONS"
             ):
-                response.headers.setRawHeaders("server-info-token", (config.ServerInfoToken,))
+                uri = request.unparseURL(path="/server-info")
+                response.headers.setRawHeaders("server-info-url", (uri,))
             return response
-        request.addResponseFilter(_addServerInfoToken, onlyOnce=True)
+        request.addResponseFilter(_addServerInfoURL, onlyOnce=True)
         return super(WebDAVServerInfoMixIn, self).renderHTTP(request)
 
 

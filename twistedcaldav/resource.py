@@ -39,7 +39,6 @@ from twisted.internet.defer import succeed, maybeDeferred, fail
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav import carddavxml
-from twistedcaldav import serverinfoxml
 from twistedcaldav import ical
 from twistedcaldav.cache import PropfindCacheMixin
 from twistedcaldav.caldavxml import caldav_namespace
@@ -60,7 +59,7 @@ from txdav.caldav.datastore.util import normalizationLookup
 from txdav.common.icommondatastore import InternalDataStoreError, \
     SyncTokenValidException
 from txdav.xml import element
-from txdav.xml.element import dav_namespace, HRef
+from txdav.xml.element import dav_namespace
 
 from txweb2 import responsecode, http, http_headers
 from txweb2.auth.wrapper import UnauthorizedResponse
@@ -555,9 +554,6 @@ class CalDAVResource (
                     customxml.AllowedSharingModes.qname(),
                 )
 
-        if config.EnableServerInfo:
-            baseProperties += (serverinfoxml.ServerInfoHref.qname(),)
-
 
         return super(CalDAVResource, self).liveProperties() + baseProperties
 
@@ -709,10 +705,6 @@ class CalDAVResource (
             else:
                 returnValue(None)
 
-
-        elif qname == serverinfoxml.ServerInfoHref.qname():
-            if config.EnableServerInfo:
-                returnValue(serverinfoxml.ServerInfoHref(HRef.fromString("/server-info")))
 
         result = (yield super(CalDAVResource, self).readProperty(property, request))
         returnValue(result)
