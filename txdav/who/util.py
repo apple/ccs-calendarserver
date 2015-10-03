@@ -156,6 +156,7 @@ def buildDirectory(
                     CalFieldName.readWriteProxy: mapping.readWriteProxy,
                     CalFieldName.hasCalendars: mapping.hasCalendars,
                     CalFieldName.autoScheduleMode: mapping.autoScheduleMode,
+                    CalFieldName.autoAcceptGroup: mapping.autoAcceptGroup,
                     CalFieldName.serviceNodeUID: mapping.serviceNodeUID,
                 }),
                 recordTypeSchemas=MappingProxyType({
