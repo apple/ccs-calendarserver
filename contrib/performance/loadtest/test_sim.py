@@ -121,7 +121,7 @@ class CalendarClientSimulatorTests(TestCase):
         """
         calsim = CalendarClientSimulator(
             [self._user('alice'), self._user('bob'), self._user('carol')],
-            Populator(None), None, None, None, 'http://example.org:1234/', None, None)
+            Populator(None), None, None, 'http://example.org:1234/', None, None)
         users = sorted([
             calsim._createUser(0)[0],
             calsim._createUser(1)[0],
@@ -137,7 +137,7 @@ class CalendarClientSimulatorTests(TestCase):
         """
         calsim = CalendarClientSimulator(
             [self._user('alice')],
-            Populator(None), None, None, None, 'http://example.org:1234/', None, None)
+            Populator(None), None, None, 'http://example.org:1234/', None, None)
         user, auth = calsim._createUser(0)
         self.assertEqual(
             auth['basic'].passwd.find_user_password('Test Realm', 'http://example.org:1234/')[1],
@@ -182,7 +182,7 @@ class CalendarClientSimulatorTests(TestCase):
             [ProfileType(BrokenProfile, {'runResult': profileRunResult})])
         )
         sim = CalendarClientSimulator(
-            [self._user('alice')], Populator(None), None, params, None, 'http://example.com:1234/', None, None)
+            [self._user('alice')], Populator(None), params, None, 'http://example.com:1234/', None, None)
         sim.add(1, 1)
         sim.stop()
         clientRunResult.errback(RuntimeError("Some fictional client problem"))

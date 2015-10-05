@@ -1,2 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<A:propertyupdate xmlns:A="DAV:"><A:set><A:prop><B:calendar-description xmlns:B="urn:ietf:params:xml:ns:caldav">some description</B:calendar-description></A:prop></A:set></A:propertyupdate>

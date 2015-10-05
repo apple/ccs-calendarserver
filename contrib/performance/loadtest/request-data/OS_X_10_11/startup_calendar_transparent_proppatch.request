@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<A:propertyupdate xmlns:A="DAV:"><A:set><A:prop><B:schedule-calendar-transp xmlns:B="urn:ietf:params:xml:ns:caldav"><B:transparent/></B:schedule-calendar-transp></A:prop></A:set></A:propertyupdate>
-
-<?xml version="1.0" encoding="UTF-8"?>
-<A:propertyupdate xmlns:A="DAV:"><A:set><A:prop><B:schedule-calendar-transp xmlns:B="urn:ietf:params:xml:ns:caldav"><B:opaque/></B:schedule-calendar-transp></A:prop></A:set></A:propertyupdate>

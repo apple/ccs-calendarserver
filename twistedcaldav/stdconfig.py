@@ -85,12 +85,8 @@ DEFAULT_SERVICE_PARAMS = {
             "fullNames": ["cn", ],
             "emailAddresses": ["mail", ],
             "memberDNs": ["uniqueMember", ],
-            "hasCalendars": [],
-            "autoScheduleMode": [],
-            "autoAcceptGroup": [],
             "readWriteProxy": ["icsContact", ],
             "readOnlyProxy": ["icsSecondaryOwners", ],
-            "serviceNodeUID": [],
         },
         "extraFilters": {
             "users": "",

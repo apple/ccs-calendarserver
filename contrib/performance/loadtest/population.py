@@ -162,11 +162,10 @@ class Populator(object):
 
 
 class CalendarClientSimulator(object):
-    def __init__(self, records, populator, random, parameters, reactor, server,
+    def __init__(self, records, populator, parameters, reactor, server,
                  principalPathTemplate, serializationPath, workerIndex=0, workerCount=1):
         self._records = records
         self.populator = populator
-        self._random = random
         self.reactor = reactor
         self.server = server
         self.principalPathTemplate = principalPathTemplate
@@ -183,31 +182,6 @@ class CalendarClientSimulator(object):
 
     def getUserRecord(self, index):
         return self._records[index]
-
-
-    def getRandomUserRecord(self, besides=None):
-        count = len(self._records)
-
-        if count == 0:
-            # No records!
-            return None
-
-        if count == 1 and besides == 0:
-            # There is only one item and caller doesn't want it!
-            return None
-
-        for i in xrange(100):
-            # Try to find one that is not "besides"
-            n = self._random.randint(0, count - 1)
-            if besides != n:
-                # Got it.
-                break
-        else:
-            # Give up
-            return None
-        print("SELECTION, besides=", besides, "count=", count, "n=", n)
-        return self._records[n]
-
 
 
     def _nextUserNumber(self):
@@ -664,7 +638,7 @@ def main():
     parameters.addClient(
         1, ClientType(OS_X_10_6, [Eventer, Inviter, Accepter]))
     simulator = CalendarClientSimulator(
-        populator, r, parameters, reactor, '127.0.0.1', 8008)
+        populator, parameters, reactor, '127.0.0.1', 8008)
 
     arrivalPolicy = SmoothRampUp(groups=10, groupSize=1, interval=3)
     arrivalPolicy.run(reactor, simulator)

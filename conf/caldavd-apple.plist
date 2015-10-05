@@ -371,10 +371,10 @@
       -->
 
     <key>UserName</key>
-    <string>_calendar</string>
+    <string>calendar</string>
 
     <key>GroupName</key>
-    <string>_calendar</string>
+    <string>calendar</string>
 
     <key>ProcessType</key>
     <string>Combined</string>
