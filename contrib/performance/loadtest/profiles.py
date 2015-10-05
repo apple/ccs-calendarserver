@@ -31,7 +31,7 @@ from caldavclientlibrary.protocol.caldav.definitions import caldavxml
 from twisted.python import context
 from twisted.python.log import msg
 from twisted.python.failure import Failure
-from twisted.internet.defer import Deferred, succeed, fail
+from twisted.internet.defer import Deferred, succeed, fail, inlineCallbacks, returnValue
 from twisted.internet.task import LoopingCall
 from twisted.web.http import PRECONDITION_FAILED
 
@@ -40,7 +40,7 @@ from twistedcaldav.ical import Property, Component
 from contrib.performance.stats import NearFutureDistribution, NormalDistribution, UniformDiscreteDistribution, mean, median
 from contrib.performance.stats import LogNormalDistribution, RecurrenceDistribution
 from contrib.performance.loadtest.logger import SummarizingMixin
-from contrib.performance.loadtest.ical import IncorrectResponseCode
+from contrib.performance.loadtest.ical import Calendar, IncorrectResponseCode
 
 from pycalendar.datetime import DateTime
 from pycalendar.duration import Duration
@@ -78,7 +78,44 @@ class ProfileBase(object):
             cal
             for cal
             in self._client._calendars.itervalues()
-            if cal.resourceType == calendarType and componentType in cal.componentTypes]
+            if cal.resourceType == calendarType and componentType in cal.componentTypes
+        ]
+
+
+    def _getRandomCalendarOfType(self, componentType):
+        """
+        Return a random L{Calendar} object from the current user
+        or C{None} if there are no calendars to work with
+        """
+        calendars = self._calendarsOfType(caldavxml.calendar, componentType)
+        if not calendars:
+            return None
+        # Choose a random calendar
+        calendar = self.random.choice(calendars)
+        return calendar
+
+
+    def _getRandomEventOfType(self, componentType):
+        """
+        Return a random L{Event} object from the current user
+        or C{None} if there are no events to work with
+        """
+        calendars = self._calendarsOfType(caldavxml.calendar, componentType)
+        while calendars:
+            calendar = self.random.choice(calendars)
+            calendars.remove(calendar)
+            if not calendar.events:
+                continue
+
+            events = calendar.events.keys()
+            while events:
+                href = self.random.choice(events)
+                events.remove(href)
+                event = calendar.events[href]
+                if not event.component:
+                    continue
+                return event
+        return None
 
 
     def _isSelfAttendee(self, attendee):
@@ -645,37 +682,190 @@ END:VCALENDAR
 
 
     def _addEvent(self):
+        # Don't perform any operations until the client is up and running
         if not self._client.started:
             return succeed(None)
 
-        calendars = self._calendarsOfType(caldavxml.calendar, "VEVENT")
+        calendar = self._getRandomCalendarOfType('VEVENT')
 
-        while calendars:
-            calendar = self.random.choice(calendars)
-            calendars.remove(calendar)
+        # Copy the template event and fill in some of its fields
+        # to make a new event to create on the calendar.
+        vcalendar = self._eventTemplate.duplicate()
+        vevent = vcalendar.mainComponent()
+        uid = str(uuid4())
+        dtstart = self._eventStartDistribution.sample()
+        dtend = dtstart + Duration(seconds=self._eventDurationDistribution.sample())
+        vevent.replaceProperty(Property("CREATED", DateTime.getNowUTC()))
+        vevent.replaceProperty(Property("DTSTAMP", DateTime.getNowUTC()))
+        vevent.replaceProperty(Property("DTSTART", dtstart))
+        vevent.replaceProperty(Property("DTEND", dtend))
+        vevent.replaceProperty(Property("UID", uid))
 
-            # Copy the template event and fill in some of its fields
-            # to make a new event to create on the calendar.
-            vcalendar = self._eventTemplate.duplicate()
-            vevent = vcalendar.mainComponent()
-            uid = str(uuid4())
-            dtstart = self._eventStartDistribution.sample()
-            dtend = dtstart + Duration(seconds=self._eventDurationDistribution.sample())
-            vevent.replaceProperty(Property("CREATED", DateTime.getNowUTC()))
-            vevent.replaceProperty(Property("DTSTAMP", DateTime.getNowUTC()))
-            vevent.replaceProperty(Property("DTSTART", dtstart))
-            vevent.replaceProperty(Property("DTEND", dtend))
-            vevent.replaceProperty(Property("UID", uid))
+        rrule = self._recurrenceDistribution.sample()
+        if rrule is not None:
+            vevent.addProperty(Property(None, None, None, pycalendar=rrule))
 
-            rrule = self._recurrenceDistribution.sample()
-            if rrule is not None:
-                vevent.addProperty(Property(None, None, None, pycalendar=rrule))
-
-            href = '%s%s.ics' % (calendar.url, uid)
-            d = self._client.addEvent(href, vcalendar)
-            return self._newOperation("create", d)
+        href = '%s%s.ics' % (calendar.url, uid)
+        d = self._client.addEvent(href, vcalendar)
+        return self._newOperation("create", d)
 
 
+class EventUpdaterBase(ProfileBase):
+
+    @inlineCallbacks
+    def action(self):
+        # Don't perform any operations until the client is up and running
+        if not self._client.started:
+            returnValue(None)
+
+        event = self._getRandomEventOfType('VEVENT')
+        if not event:
+            returnValue(None)
+        component = event.component
+        vevent = component.mainComponent()
+
+        label = yield self.modifyEvent(event.url, vevent)
+        vevent.replaceProperty(Property("DTSTAMP", DateTime.getNowUTC()))
+
+        event.component = component
+        yield self._newOperation(
+            label,
+            self._client.changeEvent(event.url)
+        )
+
+
+    def run(self):
+        self._call = LoopingCall(self.action)
+        self._call.clock = self._reactor
+        return self._call.start(self._interval)
+
+
+    def modifyEvent(self, href, vevent):
+        """Overriden by subclasses"""
+        pass
+
+
+class TitleChanger(EventUpdaterBase):
+
+    def setParameters(
+        self,
+        enabled=True,
+        interval=60,
+        titleLengthDistribution=NormalDistribution(10, 2)
+    ):
+        self.enabled = enabled
+        self._interval = interval
+        self._titleLength = titleLengthDistribution
+
+    def modifyEvent(self, _ignore_href, vevent):
+        length = max(5, int(self._titleLength.sample()))
+        vevent.replaceProperty(Property("SUMMARY", "Event" + "." * (length - 5)))
+        return succeed("update{title}")
+
+
+class Attacher(EventUpdaterBase):
+
+    def setParameters(
+        self,
+        enabled=True,
+        interval=60,
+        fileSizeDistribution=NormalDistribution(1024, 1),
+    ):
+        self.enabled = enabled
+        self._interval = interval
+        self._fileSize = fileSizeDistribution
+
+    @inlineCallbacks
+    def modifyEvent(self, href, vevent):
+        fileSize = int(self._fileSize.sample())
+        yield self._client.postAttachment(href, 'x' * fileSize)
+        returnValue("attach{files}")
+
+
+class EventCountLimiter(EventUpdaterBase):
+    """
+    Examines the number of events in each calendar collection, and when that
+    count exceeds eventCountLimit, events are randomly removed until the count
+    falls back to the limit.
+    """
+
+    def setParameters(
+        self,
+        enabled=True,
+        interval=60,
+        eventCountLimit=1000
+    ):
+        self.enabled = enabled
+        self._interval = interval
+        self._limit = eventCountLimit
+
+    @inlineCallbacks
+    def action(self):
+        # Don't perform any operations until the client is up and running
+        if not self._client.started:
+            returnValue(None)
+
+        for calendar in self._calendarsOfType(caldavxml.calendar, "VEVENT"):
+            while len(calendar.events) > self._limit:
+                event = calendar.events[self.random.choice(calendar.events.keys())]
+                yield self._client.deleteEvent(event.url)
+
+
+
+class CalendarSharer(ProfileBase):
+    """
+    A Calendar user who shares and un-shares other users to calendars.
+    """
+    def setParameters(
+        self,
+        enabled=True,
+        interval=60
+    ):
+        self.enabled = enabled
+        self._interval = interval
+
+
+    def run(self):
+        self._call = LoopingCall(self.action)
+        self._call.clock = self._reactor
+        return self._call.start(self._interval)
+
+
+    @inlineCallbacks
+    def action(self):
+        # Don't perform any operations until the client is up and running
+        if not self._client.started:
+            returnValue(None)
+
+        yield self.shareCalendar()
+
+
+    @inlineCallbacks
+    def shareCalendar(self):
+
+        # pick a calendar
+        calendar = self._getRandomCalendarOfType('VEVENT')
+        if not calendar:
+            returnValue(None)
+
+        # pick a random sharee
+        shareeRecord = self._sim.getRandomUserRecord(besides=self._number)
+        if shareeRecord is None:
+            returnValue(None)
+
+        # POST the sharing invite
+        mailto = "mailto:{}".format(shareeRecord.email)
+        body = Calendar.addInviteeXML(mailto, calendar.name, readwrite=True)
+        yield self._client.postXML(
+            calendar.url,
+            body,
+            label="POST{share-calendar}"
+        )
+
+
+
+# Is the purpose of this profile "EventUpdater" simply to keep updating the same
+# resource over and over?
 
 class EventUpdater(ProfileBase):
     """
@@ -741,6 +931,7 @@ END:VCALENDAR
 
 
     def _initEvent(self):
+        # Don't perform any operations until the client is up and running
         if not self._client.started:
             return succeed(None)
 
@@ -840,6 +1031,7 @@ END:VCALENDAR
 
 
     def _addTask(self):
+        # Don't perform any operations until the client is up and running
         if not self._client.started:
             return succeed(None)
 

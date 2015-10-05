@@ -18,7 +18,10 @@ from __future__ import print_function
 
 from caldavclientlibrary.protocol.caldav.definitions import caldavxml
 from caldavclientlibrary.protocol.caldav.definitions import csxml
+from caldavclientlibrary.protocol.calendarserver.invite import AddInvitees, RemoveInvitee, InviteUser
+from caldavclientlibrary.protocol.calendarserver.notifications import InviteNotification
 from caldavclientlibrary.protocol.url import URL
+from caldavclientlibrary.protocol.utils.xmlhelpers import BetterElementTree
 from caldavclientlibrary.protocol.webdav.definitions import davxml
 from caldavclientlibrary.protocol.webdav.propfindparser import PropFindParser
 
@@ -45,21 +48,26 @@ from twisted.python.log import addObserver, err, msg
 from twisted.python.util import FancyEqMixin
 from twisted.web.client import Agent, ContentDecoderAgent, GzipDecoder, \
     _DeprecatedToCurrentPolicyForHTTPS
-from twisted.web.http import OK, MULTI_STATUS, CREATED, NO_CONTENT, PRECONDITION_FAILED, MOVED_PERMANENTLY, \
-    FORBIDDEN, FOUND
+from twisted.web.http import (
+    OK, MULTI_STATUS, CREATED, NO_CONTENT, PRECONDITION_FAILED,
+    MOVED_PERMANENTLY, FORBIDDEN, FOUND, NOT_FOUND
+)
 from twisted.web.http_headers import Headers
 
 from twistedcaldav.ical import Component, Property
 
 from urlparse import urlparse, urlunparse, urlsplit, urljoin
 from uuid import uuid4
-from xml.etree import ElementTree
+from xml.etree.ElementTree import ElementTree, Element, SubElement, QName
+
+from StringIO import StringIO
 
 import json
 import os
 import random
 
-ElementTree.QName.__repr__ = lambda self: '<QName %r>' % (self.text,)
+QName.__repr__ = lambda self: '<QName %r>' % (self.text,)
+
 
 def loadRequestBody(clientType, label):
     return FilePath(__file__).sibling('request-data').child(clientType).child(label + '.request').getContent()
@@ -247,6 +255,137 @@ class Calendar(object):
                 calendar.changeToken = ""
         return calendar
 
+    @staticmethod
+    def addInviteeXML(uid, summary, readwrite=True):
+        return AddInvitees(None, '/', [uid], readwrite, summary=summary).request_data.text
+
+
+    @staticmethod
+    def removeInviteeXML(uid):
+        invitee = InviteUser()
+        # Usually an InviteUser is populated through .parseFromUser, but we only care about a uid
+        invitee.user_uid = uid
+        return RemoveInvitee(None, '/', invitee).request_data.text
+
+
+# class Notification(object):
+#     def __init__(self, serializeBasePath, url, etag, body=None):
+#         self.serializeBasePath = serializeBasePath
+#         self.url = url
+#         self.etag = etag
+#         self.body = body
+
+
+#     def serializePath(self):
+#         if self.serializeBasePath:
+#             parentPath = os.path.join(self.serializeBasePath, "notifications")
+#             if not os.path.exists(parentPath):
+#                 os.makedirs(parentPath)
+#             return os.path.join(parentPath, self.url.split("/")[-1])
+#         else:
+#             return None
+
+
+#     def serialize(self):
+#         """
+#         Create a dict of the data so we can serialize as JSON.
+#         """
+
+#         result = {}
+#         for attr in ("url", "etag"):
+#             result[attr] = getattr(self, attr)
+#         return result
+
+
+#     @staticmethod
+#     def deserialize(serializeLocation, data):
+#         """
+#         Convert dict (deserialized from JSON) into an L{Event}.
+#         """
+
+#         event = Notification(serializeLocation, None, None)
+#         for attr in ("url", "etag"):
+#             setattr(event, attr, u2str(data[attr]))
+#         return event
+
+
+#     @property
+#     def body(self):
+#         """
+#         Data always read from disk - never cached in the object.
+#         """
+#         path = self.serializePath()
+#         if path and os.path.exists(path):
+#             f = open(path)
+#             content = f.read()
+#             f.close()
+#             return content
+#         else:
+#             return None
+
+
+#     @body.setter
+#     def body(self, content):
+#         """
+#         Data always written to disk - never cached on the object.
+#         """
+#         path = self.serializePath()
+#         if path:
+#             if content is None:
+#                 os.remove(path)
+#             else:
+#                 f = open(path, "w")
+#                 f.write(content)
+#                 f.close()
+
+
+#     def removed(self):
+#         """
+#         Resource no longer exists on the server - remove associated data.
+#         """
+#         path = self.serializePath()
+#         if path and os.path.exists(path):
+#             os.remove(path)
+
+
+class NotificationCollection(object):
+    def __init__(self, url, changeToken):
+        self.url = url
+        self.changeToken = changeToken
+        self.notifications = {}
+        self.name = "notification"
+
+    def serialize(self):
+        """
+        Create a dict of the data so we can serialize as JSON.
+        """
+
+        result = {}
+        for attr in ("url", "changeToken"):
+            result[attr] = getattr(self, attr)
+        result["notifications"] = sorted(self.notifications.keys())
+        return result
+
+
+    @staticmethod
+    def deserialize(data, notifications):
+        """
+        Convert dict (deserialized from JSON) into an L{Calendar}.
+        """
+
+        coll = NotificationCollection(None, None)
+        for attr in ("url", "changeToken"):
+            setattr(coll, attr, u2str(data[attr]))
+
+        for notification in data["notifications"]:
+            url = urljoin(coll.url, notification)
+            if url in notifications:
+                coll.notifications[notification] = notifications[url]
+            else:
+                # Ughh - a notification is missing - force changeToken to empty to trigger full resync
+                coll.changeToken = ""
+        return coll
+
 
 
 class BaseClient(object):
@@ -254,12 +393,14 @@ class BaseClient(object):
     Base interface for all simulated clients.
     """
 
-    user = None         # User account details
-    _events = None      # Cache of events keyed by href
-    _calendars = None   # Cache of calendars keyed by href
-    started = False     # Whether or not startup() has been executed
-    _client_type = None # Type of this client used in logging
-    _client_id = None   # Unique id for the client itself
+    user = None                     # User account details
+    _events = None                  # Cache of events keyed by href
+    _calendars = None               # Cache of calendars keyed by href
+    _notifications = None           # Cache of notifications keyed by href
+    _notificationCollection = None  # Cache of the notification collection
+    started = False                 # Whether or not startup() has been executed
+    _client_type = None             # Type of this client used in logging
+    _client_id = None               # Unique id for the client itself
 
 
     def _setEvent(self, href, event):
@@ -279,6 +420,21 @@ class BaseClient(object):
         del self._events[href]
         calendar, basePath = href.rsplit('/', 1)
         del self._calendars[calendar + '/'].events[basePath]
+
+
+    def _setNotification(self, href, notification):
+        """
+        Cache the provided notification
+        """
+        self._notifications[href] = notification
+
+
+    def _removeNotification(self, href):
+        """
+        Remove notification from local cache.
+        """
+        self._notifications[href].removed()
+        del self._notifications[href]
 
 
     def addEvent(self, href, calendar):
@@ -410,6 +566,8 @@ class BaseAppleClient(BaseClient):
     _POLL_NOTIFICATION_PROPFIND = None
     _POLL_NOTIFICATION_PROPFIND_D1 = None
 
+    _NOTIFICATION_SYNC_REPORT = None
+
     _USER_LIST_PRINCIPAL_PROPERTY_SEARCH = None
     _POST_AVAILABILITY = None
 
@@ -452,6 +610,8 @@ class BaseAppleClient(BaseClient):
         if calendarHomePollInterval is None:
             calendarHomePollInterval = self.CALENDAR_HOME_POLL_INTERVAL
         self.calendarHomePollInterval = calendarHomePollInterval
+
+        self.calendarHomeHref = None
 
         self.supportPush = supportPush
 
@@ -730,8 +890,10 @@ class BaseAppleClient(BaseClient):
             depth='1',
             method_label="PROPFIND{home}",
         )
-        calendars = self._extractCalendars(result, calendarHomeSet)
-        returnValue((calendars, result,))
+        calendars, notificationCollection = self._extractCalendars(
+            result, calendarHomeSet
+        )
+        returnValue((calendars, notificationCollection, result,))
 
 
     @inlineCallbacks
@@ -777,6 +939,10 @@ class BaseAppleClient(BaseClient):
         that from the response.
         """
         calendars = []
+        notificationCollection = None
+
+        changeTag = davxml.sync_token if self.supportSync else csxml.getctag
+
         for href in results:
 
             if href == calendarHome:
@@ -810,7 +976,6 @@ class BaseAppleClient(BaseClient):
                             for comp in nodes[caldavxml.supported_calendar_component_set]:
                                 componentTypes.add(comp.get("name").upper())
 
-                    changeTag = davxml.sync_token if self.supportSync else csxml.getctag
                     calendars.append(Calendar(
                         nodeType.tag,
                         componentTypes,
@@ -819,7 +984,14 @@ class BaseAppleClient(BaseClient):
                         textProps.get(changeTag, None),
                     ))
                     break
-        return calendars
+                elif nodeType.tag == csxml.notification:
+                    textProps = results[href].getTextProperties()
+                    notificationCollection = NotificationCollection(
+                        href,
+                        textProps.get(changeTag, None)
+                    )
+
+        return calendars, notificationCollection
 
 
     def _updateCalendar(self, calendar, newToken):
@@ -1041,6 +1213,7 @@ class BaseAppleClient(BaseClient):
         try:
             result = yield self._newOperation("push" if push else "poll", self._poll(calendarHomeSet, firstTime))
         finally:
+            print("*** BACK FROM NEW OPERATION, result=", result)
             if result:
                 try:
                     self._checking.remove(calendarHomeSet)
@@ -1050,12 +1223,132 @@ class BaseAppleClient(BaseClient):
 
 
     @inlineCallbacks
+    def _updateNotifications(self, oldToken, newToken):
+
+        fullSync = not oldToken
+
+        # Get the list of notificatinon xml resources
+
+        result = yield self._report(
+            self._notificationCollection.url,
+            self._NOTIFICATION_SYNC_REPORT % {'sync-token': oldToken},
+            depth='1',
+            allowedStatus=(MULTI_STATUS, FORBIDDEN,),
+            otherTokens=True,
+            method_label="REPORT{sync}" if oldToken else "REPORT{sync-init}",
+        )
+        if result is None:
+            if not fullSync:
+                fullSync = True
+                result = yield self._report(
+                    self._notificationCollection.url,
+                    self._NOTIFICATION_SYNC_REPORT % {'sync-token': ''},
+                    depth='1',
+                    otherTokens=True,
+                    method_label="REPORT{sync}" if oldToken else "REPORT{sync-init}",
+                )
+            else:
+                raise IncorrectResponseCode((MULTI_STATUS,), None)
+
+        result, others = result
+
+        # Scan for the sharing invites
+        inviteNotifications = []
+        toDelete = []
+        for responseHref in result:
+            if responseHref == self._notificationCollection.url:
+                continue
+
+            # try:
+            #     etag = result[responseHref].getTextProperties()[davxml.getetag]
+            # except KeyError:
+            #     # XXX Ignore things with no etag?  Seems to be dropbox.
+            #     continue
+
+            toDelete.append(responseHref)
+
+            if result[responseHref].getStatus() / 100 == 2:
+                # Get the notification
+                response = yield self._request(
+                    OK,
+                    'GET',
+                    self.root + responseHref.encode('utf-8'),
+                    method_label="GET{notification}",
+                )
+                body = yield readBody(response)
+                node = ElementTree(file=StringIO(body)).getroot()
+                if node.tag == str(csxml.notification):
+                    nurl = URL(url=responseHref)
+                    for child in node.getchildren():
+                        if child.tag == str(csxml.invite_notification):
+                            if child.find(str(csxml.invite_noresponse)) is not None:
+                                inviteNotifications.append(
+                                    InviteNotification().parseFromNotification(
+                                        nurl, child
+                                    )
+                                )
+
+        # Accept the invites
+        for notification in inviteNotifications:
+            # Create an invite-reply
+            """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <C:invite-reply xmlns:C="http://calendarserver.org/ns/">
+              <A:href xmlns:A="DAV:">urn:x-uid:10000000-0000-0000-0000-000000000002</A:href>
+              <C:invite-accepted/>
+              <C:hosturl>
+                <A:href xmlns:A="DAV:">/calendars/__uids__/10000000-0000-0000-0000-000000000001/A1DDC58B-651E-4B1C-872A-C6588CA09ADB</A:href>
+              </C:hosturl>
+              <C:in-reply-to>d2683fa9-7a50-4390-82bb-cbcea5e0fa86</C:in-reply-to>
+              <C:summary>to share</C:summary>
+            </C:invite-reply>
+            """
+            reply = Element(csxml.invite_reply)
+            href = SubElement(reply, davxml.href)
+            href.text = notification.user_uid
+            SubElement(reply, csxml.invite_accepted)
+            hosturl = SubElement(reply, csxml.hosturl)
+            href = SubElement(hosturl, davxml.href)
+            href.text = notification.hosturl
+            inReplyTo = SubElement(reply, csxml.in_reply_to)
+            inReplyTo.text = notification.uid
+            summary = SubElement(reply, csxml.summary)
+            summary.text = notification.summary
+
+            xmldoc = BetterElementTree(reply)
+            os = StringIO()
+            xmldoc.writeUTF8(os)
+            # Post to my calendar home
+            response = yield self.postXML(
+                self.calendarHomeHref,
+                os.getvalue(),
+                "POST{invite-accept}"
+            )
+
+        # Delete all the notification resources
+        for responseHref in toDelete:
+            response = yield self._request(
+                (NO_CONTENT, NOT_FOUND),
+                'DELETE',
+                self.root + responseHref.encode('utf-8'),
+                method_label="DELETE{invite}",
+            )
+
+        self._notificationCollection.changeToken = newToken
+
+
+
+    @inlineCallbacks
     def _poll(self, calendarHomeSet, firstTime):
+        """
+        This gets called during a normal poll or in response to a push
+        """
+
         if calendarHomeSet in self._checking:
             returnValue(False)
         self._checking.add(calendarHomeSet)
 
-        calendars, results = yield self._calendarHomePropfind(calendarHomeSet)
+        calendars, notificationCollection, results = yield self._calendarHomePropfind(calendarHomeSet)
 
         # First time operations
         if firstTime:
@@ -1073,11 +1366,23 @@ class BaseAppleClient(BaseClient):
                 # Calendar changed - reload it
                 yield self._updateCalendar(self._calendars[cal.url], newToken)
 
-        # When there is no sync REPORT, clients have to do a full PROPFIND
-        # on the notification collection because there is no ctag
-        if self.notificationURL is not None and not self.supportSync:
-            yield self._notificationPropfind(self.notificationURL)
-            yield self._notificationChangesPropfind(self.notificationURL)
+        if notificationCollection is not None:
+            if self._notificationCollection:
+                oldToken = self._notificationCollection.changeToken
+            else:
+                oldToken = ""
+            self._notificationCollection = notificationCollection
+            newToken = notificationCollection.changeToken
+            yield self._updateNotifications(oldToken, newToken)
+
+        # FIXME: isn't sync report the new norm, and therefore we can remove
+        # the following?
+
+        # # When there is no sync REPORT, clients have to do a full PROPFIND
+        # # on the notification collection because there is no ctag
+        # if self.notificationURL is not None and not self.supportSync:
+        #     yield self._notificationPropfind(self.notificationURL)
+        #     yield self._notificationChangesPropfind(self.notificationURL)
 
         # One time delegate expansion
         if firstTime:
@@ -1265,6 +1570,8 @@ class BaseAppleClient(BaseClient):
             calendarHome = hrefs[caldavxml.calendar_home_set].toString()
             if calendarHome is None:
                 raise MissingCalendarHome
+            else:
+                self.calendarHomeHref = calendarHome
             yield self._checkCalendarsForEvents(calendarHome, firstTime=True)
             returnValue(calendarHome)
         calendarHome = yield self._newOperation("startup: %s" % (self.title,), startup())
@@ -1329,6 +1636,7 @@ class BaseAppleClient(BaseClient):
             "principalURL": self.principalURL,
             "calendars": [calendar.serialize() for calendar in sorted(self._calendars.values(), key=lambda x:x.name)],
             "events": [event.serialize() for event in sorted(self._events.values(), key=lambda x:x.url)],
+            "notificationCollection" : self._notificationCollection.serialize(),
         }
 
         # Write JSON data
@@ -1452,18 +1760,11 @@ class BaseAppleClient(BaseClient):
             elif attendee.hasParameter('EMAIL'):
                 email = attendee.parameterValue('EMAIL').encode("utf-8")
 
-            # First try to discover some names to supply to the
-            # auto-completion
+            search = "<C:search-token>{}</C:search-token>".format(prefix)
+            body = self._CALENDARSERVER_PRINCIPAL_SEARCH_REPORT.format(
+                context="attendee", searchTokens=search)
             yield self._report(
-                self.principalCollection,
-                self._USER_LIST_PRINCIPAL_PROPERTY_SEARCH % {
-                    'displayname': prefix,
-                    'email': prefix,
-                    'firstname': prefix,
-                    'lastname': prefix,
-                },
-                depth=None,
-                method_label="REPORT{psearch}",
+                '/principals/', body, depth=None, method_label="REPORT{cpsearch}"
             )
 
             # Now learn about the attendee's availability
@@ -1473,6 +1774,7 @@ class BaseAppleClient(BaseClient):
                 [self.email, u'mailto:' + email],
                 [component.resourceUID()]
             )
+
 
 
     @inlineCallbacks
@@ -1522,7 +1824,7 @@ class BaseAppleClient(BaseClient):
         self._removeEvent(href)
 
         response = yield self._request(
-            NO_CONTENT,
+            (NO_CONTENT, NOT_FOUND),
             'DELETE',
             self.root + href.encode('utf-8'),
             method_label="DELETE{event}",
@@ -1702,6 +2004,41 @@ class BaseAppleClient(BaseClient):
         returnValue(body)
 
 
+    @inlineCallbacks
+    def postAttachment(self, href, content):
+        url = self.root + "{0}?{1}".format(href, "action=attachment-add")
+        filename = 'file-{}.txt'.format(len(content))
+        headers = Headers({
+            'Content-Disposition': ['attachment; filename="{}"'.format(filename)]
+        })
+        response = yield self._request(
+            CREATED,
+            'POST',
+            url,
+            headers=headers,
+            body=StringProducer(content),
+            method_label="POST{attach}"
+        )
+        body = yield readBody(response)
+        returnValue(body)
+
+
+    @inlineCallbacks
+    def postXML(self, href, content, label):
+        headers = Headers({
+            'content-type': ['text/xml']
+        })
+        response = yield self._request(
+            (OK, CREATED, MULTI_STATUS),
+            'POST',
+            self.root + href,
+            headers=headers,
+            body=StringProducer(content),
+            method_label=label
+        )
+        body = yield readBody(response)
+        returnValue(body)
+
 
 class OS_X_10_6(BaseAppleClient):
     """
@@ -1867,6 +2204,98 @@ class OS_X_10_7(BaseAppleClient):
         principal = yield self._extractPrincipalDetails()
         returnValue(principal)
 
+
+class OS_X_10_11(BaseAppleClient):
+    """
+    Implementation of the OS X 10.11 Calendar.app network behavior.
+    """
+
+    _client_type = "OS X 10.11"
+
+    USER_AGENT = "Mac+OS+X/10.11 (15A283) CalendarAgent/361"
+
+    # The default interval, used if none is specified in external
+    # configuration.  This is also the actual value used by El
+    # Capital Calendar.app.
+    CALENDAR_HOME_POLL_INTERVAL = 15 * 60  # in seconds
+
+    # The maximum number of resources to retrieve in a single multiget
+    MULTIGET_BATCH_SIZE = 50
+
+    # Override and turn on if client supports Sync REPORT
+    _SYNC_REPORT = True
+
+    # Override and turn off if client does not support attendee lookups
+    _ATTENDEE_LOOKUPS = True
+
+    # Request body data
+    _LOAD_PATH = "OS_X_10_11"
+
+    _STARTUP_WELL_KNOWN = loadRequestBody(_LOAD_PATH, 'startup_well_known_propfind')
+    _STARTUP_PRINCIPAL_PROPFIND_INITIAL = loadRequestBody(_LOAD_PATH, 'startup_principal_initial_propfind')
+    _STARTUP_PRINCIPAL_PROPFIND = loadRequestBody(_LOAD_PATH, 'startup_principal_propfind')
+    _STARTUP_PRINCIPALS_REPORT = loadRequestBody(_LOAD_PATH, 'startup_principals_report')
+    _STARTUP_PRINCIPAL_EXPAND = loadRequestBody(_LOAD_PATH, 'startup_principal_expand')
+
+    _STARTUP_CREATE_CALENDAR = loadRequestBody(_LOAD_PATH, 'startup_create_calendar')
+    _STARTUP_PROPPATCH_CALENDAR_COLOR = loadRequestBody(_LOAD_PATH, 'startup_calendar_color_proppatch')
+    # _STARTUP_PROPPATCH_CALENDAR_NAME = loadRequestBody(_LOAD_PATH, 'startup_calendar_displayname_proppatch')
+    _STARTUP_PROPPATCH_CALENDAR_ORDER = loadRequestBody(_LOAD_PATH, 'startup_calendar_order_proppatch')
+    _STARTUP_PROPPATCH_CALENDAR_TIMEZONE = loadRequestBody(_LOAD_PATH, 'startup_calendar_timezone_proppatch')
+
+    _POLL_CALENDARHOME_PROPFIND = loadRequestBody(_LOAD_PATH, 'poll_calendarhome_depth1_propfind')
+    _POLL_CALENDAR_PROPFIND = loadRequestBody(_LOAD_PATH, 'poll_calendar_propfind')
+    _POLL_CALENDAR_PROPFIND_D1 = loadRequestBody(_LOAD_PATH, 'poll_calendar_depth1_propfind')
+    _POLL_CALENDAR_MULTIGET_REPORT = loadRequestBody('OS_X_10_7', 'poll_calendar_multiget')
+    _POLL_CALENDAR_MULTIGET_REPORT_HREF = loadRequestBody('OS_X_10_7', 'poll_calendar_multiget_hrefs')
+    _POLL_CALENDAR_SYNC_REPORT = loadRequestBody('OS_X_10_7', 'poll_calendar_sync')
+    _POLL_NOTIFICATION_PROPFIND = loadRequestBody(_LOAD_PATH, 'poll_calendar_propfind')
+    _POLL_NOTIFICATION_PROPFIND_D1 = loadRequestBody(_LOAD_PATH, 'poll_notification_depth1_propfind')
+
+    _NOTIFICATION_SYNC_REPORT = loadRequestBody(_LOAD_PATH, 'notification_sync')
+
+    _USER_LIST_PRINCIPAL_PROPERTY_SEARCH = loadRequestBody('OS_X_10_7', 'user_list_principal_property_search')
+    _POST_AVAILABILITY = loadRequestBody('OS_X_10_7', 'post_availability')
+
+    _CALENDARSERVER_PRINCIPAL_SEARCH_REPORT = loadRequestBody(_LOAD_PATH, 'principal_search_report')
+
+
+    def _addDefaultHeaders(self, headers):
+        """
+        Add the clients default set of headers to ones being used in a request.
+        Default is to add User-Agent, sub-classes should override to add other
+        client specific things, Accept etc.
+        """
+
+        super(OS_X_10_11, self)._addDefaultHeaders(headers)
+        headers.setRawHeaders('Accept', ['*/*'])
+        headers.setRawHeaders('Accept-Language', ['en-us'])
+        headers.setRawHeaders('Accept-Encoding', ['gzip,deflate'])
+        headers.setRawHeaders('Connection', ['keep-alive'])
+
+
+    @inlineCallbacks
+    def startup(self):
+        # Try to read data from disk - if it succeeds self.principalURL will be set
+        self.deserialize()
+
+        if self.principalURL is None:
+            # PROPFIND well-known with redirect
+            response = yield self._startupPropfindWellKnown()
+            hrefs = response.getHrefProperties()
+            if davxml.current_user_principal in hrefs:
+                self.principalURL = hrefs[davxml.current_user_principal].toString()
+            elif davxml.principal_URL in hrefs:
+                self.principalURL = hrefs[davxml.principal_URL].toString()
+            else:
+                # PROPFIND principal path to retrieve actual principal-URL
+                response = yield self._principalPropfindInitial(self.record.uid)
+                hrefs = response.getHrefProperties()
+                self.principalURL = hrefs[davxml.principal_URL].toString()
+
+        # Using the actual principal URL, retrieve principal information
+        principal = yield self._extractPrincipalDetails()
+        returnValue(principal)
 
 
 class iOS_5(BaseAppleClient):

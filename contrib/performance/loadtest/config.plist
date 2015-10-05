@@ -21,7 +21,7 @@
 	<dict>
 		<!-- Identify the server to be load tested. -->
 		<key>server</key>
-		<string>https://127.0.0.1:8443</string>
+		<string>https://localhost:8443</string>
 
 		<!-- The template URI for doing initial principal lookup on. -->
 		<key>principalPathTemplate</key>
@@ -96,7 +96,7 @@
 			<dict>
 				<!-- groups gives the total number of groups of clients to introduce. -->
 				<key>groups</key>
-				<integer>20</integer>
+				<integer>1</integer>
 
 				<!-- groupSize is the number of clients in each group of clients. It's
 					really only a "smooth" ramp up if this is pretty small. -->
@@ -118,7 +118,7 @@
 		<!-- Define some log observers to report on the load test. -->
 		<key>observers</key>
 		<array>
-			<!-- ReportStatistics generates an end-of-run summary of the HTTP requests 
+			<!-- ReportStatistics generates an end-of-run summary of the HTTP requests
 				made, their timings, and their results. -->
 			<dict>
 				<key>type</key>
@@ -128,7 +128,7 @@
 					<!-- The thresholds for each request type -->
 					<key>thresholdsPath</key>
 					<string>contrib/performance/loadtest/thresholds.json</string>
-					
+
 					<!-- The benchmarks for overall QoS -->
 					<key>benchmarksPath</key>
 					<string>contrib/performance/loadtest/benchmarks.json</string>
@@ -138,8 +138,8 @@
 					<real>1.0</real>
 				</dict>
 			</dict>
-	
-			<!-- RequestLogger generates a realtime log of all HTTP requests made 
+
+			<!-- RequestLogger generates a realtime log of all HTTP requests made
 				during the load test. -->
 			<dict>
 				<key>type</key>
@@ -148,9 +148,9 @@
 				<dict>
 				</dict>
 			</dict>
-	
-			<!-- OperationLogger generates an end-of-run summary of the gross operations 
-				performed (logical operations which may span more than one HTTP request, 
+
+			<!-- OperationLogger generates an end-of-run summary of the gross operations
+				performed (logical operations which may span more than one HTTP request,
 				such as inviting an attendee to an event). -->
 			<dict>
 				<key>type</key>
@@ -160,11 +160,11 @@
 					<!-- The thresholds for each operation type -->
 					<key>thresholdsPath</key>
 					<string>contrib/performance/loadtest/thresholds.json</string>
-					
+
 					<!-- The % of operations beyond the lag cut-off that constitute a failed test -->
 					<key>lagCutoff</key>
 					<real>1.0</real>
-					
+
 					<!-- The % of failures that constitute a failed test -->
 					<key>failCutoff</key>
 					<real>1.0</real>

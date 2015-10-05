@@ -42,7 +42,7 @@ class SubscribeToID(amp.Command):
 
 
 class UnsubscribeFromID(amp.Command):
-    arguments = [('token', amp.String()), ('id', amp.String())]
+    arguments = [('id', amp.String())]
     response = [('status', amp.String())]
 
 
@@ -257,7 +257,7 @@ class AMPPushNotifierProtocol(amp.AMP):
         return {"status" : "OK"}
     SubscribeToID.responder(subscribe)
 
-    def unsubscribe(self, token, id):
+    def unsubscribe(self, id):
         try:
             del self.subscriptions[id]
         except KeyError:

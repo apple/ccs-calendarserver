@@ -285,7 +285,8 @@ class LoadSimulator(object):
             if 'clientDataSerialization' in config:
                 serializationPath = config['clientDataSerialization']['Path']
                 if not config['clientDataSerialization']['UseOldData']:
-                    shutil.rmtree(serializationPath)
+                    if isdir(serializationPath):
+                        shutil.rmtree(serializationPath)
                 serializationPath = config['clientDataSerialization']['Path']
                 if not isdir(serializationPath):
                     try:
@@ -412,6 +413,7 @@ class LoadSimulator(object):
         return CalendarClientSimulator(
             self.records,
             populator,
+            Random(),
             self.parameters,
             self.reactor,
             self.server,
