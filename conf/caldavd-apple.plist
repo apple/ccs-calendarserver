@@ -342,7 +342,7 @@
 
     <!-- Log levels -->
     <key>DefaultLogLevel</key>
-    <string>info</string> <!-- debug, info, warn, error -->
+    <string>warn</string> <!-- debug, info, warn, error -->
 
     <!-- Server process ID file -->
     <key>PIDFile</key>
@@ -371,10 +371,10 @@
       -->
 
     <key>UserName</key>
-    <string>calendar</string>
+    <string>_calendar</string>
 
     <key>GroupName</key>
-    <string>calendar</string>
+    <string>_calendar</string>
 
     <key>ProcessType</key>
     <string>Combined</string>
