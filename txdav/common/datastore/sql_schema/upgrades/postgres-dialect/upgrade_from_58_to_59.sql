@@ -28,5 +28,8 @@ create index JOB_ASSIGNED_PAUSE_NOT_BEFORE on
 create index JOB_ASSIGNED_OVERDUE on
   JOB(ASSIGNED, OVERDUE);
 
+-- Missing data upgrade that should have been in 47_to_48
+update PERUSER set USER_ID = '.' where USER_ID = '';
+
 -- update the version
 update CALENDARSERVER set VALUE = '59' where NAME = 'VERSION';
