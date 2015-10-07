@@ -422,6 +422,67 @@ class SQLSplitterTests(TestCase):
         self.assertRaises(StopIteration, result.next)
 
 
+    def test_returnTwoPlSQLCreateOrReplace(self):
+        """
+        One pl/sql block yields a single string
+        """
+        plsql = """create or replace function next_job_all(now timestamp)
+  return integer is
+  cursor c1 is
+   select JOB_ID from JOB
+   where ASSIGNED is NULL and PAUSE = 0 and NOT_BEFORE <= now
+   order by PRIORITY desc
+   for update skip locked;
+  result integer;
+begin
+  open c1;
+  fetch c1 into result;
+  close c1;
+  return result;
+end;
+/
+
+create or replace function next_job_medium_high(now timestamp)
+  return integer is
+  cursor c1 is
+    select JOB_ID from JOB
+    where PRIORITY != 0 and ASSIGNED is NULL and PAUSE = 0 and NOT_BEFORE <= now
+    order by PRIORITY desc
+    for update skip locked;
+  result integer;
+begin
+  open c1;
+  fetch c1 into result;
+  close c1;
+  return result;
+end;
+/
+"""
+        s1 = """create or replace function next_job_all(now timestamp)
+return integer is
+cursor c1 is
+select JOB_ID from JOB
+where ASSIGNED is NULL and PAUSE = 0 and NOT_BEFORE <= now
+order by PRIORITY desc
+for update skip locked;result integer;begin
+open c1;fetch c1 into result;close c1;return result;end;"""
+        s2 = """create or replace function next_job_medium_high(now timestamp)
+return integer is
+cursor c1 is
+select JOB_ID from JOB
+where PRIORITY != 0 and ASSIGNED is NULL and PAUSE = 0 and NOT_BEFORE <= now
+order by PRIORITY desc
+for update skip locked;result integer;begin
+open c1;fetch c1 into result;close c1;return result;end;"""
+
+        result = splitSQLString(plsql)
+        r1 = result.next()
+        self.assertEquals(r1, s1)
+        r2 = result.next()
+        self.assertEquals(r2, s2)
+        self.assertRaises(StopIteration, result.next)
+
+
     def test_actualSchemaUpgrade(self):
         """
         A real-world schema upgrade is split into the expected number of statements,
