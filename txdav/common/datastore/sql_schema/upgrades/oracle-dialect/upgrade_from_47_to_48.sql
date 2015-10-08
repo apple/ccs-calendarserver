@@ -21,7 +21,7 @@
 
 
 -- Add pkey to PERUSER and remove old index
-update PERUSER set USER_ID = '.' where USER_ID = '';
+update PERUSER set USER_ID = '.' where USER_ID is null;
 alter table PERUSER add primary key (TIME_RANGE_INSTANCE_ID, USER_ID);
 drop index PERUSER_TIME_RANGE_IN_5468a226;
 
