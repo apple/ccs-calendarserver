@@ -27,7 +27,7 @@ __all__ = [
 ]
 
 from twext.enterprise.dal.record import fromTable
-from twext.enterprise.dal.syntax import Delete
+from twext.enterprise.dal.syntax import Delete, Union
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Len
 from twext.enterprise.dal.syntax import Parameter
@@ -582,7 +582,10 @@ class CalendarHome(CommonHome):
             From=co.join(cb, co.PARENT_RESOURCE_ID == cb.RESOURCE_ID,
                          'left outer'),
             Where=(co.DROPBOX_ID == dropboxID).And(
-                cb.HOME_RESOURCE_ID == self._resourceID)
+                cb.HOME_RESOURCE_ID == self._resourceID).And(
+                cb.BIND_MODE == _BIND_MODE_OWN).And(
+                cb.CALENDAR_RESOURCE_NAME != "inbox"),
+            OrderBy=co.RESOURCE_ID,
         ).on(self._txn))
 
         if rows:
@@ -596,16 +599,33 @@ class CalendarHome(CommonHome):
 
     @inlineCallbacks
     def getAllDropboxIDs(self):
+        """
+        Only return dropbox-IDs that actually have an attachment associated with them. To do that we will
+        look at the ATTACHMENT table and get all (old) dropbox ids for the home. Then look at the combined
+        ATTACHMENT and ATTACHMENT_CALENDAR_OBJECT table to get all managed attachment drop box ids. Those
+        results need to be unique and sorted.
+        """
+        att = schema.ATTACHMENT
+        attco = schema.ATTACHMENT_CALENDAR_OBJECT
         co = schema.CALENDAR_OBJECT
-        cb = schema.CALENDAR_BIND
+
+        # Old dropbox items (DROPBOX_ID != "." in ATTACHMENT table)
         rows = (yield Select(
-            [co.DROPBOX_ID],
-            From=co.join(cb, co.PARENT_RESOURCE_ID == cb.RESOURCE_ID),
-            Where=(co.DROPBOX_ID != None).And(
-                cb.HOME_RESOURCE_ID == self._resourceID),
-            OrderBy=co.DROPBOX_ID
+            [att.DROPBOX_ID],
+            From=att,
+            Where=(att.CALENDAR_HOME_RESOURCE_ID == self._resourceID).And(
+                att.DROPBOX_ID != "."),
+            SetExpression=Union(
+                Select(
+                    [co.DROPBOX_ID],
+                    From=att.join(attco, att.ATTACHMENT_ID == attco.ATTACHMENT_ID).join(co, attco.CALENDAR_OBJECT_RESOURCE_ID == co.RESOURCE_ID),
+                    Where=(att.CALENDAR_HOME_RESOURCE_ID == self._resourceID).And(
+                        att.DROPBOX_ID == "."),
+                ),
+                optype=Union.OPTYPE_ALL,
+            )
         ).on(self._txn))
-        returnValue([row[0] for row in rows])
+        returnValue(sorted(set([row[0] for row in rows])))
 
 
     @inlineCallbacks
