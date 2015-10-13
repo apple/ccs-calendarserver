@@ -26,7 +26,7 @@ import errno
 from setuptools import setup, find_packages as setuptools_find_packages
 from xml.etree import ElementTree
 
-base_version = "7.0"
+base_version = "8.0"
 
 
 #
