@@ -349,7 +349,7 @@ install_requirements = [
 extras_requirements = {
     "LDAP": ["twextpy[LDAP]"],
     "OpenDirectory": ["twextpy[OpenDirectory]"],
-    "Oracle": ["twextpy[Oracle]", "cx_Oracle"],
+    "Oracle": ["twextpy[Oracle]", "cx_Oracle=5.2"],
     "Postgres": ["twextpy[Postgres]", "pg8000"],
 }
 

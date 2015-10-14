@@ -1,0 +1,52 @@
+diff -ur ./Connection.c ../cx_Oracle-5.2-patched/Connection.c
+--- ./Connection.c	2015-06-06 23:31:08.000000000 -0400
++++ ../cx_Oracle-5.2-patched/Connection.c	2015-10-14 11:43:01.000000000 -0400
+@@ -747,6 +747,18 @@
+     if (newPasswordObj)
+         return Connection_ChangePassword(self, self->password, newPasswordObj);
+
++    // set lob prefetch attribute to session
++    ub4 default_lobprefetch_size = 4096;                  // Set default size to 4K
++    status = OCIAttrSet (self->sessionHandle, OCI_HTYPE_SESSION,
++                (void *)&default_lobprefetch_size, 0,
++                OCI_ATTR_DEFAULT_LOBPREFETCH_SIZE,
++                self->environment->errorHandle);
++    if (Environment_CheckForError(self->environment, status,
++            "Connection_Connect(): OCI_ATTR_DEFAULT_LOBPREFETCH_SIZE") < 0) {
++        self->sessionHandle = NULL;
++        return -1;
++    }
++
+     // begin the session
+     Py_BEGIN_ALLOW_THREADS
+     status = OCISessionBegin(self->handle, self->environment->errorHandle,
+diff -ur ./Cursor.c ../cx_Oracle-5.2-patched/Cursor.c
+--- ./Cursor.c	2015-06-06 18:51:44.000000000 -0400
++++ ../cx_Oracle-5.2-patched/Cursor.c	2015-10-14 11:57:02.000000000 -0400
+@@ -1841,8 +1841,8 @@
+         }
+     }
+     Py_BEGIN_ALLOW_THREADS
+-    status = OCIStmtFetch(self->handle, self->environment->errorHandle,
+-            numRows, OCI_FETCH_NEXT, OCI_DEFAULT);
++    status = OCIStmtFetch2(self->handle, self->environment->errorHandle,
++            numRows, OCI_FETCH_NEXT, 0, OCI_DEFAULT);
+     Py_END_ALLOW_THREADS
+     if (status != OCI_NO_DATA) {
+         if (Environment_CheckForError(self->environment, status,
+diff -ur ./ExternalLobVar.c ../cx_Oracle-5.2-patched/ExternalLobVar.c
+--- ./ExternalLobVar.c	2015-06-15 20:16:14.000000000 -0400
++++ ../cx_Oracle-5.2-patched/ExternalLobVar.c	2015-10-14 12:05:01.000000000 -0400
+@@ -275,10 +275,9 @@
+         else amount = 1;
+     }
+     length = amount;
+-    if (var->lobVar->type == &vt_CLOB)
++    if ((var->lobVar->type == &vt_CLOB) || (var->lobVar->type == &vt_NCLOB))
++        // Always use environment setting for character LOBs
+         bufferSize = amount * var->lobVar->environment->maxBytesPerCharacter;
+-    else if (var->lobVar->type == &vt_NCLOB)
+-        bufferSize = amount * 2;
+     else bufferSize = amount;
+
+     // create a string for retrieving the value

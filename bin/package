@@ -110,15 +110,8 @@ main () {
   py_virtualenv="${destination}/virtualenv";
       py_bindir="${py_virtualenv}/bin";
     py_ve_tools="${dev_home}/ve_tools";
-
-  if [ ! -d "${py_virtualenv}" ]; then
-    bootstrap_virtualenv;
-    "${bootstrap_python}" -m virtualenv  \
-      --always-copy                      \
-      --system-site-packages             \
-      --no-setuptools                    \
-      "${py_virtualenv}";
-  fi;
+  virtualenv_opts="--always-copy";
+    
 
   c_dependencies;
   py_dependencies;

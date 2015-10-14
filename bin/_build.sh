@@ -93,6 +93,7 @@ init_build () {
   conditional_set do_setup "true";
   conditional_set force_setup "false";
   conditional_set requirements "${wd}/requirements-dev.txt"
+  conditional_set virtualenv_opts "";
 
       dev_home="${wd}/.develop";
      dev_roots="${dev_home}/roots";
@@ -112,6 +113,9 @@ init_build () {
   fi;
 
   project="$(setup_print name)" || project="<unknown>";
+
+  dev_patches="${dev_home}/patches";
+  patches="${wd}/lib-patches";
 
   # Find some hashing commands
   # sha1() = sha1 hash, if available
@@ -168,6 +172,34 @@ print(setup.${what})
 EOF
 }
 
+
+# Apply patches from lib-patches to the given dependency codebase.
+apply_patches () {
+  local name="$1"; shift;
+  local path="$1"; shift;
+
+  if [ -d "${patches}/${name}" ]; then
+    echo "";
+    echo "Applying patches to ${name} in ${path}...";
+
+    cd "${path}";
+    find "${patches}/${name}"                  \
+        -type f                                \
+        -name '*.patch'                        \
+        -print                                 \
+        -exec patch -p0 --forward -i '{}' ';';
+    cd /;
+
+  fi;
+
+  echo "";
+  if [ -e "${path}/setup.py" ]; then
+    echo "Removing build directory ${path}/build...";
+    rm -rf "${path}/build";
+    echo "Removing pyc files from ${path}...";
+    find "${path}" -type f -name '*.pyc' -print0 | xargs -0 rm -f;
+  fi;
+}
 
 # If do_get is turned on, get an archive file containing a dependency via HTTP.
 www_get () {
@@ -315,6 +347,7 @@ www_get () {
     rm -rf "${path}";
     cd "$(dirname "${path}")";
     get | ${decompress} | ${unpack};
+    apply_patches "${name}" "${path}";
     cd "${wd}";
   fi;
 }
@@ -566,6 +599,26 @@ c_dependencies () {
 
 }
 
+#
+# Special cx_Oracle patch handling
+#
+cx_Oracle_patch() {
+
+  local f_hash="-m 6a49e1aa0e5b48589f8edfe5884ff5a5";
+  local v="5.2";
+  local n="cx_Oracle";
+  local p="${n}-${v}";
+
+  mkdir -p "${dev_patches}";
+
+  local srcdir="${dev_patches}/${p}";
+
+  www_get ${f_hash} "${n}" "${srcdir}" "https://pypi.python.org/packages/source/c/${n}/${p}.tar.gz";
+  cd "${dev_patches}";
+  tar zcf "${p}.tar.gz" "${p}";
+  cd "${wd}";
+  rm -rf "${srcdir}";
+}
 
 #
 # Build Python dependencies
@@ -603,6 +656,7 @@ py_dependencies () {
     "${bootstrap_python}" -m virtualenv  \
       --system-site-packages             \
       --no-setuptools                    \
+      ${virtualenv_opts}                 \
       "${py_virtualenv}";
   fi;
 
@@ -622,11 +676,16 @@ py_dependencies () {
   echo "";
   "${pip_install}" --requirement="${requirements}";
 
-  for option in $("${bootstrap_python}" -c 'import setup; print "\n".join(setup.extras_requirements.keys())'); do
-    ruler "Preparing Python requirements for optional feature: ${option}";
+  for extra in $("${bootstrap_python}" -c 'import setup; print "\n".join(setup.extras_requirements.keys())'); do
+    ruler "Preparing Python requirements for optional feature: ${extra}";
     echo "";
-    if ! "${pip_install}" --editable="${wd}[${option}]"; then
-      echo "Feature ${option} is optional; continuing.";
+
+    if [ "${extra}" = "Oracle" ]; then
+      cx_Oracle_patch;
+    fi;
+
+    if ! "${pip_install}" --editable="${wd}[${extra}]"; then
+      echo "Feature ${extra} is optional; continuing.";
     fi;
   done;
 
@@ -690,6 +749,7 @@ pip_install_from_cache () {
     --pre --allow-all-external               \
     --no-index                               \
     --no-cache-dir                           \
+    --find-links="${dev_patches}"            \
     --find-links="${dev_home}/pip_downloads" \
     --log-file="${dev_home}/pip.log"         \
     "$@";
@@ -701,6 +761,7 @@ pip_download_and_install () {
     --disable-pip-version-check              \
     --pre --allow-all-external               \
     --no-cache-dir                           \
+    --find-links="${dev_patches}"            \
     --log-file="${dev_home}/pip.log"         \
     "$@";
 }
