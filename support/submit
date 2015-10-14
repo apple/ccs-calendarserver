@@ -195,7 +195,7 @@ if "${build}"; then
 
   release_flags="";
   for release in "${releases}"; do
-    release_flags="${release_flags} -release ${release}";
+    release_flags="${release_flags} -update Prevailing${release}";
   done;
   
   if "${build_no_verify_source}"; then
