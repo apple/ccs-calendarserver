@@ -22,6 +22,7 @@ from __future__ import with_statement
 
 from cStringIO import StringIO
 import os
+import re
 
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -46,6 +47,9 @@ from txdav.common.datastore.sql_tables import schema
 
 
 log = Logger()
+
+
+EMBEDDED_HEADER_CHECK = re.compile(r'\n[^ \t]+:')
 
 
 """ SCHEMA:
@@ -489,6 +493,16 @@ class MailSender(object):
             returnValue(False)
 
 
+    def _scrubHeader(self, value):
+        """
+        Check for what would be considered "embedded headers" and, if present,
+        remove the newlines.
+        """
+        if EMBEDDED_HEADER_CHECK.search(value) is not None:
+            value = value.replace("\n", " ")
+        return value
+
+
     def generateEmail(self, inviteState, calendar, orgEmail, orgCN,
                       attendees, fromAddress, replyToAddress, toAddress,
                       language='en'):
@@ -556,9 +570,9 @@ class MailSender(object):
 
         msg = MIMEMultipart()
         msg["From"] = fromAddress
-        msg["Subject"] = details['subject']
-        msg["Reply-To"] = replyToAddress
-        msg["To"] = toAddress
+        msg["Subject"] = self._scrubHeader(details['subject'])
+        msg["Reply-To"] = self._scrubHeader(replyToAddress)
+        msg["To"] = self._scrubHeader(toAddress)
         msg["Date"] = rfc822date()
         msgId = SMTPSender.betterMessageID()
         msg["Message-ID"] = msgId

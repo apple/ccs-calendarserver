@@ -56,7 +56,7 @@ ATTENDEE;EMAIL=nocn@example.com;PARTSTAT=ACCEPTED:urn:uuid:A592CF8B-4FC8-4E4
  F-B543-B2F29A7EEB0B
 ORGANIZER;CN=Th\xe9 Organizer;EMAIL=organizer@example.com:urn:uuid:C3B38B00-
  4166-11DD-B22C-A07C87E02F6A
-SUMMARY:t\xe9sting outbound( )
+SUMMARY:testing outbound( )\\nEmbedded: Header
 DESCRIPTION:awesome description with "<" and "&"
 END:VEVENT
 END:VCALENDAR
@@ -386,6 +386,7 @@ class OutboundTests(unittest.TestCase):
                 u"Th\xe9 Organizer <organizer@example.com>",
                 "=?utf-8?q?Th=C3=A9_Organizer_=3Corganizer=40example=2Ecom=3E?=",
                 "attendee@example.com",
+                "Event invitation: testing outbound( ) Embedded: Header",
             ),
 
             # Update
@@ -420,6 +421,7 @@ END:VCALENDAR
                 u"Th\xe9 Organizer <organizer@example.com>",
                 "=?utf-8?q?Th=C3=A9_Organizer_=3Corganizer=40example=2Ecom=3E?=",
                 "attendee@example.com",
+                "=?utf-8?q?Event_update=3A_t=C3=A9sting_outbound=28_=29_*update*?=",
             ),
 
             # Reply
@@ -451,13 +453,14 @@ END:VCALENDAR
                 "attendee@example.com",
                 "attendee@example.com",
                 "organizer@example.com",
+                "=?utf-8?q?Event_reply=3A_t=C3=A9sting_outbound=28_=29_*reply*?=",
             ),
 
         )
         for (
             inputCalendar, UID, inputOriginator, inputRecipient, inviteState,
             outputOrganizerEmail, outputOrganizerName, outputAttendeeList,
-            outputFrom, encodedFrom, outputRecipient
+            outputFrom, encodedFrom, outputRecipient, outputSubject
         ) in data:
 
             txn = self.store.newTransaction()
@@ -478,6 +481,7 @@ END:VCALENDAR
             self.assertEquals(self.attendees, outputAttendeeList)
             self.assertEquals(self.fromAddress, outputFrom)
             self.assertEquals(self.toAddress, outputRecipient)
+            self.assertEquals(msg["Subject"], outputSubject)
 
             if UID: # The organizer is local, and server is sending to remote
                     # attendee
@@ -822,6 +826,11 @@ END:VCALENDAR
                           ['<test><alpha beta="before hello after">'
                            'inner</alpha>world</test>'])
 
+
+    def test_scrubHeader(self):
+
+        self.assertEquals(self.sender._scrubHeader("ABC"), "ABC")
+        self.assertEquals(self.sender._scrubHeader("ABC: 123\nXYZ: 456"), "ABC: 123 XYZ: 456")
 
 
 def partByType(message, contentType):
