@@ -16,25 +16,50 @@
 
 from twext.web2 import responsecode
 
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.trial import unittest
 
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component
 
-from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser
+from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser, \
+    LocalCalendarUser
 from txdav.caldav.datastore.scheduling.imip.delivery import ScheduleViaIMip
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
 from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
+from txdav.caldav.datastore.scheduling.imip.outbound import IMIPInvitationWork
+from txdav.common.datastore.test.util import CommonCommonTests
+from txdav.caldav.datastore.test.util import buildCalendarStore
 
-class iMIPProcessing (unittest.TestCase):
+class iMIPProcessing (CommonCommonTests, unittest.TestCase):
     """
     iCalendar support tests
     """
 
+    @inlineCallbacks
+    def setUp(self):
+        yield super(iMIPProcessing, self).setUp()
+        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
+
+        self.wp = None
+        self._sqlCalendarStore.queuer.callWithNewProposals(self._proposalCallback)
+
+
+    def _proposalCallback(self, wp):
+        self.wp = wp
+
+
+    def storeUnderTest(self):
+        """
+        Create and return a L{CalendarStore} for testing.
+        """
+        return self._sqlCalendarStore
+
+
     class FakeSchedule(object):
 
-        def __init__(self, calendar):
+        def __init__(self, originator, calendar):
+            self.originator = originator
             self.calendar = calendar
 
 
@@ -56,7 +81,10 @@ END:VFREEBUSY
 END:VCALENDAR
 """
 
-        scheduler = iMIPProcessing.FakeSchedule(Component.fromString(data))
+        scheduler = iMIPProcessing.FakeSchedule(
+            LocalCalendarUser("mailto:user1@example.com", None),
+            Component.fromString(data)
+        )
         recipients = (RemoteCalendarUser("mailto:user1@example.com"),)
         responses = ScheduleResponseQueue("REQUEST", responsecode.OK)
 
@@ -65,6 +93,51 @@ END:VCALENDAR
 
         self.assertEqual(len(responses.responses), 1)
         self.assertEqual(str(responses.responses[0].children[1]), iTIPRequestStatus.SERVICE_UNAVAILABLE)
+
+
+    @inlineCallbacks
+    def test_iMIP_delivery(self):
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+METHOD:REQUEST
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.org
+END:VEVENT
+END:VCALENDAR
+"""
+
+        results = []
+        class FakeSender(object):
+            def outbound(self, txn, fromAddr, toAddr, calendar):
+                results.append((fromAddr, toAddr))
+                return succeed(None)
+        self.patch(IMIPInvitationWork, "mailSender", FakeSender())
+
+        scheduler = iMIPProcessing.FakeSchedule(
+            LocalCalendarUser("mailto:user1@example.com", None),
+            Component.fromString(data)
+        )
+        scheduler.txn = self.transactionUnderTest()
+        recipients = (RemoteCalendarUser("mailto:user2@example.org"),)
+        responses = ScheduleResponseQueue("REQUEST", responsecode.OK)
+
+        delivery = ScheduleViaIMip(scheduler, recipients, responses, False)
+        yield delivery.generateSchedulingResponses()
+
+        self.assertEqual(len(responses.responses), 1)
+        self.assertEqual(str(responses.responses[0].children[1]), iTIPRequestStatus.MESSAGE_SENT)
+
+        yield self.wp.whenExecuted()
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0], ("mailto:user1@example.com", "mailto:user2@example.org",))
 
 
     @inlineCallbacks

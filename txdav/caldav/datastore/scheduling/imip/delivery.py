@@ -103,19 +103,20 @@ class ScheduleViaIMip(DeliveryService):
                     log.debug("Submitting iMIP message...  To: '%s', From :'%s'\n%s" % (toAddr, fromAddr, caldata,))
 
                     def enqueueOp(txn):
-                        return txn.enqueue(IMIPInvitationWork, fromAddr=fromAddr,
-                            toAddr=toAddr, icalendarText=caldata)
+                        return txn.enqueue(
+                            IMIPInvitationWork, fromAddr=fromAddr,
+                            toAddr=toAddr, icalendarText=caldata
+                        )
 
                     yield inTransaction(
-                        lambda: self.scheduler.txn.store().newTransaction(
-                            "Submitting iMIP message for UID: %s" % (
-                            self.scheduler.calendar.resourceUID(),)),
-                        enqueueOp
+                        self.scheduler.txn.store().newTransaction,
+                        enqueueOp,
+                        label="Submitting iMIP message for UID: %s" % (self.scheduler.calendar.resourceUID(),)
                     )
 
                 except Exception, e:
                     # Generated failed response for this recipient
-                    log.debug("iMIP request %s failed for recipient %s: %s" % (self, recipient, e))
+                    log.error("iMIP request %s failed for recipient %s: %s" % (self, recipient, e))
                     failForRecipient(recipient)
 
                 else:
@@ -127,6 +128,6 @@ class ScheduleViaIMip(DeliveryService):
 
         except Exception, e:
             # Generated failed responses for each recipient
-            log.debug("iMIP request %s failed: %s" % (self, e))
+            log.error("iMIP request %s failed: %s" % (self, e))
             for recipient in self.recipients:
                 failForRecipient(recipient)
