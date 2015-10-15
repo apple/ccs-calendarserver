@@ -817,6 +817,11 @@ END:VCALENDAR
                            'inner</alpha>world</test>'])
 
 
+    def test_scrubHeader(self):
+
+        self.assertEquals(self.sender._scrubHeader("ABC"), "ABC")
+        self.assertEquals(self.sender._scrubHeader("ABC: 123\nXYZ: 456"), "ABC: 123 XYZ: 456")
+
 
 def partByType(message, contentType):
     """
