@@ -175,6 +175,28 @@ def scheduleNextMailPoll(store, seconds):
     yield txn.commit()
 
 
+def sanitizeCalendar(calendar):
+    """
+    Clean up specific issues seen in the wild from third party IMIP capable
+    servers.
+
+    @param calendar: the calendar Component to sanitize
+    @type calendar: L{Component}
+    """
+    # Don't let a missing PRODID prevent the reply from being processed
+    if not calendar.hasProperty("PRODID"):
+        calendar.addProperty(
+            Property(
+                "PRODID", "Unknown"
+            )
+        )
+
+    # For METHOD:REPLY we can remove STATUS properties
+    methodProperty = calendar.getProperty("METHOD")
+    if methodProperty is not None:
+        if methodProperty.value() == "REPLY":
+            calendar.removeAllPropertiesWithName("STATUS")
+
 
 class MailReceiver(object):
 
@@ -356,6 +378,8 @@ class MailReceiver(object):
         log.debug(calBody)
         calendar = Component.fromString(calBody)
         event = calendar.mainComponent()
+
+        sanitizeCalendar(calendar)
 
         calendar.removeAllButOneAttendee(attendee)
         organizerProperty = calendar.getOrganizerProperty()

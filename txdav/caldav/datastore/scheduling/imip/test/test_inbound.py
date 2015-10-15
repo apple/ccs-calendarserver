@@ -27,6 +27,7 @@ from txdav.caldav.datastore.scheduling.imip.inbound import MailRetriever
 from txdav.caldav.datastore.scheduling.imip.inbound import injectMessage
 from txdav.caldav.datastore.scheduling.imip.inbound import shouldDeleteAllMail
 from txdav.caldav.datastore.scheduling.imip.inbound import IMAP4DownloadProtocol
+from txdav.caldav.datastore.scheduling.imip.inbound import sanitizeCalendar
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
 from txdav.caldav.datastore.test.util import buildCalendarStore
 
@@ -470,6 +471,35 @@ END:VCALENDAR
         self.assertTrue(result is None)
         result = yield imap4.cbGotMessage(missingKey, [])
         self.assertTrue(result is None)
+
+
+
+    def test_sanitizeCalendar(self):
+        """
+        Verify certain inbound third party mistakes are corrected.
+        """
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890
+DTSTAMP:20130208T120000Z
+DTSTART:20180601T120000Z
+DTEND:20180601T130000Z
+ORGANIZER:urn:x-uid:user01
+ATTENDEE:mailto:xyzzy@example.com;PARTSTAT=ACCEPTED
+STATUS:ACCEPTED
+END:VEVENT
+END:VCALENDAR
+"""
+        calendar = Component.fromString(data)
+        self.assertFalse(calendar.hasProperty("PRODID"))
+        self.assertTrue(calendar.masterComponent().hasProperty("STATUS"))
+        sanitizeCalendar(calendar)
+        self.assertTrue(calendar.hasProperty("PRODID"))
+        self.assertFalse(calendar.masterComponent().hasProperty("STATUS"))
+
 
 
 
