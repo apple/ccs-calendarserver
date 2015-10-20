@@ -207,6 +207,8 @@ def sanitizeCalendar(calendar):
     # For METHOD:REPLY we can remove STATUS properties
     methodProperty = calendar.getProperty("METHOD")
     if methodProperty is not None:
+        # Uppercase any METHOD properties
+        methodProperty.setValue(methodProperty.value().upper())
         if methodProperty.value() == "REPLY":
             calendar.removeAllPropertiesWithName("STATUS")
 

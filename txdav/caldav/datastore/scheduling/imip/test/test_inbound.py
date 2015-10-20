@@ -492,7 +492,7 @@ END:VCALENDAR
 
         data = """BEGIN:VCALENDAR
 VERSION:2.0
-METHOD:REPLY
+METHOD:Reply
 BEGIN:VEVENT
 UID:12345-67890
 DTSTAMP:20130208T120000Z
@@ -508,7 +508,11 @@ END:VCALENDAR
         calendar = Component.fromString(data)
         self.assertFalse(calendar.hasProperty("PRODID"))
         self.assertTrue(calendar.masterComponent().hasProperty("STATUS"))
+        prop = calendar.getProperty("METHOD")
+        self.assertEquals(prop.value(), "Reply")
         sanitizeCalendar(calendar)
+        prop = calendar.getProperty("METHOD")
+        self.assertEquals(prop.value(), "REPLY")
         self.assertTrue(calendar.hasProperty("PRODID"))
         self.assertFalse(calendar.masterComponent().hasProperty("STATUS"))
 
