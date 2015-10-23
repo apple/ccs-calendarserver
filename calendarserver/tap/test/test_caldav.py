@@ -597,6 +597,7 @@ class SlaveServiceTests(CalDAVServiceMakerTestBase):
         pemFile = os.path.join(sourceRoot, "twistedcaldav/test/data/server.pem")
         config.SSLPrivateKey = pemFile
         config.SSLCertificate = pemFile
+        config.SSLKeychainIdentity = "org.calendarserver.test"
         config.EnableSSL = True
 
 
@@ -716,6 +717,7 @@ class NoHTTPTests(CalDAVServiceMakerTestBase):
         pemFile = os.path.join(sourceRoot, "twistedcaldav/test/data/server.pem")
         config.SSLPrivateKey = pemFile
         config.SSLCertificate = pemFile
+        config.SSLKeychainIdentity = "org.calendarserver.test"
         config.EnableSSL = True
 
 
@@ -768,6 +770,7 @@ class MultipleBindAddressesTests(CalDAVServiceMakerTestBase):
         pemFile = os.path.join(sourceRoot, "twistedcaldav/test/data/server.pem")
         config.SSLPrivateKey = pemFile
         config.SSLCertificate = pemFile
+        config.SSLKeychainIdentity = "org.calendarserver.test"
         config.EnableSSL = True
         config.BindAddresses = [
             "127.0.0.1",
@@ -822,6 +825,7 @@ class ListenBacklogTests(CalDAVServiceMakerTestBase):
         pemFile = os.path.join(sourceRoot, "twistedcaldav/test/data/server.pem")
         config.SSLPrivateKey = pemFile
         config.SSLCertificate = pemFile
+        config.SSLKeychainIdentity = "org.calendarserver.test"
         config.EnableSSL = True
         config.BindAddresses = [
             "127.0.0.1",

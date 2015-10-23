@@ -59,6 +59,7 @@ class ConfigurationPageElement(PageElement):
             "SSLCertificate",
             "SSLPrivateKey",
             "SSLAuthorityChain",
+            "SSLKeychainIdentity",
             "SSLMethod",
             "SSLCiphers",
             "EnableCalDAV",

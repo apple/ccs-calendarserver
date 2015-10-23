@@ -49,6 +49,7 @@ class ApplePushNotifierServiceTests(StoreTestCase):
                 "PrivateKeyPath" : "caldav.pem",
                 "AuthorityChainPath" : "chain.pem",
                 "Passphrase" : "",
+                "KeychainIdentity": "org.calendarserver.test",
                 "Topic" : "caldav_topic",
             },
             "CardDAV" : {
@@ -56,6 +57,7 @@ class ApplePushNotifierServiceTests(StoreTestCase):
                 "PrivateKeyPath" : "carddav.pem",
                 "AuthorityChainPath" : "chain.pem",
                 "Passphrase" : "",
+                "KeychainIdentity": "org.calendarserver.test",
                 "Topic" : "carddav_topic",
             },
         }

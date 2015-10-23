@@ -246,6 +246,7 @@ class PreFlightChecksTestCase(TestCase):
             ConfigDict(
                 {
                     "SSLCertificate": "missing",
+                    "SSLKeychainIdentity": "missing",
                 }
             )
         )
@@ -259,6 +260,7 @@ class PreFlightChecksTestCase(TestCase):
             ConfigDict(
                 {
                     "SSLCertificate": certFilePath.path,
+                    "SSLKeychainIdentity": "missing",
                 }
             )
         )
@@ -278,6 +280,7 @@ class PreFlightChecksTestCase(TestCase):
                     "SSLAuthorityChain": "",
                     "SSLMethod": "SSLv3_METHOD",
                     "SSLCiphers": "ALL:!aNULL:!ADH:!eNULL:!LOW:!EXP:RC4+RSA:+HIGH:+MEDIUM",
+                    "SSLKeychainIdentity": "missing",
                 }
             )
         )

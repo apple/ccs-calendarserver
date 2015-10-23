@@ -18,6 +18,7 @@ from twisted.protocols import loopback
 from twisted.python import util, runtime
 from txweb2.channel.http import SSLRedirectRequest, HTTPFactory, HTTPChannel
 from twisted.internet.task import deferLater
+from twext.internet.ssl import ChainingOpenSSLContextFactory
 
 
 class RedirectResponseTestCase(unittest.TestCase):
@@ -1362,7 +1363,10 @@ class SSLServerTest(unittest.TestCase, AbstractServerTestMixin):
     type = 'ssl'
     def setUp(self):
         HTTPChannel.allowPersistentConnections = True
-        sCTX = ssl.DefaultOpenSSLContextFactory(certPath, certPath)
+        sCTX = ChainingOpenSSLContextFactory(
+            certPath, certPath,
+            keychainIdentity="org.calendarserver.test",
+        )
         factory = SimpleFactory(requestFactory=SimpleRequest)
 
         factory.testcase = self

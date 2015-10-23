@@ -79,6 +79,7 @@ WRITABLE_CONFIG_KEYS = [
     "SSLCertificate",
     "SSLPort",
     "SSLPrivateKey",
+    "SSLKeychainIdentity",
 ]
 
 READONLY_CONFIG_KEYS = [
