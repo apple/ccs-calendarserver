@@ -353,16 +353,8 @@
         SSL/TLS
       -->
 
-    <!-- Public key -->
-    <key>SSLCertificate</key>
-    <string></string>
-
-    <!-- SSL authority chain (for intermediate certs) -->
-    <key>SSLAuthorityChain</key>
-    <string></string>
-
-    <!-- Private key -->
-    <key>SSLPrivateKey</key>
+    <!-- Keychain identity to use instead of cert files -->
+    <key>SSLKeychainIdentity</key>
     <string></string>
 
 

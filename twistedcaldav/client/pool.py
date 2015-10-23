@@ -424,8 +424,9 @@ def _configuredClientContextFactory():
     """
     from twistedcaldav.config import config
     return ChainingOpenSSLContextFactory(
-        config.SSLPrivateKey, config.SSLCertificate,
-        certificateChainFile=config.SSLAuthorityChain,
+        "", "",
+        certificateChainFile="",
+        keychainIdentity="",
         sslmethod=getattr(OpenSSL.SSL, config.SSLMethod)
     )
 

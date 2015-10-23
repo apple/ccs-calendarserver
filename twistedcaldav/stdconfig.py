@@ -464,11 +464,12 @@ DEFAULT_CONFIG = {
     #
     # SSL/TLS
     #
-    "SSLCertificate"     : "", # Public key
-    "SSLPrivateKey"      : "", # Private key
-    "SSLAuthorityChain"  : "", # Certificate Authority Chain
-    "SSLPassPhraseDialog": "/etc/apache2/getsslpassphrase",
-    "SSLCertAdmin"       : "/Applications/Server.app/Contents/ServerRoot/usr/sbin/certadmin",
+    "SSLCertificate"      : "", # Public key
+    "SSLPrivateKey"       : "", # Private key
+    "SSLAuthorityChain"   : "", # Certificate Authority Chain
+    "SSLPassPhraseDialog" : "/etc/apache2/getsslpassphrase",
+    "SSLCertAdmin"        : "/Applications/Server.app/Contents/ServerRoot/usr/sbin/certadmin",
+    "SSLKeychainIdentity" : "", # Keychain identity to use in place of cert files
 
     #
     # Process management
@@ -843,6 +844,7 @@ DEFAULT_CONFIG = {
                     "PrivateKeyPath" : "Certificates/apns:com.apple.calendar.key.pem",
                     "AuthorityChainPath" : "Certificates/apns:com.apple.calendar.chain.pem",
                     "Passphrase" : "",
+                    "KeychainIdentity" : "apns:com.apple.calendar",
                     "Topic" : "",
                 },
                 "CardDAV" : {
@@ -850,6 +852,7 @@ DEFAULT_CONFIG = {
                     "PrivateKeyPath" : "Certificates/apns:com.apple.contact.key.pem",
                     "AuthorityChainPath" : "Certificates/apns:com.apple.contact.chain.pem",
                     "Passphrase" : "",
+                    "KeychainIdentity" : "apns:com.apple.contact",
                     "Topic" : "",
                 },
             },
@@ -1731,9 +1734,10 @@ def _updateScheduling(configDict, reloading=False):
                         service[direction].Username,
                         service[direction].Server
                     )
-                    password = getPasswordFromKeychain(account)
-                    service[direction]["Password"] = password
-                    log.info("iMIP %s password successfully retreived from keychain" % (direction,))
+                    if not service[direction]["Password"]:
+                        password = getPasswordFromKeychain(account)
+                        service[direction]["Password"] = password
+                        log.info("iMIP %s password successfully retrieved from keychain" % (direction,))
                 except KeychainAccessError:
                     # The system doesn't support keychain
                     pass

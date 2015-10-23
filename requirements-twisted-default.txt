@@ -1,0 +1,29 @@
+##
+# Twisted dependency for non-OS X systems (uses pyOpenSSL).
+##
+
+
+Twisted==15.2.1
+    #zope.interface
+
+    # NOTE: Twisted also uses pyOpenSSL, pycrypto and service_identity,
+    #   but doesn't specify them as dependencies, so that are explicitly
+    #   added to calendarserver.
+    #pyOpenSSL
+    service_identity==14.0.0
+        characteristic==14.3.0
+        pyasn1==0.1.7
+        pyasn1-modules==0.0.5
+        #pyOpenSSL
+    pycrypto==2.6.1
+
+    pyOpenSSL==0.14
+        cryptography==0.9
+        	idna
+            #pyasn1
+            #cffi
+            enum34==1.0.4
+            ipaddress
+            setuptools==17.0
+            #six
+        six==1.9.0

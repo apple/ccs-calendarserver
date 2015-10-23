@@ -1,0 +1,14 @@
+##
+# Twisted dependency for OS X systems (uses pySecureTransport).
+##
+
+Twisted==15.2.1
+    #zope.interface
+    pycrypto==2.6.1
+
+    --editable svn+http://svn.calendarserver.org/repository/calendarserver/OSXFrameworks/trunk@15215#egg=osxframeworks
+        cffi==1.3.0
+            pycparser==2.13
+
+    --editable svn+http://svn.calendarserver.org/repository/calendarserver/PySecureTransport/trunk@15213#egg=pysecuretransport
+

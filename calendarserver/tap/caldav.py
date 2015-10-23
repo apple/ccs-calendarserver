@@ -835,6 +835,7 @@ class CalDAVServiceMaker (object):
             config.SSLCertificate,
             certificateChainFile=config.SSLAuthorityChain,
             passwdCallback=getSSLPassphrase,
+            keychainIdentity=config.SSLKeychainIdentity,
             sslmethod=getattr(OpenSSL.SSL, config.SSLMethod),
             ciphers=config.SSLCiphers.strip(),
             verifyClient=config.Authentication.ClientCertificate.Enabled,

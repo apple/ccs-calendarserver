@@ -18,13 +18,13 @@
 
 from __future__ import print_function
 
-import os
 from os.path import dirname, basename, abspath, join as joinpath, normpath
-import subprocess
-
-import errno
 from setuptools import setup, find_packages as setuptools_find_packages
 from xml.etree import ElementTree
+import errno
+import os
+import subprocess
+import sys
 
 base_version = "8.0"
 
@@ -326,8 +326,6 @@ install_requirements = [
     "twextpy",
 
     # Security frameworks
-    "pyOpenSSL>=0.14",    # also for Twisted
-    "service_identity",   # for Twisted
     "pycrypto",           # for Twisted
     "kerberos",
 
@@ -345,6 +343,17 @@ install_requirements = [
     "psutil",
     "setproctitle",
 ]
+
+if sys.platform == "darwin":
+    install_requirements.extend([
+        "OSXFrameworks",
+        "pySecureTransport",
+    ])
+else:
+    install_requirements.extend([
+        "pyOpenSSL>=0.14",    # also for Twisted
+        "service_identity",   # for Twisted
+    ])
 
 extras_requirements = {
     "LDAP": ["twextpy[LDAP]"],

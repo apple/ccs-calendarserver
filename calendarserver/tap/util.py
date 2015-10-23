@@ -33,7 +33,7 @@ from calendarserver.accesslog import DirectoryLogWrapperResource
 from calendarserver.provision.root import RootResource
 from calendarserver.push.applepush import APNSubscriptionResource
 from calendarserver.push.notifier import NotifierFactory
-from calendarserver.push.util import getAPNTopicFromCertificate
+from calendarserver.push.util import getAPNTopicFromCertificate, getAPNTopicFromIdentity
 from calendarserver.tools import diagnose
 from calendarserver.tools.util import checkDirectory
 from calendarserver.webadmin.landing import WebAdminLandingResource
@@ -1301,7 +1301,18 @@ def verifyTLSCertificate(config):
     and that it's valid.
     """
 
-    if config.SSLCertificate:
+    if hasattr(OpenSSL, "__SecureTransport__"):
+        if config.SSLKeychainIdentity:
+            # Fall through to see if we can load the identity from the keychain
+            certificate_title = "Keychain: {}".format(config.SSLKeychainIdentity)
+        else:
+            message = (
+                "No Keychain Identity was set for TLS"
+            )
+            postAlert("MissingKeychainIdentityAlert", [])
+            return False, message
+
+    elif config.SSLCertificate:
         if not os.path.exists(config.SSLCertificate):
             message = (
                 "The configured TLS certificate ({cert}) is missing".format(
@@ -1310,17 +1321,18 @@ def verifyTLSCertificate(config):
             )
             postAlert("MissingCertificateAlert", ["path", config.SSLCertificate])
             return False, message
+
+        length = os.stat(config.SSLCertificate).st_size
+        if length == 0:
+                message = (
+                    "The configured TLS certificate ({cert}) is empty".format(
+                        cert=config.SSLCertificate
+                    )
+                )
+                return False, message
+        certificate_title = config.SSLCertificate
     else:
         return True, "TLS disabled"
-
-    length = os.stat(config.SSLCertificate).st_size
-    if length == 0:
-            message = (
-                "The configured TLS certificate ({cert}) is empty".format(
-                    cert=config.SSLCertificate
-                )
-            )
-            return False, message
 
     try:
         ChainingOpenSSLContextFactory(
@@ -1328,16 +1340,25 @@ def verifyTLSCertificate(config):
             config.SSLCertificate,
             certificateChainFile=config.SSLAuthorityChain,
             passwdCallback=getSSLPassphrase,
+            keychainIdentity=config.SSLKeychainIdentity,
             sslmethod=getattr(OpenSSL.SSL, config.SSLMethod),
             ciphers=config.SSLCiphers.strip()
         )
     except Exception as e:
-        message = (
-            "The configured TLS certificate ({cert}) cannot be used: {reason}".format(
-                cert=config.SSLCertificate,
-                reason=str(e)
+        if hasattr(OpenSSL, "__SecureTransport__"):
+            message = (
+                "The configured TLS Keychain Identity ({cert}) cannot be used: {reason}".format(
+                    cert=certificate_title,
+                    reason=str(e)
+                )
             )
-        )
+        else:
+            message = (
+                "The configured TLS certificate ({cert}) cannot be used: {reason}".format(
+                    cert=certificate_title,
+                    reason=str(e)
+                )
+            )
         return False, message
 
     return True, "TLS enabled"
@@ -1358,38 +1379,61 @@ def verifyAPNSCertificate(config):
             protoConfig = config.Notifications.Services.APNS[protocol]
 
             # Verify the cert exists
-            if not os.path.exists(protoConfig.CertificatePath):
-                message = (
-                    "The {proto} APNS certificate ({cert}) is missing".format(
-                        proto=protocol,
-                        cert=protoConfig.CertificatePath
+            if hasattr(OpenSSL, "__SecureTransport__"):
+                if protoConfig.KeychainIdentity:
+                    # Verify we can extract the topic
+                    if not protoConfig.Topic:
+                        topic = getAPNTopicFromIdentity(protoConfig.KeychainIdentity)
+                        protoConfig.Topic = topic
+                    if not protoConfig.Topic:
+                        postAlert("PushNotificationKeychainIdentityAlert", [])
+                        message = "Cannot extract APN topic"
+                        return False, message
+
+                    # Fall through to see if we can load the identity from the keychain
+                    certificate_title = "Keychain: {}".format(protoConfig.KeychainIdentity)
+                else:
+                    message = (
+                        "No {proto} APNS Keychain Identity was set".format(
+                            proto=protocol,
+                        )
                     )
-                )
-                postAlert("PushNotificationCertificateAlert", [])
-                return False, message
-
-            # Verify we can extract the topic
-            if not protoConfig.Topic:
-                topic = getAPNTopicFromCertificate(protoConfig.CertificatePath)
-                protoConfig.Topic = topic
-            if not protoConfig.Topic:
-                postAlert("PushNotificationCertificateAlert", [])
-                message = "Cannot extract APN topic"
-                return False, message
-
-            # Verify we can acquire the passphrase
-            if not protoConfig.Passphrase:
-                try:
-                    passphrase = getPasswordFromKeychain(accountName)
-                    protoConfig.Passphrase = passphrase
-                except KeychainAccessError:
-                    # The system doesn't support keychain
-                    pass
-                except KeychainPasswordNotFound:
-                    # The password doesn't exist in the keychain.
-                    postAlert("PushNotificationCertificateAlert", [])
-                    message = "Cannot retrieve APN passphrase from keychain"
+                    postAlert("MissingKeychainIdentityAlert", [])
                     return False, message
+
+            else:
+                if not os.path.exists(protoConfig.CertificatePath):
+                    message = (
+                        "The {proto} APNS certificate ({cert}) is missing".format(
+                            proto=protocol,
+                            cert=protoConfig.CertificatePath
+                        )
+                    )
+                    postAlert("PushNotificationCertificateAlert", [])
+                    return False, message
+
+                # Verify we can extract the topic
+                if not protoConfig.Topic:
+                    topic = getAPNTopicFromCertificate(protoConfig.CertificatePath)
+                    protoConfig.Topic = topic
+                if not protoConfig.Topic:
+                    postAlert("PushNotificationCertificateAlert", [])
+                    message = "Cannot extract APN topic"
+                    return False, message
+
+                # Verify we can acquire the passphrase
+                if not protoConfig.Passphrase:
+                    try:
+                        passphrase = getPasswordFromKeychain(accountName)
+                        protoConfig.Passphrase = passphrase
+                    except KeychainAccessError:
+                        # The system doesn't support keychain
+                        pass
+                    except KeychainPasswordNotFound:
+                        # The password doesn't exist in the keychain.
+                        postAlert("PushNotificationCertificateAlert", [])
+                        message = "Cannot retrieve APN passphrase from keychain"
+                        return False, message
 
             # Let OpenSSL try to use the cert
             try:
@@ -1403,16 +1447,26 @@ def verifyAPNSCertificate(config):
                     protoConfig.CertificatePath,
                     certificateChainFile=protoConfig.AuthorityChainPath,
                     passwdCallback=passwdCallback,
+                    keychainIdentity=protoConfig.KeychainIdentity,
                     sslmethod=getattr(OpenSSL.SSL, "TLSv1_METHOD"),
                 )
             except Exception as e:
-                message = (
-                    "The {proto} APNS certificate ({cert}) cannot be used: {reason}".format(
-                        proto=protocol,
-                        cert=protoConfig.CertificatePath,
-                        reason=str(e)
+                if hasattr(OpenSSL, "__SecureTransport__"):
+                    message = (
+                        "The {proto} APNS Keychain Identity ({cert}) cannot be used: {reason}".format(
+                            proto=protocol,
+                            cert=certificate_title,
+                            reason=str(e)
+                        )
                     )
-                )
+                else:
+                    message = (
+                        "The {proto} APNS certificate ({cert}) cannot be used: {reason}".format(
+                            proto=protocol,
+                            cert=certificate_title,
+                            reason=str(e)
+                        )
+                    )
                 postAlert("PushNotificationCertificateAlert", [])
                 return False, message
 

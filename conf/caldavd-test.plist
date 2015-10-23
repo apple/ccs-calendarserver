@@ -573,6 +573,10 @@
     <key>SSLPrivateKey</key>
     <string>twistedcaldav/test/data/server.pem</string>
 
+    <!-- Keychain identity to use instead of cert files -->
+    <key>SSLKeychainIdentity</key>
+    <string>org.calendarserver.test</string>
+
 
     <!--
         Process management

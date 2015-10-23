@@ -1,0 +1,7 @@
+##
+# Set of dependencies for OS X systems.
+##
+
+--requirement requirements-cs.txt
+--requirement requirements-twisted-osx.txt
+--requirement requirements-dev.txt

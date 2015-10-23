@@ -41,7 +41,34 @@ def getAPNTopicFromCertificate(certPath):
     @return: C{str} topic, or empty string if value is not found
     """
     certData = open(certPath).read()
-    x509 = crypto.load_certificate(crypto.FILETYPE_PEM, certData)
+    return getAPNTopicFromX509(crypto.load_certificate(crypto.FILETYPE_PEM, certData))
+
+
+
+def getAPNTopicFromIdentity(identity):
+    """
+    Given a keychain identity certificate, extract the UID value portion of the
+    subject, which in this context is used for the associated APN topic.
+
+    @param identity: keychain identity to lookup
+    @type identity: C{str}
+
+    @return: C{str} topic, or empty string if value is not found
+    """
+    return getAPNTopicFromX509(crypto.load_certificate(None, identity))
+
+
+
+def getAPNTopicFromX509(x509):
+    """
+    Given an L{X509} certificate, extract the UID value portion of the
+    subject, which in this context is used for the associated APN topic.
+
+    @param x509: the certificate
+    @type x509: L{X509}
+
+    @return: C{str} topic, or empty string if value is not found
+    """
     subject = x509.get_subject()
     components = subject.get_components()
     for name, value in components:

@@ -1,6 +1,3 @@
-# Get master requirements
---requirement requirements-stable.txt
-
 # Additional dependencies for development and testing
 pyflakes
 docutils

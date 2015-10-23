@@ -124,6 +124,7 @@ class ApplePushNotifierService(service.MultiService):
                     settings[protocol]["PrivateKeyPath"],
                     chainPath=settings[protocol]["AuthorityChainPath"],
                     passphrase=settings[protocol]["Passphrase"],
+                    keychainIdentity=settings[protocol]["KeychainIdentity"],
                     staggerNotifications=settings["EnableStaggering"],
                     staggerSeconds=settings["StaggerSeconds"],
                     testConnector=providerTestConnector,
@@ -144,6 +145,7 @@ class ApplePushNotifierService(service.MultiService):
                     settings[protocol]["PrivateKeyPath"],
                     chainPath=settings[protocol]["AuthorityChainPath"],
                     passphrase=settings[protocol]["Passphrase"],
+                    keychainIdentity=settings[protocol]["KeychainIdentity"],
                     testConnector=feedbackTestConnector,
                     reactor=reactor,
                 )
@@ -511,7 +513,7 @@ class APNConnectionService(service.Service):
 
     def __init__(
         self, host, port, certPath, keyPath, chainPath="",
-        passphrase="", sslMethod="TLSv1_METHOD", testConnector=None,
+        passphrase="", keychainIdentity="", sslMethod="TLSv1_METHOD", testConnector=None,
         reactor=None
     ):
 
@@ -521,6 +523,7 @@ class APNConnectionService(service.Service):
         self.keyPath = keyPath
         self.chainPath = chainPath
         self.passphrase = passphrase
+        self.keychainIdentity = keychainIdentity
         self.sslMethod = sslMethod
         self.testConnector = testConnector
 
@@ -543,6 +546,7 @@ class APNConnectionService(service.Service):
                 self.certPath,
                 certificateChainFile=self.chainPath,
                 passwdCallback=passwdCallback,
+                keychainIdentity=self.keychainIdentity,
                 sslmethod=getattr(OpenSSL.SSL, self.sslMethod)
             )
             connect(GAIEndpoint(self.reactor, self.host, self.port, context),
@@ -554,14 +558,15 @@ class APNProviderService(APNConnectionService):
 
     def __init__(
         self, store, host, port, certPath, keyPath, chainPath="",
-        passphrase="", sslMethod="TLSv1_METHOD",
+        passphrase="", keychainIdentity="", sslMethod="TLSv1_METHOD",
         staggerNotifications=False, staggerSeconds=3,
         testConnector=None, reactor=None
     ):
 
         APNConnectionService.__init__(
             self, host, port, certPath, keyPath,
-            chainPath=chainPath, passphrase=passphrase, sslMethod=sslMethod,
+            chainPath=chainPath, passphrase=passphrase,
+            keychainIdentity=keychainIdentity, sslMethod=sslMethod,
             testConnector=testConnector, reactor=reactor)
 
         self.store = store
@@ -775,13 +780,15 @@ class APNFeedbackService(APNConnectionService):
 
     def __init__(
         self, store, updateSeconds, host, port,
-        certPath, keyPath, chainPath="", passphrase="", sslMethod="TLSv1_METHOD",
+        certPath, keyPath, chainPath="",
+        passphrase="", keychainIdentity="", sslMethod="TLSv1_METHOD",
         testConnector=None, reactor=None
     ):
 
         APNConnectionService.__init__(
             self, host, port, certPath, keyPath,
-            chainPath=chainPath, passphrase=passphrase, sslMethod=sslMethod,
+            chainPath=chainPath, passphrase=passphrase,
+            keychainIdentity=keychainIdentity, sslMethod=sslMethod,
             testConnector=testConnector, reactor=reactor)
 
         self.store = store

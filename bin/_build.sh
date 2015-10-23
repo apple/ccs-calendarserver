@@ -92,7 +92,6 @@ init_build () {
   conditional_set do_get "true";
   conditional_set do_setup "true";
   conditional_set force_setup "false";
-  conditional_set requirements "${wd}/requirements-dev.txt"
   conditional_set virtualenv_opts "";
 
       dev_home="${wd}/.develop";
@@ -159,6 +158,19 @@ init_build () {
   else
     hash () { echo "INTERNAL ERROR: No hash function."; exit 1; }
   fi;
+
+  default_requirements="${wd}/requirements-default.txt";
+  use_openssl="true"
+  if [ -z "${USE_OPENSSL-}" ]; then
+    case "$(uname -s)" in
+      Darwin)
+        default_requirements="${wd}/requirements-osx.txt";
+	    use_openssl="false"
+        ;;
+    esac;
+  fi;  
+  conditional_set requirements "${default_requirements}"
+  
 }
 
 
@@ -475,27 +487,29 @@ c_dependencies () {
 
   # The OpenSSL version number is special. Our strategy is to get the integer
   # value of OPENSSL_VERSION_NUBMER for use in inequality comparison.
-  ruler;
+  if [ ${use_openssl} == "true" ]; then
+    ruler;
 
-  local min_ssl_version="9470463";  # OpenSSL 0.9.8zf
+    local min_ssl_version="9470463";  # OpenSSL 0.9.8zf
 
-  local ssl_version="$(c_macro openssl/ssl.h OPENSSL_VERSION_NUMBER)";
-  if [ -z "${ssl_version}" ]; then ssl_version="0x0"; fi;
-  ssl_version="$("${bootstrap_python}" -c "print ${ssl_version}")";
+    local ssl_version="$(c_macro openssl/ssl.h OPENSSL_VERSION_NUMBER)";
+    if [ -z "${ssl_version}" ]; then ssl_version="0x0"; fi;
+    ssl_version="$("${bootstrap_python}" -c "print ${ssl_version}")";
 
-  if [ "${ssl_version}" -ge "${min_ssl_version}" ]; then
-    using_system "OpenSSL";
-  else
-    local v="0.9.8zf";
-    local n="openssl";
-    local p="${n}-${v}";
+    if [ "${ssl_version}" -ge "${min_ssl_version}" ]; then
+      using_system "OpenSSL";
+    else
+      local v="0.9.8zf";
+      local n="openssl";
+      local p="${n}-${v}";
 
-    # use 'config' instead of 'configure'; 'make' instead of 'jmake'.
-    # also pass 'shared' to config to build shared libs.
-    c_dependency -c "config" -m "c69a4a679233f7df189e1ad6659511ec" \
-      -p "make depend" -b "make" \
-      "openssl" "${p}" \
-      "http://www.openssl.org/source/${p}.tar.gz" "shared";
+      # use 'config' instead of 'configure'; 'make' instead of 'jmake'.
+      # also pass 'shared' to config to build shared libs.
+      c_dependency -c "config" -m "c69a4a679233f7df189e1ad6659511ec" \
+        -p "make depend" -b "make" \
+        "openssl" "${p}" \
+        "http://www.openssl.org/source/${p}.tar.gz" "shared";
+    fi;
   fi;
 
 
@@ -688,6 +702,13 @@ py_dependencies () {
       echo "Feature ${extra} is optional; continuing.";
     fi;
   done;
+
+  ruler "Patching Python requirements";
+  echo "";
+  if [ ! -e "${dev_patches}/Twisted" ]; then
+  	apply_patches "Twisted" "${py_virtualenv}/lib/python2.7/site-packages"
+  	touch "${dev_patches}/Twisted";
+  fi;
 
   echo "";
 }

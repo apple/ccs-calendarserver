@@ -1,0 +1,31 @@
+Index: twisted/internet/_sslverify.py
+===================================================================
+--- twisted/internet/_sslverify.py	(revision 45115)
++++ twisted/internet/_sslverify.py	(working copy)
+@@ -162,7 +162,9 @@
+ 
+     major, minor = list(int(part) for part in lib.__version__.split("."))[:2]
+ 
+-    if (major, minor) >= (0, 12):
++    if hasattr(lib, "__SecureTransport__"):
++        pass
++    elif (major, minor) >= (0, 12):
+         try:
+             from service_identity import VerificationError
+             from service_identity.pyopenssl import verify_hostname
+
+Index: twisted/protocols/tls.py
+===================================================================
+--- twisted/protocols/tls.py	(revision 45115)
++++ twisted/protocols/tls.py	(working copy)
+@@ -660,7 +660,9 @@
+         @rtype: L{OpenSSL.SSL.Connection}
+         """
+         context = self._oldStyleContextFactory.getContext()
+-        return Connection(context, None)
++        connection = Connection(context, None)
++        connection.set_app_data(protocol)
++        return connection
+ 
+ 
+     def serverConnectionForTLS(self, protocol):
