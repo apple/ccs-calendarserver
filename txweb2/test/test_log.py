@@ -52,8 +52,10 @@ class TestLogging(BaseCase):
 
         self.root = SetDateWrapperResource(LogWrapperResource(self.resrc))
 
+
     def tearDown(self):
         removeObserver(self.blo.emit)
+
 
     def assertLogged(self, **expected):
         """
