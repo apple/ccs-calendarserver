@@ -1306,33 +1306,29 @@ def verifyTLSCertificate(config):
             # Fall through to see if we can load the identity from the keychain
             certificate_title = "Keychain: {}".format(config.SSLKeychainIdentity)
         else:
-            message = (
-                "No Keychain Identity was set for TLS"
-            )
-            postAlert("MissingKeychainIdentityAlert", [])
-            return False, message
-
-    elif config.SSLCertificate:
-        if not os.path.exists(config.SSLCertificate):
-            message = (
-                "The configured TLS certificate ({cert}) is missing".format(
-                    cert=config.SSLCertificate
-                )
-            )
-            postAlert("MissingCertificateAlert", ["path", config.SSLCertificate])
-            return False, message
-
-        length = os.stat(config.SSLCertificate).st_size
-        if length == 0:
+            return True, "TLS disabled"
+    else:
+        if config.SSLCertificate:
+            if not os.path.exists(config.SSLCertificate):
                 message = (
-                    "The configured TLS certificate ({cert}) is empty".format(
+                    "The configured TLS certificate ({cert}) is missing".format(
                         cert=config.SSLCertificate
                     )
                 )
+                postAlert("MissingCertificateAlert", ["path", config.SSLCertificate])
                 return False, message
-        certificate_title = config.SSLCertificate
-    else:
-        return True, "TLS disabled"
+
+            length = os.stat(config.SSLCertificate).st_size
+            if length == 0:
+                    message = (
+                        "The configured TLS certificate ({cert}) is empty".format(
+                            cert=config.SSLCertificate
+                        )
+                    )
+                    return False, message
+            certificate_title = config.SSLCertificate
+        else:
+            return True, "TLS disabled"
 
     try:
         ChainingOpenSSLContextFactory(
