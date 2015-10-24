@@ -1305,6 +1305,16 @@ def verifyTLSCertificate(config):
         if config.SSLKeychainIdentity:
             # Fall through to see if we can load the identity from the keychain
             certificate_title = "Keychain: {}".format(config.SSLKeychainIdentity)
+
+            error = OpenSSL.crypto.check_keychain_identity(config.SSLKeychainIdentity)
+            if error:
+                message = (
+                    "The configured TLS Keychain Identity ({cert}) cannot be used: {reason}".format(
+                        cert=certificate_title,
+                        reason=error
+                    )
+                )
+                return False, message
         else:
             return True, "TLS disabled"
     else:
@@ -1388,6 +1398,17 @@ def verifyAPNSCertificate(config):
 
                     # Fall through to see if we can load the identity from the keychain
                     certificate_title = "Keychain: {}".format(protoConfig.KeychainIdentity)
+
+                    error = OpenSSL.crypto.check_keychain_identity(protoConfig.KeychainIdentity)
+                    if error:
+                        message = (
+                            "The {proto} APNS Keychain Identity ({cert}) cannot be used: {reason}".format(
+                                proto=protocol,
+                                cert=certificate_title,
+                                reason=error
+                            )
+                        )
+                        return False, message
                 else:
                     message = (
                         "No {proto} APNS Keychain Identity was set".format(
