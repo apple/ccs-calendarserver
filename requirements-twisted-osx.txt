@@ -6,7 +6,7 @@ Twisted==15.2.1
     #zope.interface
     pycrypto==2.6.1
 
-    --editable svn+http://svn.calendarserver.org/repository/calendarserver/OSXFrameworks/trunk@15234#egg=osxframeworks
+    --editable svn+http://svn.calendarserver.org/repository/calendarserver/OSXFrameworks/trunk@15236#egg=osxframeworks
         cffi==1.1.0
             pycparser==2.13
 
