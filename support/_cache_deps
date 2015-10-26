@@ -77,10 +77,13 @@ py_ve_tools="${ve_tmp}/ve_tools";
 export PYTHONPATH="${py_ve_tools}/lib:${wd}:${PYTHONPATH:-}";
 bootstrap_virtualenv;
 
-reqs_to_use="${ve_tmp}/requirements.txt";
+reqs_to_use="${ve_tmp}/requirements-osx.txt";
 
-sed -e '/python-ldap/d' < "${requirements}" > "${reqs_to_use}";
-echo "xattr==0.7.5" >> "${reqs_to_use}";
+# Copy over each requirements file we need and edit a few to remove stuff we don't need
+sed -e '/requirements-dev.txt/d' < "${wd}/requirements-osx.txt" > "${ve_tmp}/requirements-osx.txt";
+sed -e '/python-ldap/d' < "${wd}/requirements-cs.txt" > "${ve_tmp}/requirements-cs.txt";
+echo "xattr==0.7.5" >> "${ve_tmp}/requirements-cs.txt";
+cp "${wd}/requirements-twisted-osx.txt" "${ve_tmp}/";
 
 ruler "Downloading Python requirements for .[${extra_features}]";
 echo "";
