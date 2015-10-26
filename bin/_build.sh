@@ -165,7 +165,7 @@ init_build () {
     case "$(uname -s)" in
       Darwin)
         default_requirements="${wd}/requirements-osx.txt";
-	    use_openssl="false"
+        use_openssl="false"
         ;;
     esac;
   fi;  
@@ -706,8 +706,8 @@ py_dependencies () {
   ruler "Patching Python requirements";
   echo "";
   if [ ! -e "${dev_patches}/Twisted" ]; then
-  	apply_patches "Twisted" "${py_virtualenv}/lib/python2.7/site-packages"
-  	touch "${dev_patches}/Twisted";
+    apply_patches "Twisted" "${py_virtualenv}/lib/python2.7/site-packages"
+    touch "${dev_patches}/Twisted";
   fi;
 
   echo "";

@@ -70,10 +70,22 @@ find .develop/virtualenv/src -mindepth 1 -maxdepth 1 -type d | {
 
     ln -s "../${source}" "${target}";
 
-	# NO! This causes bin/develop to hang the second time it is run
+    # NO! This causes bin/develop to hang the second time it is run
     #rm -f "${target}/.develop";
     #ln -s "${wd}/.develop" "${target}/.develop";
   done;
 }
+
+#
+# Do keychain init on OS X
+#
+if [ -z "${USE_OPENSSL-}" ]; then
+  case "$(uname -s)" in
+    Darwin)
+      echo "Keychain init."
+      bin/python bin/keychain_init.py
+      ;;
+  esac;
+fi;  
 
 echo "Dependency setup complete."
