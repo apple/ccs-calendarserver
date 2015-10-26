@@ -8,7 +8,7 @@
 	    setuptools==17.0
 
     --editable svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@15216#egg=twextpy
-        #cffi==1.3.0
+        #cffi==1.1.0
         #    pycparser==2.13
         #twisted
 
