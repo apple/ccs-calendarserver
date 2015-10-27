@@ -45,6 +45,7 @@ CALDAVDSUBDIR = /caldavd
 
 PYTHON = $(USRBINDIR)/python2.7
 CS_VIRTUALENV = $(SIPP)$(NSLOCALDIR)$(NSLIBRARYSUBDIR)/CalendarServer
+CS_SITEPACKAGES = $(CS_VIRTUALENV)/lib/python2.7/site-packages
 
 CS_USER  = _calendar
 CS_GROUP = _calendar
@@ -142,6 +143,11 @@ install-python:: build
 	              --log=$(OBJROOT)/pip.log                                \
 	              --ignore-installed                                      \
 	              Twisted;
+	@echo "Patching Twisted..."
+	$(_v) $(Environment)                                                  \
+	          /usr/bin/patch -p0 --forward                                \
+	              -d "$(DSTROOT)$(CS_SITEPACKAGES)"                       \
+	              -i "$(Sources)/lib-patches/Twisted/securetransport.patch";
 
 	@echo "Installing CalendarServer and remaining dependencies...";
 	$(_v) $(Environment)                                                  \
