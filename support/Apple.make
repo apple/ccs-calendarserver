@@ -38,6 +38,7 @@ SERVERSETUP = $(SIPP)$(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/ServerSetup
 
 # Cruft += .develop
 Extra_Environment += PATH="$(SIPP)/usr/bin:$$PATH"
+Extra_Environment += C_INCLUDE_PATH="$(Sources)/.develop/roots/c_glue/include:$$C_INCLUDE_PATH"
 # Extra_Environment += PYTHONPATH="$(CS_PY_LIBS)"
 
 CALDAVDSUBDIR = /caldavd
