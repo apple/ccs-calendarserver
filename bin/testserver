@@ -96,6 +96,7 @@ develop > /dev/null;
 # Set up sandbox
 
 sandboxdir="/tmp/cdt_server_sandbox💣"
+sandboxdirutf8="/tmp/cdt_server_sandbox\ud83d\udca3"
 
 if [ -d "${sandboxdir}" ]; then
   rm -rf "${sandboxdir}"
@@ -103,6 +104,9 @@ fi;
 
 configdir="${sandboxdir}/Config"
 datadir="${sandboxdir}/Data"
+
+configdirutf8="${sandboxdirutf8}/Config"
+datadirutf8="${sandboxdirutf8}/Data"
 
 mkdir -p "${configdir}/Config" "${sandboxdir}/Logs" "${sandboxdir}/Run" "${datadir}/Documents"
 
@@ -114,7 +118,7 @@ cp conf/auth/accounts-test.xml "${datadir}/accounts-cdt.xml"
 
 # Modify the plist
 
-python -c "import plistlib; f=plistlib.readPlist('${configdir}/caldavd-cdt.plist'); f['EnableTrashCollection'] = True; f['HTTPPort'] = 18008; f['BindHTTPPorts'] = [18008]; f['SSLPort'] = 18443; f['BindSSLPorts'] = [18443]; f['Notifications']['Services']['AMP']['Port'] = 62312; f['ServerRoot'] = u'/tmp/cdt_server_sandbox\ud83d\udca3'; f['ConfigRoot'] = 'Config'; f['RunRoot'] = 'Run'; f['ProxyLoadFromFile'] = u'/tmp/cdt_server_sandbox\ud83d\udca3/Data/proxies-cdt.xml'; f['ResourceService']['params']['xmlFile'] = u'/tmp/cdt_server_sandbox\ud83d\udca3/Data/resources-cdt.xml'; f['DirectoryService']['params']['xmlFile'] = u'/tmp/cdt_server_sandbox\ud83d\udca3/Data/accounts-cdt.xml'; f['AugmentService']['params']['xmlFiles'] = [u'/tmp/cdt_server_sandbox\ud83d\udca3/Data/augments-cdt.xml']; f['Authentication']['Kerberos']['Enabled'] = False; plistlib.writePlist(f, '${configdir}/caldavd-cdt.plist');"
+python -c "import plistlib; f=plistlib.readPlist('${configdir}/caldavd-cdt.plist'); f['EnableTrashCollection'] = True; f['HTTPPort'] = 18008; f['BindHTTPPorts'] = [18008]; f['SSLPort'] = 18443; f['BindSSLPorts'] = [18443]; f['Notifications']['Services']['AMP']['Port'] = 62312; f['ServerRoot'] = '${sandboxdirutf8}'; f['ConfigRoot'] = 'Config'; f['RunRoot'] = 'Run'; f['ProxyLoadFromFile'] = '${datadirutf8}/proxies-cdt.xml'; f['ResourceService']['params']['xmlFile'] = '${datadirutf8}/resources-cdt.xml'; f['DirectoryService']['params']['xmlFile'] = '${datadirutf8}/accounts-cdt.xml'; f['AugmentService']['params']['xmlFiles'] = ['${datadirutf8}/augments-cdt.xml']; f['Authentication']['Kerberos']['Enabled'] = False; plistlib.writePlist(f, '${configdir}/caldavd-cdt.plist');"
 
 # Modify serverinfo to update ports
 
