@@ -577,9 +577,15 @@ c_dependencies () {
     local n="libevent";
     local p="${n}-${v}";
 
+	local configure_openssl="--enable-openssl=yes";
+    if [ ${use_openssl} == "false" ]; then
+	  local configure_openssl="--enable-openssl=no";
+	fi;
+
     c_dependency -m "b2405cc9ebf264aa47ff615d9de527a2" \
       "libevent" "${p}" \
-      "http://github.com/downloads/libevent/libevent/${p}.tar.gz";
+      "http://github.com/downloads/libevent/libevent/${p}.tar.gz" \
+      ${configure_openssl};
 
     local v="1.4.20";
     local n="memcached";
