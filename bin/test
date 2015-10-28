@@ -106,6 +106,16 @@ echo "";
 find "${wd}" -name \*.pyc -print0 | xargs -0 rm;
 
 
+#
+# Do keychain unlock on OS X
+#
+if [ -z "${USE_OPENSSL-}" ]; then
+  case "$(uname -s)" in
+    Darwin)
+      bin/python bin/keychain_unlock.py
+      ;;
+  esac;
+fi;  
 
 #
 # Unit tests

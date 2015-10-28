@@ -159,6 +159,18 @@ run () {
       caldavd_wrapper_command="";
     #fi;
 
+    #
+    # Do keychain unlock on OS X
+    #
+    if [ -z "${USE_OPENSSL-}" ]; then
+      case "$(uname -s)" in
+        Darwin)
+          bin/python bin/keychain_unlock.py
+          ;;
+      esac;
+    fi;  
+
+
     echo "";
     echo "Starting server...";
     export PYTHON="${python}";
