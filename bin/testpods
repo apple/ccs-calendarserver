@@ -92,7 +92,7 @@ develop > /dev/null;
 
 # Set up sandbox
 
-sandboxdir="/tmp/cdt_server_sandbox"
+sandboxdir="/tmp/cdt_server_sandbox💣"
 
 if [ -d "${sandboxdir}" ]; then
   rm -rf "${sandboxdir}"
