@@ -38,7 +38,7 @@ serverinfo="${cdt}/scripts/server/serverinfo-pod.xml";
     subdir="";
     random="--random";
       seed="";
-       ssl="";
+       ssl="--ssl";
   cdtdebug="";
 
 usage ()
@@ -54,7 +54,7 @@ usage ()
   echo "        -t  Set the CalDAVTester directory";
   echo "        -x  Random seed to use.";
   echo "        -v  Verbose.";
-  echo "        -z  Use SSL.";
+  echo "        -z  Do not use SSL.";
   echo "        -D  Turn on CalDAVTester debugging";
 
   if [ "${1-}" = "-" ]; then return 0; fi;
@@ -72,7 +72,7 @@ while getopts 'Dhvrozt:s:d:x:' option; do
     'v') verbose="v"; ;;
     'o') random=""; ;;
     'x') seed="--random-seed ${OPTARG}"; ;;
-    'z') ssl="--ssl"; ;;
+    'z') ssl=""; ;;
     'D') cdtdebug="--debug"; ;;
   esac;
 done;
