@@ -6,17 +6,13 @@
 		<project>CalDAVClientLibrary</project>
 		<project>cffi</project>
 		<project>cx_Oracle</project>
-		<project>kerberos</project>
 		<project>pg8000</project>
 		<project>psutil</project>
 		<project>pycalendar</project>
 		<project>pycparser</project>
 		<project>pycrypto</project>
-		<project>pyOpenSSL</project>
-		<project>service_identity</project>
+		<project>PyKerberos</project>
 		<project>twextpy</project>
-		<project>Twisted</project>
-		<project>zope.interface-4.0.3</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>
