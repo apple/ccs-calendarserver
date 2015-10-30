@@ -358,10 +358,11 @@ else:
 extras_requirements = {
     "LDAP": ["twextpy[LDAP]"],
     "OpenDirectory": ["twextpy[OpenDirectory]"],
-    "Oracle": ["twextpy[Oracle]", "cx_Oracle"],
     "Postgres": ["twextpy[Postgres]", "pg8000"],
 }
 
+if "ORACLE_HOME" in os.environ:
+    extras_requirements["Oracle"] = ["twextpy[Oracle]", "cx_Oracle"]
 
 
 #
