@@ -629,8 +629,6 @@ cx_Oracle_patch() {
   local n="cx_Oracle";
   local p="${n}-${v}";
 
-  mkdir -p "${dev_patches}";
-
   local srcdir="${dev_patches}/${p}";
 
   www_get ${f_hash} "${n}" "${srcdir}" "https://pypi.python.org/packages/source/c/${n}/${p}.tar.gz";
@@ -651,6 +649,7 @@ py_dependencies () {
   export PYTHON="${python}";
   export PYTHONPATH="${py_ve_tools}/lib:${wd}:${PYTHONPATH:-}";
 
+  mkdir -p "${dev_patches}";
 
   # Work around a change in Xcode tools that breaks Python modules in OS X
   # 10.9.2 and prior due to a hard error if the -mno-fused-madd is used, as
