@@ -4,20 +4,20 @@
 
 --editable .  # calendarserver
 
-    zope.interface==4.1.2
-	    setuptools==17.0
+    zope.interface==4.1.3
+	    setuptools==18.5
 
     --editable svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@15263#egg=twextpy
-        cffi==1.1.0
-            pycparser==2.13
+        cffi==1.3.0
+            pycparser==2.14
         #twisted
 
         # [LDAP] extra
-            python-ldap==2.4.19
+            python-ldap==2.4.22
                 #setuptools
 
         # [DAL] extra
-              sqlparse==0.1.14  # Compat issue in 0.1.15; fix before updating
+              sqlparse==0.1.18
 
         # [OpenDirectory] extra
             #pyobjc-framework-OpenDirectory  # Use system module
@@ -31,10 +31,10 @@
     --editable svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk@15140#egg=kerberos
 
     --editable svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk@15020#egg=pycalendar
-    python-dateutil==1.5  # Note: v2.0+ is for Python 3
-    pytz==2015.4
+    python-dateutil==2.4.2
+    pytz==2015.7
 
-    psutil==2.2.1
-    setproctitle==1.1.8
+    psutil==3.2.2
+    setproctitle==1.1.9
     # xattr==0.7.5  # Only needed for upgrades from ancient versions.  Added in _cache_deps.
         #cffi
