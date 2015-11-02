@@ -22,7 +22,7 @@ Common utility functions for a file based datastore.
 
 from zope.interface.declarations import implements
 
-from twisted.python import hashlib
+import hashlib
 
 from twext.python.log import Logger
 from twext.enterprise.ienterprise import AlreadyFinishedError

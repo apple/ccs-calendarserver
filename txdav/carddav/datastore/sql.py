@@ -38,7 +38,6 @@ from txweb2.http_headers import MimeType
 from txweb2.responsecode import FORBIDDEN
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
-from twisted.python import hashlib
 
 from twistedcaldav.config import config
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError, Property, \
@@ -68,6 +67,8 @@ from txdav.xml import element
 from txdav.xml.parser import WebDAVDocument
 
 from zope.interface.declarations import implements
+
+import hashlib
 
 
 class AddressBookHome(CommonHome):

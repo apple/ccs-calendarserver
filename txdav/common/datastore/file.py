@@ -30,7 +30,6 @@ from txweb2.dav.resource import TwistedGETContentMD5, \
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.python.util import FancyEqMixin
-from twisted.python import hashlib
 from twisted.python.failure import Failure
 
 from twistedcaldav import customxml
@@ -60,6 +59,7 @@ from txdav.base.propertystore.xattr import PropertyStore as XattrPropertyStore
 from errno import EEXIST, ENOENT
 from zope.interface import implements, directlyProvides
 
+import hashlib
 import json
 import uuid
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix

@@ -24,7 +24,6 @@ from txweb2.http import HTTPError
 from txweb2.responsecode import FORBIDDEN
 
 from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
-from twisted.python import hashlib
 
 from twistedcaldav.vcard import Component as VComponent
 
@@ -41,6 +40,8 @@ from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError
 from txdav.idav import IPropertyStore, IDataStore
 from txdav.xml.element import WebDAVUnknownElement
 from calendarserver.push.util import PushPriority
+
+import hashlib
 
 
 storePath = FilePath(__file__).parent().child("addressbook_store")

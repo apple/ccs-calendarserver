@@ -33,7 +33,6 @@ from txdav.xml.rfc2518 import GETContentType
 from txweb2.dav.resource import TwistedGETContentMD5
 from txweb2.http_headers import MimeType
 
-from twisted.python import hashlib
 
 from twistedcaldav.vcard import Component as VComponent, InvalidVCardDataError
 from txdav.carddav.datastore.index_file import AddressBookIndex as OldIndex
@@ -52,6 +51,8 @@ from txdav.base.propertystore.base import PropertyName
 from twistedcaldav import customxml, carddavxml
 
 from zope.interface import implements
+
+import hashlib
 
 contentTypeKey = PropertyName.fromElement(GETContentType)
 md5key = PropertyName.fromElement(TwistedGETContentMD5)

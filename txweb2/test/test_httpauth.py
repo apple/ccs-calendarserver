@@ -1,7 +1,6 @@
 # Copyright (c) 2006-2009 Twisted Matrix Laboratories.
 # See LICENSE for details.
 
-from twisted.python.hashlib import md5
 from twisted.internet import address
 from twisted.trial import unittest
 from twisted.cred import error
@@ -13,6 +12,7 @@ from txweb2.test.test_server import SimpleRequest
 from txweb2.test import test_server
 
 import base64
+from hashlib import md5
 
 _trivial_GET = SimpleRequest(None, 'GET', '/')
 

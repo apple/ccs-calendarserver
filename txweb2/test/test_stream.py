@@ -5,6 +5,7 @@
 Tests for the stream implementations in L{txweb2}.
 """
 
+from hashlib import md5
 import os
 import sys
 import tempfile
@@ -13,7 +14,6 @@ from zope.interface import implements
 
 from twisted.python.util import sibpath
 sibpath # sibpath is *not* unused - the doctests use it.
-from twisted.python.hashlib import md5
 from twisted.internet import reactor, defer, interfaces
 from twisted.trial import unittest
 from txweb2 import stream

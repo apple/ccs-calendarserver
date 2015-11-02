@@ -41,7 +41,6 @@ from txweb2.http_headers import MimeType
 from txweb2.stream import readStream
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
-from twisted.python import hashlib
 from twisted.python.failure import Failure
 
 from twistedcaldav import customxml, ical
@@ -114,6 +113,7 @@ from zope.interface.declarations import implements
 from urlparse import urlparse, urlunparse
 import collections
 import datetime
+import hashlib
 import itertools
 import urllib
 import uuid
