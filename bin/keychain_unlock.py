@@ -25,7 +25,8 @@ def isKeychainUnlocked():
 
     child = Popen(
         args=[
-            "/usr/bin/security", "show-keychain-info",
+            "/usr/bin/security",
+            "show-keychain-info",
             "login.keychain",
         ],
         stdout=PIPE, stderr=STDOUT,
@@ -50,13 +51,11 @@ def unlockKeychain():
 
     child = Popen(
         args=[
-            "/usr/bin/security", "unlock-keychain",
-            "-p", password,
-            "login.keychain",
+            "/usr/bin/security", "-i",
         ],
-        stdout=PIPE, stderr=STDOUT,
+        stdin=PIPE, stdout=PIPE, stderr=STDOUT,
     )
-    output, error = child.communicate()
+    output, error = child.communicate("unlock-keychain -p {} login.keychain\n".format(password))
 
     if child.returncode:
         print("Could not unlock login.keychain: {}".format(error if error else output))
