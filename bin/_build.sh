@@ -593,7 +593,8 @@ c_dependencies () {
 
     c_dependency -s "32a798a37ef782da10a09d74aa1e5be91f2861db" \
       "memcached" "${p}" \
-      "http://www.memcached.org/files/${p}.tar.gz";
+      "http://www.memcached.org/files/${p}.tar.gz" \
+      "--disable-docs";
   fi;
 
 
