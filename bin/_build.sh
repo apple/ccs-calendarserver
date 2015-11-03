@@ -587,7 +587,7 @@ c_dependencies () {
       "http://github.com/downloads/libevent/libevent/${p}.tar.gz" \
       ${configure_openssl};
 
-    local v="24";
+    local v="1.4.24";
     local n="memcached";
     local p="${n}-${v}";
 
