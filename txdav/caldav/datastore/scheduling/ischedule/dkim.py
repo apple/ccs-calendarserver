@@ -494,7 +494,9 @@ class DKIMRequest(ClientRequest):
     def generateSignature(self, headers):
         # Sign the hash
         if self.key_file not in self.keys:
-            self.keys[self.key_file] = RSA.importKey(open(self.key_file).read())
+            with open(self.key_file) as f:
+                key = f.read()
+            self.keys[self.key_file] = RSA.importKey(key)
         return DKIMUtils.sign(headers, self.keys[self.key_file], self.hash_func)
 
 

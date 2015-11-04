@@ -167,9 +167,8 @@ class Event(object):
         """
         path = self.serializePath()
         if path and os.path.exists(path):
-            f = open(path)
-            comp = Component.fromString(f.read())
-            f.close()
+            with open(path) as f:
+                comp = Component.fromString(f.read())
             return comp
         else:
             return None
@@ -185,9 +184,8 @@ class Event(object):
             if component is None:
                 os.remove(path)
             else:
-                f = open(path, "w")
-                f.write(str(component))
-                f.close()
+                with open(path, "w") as f:
+                    f.write(str(component))
         self.uid = component.resourceUID() if component is not None else None
 
 
@@ -1332,7 +1330,8 @@ class BaseAppleClient(BaseClient):
         }
 
         # Write JSON data
-        json.dump(data, open(os.path.join(path, "index.json"), "w"), indent=2)
+        with open(os.path.join(path, "index.json"), "w") as f:
+            json.dump(data, f, indent=2)
 
 
     def deserialize(self):
@@ -1349,7 +1348,8 @@ class BaseAppleClient(BaseClient):
 
         # Parse JSON data for calendars
         try:
-            data = json.load(open(os.path.join(path, "index.json")))
+            with open(os.path.join(path, "index.json")) as f:
+                data = json.load(f)
         except IOError:
             return
 

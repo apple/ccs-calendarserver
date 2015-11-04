@@ -743,7 +743,7 @@ class CalendarDirectoryRecordMixin(object):
                 params["EMAIL"] = list(self.emailAddresses)[0].encode("utf-8")
         if "CUTYPE" not in params:
             cuType = self.getCUType()
-            if cuType is not "INDIVIDUAL":
+            if cuType != "INDIVIDUAL":
                 params["CUTYPE"] = cuType
 
         return Property("ATTENDEE", self.canonicalCalendarUserAddress().encode("utf-8"), params=params)

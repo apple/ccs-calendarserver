@@ -131,11 +131,8 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
         # If we don't have a cached template, load it up.
         #
         if not hasattr(self, cacheAttr):
-            templateFile = open(templateFileName)
-            try:
+            with open(templateFileName) as templateFile:
                 htmlContent = templateFile.read()
-            finally:
-                templateFile.close()
 
             if debug:
                 # Don't cache
@@ -199,6 +196,19 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
         return response
 
 
+
+try:
+    from osx.utils import CFTimeZoneRef
+
+    def lookupSystemTimezone():
+        try:
+            return CFTimeZoneRef.defaultTimeZoneName()
+        except:
+            return ""
+
+except ImportError:
+    def lookupSystemTimezone():
+        return ""
 
 try:
     from Foundation import NSTimeZone

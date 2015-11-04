@@ -31,7 +31,8 @@ http://www.faqs.org/rfcs/rfc2617.html
 
 from zope.interface import implements
 
-from twisted.python.hashlib import md5, sha1
+from hashlib import md5, sha1
+
 from twisted.cred import credentials
 
 # FIXME: Technically speaking - although you can't tell from looking at them -

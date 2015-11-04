@@ -45,7 +45,8 @@ class MinimalCalendarObjectReplacement(object):
 
 
     def iCalendar(self):
-        text = self.fp.open().read()
+        with self.fp.open() as f:
+            text = f.read()
         try:
             component = Component.fromString(text)
             # Fix any bogus data we can
@@ -66,8 +67,18 @@ class MinimalResourceReplacement(object):
     by L{Index}.
     """
 
+    class MinimalTxn(object):
+
+        def postCommit(self, _ignore):
+            pass
+
+        def postAbort(self, _ignore):
+            pass
+
+
     def __init__(self, filePath):
         self.fp = filePath
+        self._txn = MinimalResourceReplacement.MinimalTxn()
 
 
     def isCalendarCollection(self):
@@ -96,6 +107,10 @@ class SQLIndexTests (twistedcaldav.test.util.TestCase):
         # FIXME: since this resource lies about isCalendarCollection, it doesn't
         # have all the associated backend machinery to actually get children.
         self.db = Index(MinimalResourceReplacement(self.indexDirPath))
+
+
+    def tearDown(self):
+        self.db._db_close()
 
 
     def test_reserve_uid_ok(self):
@@ -294,9 +309,8 @@ END:VCALENDAR
         for description, name, calendar_txt, reCreate, ok in data:
             calendar = Component.fromString(calendar_txt)
             if ok:
-                f = open(os.path.join(self.indexDirPath.path, name), "w")
-                f.write(calendar_txt)
-                del f
+                with open(os.path.join(self.indexDirPath.path, name), "w") as f:
+                    f.write(calendar_txt)
 
                 self.db.addResource(name, calendar, reCreate=reCreate)
                 self.assertTrue(self.db.resourceExists(name), msg=description)
@@ -460,9 +474,8 @@ END:VCALENDAR
         for description, name, calendar_txt, trstart, trend in data:
             calendar = Component.fromString(calendar_txt)
 
-            f = open(os.path.join(self.indexDirPath.path, name), "w")
-            f.write(calendar_txt)
-            del f
+            with open(os.path.join(self.indexDirPath.path, name), "w") as f:
+                f.write(calendar_txt)
 
             self.db.addResource(name, calendar)
             self.assertTrue(self.db.resourceExists(name), msg=description)
@@ -646,9 +659,8 @@ END:VCALENDAR
         for description, name, calendar_txt, trstart, trend, organizer, instances in data:
             calendar = Component.fromString(calendar_txt)
 
-            f = open(os.path.join(self.indexDirPath.path, name), "w")
-            f.write(calendar_txt)
-            del f
+            with open(os.path.join(self.indexDirPath.path, name), "w") as f:
+                f.write(calendar_txt)
 
             self.db.addResource(name, calendar)
             self.assertTrue(self.db.resourceExists(name), msg=description)
@@ -1053,9 +1065,8 @@ END:VCALENDAR
         for description, name, calendar_txt, trstart, trend, organizer, peruserinstances in data:
             calendar = Component.fromString(calendar_txt)
 
-            f = open(os.path.join(self.indexDirPath.path, name), "w")
-            f.write(calendar_txt)
-            del f
+            with open(os.path.join(self.indexDirPath.path, name), "w") as f:
+                f.write(calendar_txt)
 
             self.db.addResource(name, calendar)
             self.assertTrue(self.db.resourceExists(name), msg=description)
@@ -1163,6 +1174,7 @@ class MemcacheTests(SQLIndexTests):
 
 
     def tearDown(self):
+        super(MemcacheTests, self).tearDown()
         for _ignore_k, v in self.memcache._timeouts.iteritems():
             if v.active():
                 v.cancel()

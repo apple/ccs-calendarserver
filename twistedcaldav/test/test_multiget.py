@@ -161,8 +161,8 @@ END:VCALENDAR
 
         # Now forcibly corrupt one piece of calendar data
         calendar_path = os.path.join(self.docroot, "calendar_multiget_events/", "bad.ics")
-        f = open(calendar_path, "w")
-        f.write("""BEGIN:VCALENDAR
+        with open(calendar_path, "w") as f:
+            f.write("""BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
 PRODID:-//Apple Computer\, Inc//iCal 2.0//EN
 VERSION:2.0
@@ -173,7 +173,6 @@ DTEND;VALUE=DATE:20020
 DTSTAMP:20020101T121212Z
 END:VCALENDAR
 """.replace("\n", "\r\n"))
-        f.close
 
         okuids = ["good", ]
         baduids = ["bad", ]

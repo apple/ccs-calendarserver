@@ -362,9 +362,8 @@ class ImporterService(WorkerService, object):
                 for filename in os.listdir(dirname):
                     fullpath = os.path.join(dirname, filename)
                     print("Importing {}".format(fullpath))
-                    fileobj = open(fullpath, 'r')
-                    component = Component.allFromStream(fileobj)
-                    fileobj.close()
+                    with open(fullpath, 'r') as fileobj:
+                        component = Component.allFromStream(fileobj)
                     yield importCollectionComponent(self.store, component)
 
             else:

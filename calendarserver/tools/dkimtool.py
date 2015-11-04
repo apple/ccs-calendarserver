@@ -40,14 +40,16 @@ def _doKeyGeneration(options):
     output = key.exportKey()
     lineBreak = False
     if options["key"]:
-        open(options["key"], "w").write(output)
+        with open(options["key"], "w") as f:
+            f.write(output)
     else:
         print(output)
         lineBreak = True
 
     output = key.publickey().exportKey()
     if options["pub-key"]:
-        open(options["pub-key"], "w").write(output)
+        with open(options["pub-key"], "w") as f:
+            f.write(output)
     else:
         if lineBreak:
             print
@@ -70,7 +72,8 @@ def _doRequest(options):
         log.publisher.levels.setLogLevelForNamespace("txdav.caldav.datastore.scheduling.ischedule.dkim", LogLevel.debug)
 
     # Parse the HTTP file
-    request = open(options["request"]).read()
+    with open(options["request"]) as f:
+        request = f.read()
     method, uri, headers, stream = _parseRequest(request)
 
     # Setup signing headers
@@ -113,7 +116,8 @@ def _doRequest(options):
 @inlineCallbacks
 def _doVerify(options):
     # Parse the HTTP file
-    verify = open(os.path.expanduser(options["verify"])).read()
+    with open(os.path.expanduser(options["verify"])) as f:
+        verify = f.read()
     _method, _uri, headers, body = _parseRequest(verify)
 
     # Check for local public key
@@ -185,7 +189,9 @@ class PublicKeyLookup_File(PublicKeyLookup):
         """
         Do the key lookup using the actual lookup method.
         """
-        return RSA.importKey(open(self.pubkeyfile).read())
+        with open(self.pubkeyfile) as f:
+            data = f.read()
+        return RSA.importKey(data)
 
 
 

@@ -22,7 +22,7 @@ Common utility functions for a file based datastore.
 
 from zope.interface.declarations import implements
 
-from twisted.python import hashlib
+import hashlib
 
 from twext.python.log import Logger
 from twext.enterprise.ienterprise import AlreadyFinishedError
@@ -249,7 +249,8 @@ class FileMetaDataMixin(object):
             # present. However, our unit tests use static files for their data store and those currently
             # do not include the md5 xattr.
             try:
-                data = self._path.open().read()
+                with self._path.open() as f:
+                    data = f.read()
             except IOError:
                 return None
             md5 = hashlib.md5(data).hexdigest()

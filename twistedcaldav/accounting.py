@@ -134,11 +134,8 @@ def emitAccounting(category, record, data, tag=None, filename=None):
         #
         # Now write out the data to the log file
         #
-        logFile = open(os.path.join(logRoot, logFilename), "a")
-        try:
+        with open(os.path.join(logRoot, logFilename), "a") as logFile:
             logFile.write(data)
-        finally:
-            logFile.close()
 
         return logFilename
 

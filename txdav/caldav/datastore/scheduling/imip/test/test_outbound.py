@@ -833,6 +833,7 @@ END:VCALENDAR
         self.assertEquals(self.sender._scrubHeader("ABC: 123\nXYZ: 456"), "ABC: 123 XYZ: 456")
 
 
+
 def partByType(message, contentType):
     """
     Retrieve a MIME part from an L{email.message.Message} based on a content

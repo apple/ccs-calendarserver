@@ -49,3 +49,4 @@ class MailGatewayTokenDBTests(unittest.TestCase):
         self.assertEquals(records[0].organizer, "urn:uuid:user01")
         self.assertEquals(records[0].attendee, "mailto:attendee@example.com")
         self.assertEquals(records[0].icaluid, "icaluid1")
+        oldDB._db_close()

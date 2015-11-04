@@ -29,11 +29,8 @@ def splitICalendarFile(inputFileName, outputDirectory):
     converting a monolithic iCalendar object into a set of objects
     that comply with CalDAV's requirements on resources.
     """
-    inputFile = open(inputFileName)
-    try:
+    with open(inputFileName) as inputFile:
         calendar = iComponent.fromStream(inputFile)
-    finally:
-        inputFile.close()
 
     assert calendar.name() == "VCALENDAR"
 

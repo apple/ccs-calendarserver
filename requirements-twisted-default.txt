@@ -12,13 +12,13 @@ Twisted==15.2.1
     #pyOpenSSL
     service_identity==14.0.0
         characteristic==14.3.0
-        pyasn1==0.1.7
-        pyasn1-modules==0.0.5
+        pyasn1==0.1.9
+        pyasn1-modules==0.0.8
         #pyOpenSSL
     pycrypto==2.6.1
 
-    pyOpenSSL==0.14
-        cryptography==0.9
+    pyOpenSSL==0.15.1
+        cryptography==1.1
         	idna
             #pyasn1
             #cffi
@@ -26,4 +26,4 @@ Twisted==15.2.1
             ipaddress
             #setuptools==17.0
             #six
-        six==1.9.0
+        six==1.10.0

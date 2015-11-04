@@ -915,7 +915,8 @@ class OperationLogger(SummarizingMixin):
 
         # Load parameters from config
         if "thresholdsPath" in params:
-            jsondata = json.load(open(params["thresholdsPath"]))
+            with open(params["thresholdsPath"]) as f:
+                jsondata = json.load(f)
         elif "thresholds" in params:
             jsondata = params["thresholds"]
         else:

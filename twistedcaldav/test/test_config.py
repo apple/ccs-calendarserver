@@ -136,7 +136,8 @@ class ConfigTests(TestCase):
         TestCase.setUp(self)
         config.setProvider(PListConfigProvider(DEFAULT_CONFIG))
         self.testConfig = self.mktemp()
-        open(self.testConfig, "w").write(testConfig)
+        with open(self.testConfig, "w") as f:
+            f.write(testConfig)
 
 
     def tearDown(self):
@@ -565,10 +566,12 @@ class ConfigTests(TestCase):
         config.setProvider(PListConfigProvider(DEFAULT_CONFIG))
 
         self.testInclude = self.mktemp()
-        open(self.testInclude, "w").write(testConfigInclude)
+        with open(self.testInclude, "w") as f:
+            f.write(testConfigInclude)
 
         self.testMaster = self.mktemp()
-        open(self.testMaster, "w").write(testConfigMaster % (self.testInclude,))
+        with open(self.testMaster, "w") as f:
+            f.write(testConfigMaster % (self.testInclude,))
 
         config.load(self.testMaster)
         self.assertEquals(config.HTTPPort, 9008)
@@ -630,10 +633,12 @@ class ConfigTests(TestCase):
 
         self.testIncludeRoot = self.mktemp()
         self.testInclude = self.testIncludeRoot + "." + socket.getfqdn()
-        open(self.testInclude, "w").write(testConfigInclude)
+        with open(self.testInclude, "w") as f:
+            f.write(testConfigInclude)
 
         self.testMaster = self.mktemp()
-        open(self.testMaster, "w").write(testConfigMaster % (self.testIncludeRoot,))
+        with open(self.testMaster, "w") as f:
+            f.write(testConfigMaster % (self.testIncludeRoot,))
 
         config.load(self.testMaster)
         self.assertEquals(config.HTTPPort, 9008)
@@ -695,10 +700,12 @@ class ConfigTests(TestCase):
 
         self.testIncludeRoot = self.mktemp()
         self.testInclude = self.testIncludeRoot + "." + socket.gethostbyname(socket.getfqdn())
-        open(self.testInclude, "w").write(testConfigInclude)
+        with open(self.testInclude, "w") as f:
+            f.write(testConfigInclude)
 
         self.testMaster = self.mktemp()
-        open(self.testMaster, "w").write(testConfigMaster % (self.testIncludeRoot,))
+        with open(self.testMaster, "w") as f:
+            f.write(testConfigMaster % (self.testIncludeRoot,))
 
         config.load(self.testMaster)
         self.assertEquals(config.HTTPPort, 9008)

@@ -161,36 +161,36 @@ class MigrateVerifyService(WorkerService, object):
 
         self.output.write("-- Reading data file: %s\n" % (self.options["data"]))
 
-        datafile = open(os.path.expanduser(self.options["data"]))
-        total = 0
-        invalidGUIDs = set()
-        for line in datafile:
-            line = line.strip()
-            total += 1
-            segments = line.split("/")
-            while segments and segments[0] != "__uids__":
-                segments.pop(0)
-            if segments and len(segments) >= 6:
-                guid = segments[3]
-                calendar = segments[4]
-                resource = segments[5]
+        with open(os.path.expanduser(self.options["data"])) as datafile:
+            total = 0
+            invalidGUIDs = set()
+            for line in datafile:
+                line = line.strip()
+                total += 1
+                segments = line.split("/")
+                while segments and segments[0] != "__uids__":
+                    segments.pop(0)
+                if segments and len(segments) >= 6:
+                    guid = segments[3]
+                    calendar = segments[4]
+                    resource = segments[5]
 
-                if calendar == "inbox":
-                    self.ignoreInbox += 1
-                    invalidGUIDs.add(guid)
-                elif calendar == "dropbox":
-                    self.ignoreDropbox += 1
-                    invalidGUIDs.add(guid)
-                elif len(segments) > 6:
-                    self.badPaths.append(line)
-                    invalidGUIDs.add(guid)
+                    if calendar == "inbox":
+                        self.ignoreInbox += 1
+                        invalidGUIDs.add(guid)
+                    elif calendar == "dropbox":
+                        self.ignoreDropbox += 1
+                        invalidGUIDs.add(guid)
+                    elif len(segments) > 6:
+                        self.badPaths.append(line)
+                        invalidGUIDs.add(guid)
+                    else:
+                        self.pathsByGUID.setdefault(guid, {}).setdefault(calendar, set()).add(resource)
+                        self.validPaths += 1
                 else:
-                    self.pathsByGUID.setdefault(guid, {}).setdefault(calendar, set()).add(resource)
-                    self.validPaths += 1
-            else:
-                if segments and len(segments) >= 4:
-                    invalidGUIDs.add(segments[3])
-                self.badPaths.append(line)
+                    if segments and len(segments) >= 4:
+                        invalidGUIDs.add(segments[3])
+                    self.badPaths.append(line)
 
         # Remove any invalid GUIDs that actuall were valid
         invalidGUIDs = [pguid for pguid in invalidGUIDs if pguid not in self.pathsByGUID]

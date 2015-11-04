@@ -25,7 +25,6 @@ from twext.enterprise.locking import LockTimeout
 from twext.python.log import Logger
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue, maybeDeferred
 from twisted.internet.protocol import Protocol
-from twisted.python.hashlib import md5
 from twisted.python.util import FancyEqMixin
 from twistedcaldav import customxml, carddavxml, caldavxml, ical
 from twistedcaldav.caldavxml import (
@@ -657,7 +656,7 @@ class _CommonHomeChildCollectionMixin(object):
 
             try:
                 # Create a new name if one was not provided
-                name = md5(str(index) + component.resourceUID() + str(time.time()) + request.path).hexdigest() + self.resourceSuffix()
+                name = hashlib.md5(str(index) + component.resourceUID() + str(time.time()) + request.path).hexdigest() + self.resourceSuffix()
 
                 # Get a resource for the new item
                 newchildURL = joinURL(request.path, name)
@@ -3342,7 +3341,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
 
             try:
                 # Create a new name if one was not provided
-                name = md5(str(index) + component.resourceUID() + str(time.time()) + request.path).hexdigest() + self.resourceSuffix()
+                name = hashlib.md5(str(index) + component.resourceUID() + str(time.time()) + request.path).hexdigest() + self.resourceSuffix()
 
                 # Get a resource for the new item
                 newchildURL = joinURL(request.path, name)

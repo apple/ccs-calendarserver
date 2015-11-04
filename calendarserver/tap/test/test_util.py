@@ -14,15 +14,17 @@
 # limitations under the License.
 ##
 
-from calendarserver.tap.util import (
-    MemoryLimitService, Stepper, verifyTLSCertificate
-)
-from twistedcaldav.util import computeProcessCount
-from twistedcaldav.test.util import TestCase
-from twisted.internet.task import Clock
+from calendarserver.tap.util import MemoryLimitService, Stepper, verifyTLSCertificate, memoryForPID
+
 from twisted.internet.defer import succeed, inlineCallbacks
+from twisted.internet.task import Clock
 from twisted.python.filepath import FilePath
+
 from twistedcaldav.config import ConfigDict
+from twistedcaldav.test.util import TestCase
+from twistedcaldav.util import computeProcessCount
+
+import os
 
 
 class ProcessCountTestCase(TestCase):
@@ -130,6 +132,15 @@ class MemoryLimitServiceTestCase(TestCase):
         processMonitor.history = []
         clock.advance(10)
         self.assertEquals(processMonitor.history, ['process #1', 'process #2', 'process #3'])
+
+
+    def test_memoryForPID(self):
+        """
+        Test that L{memoryForPID} returns a valid result.
+        """
+
+        memory = memoryForPID(os.getpid())
+        self.assertNotEqual(memory, 0)
 
 
 

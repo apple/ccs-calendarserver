@@ -499,13 +499,13 @@ c_dependencies () {
     if [ "${ssl_version}" -ge "${min_ssl_version}" ]; then
       using_system "OpenSSL";
     else
-      local v="0.9.8zf";
+      local v="0.9.8zg";
       local n="openssl";
       local p="${n}-${v}";
 
       # use 'config' instead of 'configure'; 'make' instead of 'jmake'.
       # also pass 'shared' to config to build shared libs.
-      c_dependency -c "config" -m "c69a4a679233f7df189e1ad6659511ec" \
+      c_dependency -c "config" -s "a73005583ba8d5edc3bdcc1f99a1e33ee0ed41f8" \
         -p "make depend" -b "make" \
         "openssl" "${p}" \
         "http://www.openssl.org/source/${p}.tar.gz" "shared";
@@ -587,13 +587,14 @@ c_dependencies () {
       "http://github.com/downloads/libevent/libevent/${p}.tar.gz" \
       ${configure_openssl};
 
-    local v="1.4.20";
+    local v="1.4.24";
     local n="memcached";
     local p="${n}-${v}";
 
-    c_dependency -m "92f702bcb28d7bec8fdf9418360fc062" \
+    c_dependency -s "32a798a37ef782da10a09d74aa1e5be91f2861db" \
       "memcached" "${p}" \
-      "http://www.memcached.org/files/${p}.tar.gz";
+      "http://www.memcached.org/files/${p}.tar.gz" \
+      "--disable-docs";
   fi;
 
 
@@ -725,9 +726,9 @@ bootstrap_virtualenv () {
   mkdir -p "${py_ve_tools}/junk";
 
   for pkg in             \
-      setuptools-17.0    \
-      pip-7.0.3          \
-      virtualenv-13.0.3  \
+      setuptools-18.5    \
+      pip-7.1.2          \
+      virtualenv-13.1.2  \
   ; do
       local    name="${pkg%-*}";
       local version="${pkg#*-}";

@@ -24,7 +24,6 @@ from StringIO import StringIO
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue, \
     maybeDeferred
 from twisted.internet.protocol import Protocol
-from twisted.python import hashlib
 
 from twext.python.clsprop import classproperty
 from twistedcaldav.ical import Component as VComponent
@@ -54,6 +53,7 @@ from twistedcaldav.ical import Component
 from twistedcaldav.config import config
 from calendarserver.push.util import PushPriority
 
+import hashlib
 import json
 
 

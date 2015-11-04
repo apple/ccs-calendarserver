@@ -160,6 +160,8 @@ def parseStats(logFilePath, donormlize=True, verbose=False):
         if line.startswith("---"):
             break
 
+    f.close()
+
     entries = []
     for line in f:
         bits = line.split("|")

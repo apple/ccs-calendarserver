@@ -538,9 +538,8 @@ def restartService(pidFilename):
     @type pidFilename: C{str}
     """
     if os.path.exists(pidFilename):
-        pidFile = open(pidFilename, "r")
-        pid = pidFile.read().strip()
-        pidFile.close()
+        with open(pidFilename, "r") as pidFile:
+            pid = pidFile.read().strip()
         try:
             pid = int(pid)
         except ValueError:

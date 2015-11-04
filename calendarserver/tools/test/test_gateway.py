@@ -69,9 +69,8 @@ class RunCommandTestCase(TestCase):
 
         testRoot = os.path.join(os.path.dirname(__file__), "gateway")
         templateName = os.path.join(testRoot, "caldavd.plist")
-        templateFile = open(templateName)
-        template = templateFile.read()
-        templateFile.close()
+        with open(templateName) as templateFile:
+            template = templateFile.read()
 
         databaseRoot = os.path.abspath("_spawned_scripts_db" + str(os.getpid()))
         newConfig = template % {

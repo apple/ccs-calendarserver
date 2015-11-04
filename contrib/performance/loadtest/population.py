@@ -407,7 +407,8 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
 
         # Load parameters from config
         if "thresholdsPath" in params:
-            jsondata = json.load(open(params["thresholdsPath"]))
+            with open(params["thresholdsPath"]) as f:
+                jsondata = json.load(f)
         elif "thresholds" in params:
             jsondata = params["thresholds"]
         else:
@@ -423,7 +424,8 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         self._fields.extend(self._fields_extend)
 
         if "benchmarksPath" in params:
-            self.benchmarks = json.load(open(params["benchmarksPath"]))
+            with open(params["benchmarksPath"]) as f:
+                self.benchmarks = json.load(f)
         else:
             self.benchmarks = {}
 

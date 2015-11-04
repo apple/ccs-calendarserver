@@ -322,7 +322,7 @@ setup_requirements = []
 install_requirements = [
     # Core frameworks
     "zope.interface",
-    "Twisted>=15.2.1",
+    "Twisted>=15.4.0",
     "twextpy",
 
     # Security frameworks
@@ -332,7 +332,7 @@ install_requirements = [
     # Data store
     "xattr",
     "twextpy[DAL]",
-    "sqlparse>=0.1.11",
+    "sqlparse",
 
     # Calendar
     "python-dateutil",
@@ -351,7 +351,7 @@ if sys.platform == "darwin":
     ])
 else:
     install_requirements.extend([
-        "pyOpenSSL>=0.14",    # also for Twisted
+        "pyOpenSSL>=0.15.1",    # also for Twisted
         "service_identity",   # for Twisted
     ])
 
@@ -500,9 +500,8 @@ def doSetup():
                 else:
                     script.append(line)
 
-            newScript = open(scriptPath, "w")
-            newScript.write("\n".join(script))
-            newScript.close()
+            with open(scriptPath, "w") as newScript:
+                newScript.write("\n".join(script))
 
 
 #

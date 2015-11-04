@@ -85,7 +85,8 @@ def _doRefresh(tzpath, xmlfile, tzdb, tzvers):
 
     # Get the version from the Makefile
     try:
-        makefile = open(os.path.join(zonedir, "Makefile")).read()
+        with open(os.path.join(zonedir, "Makefile")) as f:
+            makefile = f.read()
         lines = makefile.splitlines()
         for line in lines:
             if line.startswith("VERSION="):

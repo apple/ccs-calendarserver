@@ -937,7 +937,7 @@ def memoryForPID(pid, residentOnly=True):
     @return: Memory used by process in bytes
     @rtype: C{int}
     """
-    memoryInfo = psutil.Process(pid).get_memory_info()
+    memoryInfo = psutil.Process(pid).memory_info()
     return memoryInfo.rss if residentOnly else memoryInfo.vms
 
 
@@ -1524,8 +1524,7 @@ def getSSLPassphrase(*ignored):
         config.SSLPassPhraseDialog and
         os.path.isfile(config.SSLPassPhraseDialog)
     ):
-        sslPrivKey = open(config.SSLPrivateKey)
-        try:
+        with open(config.SSLPrivateKey) as sslPrivKey:
             keyType = None
             for line in sslPrivKey.readlines():
                 if "-----BEGIN RSA PRIVATE KEY-----" in line:
@@ -1534,8 +1533,6 @@ def getSSLPassphrase(*ignored):
                 elif "-----BEGIN DSA PRIVATE KEY-----" in line:
                     keyType = "DSA"
                     break
-        finally:
-            sslPrivKey.close()
 
         if keyType is None:
             log.error(
