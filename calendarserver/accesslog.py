@@ -588,7 +588,7 @@ class SystemMonitor(object):
 
     def __init__(self):
         self.items = {
-            "cpu count"     : psutil.NUM_CPUS if psutil is not None else -1,
+            "cpu count"     : psutil.cpu_count() if psutil is not None else -1,
             "cpu use"       : 0.0,
             "memory used"   : 0,
             "memory percent": 0.0,
