@@ -937,7 +937,7 @@ def memoryForPID(pid, residentOnly=True):
     @return: Memory used by process in bytes
     @rtype: C{int}
     """
-    memoryInfo = psutil.Process(pid).get_memory_info()
+    memoryInfo = psutil.Process(pid).memory_info()
     return memoryInfo.rss if residentOnly else memoryInfo.vms
 
 
