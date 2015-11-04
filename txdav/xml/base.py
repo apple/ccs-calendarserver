@@ -92,7 +92,7 @@ def decodeXMLName(name):
     if not name:
         invalid()
 
-    if name[0] is "{":
+    if name[0] == "{":
         index = name.find("}")
         if (index is -1 or not len(name) > index):
             invalid()

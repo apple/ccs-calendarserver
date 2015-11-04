@@ -439,6 +439,9 @@ class CalendarServerLogAnalyzer(object):
             print("Failed to process line:\n%s" % (line,))
             raise
 
+        finally:
+            f.close()
+
         # Average various items
         self.averagedHourlyByMethodTime.clear()
         for method, hours in self.hourlyByMethodTime.iteritems():

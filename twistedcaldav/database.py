@@ -23,6 +23,7 @@ __all__ = [
 ]
 
 import thread
+import threading
 
 try:
     from txdav.base.datastore.subpostgres import postgres
@@ -41,25 +42,40 @@ log = Logger()
 
 
 
+class ConnectionCloseThread(threading.Thread):
+    """
+    An L{Thread} that closes its DB connection when it has finished running.
+    """
+
+    def __init__(self, group=None, target=None, name=None,
+                 args=(), kwargs=None, verbose=None):
+
+        if target is not None:
+            self._realTarget = target
+            target = self.targetWithConnectionClose
+        super(ConnectionCloseThread, self).__init__(group=group, target=target, name=name, args=args, kwargs=kwargs, verbose=verbose)
+
+
+    def targetWithConnectionClose(self, *args, **kwargs):
+        self._realTarget(*args, **kwargs)
+        if hasattr(self, "_db_close"):
+            self._db_close()
+
+
+
 class ConnectionClosingThreadPool(ThreadPool):
     """
-    A ThreadPool that closes connections for each worker thread
+    A L{ThreadPool} that closes connections for each worker thread when stopped.
     """
 
-    def _worker(self):
-        log.debug("Starting ADBAPI thread: %s" % (thread.get_ident(),))
-        ThreadPool._worker(self)
-        self._closeConnection()
+    threadFactory = ConnectionCloseThread
 
-
-    def _closeConnection(self):
-
-        tid = thread.get_ident()
-        log.debug("Closing ADBAPI thread: %s" % (tid,))
-
-        conn = self.pool.connections.get(tid)
-        self.pool._close(conn)
-        del self.pool.connections[tid]
+    def stop(self):
+        for tid, conn in self.pool.connections.items():
+            for thread in self.threads:
+                if thread.ident == tid:
+                    thread._db_close = lambda : self.pool.disconnect(conn)
+        ThreadPool.stop(self)
 
 
 

@@ -95,6 +95,9 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
         db_filename = self.resource.fp.child(db_basename).path
         super(AbstractCalendarIndex, self).__init__(db_filename, False)
 
+        self.resource._txn.postCommit(self._db_close)
+        self.resource._txn.postAbort(self._db_close)
+
 
     def create(self):
         """
@@ -1103,8 +1106,11 @@ class Index (CalendarIndex):
             if name.startswith("."):
                 continue
 
+            child = fp.child(name)
+            if not child.isfile():
+                continue
             try:
-                stream = fp.child(name).open()
+                stream = child.open()
             except (IOError, OSError), e:
                 log.error("Unable to open resource %s: %s" % (name, e))
                 continue
@@ -1215,8 +1221,11 @@ class IndexSchedule (CalendarIndex):
             if name.startswith("."):
                 continue
 
+            child = fp.child(name)
+            if not child.isfile():
+                continue
             try:
-                stream = fp.child(name).open()
+                stream = child.open()
             except (IOError, OSError), e:
                 log.error("Unable to open resource %s: %s" % (name, e))
                 continue

@@ -41,12 +41,14 @@ for pidString in sorted(os.listdir(PROCDIR)):
 
     pidDir = os.path.join(PROCDIR, pidString)
     statsFile = os.path.join(pidDir, "stat")
-    statLine = open(statsFile).read()
+    with open(statsFile) as f:
+        statLine = f.read()
     stats = statLine.split()
     vsize = int(stats[22])
     cmdFile = os.path.join(pidDir, "cmdline")
     if os.path.exists(cmdFile):
-        cmdLine = open(cmdFile).read().split('\x00')
+        with open(cmdFile) as f:
+            cmdLine = f.read().split('\x00')
         if cmdLine[0].startswith(PYTHON):
             for arg in cmdLine[1:]:
                 if arg.startswith(CMDARG):

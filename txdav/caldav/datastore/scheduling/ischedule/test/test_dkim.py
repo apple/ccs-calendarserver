@@ -57,8 +57,8 @@ class TestDKIMBase (unittest.TestCase):
         super(TestDKIMBase, self).setUp()
 
         self.private_keyfile = self.mktemp()
-        f = open(self.private_keyfile, "w")
-        f.write("""-----BEGIN RSA PRIVATE KEY-----
+        with open(self.private_keyfile, "w") as f:
+            f.write("""-----BEGIN RSA PRIVATE KEY-----
 MIIEogIBAAKCAQEAw7bJxD1k5VSA5AqdfmJ7vj99oKQ4qYtSeJ5HiK6W40dzC++k
 LweUWLzeUErgXwcJlyOC6rqVVPBfSJq4l7yPdVqpWUo6s2jnUsSWOfhpre22yc4B
 K0QY2Euc3R+gT59eM0mtJPtWaQw5BmQ2GrV6f0OUiKi17jEPasKcxf1qZrWU0+Ik
@@ -86,7 +86,6 @@ iblllHCLZ2Q/rHSH3cQor94kxePm+b3KH9ZwAgInMModuSPcScrR5/vsORZCtJEO
 CAXnxZHhrExMGIIa7KV33W5v7Hstl7SnPWKFgCvlBH2QoMTjoUE=
 -----END RSA PRIVATE KEY-----
 """)
-        f.close()
 
         pkey_data = """MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAw7bJxD1k5VSA5AqdfmJ7
 vj99oKQ4qYtSeJ5HiK6W40dzC++kLweUWLzeUErgXwcJlyOC6rqVVPBfSJq4l7yP
@@ -97,11 +96,10 @@ hE/Eso0gS79FSti1fkDeoPZ296Gu5uYWdpaLl03Nr0w65Gbw+2v79AcwOyvbZD6y
 jQIDAQAB
 """
         self.public_keyfile = self.mktemp()
-        f = open(self.public_keyfile, "w")
-        f.write("""-----BEGIN PUBLIC KEY-----
+        with open(self.public_keyfile, "w") as f:
+            f.write("""-----BEGIN PUBLIC KEY-----
 %s-----END PUBLIC KEY-----
 """ % (pkey_data,))
-        f.close()
         self.public_key_data = pkey_data.replace("\n", "")
 
 
@@ -155,7 +153,9 @@ dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=dns/txt:http/well
 
             result = request.generateSignature(sign_this)
 
-            key = RSA.importKey(open(self.private_keyfile).read())
+            with open(self.private_keyfile) as f:
+                key = f.read()
+            key = RSA.importKey(key)
             signature = DKIMUtils.sign(sign_this, key, DKIMUtils.hash_func(algorithm))
 
             self.assertEqual(result, signature)
@@ -214,7 +214,9 @@ content-type:%s
 ischedule-version:1.0
 ischedule-message-id:%s
 dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=private-exchange:http/well-known:dns/txt; c=ischedule-relaxed/simple; h=Originator:Recipient:Content-Type:iSchedule-Version:iSchedule-Message-ID; bh=%s; b=""".replace("\n", "\r\n") % (headers.getRawHeaders("Content-Type")[0], request.message_id, request.time, request.expire, algorithm, bodyhash)
-            key = RSA.importKey(open(self.private_keyfile).read())
+            with open(self.private_keyfile) as f:
+                key = f.read()
+            key = RSA.importKey(key)
             signature = DKIMUtils.sign(sign_this, key, DKIMUtils.hash_func(algorithm))
 
             self.assertEqual(result, signature)
@@ -224,7 +226,9 @@ dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=private-exchange:
             self.assertEqual(request.headers.getRawHeaders("DKIM-Signature")[0], updated_header)
 
             # Try to verify result using public key
-            pubkey = RSA.importKey(open(self.public_keyfile).read())
+            with open(self.public_keyfile) as f:
+                pubkey = f.read()
+            pubkey = RSA.importKey(pubkey)
             self.assertEqual(DKIMUtils.verify(sign_this, result, pubkey, DKIMUtils.hash_func(algorithm)), None)
 
 

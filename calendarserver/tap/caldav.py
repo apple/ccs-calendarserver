@@ -768,7 +768,7 @@ class CalDAVServiceMaker (object):
             else:
                 logID = ""
 
-            if config.ProcessType is not "Utility":
+            if config.ProcessType != "Utility":
                 execName = ""
 
             setproctitle(
@@ -1248,7 +1248,7 @@ class CalDAVServiceMaker (object):
                         "-p", str(pool.Port),
                         "-l", pool.BindAddress,
                     ])
-                if config.Memcached.MaxMemory is not 0:
+                if config.Memcached.MaxMemory != 0:
                     memcachedArgv.extend(
                         ["-m", str(config.Memcached.MaxMemory)]
                     )

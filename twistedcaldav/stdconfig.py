@@ -1210,7 +1210,8 @@ class PListConfigProvider(ConfigProvider):
         parser = NoUnicodePlistParser()
         configDict = None
         try:
-            configDict = parser.parse(open(filename))
+            with open(filename) as f:
+                configDict = parser.parse(f)
         except (IOError, OSError):
             log.error("Configuration file does not exist or is inaccessible: %s" % (filename,))
             raise ConfigurationError("Configuration file does not exist or is inaccessible: %s" % (filename,))

@@ -500,9 +500,8 @@ def doSetup():
                 else:
                     script.append(line)
 
-            newScript = open(scriptPath, "w")
-            newScript.write("\n".join(script))
-            newScript.close()
+            with open(scriptPath, "w") as newScript:
+                newScript.write("\n".join(script))
 
 
 #

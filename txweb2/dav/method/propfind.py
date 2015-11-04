@@ -145,7 +145,7 @@ def http_PROPFIND(self, request):
 
     for resource, uri in resources:
 
-        if search_properties is "names":
+        if search_properties == "names":
             try:
                 resource_properties = waitForDeferred(resource.listProperties(request))
                 yield resource_properties
@@ -163,7 +163,7 @@ def http_PROPFIND(self, request):
                 responsecode.NOT_FOUND : [],
             }
 
-            if search_properties is "all":
+            if search_properties == "all":
                 properties_to_enumerate = waitForDeferred(resource.listAllprop(request))
                 yield properties_to_enumerate
                 properties_to_enumerate = properties_to_enumerate.getResult()

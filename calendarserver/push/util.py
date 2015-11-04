@@ -40,7 +40,8 @@ def getAPNTopicFromCertificate(certPath):
 
     @return: C{str} topic, or empty string if value is not found
     """
-    certData = open(certPath).read()
+    with open(certPath) as f:
+        certData = f.read()
     return getAPNTopicFromX509(crypto.load_certificate(crypto.FILETYPE_PEM, certData))
 
 

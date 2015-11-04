@@ -342,7 +342,8 @@ def upgrade_to_1(config, directory):
     def createMailTokensDatabase(config, uid, gid):
         # Cause the tokens db to be created on disk so we can set the
         # permissions on it now
-        MailGatewayTokensDatabase(config.DataRoot).lookupByToken("")
+        db = MailGatewayTokensDatabase(config.DataRoot)
+        db.lookupByToken("")
 
         dbPath = os.path.join(config.DataRoot, MailGatewayTokensDatabase.dbFilename)
         if os.path.exists(dbPath):
@@ -351,6 +352,8 @@ def upgrade_to_1(config, directory):
         journalPath = "%s-journal" % (dbPath,)
         if os.path.exists(journalPath):
             os.chown(journalPath, uid, gid)
+
+        db._db_close()
 
     cuaCache = {}
 
@@ -1074,6 +1077,7 @@ def migrateDelegatesToStore(store):
     yield txn.commit()
 
     # Remove the old file
+    service.close()
     os.remove(service.dbpath)
     journalPath = service.dbpath + "-journal"
     if os.path.exists(journalPath):

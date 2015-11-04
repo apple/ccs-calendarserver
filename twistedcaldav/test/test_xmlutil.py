@@ -85,7 +85,8 @@ class XMLUtil(twistedcaldav.test.util.TestCase):
     def _checkXML(self, node, data):
         xmlfile = self.mktemp()
         writeXML(xmlfile, node)
-        newdata = open(xmlfile).read()
+        with open(xmlfile) as f:
+            newdata = f.read()
         self.assertEqual(newdata, data)
 
 

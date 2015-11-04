@@ -346,9 +346,8 @@ def exportToDirectory(calendars, dirname):
                     comp.addComponent(sub)
 
         filename = os.path.join(dirname, "{}_{}.ics".format(homeUID, calendar.name()))
-        fileobj = open(filename, 'wb')
-        fileobj.write(comp.getTextWithTimezones(True))
-        fileobj.close()
+        with open(filename, 'wb') as fileobj:
+            fileobj.write(comp.getTextWithTimezones(True))
 
 
 

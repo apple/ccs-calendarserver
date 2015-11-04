@@ -313,8 +313,8 @@ class Response (WebDAVElement):
                 )
             )
 
-        if status_count is 0:
-            if propstat_count is 0:
+        if status_count == 0:
+            if propstat_count == 0:
                 raise ValueError(
                     "{0} element must have one of {1} or {2}".format(
                         cls.sname(), Status.sname(), PropertyStatus.sname()

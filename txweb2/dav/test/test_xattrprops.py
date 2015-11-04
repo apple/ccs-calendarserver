@@ -238,7 +238,7 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
         error = self.assertRaises(HTTPError, self.propertyStore.get, property)
         self.assertEquals(error.response.code, INTERNAL_SERVER_ERROR)
         self.assertEquals(
-            len(self.flushLoggedErrors(UnpicklingError)), 1)
+            len(self.flushLoggedErrors(UnpicklingError, IndexError)), 1)
 
 
     def test_set(self):

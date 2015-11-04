@@ -24,7 +24,8 @@ import os
 
 def analyze(fname):
 
-    lines = open(os.path.expanduser(fname)).read().splitlines()
+    with open(os.path.expanduser(fname)) as f:
+        lines = f.read().splitlines()
     total = len(lines)
     ctr = 0
     results = {

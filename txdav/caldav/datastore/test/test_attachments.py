@@ -1789,12 +1789,14 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         txn = self._sqlCalendarStore.newTransaction()
         dattachment2 = (yield DropBoxAttachment.load(txn, "1.2", "attach_1_2.txt"))
         self.assertEqual(dattachment2, None)
+        yield txn.commit()
 
         # Managed attachment present
         txn = self._sqlCalendarStore.newTransaction()
         mattachment2 = (yield ManagedAttachment.load(txn, None, None, attachmentID=dattachment._attachmentID))
         self.assertNotEqual(mattachment2, None)
         self.assertTrue(mattachment2.isManaged())
+        yield txn.commit()
 
 
     @inlineCallbacks

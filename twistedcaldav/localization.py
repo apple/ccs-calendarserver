@@ -27,9 +27,8 @@ from twext.python.log import Logger
 from pycalendar.duration import Duration
 
 try:
-    from Foundation import (
-        NSPropertyListImmutable, NSPropertyListSerialization, NSData, NSLocale
-    )
+    from osx.corefoundation import CFError
+    from osx.utils import CFLocaleRef, CFDataRef, CFPropertyListRef
     foundationImported = True
 except ImportError:
     foundationImported = False
@@ -444,16 +443,18 @@ def convertStringsFile(src, dest):
             return
 
     # Parse the binary plist .strings file:
-    parser = NSPropertyListSerialization.propertyListFromData_mutabilityOption_format_errorDescription_
-    data = NSData.dataWithContentsOfMappedFile_(src)
-    strings, format, error = parser(data, NSPropertyListImmutable, None, None)
-    if error:
+    with open(src) as f:
+        data = f.read()
+    data = CFDataRef.fromString(data)
+    try:
+        parsed = CFPropertyListRef.createFromData(data)
+        strings = parsed.toDict()
+    except CFError as error:
         raise ParseError(error)
 
     # The format of GNUtext MO files is described here:
     # http://www.gnu.org/software/autoconf/manual/gettext/MO-Files.html
 
-    strings = dict(strings)
     originals = strings.keys()
     originals.sort()
 
@@ -538,7 +539,7 @@ def getLanguage(config):
         return config.Localization.Language
 
     try:
-        language = NSLocale.preferredLanguages()[0]
+        language = CFLocaleRef.preferredLanguages()[0]
         language = _remapLanguageCode(language)
     except:
         language = "en"

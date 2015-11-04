@@ -156,6 +156,9 @@ class NotificationsDatabase(AbstractSQLDatabase):
         db_filename = os.path.join(self.resource.fp.path, NotificationsDatabase.db_basename)
         super(NotificationsDatabase, self).__init__(db_filename, True, autocommit=True)
 
+        self.resource._txn.postCommit(self._db_close)
+        self.resource._txn.postAbort(self._db_close)
+
 
     def allRecords(self):
 

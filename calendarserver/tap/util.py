@@ -1524,8 +1524,7 @@ def getSSLPassphrase(*ignored):
         config.SSLPassPhraseDialog and
         os.path.isfile(config.SSLPassPhraseDialog)
     ):
-        sslPrivKey = open(config.SSLPrivateKey)
-        try:
+        with open(config.SSLPrivateKey) as sslPrivKey:
             keyType = None
             for line in sslPrivKey.readlines():
                 if "-----BEGIN RSA PRIVATE KEY-----" in line:
@@ -1534,8 +1533,6 @@ def getSSLPassphrase(*ignored):
                 elif "-----BEGIN DSA PRIVATE KEY-----" in line:
                     keyType = "DSA"
                     break
-        finally:
-            sslPrivKey.close()
 
         if keyType is None:
             log.error(

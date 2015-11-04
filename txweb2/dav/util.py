@@ -168,7 +168,7 @@ def parentForURL(url):
     (scheme, host, path, _ignore_query, _ignore_fragment) = urlsplit(normalizeURL(url))
 
     index = path.rfind("/")
-    if index is 0:
+    if index == 0:
         if path == "/":
             return None
         else:

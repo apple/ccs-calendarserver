@@ -85,7 +85,8 @@ class CalendarQuery (StoreTestCase):
         calendar = yield self.calendarUnderTest(name="calendar", home=record.uid)
         for f in os.listdir(self.holidays_dir):
             if f.endswith(".ics"):
-                component = Component.fromString(open(os.path.join(self.holidays_dir, f)).read())
+                with open(os.path.join(self.holidays_dir, f)) as fin:
+                    component = Component.fromString(fin.read())
                 yield calendar._createCalendarObjectWithNameInternal(f, component, internal_state=ComponentUpdateState.RAW)
         yield self.commit()
 

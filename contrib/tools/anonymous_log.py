@@ -55,6 +55,9 @@ class CalendarServerLogAnalyzer(object):
             print("Exception: %s for %s" % (e, line,))
             raise
 
+        finally:
+            f.close()
+
 
     def anonymizeLine(self, line):
 
