@@ -711,9 +711,9 @@ py_dependencies () {
 
   ruler "Patching Python requirements";
   echo "";
-  if [ ! -e "${dev_patches}/Twisted" ]; then
+  if [ ! -e "${py_virtualenv}/lib/python2.7/site-packages/twisted/.patch_applied" ]; then
     apply_patches "Twisted" "${py_virtualenv}/lib/python2.7/site-packages"
-    touch "${dev_patches}/Twisted";
+    touch "${py_virtualenv}/lib/python2.7/site-packages/twisted/.patch_applied";
   fi;
 
   echo "";
