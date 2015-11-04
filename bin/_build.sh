@@ -523,11 +523,11 @@ c_dependencies () {
       using_system "libffi";
     fi;
   else
-    local v="3.0.13";
+    local v="3.2.1";
     local n="libffi";
     local p="${n}-${v}";
 
-    c_dependency -m "45f3b6dbc9ee7c7dfbbbc5feba571529" \
+    c_dependency -m "83b89587607e3eb65c70d361f13bab43" \
       "libffi" "${p}" \
       "ftp://sourceware.org/pub/libffi/${p}.tar.gz"
   fi;
@@ -602,7 +602,7 @@ c_dependencies () {
   if command -v postgres > /dev/null; then
     using_system "Postgres";
   else
-    local v="9.3.1";
+    local v="9.3.10";
     local n="postgresql";
     local p="${n}-${v}";
 
@@ -612,7 +612,7 @@ c_dependencies () {
       local enable_dtrace="";
     fi;
 
-    c_dependency -m "c003d871f712d4d3895956b028a96e74" \
+    c_dependency -m "248d4c7e8fa9560beac0b4188b076dd1" \
       "PostgreSQL" "${p}" \
       "http://ftp.postgresql.org/pub/source/v${v}/${p}.tar.bz2" \
       --with-python ${enable_dtrace};
