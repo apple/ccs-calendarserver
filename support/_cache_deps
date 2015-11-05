@@ -122,3 +122,16 @@ for archive in $(find "${wd}/.develop" -type f -name '*.tgz' -or -name '*.tar.gz
     rm "${tmp}";
   fi;
 done;
+
+
+
+#
+# Remove .eggs files from arvhives
+#
+
+for archive in $(find "${wd}/.develop" -type f -name '*.zip'); do
+  if unzip -qql "${archive}" "*/.eggs/" > /dev/null 2>&1; then
+    ruler "Removing eggs from ${archive}";
+    zip -d "${archive}" "*/.eggs/*";
+  fi;
+done;
