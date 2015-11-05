@@ -110,7 +110,7 @@ rm -r CalDAVTester;
 
 
 #
-# Remove .exe files from arvhives
+# Remove .exe files from archives
 #
 
 for archive in $(find "${wd}/.develop" -type f -name '*.tgz' -or -name '*.tar.gz'); do
@@ -126,12 +126,22 @@ done;
 
 
 #
-# Remove .eggs files from arvhives
+# Remove .eggs files from archives
 #
 
 for archive in $(find "${wd}/.develop" -type f -name '*.zip'); do
   if unzip -qql "${archive}" "*/.eggs/" > /dev/null 2>&1; then
     ruler "Removing eggs from ${archive}";
-    zip -d "${archive}" "*/.eggs/*";
+    zip -qd "${archive}" "*/.eggs/*";
   fi;
 done;
+
+
+
+#
+# Remove src
+#
+ruler "Removing eggs from ${archive}";
+rm -rf "${wd}/src"
+
+ruler "";
