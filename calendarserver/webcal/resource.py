@@ -210,16 +210,6 @@ except ImportError:
     def lookupSystemTimezone():
         return ""
 
-try:
-    from Foundation import NSTimeZone
-
-    def lookupSystemTimezone():
-        return NSTimeZone.localTimeZone().name().encode("utf-8")
-
-except ImportError:
-    def lookupSystemTimezone():
-        return ""
-
 
 
 def getLocalTimezone():

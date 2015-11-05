@@ -22,7 +22,6 @@ __all__ = [
     "AbstractADBAPIDatabase",
 ]
 
-import thread
 import threading
 
 try:
