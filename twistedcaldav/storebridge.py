@@ -1719,11 +1719,15 @@ class AttachmentsCollection(_GetChildHelper):
 
         # Hide the dropbox if it has no children
         if calendarObject:
-            l = (yield calendarObject.managedAttachmentList())
-            if len(l) == 0:
-                l = (yield calendarObject.attachments())
+            if calendarObject.isInTrash():
+                # Don't allow access to attachments for items in the trash
+                calendarObject = None
+            else:
+                l = (yield calendarObject.managedAttachmentList())
                 if len(l) == 0:
-                    calendarObject = None
+                    l = (yield calendarObject.attachments())
+                    if len(l) == 0:
+                        calendarObject = None
 
         if calendarObject is None:
             returnValue(NoDropboxHere())
