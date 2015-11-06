@@ -205,7 +205,6 @@ class CalendarClientSimulator(object):
         else:
             # Give up
             return None
-        print("SELECTION, besides=", besides, "count=", count, "n=", n)
         return self._records[n]
 
 
