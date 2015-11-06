@@ -1480,7 +1480,7 @@ def verifyAPNSCertificate(config):
                     message = (
                         "The {proto} APNS certificate ({cert}) cannot be used: {reason}".format(
                             proto=protocol,
-                            cert=certificate_title,
+                            cert=protoConfig.CertificatePath,
                             reason=str(e)
                         )
                     )
