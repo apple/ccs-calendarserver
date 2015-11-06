@@ -114,7 +114,7 @@ class AMPPushMasterTests(StoreTestCase):
 
         client1.reset()
         client2.reset()
-        client2.unsubscribe("token2", "/CalDAV/localhost/user01/")
+        client2.unsubscribe("/CalDAV/localhost/user01/")
         service.enqueue(
             None, "/CalDAV/localhost/user01/",
             dataChangedTimestamp=dataChangedTimestamp,

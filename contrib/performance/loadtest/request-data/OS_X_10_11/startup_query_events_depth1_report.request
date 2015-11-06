@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<B:calendar-query xmlns:B="urn:ietf:params:xml:ns:caldav">
+  <A:prop xmlns:A="DAV:">
+    <A:getetag/>
+    <A:getcontenttype/>
+  </A:prop>
+  <B:filter>
+    <B:comp-filter name="VCALENDAR">
+      <B:comp-filter name="VEVENT">
+        <B:time-range start="20150630T010101Z" end="20150721T010101Z"/>
+      </B:comp-filter>
+    </B:comp-filter>
+  </B:filter>
+</B:calendar-query>

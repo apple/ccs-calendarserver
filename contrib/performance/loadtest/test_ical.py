@@ -21,7 +21,7 @@ from caldavclientlibrary.protocol.url import URL
 from caldavclientlibrary.protocol.webdav.definitions import davxml
 
 from contrib.performance.httpclient import MemoryConsumer, StringProducer
-from contrib.performance.loadtest.ical import XMPPPush, Event, Calendar, OS_X_10_6
+from contrib.performance.loadtest.ical import XMPPPush, Event, Calendar, OS_X_10_11, NotificationCollection
 from contrib.performance.loadtest.sim import _DirectoryRecord
 
 from pycalendar.datetime import DateTime
@@ -32,7 +32,7 @@ from twisted.internet.protocol import ProtocolToConsumerAdapter
 from twisted.python.failure import Failure
 from twisted.trial.unittest import TestCase
 from twisted.web.client import ResponseDone
-from twisted.web.http import OK, NO_CONTENT, CREATED, MULTI_STATUS
+from twisted.web.http import OK, NO_CONTENT, CREATED, MULTI_STATUS, NOT_FOUND, FORBIDDEN
 from twisted.web.http_headers import Headers
 
 from twistedcaldav.ical import Component
@@ -581,6 +581,7 @@ _CALENDAR_HOME_PROPFIND_RESPONSE_TEMPLATE = """\
     <href>/calendars/__uids__/user01/notification/</href>
     <propstat>
       <prop>
+        <sync-token xmlns='DAV:'>SYNCTOKEN3</sync-token>
         <displayname>notification</displayname>
         <resourcetype>
           <collection/>
@@ -742,6 +743,8 @@ _CALENDAR_HOME_PROPFIND_RESPONSE_TEMPLATE = """\
     <propstat>
       <prop>
         <getctag xmlns='http://calendarserver.org/ns/'>c2696540-4c4c-4a31-adaf-c99630776828#3</getctag>
+        <sync-token xmlns='DAV:'>SYNCTOKEN1</sync-token>
+
         <displayname>calendar</displayname>
         <calendar-color xmlns='http://apple.com/ns/ical/'>#0252D4FF</calendar-color>
         <calendar-order xmlns='http://apple.com/ns/ical/'>1</calendar-order>
@@ -1027,6 +1030,7 @@ END:VCALENDAR
     <propstat>
       <prop>
         <getctag xmlns='http://calendarserver.org/ns/'>a483dab3-1391-445b-b1c3-5ae9dfc81c2f#0</getctag>
+        <sync-token xmlns='DAV:'>SYNCTOKEN2</sync-token>
         <displayname>inbox</displayname>
         <supported-calendar-component-set xmlns='urn:ietf:params:xml:ns:caldav'>
           <comp name='VEVENT'/>
@@ -1153,9 +1157,9 @@ class MemoryResponse(object):
 
 
 
-class OS_X_10_6Mixin:
+class OS_X_10_11Mixin:
     """
-    Mixin for L{TestCase}s for L{OS_X_10_6}.
+    Mixin for L{TestCase}s for L{OS_X_10_11}.
     """
     def setUp(self):
         TimezoneCache.create()
@@ -1164,7 +1168,7 @@ class OS_X_10_6Mixin:
         )
         serializePath = self.mktemp()
         os.mkdir(serializePath)
-        self.client = OS_X_10_6(
+        self.client = OS_X_10_11(
             None,
             "http://127.0.0.1",
             "/principals/users/%s/",
@@ -1185,9 +1189,9 @@ class OS_X_10_6Mixin:
 
 
 
-class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
+class OS_X_10_11Tests(OS_X_10_11Mixin, TestCase):
     """
-    Tests for L{OS_X_10_6}.
+    Tests for L{OS_X_10_11}.
     """
     def test_parsePrincipalPROPFINDResponse(self):
         """
@@ -1230,12 +1234,12 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
 
     def test_extractCalendars(self):
         """
-        L{OS_X_10_6._extractCalendars} accepts a calendar home
+        L{OS_X_10_11._extractCalendars} accepts a calendar home
         PROPFIND response body and returns a list of calendar objects
         constructed from the data extracted from the response.
         """
         home = "/calendars/__uids__/user01/"
-        calendars = self.client._extractCalendars(
+        calendars, notificationCollection = self.client._extractCalendars(
             self.client._parseMultiStatus(CALENDAR_HOME_PROPFIND_RESPONSE), home)
         calendars.sort(key=lambda cal: cal.resourceType)
         calendar, inbox = calendars
@@ -1243,12 +1247,14 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
         self.assertEquals(calendar.resourceType, caldavxml.calendar)
         self.assertEquals(calendar.name, "calendar")
         self.assertEquals(calendar.url, "/calendars/__uids__/user01/calendar/")
-        self.assertEquals(calendar.changeToken, "c2696540-4c4c-4a31-adaf-c99630776828#3")
+        self.assertEquals(calendar.changeToken, "SYNCTOKEN1")
 
         self.assertEquals(inbox.resourceType, caldavxml.schedule_inbox)
         self.assertEquals(inbox.name, "inbox")
         self.assertEquals(inbox.url, "/calendars/__uids__/user01/inbox/")
-        self.assertEquals(inbox.changeToken, "a483dab3-1391-445b-b1c3-5ae9dfc81c2f#0")
+        self.assertEquals(inbox.changeToken, "SYNCTOKEN2")
+
+        self.assertEquals(notificationCollection.changeToken, "SYNCTOKEN3")
 
         self.assertEqual({}, self.client.xmpp)
 
@@ -1256,7 +1262,7 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
     def test_extractCalendarsXMPP(self):
         """
         If there is XMPP push information in a calendar home PROPFIND response,
-        L{OS_X_10_6._extractCalendars} finds it and records it.
+        L{OS_X_10_11._extractCalendars} finds it and records it.
         """
         home = "/calendars/__uids__/user01/"
         self.client._extractCalendars(
@@ -1283,7 +1289,7 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
     @inlineCallbacks
     def test_changeEventAttendee(self):
         """
-        OS_X_10_6.changeEventAttendee removes one attendee from an
+        OS_X_10_11.changeEventAttendee removes one attendee from an
         existing event and appends another.
         """
         requests = self.interceptRequests()
@@ -1317,7 +1323,7 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
 
     def test_addEvent(self):
         """
-        L{OS_X_10_6.addEvent} PUTs the event passed to it to the
+        L{OS_X_10_11.addEvent} PUTs the event passed to it to the
         server and updates local state to reflect its existence.
         """
         requests = self.interceptRequests()
@@ -1359,7 +1365,7 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
     @inlineCallbacks
     def test_addInvite(self):
         """
-        L{OS_X_10_6.addInvite} PUTs the event passed to it to the
+        L{OS_X_10_11.addInvite} PUTs the event passed to it to the
         server and updates local state to reflect its existence, but
         it also does attendee auto-complete and free-busy checks before
         the PUT.
@@ -1450,7 +1456,7 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
 
     def test_deleteEvent(self):
         """
-        L{OS_X_10_6.deleteEvent} DELETEs the event at the relative
+        L{OS_X_10_11.deleteEvent} DELETEs the event at the relative
         URL passed to it and updates local state to reflect its
         removal.
         """
@@ -1467,7 +1473,7 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
 
         expectedResponseCode, method, url = req
 
-        self.assertEqual(expectedResponseCode, NO_CONTENT)
+        self.assertEqual(expectedResponseCode, (NO_CONTENT, NOT_FOUND))
         self.assertEqual(method, 'DELETE')
         self.assertEqual(url, 'http://127.0.0.1' + event.url)
         self.assertIsInstance(url, str)
@@ -1484,9 +1490,9 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
 
     def test_serialization(self):
         """
-        L{OS_X_10_6.serialize} properly generates a JSON document.
+        L{OS_X_10_11.serialize} properly generates a JSON document.
         """
-        clientPath = os.path.join(self.client.serializePath, "user91-OS_X_10.6")
+        clientPath = os.path.join(self.client.serializePath, "user91-OS_X_10.11")
         self.assertFalse(os.path.exists(clientPath))
         indexPath = os.path.join(clientPath, "index.json")
         self.assertFalse(os.path.exists(indexPath))
@@ -1535,14 +1541,32 @@ END:VCALENDAR
         self.client._calendars["/home/calendar/"].events["1.ics"] = events[0]
         self.client._calendars["/home/inbox/"].events["i1.ics"] = events[1]
 
+        self.client._notificationCollection = NotificationCollection("/home/notification", "123")
+
         self.client.serialize()
         self.assertTrue(os.path.exists(clientPath))
         self.assertTrue(os.path.exists(indexPath))
         def _normDict(d):
-            return dict([(k, sorted(v, key=lambda x: x["changeToken" if k == "calendars" else "url"]) if v else None,) for k, v in d.items()])
+            return dict([
+                (
+                    k,
+                    sorted(
+                        v,
+                        key=lambda x:
+                            x["changeToken" if k == "calendars" else "url"]
+                    ) if isinstance(v, list) else v,
+                )
+                for k, v in d.items()
+            ])
         with open(indexPath) as f:
             jdata = f.read()
+
         self.assertEqual(_normDict(json.loads(jdata)), _normDict(json.loads("""{
+  "notificationCollection": {
+      "url": "/home/notification",
+      "notifications": [],
+      "changeToken": "123"
+    },
   "calendars": [
     {
       "changeToken": "123",
@@ -1612,7 +1636,7 @@ END:VCALENDAR
 
     def test_deserialization(self):
         """
-        L{OS_X_10_6.deserailize} properly parses a JSON document.
+        L{OS_X_10_11.deserailize} properly parses a JSON document.
         """
 
         cal1 = """BEGIN:VCALENDAR
@@ -1645,7 +1669,7 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
 
-        clientPath = os.path.join(self.client.serializePath, "user91-OS_X_10.6")
+        clientPath = os.path.join(self.client.serializePath, "user91-OS_X_10.11")
         os.mkdir(clientPath)
         indexPath = os.path.join(clientPath, "index.json")
         with open(indexPath, "w") as f:
@@ -1738,9 +1762,9 @@ END:VCALENDAR
 
 
 
-class UpdateCalendarTests(OS_X_10_6Mixin, TestCase):
+class UpdateCalendarTests(OS_X_10_11Mixin, TestCase):
     """
-    Tests for L{OS_X_10_6._updateCalendar}.
+    Tests for L{OS_X_10_11._updateCalendar}.
     """
 
     _CALENDAR_PROPFIND_RESPONSE_BODY = """\
@@ -1867,7 +1891,7 @@ END:VCALENDAR
 
     def test_eventMissing(self):
         """
-        If an event included in the calendar PROPFIND response no longer exists
+        If an event included in the calendar sync REPORT response no longer exists
         by the time a REPORT is issued for that event, the 404 is handled and
         the rest of the normal update logic for that event is skipped.
         """
@@ -1878,9 +1902,9 @@ END:VCALENDAR
         self.client._updateCalendar(calendar, "1234")
         result, req = requests.pop(0)
         expectedResponseCode, method, url, _ignore_headers, _ignore_body = req
-        self.assertEqual('PROPFIND', method)
+        self.assertEqual('REPORT', method)
         self.assertEqual('http://127.0.0.1/something/', url)
-        self.assertEqual((MULTI_STATUS,), expectedResponseCode)
+        self.assertEqual((MULTI_STATUS, FORBIDDEN), expectedResponseCode)
 
         result.callback(
             MemoryResponse(
@@ -1908,7 +1932,7 @@ END:VCALENDAR
 
     def test_multigetBatch(self):
         """
-        If an event included in the calendar PROPFIND response no longer exists
+        If an event included in the calendar sync REPORT response no longer exists
         by the time a REPORT is issued for that event, the 404 is handled and
         the rest of the normal update logic for that event is skipped.
         """
@@ -1921,9 +1945,9 @@ END:VCALENDAR
         self.client._updateCalendar(calendar, "1234")
         result, req = requests.pop(0)
         expectedResponseCode, method, url, _ignore_headers, _ignore_body = req
-        self.assertEqual('PROPFIND', method)
+        self.assertEqual('REPORT', method)
         self.assertEqual('http://127.0.0.1/something/', url)
-        self.assertEqual((MULTI_STATUS,), expectedResponseCode)
+        self.assertEqual((MULTI_STATUS, FORBIDDEN), expectedResponseCode)
 
         result.callback(
             MemoryResponse(
@@ -1960,13 +1984,13 @@ END:VCALENDAR
 
 
 
-class VFreeBusyTests(OS_X_10_6Mixin, TestCase):
+class VFreeBusyTests(OS_X_10_11Mixin, TestCase):
     """
-    Tests for L{OS_X_10_6.requestAvailability}.
+    Tests for L{OS_X_10_11.requestAvailability}.
     """
     def test_requestAvailability(self):
         """
-        L{OS_X_10_6.requestAvailability} accepts a date range and a set of
+        L{OS_X_10_11.requestAvailability} accepts a date range and a set of
         account uuids and issues a VFREEBUSY request.  It returns a Deferred
         which fires with a dict mapping account uuids to availability range
         information.

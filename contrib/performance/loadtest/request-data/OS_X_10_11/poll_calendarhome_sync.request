@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<A:sync-collection xmlns:A="DAV:">
+  <A:sync-token>data:,30_1122/8bbf7c540e5fca2cc3220f114a8164f7</A:sync-token>
+  <A:sync-level>1</A:sync-level>
+  <A:prop>
+    <C:publish-url xmlns:C="http://calendarserver.org/ns/"/>
+    <B:supported-calendar-component-sets xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <B:schedule-calendar-transp xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <C:source xmlns:C="http://calendarserver.org/ns/"/>
+    <B:calendar-description xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <D:location-code xmlns:D="http://apple.com/ns/ical/"/>
+    <D:autoprovisioned xmlns:D="http://apple.com/ns/ical/"/>
+    <A:quota-used-bytes/>
+    <C:pre-publish-url xmlns:C="http://calendarserver.org/ns/"/>
+    <D:calendar-order xmlns:D="http://apple.com/ns/ical/"/>
+    <D:refreshrate xmlns:D="http://apple.com/ns/ical/"/>
+    <C:subscribed-strip-attachments xmlns:C="http://calendarserver.org/ns/"/>
+    <C:push-transports xmlns:C="http://calendarserver.org/ns/"/>
+    <B:schedule-default-calendar-URL xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <B:calendar-alarm xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <B:supported-calendar-component-set xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <A:owner/>
+    <A:add-member/>
+    <C:invite xmlns:C="http://calendarserver.org/ns/"/>
+    <A:resource-id/>
+    <E:bulk-requests xmlns:E="http://me.com/_namespace/"/>
+    <B:calendar-timezone xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <A:supported-report-set/>
+    <A:displayname/>
+    <C:subscribed-strip-alarms xmlns:C="http://calendarserver.org/ns/"/>
+    <D:language-code xmlns:D="http://apple.com/ns/ical/"/>
+    <C:subscribed-strip-todos xmlns:C="http://calendarserver.org/ns/"/>
+    <C:allowed-sharing-modes xmlns:C="http://calendarserver.org/ns/"/>
+    <A:current-user-privilege-set/>
+    <B:calendar-free-busy-set xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <A:sync-token/>
+    <A:quota-available-bytes/>
+    <C:pushkey xmlns:C="http://calendarserver.org/ns/"/>
+    <B:default-alarm-vevent-date xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <A:resourcetype/>
+    <B:default-alarm-vevent-datetime xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <D:calendar-color xmlns:D="http://apple.com/ns/ical/"/>
+    <C:getctag xmlns:C="http://calendarserver.org/ns/"/>
+  </A:prop>
+</A:sync-collection>

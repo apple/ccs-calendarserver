@@ -31,16 +31,16 @@
 
 				<!-- Here is a OS X client simulator. -->
 				<key>software</key>
-				<string>contrib.performance.loadtest.ical.OS_X_10_7</string>
+				<string>contrib.performance.loadtest.ical.OS_X_10_11</string>
 
-				<!-- Arguments to use to initialize the OS_X_10_7 instance. -->
+				<!-- Arguments to use to initialize the OS_X_10_11 instance. -->
 				<key>params</key>
 				<dict>
 					<!-- Name that appears in logs. -->
 					<key>title</key>
-					<string>10.7</string>
-	
-					<!-- OS_X_10_7 can poll the calendar home at some interval. This is
+					<string>10.11</string>
+
+					<!-- OS_X_10_11 can poll the calendar home at some interval. This is
 						in seconds. -->
 					<key>calendarHomePollInterval</key>
 					<integer>30</integer>
@@ -51,7 +51,7 @@
 						and use it if possible. Still fall back to polling if there is no xmpp push
 						advertised. -->
 					<key>supportPush</key>
-					<false />
+					<true/>
 
 					<key>supportAmpPush</key>
 					<true/>
@@ -144,13 +144,13 @@
 										<!-- Half of all events will be non-recurring -->
 										<key>none</key>
 										<integer>50</integer>
-										
+
 										<!-- Daily and weekly are pretty common -->
 										<key>daily</key>
 										<integer>10</integer>
 										<key>weekly</key>
 										<integer>20</integer>
-										
+
 										<!-- Monthly, yearly, daily & weekly limit not so common -->
 										<key>monthly</key>
 										<integer>2</integer>
@@ -160,7 +160,7 @@
 										<integer>2</integer>
 										<key>weeklylimit</key>
 										<integer>5</integer>
-										
+
 										<!-- Work days pretty common -->
 										<key>workdays</key>
 										<integer>10</integer>
@@ -171,6 +171,10 @@
 					</dict>
 
 					<!-- This profile will create a new event, and then periodically update the ACKNOWLEDGED property. -->
+
+					<!-- Rather than use EventUpdater which always updates the same event,
+					you can use Eventer to create events and TitleChanger or Attacher to change
+					random events -->
 					<dict>
 						<key>class</key>
 						<string>contrib.performance.loadtest.profiles.EventUpdater</string>
@@ -247,13 +251,13 @@
 										<!-- Half of all events will be non-recurring -->
 										<key>none</key>
 										<integer>50</integer>
-										
+
 										<!-- Daily and weekly are pretty common -->
 										<key>daily</key>
 										<integer>25</integer>
 										<key>weekly</key>
 										<integer>25</integer>
-										
+
 										<!-- Monthly, yearly, daily & weekly limit not so common -->
 										<key>monthly</key>
 										<integer>0</integer>
@@ -263,13 +267,106 @@
 										<integer>0</integer>
 										<key>weeklylimit</key>
 										<integer>0</integer>
-										
+
 										<!-- Work days pretty common -->
 										<key>workdays</key>
 										<integer>0</integer>
 									</dict>
 								</dict>
 							</dict>
+						</dict>
+					</dict>
+
+					<!-- Picks a random event and changes the title -->
+					<dict>
+						<key>class</key>
+						<string>contrib.performance.loadtest.profiles.TitleChanger</string>
+
+						<key>params</key>
+						<dict>
+							<key>enabled</key>
+							<true/>
+
+							<!-- Define the interval (in seconds) at which this profile will use
+								its client to create a new event. -->
+							<key>interval</key>
+							<integer>60</integer>
+
+						</dict>
+					</dict>
+
+					<!-- Picks a random event and attaches -->
+					<dict>
+						<key>class</key>
+						<string>contrib.performance.loadtest.profiles.Attacher</string>
+
+						<key>params</key>
+						<dict>
+							<key>enabled</key>
+							<true/>
+
+							<!-- Define the interval (in seconds) at which this profile will use
+								its client to create a new event. -->
+							<key>interval</key>
+							<integer>60</integer>
+
+							<!-- Define the attachment size distribution. -->
+							<key>fileSizeDistribution</key>
+							<dict>
+								<key>type</key>
+								<string>contrib.performance.stats.NormalDistribution</string>
+								<key>params</key>
+								<dict>
+									<!-- mu gives the mean of the normal distribution (in seconds). -->
+									<key>mu</key>
+									<integer>500000</integer>
+
+									<!-- and sigma gives its standard deviation. -->
+									<key>sigma</key>
+									<integer>100000</integer>
+								</dict>
+							</dict>
+
+						</dict>
+					</dict>
+
+					<!-- Removes events from calendars exceeding a threshold -->
+					<dict>
+						<key>class</key>
+						<string>contrib.performance.loadtest.profiles.EventCountLimiter</string>
+
+						<key>params</key>
+						<dict>
+							<key>enabled</key>
+							<true/>
+
+							<!-- Define the interval (in seconds) at which this profile will check
+								for too-large collections. -->
+							<key>interval</key>
+							<integer>60</integer>
+
+							<!-- The upper bound. -->
+							<key>eventCountLimit</key>
+							<integer>100</integer>
+
+						</dict>
+					</dict>
+
+
+					<!-- Shares calendars -->
+					<dict>
+						<key>class</key>
+						<string>contrib.performance.loadtest.profiles.CalendarSharer</string>
+
+						<key>params</key>
+						<dict>
+							<key>enabled</key>
+							<true/>
+
+							<!-- Define the interval (in seconds) at which this profile will share calendars. -->
+							<key>interval</key>
+							<integer>300</integer>
+
 						</dict>
 					</dict>
 
@@ -281,7 +378,7 @@
 						<key>params</key>
 						<dict>
 							<key>enabled</key>
-							<true/>
+							<false/>
 
 							<!-- Define the frequency at which new invitations will be sent out. -->
 							<key>sendInvitationDistribution</key>
@@ -292,7 +389,7 @@
 								<dict>
 									<!-- mu gives the mean of the normal distribution (in seconds). -->
 									<key>mu</key>
-									<integer>60</integer>
+									<integer>10</integer>
 
 									<!-- and sigma gives its standard deviation. -->
 									<key>sigma</key>
@@ -301,12 +398,12 @@
 							</dict>
 
 							<!-- Define the distribution of who will be invited to an event.
-							
+
 								When inviteeClumping is turned on each invitee is based on a sample of
 								users "close to" the organizer based on account index. If the clumping
 								is too "tight" for the requested number of attendees, then invites for
 								those larger numbers will simply fail (the sim will report that situation).
-								
+
 								When inviteeClumping is off invitees will be sampled across an entire
 								range of account indexes. In this case the distribution ought to be a
 								UniformIntegerDistribution with min=0 and max set to the number of accounts.
@@ -330,13 +427,13 @@
 							<true/>
 
 							<!-- Define the distribution of how many attendees will be invited to an event.
-							
+
 								LogNormal is the best fit to observed data.
 
 
 								For LogNormal "mode" is the peak, "mean" is the mean value.	For invites,
 								mode should typically be 1, and mean whatever matches the user behavior.
-								Our typical mean is 6. 							
+								Our typical mean is 6.
 							     -->
 							<key>inviteeCountDistribution</key>
 							<dict>
@@ -418,13 +515,13 @@
 										<!-- Half of all events will be non-recurring -->
 										<key>none</key>
 										<integer>50</integer>
-										
+
 										<!-- Daily and weekly are pretty common -->
 										<key>daily</key>
 										<integer>10</integer>
 										<key>weekly</key>
 										<integer>20</integer>
-										
+
 										<!-- Monthly, yearly, daily & weekly limit not so common -->
 										<key>monthly</key>
 										<integer>2</integer>
@@ -434,7 +531,7 @@
 										<integer>2</integer>
 										<key>weeklylimit</key>
 										<integer>5</integer>
-										
+
 										<!-- Work days pretty common -->
 										<key>workdays</key>
 										<integer>10</integer>
@@ -459,7 +556,7 @@
 								accepting it.
 
 								For LogNormal "mode" is the peak, "median" is the 50% cummulative value
-								(i.e., half of the user have accepted by that time).								
+								(i.e., half of the user have accepted by that time).
 							-->
 							<key>acceptDelayDistribution</key>
 							<dict>
