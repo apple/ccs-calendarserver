@@ -155,6 +155,7 @@ def pylocals(debugger=None, command=None, result=None, dict=None):
         print("Current frame is not a Python function")
         return
     print("Locals in frame #{}".format(frame.GetFrameID()))
+    tstate = frame.EvaluateExpression("PyGILState_Ensure()")
     names = f.GetValueForExpressionPath("->f_code->co_varnames").Cast(pytuple_t)
     for i in range(numlocals):
         localname = _toStr(names.GetValueForExpressionPath("->ob_item[{}]".format(i)), pystring_t)
@@ -165,6 +166,7 @@ def pylocals(debugger=None, command=None, result=None, dict=None):
             localname[1:-1] if localname else ".",
             local[1:-1] if local else ".",
         ))
+    frame.EvaluateExpression("PyGILState_Release({})".format(tstate))
 
 
 CMDS = ("pybt", "pybtall", "pylocals",)
