@@ -80,7 +80,7 @@
 							<!-- Define the interval (in seconds) at which this profile will use
 								its client to create a new event. -->
 							<key>interval</key>
-							<integer>60</integer>
+							<integer>120</integer>
 
 							<!-- Define how start times (DTSTART) for the randomly generated events
 								will be selected. This is an example of a "Distribution" parameter. The value
@@ -172,22 +172,29 @@
 
 					<!-- This profile will create a new event, and then periodically update the ACKNOWLEDGED property. -->
 
-					<!-- Rather than use EventUpdater which always updates the same event,
-					you can use Eventer to create events and TitleChanger or Attacher to change
-					random events -->
 					<dict>
 						<key>class</key>
-						<string>contrib.performance.loadtest.profiles.EventUpdater</string>
+						<string>contrib.performance.loadtest.profiles.AlarmAcknowledger</string>
 
 						<key>params</key>
 						<dict>
 							<key>enabled</key>
-							<false/>
+							<true/>
 
-							<!-- Define the interval (in seconds) at which this profile will use
-								its client to create a new event. -->
+							<!-- Define how often to check (in seconds) whether it's
+							time to do an alarm acknowledgement -->
 							<key>interval</key>
-							<integer>5</integer>
+							<integer>15</integer>
+
+							<!-- Acknowledgements will only actually occur at one of these
+							minutes past the hour: -->
+							<key>pastTheHour</key>
+							<array>
+								<integer>0</integer>
+								<integer>15</integer>
+								<integer>30</integer>
+								<integer>45</integer>
+							</array>
 
 							<!-- Define how start times (DTSTART) for the randomly generated events
 								will be selected. This is an example of a "Distribution" parameter. The value
@@ -290,7 +297,7 @@
 							<!-- Define the interval (in seconds) at which this profile will use
 								its client to create a new event. -->
 							<key>interval</key>
-							<integer>60</integer>
+							<integer>120</integer>
 
 						</dict>
 					</dict>
@@ -308,7 +315,7 @@
 							<!-- Define the interval (in seconds) at which this profile will use
 								its client to create a new event. -->
 							<key>interval</key>
-							<integer>60</integer>
+							<integer>120</integer>
 
 							<!-- Define the attachment size distribution. -->
 							<key>fileSizeDistribution</key>
@@ -373,12 +380,12 @@
 					<!-- This profile invites some number of new attendees to new events. -->
 					<dict>
 						<key>class</key>
-						<string>contrib.performance.loadtest.profiles.RealisticInviter</string>
+						<string>contrib.performance.loadtest.profiles.Inviter</string>
 
 						<key>params</key>
 						<dict>
 							<key>enabled</key>
-							<false/>
+							<true/>
 
 							<!-- Define the frequency at which new invitations will be sent out. -->
 							<key>sendInvitationDistribution</key>
@@ -389,7 +396,7 @@
 								<dict>
 									<!-- mu gives the mean of the normal distribution (in seconds). -->
 									<key>mu</key>
-									<integer>10</integer>
+									<integer>120</integer>
 
 									<!-- and sigma gives its standard deviation. -->
 									<key>sigma</key>

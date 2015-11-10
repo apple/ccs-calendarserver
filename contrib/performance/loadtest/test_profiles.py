@@ -31,8 +31,7 @@ from twisted.web.client import Response
 
 from twistedcaldav.ical import Component, Property
 
-from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter, OperationLogger
-from contrib.performance.loadtest.profiles import RealisticInviter
+from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter, OperationLogger, AlarmAcknowledger
 from contrib.performance.loadtest.population import Populator, CalendarClientSimulator
 from contrib.performance.loadtest.ical import IncorrectResponseCode, Calendar, Event, BaseClient
 from contrib.performance.loadtest.sim import _DirectoryRecord
@@ -340,6 +339,208 @@ class SequentialDistribution(object):
         return self.values.pop(0)
 
 
+# These were for the old Inviter class, before RealisticInviter was renamed
+# to Inviter.  Keeping them around in case there are some we want to copy
+# over to the new Inviter:
+#
+# class InviterTests(TestCase):
+#     """
+#     Tests for loadtest.profiles.Inviter.
+#     """
+#     def setUp(self):
+#         self.sim = CalendarClientSimulator(
+#             AnyUser(), Populator(None), None, None, None, None, None, None)
+
+
+#     def _simpleAccount(self, userNumber, eventText):
+#         client = StubClient(userNumber, self.mktemp())
+
+#         vevent = Component.fromString(eventText)
+#         calendar = Calendar(
+#             caldavxml.calendar, set(('VEVENT',)), u'calendar', u'/cal/', None)
+#         client._calendars.update({calendar.url: calendar})
+
+#         event = Event(client.serializeLocation(), calendar.url + u'1234.ics', None, vevent)
+
+#         client._events.update({event.url: event})
+#         calendar.events = {u'1234.ics': event}
+
+#         return vevent, event, calendar, client
+
+
+#     def test_enabled(self):
+#         userNumber = 13
+#         client = StubClient(userNumber, self.mktemp())
+
+#         inviter = Inviter(None, self.sim, client, userNumber, **{"enabled": False})
+#         self.assertEqual(inviter.enabled, False)
+
+#         inviter = Inviter(None, self.sim, client, userNumber, **{"enabled": True})
+#         self.assertEqual(inviter.enabled, True)
+
+
+#     def test_doNotAddAttendeeToInbox(self):
+#         """
+#         When the only calendar with any events is a schedule inbox, no
+#         attempt is made to add attendees to an event on that calendar.
+#         """
+#         userNumber = 10
+#         vevent, _ignore_event, calendar, client = self._simpleAccount(
+#             userNumber, SIMPLE_EVENT)
+#         calendar.resourceType = caldavxml.schedule_inbox
+#         inviter = Inviter(None, self.sim, client, userNumber)
+#         inviter._invite()
+#         self.assertFalse(vevent.mainComponent().hasProperty('ATTENDEE'))
+
+
+#     def test_doNotAddAttendeeToNoCalendars(self):
+#         """
+#         When there are no calendars and no events at all, the inviter
+#         does nothing.
+#         """
+#         userNumber = 13
+#         client = StubClient(userNumber, self.mktemp())
+#         inviter = Inviter(None, self.sim, client, userNumber)
+#         inviter._invite()
+#         self.assertEquals(client._events, {})
+#         self.assertEquals(client._calendars, {})
+
+
+#     def test_doNotAddAttendeeToUninitializedEvent(self):
+#         """
+#         When there is an L{Event} on a calendar but the details of the
+#         event have not yet been retrieved, no attempt is made to add
+#         invitees to that event.
+#         """
+#         userNumber = 19
+#         _ignore_vevent, event, calendar, client = self._simpleAccount(
+#             userNumber, SIMPLE_EVENT)
+#         event.component = event.etag = event.scheduleTag = None
+#         inviter = Inviter(None, self.sim, client, userNumber)
+#         inviter._invite()
+#         self.assertEquals(client._events, {event.url: event})
+#         self.assertEquals(client._calendars, {calendar.url: calendar})
+
+
+#     def test_addAttendeeToEvent(self):
+#         """
+#         When there is a normal calendar with an event, inviter adds an
+#         attendee to it.
+#         """
+#         userNumber = 16
+#         _ignore_vevent, event, _ignore_calendar, client = self._simpleAccount(
+#             userNumber, SIMPLE_EVENT)
+#         inviter = Inviter(Clock(), self.sim, client, userNumber)
+#         inviter.setParameters(inviteeDistribution=Deterministic(1))
+#         inviter._invite()
+#         attendees = tuple(event.component.mainComponent().properties('ATTENDEE'))
+#         self.assertEquals(len(attendees), 1)
+#         for paramname, paramvalue in {
+#             'CN': 'User %d' % (userNumber + 1,),
+#             'CUTYPE': 'INDIVIDUAL',
+#             'PARTSTAT': 'NEEDS-ACTION',
+#             'ROLE': 'REQ-PARTICIPANT',
+#             'RSVP': 'TRUE'
+#         }.items():
+#             self.assertTrue(attendees[0].hasParameter(paramname))
+#             self.assertEqual(attendees[0].parameterValue(paramname), paramvalue)
+
+
+#     def test_doNotAddSelfToEvent(self):
+#         """
+#         If the inviter randomly selects its own user to be added to
+#         the attendee list, a different user is added instead.
+#         """
+#         selfNumber = 12
+#         _ignore_vevent, event, _ignore_calendar, client = self._simpleAccount(
+#             selfNumber, SIMPLE_EVENT)
+
+#         otherNumber = 20
+#         values = [selfNumber - selfNumber, otherNumber - selfNumber]
+
+#         inviter = Inviter(Clock(), self.sim, client, selfNumber)
+#         inviter.setParameters(inviteeDistribution=SequentialDistribution(values))
+#         inviter._invite()
+#         attendees = tuple(event.component.mainComponent().properties('ATTENDEE'))
+#         self.assertEquals(len(attendees), 1)
+#         for paramname, paramvalue in {
+#             'CN': 'User %d' % (otherNumber,),
+#             'CUTYPE': 'INDIVIDUAL',
+#             'PARTSTAT': 'NEEDS-ACTION',
+#             'ROLE': 'REQ-PARTICIPANT',
+#             'RSVP': 'TRUE'
+#         }.items():
+#             self.assertTrue(attendees[0].hasParameter(paramname))
+#             self.assertEqual(attendees[0].parameterValue(paramname), paramvalue)
+
+
+#     def test_doNotAddExistingToEvent(self):
+#         """
+#         If the inviter randomly selects a user which is already an
+#         invitee on the event, a different user is added instead.
+#         """
+#         selfNumber = 1
+#         _ignore_vevent, event, _ignore_calendar, client = self._simpleAccount(
+#             selfNumber, INVITED_EVENT)
+
+#         invitee = tuple(event.component.mainComponent().properties('ATTENDEE'))[0]
+#         inviteeNumber = int(invitee.parameterValue('CN').split()[1])
+#         anotherNumber = inviteeNumber + 5
+#         values = [inviteeNumber - selfNumber, anotherNumber - selfNumber]
+
+#         inviter = Inviter(Clock(), self.sim, client, selfNumber)
+#         inviter.setParameters(inviteeDistribution=SequentialDistribution(values))
+#         inviter._invite()
+#         attendees = tuple(event.component.mainComponent().properties('ATTENDEE'))
+#         self.assertEquals(len(attendees), 3)
+#         for paramname, paramvalue in {
+#             'CN': 'User %02d' % (anotherNumber,),
+#             'CUTYPE': 'INDIVIDUAL',
+#             'PARTSTAT': 'NEEDS-ACTION',
+#             'ROLE': 'REQ-PARTICIPANT',
+#             'RSVP': 'TRUE'
+#         }.items():
+#             self.assertTrue(attendees[2].hasParameter(paramname))
+#             self.assertEqual(attendees[2].parameterValue(paramname), paramvalue)
+
+
+#     def test_everybodyInvitedAlready(self):
+#         """
+#         If the first so-many randomly selected users we come across
+#         are already attendees on the event, the invitation attempt is
+#         abandoned.
+#         """
+#         selfNumber = 1
+#         vevent, _ignore_event, _ignore_calendar, client = self._simpleAccount(
+#             selfNumber, INVITED_EVENT)
+#         inviter = Inviter(Clock(), self.sim, client, selfNumber)
+#         # Always return a user number which has already been invited.
+#         inviter.setParameters(inviteeDistribution=Deterministic(2 - selfNumber))
+#         inviter._invite()
+#         attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
+#         self.assertEquals(len(attendees), 2)
+
+
+#     def test_doNotInviteToSomeoneElsesEvent(self):
+#         """
+#         If there are events on our calendar which are being organized
+#         by someone else, the inviter does not attempt to invite new
+#         users to them.
+#         """
+#         selfNumber = 2
+#         vevent, _ignore_event, _ignore_calendar, client = self._simpleAccount(
+#             selfNumber, INVITED_EVENT)
+#         inviter = Inviter(None, self.sim, client, selfNumber)
+#         # Try to send an invitation, but with only one event on the
+#         # calendar, of which we are not the organizer.  It should be
+#         # unchanged afterwards.
+#         inviter._invite()
+#         attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
+#         self.assertEqual(len(attendees), 2)
+#         self.assertEqual(attendees[0].parameterValue('CN'), 'User 01')
+#         self.assertEqual(attendees[1].parameterValue('CN'), 'User 02')
+
+
 
 class InviterTests(TestCase):
     """
@@ -352,16 +553,13 @@ class InviterTests(TestCase):
 
     def _simpleAccount(self, userNumber, eventText):
         client = StubClient(userNumber, self.mktemp())
-
         vevent = Component.fromString(eventText)
         calendar = Calendar(
             caldavxml.calendar, set(('VEVENT',)), u'calendar', u'/cal/', None)
-        client._calendars.update({calendar.url: calendar})
-
         event = Event(client.serializeLocation(), calendar.url + u'1234.ics', None, vevent)
-
-        client._events.update({event.url: event})
         calendar.events = {u'1234.ics': event}
+        client._events.update({event.url: event})
+        client._calendars.update({calendar.url: calendar})
 
         return vevent, event, calendar, client
 
@@ -377,202 +575,6 @@ class InviterTests(TestCase):
         self.assertEqual(inviter.enabled, True)
 
 
-    def test_doNotAddAttendeeToInbox(self):
-        """
-        When the only calendar with any events is a schedule inbox, no
-        attempt is made to add attendees to an event on that calendar.
-        """
-        userNumber = 10
-        vevent, _ignore_event, calendar, client = self._simpleAccount(
-            userNumber, SIMPLE_EVENT)
-        calendar.resourceType = caldavxml.schedule_inbox
-        inviter = Inviter(None, self.sim, client, userNumber)
-        inviter._invite()
-        self.assertFalse(vevent.mainComponent().hasProperty('ATTENDEE'))
-
-
-    def test_doNotAddAttendeeToNoCalendars(self):
-        """
-        When there are no calendars and no events at all, the inviter
-        does nothing.
-        """
-        userNumber = 13
-        client = StubClient(userNumber, self.mktemp())
-        inviter = Inviter(None, self.sim, client, userNumber)
-        inviter._invite()
-        self.assertEquals(client._events, {})
-        self.assertEquals(client._calendars, {})
-
-
-    def test_doNotAddAttendeeToUninitializedEvent(self):
-        """
-        When there is an L{Event} on a calendar but the details of the
-        event have not yet been retrieved, no attempt is made to add
-        invitees to that event.
-        """
-        userNumber = 19
-        _ignore_vevent, event, calendar, client = self._simpleAccount(
-            userNumber, SIMPLE_EVENT)
-        event.component = event.etag = event.scheduleTag = None
-        inviter = Inviter(None, self.sim, client, userNumber)
-        inviter._invite()
-        self.assertEquals(client._events, {event.url: event})
-        self.assertEquals(client._calendars, {calendar.url: calendar})
-
-
-    def test_addAttendeeToEvent(self):
-        """
-        When there is a normal calendar with an event, inviter adds an
-        attendee to it.
-        """
-        userNumber = 16
-        _ignore_vevent, event, _ignore_calendar, client = self._simpleAccount(
-            userNumber, SIMPLE_EVENT)
-        inviter = Inviter(Clock(), self.sim, client, userNumber)
-        inviter.setParameters(inviteeDistribution=Deterministic(1))
-        inviter._invite()
-        attendees = tuple(event.component.mainComponent().properties('ATTENDEE'))
-        self.assertEquals(len(attendees), 1)
-        for paramname, paramvalue in {
-            'CN': 'User %d' % (userNumber + 1,),
-            'CUTYPE': 'INDIVIDUAL',
-            'PARTSTAT': 'NEEDS-ACTION',
-            'ROLE': 'REQ-PARTICIPANT',
-            'RSVP': 'TRUE'
-        }.items():
-            self.assertTrue(attendees[0].hasParameter(paramname))
-            self.assertEqual(attendees[0].parameterValue(paramname), paramvalue)
-
-
-    def test_doNotAddSelfToEvent(self):
-        """
-        If the inviter randomly selects its own user to be added to
-        the attendee list, a different user is added instead.
-        """
-        selfNumber = 12
-        _ignore_vevent, event, _ignore_calendar, client = self._simpleAccount(
-            selfNumber, SIMPLE_EVENT)
-
-        otherNumber = 20
-        values = [selfNumber - selfNumber, otherNumber - selfNumber]
-
-        inviter = Inviter(Clock(), self.sim, client, selfNumber)
-        inviter.setParameters(inviteeDistribution=SequentialDistribution(values))
-        inviter._invite()
-        attendees = tuple(event.component.mainComponent().properties('ATTENDEE'))
-        self.assertEquals(len(attendees), 1)
-        for paramname, paramvalue in {
-            'CN': 'User %d' % (otherNumber,),
-            'CUTYPE': 'INDIVIDUAL',
-            'PARTSTAT': 'NEEDS-ACTION',
-            'ROLE': 'REQ-PARTICIPANT',
-            'RSVP': 'TRUE'
-        }.items():
-            self.assertTrue(attendees[0].hasParameter(paramname))
-            self.assertEqual(attendees[0].parameterValue(paramname), paramvalue)
-
-
-    def test_doNotAddExistingToEvent(self):
-        """
-        If the inviter randomly selects a user which is already an
-        invitee on the event, a different user is added instead.
-        """
-        selfNumber = 1
-        _ignore_vevent, event, _ignore_calendar, client = self._simpleAccount(
-            selfNumber, INVITED_EVENT)
-
-        invitee = tuple(event.component.mainComponent().properties('ATTENDEE'))[0]
-        inviteeNumber = int(invitee.parameterValue('CN').split()[1])
-        anotherNumber = inviteeNumber + 5
-        values = [inviteeNumber - selfNumber, anotherNumber - selfNumber]
-
-        inviter = Inviter(Clock(), self.sim, client, selfNumber)
-        inviter.setParameters(inviteeDistribution=SequentialDistribution(values))
-        inviter._invite()
-        attendees = tuple(event.component.mainComponent().properties('ATTENDEE'))
-        self.assertEquals(len(attendees), 3)
-        for paramname, paramvalue in {
-            'CN': 'User %02d' % (anotherNumber,),
-            'CUTYPE': 'INDIVIDUAL',
-            'PARTSTAT': 'NEEDS-ACTION',
-            'ROLE': 'REQ-PARTICIPANT',
-            'RSVP': 'TRUE'
-        }.items():
-            self.assertTrue(attendees[2].hasParameter(paramname))
-            self.assertEqual(attendees[2].parameterValue(paramname), paramvalue)
-
-
-    def test_everybodyInvitedAlready(self):
-        """
-        If the first so-many randomly selected users we come across
-        are already attendees on the event, the invitation attempt is
-        abandoned.
-        """
-        selfNumber = 1
-        vevent, _ignore_event, _ignore_calendar, client = self._simpleAccount(
-            selfNumber, INVITED_EVENT)
-        inviter = Inviter(Clock(), self.sim, client, selfNumber)
-        # Always return a user number which has already been invited.
-        inviter.setParameters(inviteeDistribution=Deterministic(2 - selfNumber))
-        inviter._invite()
-        attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
-        self.assertEquals(len(attendees), 2)
-
-
-    def test_doNotInviteToSomeoneElsesEvent(self):
-        """
-        If there are events on our calendar which are being organized
-        by someone else, the inviter does not attempt to invite new
-        users to them.
-        """
-        selfNumber = 2
-        vevent, _ignore_event, _ignore_calendar, client = self._simpleAccount(
-            selfNumber, INVITED_EVENT)
-        inviter = Inviter(None, self.sim, client, selfNumber)
-        # Try to send an invitation, but with only one event on the
-        # calendar, of which we are not the organizer.  It should be
-        # unchanged afterwards.
-        inviter._invite()
-        attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
-        self.assertEqual(len(attendees), 2)
-        self.assertEqual(attendees[0].parameterValue('CN'), 'User 01')
-        self.assertEqual(attendees[1].parameterValue('CN'), 'User 02')
-
-
-
-class RealisticInviterTests(TestCase):
-    """
-    Tests for loadtest.profiles.RealisticInviter.
-    """
-    def setUp(self):
-        self.sim = CalendarClientSimulator(
-            AnyUser(), Populator(None), None, None, None, None, None, None)
-
-
-    def _simpleAccount(self, userNumber, eventText):
-        client = StubClient(userNumber, self.mktemp())
-        vevent = Component.fromString(eventText)
-        calendar = Calendar(
-            caldavxml.calendar, set(('VEVENT',)), u'calendar', u'/cal/', None)
-        event = Event(client.serializeLocation(), calendar.url + u'1234.ics', None, vevent)
-        calendar.events = {u'1234.ics': event}
-        client._events.update({event.url: event})
-        client._calendars.update({calendar.url: calendar})
-
-        return vevent, event, calendar, client
-
-
-    def test_enabled(self):
-        userNumber = 13
-        client = StubClient(userNumber, self.mktemp())
-
-        inviter = RealisticInviter(None, self.sim, client, userNumber, **{"enabled": False})
-        self.assertEqual(inviter.enabled, False)
-
-        inviter = RealisticInviter(None, self.sim, client, userNumber, **{"enabled": True})
-        self.assertEqual(inviter.enabled, True)
-
-
     def test_doNotAddInviteToInbox(self):
         """
         When the only calendar with any events is a schedule inbox, no
@@ -584,7 +586,7 @@ class RealisticInviterTests(TestCase):
         client = StubClient(userNumber, self.mktemp())
         client._calendars.update({calendar.url: calendar})
 
-        inviter = RealisticInviter(None, self.sim, client, userNumber, **{"enabled": False})
+        inviter = Inviter(None, self.sim, client, userNumber, **{"enabled": False})
         inviter._invite()
 
         self.assertEquals(client._events, {})
@@ -597,7 +599,7 @@ class RealisticInviterTests(TestCase):
         """
         userNumber = 13
         client = StubClient(userNumber, self.mktemp())
-        inviter = RealisticInviter(None, self.sim, client, userNumber)
+        inviter = Inviter(None, self.sim, client, userNumber)
         inviter._invite()
         self.assertEquals(client._events, {})
         self.assertEquals(client._calendars, {})
@@ -614,7 +616,7 @@ class RealisticInviterTests(TestCase):
         os.mkdir(serializePath)
         client = StubClient(userNumber, self.mktemp())
         client._calendars.update({calendar.url: calendar})
-        inviter = RealisticInviter(Clock(), self.sim, client, userNumber)
+        inviter = Inviter(Clock(), self.sim, client, userNumber)
         inviter.setParameters(
             inviteeDistribution=Deterministic(1),
             inviteeCountDistribution=Deterministic(1)
@@ -642,7 +644,7 @@ class RealisticInviterTests(TestCase):
         otherNumber = 20
         values = [selfNumber - selfNumber, otherNumber - selfNumber]
 
-        inviter = RealisticInviter(Clock(), self.sim, client, selfNumber)
+        inviter = Inviter(Clock(), self.sim, client, selfNumber)
         inviter.setParameters(
             inviteeDistribution=SequentialDistribution(values),
             inviteeCountDistribution=Deterministic(1)
@@ -671,7 +673,7 @@ class RealisticInviterTests(TestCase):
         anotherNumber = inviteeNumber + 5
         values = [inviteeNumber - selfNumber, inviteeNumber - selfNumber, anotherNumber - selfNumber]
 
-        inviter = RealisticInviter(Clock(), self.sim, client, selfNumber)
+        inviter = Inviter(Clock(), self.sim, client, selfNumber)
         inviter.setParameters(
             inviteeDistribution=SequentialDistribution(values),
             inviteeCountDistribution=Deterministic(2)
@@ -700,7 +702,7 @@ class RealisticInviterTests(TestCase):
         userNumber = 1
         client = StubClient(userNumber, self.mktemp())
         client._calendars.update({calendar.url: calendar})
-        inviter = RealisticInviter(Clock(), self.sim, client, userNumber)
+        inviter = Inviter(Clock(), self.sim, client, userNumber)
         inviter.setParameters(
             inviteeDistribution=Deterministic(1),
             inviteeCountDistribution=Deterministic(2)
@@ -1089,3 +1091,22 @@ class OperationLoggerTests(TestCase):
         self.assertEqual(
             ["Greater than 1% TESTING failed"],
             logger.failures())
+
+
+class AlarmAcknowledgerTests(TestCase):
+
+    def test_pastTheHour(self):
+        acknowledger = AlarmAcknowledger(None, None, None, {})
+        self.assertTrue(acknowledger._shouldUpdate(0))
+        self.assertFalse(acknowledger._shouldUpdate(0))
+        self.assertFalse(acknowledger._shouldUpdate(1))
+        self.assertFalse(acknowledger._shouldUpdate(1))
+        self.assertFalse(acknowledger._shouldUpdate(14))
+        self.assertTrue(acknowledger._shouldUpdate(15))
+        self.assertFalse(acknowledger._shouldUpdate(15))
+        self.assertFalse(acknowledger._shouldUpdate(16))
+        self.assertTrue(acknowledger._shouldUpdate(30))
+        self.assertFalse(acknowledger._shouldUpdate(30))
+        self.assertFalse(acknowledger._shouldUpdate(59))
+        self.assertTrue(acknowledger._shouldUpdate(0))
+        self.assertFalse(acknowledger._shouldUpdate(0))

@@ -31,7 +31,7 @@ from caldavclientlibrary.protocol.caldav.definitions import caldavxml
 from twisted.python import context
 from twisted.python.log import msg
 from twisted.python.failure import Failure
-from twisted.internet.defer import Deferred, succeed, fail, inlineCallbacks, returnValue
+from twisted.internet.defer import Deferred, succeed, inlineCallbacks, returnValue
 from twisted.internet.task import LoopingCall
 from twisted.web.http import PRECONDITION_FAILED
 
@@ -44,6 +44,8 @@ from contrib.performance.loadtest.ical import Calendar, IncorrectResponseCode
 
 from pycalendar.datetime import DateTime
 from pycalendar.duration import Duration
+
+from datetime import datetime
 
 class ProfileBase(object):
     """
@@ -114,6 +116,9 @@ class ProfileBase(object):
                 event = calendar.events[href]
                 if not event.component:
                     continue
+                if event.scheduleTag:
+                    continue
+
                 return event
         return None
 
@@ -213,124 +218,8 @@ def loopWithDistribution(reactor, distribution, function):
 
 
 
+
 class Inviter(ProfileBase):
-    """
-    A Calendar user who invites and de-invites other users to events.
-    """
-    def setParameters(
-        self,
-        enabled=True,
-        sendInvitationDistribution=NormalDistribution(600, 60),
-        inviteeDistribution=UniformDiscreteDistribution(range(-10, 11))
-    ):
-        self.enabled = enabled
-        self._sendInvitationDistribution = sendInvitationDistribution
-        self._inviteeDistribution = inviteeDistribution
-
-
-    def run(self):
-        return loopWithDistribution(
-            self._reactor, self._sendInvitationDistribution, self._invite)
-
-
-    def _addAttendee(self, event, attendees):
-        """
-        Create a new attendee to add to the list of attendees for the
-        given event.
-        """
-        selfRecord = self._sim.getUserRecord(self._number)
-        invitees = set([u'mailto:%s' % (selfRecord.email,)])
-        for att in attendees:
-            invitees.add(att.value())
-
-        for _ignore_i in range(10):
-            invitee = max(
-                0, self._number + self._inviteeDistribution.sample())
-            try:
-                record = self._sim.getUserRecord(invitee)
-            except IndexError:
-                continue
-            cuaddr = u'mailto:%s' % (record.email,)
-            uuidx = u'urn:x-uid:%s' % (record.guid,)
-            uuid = u'urn:uuid:%s' % (record.guid,)
-            if cuaddr not in invitees and uuidx not in invitees and uuid not in invitees:
-                break
-        else:
-            return fail(CannotAddAttendee("Can't find uninvited user to invite."))
-
-        attendee = Property(
-            name=u'ATTENDEE',
-            value=cuaddr.encode("utf-8"),
-            params={
-                'CN': record.commonName,
-                'CUTYPE': 'INDIVIDUAL',
-                'PARTSTAT': 'NEEDS-ACTION',
-                'ROLE': 'REQ-PARTICIPANT',
-                'RSVP': 'TRUE',
-            },
-        )
-
-        return succeed(attendee)
-
-
-    def _invite(self):
-        """
-        Try to add a new attendee to an event, or perhaps remove an
-        existing attendee from an event.
-
-        @return: C{None} if there are no events to play with,
-            otherwise a L{Deferred} which fires when the attendee
-            change has been made.
-        """
-
-        if not self._client.started:
-            return succeed(None)
-
-        # Find calendars which are eligible for invites
-        calendars = self._calendarsOfType(caldavxml.calendar, "VEVENT")
-
-        while calendars:
-            # Pick one at random from which to try to select an event
-            # to modify.
-            calendar = self.random.choice(calendars)
-            calendars.remove(calendar)
-
-            if not calendar.events:
-                continue
-
-            events = calendar.events.keys()
-            while events:
-                uuid = self.random.choice(events)
-                events.remove(uuid)
-                event = calendar.events[uuid].component
-                if event is None:
-                    continue
-
-                component = event.mainComponent()
-                organizer = component.getOrganizerProperty()
-                if organizer is not None and not self._isSelfAttendee(organizer):
-                    # This event was organized by someone else, don't try to invite someone to it.
-                    continue
-
-                href = calendar.url + uuid
-
-                # Find out who might attend
-                attendees = tuple(component.properties('ATTENDEE'))
-
-                d = self._addAttendee(event, attendees)
-                d.addCallbacks(
-                    lambda attendee:
-                        self._client.addEventAttendee(
-                            href, attendee),
-                    lambda reason: reason.trap(CannotAddAttendee))
-                return self._newOperation("invite", d)
-
-        # Oops, either no events or no calendars to play with.
-        return succeed(None)
-
-
-
-class RealisticInviter(ProfileBase):
     """
     A Calendar user who invites other users to new events.
     """
@@ -473,8 +362,7 @@ END:VCALENDAR
                 try:
                     self._addAttendee(vevent, attendees)
                 except CannotAddAttendee:
-                    self._failedOperation("invite", "Cannot add attendee")
-                    return succeed(None)
+                    continue
 
             href = '%s%s.ics' % (calendar.url, uid)
             d = self._client.addInvite(href, vcalendar)
@@ -868,10 +756,7 @@ class CalendarSharer(ProfileBase):
 
 
 
-# Is the purpose of this profile "EventUpdater" simply to keep updating the same
-# resource over and over?
-
-class EventUpdater(ProfileBase):
+class AlarmAcknowledger(ProfileBase):
     """
     A Calendar user who creates a new event, and then updates its alarm.
     """
@@ -903,7 +788,8 @@ END:VCALENDAR
     def setParameters(
         self,
         enabled=True,
-        interval=25,
+        interval=5,
+        pastTheHour=[0, 15, 30, 45],
         eventStartDistribution=NearFutureDistribution(),
         eventDurationDistribution=UniformDiscreteDistribution([
             15 * 60, 30 * 60,
@@ -914,9 +800,11 @@ END:VCALENDAR
     ):
         self.enabled = enabled
         self._interval = interval
+        self._pastTheHour = pastTheHour
         self._eventStartDistribution = eventStartDistribution
         self._eventDurationDistribution = eventDurationDistribution
         self._recurrenceDistribution = recurrenceDistribution
+        self._lastMinuteChecked = -1
 
 
     def initialize(self):
@@ -925,6 +813,7 @@ END:VCALENDAR
 
         @return: a L{Deferred} that fires when initialization is done
         """
+
         return self._initEvent()
 
 
@@ -968,15 +857,34 @@ END:VCALENDAR
         return self._newOperation("create", d)
 
 
+    def _shouldUpdate(self, minutePastTheHour):
+        """
+        We want to only acknowledge our alarm at the "past the hour" minutes
+        we've been configured for.
+        """
+        should = False
+        if minutePastTheHour in self._pastTheHour:
+            # This is one of the minutes we should update on, but only update
+            # as we pass into this minute, and not subsequent times
+            if minutePastTheHour != self._lastMinuteChecked:
+                should = True
+
+        self._lastMinuteChecked = minutePastTheHour
+        return should
+
+
     def _updateEvent(self):
         """
-        Try to add a new attendee to an event, or perhaps remove an
-        existing attendee from an event.
+        Set the ACKNOWLEDGED property on an event.
 
         @return: C{None} if there are no events to play with,
-            otherwise a L{Deferred} which fires when the attendee
+            otherwise a L{Deferred} which fires when the acknowledged
             change has been made.
         """
+
+        # Only do updates when we reach of the designated minutes past the hour
+        if not self._shouldUpdate(datetime.now().minute):
+            return succeed(None)
 
         if not self._client.started:
             return succeed(None)
