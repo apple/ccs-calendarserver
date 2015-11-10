@@ -227,7 +227,7 @@ def formatList(iterable):
                 yield item
             yield "\n"
     except Exception, e:
-        log.error("Exception while rendering: %s" % (e,))
+        log.error("Exception while rendering: {ex}", ex=e)
         Failure().printTraceback()
         yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
     if not thereAreAny:

@@ -267,7 +267,7 @@ class AMPPushNotifierProtocol(amp.AMP):
 
     def notify(self, token, id, dataChangedTimestamp, priority):
         if self.subscribedToID(id) == token:
-            self.log.debug("Sending notification for %s to %s" % (id, token))
+            self.log.debug("Sending notification for {id} to {token}", id=id, token=token)
             return self.callRemote(
                 NotificationForID, id=id,
                 dataChangedTimestamp=dataChangedTimestamp,

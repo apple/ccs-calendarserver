@@ -69,7 +69,7 @@ class ReverseProxyResource(LeafResource):
         @return: Deferred L{Response}
         """
 
-        self.log.info("%s %s %s" % (request.method, request.uri, "HTTP/%s.%s" % request.clientproto))
+        self.log.info("{method} {uri} {proto}", method=request.method, uri=request.uri, proto="HTTP/%s.%s" % request.clientproto)
 
         # Check for multi-hop
         if not self.allowMultiHop:

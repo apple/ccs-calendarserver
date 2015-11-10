@@ -178,7 +178,7 @@ class TestCalDAVOptions (CalDAVOptions):
         finally:
             sys.stdout = oldout
             log.info(
-                "load configuration console output: %s" % newout.getvalue()
+                "load configuration console output: {result}", result=newout.getvalue()
             )
 
 
@@ -1087,10 +1087,9 @@ class DelayedStartupProcessMonitorTests(StoreTestCase):
                 return
             if event.get('isError'):
                 d.errback()
-            m = event.get('message')[0]
-            if m.startswith('[Dummy] '):
-                logged.append(event)
-                if m == '[Dummy] z':
+            if event.get("log_system") == u'Dummy':
+                logged.append(event["msg"])
+                if event["msg"] == u'z':
                     d.callback("done")
 
         logging.addObserver(tempObserver)
@@ -1098,18 +1097,16 @@ class DelayedStartupProcessMonitorTests(StoreTestCase):
         d = Deferred()
 
         def assertions(result):
-            self.assertEquals(["[Dummy] x",
-                               "[Dummy] y",
-                               "[Dummy] y",  # final segment
-                               "[Dummy] z"],
-                              [''.join(evt['message'])[:len('[Dummy]') + 2]
-                               for evt in logged])
+            self.assertEquals(["x",
+                               "y",
+                               "y",  # final segment
+                               "z"],
+                              [msg[0] for msg in logged])
             self.assertEquals([" (truncated, continued)",
                                " (truncated, continued)",
-                               "[Dummy] y",
-                               "[Dummy] z"],
-                              [''.join(evt['message'])[-len(" (truncated, continued)"):]
-                               for evt in logged])
+                               "y",
+                               "z"],
+                              [msg[-len(" (truncated, continued)"):] for msg in logged])
         d.addCallback(assertions)
         return d
 

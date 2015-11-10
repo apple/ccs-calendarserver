@@ -82,14 +82,14 @@ class PostgresMonitor(ProcessProtocol):
     def outReceived(self, out):
         for line in out.split("\n"):
             if line:
-                self.log.info("{message}", message=line)
+                self.log.info("{msg}", msg=line)
         # self.lineReceiver.dataReceived(out)
 
 
     def errReceived(self, err):
         for line in err.split("\n"):
             if line:
-                self.log.error("{message}", message=line)
+                self.log.error("{msg}", msg=line)
         self.lineReceiver.dataReceived(err)
 
 

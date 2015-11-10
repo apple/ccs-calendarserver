@@ -126,13 +126,13 @@ class UpgradeDatabaseCoreStep(object):
         """
         Do a database schema upgrade.
         """
-        self.log.warn("Beginning database %s check." % (self.versionDescriptor,))
+        self.log.warn("Beginning database {vers} check.", vers=self.versionDescriptor)
 
         # Retrieve information from schema and database
         dialect, required_version, actual_version = yield self.getVersions()
 
         if required_version == actual_version:
-            self.log.warn("%s version check complete: no upgrade needed." % (self.versionDescriptor.capitalize(),))
+            self.log.warn("{vers} version check complete: no upgrade needed.", vers=self.versionDescriptor.capitalize())
         elif required_version < actual_version:
             msg = "Actual %s version %s is more recent than the expected version %s. The service cannot be started" % (
                 self.versionDescriptor, actual_version, required_version,
@@ -146,7 +146,7 @@ class UpgradeDatabaseCoreStep(object):
             yield self.upgradeVersion(actual_version, required_version, dialect)
             self.sqlStore.setUpgrading(False)
 
-        self.log.warn("Database %s check complete." % (self.versionDescriptor,))
+        self.log.warn("Database {vers} check complete.", vers=self.versionDescriptor)
 
         returnValue(None)
 
@@ -167,7 +167,7 @@ class UpgradeDatabaseCoreStep(object):
             raise RuntimeError(msg)
         else:
             required_version = int(found.group(1))
-            self.log.warn("Required database key %s: %s." % (self.versionKey, required_version,))
+            self.log.warn("Required database key {key}: {vers}.", key=self.versionKey, vers=required_version)
 
         # Get the schema version in the current database
         sqlTxn = self.sqlStore.newTransaction(label="UpgradeDatabaseCoreStep.getVersions")
@@ -178,14 +178,14 @@ class UpgradeDatabaseCoreStep(object):
             yield sqlTxn.commit()
         except (RuntimeError, ValueError):
             f = Failure()
-            self.log.error("Database key %s cannot be determined." % (self.versionKey,))
+            self.log.error("Database key {key} cannot be determined.", key=self.versionKey)
             yield sqlTxn.abort()
             if self.defaultKeyValue is None:
                 f.raiseException()
             else:
                 actual_version = self.defaultKeyValue
 
-        self.log.warn("Actual database key %s: %s." % (self.versionKey, actual_version,))
+        self.log.warn("Actual database key {key}: {vers}.", key=self.versionKey, vers=actual_version)
 
         returnValue((dialect, required_version, actual_version,))
 
@@ -197,7 +197,7 @@ class UpgradeDatabaseCoreStep(object):
         looking for upgrade_from_X_to_Y.sql files that cover the full range of upgrades.
         """
 
-        self.log.warn("Starting %s upgrade from version %d to %d." % (self.versionDescriptor, fromVersion, toVersion,))
+        self.log.warn("Starting {vers} upgrade from version {fr} to {to}.", vers=self.versionDescriptor, fr=fromVersion, to=toVersion)
 
         # Scan for all possible upgrade files - returned sorted
         files = self.scanForUpgradeFiles(dialect)
@@ -210,10 +210,10 @@ class UpgradeDatabaseCoreStep(object):
             for fp in upgrades:
                 yield self.applyUpgrade(fp)
         except RuntimeError:
-            self.log.error("Database %s upgrade failed using: %s" % (self.versionDescriptor, fp.basename(),))
+            self.log.error("Database {vers} upgrade failed using: {path}", vers=self.versionDescriptor, path=fp.basename())
             raise
 
-        self.log.warn("%s upgraded from version %d to %d." % (self.versionDescriptor.capitalize(), fromVersion, toVersion,))
+        self.log.warn("{vers} upgraded from version {fr} to {o}.", vers=self.versionDescriptor.capitalize(), fr=fromVersion, to=toVersion)
 
 
     def getPathToUpgrades(self, dialect):
@@ -312,7 +312,7 @@ class UpgradeDatabaseSchemaStep(UpgradeDatabaseCoreStep):
         """
         Apply the schema upgrade .sql file to the database.
         """
-        self.log.warn("Applying schema upgrade: %s" % (fp.basename(),))
+        self.log.warn("Applying schema upgrade: {path}", path=fp.basename())
         sqlTxn = self.sqlStore.newTransaction(label="UpgradeDatabaseSchemaStep.applyUpgrade")
         try:
             sql = fp.getContent()
@@ -356,7 +356,7 @@ class _UpgradeDatabaseDataStep(UpgradeDatabaseCoreStep):
             self.log.error(msg)
             raise RuntimeError(msg)
 
-        self.log.warn("Applying data upgrade: %s" % (module,))
+        self.log.warn("Applying data upgrade: {module}", module=module)
         yield doUpgrade(self.sqlStore)
 
 
@@ -467,7 +467,7 @@ class UpgradeDatabaseOtherStep(UpgradeDatabaseCoreStep):
         """
         Do upgrades.
         """
-        self.log.warn("Beginning database %s check." % (self.versionDescriptor,))
+        self.log.warn("Beginning database {vers} check.", vers=self.versionDescriptor)
 
         # Do each upgrade in our own predefined order
         self.sqlStore.setUpgrading(True)
@@ -477,6 +477,6 @@ class UpgradeDatabaseOtherStep(UpgradeDatabaseCoreStep):
 
         self.sqlStore.setUpgrading(False)
 
-        self.log.warn("Database %s check complete." % (self.versionDescriptor,))
+        self.log.warn("Database {vers} check complete.", vers=self.versionDescriptor)
 
         returnValue(None)

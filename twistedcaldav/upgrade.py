@@ -93,14 +93,14 @@ def getCalendarServerIDs(config):
         try:
             uid = pwd.getpwnam(config.UserName).pw_uid
         except KeyError:
-            log.error("User not found: %s" % (config.UserName,))
+            log.error("User not found: {user}", user=config.UserName)
 
     gid = -1
     if config.GroupName:
         try:
             gid = grp.getgrnam(config.GroupName).gr_gid
         except KeyError:
-            log.error("Group not found: %s" % (config.GroupName,))
+            log.error("Group not found: {grp}", grp=config.GroupName)
 
     return uid, gid
 
@@ -143,7 +143,7 @@ def upgradeCalendarCollection(calPath, directory, cuaCache):
             # Skip directories
             continue
 
-        log.debug("Processing: %s" % (resPath,))
+        log.debug("Processing: {path}", path=resPath)
         needsRewrite = False
         with open(resPath) as res:
             data = res.read()
@@ -151,12 +151,12 @@ def upgradeCalendarCollection(calPath, directory, cuaCache):
             try:
                 data, fixed = fixBadQuotes(data)
                 if fixed:
-                    log.warn("Fixing bad quotes in %s" % (resPath,))
+                    log.warn("Fixing bad quotes in {path}", path=resPath)
                     needsRewrite = True
             except Exception, e:
                 log.error(
-                    "Error while fixing bad quotes in %s: %s" %
-                    (resPath, e)
+                    "Error while fixing bad quotes in {path}: {ex}",
+                    path=resPath, ex=e,
                 )
                 errorOccurred = True
                 continue
@@ -164,12 +164,12 @@ def upgradeCalendarCollection(calPath, directory, cuaCache):
             try:
                 data, fixed = removeIllegalCharacters(data)
                 if fixed:
-                    log.warn("Removing illegal characters in %s" % (resPath,))
+                    log.warn("Removing illegal characters in {path}", path=resPath)
                     needsRewrite = True
             except Exception, e:
                 log.error(
-                    "Error while removing illegal characters in %s: %s" %
-                    (resPath, e)
+                    "Error while removing illegal characters in {path}: {ex}",
+                    path=resPath, ex=e,
                 )
                 errorOccurred = True
                 continue
@@ -177,12 +177,12 @@ def upgradeCalendarCollection(calPath, directory, cuaCache):
             try:
                 data, fixed = (yield normalizeCUAddrs(data, directory, cuaCache))
                 if fixed:
-                    log.debug("Normalized CUAddrs in %s" % (resPath,))
+                    log.debug("Normalized CUAddrs in {path}", path=resPath)
                     needsRewrite = True
             except Exception, e:
                 log.error(
-                    "Error while normalizing %s: %s" %
-                    (resPath, e)
+                    "Error while normalizing {path}: {ex}",
+                    path=resPath, ex=e,
                 )
                 errorOccurred = True
                 continue
@@ -229,7 +229,7 @@ def upgradeCalendarHome(homePath, directory, cuaCache):
 
     errorOccurred = False
 
-    log.debug("Upgrading calendar home: %s" % (homePath,))
+    log.debug("Upgrading calendar home: {path}", path=homePath)
 
     try:
         for cal in os.listdir(homePath):
@@ -242,7 +242,7 @@ def upgradeCalendarHome(homePath, directory, cuaCache):
                 # Delete the old, now obsolete, notifications directory.
                 rmdir(calPath)
                 continue
-            log.debug("Upgrading calendar: %s" % (calPath,))
+            log.debug("Upgrading calendar: {path}", path=calPath)
             if not (yield upgradeCalendarCollection(calPath, directory, cuaCache)):
                 errorOccurred = True
 
@@ -265,7 +265,7 @@ def upgradeCalendarHome(homePath, directory, cuaCache):
                 except:
                     raise
     except Exception, e:
-        log.error("Failed to upgrade calendar home %s: %s" % (homePath, e))
+        log.error("Failed to upgrade calendar home {path}: {ex}", path=homePath, ex=e)
         raise
 
     returnValue(errorOccurred)
@@ -319,8 +319,8 @@ def upgrade_to_1(config, directory):
             )
 
         log.debug(
-            "Moved the calendar user proxy database from '%s' to '%s'."
-            % (oldDbPath, newDbPath,)
+            "Moved the calendar user proxy database from '{old}' to '{new}'.",
+            old=oldDbPath, new=newDbPath
         )
 
 
@@ -375,8 +375,8 @@ def upgrade_to_1(config, directory):
             # Now delete the on disk representation of principals
             rmdir(oldPrincipals)
             log.debug(
-                "Removed the old principal directory at '%s'."
-                % (oldPrincipals,)
+                "Removed the old principal directory at '{path}'.",
+                path=oldPrincipals,
             )
 
         calRoot = os.path.join(docRoot, "calendars")
@@ -386,7 +386,7 @@ def upgrade_to_1(config, directory):
 
             # Move calendar homes to new location:
 
-            log.warn("Moving calendar homes to %s" % (uidHomes,))
+            log.warn("Moving calendar homes to {path}", path=uidHomes)
 
             if os.path.exists(uidHomes):
                 for home in os.listdir(uidHomes):
@@ -470,7 +470,7 @@ def upgrade_to_1(config, directory):
                 os.chown(inboxItemsFile, uid, gid)
 
             if total:
-                log.warn("Processing %d calendar homes in %s" % (total, uidHomes))
+                log.warn("Processing {total} calendar homes in {path}", total=total, path=uidHomes)
 
                 # Upgrade calendar homes in the new location:
                 count = 0
@@ -495,8 +495,8 @@ def upgrade_to_1(config, directory):
                                     count += 1
                                     if count % 10 == 0:
                                         log.warn(
-                                            "Processed calendar home %d of %d"
-                                            % (count, total)
+                                            "Processed calendar home {count} of {total}",
+                                            count=count, total=total,
                                         )
                 log.warn("Done processing calendar homes")
 
@@ -569,7 +569,7 @@ def upgrade_to_2(config, directory):
 
     def flattenHome(calHome):
 
-        log.debug("Flattening calendar home: %s" % (calHome,))
+        log.debug("Flattening calendar home: {path}", path=calHome)
 
         try:
             for cal in os.listdir(calHome):
@@ -598,19 +598,19 @@ def upgrade_to_2(config, directory):
 #                                newPath = os.path.join(calHome, child)
 #                                if os.path.exists(newPath):
 #                                    newPath = os.path.join(calHome, str(uuid.uuid4()))
-#                                log.debug("Moving up calendar: %s" % (childCollection,))
+#                                log.debug("Moving up calendar: {path}", path=childCollection)
 #                                os.rename(childCollection, newPath)
 #                            else:
 #                                scanCollection(childCollection)
 
                 if os.path.isdir(calPath):
-                    # log.debug("Regular collection scan: %s" % (calPath,))
+                    # log.debug("Regular collection scan: {path}", path=calPath)
                     # scanCollection(calPath)
-                    log.warn("Regular collection hidden: %s" % (calPath,))
+                    log.warn("Regular collection hidden: {path}", path=calPath)
                     os.rename(calPath, os.path.join(calHome, ".collection." + os.path.basename(calPath)))
 
         except Exception, e:
-            log.error("Failed to upgrade calendar home %s: %s" % (calHome, e))
+            log.error("Failed to upgrade calendar home {path}: {ex}", path=calHome, ex=e)
             return succeed(False)
 
         return succeed(True)
@@ -780,7 +780,7 @@ def upgradeData(config, directory):
     docRoot = config.DocumentRoot
 
     if not os.path.exists(docRoot):
-        log.info("DocumentRoot (%s) doesn't exist; skipping migration" % (docRoot,))
+        log.info("DocumentRoot ({path}) doesn't exist; skipping migration", path=docRoot)
         return
 
     versionFilePath = os.path.join(docRoot, ".calendarserver_version")
@@ -792,22 +792,22 @@ def upgradeData(config, directory):
                 onDiskVersion = int(versionFile.read().strip())
         except IOError:
             log.error(
-                "Cannot open %s; skipping migration" %
-                (versionFilePath,)
+                "Cannot open {path}; skipping migration",
+                path=versionFilePath,
             )
         except ValueError:
             log.error(
-                "Invalid version number in %s; skipping migration" %
-                (versionFilePath,)
+                "Invalid version number in {path}; skipping migration",
+                path=versionFilePath,
             )
 
     uid, gid = getCalendarServerIDs(config)
 
     for version, method in upgradeMethods:
         if onDiskVersion < version:
-            log.warn("Upgrading to version %d" % (version,))
+            log.warn("Upgrading to version {vers}", vers=version)
             (yield method(config, directory))
-            log.warn("Upgraded to version %d" % (version,))
+            log.warn("Upgraded to version {vers}", vers=version)
             with open(versionFilePath, "w") as verFile:
                 verFile.write(str(version))
             os.chown(versionFilePath, uid, gid)
@@ -841,7 +841,7 @@ def updateFreeBusyHref(href, directory):
     record = yield directory.recordWithShortName(directory.oldNameToRecordType(recordType), shortName)
     if record is None:
         # We will simply ignore this and not write out an fb-set entry
-        log.error("Can't update free-busy href; %s is not in the directory" % shortName)
+        log.error("Can't update free-busy href; {user} is not in the directory", user=shortName)
         returnValue("")
 
     uid = record.uid
@@ -1023,7 +1023,7 @@ def migrateAutoSchedule(config, directory):
 
             if augmentRecords:
                 yield augmentService.addAugmentRecords(augmentRecords)
-            log.warn("Migrated %d auto-schedule settings" % (len(augmentRecords),))
+            log.warn("Migrated {len} auto-schedule settings", len=len(augmentRecords))
 
 
 
@@ -1227,24 +1227,24 @@ class PostDBImportStep(object):
                 totalItems = len(itemsToProcess)
                 ignoreUUIDs = set()
                 for ctr, inboxItem in enumerate(itemsToProcess):
-                    log.info("Processing %d/%d inbox item: %s" % (ctr + 1, totalItems, inboxItem,))
+                    log.info("Processing {ctr}/{total} inbox item: {item}", ctr=ctr + 1, total=totalItems, item=inboxItem)
                     ignore, uuid, ignore, fileName = inboxItem.rsplit("/", 3)
 
                     if uuid in ignoreUUIDs:
-                        log.debug("Ignored inbox item - uuid ignored: %s" % (inboxItem,))
+                        log.debug("Ignored inbox item - uuid ignored: {item}", item=inboxItem)
                         inboxItems.remove(inboxItem)
                         continue
 
                     record = yield directory.recordWithUID(uuid)
                     if record is None:
-                        log.debug("Ignored inbox item - no record: %s" % (inboxItem,))
+                        log.debug("Ignored inbox item - no record: {item}", item=inboxItem)
                         inboxItems.remove(inboxItem)
                         ignoreUUIDs.add(uuid)
                         continue
 
                     principal = yield principalCollection.principalForRecord(record)
                     if principal is None or not isinstance(principal, DirectoryCalendarPrincipalResource):
-                        log.debug("Ignored inbox item - no principal: %s" % (inboxItem,))
+                        log.debug("Ignored inbox item - no principal: {item}", item=inboxItem)
                         inboxItems.remove(inboxItem)
                         ignoreUUIDs.add(uuid)
                         continue
@@ -1260,7 +1260,7 @@ class PostDBImportStep(object):
                     try:
                         calendarHome = yield principal.calendarHome(request)
                         if calendarHome is None:
-                            log.debug("Ignored inbox item - no calendar home: %s" % (inboxItem,))
+                            log.debug("Ignored inbox item - no calendar home: {item}", item=inboxItem)
                             inboxItems.remove(inboxItem)
                             ignoreUUIDs.add(uuid)
                             continue
@@ -1288,13 +1288,13 @@ class PostDBImportStep(object):
                                     )
                                 except Exception, e:
                                     log.error(
-                                        "Error processing inbox item: %s (%s)"
-                                        % (inboxItem, e)
+                                        "Error processing inbox item: {item} ({ex})",
+                                        item=inboxItem, ex=e,
                                     )
                             else:
-                                log.debug("Ignored inbox item - no resource: %s" % (inboxItem,))
+                                log.debug("Ignored inbox item - no resource: {item}", item=inboxItem)
                         else:
-                            log.debug("Ignored inbox item - no inbox: %s" % (inboxItem,))
+                            log.debug("Ignored inbox item - no inbox: {item}", item=inboxItem)
 
                         inboxItems.remove(inboxItem)
 
@@ -1305,7 +1305,7 @@ class PostDBImportStep(object):
             # FIXME: Some generic exception handlers to deal with unexpected errors that for some reason
             # we are not logging properly.
             except Exception, e:
-                log.error("Exception during inbox item processing: %s" % (e,))
+                log.error("Exception during inbox item processing: {ex}", ex=e)
 
             except:
                 log.error("Unknown exception during inbox item processing.")
@@ -1336,7 +1336,7 @@ class PostDBImportStep(object):
         the inbox item.
         """
 
-        log.debug("Processing inbox item %s" % (inboxItem,))
+        log.debug("Processing inbox item {item}", item=inboxItem)
 
         txn = request._newStoreTransaction
 
@@ -1351,7 +1351,7 @@ class PostDBImportStep(object):
         if calendar.mainType() is not None:
             try:
                 method = calendar.propertyValue("METHOD")
-                log.info("Inbox item method is %s" % (method,))
+                log.info("Inbox item method is {method}", method=method)
             except ValueError:
                 returnValue(None)
 
@@ -1374,7 +1374,7 @@ class PostDBImportStep(object):
                 internal_request=False, noAttendeeRefresh=True
             )
         else:
-            log.warn("Removing invalid inbox item: %s" % (uri,))
+            log.warn("Removing invalid inbox item: {uri}", uri=uri)
 
         #
         # Remove item

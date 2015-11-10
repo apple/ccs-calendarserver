@@ -139,7 +139,7 @@ class TimezoneCache(object):
                 dbpath.remove()
                 TimezoneCache.copyPackage("Updating")
             else:
-                log.info("Valid timezones at %s" % (dbpath.path,))
+                log.info("Valid timezones at {p}", p=dbpath.path)
 
 
     @staticmethod

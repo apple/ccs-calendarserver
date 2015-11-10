@@ -1274,3 +1274,5 @@ END:VCALENDAR
         cobjs = (yield calendar2.calendarObjects())
         self.assertTrue(len(cobjs) == 0)
         yield self.commit()
+
+        self.flushLoggedErrors(ValueError)

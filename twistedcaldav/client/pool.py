@@ -177,8 +177,10 @@ class HTTPClientPool(object):
         """
         self._pendingConnects += 1
 
-        self.log.debug("Initating new client connection to: %r" % (
-            self._endpoint,))
+        self.log.debug(
+            "Initiating new client connection to: {endpoint!r}",
+            endpoint=self._endpoint,
+        )
         self._logClientStats()
 
         factory = self.clientFactory(self._reactor)
@@ -272,12 +274,12 @@ class HTTPClientPool(object):
                 response = (yield self._submitRequest(request, args, kwargs))
 
             except (ConnectionLost, ConnectionDone, ConnectError), e:
-                self.log.error("HTTP pooled client connection error (attempt: %d) - retrying: %s" % (ctr + 1, e,))
+                self.log.error("HTTP pooled client connection error (attempt: {ctr}) - retrying: {ex}", ctr=ctr + 1, ex=e)
                 continue
 
             # TODO: find the proper cause of these assertions and fix
             except (AssertionError,), e:
-                self.log.error("HTTP pooled client connection assertion error (attempt: %d) - retrying: %s" % (ctr + 1, e,))
+                self.log.error("HTTP pooled client connection assertion error (attempt: {ctr}) - retrying: {ex}", ctr=ctr + 1, ex=e)
                 continue
 
             else:
@@ -307,7 +309,7 @@ class HTTPClientPool(object):
         elif len(self._busyClients) + self._pendingConnects >= self._maxClients:
             d = Deferred()
             self._pendingRequests.append((d, request, args, kwargs))
-            self.log.debug("Request queued: %s, %r, %r" % (request, args, kwargs))
+            self.log.debug("Request queued: {req}, {args!r}, {kwargs!r}", req=request, args=args, kwargs=kwargs)
             self._logClientStats()
 
         else:
@@ -319,12 +321,11 @@ class HTTPClientPool(object):
 
     def _logClientStats(self):
         self.log.debug(
-            "Clients #free: %d, #busy: %d, #pending: %d, #queued: %d" % (
-                len(self._freeClients),
-                len(self._busyClients),
-                self._pendingConnects,
-                len(self._pendingRequests)
-            )
+            "Clients #free: {free}, #busy: {busy}, #pending: {pending}, #queued: {queued}",
+            free=len(self._freeClients),
+            busy=len(self._busyClients),
+            pending=self._pendingConnects,
+            queued=len(self._pendingRequests)
         )
 
 
@@ -340,7 +341,7 @@ class HTTPClientPool(object):
         elif client in self._freeClients:
             self._freeClients.remove(client)
 
-        self.log.debug("Removed client: %r" % (client,))
+        self.log.debug("Removed client: {client!r}", client=client)
         self._logClientStats()
 
         self._processPending()
@@ -358,7 +359,7 @@ class HTTPClientPool(object):
 
         self._busyClients.add(client)
 
-        self.log.debug("Busied client: %r" % (client,))
+        self.log.debug("Busied client: {client!r}", client=client)
         self._logClientStats()
 
 
@@ -376,7 +377,7 @@ class HTTPClientPool(object):
         if self.shutdown_deferred and self._isIdle():
             self.shutdown_deferred.callback(None)
 
-        self.log.debug("Freed client: %r" % (client,))
+        self.log.debug("Freed client: {client!r}", client=client)
         self._logClientStats()
 
         self._processPending()
@@ -386,8 +387,10 @@ class HTTPClientPool(object):
         if len(self._pendingRequests) > 0:
             d, request, args, kwargs = self._pendingRequests.pop(0)
 
-            self.log.debug("Performing Queued Request: %s, %r, %r" % (
-                request, args, kwargs))
+            self.log.debug(
+                "Performing Queued Request: {req}, {args!r}, {kwargs!r}",
+                req=request, args=args, kwargs=kwargs
+            )
             self._logClientStats()
 
             _ign_d = self._submitRequest(request, *args, **kwargs)

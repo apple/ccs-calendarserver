@@ -316,15 +316,12 @@ class UpgradeToDatabaseStep(object):
         """
         migrateFunc, destFunc = homeTypeLookup.get(homeType)
         uid = normalizeUUIDOrNot(fileHome.uid())
-        self.log.warn("Starting migration transaction %s UID %r" %
-                      (homeType, uid))
+        self.log.warn("Starting migration transaction {type} UID {uid}", type=homeType, uid=uid)
         sqlTxn = self.sqlStore.newTransaction(label="UpgradeToDatabaseStep.migrateOneHome")
         homeGetter = destFunc(sqlTxn)
         sqlHome = yield homeGetter(uid, create=False)
         if sqlHome is not None and not self.merge:
-            self.log.warn(
-                "%s home %r already existed not migrating" % (
-                    homeType, uid))
+            self.log.warn("{ty[e} home {uid} already existed not migrating", type=homeType, uid=uid)
             yield sqlTxn.abort()
             returnValue(None)
         try:
@@ -395,7 +392,7 @@ class UpgradeToDatabaseStep(object):
     @inlineCallbacks
     def _upgradeAction(self, fileTxn, fileHome, homeType):
         uid = fileHome.uid()
-        self.log.warn("Migrating %s UID %r" % (homeType, uid))
+        self.log.warn("Migrating {type} UID {uid}", type=homeType, uid=uid)
         yield self.migrateOneHome(fileTxn, homeType, fileHome)
 
 
@@ -432,6 +429,6 @@ class UpgradeToDatabaseStep(object):
             (doCalendarUpgrade_4_to_5, "Calendar data upgrade from v4 to v5"),
             (doAddressbookUpgrade_1_to_2, "Addressbook data upgrade from v1 to v2"),
         ):
-            self.log.warn("Migration extra step: {}".format(description))
+            self.log.warn("Migration extra step: {desc}", desc=description)
             yield upgrade(self.sqlStore)
         self.sqlStore.setUpgrading(False)

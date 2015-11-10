@@ -492,7 +492,7 @@ class Request(object):
 
     def _error(self, reason):
         if reason.check(error.ConnectionLost):
-            log.info("Request error: {message}", message=reason.getErrorMessage())
+            log.info("Request error: {msg}", msg=reason.getErrorMessage())
         else:
             log.failure("Request error", reason)
             # Only bother with cleanup on errors other than lost connection.

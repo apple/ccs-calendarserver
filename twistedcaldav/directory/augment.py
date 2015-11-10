@@ -363,13 +363,13 @@ class AugmentXMLDB(AugmentDB):
                 try:
                     uid = pwd.getpwnam(config.UserName).pw_uid
                 except KeyError:
-                    log.error("User not found: %s" % (config.UserName,))
+                    log.error("User not found: {user}", user=config.UserName)
             gid = -1
             if config.GroupName:
                 try:
                     gid = grp.getgrnam(config.GroupName).gr_gid
                 except KeyError:
-                    log.error("Group not found: %s" % (config.GroupName,))
+                    log.error("Group not found: {grp}", grp=config.GroupName)
             if uid != -1 and gid != -1:
                 os.chown(xmlfile, uid, gid)
 

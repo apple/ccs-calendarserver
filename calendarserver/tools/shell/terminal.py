@@ -310,7 +310,7 @@ class ShellProtocol(ReceiveLineProtocol):
             except Exception, e:
                 self.handleFailure(Failure(e))
                 return
-            log.info("COMPLETIONS: %r" % (completions,))
+            log.info("COMPLETIONS: {comp}", comp=completions)
         else:
             # Completing command name
             completions = tuple(self.commands.complete_commands(cmd))

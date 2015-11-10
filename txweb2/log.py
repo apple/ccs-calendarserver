@@ -212,12 +212,12 @@ class BaseCommonAccessLoggingObserver(object):
     def start(self):
         """Start observing log events."""
         # Use the root publisher to bypass log level filtering
-        log.publisher.addObserver(self.emit, filtered=False)
+        log.observer.addObserver(self.emit)
 
 
     def stop(self):
         """Stop observing log events."""
-        log.publisher.removeObserver(self.emit)
+        log.observer.removeObserver(self.emit)
 
 
 

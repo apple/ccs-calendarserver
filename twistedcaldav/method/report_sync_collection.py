@@ -50,7 +50,7 @@ def report_DAV__sync_collection(self, request, sync_collection):
 
     # These resource support the report
     if not config.EnableSyncReport or element.Report(element.SyncCollection(),) not in self.supportedReports():
-        log.error("sync-collection report is only allowed on calendar/inbox/addressbook/notification collection resources %s" % (self,))
+        log.error("sync-collection report is only allowed on calendar/inbox/addressbook/notification collection resources {s!r}", s=self)
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             element.SupportedReport(),
@@ -79,7 +79,7 @@ def report_DAV__sync_collection(self, request, sync_collection):
         descriptor = "Depth header without DAV:sync-level"
 
     if depth not in ("1", "infinity"):
-        log.error("sync-collection report with invalid depth header: %s" % (depth,))
+        log.error("sync-collection report with invalid depth header: {d}", d=depth)
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Invalid %s value" % (descriptor,)))
 
     propertyreq = sync_collection.property.children if sync_collection.property else None
@@ -128,7 +128,7 @@ def report_DAV__sync_collection(self, request, sync_collection):
             # of one of these resources in another request.  In this
             # case, we ignore the now missing resource rather
             # than raise an error for the entire report.
-            log.error("Missing resource during sync: %s" % (href,))
+            log.error("Missing resource during sync: {h}", h=href)
 
     for child, child_uri in forbidden_resources:
         href = element.HRef.fromString(child_uri)
@@ -149,7 +149,7 @@ def report_DAV__sync_collection(self, request, sync_collection):
             # of one of these resources in another request.  In this
             # case, we ignore the now missing resource rather
             # than raise an error for the entire report.
-            log.error("Missing resource during sync: %s" % (href,))
+            log.error("Missing resource during sync: {h}", h=href)
 
     for name in removed:
         href = element.HRef.fromString(joinURL(request.uri, name))

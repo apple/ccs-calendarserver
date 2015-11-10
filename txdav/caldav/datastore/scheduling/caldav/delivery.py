@@ -14,10 +14,11 @@
 # limitations under the License.
 ##
 
-from twext.python.log import Logger, LogLevel
+from twext.python.log import Logger
 from txweb2.dav.http import ErrorResponse
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.logger import LogLevel
 from twisted.python.failure import Failure
 from txweb2 import responsecode
 from txweb2.http import HTTPError

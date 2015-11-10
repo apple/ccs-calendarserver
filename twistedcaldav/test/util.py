@@ -572,7 +572,7 @@ class CapturingProcessProtocol(ProcessProtocol):
         # Attempt to exit promptly if a traceback is displayed, so we don't
         # deal with timeouts.
         if "Traceback" in data and not self.terminated:
-            log.error("Terminating process due to output: %s" % (data,))
+            log.error("Terminating process due to output: {d}", d=data)
             self.terminated = True
             self.transport.signalProcess("TERM")
 

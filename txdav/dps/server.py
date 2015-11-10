@@ -18,11 +18,13 @@ import cPickle as pickle
 import datetime
 import uuid
 
+from calendarserver.tap.caldav import ErrorLoggingMultiService
 from calendarserver.tap.util import getDBPool, storeFromConfigWithDPSServer
+
 from twext.python.log import Logger
 from twext.who.expression import MatchType, MatchFlags, Operand
+
 from twisted.application import service
-from twisted.application.service import MultiService
 from twisted.application.strports import service as strPortsService
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.protocol import Factory
@@ -33,6 +35,7 @@ from twisted.python.usage import Options, UsageError
 from twistedcaldav import memcachepool
 from twistedcaldav.config import config
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
+
 from txdav.dps.commands import (
     RecordWithShortNameCommand, RecordWithUIDCommand, RecordWithGUIDCommand,
     RecordsWithRecordTypeCommand, RecordsWithEmailAddressCommand,
@@ -45,6 +48,7 @@ from txdav.dps.commands import (
     UpdateRecordsCommand, FlushCommand,  # RemoveRecordsCommand,
 )
 from txdav.who.wiki import WikiAccessLevel
+
 from zope.interface import implementer
 
 
@@ -808,7 +812,8 @@ class DirectoryProxyServiceMaker(object):
         else:
             setproctitle("CalendarServer Directory Proxy Service")
 
-        multiService = MultiService()
+        # Setup default logging behavior
+        multiService = ErrorLoggingMultiService(False, "", 0, 0, False)
 
         try:
             pool, txnFactory = getDBPool(config)

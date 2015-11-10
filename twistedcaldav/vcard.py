@@ -564,17 +564,17 @@ class Component (object):
         @raise InvalidVCardDataError: if the given vcard data is not valid.
         """
         if self.name() != "VCARD":
-            log.debug("Not a vcard: %s" % (self,))
+            log.debug("Not a vcard: {s!r}", s=self)
             raise InvalidVCardDataError("Not a vcard")
 
         # Do underlying vCard library validation with data fix
         fixed, unfixed = self._pycard.validate(doFix=doFix)
         if unfixed:
-            log.debug("vCard data had unfixable problems:\n  %s" % ("\n  ".join(unfixed),))
+            log.debug("vCard data had unfixable problems:\n  {problems}", problems="\n  ".join(unfixed))
             if doRaise:
                 raise InvalidVCardDataError("Address data had unfixable problems:\n  %s" % ("\n  ".join(unfixed),))
         if fixed:
-            log.debug("vCard data had fixable problems:\n  %s" % ("\n  ".join(fixed),))
+            log.debug("vCard data had fixable problems:\n  {problems}", problems="\n  ".join(fixed))
 
         return fixed, unfixed
 

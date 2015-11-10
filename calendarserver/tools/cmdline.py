@@ -18,22 +18,23 @@
 Shared main-point between utilities.
 """
 
-from calendarserver.tap.util import checkDirectories
+from calendarserver.tap.util import checkDirectories, getRootResource
 from calendarserver.tools.util import loadConfig, autoDisableMemcached
 
-from twext.python.log import StandardIOObserver
+from twext.enterprise.jobs.queue import NonPerformingQueuer
+from twext.python.log import Logger
 
 from twistedcaldav.config import ConfigurationError
-from twisted.internet.defer import inlineCallbacks, succeed
+from twistedcaldav.timezones import TimezoneCache
+
 from twisted.application.service import Service
+from twisted.internet.defer import inlineCallbacks, succeed
+from twisted.logger import STDLibLogObserver
 from twisted.python.logfile import LogFile
-from twisted.python.log import FileLogObserver
+from twisted.python.log import addObserver
 
 import sys
-from calendarserver.tap.util import getRootResource
 from errno import ENOENT, EACCES
-from twext.enterprise.jobs.queue import NonPerformingQueuer
-from twistedcaldav.timezones import TimezoneCache
 
 # TODO: direct unit tests for these functions.
 
@@ -87,7 +88,7 @@ def utilityMain(
 
     # Install std i/o observer
     if verbose:
-        observer = StandardIOObserver()
+        observer = STDLibLogObserver()
         observer.start()
 
     if reactor is None:
@@ -104,8 +105,8 @@ def utilityMain(
             rotateLength=config.ErrorLogRotateMB * 1024 * 1024,
             maxRotatedFiles=config.ErrorLogMaxRotatedFiles
         )
-        utilityLogObserver = FileLogObserver(utilityLogFile)
-        utilityLogObserver.start()
+        utilityLogObserver = Logger.makeFilteredFileLogObserver(utilityLogFile)
+        addObserver(utilityLogObserver)
 
         config.ProcessType = "Utility"
         config.UtilityServiceClass = _makeValidService

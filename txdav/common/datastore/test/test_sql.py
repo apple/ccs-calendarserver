@@ -235,7 +235,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         try:
             (yield txn.subtransaction(_test, retries=0))[0][0]
         except AllRetriesFailed:
-            pass
+            self.flushLoggedErrors()
         else:
             self.fail("AllRetriesFailed not raised")
         self.assertEqual(ctr[0], 1)
@@ -264,7 +264,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         try:
             (yield txn.subtransaction(_test, retries=2))[0][0]
         except AllRetriesFailed:
-            pass
+            self.flushLoggedErrors()
         else:
             self.fail("AllRetriesFailed not raised")
         self.assertEqual(ctr[0], 3)
@@ -294,7 +294,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         try:
             result = yield started
         except AllRetriesFailed:
-            pass
+            self.flushLoggedErrors()
         else:
             self.fail("AllRetriesFailed not raised, %r returned instead" %
                       (result,))

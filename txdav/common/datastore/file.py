@@ -944,7 +944,7 @@ class CommonHome(FileMetaDataMixin):
         old_used = self.quotaUsedBytes()
         new_used = old_used + delta
         if new_used < 0:
-            self.log.error("Fixing quota adjusted below zero to %s by change amount %s" % (new_used, delta,))
+            self.log.error("Fixing quota adjusted below zero to {used} by change amount {delta}", used=new_used, delta=delta)
             new_used = 0
         self.properties()[PropertyName.fromElement(TwistedQuotaUsedProperty)] = TwistedQuotaUsedProperty(str(new_used))
 
@@ -1132,7 +1132,7 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
                     trash.remove()
                     self.properties()._removeResource()
                 except Exception, e:
-                    self.log.error("Unable to delete trashed child at %s: %s" % (trash.fp, e))
+                    self.log.error("Unable to delete trashed child at {path}: {ex}", path=trash.fp, ex=e)
 
             self._transaction.addOperation(cleanup, "remove child backup %r" % (self._name,))
             def undo():

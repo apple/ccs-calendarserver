@@ -91,7 +91,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
 
     # Verify that the filter element is valid
     if (filter is None) or not filter.valid():
-        log.error("Invalid filter element: %r" % (filter,))
+        log.error("Invalid filter element: {f!r}", f=filter)
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             (carddav_namespace, "valid-filter"),

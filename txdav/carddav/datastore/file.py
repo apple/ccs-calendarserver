@@ -239,10 +239,10 @@ class AddressBookObject(CommonObjectResource):
         fixed, unfixed = component.validVCardData(doFix=True, doRaise=False)
 
         if unfixed:
-            self.log.error("Address data at %s had unfixable problems:\n  %s" % (self._path.path, "\n  ".join(unfixed),))
+            self.log.error("Address data at {path} had unfixable problems:\n  {problems}", path=self._path.path, problems="\n  ".join(unfixed))
 
         if fixed:
-            self.log.error("Address data at %s had fixable problems:\n  %s" % (self._path.path, "\n  ".join(fixed),))
+            self.log.error("Address data at {path} had fixable problems:\n  {problems}", path=self._path.path, problems="\n  ".join(fixed))
 
         return component
 

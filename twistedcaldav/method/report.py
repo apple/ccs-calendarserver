@@ -50,7 +50,7 @@ def http_REPORT(self, request):
     Respond to a REPORT request. (RFC 3253, section 3.6)
     """
     if not self.exists():
-        log.error("Resource not found: %s" % (self,))
+        log.error("Resource not found: {s!r}", s=self)
         raise HTTPError(responsecode.NOT_FOUND)
 
     #
@@ -117,8 +117,10 @@ def http_REPORT(self, request):
         #
         # Requested report is not supported.
         #
-        log.error("Unsupported REPORT {name} for resource {resource} (no method {method})",
-                  name=encodeXMLName(namespace, name), resource=self, method=method_name)
+        log.error(
+            "Unsupported REPORT {name} for resource {resource} (no method {method})",
+            name=encodeXMLName(namespace, name), resource=self, method=method_name,
+        )
 
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,

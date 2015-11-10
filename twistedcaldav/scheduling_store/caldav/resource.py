@@ -453,7 +453,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         contentType = request.headers.getHeader("content-type")
         format = self.determineType(contentType)
         if format is None:
-            self.log.error("MIME type %s not allowed in calendar collection" % (contentType,))
+            self.log.error("MIME type {t} not allowed in calendar collection", t=contentType)
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "supported-calendar-data"),
@@ -465,7 +465,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
             calendar = (yield Component.fromIStream(request.stream, format=format))
         except:
             # FIXME: Bare except
-            self.log.error("Error while handling POST: %s" % (Failure(),))
+            self.log.error("Error while handling POST: {f}", f=Failure())
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "valid-calendar-data"),
@@ -486,7 +486,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
             originator = originatorPrincipal.canonicalCalendarUserAddress()
 
         if not originator:
-            self.log.error("%s request must have Originator" % (self.method,))
+            self.log.error("{m} request must have Originator", m=self.method)
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "originator-specified"),

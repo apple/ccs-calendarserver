@@ -111,7 +111,7 @@ def normalizationLookup(cuaddr, recordFunction, config):
     try:
         record = yield recordFunction(cuaddr)
     except Exception, e:
-        log.debug("Lookup of %s failed: %s" % (cuaddr, e))
+        log.debug("Lookup of {cuaddr} failed: {ex}", cuaddr=cuaddr, ex=e)
         record = None
 
     if record is None:
@@ -204,18 +204,21 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
         try:
             ctype = yield calendarObject.componentType()
         except Exception, e: # Don't stop for any error
-            log.error("  Failed to migrate calendar object: %s/%s/%s (%s)" % (
-                inCalendar.ownerHome().name(),
-                inCalendar.name(),
-                calendarObject.name(),
-                str(e)
-            ))
+            log.error(
+                "  Failed to migrate calendar object: {home}/{cal}/{rsrc} (ex)",
+                home=inCalendar.ownerHome().name(),
+                cal=inCalendar.name(),
+                rsrc=calendarObject.name(),
+                ex=str(e),
+            )
             bad_count += 1
             continue
 
         if ctype not in ("VEVENT", "VTODO"):
-            log.error("Migration skipping unsupported (%s) calendar object %r"
-                      % (ctype, calendarObject))
+            log.error(
+                "Migration skipping unsupported ({ctype}) calendar object {obj!r}",
+                ctype=ctype, obj=calendarObject,
+            )
             continue
         if merge:
             mightConflict = yield outHome.hasCalendarResourceUIDSomewhereElse(
@@ -223,8 +226,8 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
             )
             if mightConflict is not None:
                 log.warn(
-                    "Not migrating object %s/%s/%s due to potential conflict" %
-                    (outHome.uid(), outCalendar.name(), calendarObject.name())
+                    "Not migrating object {home}/{cal}/{rsrc} due to potential conflict",
+                    home=outHome.uid(), cal=outCalendar.name(), rsrc=calendarObject.name(),
                 )
                 continue
         try:
@@ -264,20 +267,22 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
             ok_count += 1
 
         except InternalDataStoreError:
-            log.error("  InternalDataStoreError: Failed to migrate calendar object: %s/%s/%s" % (
-                inCalendar.ownerHome().name(),
-                inCalendar.name(),
-                calendarObject.name(),
-            ))
+            log.error(
+                "  InternalDataStoreError: Failed to migrate calendar object: {home}/{cal}/{rsrc}",
+                home=inCalendar.ownerHome().name(),
+                cal=inCalendar.name(),
+                rsrc=calendarObject.name(),
+            )
             bad_count += 1
 
         except Exception, e:
-            log.error("  %s: Failed to migrate calendar object: %s/%s/%s" % (
-                str(e),
-                inCalendar.ownerHome().name(),
-                inCalendar.name(),
-                calendarObject.name(),
-            ))
+            log.error(
+                "  {ex}: Failed to migrate calendar object: {home}/{cal}/{rsrc}",
+                ex=str(e),
+                home=inCalendar.ownerHome().name(),
+                cal=inCalendar.name(),
+                rsrc=calendarObject.name(),
+            )
             bad_count += 1
 
     returnValue((ok_count, bad_count,))
@@ -404,7 +409,7 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component(), merge=Fal
             yield _migrateCalendar(calendar, outCalendar, getComponent, merge=merge)
         except InternalDataStoreError:
             log.error(
-                "  Failed to migrate calendar: %s/%s" % (inHome.name(), name,)
+                "  Failed to migrate calendar: {home}/{cal}", home=inHome.name(), cal=name,
             )
 
     # No migration for notifications, since they weren't present in earlier

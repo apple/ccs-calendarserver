@@ -191,8 +191,8 @@ class ResponseQueue(object):
 
         if code > 400:  # Error codes only
             log.error(
-                "Error during {method} for {path}: {message}",
-                method=self.method, path=path, message=message
+                "Error during {method} for {path}: {msg}",
+                method=self.method, path=path, msg=message
             )
 
         uri = path[self.path_basename_len:]
@@ -264,8 +264,8 @@ class PropertyStatusResponseQueue(object):
 
         if code > 400:  # Error codes only
             log.error(
-                "Error during {method} for {property}: {message}",
-                method=self.method, property=property, message=message
+                "Error during {method} for {property}: {msg}",
+                method=self.method, property=property, msg=message
             )
 
         children = []

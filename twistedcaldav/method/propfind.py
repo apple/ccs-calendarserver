@@ -57,7 +57,7 @@ def http_PROPFIND(self, request):
         parent = (yield request.locateResource(parentURL))
         yield parent.authorize(request, (davxml.Bind(),))
 
-        log.error("Resource not found: %s" % (self,))
+        log.error("Resource not found: {s!r}", s=self)
         raise HTTPError(responsecode.NOT_FOUND)
 
     #
@@ -71,7 +71,7 @@ def http_PROPFIND(self, request):
     try:
         doc = (yield davXMLFromStream(request.stream))
     except ValueError, e:
-        log.error("Error while handling PROPFIND body: %s" % (e,))
+        log.error("Error while handling PROPFIND body: {ex}", ex=e)
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
 
     if doc is None:
@@ -159,7 +159,7 @@ def http_PROPFIND(self, request):
                 try:
                     resource_properties = (yield resource.listProperties(request))
                 except:
-                    log.error("Unable to get properties for resource %r" % (resource,))
+                    log.error("Unable to get properties for resource {r!r}", r=resource)
                     raise
 
                 properties_by_status = {

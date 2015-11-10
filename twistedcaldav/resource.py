@@ -1395,12 +1395,12 @@ class CalDAVResource (
             created in this resource.
         """
         if self.exists():
-            self.log.error("Attempt to create collection where file exists: %s" % (self,))
+            self.log.error("Attempt to create collection where file exists: {s!r}", s=self)
             raise HTTPError(StatusResponse(responsecode.NOT_ALLOWED, "File exists"))
 
         # newStore guarantees that we always have a parent calendar home
         # if not self.fp.parent().isdir():
-        #     log.error("Attempt to create collection with no parent: %s" % (self.fp.path,))
+        #     log.error("Attempt to create collection with no parent: {p}", p=self.fp.path)
         #     raise HTTPError(StatusResponse(responsecode.CONFLICT, "No parent collection"))
 
         #
@@ -1410,7 +1410,7 @@ class CalDAVResource (
         parent = (yield self._checkParents(request, isPseudoCalendarCollectionResource))
 
         if parent is not None:
-            self.log.error("Cannot create a calendar collection within a calendar collection %s" % (parent,))
+            self.log.error("Cannot create a calendar collection within a calendar collection {p!r}", p=parent)
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldavxml.caldav_namespace, "calendar-collection-location-ok"),
@@ -1421,7 +1421,7 @@ class CalDAVResource (
         if config.MaxCollectionsPerHome:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
             if (yield parent.countOwnedChildren()) >= config.MaxCollectionsPerHome: # NB this ignores shares
-                self.log.error("Cannot create a calendar collection because there are too many already present in %s" % (parent,))
+                self.log.error("Cannot create a calendar collection because there are too many already present in {p!r}", p=parent)
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     customxml.MaxCollections(),
@@ -1484,12 +1484,12 @@ class CalDAVResource (
         #
 
         if self.exists():
-            self.log.error("Attempt to create collection where file exists: %s" % (self,))
+            self.log.error("Attempt to create collection where file exists: {s!r}", s=self)
             raise HTTPError(StatusResponse(responsecode.NOT_ALLOWED, "File exists"))
 
         # newStore guarantees that we always have a parent calendar home
         # if not os.path.isdir(os.path.dirname(self.fp.path)):
-        #     log.error("Attempt to create collection with no parent: %s" % (self.fp.path,))
+        #     log.error("Attempt to create collection with no parent: {p}", p=self.fp.path)
         #     raise HTTPError(StatusResponse(responsecode.CONFLICT, "No parent collection"))
 
         #
@@ -1498,7 +1498,7 @@ class CalDAVResource (
 
         parent = (yield self._checkParents(request, isAddressBookCollectionResource))
         if parent is not None:
-            self.log.error("Cannot create an address book collection within an address book collection %s" % (parent,))
+            self.log.error("Cannot create an address book collection within an address book collection {p!r}", p=parent)
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (carddavxml.carddav_namespace, "addressbook-collection-location-ok"),
@@ -1509,7 +1509,7 @@ class CalDAVResource (
         if config.MaxCollectionsPerHome:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
             if (yield parent.countOwnedChildren()) >= config.MaxCollectionsPerHome: # NB this ignores shares
-                self.log.error("Cannot create a calendar collection because there are too many already present in %s" % (parent,))
+                self.log.error("Cannot create a calendar collection because there are too many already present in {p!r}", p=parent)
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     customxml.MaxCollections(),

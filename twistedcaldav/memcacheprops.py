@@ -104,7 +104,7 @@ class MemcachePropertyCollection (object):
         try:
             childCache, token = propertyCache[key]
         except KeyError:
-            self.log.debug("No child property cache for %s" % (child,))
+            self.log.debug("No child property cache for {c!r}", c=child)
             childCache, token = ({}, None)
 
             # message = "No child property cache for %s" % (child,)
@@ -132,7 +132,7 @@ class MemcachePropertyCollection (object):
             else:
                 return {}
 
-        self.log.debug("Loading cache for %s" % (self.collection,))
+        self.log.debug("Loading cache for {c}", c=self.collection)
 
         client = self.memcacheClient()
         assert client is not None, "OMG no cache!"
@@ -220,7 +220,7 @@ class MemcachePropertyCollection (object):
 
 
     def _storeCache(self, cache):
-        self.log.debug("Storing cache for %s" % (self.collection,))
+        self.log.debug("Storing cache for {c}", c=self.collection)
 
         values = dict((
             (self._keyForPath(path), props)
@@ -242,7 +242,7 @@ class MemcachePropertyCollection (object):
         elif not childNames:
             return {}
 
-        self.log.debug("Building cache for %s" % (self.collection,))
+        self.log.debug("Building cache for {c}", c=self.collection)
 
         cache = {}
 
@@ -372,29 +372,32 @@ class MemcachePropertyCollection (object):
                         "No such property: %s%s" % (uid if uid else "", encodeXMLName(*qname))
                     ))
 
-            self.log.debug("Read for %s%s on %s" % (
-                ("{%s}:" % (uid,)) if uid else "",
-                qname,
-                self.childPropertyStore.resource.fp.path
-            ))
+            self.log.debug(
+                "Read for {u}{q} on {p}",
+                u=("{%s}:" % (uid,)) if uid else "",
+                q=qname,
+                p=self.childPropertyStore.resource.fp.path
+            )
             return self.childPropertyStore.get(qname, uid=uid)
 
         def set(self, property, uid=None):
-            self.log.debug("Write for %s%s on %s" % (
-                ("{%s}:" % (uid,)) if uid else "",
-                property.qname(),
-                self.childPropertyStore.resource.fp.path
-            ))
+            self.log.debug(
+                "Write for {u}{q} on {p}",
+                u=("{%s}:" % (uid,)) if uid else "",
+                q=property.qname(),
+                p=self.childPropertyStore.resource.fp.path
+            )
 
             self.parentPropertyCollection.setProperty(self.child, property, uid)
             self.childPropertyStore.set(property, uid=uid)
 
         def delete(self, qname, uid=None):
-            self.log.debug("Delete for %s%s on %s" % (
-                ("{%s}:" % (uid,)) if uid else "",
-                qname,
-                self.childPropertyStore.resource.fp.path
-            ))
+            self.log.debug(
+                "Delete for {u}{q} on {p}",
+                u=("{%s}:" % (uid,)) if uid else "",
+                q=qname,
+                p=self.childPropertyStore.resource.fp.path,
+            )
 
             self.parentPropertyCollection.deleteProperty(self.child, qname, uid)
             self.childPropertyStore.delete(qname, uid=uid)
@@ -405,11 +408,12 @@ class MemcachePropertyCollection (object):
                 qnameuid = qname + (uid,)
                 return qnameuid in propertyCache
 
-            self.log.debug("Contains for %s%s on %s" % (
-                ("{%s}:" % (uid,)) if uid else "",
-                qname,
-                self.childPropertyStore.resource.fp.path,
-            ))
+            self.log.debug(
+                "Contains for {u}{q} on {p}",
+                u=("{%s}:" % (uid,)) if uid else "",
+                q=qname,
+                p=self.childPropertyStore.resource.fp.path,
+            )
             return self.childPropertyStore.contains(qname, uid=uid)
 
         def list(self, uid=None, filterByUID=True, cache=True):
@@ -425,6 +429,7 @@ class MemcachePropertyCollection (object):
                 else:
                     return results
 
-            self.log.debug("List for %s"
-                           % (self.childPropertyStore.resource.fp.path,))
+            self.log.debug(
+                "List for{p}", p=self.childPropertyStore.resource.fp.path
+            )
             return self.childPropertyStore.list(uid=uid, filterByUID=filterByUID)

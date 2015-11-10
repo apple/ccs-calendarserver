@@ -40,7 +40,7 @@ from zope.interface import implements
 
 from twistedcaldav.stdconfig import config
 
-from twisted.python.log import FileLogObserver, ILogObserver
+from twisted.python.log import ILogObserver
 from twisted.python.logfile import LogFile
 from twisted.python.usage import Options, UsageError
 from twisted.python.util import uidFromString, gidFromString
@@ -56,9 +56,10 @@ from twisted.application.internet import TCPServer, UNIXServer
 from twisted.application.service import MultiService, IServiceMaker
 from twisted.application.service import Service
 from twisted.protocols.amp import AMP
+from twisted.logger import LogLevel
 
 from twext.python.filepath import CachingFilePath
-from twext.python.log import Logger, LogLevel, replaceTwistedLoggers
+from twext.python.log import Logger
 from twext.internet.fswatch import (
     DirectoryChangeListener, IDirectoryChangeListenee
 )
@@ -254,13 +255,16 @@ class ErrorLoggingMultiService(MultiService, object):
                 rotateLength=self.logRotateLength,
                 maxRotatedFiles=self.logMaxFiles
             )
-            errorLogObserver = FileLogObserver(errorLogFile).emit
             if self.logRotateOnStart:
                 errorLogFile.rotate()
+        else:
+            errorLogFile = sys.stdout
+        withTime = not (not config.ErrorLogFile and config.ProcessType in ("Slave", "DPS",))
+        errorLogObserver = Logger.makeFilteredFileLogObserver(errorLogFile, withTime=withTime)
 
-            # Registering ILogObserver with the Application object
-            # gets our observer picked up within AppLogger.start( )
-            app.setComponent(ILogObserver, errorLogObserver)
+        # Registering ILogObserver with the Application object
+        # gets our observer picked up within AppLogger.start( )
+        app.setComponent(ILogObserver, errorLogObserver)
 
 
 
@@ -452,13 +456,6 @@ class CalDAVOptions (Options):
 
         self.checkDirectories(config)
 
-        #
-        # Nuke the file log observer's time format.
-        #
-
-        if not config.ErrorLogFile and config.ProcessType == "Slave":
-            FileLogObserver.timeFormat = ""
-
         # Check current umask and warn if changed
         oldmask = umask(config.umask)
         if oldmask != config.umask:
@@ -534,6 +531,9 @@ class SlaveSpawnerService(Service):
             "--reactor={}".format(config.Twisted.reactor),
             "-n", "caldav_directoryproxy",
             "-f", self.configPath,
+            "-o", "ProcessType=DPS",
+            "-o", "ErrorLogFile=None",
+            "-o", "ErrorLogEnabled=False",
         ))
         self.monitor.addProcess(
             "directoryproxy", dpsArgv, env=PARENT_ENVIRONMENT
@@ -746,7 +746,6 @@ class CalDAVServiceMaker (object):
         """
         Create the top-level service.
         """
-        replaceTwistedLoggers()
 
         self.log.info(
             "{log_source.description} {version} starting "
@@ -988,8 +987,8 @@ class CalDAVServiceMaker (object):
         # Change default log level to "info" as its useful to have
         # that during startup
         #
-        oldLogLevel = log.publisher.levels.logLevelForNamespace(None)
-        log.publisher.levels.setLogLevelForNamespace(None, LogLevel.info)
+        oldLogLevel = log.levels().logLevelForNamespace(None)
+        log.levels().setLogLevelForNamespace(None, LogLevel.info)
 
         # Note: 'additional' was used for IMIP reply resource, and perhaps
         # we can remove this
@@ -1175,7 +1174,7 @@ class CalDAVServiceMaker (object):
                     ).setServiceParent(connectionService)
 
         # Change log level back to what it was before
-        log.publisher.levels.setLogLevelForNamespace(None, oldLogLevel)
+        log.levels().setLogLevelForNamespace(None, oldLogLevel)
         return service
 
 
@@ -2559,8 +2558,9 @@ class DelayedStartupLineLogger(object):
 
 
     def lineReceived(self, line):
-        from twisted.python.log import msg
-        msg("[{}] {}".format(self.tag, line))
+        # Hand off slave log entry to logging system as critical to ensure it is always
+        # displayed (as the slave will have filtered out unwanted entries itself).
+        log.critical("{msg}", msg=line, log_system=self.tag, isError=False)
 
 
     def lineLengthExceeded(self, line):

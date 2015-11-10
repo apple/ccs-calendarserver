@@ -133,8 +133,9 @@ class ApplePushNotifierService(service.MultiService):
                 provider.setServiceParent(service)
                 service.providers[protocol] = provider
                 service.log.info(
-                    "APNS %s topic: %s" %
-                    (protocol, settings[protocol]["Topic"]))
+                    "APNS {proto} topic: {topic}",
+                    proto=protocol, topic=settings[protocol]["Topic"]
+                )
 
                 feedback = APNFeedbackService(
                     service.store,
@@ -218,7 +219,7 @@ class ApplePushNotifierService(service.MultiService):
             protocol = pushKey.split("/")[1]
         except ValueError:
             # pushKey has no protocol, so we can't do anything with it
-            self.log.error("Push key '%s' is missing protocol" % (pushKey,))
+            self.log.error("Push key '{key}' is missing protocol", key=pushKey)
             return
 
         # Unit tests can pass this value in; otherwise it defaults to now
@@ -234,8 +235,9 @@ class ApplePushNotifierService(service.MultiService):
             numSubscriptions = len(subscriptions)
             if numSubscriptions > 0:
                 self.log.debug(
-                    "Sending %d APNS notifications for %s" %
-                    (numSubscriptions, pushKey))
+                    "Sending {num} APNS notifications for {key}",
+                    num=numSubscriptions, key=pushKey
+                )
                 tokens = [record.token for record in subscriptions if record.token and record.subscriberGUID]
                 if tokens:
                     provider.scheduleNotifications(
@@ -292,7 +294,7 @@ class APNProviderProtocol(Protocol):
 
 
     def connectionLost(self, reason=None):
-        # self.log.debug("ProviderProtocol connectionLost: %s" % (reason,))
+        # self.log.debug("ProviderProtocol connectionLost: {reason}", reason=reason)
         # Clear the reference to us from the factory
         self.factory.connection = None
 
@@ -307,7 +309,7 @@ class APNProviderProtocol(Protocol):
         if fn is None:
             fn = self.processError
 
-        self.log.debug("ProviderProtocol dataReceived %d bytes" % (len(data),))
+        self.log.debug("ProviderProtocol dataReceived {len} bytes", len=len(data))
         self.buffer += data
 
         while len(self.buffer) >= self.MESSAGE_LENGTH:
@@ -320,8 +322,9 @@ class APNProviderProtocol(Protocol):
                     yield fn(status, identifier)
             except Exception, e:
                 self.log.warn(
-                    "ProviderProtocol could not process error: %s (%s)" %
-                    (message.encode("hex"), e))
+                    "ProviderProtocol could not process error: {code} ({ex})",
+                    code=message.encode("hex"), ex=e
+                )
 
 
     @inlineCallbacks
@@ -339,19 +342,21 @@ class APNProviderProtocol(Protocol):
         @type status: C{int}
         """
         msg = self.STATUS_CODES.get(status, "Unknown status code")
-        self.log.info("Received APN error %d on identifier %d: %s" % (status, identifier, msg))
+        self.log.info("Received APN error {status} on identifier {id}: {msg}", status=status, id=identifier, msg=msg)
         if status in self.TOKEN_REMOVAL_CODES:
             token = self.history.extractIdentifier(identifier)
             if token is not None:
                 self.log.debug(
-                    "Removing subscriptions for bad token: %s" %
-                    (token,))
+                    "Removing subscriptions for bad token: {token}",
+                    token=token,
+                )
                 txn = self.factory.store.newTransaction(label="APNProviderProtocol.processError")
                 subscriptions = (yield txn.apnSubscriptionsByToken(token))
                 for record in subscriptions:
                     self.log.debug(
-                        "Removing subscription: %s %s" %
-                        (token, record.resourceKey))
+                        "Removing subscription: {token} {key}",
+                        token=token, key=record.resourceKey
+                    )
                     yield txn.removeAPNSubscription(token, record.resourceKey)
                 yield txn.commit()
 
@@ -376,7 +381,7 @@ class APNProviderProtocol(Protocol):
         try:
             binaryToken = token.replace(" ", "").decode("hex")
         except:
-            self.log.error("Invalid APN token in database: %s" % (token,))
+            self.log.error("Invalid APN token in database: {token}", token=token)
             return
 
         identifier = self.history.add(token)
@@ -485,12 +490,12 @@ class APNProviderFactory(ReconnectingClientFactory):
 
     def clientConnectionLost(self, connector, reason):
         if not self.shuttingDown:
-            self.log.info("Connection to APN server lost: %s" % (reason,))
+            self.log.info("Connection to APN server lost: {reason}", reason=reason)
         ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
 
 
     def clientConnectionFailed(self, connector, reason):
-        self.log.error("Unable to connect to APN server: %s" % (reason,))
+        self.log.error("Unable to connect to APN server: {reason}", reason=reason)
         self.connected = False
         ReconnectingClientFactory.clientConnectionFailed(
             self, connector,
@@ -653,10 +658,10 @@ class APNProviderService(APNConnectionService):
             tokenKeyPair = (token, key)
             for existingPair, _ignore_timstamp, priority in self.queue:
                 if tokenKeyPair == existingPair:
-                    self.log.debug("APNProviderService has no connection; skipping duplicate: %s %s" % (token, key))
+                    self.log.debug("APNProviderService has no connection; skipping duplicate: {token} {key}", token=token, key=key)
                     break # Already scheduled
             else:
-                self.log.debug("APNProviderService has no connection; queuing: %s %s" % (token, key))
+                self.log.debug("APNProviderService has no connection; queuing: {token} {key}", token=token, key=key)
                 self.queue.append(((token, key), dataChangedTimestamp, priority))
 
 
@@ -708,7 +713,7 @@ class APNFeedbackProtocol(Protocol):
         if fn is None:
             fn = self.processFeedback
 
-        self.log.debug("FeedbackProtocol dataReceived %d bytes" % (len(data),))
+        self.log.debug("FeedbackProtocol dataReceived {len} bytes", len=len(data))
         self.buffer += data
 
         while len(self.buffer) >= self.MESSAGE_LENGTH:
@@ -723,8 +728,9 @@ class APNFeedbackProtocol(Protocol):
                 yield fn(timestamp, token)
             except Exception, e:
                 self.log.warn(
-                    "FeedbackProtocol could not process message: %s (%s)" %
-                    (message.encode("hex"), e))
+                    "FeedbackProtocol could not process message: {code} ({ex})",
+                    code=message.encode("hex"), ex=e
+                )
 
 
     @inlineCallbacks
@@ -743,16 +749,18 @@ class APNFeedbackProtocol(Protocol):
         """
 
         self.log.debug(
-            "FeedbackProtocol processFeedback time=%d token=%s" %
-            (timestamp, token))
+            "FeedbackProtocol processFeedback time={time} token={token}",
+            time=timestamp, token=token
+        )
         txn = self.factory.store.newTransaction(label="APNFeedbackProtocol.processFeedback")
         subscriptions = (yield txn.apnSubscriptionsByToken(token))
 
         for record in subscriptions:
             if timestamp > record.modified:
                 self.log.debug(
-                    "FeedbackProtocol removing subscription: %s %s" %
-                    (token, record.resourceKey))
+                    "FeedbackProtocol removing subscription: {token} {key}",
+                    token=token, key=record.resourceKey,
+                )
                 yield txn.removeAPNSubscription(token, record.resourceKey)
         yield txn.commit()
 
@@ -769,8 +777,9 @@ class APNFeedbackFactory(ClientFactory):
 
     def clientConnectionFailed(self, connector, reason):
         self.log.error(
-            "Unable to connect to APN feedback server: %s" %
-            (reason,))
+            "Unable to connect to APN feedback server: {reason}",
+            reason=reason,
+        )
         self.connected = False
         ClientFactory.clientConnectionFailed(self, connector, reason)
 

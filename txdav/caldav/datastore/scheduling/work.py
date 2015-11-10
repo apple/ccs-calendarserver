@@ -698,7 +698,7 @@ class ScheduleReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REPLY_WORK)
         scheduler = CalDAVScheduler(self.transaction, home.uid())
 
         # Do the PUT processing
-        log.info("Implicit REPLY - attendee: '%s' to organizer: '%s', UID: '%s'" % (originator, recipient, itipmsg.resourceUID(),))
+        log.info("Implicit REPLY - attendee: '{att}' to organizer: '{org}', UID: '{uid}'", att=originator, org=recipient, uid=itipmsg.resourceUID())
         response = (yield scheduler.doSchedulingViaPUT(originator, (recipient,), itipmsg, internal_request=True))
         returnValue(response)
 
@@ -1095,15 +1095,15 @@ class ScheduleAutoReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_AUTO_RE
                 yield NamedLock.acquire(self.transaction, "ImplicitUIDLock:%s" % (hashlib.md5(resource.uid()).hexdigest(),))
 
                 # Send out a reply
-                log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply: %s" % (home.uid(), resource.uid(), self.partstat))
+                log.debug("ImplicitProcessing - recipient '{recip}' processing UID: '{uid}' - auto-reply: {partstat}", recip=home.uid(), uid=resource.uid(), partstat=self.partstat)
                 from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
                 scheduler = ImplicitScheduler()
                 yield scheduler.sendAttendeeReply(self.transaction, resource)
             except Exception, e:
-                log.debug("ImplicitProcessing - auto-reply exception UID: '%s', %s" % (resource.uid(), str(e)))
+                log.debug("ImplicitProcessing - auto-reply exception UID: '{uid}', {ex}", uid=resource.uid(), ex=str(e))
                 raise
             except:
-                log.debug("ImplicitProcessing - auto-reply bare exception UID: '%s'" % (resource.uid(),))
+                log.debug("ImplicitProcessing - auto-reply bare exception UID: '{uid}'", uid=resource.uid())
                 raise
         else:
             log.debug("ImplicitProcessing - skipping auto-reply of missing ID: '{rid}'", rid=self.resourceID)

@@ -803,7 +803,7 @@ class Client(local):
                 log.debug("Memcacheclient check-and-set failed")
                 raise TokenMismatchError(key)
 
-            log.error("Memcacheclient %s command failed with result (%s)" % (cmd, result))
+            log.error("Memcacheclient {cmd} command failed with result ({r})", cmd=cmd, r=result)
 
             return False
 
@@ -1276,7 +1276,7 @@ class _Host:
 
 
     def mark_dead(self, reason):
-        log.error("Memcacheclient socket marked dead (%s)" % (reason,))
+        log.error("Memcacheclient socket marked dead ({r})", r=reason)
         self.debuglog("MemCache: %s: %s.  Marking dead." % (self, reason))
         self.deaduntil = time.time() + _Host._DEAD_RETRY
         self.close_socket()
@@ -1294,13 +1294,13 @@ class _Host:
         try:
             s.connect(self.address)
         except socket.timeout, msg:
-            log.error("Memcacheclient _get_socket() connection timed out (%s)" % (msg,))
+            log.error("Memcacheclient _get_socket() connection timed out ({m})", m=msg)
             self.mark_dead("connect: %s" % msg)
             return None
         except socket.error, msg:
             if isinstance(msg, tuple):
                 msg = msg[1]
-            log.error("Memcacheclient _get_socket() connection error (%s)" % (msg,))
+            log.error("Memcacheclient _get_socket() connection error ({m})", m=msg)
             self.mark_dead("connect: %s" % msg)
             return None
         self.socket = s

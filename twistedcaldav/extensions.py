@@ -130,7 +130,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         # Only handle Depth: 0
         depth = request.headers.getHeader("depth", "0")
         if depth != "0":
-            log.error("Error in principal-property-search REPORT, Depth set to %s" % (depth,))
+            log.error("Error in principal-property-search REPORT, Depth set to {depth}", depth=depth)
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,)))
 
         # Get any limit value from xml
@@ -319,7 +319,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         # Only handle Depth: 0
         depth = request.headers.getHeader("depth", "0")
         if depth != "0":
-            log.error("Error in calendarserver-principal-search REPORT, Depth set to %s" % (depth,))
+            log.error("Error in calendarserver-principal-search REPORT, Depth set to {depth}", depth=depth)
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,)))
 
         tokens, context, applyTo, clientLimit, propElement = extractCalendarServerPrincipalSearchData(calendarserver_principal_search)
@@ -484,9 +484,11 @@ class DirectoryElement(Element):
                 f.trap(HTTPError)
                 code = f.value.response.code
                 if code == responsecode.NOT_FOUND:
-                    log.error("Property {p} was returned by listProperties() "
-                              "but does not exist for resource {r}.",
-                              p=name, r=self.resource)
+                    log.error(
+                        "Property {name} was returned by listProperties() "
+                        "but does not exist for resource {rsrc!r}.",
+                        name=name, rsrc=self.resource
+                    )
                     return (name, None)
                 if code == responsecode.UNAUTHORIZED:
                     return (name, accessDeniedValue)
@@ -954,7 +956,7 @@ class CachingPropertyStore (object):
 
 
     def get(self, qname, uid=None):
-        # self.log.debug("Get: %r, %r" % (self.resource.fp.path, qname))
+        # self.log.debug("Get: {p}, {n}", p=self.resource.fp.path, n=qname)
 
         cache = self._cache()
 
@@ -963,7 +965,7 @@ class CachingPropertyStore (object):
         if cachedQname in cache:
             property = cache.get(cachedQname, None)
             if property is None:
-                self.log.debug("Cache miss: %r, %r, %r" % (self, self.resource.fp.path, qname))
+                self.log.debug("Cache miss: {s!r}, {p}, {n}", s=self, p=self.resource.fp.path, n=qname)
                 try:
                     property = self.propertyStore.get(qname, uid)
                 except HTTPError:
@@ -977,7 +979,7 @@ class CachingPropertyStore (object):
 
 
     def set(self, property, uid=None):
-        # self.log.debug("Set: %r, %r" % (self.resource.fp.path, property))
+        # self.log.debug("Set: {p}, {prop!r}", p=self.resource.fp.path, prop=property)
 
         cache = self._cache()
 
@@ -989,7 +991,7 @@ class CachingPropertyStore (object):
 
 
     def contains(self, qname, uid=None):
-        # self.log.debug("Contains: %r, %r" % (self.resource.fp.path, qname))
+        # self.log.debug("Contains: {p}, {n}", p=self.resource.fp.path, n=qname)
 
         cachedQname = qname + (uid,)
 
@@ -1002,14 +1004,14 @@ class CachingPropertyStore (object):
                 raise
 
         if cachedQname in cache:
-            # self.log.debug("Contains cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
+            # self.log.debug("Contains cache hit: {s!r}, {p}, {n}", s=self, p=self.resource.fp.path, n=qname)
             return True
         else:
             return False
 
 
     def delete(self, qname, uid=None):
-        # self.log.debug("Delete: %r, %r" % (self.resource.fp.path, qname))
+        # self.log.debug("Delete: {p}, {n}", p=self.resource.fp.path, n=qname)
 
         cachedQname = qname + (uid,)
 
@@ -1020,7 +1022,7 @@ class CachingPropertyStore (object):
 
 
     def list(self, uid=None, filterByUID=True):
-        # self.log.debug("List: %r" % (self.resource.fp.path,))
+        # self.log.debug("List: {p}", p=self.resource.fp.path)
         keys = self._cache().iterkeys()
         if filterByUID:
             return [
@@ -1034,7 +1036,7 @@ class CachingPropertyStore (object):
 
     def _cache(self):
         if not hasattr(self, "_data"):
-            # self.log.debug("Cache init: %r" % (self.resource.fp.path,))
+            # self.log.debug("Cache init: {p}", p=self.resource.fp.path)
             self._data = dict(
                 (name, None)
                 for name in self.propertyStore.list(filterByUID=False)

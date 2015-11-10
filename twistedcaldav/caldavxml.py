@@ -122,16 +122,16 @@ class CalDAVTimeRangeElement (CalDAVEmptyElement):
         """
 
         if self.start is not None and self.start.isDateOnly():
-            log.info("start attribute in <time-range> is not a date-time: %s" % (self.start,))
+            log.info("start attribute in <time-range> is not a date-time: {start}", start=self.start)
             return False
         if self.end is not None and self.end.isDateOnly():
-            log.info("end attribute in <time-range> is not a date-time: %s" % (self.end,))
+            log.info("end attribute in <time-range> is not a date-time: {end}", end=self.end)
             return False
         if self.start is not None and not self.start.utc():
-            log.info("start attribute in <time-range> is not UTC: %s" % (self.start,))
+            log.info("start attribute in <time-range> is not UTC: {start}", start=self.start)
             return False
         if self.end is not None and not self.end.utc():
-            log.info("end attribute in <time-range> is not UTC: %s" % (self.end,))
+            log.info("end attribute in <time-range> is not UTC: {end}", end=self.end)
             return False
 
         # No other tests

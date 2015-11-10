@@ -189,15 +189,17 @@ class PushScheduler(object):
             internalKey = (token, key)
             if internalKey in self.outstanding:
                 self.log.debug(
-                    "PushScheduler already has this scheduled: %s" %
-                    (internalKey,))
+                    "PushScheduler already has this scheduled: {key}",
+                    key=internalKey,
+                )
             else:
                 self.outstanding[internalKey] = self.reactor.callLater(
                     scheduleTime, self.send, token, key, dataChangedTimestamp,
                     priority)
                 self.log.debug(
-                    "PushScheduler scheduled: %s in %.0f sec" %
-                    (internalKey, scheduleTime))
+                    "PushScheduler scheduled: {key} in {time:.0f} sec",
+                    key=internalKey, time=scheduleTime
+                )
                 scheduleTime += self.staggerSeconds
 
 
@@ -215,7 +217,7 @@ class PushScheduler(object):
             which triggered this notification
         @type key: C{int}
         """
-        self.log.debug("PushScheduler fired for %s %s %d" % (token, key, dataChangedTimestamp))
+        self.log.debug("PushScheduler fired for {token} {key} {time}", token=token, key=key, time=dataChangedTimestamp)
         del self.outstanding[(token, key)]
         return self.callback(token, key, dataChangedTimestamp, priority)
 
@@ -225,5 +227,5 @@ class PushScheduler(object):
         Cancel all outstanding delayed calls
         """
         for (token, key), delayed in self.outstanding.iteritems():
-            self.log.debug("PushScheduler cancelling %s %s" % (token, key))
+            self.log.debug("PushScheduler cancelling {token} {key}", token=token, key=key)
             delayed.cancel()

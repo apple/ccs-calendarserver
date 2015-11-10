@@ -214,8 +214,8 @@ class WebDAVElement (object):
             else:
                 if not (isinstance(child, PCDATAElement) and child.isWhitespace()):
                     log.debug(
-                        "Child of type %s is unexpected and therefore ignored in %s element"
-                        % (child.sname(), self.sname())
+                        "Child of type {child} is unexpected and therefore ignored in {this} element",
+                        child=child.sname(), this=self.sname(),
                     )
 
         for qname, (min, max) in allowed_children.items():
@@ -233,7 +233,7 @@ class WebDAVElement (object):
         if self.allowed_attributes:
             for name in attributes:
                 if name not in self.allowed_attributes:
-                    log.debug("Attribute %s is unexpected in %s element" % (name, self.sname()))
+                    log.debug("Attribute {attr} is unexpected in {this} element", attr=name, this=self.sname())
                 my_attributes[name] = attributes[name]
 
             for name, required in self.allowed_attributes.items():
@@ -243,8 +243,7 @@ class WebDAVElement (object):
 
         else:
             if not isinstance(self, WebDAVUnknownElement) and attributes:
-                log.debug("Attributes %s are unexpected in %s element"
-                          % (attributes.keys(), self.sname()))
+                log.debug("Attributes {attrs} are unexpected in {this} element", attrs=attributes.keys(), this=self.sname())
             my_attributes.update(attributes)
 
         self.attributes = my_attributes
@@ -390,7 +389,7 @@ class WebDAVElement (object):
                 try:
                     child.addToDOM(document, element)
                 except:
-                    log.error("Unable to add child %r of element %s to DOM" % (child, self))
+                    log.error("Unable to add child {child!r} of element {this!r} to DOM", child=child, this=self)
                     raise
 
 
@@ -511,7 +510,7 @@ class PCDATAElement (object):
         try:
             parent.appendChild(self.element(document))
         except TypeError:
-            log.error("Invalid PCDATA: %r" % (self.data,))
+            log.error("Invalid PCDATA: {data!r}", data=self.data)
             raise
 
 

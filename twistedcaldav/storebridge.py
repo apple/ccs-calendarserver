@@ -436,7 +436,7 @@ class _CommonHomeChildCollectionMixin(object):
         """
 
         if not self.exists():
-            log.debug("Resource not found: %s" % (self,))
+            log.debug("Resource not found: {s!r}", s=self)
             raise HTTPError(NOT_FOUND)
 
         depth = request.headers.getHeader("depth", "infinity")
@@ -473,13 +473,13 @@ class _CommonHomeChildCollectionMixin(object):
 
         # Check sharee collection first
         if self.isShareeResource():
-            log.debug("Removing shared collection %s" % (self,))
+            log.debug("Removing shared collection {s!r}", s=self)
             yield self.removeShareeResource(request)
             # Re-initialize to get stuff setup again now we have no object
             self._initializeWithHomeChild(None, self._parentResource)
             returnValue(NO_CONTENT)
 
-        log.debug("Deleting collection %s" % (self,))
+        log.debug("Deleting collection {s!r}", s=self)
 
         # 'deluri' is this resource's URI; I should be able to synthesize it
         # from 'self'.
@@ -536,7 +536,7 @@ class _CommonHomeChildCollectionMixin(object):
         that collections's name.
         """
         if not self.exists():
-            log.debug("Resource not found: %s" % (self,))
+            log.debug("Resource not found: {s!r}", s=self)
             raise HTTPError(NOT_FOUND)
 
         # Can not move outside of home or to existing collection
@@ -2094,7 +2094,7 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
             raise HTTPError(FORBIDDEN)
 
         except Exception, e:
-            log.error("Unable to store attachment: %s" % (e,))
+            log.error("Unable to store attachment: {ex}", ex=e)
             raise HTTPError(SERVICE_UNAVAILABLE)
 
         try:
@@ -2116,7 +2116,7 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
     def http_GET(self, request):
 
         if not self.exists():
-            log.debug("Resource not found: %s" % (self,))
+            log.debug("Resource not found: {s!r}", s=self)
             raise HTTPError(NOT_FOUND)
 
         stream = ProducerStream()
@@ -2130,7 +2130,7 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
         try:
             self._newStoreAttachment.retrieve(StreamProtocol())
         except IOError, e:
-            log.error("Unable to read attachment: %s, due to: %s" % (self, e,))
+            log.error("Unable to read attachment: {s!r}, due to: {ex}", s=self, ex=e)
             raise HTTPError(NOT_FOUND)
 
         headers = {"content-type": self.contentType()}
@@ -2146,7 +2146,7 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
             raise HTTPError(FORBIDDEN)
 
         if not self.exists():
-            log.debug("Resource not found: %s" % (self,))
+            log.debug("Resource not found: {s!r}", s=self)
             raise HTTPError(NOT_FOUND)
 
         yield self._newStoreCalendarObject.removeAttachmentWithName(
@@ -2265,7 +2265,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
     @inlineCallbacks
     def render(self, request):
         if not self.exists():
-            log.debug("Resource not found: %s" % (self,))
+            log.debug("Resource not found: {s!r}", s=self)
             raise HTTPError(NOT_FOUND)
 
         # Accept header handling
@@ -2368,7 +2368,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         Override http_DELETE to validate 'depth' header.
         """
         if not self.exists():
-            log.debug("Resource not found: %s" % (self,))
+            log.debug("Resource not found: {s!r}", s=self)
             raise HTTPError(NOT_FOUND)
 
         return self.storeRemove(request)
@@ -2391,7 +2391,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         # Do some pre-flight checks - must exist, must be move to another
         # CommonHomeChild in the same Home, destination resource must not exist
         if not self.exists():
-            log.debug("Resource not found: %s" % (self,))
+            log.debug("Resource not found: {s!r}", s=self)
             raise HTTPError(NOT_FOUND)
 
         parent = (yield request.locateResource(parentForURL(request.uri)))
@@ -2666,8 +2666,9 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             # Do "precondition" test
             if (self.scheduleTag != header):
                 log.debug(
-                    "If-Schedule-Tag-Match: header value '%s' does not match resource value '%s'" %
-                    (header, self.scheduleTag,))
+                    "If-Schedule-Tag-Match: header value '{h}' does not match resource value '{r}'",
+                    h=header, r=self.scheduleTag
+                )
                 raise HTTPError(PRECONDITION_FAILED)
             return True
 
@@ -2907,7 +2908,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         except Exception as err:
 
             if isinstance(err, ValueError):
-                log.error("Error while handling (calendar) PUT: %s" % (err,))
+                log.error("Error while handling (calendar) PUT: {ex}", ex=err)
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(err)))
             else:
                 raise
@@ -2919,7 +2920,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         Override http_DELETE to do schedule tag behavior.
         """
         if not self.exists():
-            log.debug("Resource not found: %s" % (self,))
+            log.debug("Resource not found: {s!r}", s=self)
             raise HTTPError(NOT_FOUND)
 
         # Do schedule tag check
@@ -2937,7 +2938,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         # Do some pre-flight checks - must exist, must be move to another
         # CommonHomeChild in the same Home, destination resource must not exist
         if not self.exists():
-            log.debug("Resource not found: %s" % (self,))
+            log.debug("Resource not found: {s!r}", s=self)
             raise HTTPError(NOT_FOUND)
 
         # Do schedule tag check
@@ -3556,7 +3557,7 @@ class AddressBookObjectResource(_CommonObjectResource):
 
         # Handle sharing
         if self.isShareeResource():
-            log.debug("Removing shared resource %s" % (self,))
+            log.debug("Removing shared resource {s!r}", s=self)
             yield self.removeShareeResource(request)
             # Re-initialize to get stuff setup again now we have no object
             self._initializeWithObject(None, self._newStoreParent)
@@ -3672,7 +3673,7 @@ class AddressBookObjectResource(_CommonObjectResource):
         except Exception as err:
 
             if isinstance(err, ValueError):
-                log.error("Error while handling (vCard) PUT: %s" % (err,))
+                log.error("Error while handling (vCard) PUT: {ex}", ex=err)
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(err)))
             else:
                 raise
@@ -3717,7 +3718,7 @@ class AddressBookObjectResource(_CommonObjectResource):
         @rtype: L{davxml.ACL}
         """
         if not self.exists():
-            log.debug("Resource not found: %s" % (self,))
+            log.debug("Resource not found: {s!r}", s=self)
             raise HTTPError(NOT_FOUND)
 
         if not self._parentResource.isShareeResource():
@@ -4044,7 +4045,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
     @inlineCallbacks
     def http_GET(self, request):
         if not self.exists():
-            log.debug("Resource not found: %s" % (self,))
+            log.debug("Resource not found: {s!r}", s=self)
             raise HTTPError(NOT_FOUND)
 
         returnValue(
@@ -4059,7 +4060,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
         Override http_DELETE to validate 'depth' header.
         """
         if not self.exists():
-            log.debug("Resource not found: %s" % (self,))
+            log.debug("Resource not found: {s!r}", s=self)
             raise HTTPError(NOT_FOUND)
 
         return self.storeRemove(request)

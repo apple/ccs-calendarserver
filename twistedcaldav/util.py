@@ -128,14 +128,14 @@ def computeProcessCount(minimum, perCPU, perGB, cpuCount=None, memSize=None):
         try:
             cpuCount = getNCPU()
         except NotImplementedError, e:
-            log.error("Unable to detect number of CPUs: %s" % (str(e),))
+            log.error("Unable to detect number of CPUs: {ex}", ex=str(e))
             return minimum
 
     if memSize is None:
         try:
             memSize = getMemorySize()
         except NotImplementedError, e:
-            log.error("Unable to detect amount of installed RAM: %s" % (str(e),))
+            log.error("Unable to detect amount of installed RAM: {ex}", ex=str(e))
             return minimum
 
     countByCore = perCPU * cpuCount
@@ -384,7 +384,7 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter):
 
         self.factory.retried = True
 
-        # self.log.debug("Got a 401 trying to inject [%s]" % (self.headers,))
+        # self.log.debug("Got a 401 trying to inject [{hdrs}]", hdrs=self.headers)
         details = {}
         basicAvailable = digestAvailable = False
         wwwauth = self.headers.get("www-authenticate")

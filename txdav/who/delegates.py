@@ -500,11 +500,11 @@ class CachingDelegates(object):
         # Try cache first
         delegateUIDs = yield self._memcacher.getMembers(delegator.uid, readWrite, expanded)
         if delegateUIDs is not None:
-            log.debug("_delegatesOfUIDs cached for: {} and read-write = {} and expanded = {}".format(delegator.uid, readWrite, expanded,))
+            log.debug("_delegatesOfUIDs cached for: {uid} and read-write = {rw} and expanded = {expanded}", uid=delegator.uid, rw=readWrite, expanded=expanded)
             returnValue(delegateUIDs)
 
         # Get from the store
-        log.debug("_delegatesOfUIDs for: {} and read-write = {} and expanded = {}".format(delegator.uid, readWrite, expanded,))
+        log.debug("_delegatesOfUIDs for: {uid} and read-write = {rw} and expanded = {expanded}", uid=delegator.uid, rw=readWrite, expanded=expanded)
         if delegator.thisServer():
             delegateUIDs = yield txn.delegates(delegator.uid, readWrite, expanded=expanded)
 
@@ -539,11 +539,11 @@ class CachingDelegates(object):
         # Try cache first
         delegatorUIDs = yield self._memcacher.getMemberships(delegate.uid, readWrite)
         if delegatorUIDs is not None:
-            log.debug("_delegatedToUIDs cached for: {} and read-write = {}".format(delegate.uid, readWrite,))
+            log.debug("_delegatedToUIDs cached for: {uid} and read-write = {rw}", uid=delegate.uid, rw=readWrite)
             returnValue(delegatorUIDs)
 
         # Get from the store
-        log.debug("_delegatedToUIDs for: {} and read-write = {}".format(delegate.uid, readWrite,))
+        log.debug("_delegatedToUIDs for: {uid} and read-write = {rw}", uid=delegate.uid, rw=readWrite)
         delegatorUIDs = (yield txn.delegators(delegate.uid, readWrite))
         if not onlyThisServer and config.Servers.Enabled:
             delegatorUIDs.update((yield self._podDelegators(txn, delegate, readWrite)))
@@ -583,7 +583,7 @@ class CachingDelegates(object):
         @rtype: a Deferred which fires a set of L{str}
         """
 
-        log.debug("_podDelegates for: {} and read-write = {} and expanded = {}".format(delegator.uid, readWrite, expanded,))
+        log.debug("_podDelegates for: {uid} and read-write = {rw} and expanded = {expanded}", uid=delegator.uid, rw=readWrite, expanded=expanded)
         return txn.store().conduit.send_get_delegates(txn, delegator, readWrite, expanded)
 
 
@@ -601,7 +601,7 @@ class CachingDelegates(object):
         @rtype: a Deferred which fires a set of L{str}
         """
 
-        log.debug("_podDelegators for: {} and read-write = {}".format(delegate.uid, readWrite,))
+        log.debug("_podDelegators for: {uid} and read-write = {rw}", uid=delegate.uid, rw=readWrite)
         results = yield DeferredList([
             txn.store().conduit.send_get_delegators(txn, server, delegate, readWrite) for
             server in txn.directoryService().serversDB().allServersExceptThis()

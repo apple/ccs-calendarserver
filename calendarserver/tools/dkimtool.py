@@ -22,9 +22,10 @@ from StringIO import StringIO
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
+from twisted.logger import LogLevel, STDLibLogObserver
 from twisted.python.usage import Options
 
-from twext.python.log import Logger, LogLevel, StandardIOObserver
+from twext.python.log import Logger
 from txweb2.http_headers import Headers
 
 from txdav.caldav.datastore.scheduling.ischedule.dkim import RSA256, DKIMRequest, \
@@ -69,7 +70,7 @@ def _doKeyGeneration(options):
 def _doRequest(options):
 
     if options["verbose"]:
-        log.publisher.levels.setLogLevelForNamespace("txdav.caldav.datastore.scheduling.ischedule.dkim", LogLevel.debug)
+        log.levels().setLogLevelForNamespace("txdav.caldav.datastore.scheduling.ischedule.dkim", LogLevel.debug)
 
     # Parse the HTTP file
     with open(options["request"]) as f:
@@ -300,11 +301,11 @@ def main(argv=sys.argv, stderr=sys.stderr):
     #
     # Send logging output to stdout
     #
-    observer = StandardIOObserver()
+    observer = STDLibLogObserver()
     observer.start()
 
     if options["verbose"]:
-        log.publisher.levels.setLogLevelForNamespace("txdav.caldav.datastore.scheduling.ischedule.dkim", LogLevel.debug)
+        log.levels().setLogLevelForNamespace("txdav.caldav.datastore.scheduling.ischedule.dkim", LogLevel.debug)
 
     if options["key-gen"]:
         _doKeyGeneration(options)

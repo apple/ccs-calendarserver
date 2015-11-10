@@ -21,12 +21,13 @@ Inbound IMIP mail handling for Calendar Server
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.jobs.workitem import WorkItem, RegeneratingWorkItem
 from twext.internet.gaiendpoint import GAIEndpoint
-from twext.python.log import Logger, LegacyLogger
+from twext.python.log import Logger
 
 from twisted.application import service
 from twisted.internet import protocol, defer, ssl
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.mail import pop3client, imap4
+from twisted.python.log import LogPublisher
 
 from twistedcaldav.config import config
 from twistedcaldav.ical import Property, Component
@@ -48,7 +49,7 @@ log = Logger()
 # Monkey patch imap4.log so it doesn't emit useless logging,
 # specifically, "Unhandled unsolicited response" nonsense.
 #
-class IMAPLogger(LegacyLogger):
+class IMAPLogger(LogPublisher):
     def msg(self, *message, **kwargs):
         if message and message[0].startswith("Unhandled unsolicited response:"):
             return
@@ -182,7 +183,7 @@ def shouldDeleteAllMail(serverHostName, inboundServer, username):
 def scheduleNextMailPoll(store, seconds):
     txn = store.newTransaction(label="scheduleNextMailPoll")
     notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
-    log.debug("Scheduling next mail poll: %s" % (notBefore,))
+    log.debug("Scheduling next mail poll: {time}", time=notBefore)
     yield txn.enqueue(IMIPPollingWork, notBefore=notBefore)
     yield txn.commit()
 
@@ -287,7 +288,7 @@ class MailReceiver(object):
         organizer = calendar.getOrganizer()
         token = self._extractToken(organizer)
         if not token:
-            log.error("Mail gateway can't find token in DSN %s" % (msgId,))
+            log.error("Mail gateway can't find token in DSN {msgid}", msgid=msgId)
             return
 
         txn = self.store.newTransaction(label="MailReceiver.processDSN")
@@ -299,8 +300,9 @@ class MailReceiver(object):
         except:
             # This isn't a token we recognize
             log.error(
-                "Mail gateway found a token (%s) but didn't recognize it in message %s"
-                % (token, msgId))
+                "Mail gateway found a token ({token}) but didn't recognize it in message {msgid}",
+                token=token, msgid=msgId,
+            )
             returnValue(self.UNKNOWN_TOKEN)
 
         calendar.removeAllButOneAttendee(record.attendee)
@@ -316,7 +318,7 @@ class MailReceiver(object):
             # TODO: what to do in this case?
             pass
 
-        log.warn("Mail gateway processing DSN %s" % (msgId,))
+        log.warn("Mail gateway processing DSN {msgid}", msgid=msgId)
         txn = self.store.newTransaction(label="MailReceiver.processDSN")
         yield txn.enqueue(
             IMIPReplyWork,
@@ -338,12 +340,14 @@ class MailReceiver(object):
             if not token:
                 log.error(
                     "Mail gateway didn't find a token in message "
-                    "%s (%s)" % (msg['Message-ID'], msg['To']))
+                    "{msgid} ({to})", msgid=msg['Message-ID'], to=msg['To']
+                )
                 returnValue(self.NO_TOKEN)
         else:
             log.error(
-                "Mail gateway couldn't parse To: address (%s) in "
-                "message %s" % (msg['To'], msg['Message-ID']))
+                "Mail gateway couldn't parse To: address ({tp}) in "
+                "message {msgid}", to=msg['To'], msgid=msg['Message-ID']
+            )
             returnValue(self.MALFORMED_TO_ADDRESS)
 
         txn = self.store.newTransaction(label="MailReceiver.processReply")
@@ -355,9 +359,10 @@ class MailReceiver(object):
         except:
             # This isn't a token we recognize
             log.info(
-                "Mail gateway found a token (%s) but didn't "
-                "recognize it in message %s"
-                % (token, msg['Message-ID']))
+                "Mail gateway found a token ({token}) but didn't "
+                "recognize it in message {msgid}",
+                token=token, msgid=msg['Message-ID']
+            )
             # Any email with an unknown token which was sent over 72 hours ago
             # is deleted.  If we can't parse the date we leave it in the inbox.
             dateString = msg.get("Date")
@@ -366,9 +371,8 @@ class MailReceiver(object):
                     dateSent = dateutil.parser.parse(dateString)
                 except Exception, e:
                     log.info(
-                        "Could not parse date in IMIP email '{}' ({})".format(
-                            dateString, e
-                        )
+                        "Could not parse date in IMIP email '{date}' ({ex})",
+                        date=dateString, ex=e,
                     )
                     returnValue(self.UNKNOWN_TOKEN)
                 now = datetime.datetime.now(dateutil.tz.tzutc())
@@ -384,7 +388,8 @@ class MailReceiver(object):
             # No icalendar attachment
             log.warn(
                 "Mail gateway didn't find an icalendar attachment "
-                "in message %s" % (msg['Message-ID'],))
+                "in message {msgid}", msgid=msg['Message-ID']
+            )
 
             toAddr = None
             fromAddr = record.attendee[7:]
@@ -401,8 +406,7 @@ class MailReceiver(object):
 
             if toAddr is None:
                 log.error(
-                    "Don't have an email address for the organizer; "
-                    "ignoring reply.")
+                    "Don't have an email address for the organizer; ignoring reply.")
                 returnValue(self.NO_ORGANIZER_ADDRESS)
 
             settings = config.Scheduling["iMIP"]["Sending"]
@@ -433,8 +437,9 @@ class MailReceiver(object):
         if organizerProperty is None:
             # ORGANIZER is required per rfc2446 section 3.2.3
             log.warn(
-                "Mail gateway didn't find an ORGANIZER in REPLY %s"
-                % (msg['Message-ID'],))
+                "Mail gateway didn't find an ORGANIZER in REPLY {msgid}",
+                msgid=msg['Message-ID']
+            )
             event.addProperty(Property("ORGANIZER", record.organizer))
         else:
             organizerProperty.setValue(record.organizer)
@@ -498,8 +503,9 @@ class MailReceiver(object):
                 else:
                     # It's a DSN without enough to go on
                     log.error(
-                        "Mail gateway can't process DSN %s"
-                        % (msg['Message-ID'],))
+                        "Mail gateway can't process DSN {msgid}",
+                        msgid=msg['Message-ID']
+                    )
                     return succeed(self.INCOMPLETE_DSN)
 
             log.info(
@@ -551,8 +557,9 @@ class POP3DownloadProtocol(pop3client.POP3Client):
 
     def cbLoginFailed(self, reason):
         self.log.error(
-            "POP3 login failed for %s" %
-            (self.factory.settings["Username"],))
+            "POP3 login failed for {user}",
+            user=self.factory.settings["Username"]
+        )
         return self.quit()
 
 
@@ -571,17 +578,17 @@ class POP3DownloadProtocol(pop3client.POP3Client):
 
     @inlineCallbacks
     def cbDownloaded(self, lines, id):
-        self.log.debug("POP downloaded message %d" % (id,))
+        self.log.debug("POP downloaded message {msgid}", msgid=id)
         actionTaken = (yield self.factory.handleMessage("\r\n".join(lines)))
 
         if self.factory.deleteAllMail:
             # Delete all mail we see
-            self.log.debug("POP deleting message %d" % (id,))
+            self.log.debug("POP deleting message {msgid}", msgid=id)
             self.delete(id)
         else:
             # Delete only mail we've processed
             if actionTaken == MailReceiver.INJECTION_SUBMITTED:
-                self.log.debug("POP deleting message %d" % (id,))
+                self.log.debug("POP deleting message {msgid}", msgid=id)
                 self.delete(id)
 
 
@@ -695,8 +702,9 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
             nextUID = self.messageUIDs.pop(0)
             messageListToFetch = imap4.MessageSet(nextUID)
             self.log.debug(
-                "Downloading message %d of %d (%s)" %
-                (self.messageCount - len(self.messageUIDs), self.messageCount, nextUID))
+                "Downloading message {count} of {total} ({next})",
+                count=self.messageCount - len(self.messageUIDs), total=self.messageCount, next=nextUID
+            )
             self.fetchMessage(messageListToFetch, True).addCallback(
                 self.cbGotMessage, messageListToFetch).addErrback(
                     self.ebLogError)

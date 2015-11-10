@@ -26,10 +26,11 @@ import sys
 import time
 
 from twisted.internet.defer import succeed
+from twisted.logger import LogLevel, formatEvent
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
 
-from twext.python.log import Logger, LogLevel, formatEvent, addObserver
+from twext.python.log import Logger
 
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
@@ -220,8 +221,8 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         output.flush()
 
     if not options["status"]:
-        log.publisher.levels.setLogLevelForNamespace(None, LogLevel.debug)
-        addObserver(onlyUpgradeEvents)
+        log.levels().setLogLevelForNamespace(None, LogLevel.debug)
+        log.observer.addObserver(onlyUpgradeEvents)
 
 
     def customServiceMaker():

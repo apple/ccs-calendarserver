@@ -165,7 +165,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
             name_utf8 = name.encode("utf-8")
             if name is not None and self.resource.getChild(name_utf8) is None:
                 # Clean up
-                log.error("Stale resource record found for child %s with UID %s in %s" % (name, uid, self.resource))
+                log.error("Stale resource record found for child {name} with UID {uid} in {rsrc!r}", name=name, uid=uid, resource=self.resource)
                 self._delete_from_db(name, uid, False)
                 self._db_commit()
             else:
@@ -270,7 +270,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
         names = self.notExpandedBeyond(minDate)
         # Actually expand recurrence max
         for name in names:
-            self.log.info("Search falls outside range of index for %s %s" % (name, minDate))
+            self.log.info("Search falls outside range of index for {name} {date}", name=name, date=minDate)
             self.reExpandResource(name, minDate)
 
 
@@ -383,8 +383,10 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
                     del row[9]
                 results.append(row)
             else:
-                log.error("Calendar resource %s is missing from %s. Removing from index."
-                          % (name, self.resource))
+                log.error(
+                    "Calendar resource {name} is missing from {rsrc!r}. Removing from index.",
+                    name=name, rsrc=self.resource,
+                )
                 self.deleteResource(name)
 
         return results
@@ -406,9 +408,10 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
             if self.resource.getChild(name.encode("utf-8")):
                 results.append(row)
             else:
-                log.error("Calendar resource %s is missing from %s. Removing from index."
-                          % (name, self.resource))
-                self.deleteResource(name)
+                log.error(
+                    "Calendar resource {name} is missing from {rsrc!r}. Removing from index.",
+                    name=name, rsrc=self.resource,
+                )
 
         return results
 
@@ -735,7 +738,7 @@ class CalendarIndex (AbstractCalendarIndex):
             instances = calendar.expandTimeRanges(expand, ignoreInvalidInstances=reCreate)
             recurrenceLimit = instances.limit
         except InvalidOverriddenInstanceError, e:
-            log.error("Invalid instance %s when indexing %s in %s" % (e.rid, name, self.resource,))
+            log.error("Invalid instance {rid} when indexing {name} in {rsrc!r}", rid=e.rid, name=name, rsrc=self.resource)
             raise
 
         # Now coerce indexing to off if needed
@@ -876,9 +879,9 @@ class MemcachedUIDReserver(CachePoolUserMixIn):
 
     def reserveUID(self, uid):
         uid = uid.encode('utf-8')
-        self.log.debug("Reserving UID %r @ %r" % (
-            uid,
-            self.index.resource.fp.path)
+        self.log.debug(
+            "Reserving UID {uid} @ {path}",
+            uid=uid, path=self.index.resource.fp.path,
         )
 
         def _handleFalse(result):
@@ -897,9 +900,9 @@ class MemcachedUIDReserver(CachePoolUserMixIn):
 
     def unreserveUID(self, uid):
         uid = uid.encode('utf-8')
-        self.log.debug("Unreserving UID %r @ %r" % (
-            uid,
-            self.index.resource.fp.path)
+        self.log.debug(
+            "Unreserving UID {uid} @ {path}",
+            uid=uid, path=self.index.resource.fp.path,
         )
 
         def _handleFalse(result):
@@ -916,9 +919,9 @@ class MemcachedUIDReserver(CachePoolUserMixIn):
 
     def isReservedUID(self, uid):
         uid = uid.encode('utf-8')
-        self.log.debug("Is reserved UID %r @ %r" % (
-            uid,
-            self.index.resource.fp.path)
+        self.log.debug(
+            "Is reserved UID {uid} @ {path}",
+            uid=uid, path=self.index.resource.fp.path,
         )
 
         def _checkValue((flags, value)):
@@ -956,7 +959,7 @@ class SQLUIDReserver(object):
                 % (uid, self.index.resource)
             )
         except sqlite.Error, e:
-            log.error("Unable to reserve UID: %s", (e,))
+            log.error("Unable to reserve UID: {ex}", ex=e)
             self.index._db_rollback()
             raise
 
@@ -980,7 +983,7 @@ class SQLUIDReserver(object):
                         "delete from RESERVED where UID = :1", uid)
                     self.index._db_commit()
                 except sqlite.Error, e:
-                    log.error("Unable to unreserve UID: %s", (e,))
+                    log.error("Unable to unreserve UID: {ex}", ex=e)
                     self.index._db_rollback()
                     raise
 
@@ -1008,7 +1011,7 @@ class SQLUIDReserver(object):
                     self.index._db_execute("delete from RESERVED where UID = :1", uid)
                     self.index._db_commit()
                 except sqlite.Error, e:
-                    log.error("Unable to unreserve UID: %s", (e,))
+                    log.error("Unable to unreserve UID: {ex}", ex=e)
                     self.index._db_rollback()
                     raise
                 return False
@@ -1112,7 +1115,7 @@ class Index (CalendarIndex):
             try:
                 stream = child.open()
             except (IOError, OSError), e:
-                log.error("Unable to open resource %s: %s" % (name, e))
+                log.error("Unable to open resource {name}: {ex}", name=name, ex=e)
                 continue
 
             # FIXME: This is blocking I/O
@@ -1121,9 +1124,9 @@ class Index (CalendarIndex):
                 calendar.validCalendarData()
                 calendar.validCalendarForCalDAV(methodAllowed=False)
             except ValueError:
-                log.error("Non-calendar resource: %s" % (name,))
+                log.error("Non-calendar resource: {name}", name=name)
             else:
-                # og.info("Indexing resource: %s" % (name,))
+                # og.info("Indexing resource: {name}", name=name)
                 self.addResource(name, calendar, True, reCreate=True)
             finally:
                 stream.close()
@@ -1227,7 +1230,7 @@ class IndexSchedule (CalendarIndex):
             try:
                 stream = child.open()
             except (IOError, OSError), e:
-                log.error("Unable to open resource %s: %s" % (name, e))
+                log.error("Unable to open resource {name}: {ex}", name=name, ex=e)
                 continue
 
             # FIXME: This is blocking I/O
@@ -1236,9 +1239,9 @@ class IndexSchedule (CalendarIndex):
                 calendar.validCalendarData()
                 calendar.validCalendarForCalDAV(methodAllowed=True)
             except ValueError:
-                log.error("Non-calendar resource: %s" % (name,))
+                log.error("Non-calendar resource: {name}", name=name)
             else:
-                # log.info("Indexing resource: %s" % (name,))
+                # log.info("Indexing resource: {name}", name=name)
                 self.addResource(name, calendar, True, reCreate=True)
             finally:
                 stream.close()

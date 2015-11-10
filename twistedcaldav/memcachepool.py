@@ -78,7 +78,7 @@ class MemCacheClientFactory(ReconnectingClientFactory):
             # The reactor is stopping; don't reconnect
             return
 
-        self.log.error("MemCache connection lost: %s" % (reason,))
+        self.log.error("MemCache connection lost: {r}", r=reason)
         if self._protocolInstance is not None:
             self.connectionPool.clientBusy(self._protocolInstance)
 
@@ -92,7 +92,7 @@ class MemCacheClientFactory(ReconnectingClientFactory):
         """
         Notify the connectionPool that we're unable to connect
         """
-        self.log.error("MemCache connection failed: %s" % (reason,))
+        self.log.error("MemCache connection failed: {r}", r=reason)
         if self._protocolInstance is not None:
             self.connectionPool.clientBusy(self._protocolInstance)
 
@@ -196,7 +196,7 @@ class MemCachePool(object):
         @return: A L{Deferred} that fires with the L{IProtocol} instance.
         """
         self.log.debug(
-            "Initiating new client connection to: %r" % (self._endpoint,)
+            "Initiating new client connection to: {r!r}", r=self._endpoint
         )
         self._logClientStats()
 
@@ -245,10 +245,10 @@ class MemCachePool(object):
             message and free the client.
             """
             self.log.error(
-                "Memcache error: %s; request: %s %s" % (
-                    failure.value, command,
-                    " ".join(args)[:self.REQUEST_LOGGING_SIZE],
-                )
+                "Memcache error: {ex}; request: {cmd} {args}",
+                ex=failure.value,
+                cmd=command,
+                args=" ".join(args)[:self.REQUEST_LOGGING_SIZE],
             )
             self.clientFree(client)
 
@@ -290,7 +290,7 @@ class MemCachePool(object):
             d = Deferred()
             self._commands.append((d, command, args, kwargs))
             self.log.debug(
-                "Command queued: %s, %r, %r" % (command, args, kwargs)
+                "Command queued: {c}, {a!r}, {k!r}", c=command, a=args, k=kwargs
             )
             self._logClientStats()
 
@@ -304,12 +304,11 @@ class MemCachePool(object):
 
     def _logClientStats(self):
         self.log.debug(
-            "Clients #free: %d, #busy: %d, #pending: %d, #queued: %d" % (
-                len(self._freeClients),
-                len(self._busyClients),
-                self._pendingConnects,
-                len(self._commands),
-            )
+            "Clients #free: {f}, #busy: {b}, #pending: {p}, #queued: {q}",
+            f=len(self._freeClients),
+            b=len(self._busyClients),
+            p=self._pendingConnects,
+            q=len(self._commands),
         )
 
 
@@ -325,7 +324,7 @@ class MemCachePool(object):
         elif client in self._freeClients:
             self._freeClients.remove(client)
 
-        self.log.debug("Removed client: %r" % (client,))
+        self.log.debug("Removed client: {c!r}", c=client)
         self._logClientStats()
 
 
@@ -341,7 +340,7 @@ class MemCachePool(object):
 
         self._busyClients.add(client)
 
-        self.log.debug("Busied client: %r" % (client,))
+        self.log.debug("Busied client: {c!r}", c=client)
         self._logClientStats()
 
 
@@ -363,8 +362,8 @@ class MemCachePool(object):
             d, command, args, kwargs = self._commands.pop(0)
 
             self.log.debug(
-                "Performing Queued Command: %s, %r, %r"
-                % (command, args, kwargs)
+                "Performing Queued Command: {c}, {a}, {k}",
+                c=command, a=args, k=kwargs,
             )
             self._logClientStats()
 
@@ -373,7 +372,7 @@ class MemCachePool(object):
 
             _ign_d.addCallback(d.callback)
 
-        self.log.debug("Freed client: %r" % (client,))
+        self.log.debug("Freed client: {c!r}", c=client)
         self._logClientStats()
 
 

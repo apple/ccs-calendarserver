@@ -90,7 +90,7 @@ class PermissionsMixIn (ReadOnlyResourceMixIn):
 
         if wikiACL is not None:
             # ACL depends on wiki server...
-            log.debug("Wiki ACL: %s" % (wikiACL.toxml(),))
+            log.debug("Wiki ACL: {acl}", acl=wikiACL.toxml())
             returnValue(wikiACL)
         else:
             # ...otherwise permissions are fixed, and are not subject to
@@ -398,7 +398,7 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
             if record is not None and record.hasCalendars:
                 returnValue((yield self.principalForRecord(record)))
 
-        log.debug("No principal for calendar user address: %r" % (address,))
+        log.debug("No principal for calendar user address: {addr}", addr=address)
         returnValue(None)
 
 
@@ -413,7 +413,7 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
     ##
 
     def createSimilarFile(self, path):
-        log.error("Attempt to create clone %r of resource %r" % (path, self))
+        log.error("Attempt to create clone {path} of resource {rsrc!r}", path=path, rsrc=self)
         raise HTTPError(responsecode.NOT_FOUND)
 
 
@@ -477,7 +477,7 @@ class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource)
 
 
     def createSimilarFile(self, path):
-        log.error("Attempt to create clone %r of resource %r" % (path, self))
+        log.error("Attempt to create clone {path} of resource {rsrc!r}", path=path, rsrc=self)
         raise HTTPError(responsecode.NOT_FOUND)
 
 
@@ -499,8 +499,10 @@ class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource)
                     for shortName in getattr(record, "shortNames", []):
                         children.append(shortName)
             except AttributeError:
-                log.warn("Cannot list children of record type {rt}",
-                         rt=self.recordType.name)
+                log.warn(
+                    "Cannot list children of record type {rt}",
+                    rt=self.recordType.name
+                )
             returnValue(children)
 
         else:
@@ -562,7 +564,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
 
 
     def createSimilarFile(self, path):
-        log.error("Attempt to create clone %r of resource %r" % (path, self))
+        log.error("Attempt to create clone {path} of resource {rsrc!r}", path=path, rsrc=self)
         raise HTTPError(responsecode.NOT_FOUND)
 
 
@@ -581,7 +583,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
         record = (yield self.directory.recordWithUID(primaryUID))
         primaryPrincipal = (yield self.principalForRecord(record))
         if primaryPrincipal is None:
-            log.info("No principal found for UID: %s" % (name,))
+            log.info("No principal found for UID: {name}", name=name)
             returnValue(None)
 
         if subType is None:
@@ -1035,7 +1037,7 @@ class DirectoryPrincipalResource (
                 if relative not in records:
                     found = (yield self.parent.principalForRecord(relative))
                     if found is None:
-                        log.error("No principal found for directory record: %r" % (relative,))
+                        log.error("No principal found for directory record: {rec!r}", rec=relative)
                     else:
                         if proxy:
                             if proxy == "read-write":
@@ -1194,7 +1196,7 @@ class DirectoryPrincipalResource (
 
 
     def createSimilarFile(self, path):
-        log.error("Attempt to create clone %r of resource %r" % (path, self))
+        log.error("Attempt to create clone {path} of resource {rsrc!r}", path=path, rsrc=self)
         raise HTTPError(responsecode.NOT_FOUND)
 
 
