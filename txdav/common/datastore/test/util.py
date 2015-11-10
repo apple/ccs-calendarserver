@@ -348,7 +348,7 @@ class SQLStoreBuilder(object):
                     yield cleanupTxn.execSQL("select {}.nextval from dual".format(sequence.name), [])
                     yield cleanupTxn.execSQL("alter sequence {} increment by {}".format(sequence.name, 1), [])
             except:
-                log.failure("setval sequence '{}' failed", sequence=sequence.name)
+                log.failure("setval sequence '{sequence}' failed", sequence=sequence.name)
         yield cleanupTxn.execSQL("update CALENDARSERVER set VALUE = '1' where NAME = 'MIN-VALID-REVISION'", [])
 
         yield cleanupTxn.commit()

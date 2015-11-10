@@ -691,7 +691,7 @@ class CalendarObject(File):
                 self.mainComponent = mainComponent
 
             except InvalidICalendarDataError, e:
-                log.error("%s: %s" % (self.path, e))
+                log.error("{path}: {ex}", path=self.path, ex=e)
 
                 self.componentType = "?"
                 self.summary = "** Invalid data **"

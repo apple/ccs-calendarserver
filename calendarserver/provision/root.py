@@ -249,9 +249,9 @@ class RootResource(
                             )
                         else:
                             log.error(
-                                "Failed to look up wiki token {token}: "
-                                "{message}",
-                                token=token, message=w.message
+                                "Failed to look up wiki token {token}: {msg}",
+                                token=token,
+                                msg=w.message
                             )
 
                     except Exception as e:

@@ -80,7 +80,8 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
         if self.directory is None:
             log.info(
                 "Setting search directory to {principalDirectory}",
-                principalDirectory=self.principalDirectory)
+                principalDirectory=self.principalDirectory
+            )
             self.directory = self.principalDirectory
             # future: instantiate another directory based on /Search/Contacts (?)
 
@@ -162,8 +163,10 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
         Get vCards for a given addressBookFilter and addressBookQuery
         """
 
-        log.debug("doAddressBookDirectoryQuery: directory={directory} addressBookFilter={addressBookFilter}, addressBookQuery={addressBookQuery}, maxResults={maxResults}",
-                  directory=self.directory, addressBookFilter=addressBookFilter, addressBookQuery=addressBookQuery, maxResults=maxResults)
+        log.debug(
+            "doAddressBookDirectoryQuery: directory={directory} addressBookFilter={addressBookFilter}, addressBookQuery={addressBookQuery}, maxResults={maxResults}",
+            directory=self.directory, addressBookFilter=addressBookFilter, addressBookQuery=addressBookQuery, maxResults=maxResults
+        )
         results = []
         limited = False
         maxQueryRecords = 0
@@ -232,8 +235,10 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
                 allRecords = set()
                 if fields:
                     records = yield self.directory.recordsMatchingFields(fields, operand, queryRecordType)
-                    log.debug("doAddressBookDirectoryQuery: recordsMatchingFields({f}, {o}): #records={n}, records={records!r}",
-                              f=fields, o=operand, n=len(records), records=records)
+                    log.debug(
+                        "doAddressBookDirectoryQuery: recordsMatchingFields({f}, {o}): #records={n}, records={records!r}",
+                        f=fields, o=operand, n=len(records), records=records
+                    )
                     allRecords = set(records)
                 else:
                     recordTypes = set([queryRecordType]) if queryRecordType else set(self.directory.recordTypes()) & set(recordTypeToVCardKindMap.keys())

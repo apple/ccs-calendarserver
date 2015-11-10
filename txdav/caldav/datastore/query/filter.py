@@ -396,32 +396,32 @@ class ComponentFilter (FilterChildBase):
         if level == 0:
             # Must have VCALENDAR at the top
             if (self.filter_name != "VCALENDAR") or timerange:
-                log.info("Top-level comp-filter must be VCALENDAR, instead: %s" % (self.filter_name,))
+                log.info("Top-level comp-filter must be VCALENDAR, instead: {name}", name=self.filter_name)
                 return False
         elif level == 1:
             # Disallow VCALENDAR, VALARM, STANDARD, DAYLIGHT, AVAILABLE at the top, everything else is OK
             if self.filter_name in ("VCALENDAR", "VALARM", "STANDARD", "DAYLIGHT", "AVAILABLE"):
-                log.info("comp-filter wrong component type: %s" % (self.filter_name,))
+                log.info("comp-filter wrong component type: {name}", name=self.filter_name)
                 return False
 
             # time-range only on VEVENT, VTODO, VJOURNAL, VFREEBUSY, VAVAILABILITY
             if timerange and self.filter_name not in ("VEVENT", "VTODO", "VJOURNAL", "VFREEBUSY", "VAVAILABILITY"):
-                log.info("time-range cannot be used with component %s" % (self.filter_name,))
+                log.info("time-range cannot be used with component {name}", name=self.filter_name)
                 return False
         elif level == 2:
             # Disallow VCALENDAR, VTIMEZONE, VEVENT, VTODO, VJOURNAL, VFREEBUSY, VAVAILABILITY at the top, everything else is OK
             if (self.filter_name in ("VCALENDAR", "VTIMEZONE", "VEVENT", "VTODO", "VJOURNAL", "VFREEBUSY", "VAVAILABILITY")):
-                log.info("comp-filter wrong sub-component type: %s" % (self.filter_name,))
+                log.info("comp-filter wrong sub-component type: {name}", name=self.filter_name)
                 return False
 
             # time-range only on VALARM, AVAILABLE
             if timerange and self.filter_name not in ("VALARM", "AVAILABLE",):
-                log.info("time-range cannot be used with sub-component %s" % (self.filter_name,))
+                log.info("time-range cannot be used with sub-component {name}", name=self.filter_name)
                 return False
         else:
             # Disallow all standard iCal components anywhere else
             if (self.filter_name in ("VCALENDAR", "VTIMEZONE", "VEVENT", "VTODO", "VJOURNAL", "VFREEBUSY", "VALARM", "STANDARD", "DAYLIGHT", "AVAILABLE")) or timerange:
-                log.info("comp-filter wrong standard component type: %s" % (self.filter_name,))
+                log.info("comp-filter wrong standard component type: {name}", name=self.filter_name)
                 return False
 
         # Test each property
@@ -548,7 +548,7 @@ class PropertyFilter (FilterChildBase):
 
         # time-range only on COMPLETED, CREATED, DTSTAMP, LAST-MODIFIED
         if timerange and self.filter_name.upper() not in ("COMPLETED", "CREATED", "DTSTAMP", "LAST-MODIFIED"):
-            log.info("time-range cannot be used with property %s" % (self.filter_name,))
+            log.info("time-range cannot be used with property {name}", name=self.filter_name)
             return False
 
         # Test the time-range
@@ -832,16 +832,16 @@ class TimeRange (FilterBase):
         """
 
         if self.start is not None and self.start.isDateOnly():
-            log.info("start attribute in <time-range> is not a date-time: %s" % (self.start,))
+            log.info("start attribute in <time-range> is not a date-time: {start}", start=self.start)
             return False
         if self.end is not None and self.end.isDateOnly():
-            log.info("end attribute in <time-range> is not a date-time: %s" % (self.end,))
+            log.info("end attribute in <time-range> is not a date-time: {end}", start=self.end)
             return False
         if self.start is not None and not self.start.utc():
-            log.info("start attribute in <time-range> is not UTC: %s" % (self.start,))
+            log.info("start attribute in <time-range> is not UTC: {start}", start=self.start)
             return False
         if self.end is not None and not self.end.utc():
-            log.info("end attribute in <time-range> is not UTC: %s" % (self.end,))
+            log.info("end attribute in <time-range> is not UTC: {end}", start=self.end)
             return False
 
         # No other tests

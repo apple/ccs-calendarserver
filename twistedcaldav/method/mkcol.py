@@ -54,8 +54,7 @@ def http_MKCOL(self, request):
     yield parent.authorize(request, (davxml.Bind(),))
 
     if self.exists():
-        log.error("Attempt to create collection where resource exists: %s"
-                  % (self,))
+        log.error("Attempt to create collection where resource exists: {s!r}", s=self)
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             (davxml.dav_namespace, "resource-must-be-null"),
@@ -63,8 +62,7 @@ def http_MKCOL(self, request):
         ))
 
     if not parent.isCollection():
-        log.error("Attempt to create collection with non-collection parent: %s"
-                  % (self,))
+        log.error("Attempt to create collection with non-collection parent: {s!r}", s=self)
         raise HTTPError(ErrorResponse(
             responsecode.CONFLICT,
             (davxml.dav_namespace, "collection-location-ok"),
@@ -99,7 +97,7 @@ def http_MKCOL(self, request):
     try:
         doc = (yield davXMLFromStream(request.stream))
     except ValueError, e:
-        log.error("Error while handling MKCOL: %s" % (e,))
+        log.error("Error while handling MKCOL: {ex}", ex=e)
         # TODO: txweb2.dav 'MKCOL' tests demand this particular response
         # code, but should we really be looking at the XML content or the
         # content-type header?  It seems to me like this ought to be considered

@@ -78,7 +78,7 @@ class KerberosCredentialFactoryBase(object):
             try:
                 principal = kerberos.getServerPrincipalDetails(serviceType, hostname)
             except kerberos.KrbError, ex:
-                self.log.error("getServerPrincipalDetails: %s" % (ex[0],))
+                self.log.error("getServerPrincipalDetails: {ex}", ex=ex[0])
                 raise ValueError('Authentication System Failure: %s' % (ex[0],))
 
         self.service, self.realm = self._splitPrincipal(principal)
@@ -93,7 +93,7 @@ class KerberosCredentialFactoryBase(object):
             service = splits[0].upper()
             realm = splits[1]
         except IndexError:
-            self.log.error("Invalid Kerberos principal: %s" % (principal,))
+            self.log.error("Invalid Kerberos principal: {principal}", principal=principal)
             raise ValueError('Authentication System Failure: Invalid Kerberos principal: %s' % (principal,))
 
         service = "%s@%s" % (servicetype, service,)
@@ -188,7 +188,7 @@ class BasicKerberosCredentialsChecker(object):
             try:
                 kerberos.checkPassword(creds.username, creds.password, creds.service, creds.default_realm)
             except kerberos.BasicAuthError, ex:
-                self.log.error("%s" % (ex[0],))
+                self.log.error("{ex}", ex=ex[0])
                 raise error.UnauthorizedLogin("Bad credentials for: %s (%s: %s)" % (pcreds.authnURI, ex[0], ex[1],))
             else:
                 return succeed((
@@ -247,18 +247,18 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
         try:
             _ignore_result, context = kerberos.authGSSServerInit("")
         except kerberos.GSSError, ex:
-            self.log.error("authGSSServerInit: %s(%s)" % (ex[0][0], ex[1][0],))
+            self.log.error("authGSSServerInit: {ex0}({ex1})", ex0=ex[0][0], ex1=ex[1][0])
             raise error.LoginFailed('Authentication System Failure: %s(%s)' % (ex[0][0], ex[1][0],))
 
         # Do the GSSAPI step and get response and username
         try:
             kerberos.authGSSServerStep(context, base64data)
         except kerberos.GSSError, ex:
-            self.log.error("authGSSServerStep: %s(%s)" % (ex[0][0], ex[1][0],))
+            self.log.error("authGSSServerStep: {ex0}(ex1)", ex0=ex[0][0], ex1=ex[1][0])
             kerberos.authGSSServerClean(context)
             raise error.UnauthorizedLogin('Bad credentials: %s(%s)' % (ex[0][0], ex[1][0],))
         except kerberos.KrbError, ex:
-            self.log.error("authGSSServerStep: %s" % (ex[0],))
+            self.log.error("authGSSServerStep: {ex}", ex=ex[0])
             kerberos.authGSSServerClean(context)
             raise error.UnauthorizedLogin('Bad credentials: %s' % (ex[0],))
 
@@ -266,11 +266,11 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
         try:
             service, _ignore_realm = self._splitPrincipal(targetname)
         except ValueError:
-            self.log.error("authGSSServerTargetName invalid target name: '%s'" % (targetname,))
+            self.log.error("authGSSServerTargetName invalid target name: '{target}'", target=targetname)
             kerberos.authGSSServerClean(context)
             raise error.UnauthorizedLogin('Bad credentials: bad target name %s' % (targetname,))
         if service.lower() != self.service.lower():
-            self.log.error("authGSSServerTargetName mismatch got: '%s' wanted: '%s'" % (service, self.service))
+            self.log.error("authGSSServerTargetName mismatch got: '{got}' wanted: '{wanted}'", got=service, wanted=self.service)
             kerberos.authGSSServerClean(context)
             raise error.UnauthorizedLogin('Bad credentials: wrong target name %s' % (targetname,))
 
@@ -294,7 +294,7 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
         try:
             kerberos.authGSSServerClean(context)
         except kerberos.GSSError, ex:
-            self.log.error("authGSSServerClean: %s" % (ex[0][0], ex[1][0],))
+            self.log.error("authGSSServerClean: {ex0}({ex1})", ex0=ex[0][0], ex1=ex[1][0])
             raise error.LoginFailed('Authentication System Failure %s(%s)' % (ex[0][0], ex[1][0],))
 
         # If we successfully decoded and verified the Kerberos credentials we need to add the Kerberos

@@ -61,7 +61,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
     if not self.isCollection():
         parent = (yield self.locateParent(request, request.uri))
         if not parent.isPseudoCalendarCollection():
-            log.error("calendar-query report is not allowed on a resource outside of a calendar collection %s" % (self,))
+            log.error("calendar-query report is not allowed on a resource outside of a calendar collection {s!r}", s=self)
             raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Must be calendar collection or calendar resource"))
 
     responses = []
@@ -125,7 +125,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
 
     # Verify that the filter element is valid
     if (filter is None) or not filter.valid():
-        log.error("Invalid filter element: %r" % (xmlfilter,))
+        log.error("Invalid filter element: {f!r}", f=xmlfilter)
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             (caldav_namespace, "valid-filter"),
@@ -179,7 +179,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     # of one of these resources in another request.  In this
                     # case, we ignore the now missing resource rather
                     # than raise an error for the entire report.
-                    log.error("Missing resource during query: %s" % (href,))
+                    log.error("Missing resource during query: {h}", h=href)
 
         # Check whether supplied resource is a calendar or a calendar object resource
         if calresource.isPseudoCalendarCollection():

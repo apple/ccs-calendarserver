@@ -169,7 +169,7 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
         tzid = queryValue("tzid")
         if not tzid:
             tzid = getLocalTimezone()
-            self.log.debug("Determined timezone to be %s" % (tzid,))
+            self.log.debug("Determined timezone to be {tzid}", tzid=tzid)
 
         #
         # Make some HTML

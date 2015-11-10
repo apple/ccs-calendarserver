@@ -127,7 +127,7 @@ def emitAccounting(category, record, data, tag=None, filename=None):
                         logFilename = path
                         break
                     if index == 1000:
-                        log.error("Too many %s accounting files for %s" % (category, record))
+                        log.error("Too many {cat} accounting files for {rec}", cat=category, rec=record)
                         return None
                     index += 1
 
@@ -141,5 +141,5 @@ def emitAccounting(category, record, data, tag=None, filename=None):
 
     except OSError, e:
         # No failures in accounting should propagate out
-        log.error("Failed to write accounting data due to: %s" % (str(e),))
+        log.error("Failed to write accounting data due to: {ex}", ex=str(e))
         return None

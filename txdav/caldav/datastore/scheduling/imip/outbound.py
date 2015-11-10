@@ -380,15 +380,19 @@ class MailSender(object):
 
             if record is None:
                 record = (yield txn.imipCreateToken(originator, toAddr.lower(), icaluid))
-                self.log.debug("Mail gateway created token %s for %s "
-                               "(originator), %s (recipient) and %s (icaluid)"
-                               % (record.token, originator, toAddr, icaluid))
+                self.log.debug(
+                    "Mail gateway created token {token}for {orig} "
+                    "(originator), {recip} (recipient) and {uid} (icaluid)",
+                    token=record.token, orig=originator, recip=toAddr, uid=icaluid,
+                )
                 inviteState = "new"
 
             else:
-                self.log.debug("Mail gateway reusing token %s for %s "
-                               "(originator), %s (recipient) and %s (icaluid)"
-                               % (record.token, originator, toAddr, icaluid))
+                self.log.debug(
+                    "Mail gateway reusing token {token} for {orig} "
+                    "(originator), {recip} (recipient) and {uid} (icaluid)",
+                    token=record.token, orig=originator, recip=toAddr, uid=icaluid,
+                )
                 inviteState = "update"
             token = record.token
 
@@ -489,7 +493,7 @@ class MailSender(object):
                 fromAddr, toAddr, msgId, message))
             returnValue(success)
         except Exception, e:
-            self.log.error("Failed to send IMIP message (%s)" % (str(e),))
+            self.log.error("Failed to send IMIP message ({ex})", ex=str(e))
             returnValue(False)
 
 
@@ -597,8 +601,7 @@ class MailSender(object):
         # always be present (i.e., timezones-by-reference is not allowed in iMIP).
         calendarText = calendar.getTextWithTimezones(includeTimezones=True)
 
-        self.log.debug("Mail gateway sending calendar body: %s"
-                       % (calendarText,))
+        self.log.debug("Mail gateway sending calendar body: {body}", body=calendarText)
         msgIcal = MIMEText(calendarText, "calendar", "UTF-8")
         method = calendar.propertyValue("METHOD").lower()
         msgIcal.set_param("method", method)

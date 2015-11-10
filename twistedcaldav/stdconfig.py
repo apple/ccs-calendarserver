@@ -28,8 +28,9 @@ from calendarserver.push.util import getAPNTopicFromCertificate
 from twext.enterprise.jobs.jobitem import JobItem
 from twext.enterprise.jobs.queue import ControllerQueue
 from twext.enterprise.jobs.workitem import WorkItem
-from twext.python.log import Logger, InvalidLogLevelError, LogLevel
+from twext.python.log import Logger
 
+from twisted.logger import InvalidLogLevelError, LogLevel
 from twisted.python.filepath import FilePath
 from twisted.python.runtime import platform
 
@@ -1213,7 +1214,7 @@ class PListConfigProvider(ConfigProvider):
             with open(filename) as f:
                 configDict = parser.parse(f)
         except (IOError, OSError):
-            log.error("Configuration file does not exist or is inaccessible: %s" % (filename,))
+            log.error("Configuration file does not exist or is inaccessible: {f}", f=filename)
             raise ConfigurationError("Configuration file does not exist or is inaccessible: %s" % (filename,))
         else:
             configDict = _cleanup(configDict, self._defaults)
@@ -1416,7 +1417,7 @@ def _preUpdateDirectoryService(configDict, items, reloading=False):
 
     for param in items.get("DirectoryService", {}).get("params", {}):
         if dsType in DEFAULT_SERVICE_PARAMS and param not in DEFAULT_SERVICE_PARAMS[dsType]:
-            log.warn("Parameter %s is not supported by service %s" % (param, dsType))
+            log.warn("Parameter {p} is not supported by service {t}", p=param, t=dsType)
 
 
 
@@ -1446,7 +1447,7 @@ def _preUpdateResourceService(configDict, items, reloading=False):
 
     for param in items.get("ResourceService", {}).get("params", {}):
         if dsType in DEFAULT_RESOURCE_PARAMS and param not in DEFAULT_RESOURCE_PARAMS[dsType]:
-            log.warn("Parameter %s is not supported by service %s" % (param, dsType))
+            log.warn("Parameter {p} is not supported by service {t}", p=param, t=dsType)
 
 
 
@@ -1502,7 +1503,7 @@ def _postUpdateAugmentService(configDict, reloading=False):
     if configDict.AugmentService.type in DEFAULT_AUGMENT_PARAMS:
         for param in tuple(configDict.AugmentService.params):
             if param not in DEFAULT_AUGMENT_PARAMS[configDict.AugmentService.type]:
-                log.warn("Parameter %s is not supported by service %s" % (param, configDict.AugmentService.type))
+                log.warn("Parameter {p} is not supported by service {t}", p=param, t=configDict.AugmentService.type)
                 del configDict.AugmentService.params[param]
 
     # Upgrading augments.xml must be done prior to using the store/directory
@@ -1567,7 +1568,7 @@ def _updateACLs(configDict, reloading=False):
         * configDict.AdminACEs
     )
 
-    log.debug("Root ACL: %s" % (configDict.RootResourceACL.toxml(),))
+    log.debug("Root ACL: {x}", x=configDict.RootResourceACL.toxml())
 
     configDict.ProvisioningResourceACL = davxml.ACL(
         # Read-only for anon or authenticated, depending on config
@@ -1588,7 +1589,7 @@ def _updateACLs(configDict, reloading=False):
         ]
     )
 
-    log.debug("Nav ACL: %s" % (configDict.ProvisioningResourceACL.toxml(),))
+    log.debug("Nav ACL: {x}", x=configDict.ProvisioningResourceACL.toxml())
 
     def principalObjects(urls):
         for principalURL in urls:
@@ -1628,19 +1629,19 @@ def _updateClientFixes(configDict, reloading=False):
 
 
 def _updateLogLevels(configDict, reloading=False):
-    log.publisher.levels.clearLogLevels()
+    log.levels().clearLogLevels()
 
     try:
         if "DefaultLogLevel" in configDict:
             levelName = configDict["DefaultLogLevel"]
             if levelName:
-                log.publisher.levels.setLogLevelForNamespace(
+                log.levels().setLogLevelForNamespace(
                     None, LogLevel.levelWithName(levelName)
                 )
 
         if "LogLevels" in configDict:
             for namespace, levelName in configDict["LogLevels"].iteritems():
-                log.publisher.levels.setLogLevelForNamespace(
+                log.levels().setLogLevelForNamespace(
                     namespace, LogLevel.levelWithName(levelName)
                 )
 
@@ -1682,7 +1683,7 @@ def _updateNotifications(configDict, reloading=False):
                             topic = getAPNTopicFromCertificate(certPath)
                             service[protocol]["Topic"] = topic
                         else:
-                            log.error("APNS certificate not found: %s" % (certPath,))
+                            log.error("APNS certificate not found: {p}", p=certPath)
                     else:
                         log.error("APNS certificate path not specified")
 
@@ -1695,13 +1696,13 @@ def _updateNotifications(configDict, reloading=False):
                 try:
                     passphrase = getPasswordFromKeychain(accountName)
                     service[protocol]["Passphrase"] = passphrase
-                    log.info("%s APNS certificate passphrase retreived from keychain" % (protocol,))
+                    log.info("{p} APNS certificate passphrase retreived from keychain", p=protocol)
                 except KeychainAccessError:
                     # The system doesn't support keychain
                     pass
                 except KeychainPasswordNotFound:
                     # The password doesn't exist in the keychain.
-                    log.info("%s APNS certificate passphrase not found in keychain" % (protocol,))
+                    log.info("{p} APNS certificate passphrase not found in keychain", p=protocol)
 
 
 
@@ -1738,13 +1739,13 @@ def _updateScheduling(configDict, reloading=False):
                     if not service[direction]["Password"]:
                         password = getPasswordFromKeychain(account)
                         service[direction]["Password"] = password
-                        log.info("iMIP %s password successfully retrieved from keychain" % (direction,))
+                        log.info("iMIP {d} password successfully retrieved from keychain", d=direction)
                 except KeychainAccessError:
                     # The system doesn't support keychain
                     pass
                 except KeychainPasswordNotFound:
                     # The password doesn't exist in the keychain.
-                    log.info("iMIP %s password not found in keychain" % (direction,))
+                    log.info("iMIP {d} password not found in keychain", d=direction)
 
 
 
@@ -1801,12 +1802,12 @@ def _cleanup(configDict, defaultDict):
         if config_key in os.environ and os.environ[config_key] == config_key_value:
             pass
         else:
-            log.error("Ignoring unknown configuration option: %r" % (key,))
+            log.error("Ignoring unknown configuration option: {k}", k=key)
             del cleanDict[key]
 
 
     def deprecated(oldKey, newKey):
-        log.error("Configuration option %r is deprecated in favor of %r." % (oldKey, newKey))
+        log.error("Configuration option {o} is deprecated in favor of {n}.", o=oldKey, n=newKey)
         if oldKey in configDict and newKey in configDict:
             raise ConfigurationError(
                 "Both %r and %r options are specified; use the %r option only."

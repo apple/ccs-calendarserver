@@ -305,7 +305,7 @@ class DirectoryCalendarHomeResource (CalendarHomeResource):
         def gotACL(wikiACL):
             if wikiACL is not None:
                 # ACL depends on wiki server...
-                log.debug("Wiki ACL: %s" % (wikiACL.toxml(),))
+                log.debug("Wiki ACL: {acl}", acl=wikiACL.toxml())
                 return succeed(wikiACL)
             else:
                 # ...otherwise permissions are fixed, and are not subject to

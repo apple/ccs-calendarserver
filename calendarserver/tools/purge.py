@@ -420,7 +420,7 @@ class PurgeOldEventsService(WorkerService):
         """
         Find all the calendar homes that match the uuid cli argument.
         """
-        log.debug("Searching for calendar homes matching: '{}'".format(self.uuid))
+        log.debug("Searching for calendar homes matching: '{uid}'", uid=self.uuid)
         txn = self.store.newTransaction(label="Find matching homes")
         ch = schema.CALENDAR_HOME
         if self.uuid:
@@ -437,7 +437,7 @@ class PurgeOldEventsService(WorkerService):
             ).on(txn))
 
         yield txn.commit()
-        log.debug("  Found {} calendar homes".format(len(rows)))
+        log.debug("  Found {len} calendar homes", len=len(rows))
         returnValue(sorted(rows, key=lambda x: x[1]))
 
 
@@ -451,7 +451,7 @@ class PurgeOldEventsService(WorkerService):
         @param owner_uid: owner UUID of home to check
         @type owner_uid: L{str}
         """
-        log.debug("Checking calendar home: {} '{}'".format(home_id, owner_uid))
+        log.debug("Checking calendar home: {id} '{uid}'", id=home_id, uid=owner_uid)
         txn = self.store.newTransaction(label="Find matching calendars")
         cb = schema.CALENDAR_BIND
         kwds = {"home_id": home_id}
@@ -463,7 +463,7 @@ class PurgeOldEventsService(WorkerService):
             ),
         ).on(txn, **kwds))
         yield txn.commit()
-        log.debug("  Found {} calendars".format(len(rows)))
+        log.debug("  Found {len} calendars", len=len(rows))
         returnValue(rows)
 
 
@@ -483,7 +483,7 @@ class PurgeOldEventsService(WorkerService):
         @type calendar_name: L{str}
         """
 
-        log.debug("  Checking calendar: {} '{}'".format(calendar_id, calendar_name))
+        log.debug("  Checking calendar: {id} '{name}'", id=calendar_id, name=calendar_name)
         purge = set()
         txn = self.store.newTransaction(label="Find matching resources")
         co = schema.CALENDAR_OBJECT
@@ -503,7 +503,7 @@ class PurgeOldEventsService(WorkerService):
             ),
         ).on(txn, **kwds))
 
-        log.debug("    Found {} resources to check".format(len(rows)))
+        log.debug("    Found {len} resources to check", len=len(rows))
         for resource_id, recurrence_max, recurrence_min, max_end_date in rows:
 
             recurrence_max = parseSQLDateToPyCalendar(recurrence_max) if recurrence_max else None
@@ -530,7 +530,7 @@ class PurgeOldEventsService(WorkerService):
                     purge.add(self.PurgeEvent(home_id, calendar_id, resource_id,))
 
         yield txn.commit()
-        log.debug("    Found {} resources to purge".format(len(purge)))
+        log.debug("    Found {len} resources to purge", len=len(purge))
         returnValue(purge)
 
 
@@ -639,13 +639,14 @@ class PurgeOldEventsService(WorkerService):
                 last_calendar = event.calendar
             resource = (yield calendar.objectResourceWithID(event.resource))
             yield resource.purge(implicitly=False)
-            log.debug("Removed resource {} '{}' from calendar {} '{}' of calendar home '{}'".format(
-                resource.id(),
-                resource.name(),
-                resource.parentCollection().id(),
-                resource.parentCollection().name(),
-                resource.parentCollection().ownerHome().uid()
-            ))
+            log.debug(
+                "Removed resource {id} '{name}' from calendar {pid} '{pname}' of calendar home '{uid}'",
+                id=resource.id(),
+                name=resource.name(),
+                pid=resource.parentCollection().id(),
+                pname=resource.parentCollection().name(),
+                uid=resource.parentCollection().ownerHome().uid()
+            )
             count += 1
         yield txn.commit()
         returnValue(count)
@@ -679,18 +680,18 @@ class PurgeOldEventsService(WorkerService):
         if self.dryrun:
             eventCount = len(purge)
             if eventCount == 0:
-                log.info("No events are older than %s" % (self.cutoff,))
+                log.info("No events are older than {cutoff}", cutoff=self.cutoff)
             elif eventCount == 1:
-                log.info("1 event is older than %s" % (self.cutoff,))
+                log.info("1 event is older than {cutoff}", cutoff=self.cutoff)
             else:
-                log.info("%d events are older than %s" % (eventCount, self.cutoff))
+                log.info("{count} events are older than {cutoff}", count=eventCount, cutoff=self.cutoff)
             returnValue(eventCount)
 
         purge = list(purge)
         purge.sort()
         totalEvents = len(purge)
 
-        log.info("Removing {} events older than {}...".format(len(purge), self.cutoff,))
+        log.info("Removing {len} events older than {cutoff}...", len=len(purge), cutoff=self.cutoff)
 
         numEventsRemoved = -1
         totalRemoved = 0
@@ -698,7 +699,7 @@ class PurgeOldEventsService(WorkerService):
             numEventsRemoved = (yield self.purgeResources(purge[:self.batchSize]))
             if numEventsRemoved:
                 totalRemoved += numEventsRemoved
-                log.debug("  Removed {} of {} events...".format(totalRemoved, totalEvents))
+                log.debug("  Removed {removed} of {total} events...", removed=totalRemoved, total=totalEvents)
                 purge = purge[numEventsRemoved:]
 
         if totalRemoved == 0:
@@ -706,7 +707,7 @@ class PurgeOldEventsService(WorkerService):
         elif totalRemoved == 1:
             log.info("1 event was removed in total")
         else:
-            log.info("%d events were removed in total" % (totalRemoved,))
+            log.info("{total} events were removed in total", total=totalRemoved)
 
         returnValue(totalRemoved)
 

@@ -37,7 +37,7 @@ def http_POST(self, request):
 
     # POST can only target an existing resource
     if not self.exists():
-        log.error("Resource not found: %s" % (self,))
+        log.error("Resource not found: {s!r}", s=self)
         raise HTTPError(responsecode.NOT_FOUND)
 
     # POST can support many different APIs

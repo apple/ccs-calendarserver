@@ -137,16 +137,20 @@ class AbstractADBAPIDatabase(object):
                     if (version != self._db_version()) or (dbtype != self._db_type()):
 
                         if dbtype != self._db_type():
-                            log.error("Database %s has different type (%s vs. %s)"
-                                      % (self.dbID, dbtype, self._db_type()))
+                            log.error(
+                                "Database {db} has different type ({t1} vs. {t2})",
+                                db=self.dbID, t1=dbtype, t2=self._db_type()
+                            )
 
                             # Delete this index and start over
                             yield self._db_remove()
                             yield self._db_init()
 
                         elif version != self._db_version():
-                            log.error("Database %s has different schema (v.%s vs. v.%s)"
-                                      % (self.dbID, version, self._db_version()))
+                            log.error(
+                                "Database {db} has different schema (v.{v1} vs. v.{v2})",
+                                db=self.dbID, v1=version, v2=self._db_version()
+                            )
 
                             # Upgrade the DB
                             yield self._db_upgrade(version)
@@ -167,7 +171,7 @@ class AbstractADBAPIDatabase(object):
             try:
                 self.pool.close()
             except Exception, e:
-                log.error("Error whilst closing connection pool: %s" % (e,))
+                log.error("Error whilst closing connection pool: {ex}", ex=e)
             self.pool = None
             self.initialized = False
 
@@ -183,7 +187,7 @@ class AbstractADBAPIDatabase(object):
             try:
                 yield self._db_empty_data_tables()
             except Exception, e:
-                log.error("Error in database clean: %s" % (e,))
+                log.error("Error in database clean: {ex}", ex=e)
                 self.close()
             else:
                 break
@@ -200,7 +204,7 @@ class AbstractADBAPIDatabase(object):
             try:
                 yield self._db_execute(sql, *query_params)
             except Exception, e:
-                log.error("Error in database execute: %s" % (e,))
+                log.error("Error in database execute: {ex}", ex=e)
                 self.close()
             else:
                 break
@@ -217,7 +221,7 @@ class AbstractADBAPIDatabase(object):
             try:
                 yield self._db_execute_script(script)
             except Exception, e:
-                log.error("Error in database executescript: %s" % (e,))
+                log.error("Error in database executescript: {ex}", ex=e)
                 self.close()
             else:
                 break
@@ -234,7 +238,7 @@ class AbstractADBAPIDatabase(object):
             try:
                 result = (yield self._db_all_values_for_sql(sql, *query_params))
             except Exception, e:
-                log.error("Error in database query: %s" % (e,))
+                log.error("Error in database query: {ex}", ex=e)
                 self.close()
             else:
                 break
@@ -253,7 +257,7 @@ class AbstractADBAPIDatabase(object):
             try:
                 result = (yield self._db_values_for_sql(sql, *query_params))
             except Exception, e:
-                log.error("Error in database queryList: %s" % (e,))
+                log.error("Error in database queryList: {ex}", ex=e)
                 self.close()
             else:
                 break
@@ -272,7 +276,7 @@ class AbstractADBAPIDatabase(object):
             try:
                 result = (yield self._db_value_for_sql(sql, *query_params))
             except Exception, e:
-                log.error("Error in database queryOne: %s" % (e,))
+                log.error("Error in database queryOne: {ex}", ex=e)
                 self.close()
             else:
                 break
@@ -303,7 +307,7 @@ class AbstractADBAPIDatabase(object):
         """
         Initialise the underlying database tables.
         """
-        log.info("Initializing database %s" % (self.dbID,))
+        log.info("Initializing database {db}", db=self.dbID)
 
         # TODO we need an exclusive lock of some kind here to prevent a race condition
         # in which multiple processes try to create the tables.

@@ -52,7 +52,7 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
     (CalDAV-access-09, section 7.8)
     """
     if not self.isCollection():
-        log.error("freebusy report is only allowed on collection resources %s" % (self,))
+        log.error("freebusy report is only allowed on collection resources {s!r}", s=self)
         raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Not a calendar collection"))
 
     if freebusy.qname() != (caldavxml.caldav_namespace, "free-busy-query"):

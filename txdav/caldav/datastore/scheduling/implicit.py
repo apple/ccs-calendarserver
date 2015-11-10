@@ -1631,7 +1631,7 @@ class ImplicitScheduler(object):
                             break
 
                     if found_old:
-                        log.error("valid-attendee-change: Cannot remove ATTENDEE: UID:%s" % (self.uid,))
+                        log.error("valid-attendee-change: Cannot remove ATTENDEE: UID: {uid}", uid=self.uid)
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
                             (caldav_namespace, "valid-attendee-change"),

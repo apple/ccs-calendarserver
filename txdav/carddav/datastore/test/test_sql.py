@@ -779,6 +779,8 @@ END:VCARD
         yield d1
         yield d2
 
+        self.flushLoggedErrors()
+
 
     @inlineCallbacks
     def test_resourceLock(self):

@@ -69,12 +69,14 @@ class CommonUIDProvisioningResource(object):
         name = record.uid
 
         if record is None:
-            log.debug("No directory record with UID %r" % (name,))
+            log.debug("No directory record with UID {name}", name=name)
             returnValue(None)
 
         if not getattr(record, self.enabledAttribute, False):
-            log.debug("Directory record %r is not enabled for %s" % (
-                record, self.homeResourceTypeName))
+            log.debug(
+                "Directory record {rec!r} is not enabled for {type}",
+                rec=record, type=self.homeResourceTypeName
+            )
             returnValue(None)
 
         assert len(name) > 4, "Directory record has an invalid GUID: %r" % (

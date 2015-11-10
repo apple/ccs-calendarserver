@@ -602,6 +602,7 @@ class PropertyStoreTest(NonePropertyStoreTest):
 
         self.assertEquals(self.propertyStore.get(name, None), None)
         self.assertEquals(len(self.propertyStore), 0)
+        self.flushLoggedErrors()
 
 
     @inlineCallbacks

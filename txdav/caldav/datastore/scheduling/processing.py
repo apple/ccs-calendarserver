@@ -121,21 +121,21 @@ class ImplicitProcessor(object):
                 # to match that of the organizer assuming we have the organizer's full data available, then
                 # we try the processing operation again.
                 log.failure("{processor}.doImplicitAttendee()", processor=self)
-                log.error("ImplicitProcessing - originator '%s' to recipient '%s' with UID: '%s' - exception raised will try to fix: %s" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid, e))
+                log.error("ImplicitProcessing - originator '{orig}' to recipient '{recip}' with UID: '{uid}' - exception raised will try to fix: {ex}", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid, ex=e)
                 result = (yield self.doImplicitAttendeeEventFix(e))
                 if result:
-                    log.error("ImplicitProcessing - originator '%s' to recipient '%s' with UID: '%s' - restored organizer's copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                    log.error("ImplicitProcessing - originator '{orig}' to recipient '{recip}' with UID: '{uid}' - restored organizer's copy", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid)
                     try:
                         result = (yield self.doImplicitAttendee())
                     except Exception, e:
                         log.failure("{processor}.doImplicitAttendee()", processor=self)
-                        log.error("ImplicitProcessing - originator '%s' to recipient '%s' with UID: '%s' - exception raised after fix: %s" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid, e))
+                        log.error("ImplicitProcessing - originator '{orig}' to recipient '{recip}' with UID: '{uid}' - exception raised after fix: {ex}", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid, ex=e)
                         raise ImplicitProcessorException("5.1;Service unavailable")
                 else:
-                    log.error("ImplicitProcessing - originator '%s' to recipient '%s' with UID: '%s' - could not fix" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                    log.error("ImplicitProcessing - originator '{orig}' to recipient '{recip}' with UID: '{uid}' - could not fix", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid)
                     raise ImplicitProcessorException("5.1;Service unavailable")
         else:
-            log.error("METHOD:%s not supported for implicit scheduling." % (self.method,))
+            log.error("METHOD:{metgod} not supported for implicit scheduling.", method=self.method)
             raise ImplicitProcessorException("3.14;Unsupported capability")
 
         returnValue(result)
@@ -180,7 +180,7 @@ class ImplicitProcessor(object):
         # Locate the organizer's copy of the event.
         yield self.getRecipientsCopy()
         if self.recipient_calendar is None or self.recipient_in_trash:
-            log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring UID: '%s' - organizer has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+            log.debug("ImplicitProcessing - originator '{orig}' to recipient '{recip}' ignoring UID: '{uid}' - organizer has no copy", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid)
             returnValue((True, True, False, None,))
 
         # Handle new items differently than existing ones.
@@ -209,7 +209,7 @@ class ImplicitProcessor(object):
             self.recipient_calendar.noInstanceIndexing = True
 
             # Update the organizer's copy of the event
-            log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REPLY, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+            log.debug("ImplicitProcessing - originator '{orig}' to recipient '{recip}' processing METHOD:REPLY, UID: '{uid}' - updating event", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid)
             self.organizer_calendar_resource = (yield self.writeCalendarResource(None, self.recipient_calendar_resource, self.recipient_calendar))
             self.organizer_uid = self.organizer_calendar_resource.parentCollection().ownerHome().uid()
             self.organizer_calendar_resource_id = self.organizer_calendar_resource.id()
@@ -317,7 +317,7 @@ class ImplicitProcessor(object):
         @param only_attendees: list of attendees to refresh (C{None} - refresh all)
         @type only_attendees: C{tuple}
         """
-        log.debug("ImplicitProcessing - refreshing UID: '%s', Attendees: %s" % (self.uid, ", ".join(only_attendees) if only_attendees else "all"))
+        log.debug("ImplicitProcessing - refreshing UID: '{uid}', Attendees: {att}", uid=self.uid, att=", ".join(only_attendees) if only_attendees else "all")
         from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
         scheduler = ImplicitScheduler()
         yield scheduler.refreshAllAttendeesExceptSome(
@@ -341,7 +341,7 @@ class ImplicitProcessor(object):
         # If we get a CANCEL and we don't have a matching resource already stored, simply
         # ignore the CANCEL.
         if self.new_resource and self.method == "CANCEL":
-            log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:CANCEL, UID: '%s' - attendee has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+            log.debug("ImplicitProcessing - originator '{orig}' to recipient '{recip}' ignoring METHOD:CANCEL, UID: '{uid}' - attendee has no copy", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid)
             result = (True, True, False, None)
         else:
             result = (yield self.doImplicitAttendeeUpdate())
@@ -366,7 +366,7 @@ class ImplicitProcessor(object):
                 # Additional check - if the existing organizer is missing and the originator
                 # is local to the server - then allow the change
                 if not (existing_organizer == "" and self.originator.hosted()):
-                    log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring UID: '%s' - organizer has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                    log.debug("ImplicitProcessing - originator '{orig}' to recipient '{recip}' ignoring UID: '{uid}' - organizer has no copy", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid)
                     # If the recipient copy is in the trash, just remove it
                     if self.recipient_in_trash:
                         yield self.deleteCalendarResource(self.recipient_calendar_resource)
@@ -400,7 +400,7 @@ class ImplicitProcessor(object):
         if self.message.hasProperty("X-CALENDARSERVER-SPLIT-OLDER-UID"):
             if config.Scheduling.Options.Splitting.Enabled:
                 # Tell the existing resource to split
-                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' splitting UID: '%s'" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                log.debug("ImplicitProcessing - originator '{orig}' to recipient '{recip}' splitting UID: '{uid}'", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid)
                 split = (yield self.doImplicitAttendeeSplit())
                 if split:
                     returnValue((True, False, False, None,))
@@ -410,7 +410,7 @@ class ImplicitProcessor(object):
 
         elif self.message.hasProperty("X-CALENDARSERVER-SPLIT-NEWER-UID"):
             if config.Scheduling.Options.Splitting.Enabled:
-                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring UID: '%s' - split already done" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                log.debug("ImplicitProcessing - originator '{orig}' to recipient '{recip}' ignoring UID: '{uid}' - split already done", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid)
                 returnValue((True, False, False, None,))
             else:
                 self.message.removeProperty("X-CALENDARSERVER-SPLIT-NEWER-UID")
@@ -479,16 +479,16 @@ class ImplicitProcessor(object):
             # Check if the incoming data has the recipient declined in all instances. In that case we will not create
             # a new resource as chances are the recipient previously deleted the resource and we want to keep it deleted.
             if all_declined:
-                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - ignoring all declined" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                log.debug("ImplicitProcessing - originator '{orig}' to recipient '{recip}' processing METHOD:REQUEST, UID: '{uid}' - ignoring all declined", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid)
                 returnValue((True, False, False, None,))
 
             # Check for default calendar
             default = (yield self.recipient.inbox.viewerHome().defaultCalendar(self.message.mainType()))
             if default is None:
-                log.error("No default calendar for recipient: '%s'." % (self.recipient.cuaddr,))
+                log.error("No default calendar for recipient: '{recip}'.", recip=self.recipient.cuaddr)
                 raise ImplicitProcessorException(iTIPRequestStatus.NO_USER_SUPPORT)
 
-            log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - new processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+            log.debug("ImplicitProcessing - originator '{orig}' to recipient '{recip}' processing METHOD:REQUEST, UID: '{uid}' - new processed", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid)
             new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr, creating=True)
 
             # Handle auto-reply behavior
@@ -516,7 +516,7 @@ class ImplicitProcessor(object):
 
             if send_reply:
                 # Track outstanding auto-reply processing
-                log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply queued" % (self.recipient.cuaddr, self.uid,))
+                log.debug("ImplicitProcessing - recipient '{recip}' processing UID: '{uid}' - auto-reply queued", recip=self.recipient.cuaddr, uid=self.uid)
                 yield ScheduleAutoReplyWork.autoReply(self.txn, new_resource, partstat)
 
             # Build the schedule-changes XML element
@@ -560,13 +560,13 @@ class ImplicitProcessor(object):
                     new_calendar.noInstanceIndexing = not send_reply
 
                 # Update the attendee's copy of the event
-                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                log.debug("ImplicitProcessing - originator '{orig}' to recipient '{recip}' processing METHOD:REQUEST, UID: '{uid}' - updating event", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid)
 
                 new_resource = (yield self.writeCalendarResource(None, self.recipient_calendar_resource, new_calendar))
 
                 if send_reply:
                     # Track outstanding auto-reply processing
-                    log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply queued" % (self.recipient.cuaddr, self.uid,))
+                    log.debug("ImplicitProcessing - recipient '{recip}' processing UID: '{uid}' - auto-reply queued", recip=self.recipient.cuaddr, uid=self.uid)
                     yield ScheduleAutoReplyWork.autoReply(self.txn, new_resource, partstat)
 
                 # Build the schedule-changes XML element
@@ -604,7 +604,7 @@ class ImplicitProcessor(object):
 
             else:
                 # Request needs to be ignored
-                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - ignoring" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                log.debug("ImplicitProcessing - originator '{orig}' to recipient '{recip}' processing METHOD:REQUEST, UID: '{uid}' - ignoring", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid)
                 result = (True, False, False, None,)
 
         returnValue(result)
@@ -627,7 +627,7 @@ class ImplicitProcessor(object):
         # the cancelled meeting.
         if self.recipient_in_trash:
             # Note we should never get here as this test is
-            log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:CANCEL, UID: '%s' - attendee copy in trash" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+            log.debug("ImplicitProcessing - originator '{orig}' to recipient '{recip}' ignoring METHOD:CANCEL, UID: '{uid}' - attendee copy in trash", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid)
             yield self.deleteCalendarResource(self.recipient_calendar_resource)
             result = (True, True, False, None)
         else:
@@ -658,7 +658,7 @@ class ImplicitProcessor(object):
                 if delete_original:
 
                     # Delete the attendee's copy of the event
-                    log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:CANCEL, UID: '%s' - deleting entire event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                    log.debug("ImplicitProcessing - originator '{orig}' to recipient '{recip}' processing METHOD:CANCEL, UID: '{uid}' - deleting entire event", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid)
                     yield self.deleteCalendarResource(self.recipient_calendar_resource)
 
                     # Build the schedule-changes XML element
@@ -673,7 +673,7 @@ class ImplicitProcessor(object):
                 else:
 
                     # Update the attendee's copy of the event
-                    log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:CANCEL, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                    log.debug("ImplicitProcessing - originator '{orig}' to recipient '{recip}' processing METHOD:CANCEL, UID: '{uid}' - updating event", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid)
                     yield self.writeCalendarResource(None, self.recipient_calendar_resource, self.recipient_calendar)
 
                     # Build the schedule-changes XML element
@@ -689,7 +689,7 @@ class ImplicitProcessor(object):
                     )
                     result = (True, autoprocessed, store_inbox, changes)
             else:
-                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:CANCEL, UID: '%s' - ignoring" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                log.debug("ImplicitProcessing - originator '{orig}' to recipient '{recip}' processing METHOD:CANCEL, UID: '{uid}' - ignoring", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid)
                 result = (True, False, False, None)
 
         returnValue(result)
@@ -703,7 +703,7 @@ class ImplicitProcessor(object):
         """
         # If there is no existing copy, then we must fail
         if self.new_resource:
-            log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:POLLSTATUS, UID: '%s' - attendee has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+            log.debug("ImplicitProcessing - originator '{orig}' to recipient '{recip}' processing METHOD:POLLSTATUS, UID: '{uid}' - attendee has no copy", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid)
             returnValue((True, False, False, None,))
 
         processed_message = iTipProcessing.processPollStatus(self.message, self.recipient_calendar)
@@ -713,7 +713,7 @@ class ImplicitProcessor(object):
         processed_message.noInstanceIndexing = True
 
         # Update the attendee's copy of the event
-        log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:POLLSTATUS, UID: '%s' - updating poll" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+        log.debug("ImplicitProcessing - originator '{orig}' to recipient '{recip}' processing METHOD:POLLSTATUS, UID: '{uid}' - updating poll", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid)
         yield self.writeCalendarResource(None, self.recipient_calendar_resource, processed_message)
 
         returnValue((True, False, False, None,))
@@ -762,8 +762,8 @@ class ImplicitProcessor(object):
                 AutoScheduleMode.acceptIfFreeDeclineIfBusy
             )
 
-        log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - checking for auto-reply with mode: %s" % (self.recipient.cuaddr, self.uid, automode.name,))
 
+        log.debug("ImplicitProcessing - recipient '{recip}' processing UID: '{uid}' - checking for auto-reply with mode: {mode}", recip=self.recipient.cuaddr, uid=self.uid, mode=automode.name)
         cuas = self.recipient.record.calendarUserAddresses
 
         # First expand current one to get instances (only go 1 year into the future)

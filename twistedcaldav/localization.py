@@ -383,7 +383,7 @@ def processLocalizationFiles(settings):
     # Do we have an Apple translations directory?
     if lprojRoot and gnuRoot and os.path.exists(lprojRoot):
 
-        log.info("Looking for Apple .lproj directories in %s" % (lprojRoot,))
+        log.info("Looking for Apple .lproj directories in {r}", r=lprojRoot)
 
         # Make sure the gnutext translations directory exists
         if not os.path.exists(gnuRoot):
@@ -391,8 +391,9 @@ def processLocalizationFiles(settings):
                 os.mkdir(gnuRoot)
             except OSError:
                 log.warn(
-                    "Could not create gnuttext translation directory: %s"
-                    % (gnuRoot,))
+                    "Could not create gnuttext translation directory: {r}",
+                    r=gnuRoot,
+                )
                 return
 
         # Scan for Apple translations (directories ending in .lproj)
@@ -413,16 +414,16 @@ def processLocalizationFiles(settings):
                         os.stat(stringsFile).st_mtime >
                         os.stat(moFile).st_mtime
                     ):
-                        log.info("Converting %s to %s" % (stringsFile, moFile))
+                        log.info("Converting {s} to {m}", s=stringsFile, m=moFile)
                         try:
                             convertStringsFile(stringsFile, moFile)
                         except Exception, e:
                             log.error(
-                                "Failed to convert %s to %s: %s" %
-                                (stringsFile, moFile, e)
+                                "Failed to convert {s} to {m}: {ex}",
+                                s=stringsFile, m=moFile, ex=e,
                             )
                     else:
-                        log.info("%s is up to date" % (moFile,))
+                        log.info("{m} is up to date", m=moFile)
 
 
 

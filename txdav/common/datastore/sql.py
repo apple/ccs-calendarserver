@@ -3021,7 +3021,6 @@ class CommonHome(SharingHomeMixIn):
         if trash is None:
             if verbose:
                 msg = "No trash collection for principal"
-                print(msg)
                 log.info(msg)
             returnValue(None)
 
@@ -3038,14 +3037,12 @@ class CommonHome(SharingHomeMixIn):
 
             if verbose:
                 msg = "Collection \"{}\":".format(displayName.encode("utf-8"))
-                print(msg)
                 log.info(msg)
             for child in children:
                 if verbose:
                     component = yield child.component()
                     summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
                     msg = "   Removing \"{}\"...".format(summary)
-                    print(msg)
                     log.info(msg)
                 yield child.purge(implicitly=False)
             if verbose:
@@ -3059,14 +3056,12 @@ class CommonHome(SharingHomeMixIn):
             )
             if verbose:
                 msg = "Collection \"{}\":".format(displayName.encode("utf-8"))
-                print(msg)
                 log.info(msg)
             for child in children:
                 if verbose:
                     component = yield child.component()
                     summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
                     msg = "   Removing \"{}\"...".format(summary)
-                    print(msg)
                     log.info(msg)
                 yield child.purge(implicitly=False)
             if verbose:
@@ -3075,7 +3070,6 @@ class CommonHome(SharingHomeMixIn):
             if collection.whenTrashed() < endTime:
                 if verbose:
                     msg = "Removing collection \"{}\"...".format(displayName.encode("utf-8"))
-                    print(msg)
                     log.info(msg)
                 yield collection.purge()
 

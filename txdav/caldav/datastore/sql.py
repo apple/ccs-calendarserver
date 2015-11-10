@@ -196,9 +196,9 @@ class CalendarStoreFeatures(object):
             ).on(txn))
             total = len(rows)
             count = 0
-            log.warn("{0} dropbox ids to migrate".format(total,))
+            log.warn("{total} dropbox ids to migrate", total=total)
         except RuntimeError, e:
-            log.error("Dropbox migration failed when cleaning out dropbox ids: {0}".format(e,))
+            log.error("Dropbox migration failed when cleaning out dropbox ids: {ex}", ex=e)
             yield txn.abort()
             raise
         else:
@@ -221,9 +221,9 @@ class CalendarStoreFeatures(object):
                     for dropbox_id in rows:
                         (yield self._upgradeDropbox(txn, dropbox_id))
                     count += len(rows)
-                    log.warn("{0} of {1} dropbox ids migrated".format(count, total,))
+                    log.warn("{count} of {total} dropbox ids migrated", count=count, total=total)
             except RuntimeError, e:
-                log.error("Dropbox migration failed for '{0}': {1}".format(dropbox_id, e,))
+                log.error("Dropbox migration failed for '{id}': {ex}", id=dropbox_id, ex=e)
                 yield txn.abort()
                 raise
             else:
@@ -243,11 +243,11 @@ class CalendarStoreFeatures(object):
         @type dropbox_id: C{str}
         """
 
-        log.debug("Processing dropbox id: {0}".format(dropbox_id,))
+        log.debug("Processing dropbox id: {id}", id=dropbox_id)
 
         # Get all affected calendar objects
         cobjs = (yield self._loadCalendarObjectsForDropboxID(txn, dropbox_id))
-        log.debug("  {0} affected calendar objects".format(len(cobjs),))
+        log.debug("  {len} affected calendar objects", len=len(cobjs))
 
         # Get names of each matching attachment
         at = Attachment._attachmentSchema
@@ -256,18 +256,18 @@ class CalendarStoreFeatures(object):
             From=at,
             Where=at.DROPBOX_ID == dropbox_id,
         ).on(txn))
-        log.debug("  {0} associated attachment objects".format(len(names),))
+        log.debug("  {len} associated attachment objects", len=len(names))
 
         # For each attachment, update each calendar object
         for name in names:
             name = name[0]
-            log.debug("  processing attachment object: {0}".format(name,))
+            log.debug("  processing attachment object: {name}", name=name)
             attachment = (yield DropBoxAttachment.load(txn, dropbox_id, name))
 
             # Check for orphans
             if len(cobjs) == 0:
                 # Just remove the attachment
-                log.warn("Orphaned dropbox id removed: {0}".format(attachment._path,))
+                log.warn("Orphaned dropbox id removed: {path}", path=attachment._path)
                 yield attachment.remove()
                 continue
 
@@ -278,35 +278,35 @@ class CalendarStoreFeatures(object):
                 if cobj._parentCollection.ownerHome()._resourceID == attachment._ownerHomeID:
                     owners.append(cobj)
                 cobj_by_UID[cobj.uid()].append(cobj)
-            log.debug("    {0} owner calendar objects".format(len(owners),))
-            log.debug("    {0} UIDs".format(len(cobj_by_UID),))
-            log.debug("    {0} total calendar objects".format(sum([len(items) for items in cobj_by_UID.values()]),))
+            log.debug("    {len} owner calendar objects", len=len(owners))
+            log.debug("    {len} UIDs", len=len(cobj_by_UID))
+            log.debug("    {len} total calendar objects", len=sum([len(items) for items in cobj_by_UID.values()]))
 
             if owners:
                 # Create the managed attachment without references to calendar objects.
                 managed = (yield attachment.convertToManaged())
-                log.debug("    converted attachment: {0!r}".format(attachment,))
+                log.debug("    converted attachment: {att!r}", att=attachment)
 
                 # Do conversion for each owner object
                 for owner_obj in owners:
 
                     # Add a reference to the managed attachment
                     mattachment = (yield managed.newReference(owner_obj._resourceID))
-                    log.debug("    added reference for: {0!r}".format(owner_obj,))
+                    log.debug("    added reference for: {owner!r}", owner=owner_obj)
 
                     # Rewrite calendar data
                     for cobj in cobj_by_UID[owner_obj.uid()]:
                         (yield cobj.convertAttachments(attachment, mattachment))
-                        log.debug("    re-wrote calendar object: {0!r}".format(cobj,))
+                        log.debug("    re-wrote calendar object: {owner!r}", owner=cobj)
             else:
                 # TODO: look for cobjs that were not changed and remove their ATTACH properties.
                 # These could happen if the owner object no longer exists.
                 # For now just remove the attachment
-                log.warn("Unowned dropbox id removed: {0}".format(attachment._path,))
+                log.warn("Unowned dropbox id removed: {path}", path=attachment._path)
                 yield attachment.remove()
                 continue
 
-        log.debug("  finished dropbox id: {0}".format(dropbox_id,))
+        log.debug("  finished dropbox id: {id}", id=dropbox_id)
 
 
     @inlineCallbacks
@@ -805,7 +805,7 @@ class CalendarHome(CommonHome):
         """
 
         # Make sure the loop does not operate on any new calendars created during the loop
-        self.log.warn("Splitting calendars for user {0}".format(self._ownerUID,))
+        self.log.warn("Splitting calendars for user {uid}", uid=self._ownerUID)
         calendars = yield self.calendars()
         for calendar in calendars:
 
@@ -816,7 +816,7 @@ class CalendarHome(CommonHome):
             if calendar.isTrash():
                 continue
             split_count = yield calendar.splitCollectionByComponentTypes()
-            self.log.warn("  Calendar: '{0}', split into {1}".format(calendar.name(), split_count + 1,))
+            self.log.warn("  Calendar: '{name}', split into {count}", name=calendar.name(), count=split_count + 1)
 
         yield self.ensureDefaultCalendarsExist()
 
@@ -1927,7 +1927,7 @@ class Calendar(CommonHomeChild):
 
         # Actually expand recurrence max
         for name in names:
-            self.log.info("Search falls outside range of index for {0} {1} to {2}".format(name, minDate, maxDate))
+            self.log.info("Search falls outside range of index for {name} {min} to {max}", name=name, min=minDate, max=maxDate)
             yield self.reExpandResource(name, minDate, maxDate)
 
 
@@ -4016,8 +4016,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 recurrenceLimit = instances.limit
                 recurrenceLowerLimit = instances.lowerLimit
             except InvalidOverriddenInstanceError, e:
-                self.log.error("Invalid instance {0} when indexing {1} in {2}".format(
-                    e.rid, self._name, self._calendar,)
+                self.log.error(
+                    "Invalid instance {rid} when indexing {name} in {cal!r}",
+                    rid=e.rid, name=self._name, cal=self._calendar,
                 )
 
                 if txn._migrating:
@@ -4293,16 +4294,14 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             if unfixed:
                 self.log.error(
-                    "Calendar data id={0} had unfixable problems:\n  {1}".format(
-                        self._resourceID, "\n  ".join(unfixed),
-                    )
+                    "Calendar data id={id} had unfixable problems:\n  {problems}",
+                    id=self._resourceID, problems="\n  ".join(unfixed),
                 )
 
             if fixed:
                 self.log.error(
-                    "Calendar data id={0} had fixable problems:\n  {1}".format(
-                        self._resourceID, "\n  ".join(fixed),
-                    )
+                    "Calendar data id={id} had fixable problems:\n  {problems}",
+                    id=self._resourceID, problems="\n  ".join(fixed),
                 )
 
             # Check for on-demand data upgrade
@@ -4850,7 +4849,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             t = attachment.store(content_type, filename)
             yield readStream(stream, t.write)
         except Exception, e:
-            self.log.error("Unable to store attachment: {0}".format(e,))
+            self.log.error("Unable to store attachment: {ex}", ex=e)
             raise AttachmentStoreFailed
         yield t.loseConnection()
 
@@ -4908,7 +4907,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # Check that this is a proper update
             oldattachment = (yield self.attachmentWithManagedID(managed_id))
             if oldattachment is None:
-                self.log.error("Missing managed attachment even though ATTACHMENT_CALENDAR_OBJECT indicates it is present: {0}".format(managed_id,))
+                self.log.error("Missing managed attachment even though ATTACHMENT_CALENDAR_OBJECT indicates it is present: {mid}", mid=managed_id)
                 raise AttachmentStoreFailed
 
             # We actually create a brand new attachment object for the update, but with the same managed-id. That way, other resources
@@ -4917,7 +4916,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             t = attachment.store(content_type, filename)
             yield readStream(stream, t.write)
         except Exception, e:
-            self.log.error("Unable to store attachment: {0}".format(e,))
+            self.log.error("Unable to store attachment: {ex}", ex=e)
             raise AttachmentStoreFailed
         yield t.loseConnection()
 
@@ -5266,7 +5265,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         except (ObjectResourceNameAlreadyExistsError, UIDExistsError, UIDExistsElsewhereError):
             raise InvalidSplit("Chosen UID exists elsewhere.")
         except Exception as e:
-            log.error("Unknown split exception: {}".format(str(e)))
+            log.error("Unknown split exception: {ex}", ex=str(e))
             raise InvalidSplit("Unknown error.")
         returnValue(olderObject)
 

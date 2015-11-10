@@ -423,8 +423,8 @@ class DKIMRequest(ClientRequest):
         dkim_header = "; ".join(["%s=%s" % item for item in dkim_tags])
         self.headers.addRawHeader(DKIM_SIGNATURE, dkim_header)
 
-        log.debug("DKIM: Generated header: DKIM-Signature:%s" % (dkim_header,))
-        log.debug("DKIM: Signed headers:\n%s" % (headers,))
+        log.debug("DKIM: Generated header: DKIM-Signature:{hdr}", hdr=dkim_header)
+        log.debug("DKIM: Signed headers:\n{hdrs}", hdrs=headers)
 
         returnValue(signature)
 
@@ -556,7 +556,7 @@ class DKIMVerifier(object):
 
         # Extract the set of canonicalized headers being signed
         headers = self.extractSignedHeaders()
-        log.debug("DKIM: Signed headers:\n%s" % (headers,))
+        log.debug("DKIM: Signed headers:\n{hdrs}", hdrs=headers)
 
         # Locate the public key
         pubkey = (yield self.locatePublicKey())
@@ -577,7 +577,7 @@ Headers to evaluate:
 Public key used:
 %s
 """ % (self.headers.getRawHeaders(DKIM_SIGNATURE)[0], headers, pubkey._original_data,)
-            log.debug("DKIM: %s:%s" % (msg, _debug_msg,))
+            log.debug("DKIM: {msg}:{debug}", msg=msg, debug=_debug_msg)
             if self._debug:
                 msg = "%s:%s" % (msg, _debug_msg,)
             raise DKIMVerificationError(msg)
@@ -595,7 +595,7 @@ Hash Method: %s
 Base64 encoded body:
 %s
 """ % (self.headers.getRawHeaders(DKIM_SIGNATURE), self.hash_method.__name__, base64.b64encode(body),)
-            log.debug("DKIM: %s:%s" % (msg, _debug_msg,))
+            log.debug("DKIM: {msg}:{debug}", msg=msg, debug=_debug_msg)
             if self._debug:
                 msg = "%s:%s" % (msg, _debug_msg,)
             raise DKIMVerificationError(msg)
@@ -612,16 +612,16 @@ Base64 encoded body:
         dkim = self.headers.getRawHeaders(DKIM_SIGNATURE)
         if dkim is None:
             msg = "No DKIM-Signature header present in the request"
-            log.debug("DKIM: " + msg)
+            log.debug("DKIM: {msg}", msg=msg)
             raise DKIMMissingError(msg)
         if len(dkim) != 1:
             # TODO: This might need to be changed if we ever support forwarding of iSchedule messages - the forwarder
             # might also sign the message and add its own header
             msg = "Only one DKIM-Signature allowed in the request"
-            log.debug("DKIM: " + msg)
+            log.debug("DKIM: {msg}", msg=msg)
             raise DKIMVerificationError(msg)
         dkim = dkim[0]
-        log.debug("DKIM: Found header: DKIM-Signature:%s" % (dkim,))
+        log.debug("DKIM: Found header: DKIM-Signature:{hdr}", hdr=dkim)
 
         # Extract tags from the header
         self.dkim_tags = DKIMUtils.extractTags(dkim)
@@ -631,7 +631,7 @@ Base64 encoded body:
         for tag in required_tags:
             if tag not in self.dkim_tags:
                 msg = "Missing DKIM-Signature tag: %s" % (tag,)
-                log.debug("DKIM: " + msg)
+                log.debug("DKIM: {msg}", msg=msg)
                 raise DKIMVerificationError(msg)
 
         check_values = {
@@ -652,7 +652,7 @@ Base64 encoded body:
             for item in test:
                 if item not in values:
                     msg = "Tag: %s has incorrect value: %s" % (tag, self.dkim_tags[tag],)
-                    log.debug("DKIM: " + msg)
+                    log.debug("DKIM: {msg}", msg=msg)
                     raise DKIMVerificationError(msg)
 
         # Check time stamp
@@ -660,7 +660,7 @@ Base64 encoded body:
             diff_time = self.time - int(self.dkim_tags["t"])
             if diff_time < -360:
                 msg = "Signature time too far in the future: %d seconds" % (diff_time,)
-                log.debug("DKIM: " + msg)
+                log.debug("DKIM: {msg}", msg=msg)
                 raise DKIMVerificationError(msg)
 
         # Check expiration
@@ -668,7 +668,7 @@ Base64 encoded body:
             diff_time = self.time - int(self.dkim_tags["x"])
             if diff_time > 0:
                 msg = "Signature expired: %d seconds" % (diff_time,)
-                log.debug("DKIM: " + msg)
+                log.debug("DKIM: {msg}", msg=msg)
                 raise DKIMVerificationError(msg)
 
         # Base64 encoded tags might include WSP which we need to ignore
@@ -797,7 +797,7 @@ class PublicKeyLookup(object):
 
             return self._makeKey(pkey)
 
-        log.debug("DKIM: No valid public key: %s %s" % (self._getSelectorKey(), pubkeys,))
+        log.debug("DKIM: No valid public key: {sel} {keys}", sel=self._getSelectorKey(), keys=pubkeys)
         return None
 
 
@@ -818,7 +818,7 @@ class PublicKeyLookup(object):
             key._original_data = key_data
             return key
         except:
-            log.debug("DKIM: Unable to make public key:\n%s" % (key_data,))
+            log.debug("DKIM: Unable to make public key:\n{key}", key=key_data)
             return None
 
 
@@ -845,9 +845,9 @@ class PublicKeyLookup_DNSTXT(PublicKeyLookup):
         """
         Do the key lookup using the actual lookup method.
         """
-        log.debug("DKIM: TXT lookup: %s" % (self._getSelectorKey(),))
+        log.debug("DKIM: TXT lookup: {key}", key=self._getSelectorKey())
         data = (yield lookupDataViaTXT(self._getSelectorKey()))
-        log.debug("DKIM: TXT lookup results: %s\n%s" % (self._getSelectorKey(), "\n".join(data),))
+        log.debug("DKIM: TXT lookup results: {key}\n{data}", key=self._getSelectorKey(), data="\n".join(data))
         returnValue(tuple([DKIMUtils.extractTags(line) for line in data]))
 
 
@@ -875,7 +875,7 @@ class PublicKeyLookup_HTTP_WellKnown(PublicKeyLookup):
         # First we do an SRV lookup for _domainkey to get the public key server host/port
         result = (yield lookupServerViaSRV(self.dkim_tags["d"], service="_domainkey_lookup"))
         if result is None:
-            log.debug("DKIM: SRV _domainkey failed on: %s trying domain directly" % (self.dkim_tags["d"],))
+            log.debug("DKIM: SRV _domainkey failed on: {tag} trying domain directly", tag=self.dkim_tags["d"])
             host = self.dkim_tags["d"]
             port = ""
             scheme = "https"
@@ -899,20 +899,20 @@ class PublicKeyLookup_HTTP_WellKnown(PublicKeyLookup):
         # First we do an SRV lookup for _domainkey to get the public key server URI
         uri = (yield self._getURI())
 
-        log.debug("DKIM: HTTP/.well-known lookup: %s" % (uri,))
+        log.debug("DKIM: HTTP/.well-known lookup: {uri}", uri=uri)
         response = (yield getURL(uri))
         if response is None or response.code / 100 != 2:
-            log.debug("DKIM: Failed http/well-known lookup: %s %s" % (uri, response,))
+            log.debug("DKIM: Failed http/well-known lookup: {uri} {resp}", uri=uri, resp=response)
             returnValue(())
 
         ct = response.headers.getRawHeaders("content-type", ("bogus/type",))[0]
         ct = ct.split(";", 1)
         ct = ct[0].strip()
         if ct not in ("text/plain",):
-            log.debug("DKIM: Failed http/well-known lookup: wrong content-type returned %s %s" % (uri, ct,))
+            log.debug("DKIM: Failed http/well-known lookup: wrong content-type returned {uri} {ct}", uri=uri, ct=ct)
             returnValue(())
 
-        log.debug("DKIM: HTTP/.well-known lookup results: %s\n%s" % (uri, response.data,))
+        log.debug("DKIM: HTTP/.well-known lookup results: {uri}\n{resp}", uri=uri, resp=response.data)
         returnValue(tuple([DKIMUtils.extractTags(line) for line in response.data.splitlines()]))
 
 
@@ -941,19 +941,19 @@ class PublicKeyLookup_PrivateExchange(PublicKeyLookup):
             return succeed(())
         keyfile = os.path.join(PublicKeyLookup_PrivateExchange.directory, self._getSelectorKey())
         if not os.path.exists(keyfile):
-            log.debug("DKIM: Failed private-exchange lookup: no path %s" % (keyfile,))
+            log.debug("DKIM: Failed private-exchange lookup: no path {path}", path=keyfile)
             return succeed(())
 
         # Now read the data
-        log.debug("DKIM: Private exchange lookup: %s" % (keyfile,))
+        log.debug("DKIM: Private exchange lookup: {path}", path=keyfile)
         try:
             with open(keyfile) as f:
                 keys = f.read()
         except IOError, e:
-            log.debug("DKIM: Failed private-exchange lookup: could not read %s %s" % (keyfile, e,))
+            log.debug("DKIM: Failed private-exchange lookup: could not read {path} {ex}", path=keyfile, ex=e)
             return succeed(())
 
-        log.debug("DKIM: Private exchange lookup results: %s\n%s" % (keyfile, keys))
+        log.debug("DKIM: Private exchange lookup results: {path}\n{keys}", path=keyfile, keys=keys)
         return succeed(tuple([DKIMUtils.extractTags(line) for line in keys.splitlines()]))
 
 
@@ -985,14 +985,14 @@ class DomainKeyResource (SimpleResource):
             with open(pubkeyfile) as f:
                 key_data = f.read()
         except IOError, e:
-            log.error("DKIM: Unable to open the public key file: %s because of %s" % (pubkeyfile, e,))
+            log.error("DKIM: Unable to open the public key file: {path} because of {ex}", path=pubkeyfile, ex=e)
             raise
 
         # Make sure we can parse a valid public key
         try:
             RSA.importKey(key_data)
         except:
-            log.error("DKIM: Invalid public key file: %s" % (pubkeyfile,))
+            log.error("DKIM: Invalid public key file: {path}", path=pubkeyfile)
             raise
 
         # Make the TXT record

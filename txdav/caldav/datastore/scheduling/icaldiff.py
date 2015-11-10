@@ -475,7 +475,7 @@ class iCalDiff(object):
 
         result = len(propdiff) == 0
         if not result:
-            log.debug("VCALENDAR properties differ: %s" % (propdiff,))
+            log.debug("VCALENDAR properties differ: {diff}", diff=propdiff)
         return result
 
 
@@ -497,7 +497,7 @@ class iCalDiff(object):
 
         # Possible case where one ATTENDEE prop is missing - this happens with a "fake" master sometimes
         if serverAttendee is None or clientAttendee is None:
-            log.error("ATTENDEE for user making an attendee change is missing: %s" % (self.attendee,))
+            log.error("ATTENDEE for user making an attendee change is missing: {attendee}", attendee=self.attendee)
             return False, False
 
         if serverAttendee.parameterValue("PARTSTAT", "NEEDS-ACTION") != clientAttendee.parameterValue("PARTSTAT", "NEEDS-ACTION"):
@@ -642,13 +642,13 @@ class iCalDiff(object):
             invalidChanges = []
             propNames = ("DTSTART", "DTEND", "DUE", "RRULE", "RDATE", "EXDATE")
             invalidChanges = [propName for ctr, propName in enumerate(propNames) if serverProps[ctr] != clientProps[ctr]]
-            log.debug("Critical properties do not match: %s" % (", ".join(invalidChanges),))
+            log.debug("Critical properties do not match: {props}", props=", ".join(invalidChanges))
             return False
         elif serverProps[-1] != clientProps[-1]:
             # Bad if EXDATEs have been removed
             missing = serverProps[-1] - clientProps[-1]
             if missing:
-                log.debug("EXDATEs missing: %s" % (", ".join([exdate.getText() for exdate in missing]),))
+                log.debug("EXDATEs missing: {exdates}", exdates=", ".join([exdate.getText() for exdate in missing]))
                 return False
             declines.extend(clientProps[-1] - serverProps[-1])
             return True
@@ -744,7 +744,7 @@ class iCalDiff(object):
 
         # Possible case where ATTENDEE prop is missing - this happens with a "fake" master sometimes
         if attendee is None:
-            log.error("ATTENDEE for user making an attendee change is missing: %s" % (self.attendee,))
+            log.error("ATTENDEE for user making an attendee change is missing: {attendee}", attendee=self.attendee)
             return False
 
         partstatChanged = attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") != "DECLINED"
@@ -939,7 +939,7 @@ class iCalDiff(object):
         assert isinstance(comp1, Component) and isinstance(comp2, Component)
 
         if comp1.name() != comp2.name():
-            log.debug("Component names are different: '%s' and '%s'" % (comp1.name(), comp2.name()))
+            log.debug("Component names are different: '{comp1}' and '{comp2}'", comp1=comp1.name(), comp2=comp2.name())
             return
 
         # Duplicate then normalize for comparison
@@ -1031,4 +1031,4 @@ class iCalDiff(object):
             loggedUID = "Unknown"
         loggedName = accounting.emitAccounting("Implicit Errors", loggedUID, logstr)
         if loggedName:
-            log.error("Generating Implicit Error accounting at path: %s" % (loggedName,))
+            log.error("Generating Implicit Error accounting at path: {name}", name=loggedName)

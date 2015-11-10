@@ -448,12 +448,12 @@ class CalendarDirectoryRecordMixin(object):
         # if config.EnableSACLs and self.CheckSACL:
         #     username = self.shortNames[0]
         #     if self.CheckSACL(username, "calendar") != 0:
-        #         self.log.debug("%s is not enabled for calendaring due to SACL"
-        #                        % (username,))
+        #         self.log.debug("{user} is not enabled for calendaring due to SACL"
+        #                        user=username)
         #         self.enabledForCalendaring = False
         #     if self.CheckSACL(username, "addressbook") != 0:
-        #         self.log.debug("%s is not enabled for addressbooks due to SACL"
-        #                        % (username,))
+        #         self.log.debug("{user} is not enabled for addressbooks due to SACL"
+        #                        user=username)
         #         self.enabledForAddressBooks = False
 
     @property

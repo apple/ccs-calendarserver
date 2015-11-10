@@ -124,16 +124,20 @@ class AbstractSQLDatabase (object):
                         del(self._db_connection)
 
                         if dbtype != self._db_type():
-                            log.error("Database %s has different type (%s vs. %s)"
-                                      % (db_filename, dbtype, self._db_type()))
+                            log.error(
+                                "Database {f} has different type ({t1} vs. {t2})",
+                                f=db_filename, t1=dbtype, t2=self._db_type(),
+                            )
 
                             # Delete this index and start over
                             os.remove(db_filename)
                             return self._db()
 
                         if version != self._db_version():
-                            log.error("Database %s has different schema (v.%s vs. v.%s)"
-                                      % (db_filename, version, self._db_version()))
+                            log.error(
+                                "Database {f} has different schema (v.{v1} vs. v.{v2})",
+                                f=db_filename, v1=version, v2=self._db_version(),
+                            )
 
                             # Upgrade the DB
                             return self._db_upgrade(version)
@@ -186,7 +190,7 @@ class AbstractSQLDatabase (object):
         @param db_filename: the file name of the index database.
         @param q:           a database cursor to use.
         """
-        log.info("Initializing database %s" % (db_filename,))
+        log.info("Initializing database {f}", f=db_filename)
 
         # We need an exclusive lock here as we are making a big change to the database and we don't
         # want other processes to get stomped on or stomp on us.
@@ -363,7 +367,7 @@ class AbstractSQLDatabase (object):
             self.lastrowid = q.lastrowid
             return q.fetchall()
         except DatabaseError:
-            log.error("Exception while executing SQL on DB %s: %r %r" % (self, sql, query_params))
+            log.error("Exception while executing SQL on DB {s!r}: {q!r} {p!r}", s=self, q=sql, p=query_params)
             raise
         finally:
             q.close()

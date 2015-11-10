@@ -66,11 +66,11 @@ class TestWork(WorkItem, fromTable(schema.TEST_WORK)):
         All this work does is wait for the specified amount of time.
         """
 
-        log.debug("TestWork started: {}".format(self.jobID))
+        log.debug("TestWork started: {jobid}", jobid=self.jobID)
         if self.delay != 0:
             wait = Deferred()
             def _timedDeferred():
                 wait.callback(True)
             reactor.callLater(self.delay / 1000.0, _timedDeferred)
             yield wait
-        log.debug("TestWork done: {}".format(self.jobID))
+        log.debug("TestWork done: {jobid}", jobid=self.jobID)

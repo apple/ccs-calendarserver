@@ -107,12 +107,12 @@ class Notifier(object):
 
 
     def enableNotify(self, arg):
-        self.log.debug("enableNotify: %s" % (self._ids['default'][1],))
+        self.log.debug("enableNotify: {id}", id=self._ids['default'][1])
         self._notify = True
 
 
     def disableNotify(self):
-        self.log.debug("disableNotify: %s" % (self._ids['default'][1],))
+        self.log.debug("disableNotify: {id}", id=self._ids['default'][1])
         self._notify = False
 
 
@@ -138,15 +138,17 @@ class Notifier(object):
         for prefix, id in ids:
             if self._notify:
                 self.log.debug(
-                    "Notifications are enabled: %s %s/%s priority=%d" %
-                    (self._storeObject, prefix, id, priority.value))
+                    "Notifications are enabled: {obj} {prefix}/{id} priority={priority}",
+                    obj=self._storeObject, prefix=prefix, id=id, priority=priority.value
+                )
                 yield self._notifierFactory.send(
                     prefix, id, txn,
                     priority=priority)
             else:
                 self.log.debug(
-                    "Skipping notification for: %s %s/%s" %
-                    (self._storeObject, prefix, id,))
+                    "Skipping notification for: %{obj} {prefix}/{id}",
+                    obj=self._storeObject, prefix=prefix, id=id,
+                )
 
 
     def clone(self, storeObject):

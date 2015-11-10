@@ -288,7 +288,7 @@ class Memcacher(CachePoolUserMixIn):
         my_value = value
         if self._pickle:
             my_value = cPickle.dumps(value)
-        self.log.debug("Adding Cache Token for %r" % (key,))
+        self.log.debug("Adding Cache Token for {k!r}", k=key)
         return proto.add('%s:%s' % (self._namespace, self._normalizeKey(key)), my_value, expireTime=expireTime)
 
 
@@ -299,7 +299,7 @@ class Memcacher(CachePoolUserMixIn):
         my_value = value
         if self._pickle:
             my_value = cPickle.dumps(value)
-        self.log.debug("Setting Cache Token for %r" % (key,))
+        self.log.debug("Setting Cache Token for {k!r}", k=key)
         return proto.set('%s:%s' % (self._namespace, self._normalizeKey(key)), my_value, expireTime=expireTime)
 
 
@@ -310,7 +310,7 @@ class Memcacher(CachePoolUserMixIn):
         my_value = value
         if self._pickle:
             my_value = cPickle.dumps(value)
-        self.log.debug("Setting Cache Token for %r" % (key,))
+        self.log.debug("Setting Cache Token for {k!r}", k=key)
         return proto.checkAndSet('%s:%s' % (self._namespace, self._normalizeKey(key)), my_value, cas, expireTime=expireTime)
 
 
@@ -326,24 +326,24 @@ class Memcacher(CachePoolUserMixIn):
                 value = (identifier, value)
             return value
 
-        self.log.debug("Getting Cache Token for %r" % (key,))
+        self.log.debug("Getting Cache Token for {k!r}", k=key)
         d = self._getMemcacheProtocol().get('%s:%s' % (self._namespace, self._normalizeKey(key)), withIdentifier=withIdentifier)
         d.addCallback(_gotit, withIdentifier)
         return d
 
 
     def delete(self, key):
-        self.log.debug("Deleting Cache Token for %r" % (key,))
+        self.log.debug("Deleting Cache Token for {k!r}", k=key)
         return self._getMemcacheProtocol().delete('%s:%s' % (self._namespace, self._normalizeKey(key)))
 
 
     def incr(self, key, delta=1):
-        self.log.debug("Incrementing Cache Token for %r" % (key,))
+        self.log.debug("Incrementing Cache Token for {k!r}", k=key)
         return self._getMemcacheProtocol().incr('%s:%s' % (self._namespace, self._normalizeKey(key)), delta)
 
 
     def decr(self, key, delta=1):
-        self.log.debug("Decrementing Cache Token for %r" % (key,))
+        self.log.debug("Decrementing Cache Token for {k!r}", k=key)
         return self._getMemcacheProtocol().incr('%s:%s' % (self._namespace, self._normalizeKey(key)), delta)
 
 

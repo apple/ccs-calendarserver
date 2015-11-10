@@ -462,7 +462,7 @@ class FreebusyQuery(object):
                     # between our initial index query and getting here. For now we will ignore this error, but in
                     # the longer term we need to implement some form of locking, perhaps.
                     if calendar is None:
-                        log.error("Calendar %s is missing from calendar collection %r" % (name, calresource))
+                        log.error("Calendar {name} is missing from calendar collection {coll!r}", name=name, coll=calresource)
                         continue
 
                     if self.accountingItems is not None:

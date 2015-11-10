@@ -1892,10 +1892,10 @@ class Component (object):
             cannot be fixed.
         """
         if self.name() != "VCALENDAR":
-            log.debug("Not a calendar: {0}".format(self,))
+            log.debug("Not a calendar: {s!r}", s=self)
             raise InvalidICalendarDataError("Not a calendar")
         if not self.resourceType():
-            log.debug("Unknown resource type: {0}".format(self,))
+            log.debug("Unknown resource type: {s!r}", s=self)
             raise InvalidICalendarDataError("Unknown resource type")
 
         # Do underlying iCalendar library validation with data fix
@@ -1908,11 +1908,11 @@ class Component (object):
             unfixed.extend(runfixed)
 
         if unfixed:
-            log.debug("Calendar data had unfixable problems:\n  {0}".format("\n  ".join(unfixed),))
+            log.debug("Calendar data had unfixable problems:\n  {d}", d="\n  ".join(unfixed))
             if doRaise:
                 raise InvalidICalendarDataError("Calendar data had unfixable problems:\n  {0}".format("\n  ".join(unfixed),))
         if fixed:
-            log.debug("Calendar data had fixable problems:\n  {0}".format("\n  ".join(fixed),))
+            log.debug("Calendar data had fixable problems:\n  {d}", d="\n  ".join(fixed))
 
         return fixed, unfixed
 
@@ -2099,7 +2099,7 @@ class Component (object):
                 # If it does we will have to reinstate this check but only after we have checked for implicit.
 # UNCOMMENT OUT master_recurring AND got_override ASSIGNMENTS ABOVE
 #                if got_override and got_master and not master_recurring:
-#                    msg = "Calendar resources must have a recurring master component if there is an overridden one (%s)" % (subcomponent.propertyValue("UID"),)
+#                    msg = "Calendar resources must have a recurring master component if there is an overridden one ({uid})".format(uid=subcomponent.propertyValue("UID"),)
 #                    log.debug(msg)
 #                    raise InvalidICalendarDataError(msg)
 
@@ -2131,7 +2131,7 @@ class Component (object):
         for timezone in timezones:
             if timezone not in timezone_refs:
                 log.debug(
-                    "Timezone {0} is not referenced by any non-timezone component".format(timezone,)
+                    "Timezone {tz} is not referenced by any non-timezone component", tz=timezone
                 )
 
         # TZIDs without a VTIMEZONE must be available in the server's TZ database

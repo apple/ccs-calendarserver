@@ -77,7 +77,7 @@ def inTransactionWrapper(operation):
             except Exception as ex:
                 f = Failure()
                 yield txn.abort()
-                log.error("{label} failed: {e}".format(label=label, e=str(ex)))
+                log.error("{label} failed: {e}", label=label, e=str(ex))
                 returnValue(f)
             else:
                 yield txn.commit()

@@ -632,7 +632,7 @@ class CommonTimezoneDatabase(object):
                 try:
                     vtz = readVTZ(self.aliases[tzid])
                 except TimezoneException:
-                    log.error("Failed to find timezone data for alias: %s" % (tzid,))
+                    log.error("Failed to find timezone data for alias: {tzid}", tzid=tzid)
                     return None
                 else:
                     vtz = vtz.duplicate()
@@ -640,7 +640,7 @@ class CommonTimezoneDatabase(object):
                     addVTZ(tzid, vtz)
                     calendar.addComponent(vtz.getComponents()[0].duplicate())
             else:
-                log.error("Failed to find timezone data for: %s" % (tzid,))
+                log.error("Failed to find timezone data for: {tzid}", tzid=tzid)
                 return None
 
         return calendar
@@ -700,7 +700,7 @@ class PrimaryTimezoneDatabase(CommonTimezoneDatabase):
                         tzdata = f.read()
                     md5 = hashlib.md5(tzdata).hexdigest()
                 except IOError:
-                    log.error("Unable to read timezone file: %s" % (fullPath,))
+                    log.error("Unable to read timezone file: {p}", p=fullPath)
                     continue
 
                 if checkIfChanged:
@@ -716,7 +716,7 @@ class PrimaryTimezoneDatabase(CommonTimezoneDatabase):
             with open(os.path.join(self.basepath, "links.txt")) as f:
                 aliases = f.read()
         except IOError, e:
-            log.error("Unable to read links.txt file: %s" % (str(e),))
+            log.error("Unable to read links.txt file: {ex}", ex=str(e))
             aliases = ""
 
         try:
@@ -729,9 +729,9 @@ class PrimaryTimezoneDatabase(CommonTimezoneDatabase):
                             tzinfo.aliases += (alias_from,)
                         self.aliases[alias_from] = alias_to
                 else:
-                    log.error("Missing alias from '%s' to '%s'" % (alias_from, alias_to,))
+                    log.error("Missing alias from '{fr}' to '{to}'", fr=alias_from, to=alias_to)
         except ValueError:
-            log.error("Unable to parse links.txt file: %s" % (str(e),))
+            log.error("Unable to parse links.txt file: {ex}", ex=str(e))
 
 
     def updateDatabase(self):
@@ -758,7 +758,7 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
         self.discovered = False
         self._url = None
 
-        log.debug("Configuring secondary server with basepath: %s" % (self.basepath,))
+        log.debug("Configuring secondary server with basepath: {p}", p=self.basepath)
 
         if not os.path.exists(self.basepath):
             os.makedirs(self.basepath)
@@ -799,7 +799,7 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
             if self.timezones[tzid].dtstamp < newtimezones[tzid].dtstamp:
                 changedtzids.add(tzid)
 
-        log.debug("Fetching %d new, %d changed timezones on secondary server" % (len(newtzids), len(changedtzids),))
+        log.debug("Fetching {n} new, {c} changed timezones on secondary server", n=len(newtzids), c=len(changedtzids))
 
         # Now apply changes - do requests in parallel for speedier fetching
         BATCH = 5
@@ -833,17 +833,17 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
             self.uri = "https://%s/.well-known/timezone" % (self.uri,)
 
         testURI = "%s?action=capabilities" % (self.uri,)
-        log.debug("Discovering secondary server: %s" % (testURI,))
+        log.debug("Discovering secondary server: {uri}", uri=testURI)
         response = (yield getURL(testURI))
         if response is None or response.code / 100 != 2:
-            log.error("Unable to discover secondary server: %s" % (testURI,))
+            log.error("Unable to discover secondary server: {uri}", uri=testURI)
             self.discovered = False
             returnValue(False)
 
         # Cache the redirect target
         if hasattr(response, "location"):
             self.uri = response.location
-            log.debug("Redirected secondary server to: %s" % (self.uri,))
+            log.debug("Redirected secondary server to: {uri}", uri=self.uri)
 
         # TODO: Ignoring the data from capabilities for now
 
@@ -867,7 +867,7 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
         url = "%s?action=list" % (self.uri,)
         if self.dtstamp:
             url = "%s&changedsince=%s" % (url, self.dtstamp,)
-        log.debug("Getting timezone list from secondary server: %s" % (url,))
+        log.debug("Getting timezone list from secondary server: {url}", url=url)
         response = (yield getURL(url))
         if response is None or response.code / 100 != 2:
             returnValue(None)
@@ -888,9 +888,9 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
                 aliases = timezone.get("aliases", ())
                 timezones[tzid] = TimezoneInfo(tzid, aliases, lastmod, None)
         except (ValueError, KeyError):
-            log.debug("Failed to parse JSON timezone list response: %s" % (response.data,))
+            log.debug("Failed to parse JSON timezone list response: {resp}", resp=response.data)
             returnValue(None)
-        log.debug("Got %s timezones from secondary server" % (len(timezones),))
+        log.debug("Got {len} timezones from secondary server", len=len(timezones))
 
         returnValue((dtstamp, timezones,))
 
@@ -899,7 +899,7 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
     def _getTimezoneFromServer(self, tzinfo):
         # List all from the server
         url = "%s?action=get&tzid=%s" % (self.uri, tzinfo.tzid,)
-        log.debug("Getting timezone from secondary server: %s" % (url,))
+        log.debug("Getting timezone from secondary server: {url}", url=url)
         response = (yield getURL(url))
         if response is None or response.code / 100 != 2:
             returnValue(None)
@@ -908,14 +908,14 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
         ct = ct.split(";", 1)
         ct = ct[0]
         if ct not in ("text/calendar",):
-            log.error("Invalid content-type '%s' for tzid : %s" % (ct, tzinfo.tzid,))
+            log.error("Invalid content-type '{ct}' for tzid : {tzid}", ct=ct, tzid=tzinfo.tzid)
             returnValue(None)
 
         ical = response.data
         try:
             calendar = Calendar.parseText(ical)
         except InvalidData:
-            log.error("Invalid calendar data for tzid: %s" % (tzinfo.tzid,))
+            log.error("Invalid calendar data for tzid: {tzid}", tzid=tzinfo.tzid)
             returnValue(None)
         ical = calendar.getText()
 
@@ -928,7 +928,7 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
             with open(tzpath, "w") as f:
                 f.write(ical)
         except IOError, e:
-            log.error("Unable to write calendar file for %s: %s" % (tzinfo.tzid, str(e),))
+            log.error("Unable to write calendar file for {tzid}: {ex}", tzid=tzinfo.tzid, ex=str(e))
         else:
             self.timezones[tzinfo.tzid] = tzinfo
 
@@ -939,4 +939,4 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
             os.remove(tzpath)
             del self.timezones[tzid]
         except IOError, e:
-            log.error("Unable to write calendar file for %s: %s" % (tzid, str(e),))
+            log.error("Unable to write calendar file for {tzid}: {ex}", tzid=tzid, ex=str(e))

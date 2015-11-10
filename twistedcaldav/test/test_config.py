@@ -17,14 +17,16 @@
 import socket
 
 from plistlib import writePlist #@UnresolvedImport
-from twext.python.log import LogLevel
-from twext.python.test.test_log import defaultLogLevel, logLevelForNamespace
+
+from twext.python.log import Logger
 
 from twistedcaldav.config import config, ConfigDict, mergeData
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, PListConfigProvider, \
     RELATIVE_PATHS
 from twistedcaldav.test.util import TestCase
+
+from twisted.logger import LogLevel
 
 
 
@@ -404,6 +406,7 @@ class ConfigTests(TestCase):
         """
         Logging module configures properly.
         """
+        defaultLogLevel = Logger.filterPredicate.logLevelForNamespace(None)
         self.assertNotEqual(
             defaultLogLevel, LogLevel.error,
             "This test assumes the default log level is not error."
@@ -412,19 +415,19 @@ class ConfigTests(TestCase):
         config.setDefaults(DEFAULT_CONFIG)
         config.reload()
 
-        self.assertEquals(logLevelForNamespace(None), defaultLogLevel)
-        self.assertEquals(logLevelForNamespace("some.namespace"), defaultLogLevel)
+        self.assertEquals(Logger.filterPredicate.logLevelForNamespace(None), defaultLogLevel)
+        self.assertEquals(Logger.filterPredicate.logLevelForNamespace("some.namespace"), defaultLogLevel)
 
         config.load(self.testConfig)
 
-        self.assertEquals(logLevelForNamespace(None), LogLevel.error)
-        self.assertEquals(logLevelForNamespace("some.namespace"), LogLevel.debug)
+        self.assertEquals(Logger.filterPredicate.logLevelForNamespace(None), LogLevel.error)
+        self.assertEquals(Logger.filterPredicate.logLevelForNamespace("some.namespace"), LogLevel.debug)
 
         writePlist({}, self.testConfig)
         config.reload()
 
-        self.assertEquals(logLevelForNamespace(None), defaultLogLevel)
-        self.assertEquals(logLevelForNamespace("some.namespace"), defaultLogLevel)
+        self.assertEquals(Logger.filterPredicate.logLevelForNamespace(None), defaultLogLevel)
+        self.assertEquals(Logger.filterPredicate.logLevelForNamespace("some.namespace"), defaultLogLevel)
 
 
     def test_ConfigDict(self):

@@ -68,19 +68,19 @@ class MemcacheLock(Memcacher):
             if result:
                 self._hasLock = True
                 if waiting:
-                    self.log.debug("Got lock after waiting on %s" % (self._locktoken,))
+                    self.log.debug("Got lock after waiting on {t}", t=self._locktoken)
                 break
 
             if self._timeout and time.time() < timeout_at:
                 waiting = True
-                self.log.debug("Waiting for lock on %s" % (self._locktoken,))
+                self.log.debug("Waiting for lock on {t}", t=self._locktoken)
                 pause = Deferred()
                 def _timedDeferred():
                     pause.callback(True)
                 reactor.callLater(self._retry_interval, _timedDeferred)
                 yield pause
             else:
-                self.log.debug("Timed out lock after waiting on %s" % (self._locktoken,))
+                self.log.debug("Timed out lock after waiting on {t}", t=self._locktoken)
                 raise MemcacheLockTimeoutError()
 
         returnValue(True)

@@ -101,20 +101,22 @@ def _migrateAddressbook(inAddressbook, outAddressbook, getComponent):
             ok_count += 1
 
         except InternalDataStoreError:
-            log.error("  InternalDataStoreError: Failed to migrate address book object: %s/%s/%s" % (
-                inAddressbook.ownerHome().name(),
-                inAddressbook.name(),
-                addressbookObject.name(),
-            ))
+            log.error(
+                "  InternalDataStoreError: Failed to migrate address book object: {home}/{adbk}/{rsrc}",
+                home=inAddressbook.ownerHome().name(),
+                adbk=inAddressbook.name(),
+                rsrc=addressbookObject.name(),
+            )
             bad_count += 1
 
         except Exception, e:
-            log.error("  %s: Failed to migrate address book object: %s/%s/%s" % (
-                str(e),
-                inAddressbook.ownerHome().name(),
-                inAddressbook.name(),
-                addressbookObject.name(),
-            ))
+            log.error(
+                "  {ex}: Failed to migrate address book object: {home}/{adbk}/{rsrc}",
+                ex=str(e),
+                home=inAddressbook.ownerHome().name(),
+                adbk=inAddressbook.name(),
+                rsrc=addressbookObject.name(),
+            )
             bad_count += 1
 
     returnValue((ok_count, bad_count,))
@@ -134,4 +136,4 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component(),
         try:
             yield _migrateAddressbook(addressbook, outAddressbook, getComponent)
         except InternalDataStoreError:
-            log.error("  Failed to migrate address book: %s/%s" % (inHome.name(), name,))
+            log.error("  Failed to migrate address book: {home}/{name}", home=inHome.name(), name=name)

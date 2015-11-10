@@ -443,7 +443,7 @@ class iTipProcessing(object):
                 if match_component is not None:
                     itip_message.addComponent(match_component)
                 else:
-                    log.error("Ignoring instance: %s missing in iTIP REPLY for: %s" % (rid, itip_message.resourceUID()))
+                    log.error("Ignoring instance: {rid} missing in iTIP REPLY for: {uid}", rid=rid, uid=itip_message.resourceUID())
                     continue
 
         # Now do all overridden ones (sort by RECURRENCE-ID)
@@ -470,7 +470,7 @@ class iTipProcessing(object):
                 if match_component is not None:
                     calendar.addComponent(match_component)
                 else:
-                    log.error("Ignoring instance: %s in iTIP REPLY for: %s" % (rid, itip_message.resourceUID()))
+                    log.error("Ignoring instance: {rid} in iTIP REPLY for: {uid}", rid=rid, uid=itip_message.resourceUID())
                     continue
 
             attendee, partstat, private_comment = iTipProcessing.updateAttendeeDataFromReply(itip_component, match_component)
@@ -486,7 +486,7 @@ class iTipProcessing(object):
         elif len_attendees == 1:
             return True, (attendees.pop(), rids)
         else:
-            log.error("ATTENDEE property in a REPLY must be the same in all components\n%s" % (str(itip_message),))
+            log.error("ATTENDEE property in a REPLY must be the same in all components\n{msg}", msg=str(itip_message))
             return False, None
 
 
@@ -521,7 +521,7 @@ class iTipProcessing(object):
         # Get attendee in reply_component - there MUST be only one
         attendees = tuple(reply_component.getRecipientProperties())
         if len(attendees) != 1:
-            log.error("There must be one and only one ATTENDEE property in a REPLY\n%s" % (str(reply_component),))
+            log.error("There must be one and only one ATTENDEE property in a REPLY\n{msg}", msg=str(reply_component))
             return None, False, False
 
         attendee = attendees[0]

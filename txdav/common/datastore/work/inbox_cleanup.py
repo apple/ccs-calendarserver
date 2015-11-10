@@ -64,8 +64,10 @@ class InboxCleanupWork(RegeneratingWorkItem, fromTable(schema.INBOX_CLEANUP_WORK
         ).on(self.transaction))[0][0]
 
         if queuedCleanupOneInboxWorkItems:
-            log.error("Inbox cleanup work: Can't schedule per home cleanup because {} work items still queued.".format(
-                queuedCleanupOneInboxWorkItems))
+            log.error(
+                "Inbox cleanup work: Can't schedule per home cleanup because {} work items still queued.",
+                queuedCleanupOneInboxWorkItems
+            )
         else:
             # enumerate provisioned normal calendar homes
             ch = schema.CALENDAR_HOME
@@ -95,8 +97,10 @@ class CleanupOneInboxWork(WorkItem, fromTable(schema.CLEANUP_ONE_INBOX_WORK)):
         ))
         if orphanNames:
             home = yield self.transaction.calendarHomeWithResourceID(self.homeID)
-            log.info("Inbox cleanup work in home: {homeUID}, deleting orphaned items: {orphanNames}".format(
-                homeUID=home.uid(), orphanNames=orphanNames))
+            log.info(
+                "Inbox cleanup work in home: {homeUID}, deleting orphaned items: {orphanNames}",
+                homeUID=home.uid(), orphanNames=orphanNames,
+            )
 
         # get old item names
         if float(config.InboxCleanup.ItemLifetimeDays) >= 0: # use -1 to disable; 0 is test case
@@ -107,8 +111,10 @@ class CleanupOneInboxWork(WorkItem, fromTable(schema.CLEANUP_ONE_INBOX_WORK)):
             newDeleters = oldItemNames - orphanNames
             if newDeleters:
                 home = yield self.transaction.calendarHomeWithResourceID(self.homeID)
-                log.info("Inbox cleanup work in home: {homeUID}, deleting old items: {newDeleters}".format(
-                    homeUID=home.uid(), newDeleters=newDeleters))
+                log.info(
+                    "Inbox cleanup work in home: {homeUID}, deleting old items: {newDeleters}",
+                    homeUID=home.uid(), newDeleters=newDeleters,
+                )
         else:
             oldItemNames = set()
 
@@ -121,8 +127,10 @@ class CleanupOneInboxWork(WorkItem, fromTable(schema.CLEANUP_ONE_INBOX_WORK)):
             newDeleters = itemNamesForOldEvents - oldItemNames - orphanNames
             if newDeleters:
                 home = yield self.transaction.calendarHomeWithResourceID(self.homeID)
-                log.info("Inbox cleanup work in home: {homeUID}, deleting items for old events: {newDeleters}".format(
-                    homeUID=home.uid(), newDeleters=newDeleters))
+                log.info(
+                    "Inbox cleanup work in home: {homeUID}, deleting items for old events: {newDeleters}",
+                    homeUID=home.uid(), newDeleters=newDeleters,
+                )
         else:
             itemNamesForOldEvents = set()
 

@@ -113,6 +113,6 @@ def getURL(url, method="GET", redirect=0):
         yield whenFinished
         response.data = protocol.data
     else:
-        log.error("Failed getURL: %s" % (url,))
+        log.error("Failed getURL: {url}", url=url)
 
     returnValue(response)
