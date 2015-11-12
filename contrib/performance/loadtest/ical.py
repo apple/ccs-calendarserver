@@ -253,6 +253,7 @@ class Calendar(object):
                 calendar.changeToken = ""
         return calendar
 
+
     @staticmethod
     def addInviteeXML(uid, summary, readwrite=True):
         return AddInvitees(None, '/', [uid], readwrite, summary=summary).request_data.text
@@ -273,6 +274,7 @@ class NotificationCollection(object):
         self.changeToken = changeToken
         self.notifications = {}
         self.name = "notification"
+
 
     def serialize(self):
         """
@@ -474,6 +476,8 @@ class BaseAppleClient(BaseClient):
     _USER_LIST_PRINCIPAL_PROPERTY_SEARCH = None
     _POST_AVAILABILITY = None
 
+    _CALENDARSERVER_PRINCIPAL_SEARCH_REPORT = None
+
     email = None
 
     def __init__(
@@ -527,6 +531,9 @@ class BaseAppleClient(BaseClient):
         self.serializePath = serializePath
 
         self.supportSync = self._SYNC_REPORT
+        self.supportNotificationSync = self._NOTIFICATION_SYNC_REPORT
+
+        self.supportEnhancedAttendeeAutoComplete = self._CALENDARSERVER_PRINCIPAL_SEARCH_REPORT
 
         # Keep track of the calendars on this account, keys are
         # Calendar URIs, values are Calendar instances.
@@ -1129,7 +1136,7 @@ class BaseAppleClient(BaseClient):
 
         fullSync = not oldToken
 
-        # Get the list of notificatinon xml resources
+        # Get the list of notification xml resources
 
         result = yield self._report(
             self._notificationCollection.url,
@@ -1152,7 +1159,7 @@ class BaseAppleClient(BaseClient):
             else:
                 raise IncorrectResponseCode((MULTI_STATUS,), None)
 
-        result, others = result
+        result, _ignore_others = result
 
         # Scan for the sharing invites
         inviteNotifications = []
@@ -1239,7 +1246,6 @@ class BaseAppleClient(BaseClient):
         self._notificationCollection.changeToken = newToken
 
 
-
     @inlineCallbacks
     def _poll(self, calendarHomeSet, firstTime):
         """
@@ -1269,22 +1275,20 @@ class BaseAppleClient(BaseClient):
                 yield self._updateCalendar(self._calendars[cal.url], newToken)
 
         if notificationCollection is not None:
-            if self._notificationCollection:
-                oldToken = self._notificationCollection.changeToken
+            if self.supportNotificationSync:
+                if self._notificationCollection:
+                    oldToken = self._notificationCollection.changeToken
+                else:
+                    oldToken = ""
+                self._notificationCollection = notificationCollection
+                newToken = notificationCollection.changeToken
+                yield self._updateNotifications(oldToken, newToken)
             else:
-                oldToken = ""
-            self._notificationCollection = notificationCollection
-            newToken = notificationCollection.changeToken
-            yield self._updateNotifications(oldToken, newToken)
-
-        # FIXME: isn't sync report the new norm, and therefore we can remove
-        # the following?
-
-        # # When there is no sync REPORT, clients have to do a full PROPFIND
-        # # on the notification collection because there is no ctag
-        # if self.notificationURL is not None and not self.supportSync:
-        #     yield self._notificationPropfind(self.notificationURL)
-        #     yield self._notificationChangesPropfind(self.notificationURL)
+                # When there is no sync REPORT, clients have to do a full PROPFIND
+                # on the notification collection because there is no ctag
+                self._notificationCollection = notificationCollection
+                yield self._notificationPropfind(self._notificationCollection.url)
+                yield self._notificationChangesPropfind(self._notificationCollection.url)
 
         # One time delegate expansion
         if firstTime:
@@ -1663,12 +1667,31 @@ class BaseAppleClient(BaseClient):
             elif attendee.hasParameter('EMAIL'):
                 email = attendee.parameterValue('EMAIL').encode("utf-8")
 
-            search = "<C:search-token>{}</C:search-token>".format(prefix)
-            body = self._CALENDARSERVER_PRINCIPAL_SEARCH_REPORT.format(
-                context="attendee", searchTokens=search)
-            yield self._report(
-                '/principals/', body, depth=None, method_label="REPORT{cpsearch}"
-            )
+            if self.supportEnhancedAttendeeAutoComplete:
+                # New calendar server enhanced query
+                search = "<C:search-token>{}</C:search-token>".format(prefix)
+                body = self._CALENDARSERVER_PRINCIPAL_SEARCH_REPORT.format(
+                    context="attendee", searchTokens=search)
+                yield self._report(
+                    self.principalCollection,
+                    body,
+                    depth=None,
+                    method_label="REPORT{cpsearch}",
+                )
+            else:
+                # First try to discover some names to supply to the
+                # auto-completion
+                yield self._report(
+                    self.principalCollection,
+                    self._USER_LIST_PRINCIPAL_PROPERTY_SEARCH % {
+                        'displayname': prefix,
+                        'email': prefix,
+                        'firstname': prefix,
+                        'lastname': prefix,
+                    },
+                    depth=None,
+                    method_label="REPORT{psearch}",
+                )
 
             # Now learn about the attendee's availability
             yield self.requestAvailability(
@@ -1677,7 +1700,6 @@ class BaseAppleClient(BaseClient):
                 [self.email, u'mailto:' + email],
                 [component.resourceUID()]
             )
-
 
 
     @inlineCallbacks
@@ -1943,6 +1965,7 @@ class BaseAppleClient(BaseClient):
         returnValue(body)
 
 
+
 class OS_X_10_6(BaseAppleClient):
     """
     Implementation of the OS X 10.6 iCal network behavior.
@@ -2108,6 +2131,7 @@ class OS_X_10_7(BaseAppleClient):
         returnValue(principal)
 
 
+
 class OS_X_10_11(BaseAppleClient):
     """
     Implementation of the OS X 10.11 Calendar.app network behavior.
@@ -2199,6 +2223,7 @@ class OS_X_10_11(BaseAppleClient):
         # Using the actual principal URL, retrieve principal information
         principal = yield self._extractPrincipalDetails()
         returnValue(principal)
+
 
 
 class iOS_5(BaseAppleClient):
