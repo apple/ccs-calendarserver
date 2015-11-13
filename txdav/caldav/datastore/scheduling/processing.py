@@ -27,7 +27,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav import customxml
 from twistedcaldav.accounting import emitAccounting, accountingEnabled
 from twistedcaldav.config import config
-from twistedcaldav.ical import Property
+from twistedcaldav.ical import Property, DTSTAMP_PARAM
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 
 from txdav.caldav.datastore.scheduling.freebusy import FreebusyQuery
@@ -220,26 +220,29 @@ class ImplicitProcessor(object):
 
             if self.method == "X-RESTORE":
                 changes = None
-                partstatChanged = True
+                refreshNeeded = True
                 yield self._doRefresh(self.organizer_calendar_resource, only_attendees=(attendeeReplying,))
 
             else:
                 # Build the schedule-changes XML element
-                partstatChanged = False
+                refreshNeeded = False
                 reply_details = (customxml.Attendee.fromString(attendeeReplying),)
 
-                for rid, partstatChanged, privateCommentChanged in sorted(rids):
+                for rid, reply_changes in sorted(rids):
                     recurrence = []
                     if rid == "":
                         recurrence.append(customxml.Master())
                     else:
                         recurrence.append(customxml.RecurrenceID.fromString(rid))
                     changes = []
-                    if partstatChanged:
-                        changes.append(customxml.ChangedProperty(customxml.ChangedParameter(name="PARTSTAT"), name="ATTENDEE"))
-                        partstatChanged = True
-                    if privateCommentChanged:
-                        changes.append(customxml.ChangedProperty(name="X-CALENDARSERVER-PRIVATE-COMMENT"))
+
+                    for param in reply_changes.params:
+                        changes.append(customxml.ChangedProperty(customxml.ChangedParameter(name=param), name="ATTENDEE"))
+                        refreshNeeded = True
+
+                    for prop in reply_changes.props:
+                        changes.append(customxml.ChangedProperty(name=prop))
+
                     recurrence.append(customxml.Changes(*changes))
                     reply_details += (customxml.Recurrence(*recurrence),)
 
@@ -253,7 +256,7 @@ class ImplicitProcessor(object):
             # Only update other attendees when the partstat was changed by the reply,
             # and only if the request does not indicate we should skip attendee refresh
             # (e.g. inbox item processing during migration from non-implicit server)
-            if partstatChanged and not self.noAttendeeRefresh:
+            if refreshNeeded and not self.noAttendeeRefresh:
                 # Check limit of attendees
                 if config.Scheduling.Options.AttendeeRefreshCountLimit == 0 or len(self.recipient_calendar.getAllUniqueAttendees()) <= config.Scheduling.Options.AttendeeRefreshCountLimit:
                     yield self.queueAttendeeUpdate((attendeeReplying, organizer,))
@@ -1062,7 +1065,7 @@ class ImplicitProcessor(object):
 
             if madeChanges:
                 attendee.setParameter("X-CALENDARSERVER-AUTO", DateTime.getNowUTC().getText())
-                attendee.removeParameter("X-CALENDARSERVER-DTSTAMP")
+                attendee.removeParameter(DTSTAMP_PARAM)
 
         return madeChanges
 

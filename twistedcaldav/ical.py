@@ -84,6 +84,11 @@ PERUSER_COMPONENT = "X-CALENDARSERVER-PERUSER"
 PERUSER_UID = "X-CALENDARSERVER-PERUSER-UID"
 PERINSTANCE_COMPONENT = "X-CALENDARSERVER-PERINSTANCE"
 
+PRIVATE_COMMENT = "X-CALENDARSERVER-PRIVATE-COMMENT"
+ATTENDEE_COMMENT = "X-CALENDARSERVER-ATTENDEE-COMMENT"
+ATTENDEE_COMMENT_REF = "X-CALENDARSERVER-ATTENDEE-REF"
+DTSTAMP_PARAM = "X-CALENDARSERVER-DTSTAMP"
+
 # 2445 default values and parameters
 # Structure: propname: (<default value>, <parameter defaults dict>)
 
@@ -1110,6 +1115,16 @@ class Component (object):
             self._pycalendar.finalise()
             property._parent = None
             self._markAsDirty()
+
+
+    def removeProperties(self, name):
+        """
+        remove all properties with name
+        @param name: the name of the properties to remove.
+        """
+        self._pycalendar.removeProperties(name)
+        self._pycalendar.finalise()
+        self._markAsDirty()
 
 
     def removeAllPropertiesWithName(self, pname):
@@ -3105,14 +3120,14 @@ END:VCALENDAR
                 self.removeComponent(component)
 
 
-    def removeXProperties(self, keep_properties=(), keep_parameters={}, remove_x_parameters=True, do_subcomponents=True):
+    def removeXProperties(self, keep_properties=(), keep_parameters={}, do_subcomponents=True):
         """
         Remove all X- properties except the specified ones
         """
 
         if do_subcomponents and self.name() == "VCALENDAR":
             for component in self.subcomponents():
-                component.removeXProperties(keep_properties, keep_parameters, remove_x_parameters, do_subcomponents=False)
+                component.removeXProperties(keep_properties, keep_parameters, do_subcomponents=False)
         else:
             if self.ignored():
                 return
@@ -3120,8 +3135,9 @@ END:VCALENDAR
                 xpname = p.name().startswith("X-")
                 if xpname and p.name() not in keep_properties:
                     self.removeProperty(p)
-                elif not xpname and remove_x_parameters:
+                elif not xpname:
                     preserve = keep_parameters.get(p.name(), set())
+                    preserve.update(keep_parameters.get("", set()))
                     for paramname in p.parameterNames():
                         if paramname.startswith("X-") and paramname not in preserve:
                             p.removeParameter(paramname)
@@ -3769,8 +3785,8 @@ END:VCALENDAR
                     return True
         else:
             attendee_refs = set()
-            for prop in tuple(self.properties("X-CALENDARSERVER-ATTENDEE-COMMENT")):
-                ref = prop.parameterValue("X-CALENDARSERVER-ATTENDEE-REF")
+            for prop in tuple(self.properties(ATTENDEE_COMMENT)):
+                ref = prop.parameterValue(ATTENDEE_COMMENT_REF)
                 if ref in attendee_refs:
                     if doFix:
                         self.removeProperty(prop)

@@ -709,6 +709,14 @@ DEFAULT_CONFIG = {
                 "X-APPLE-DROPBOX",
                 "X-APPLE-STRUCTURED-LOCATION",
             ],
+            "OrganizerPublicParameters"  : [     # Names of X- iCalendar parameters that are sent from ORGANIZER to ATTENDEE
+            ],
+            "AttendeePublicProperties"   : [     # Names of X- iCalendar properties that are sent from ATTENDEE to ORGANIZER
+                                                 # These are also implicitly added to OrganizerPublicProperties
+            ],
+            "AttendeePublicParameters"   : [     # Names of X- iCalendar parameters that are sent from ATTENDEE to ORGANIZER
+                                                 # These are also implicitly added to OrganizerPublicParameters
+            ],
         },
 
         "iSchedule": {

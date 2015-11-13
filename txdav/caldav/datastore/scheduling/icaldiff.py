@@ -23,7 +23,7 @@ from twext.python.log import Logger
 
 from twistedcaldav import accounting
 from twistedcaldav.config import config
-from twistedcaldav.ical import Component, Property
+from twistedcaldav.ical import Component, Property, PRIVATE_COMMENT, DTSTAMP_PARAM
 from txdav.caldav.datastore.scheduling.utils import normalizeCUAddr
 from txdav.caldav.datastore.scheduling.itip import iTipGenerator
 
@@ -82,7 +82,10 @@ class iCalDiff(object):
                 "DTSTAMP",
                 "LAST-MODIFIED",
             ))
-            calendar.removeXProperties(keep_properties=config.Scheduling.CalDAV.OrganizerPublicProperties)
+            calendar.removeXProperties(keep_properties=(
+                config.Scheduling.CalDAV.OrganizerPublicProperties +
+                config.Scheduling.CalDAV.AttendeePublicProperties
+            ))
             calendar.removePropertyParameters("ATTENDEE", ("RSVP", "SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND",))
             calendar.normalizeAll()
             return calendar
@@ -505,7 +508,7 @@ class iCalDiff(object):
 
             # If PARTSTAT was changed by the attendee, add a timestamp if needed
             if config.Scheduling.Options.TimestampAttendeePartStatChanges:
-                serverAttendee.setParameter("X-CALENDARSERVER-DTSTAMP", DateTime.getNowUTC().getText())
+                serverAttendee.setParameter(DTSTAMP_PARAM, DateTime.getNowUTC().getText())
             serverAttendee.removeParameter("X-CALENDARSERVER-AUTO")
 
             replyNeeded = True
@@ -526,14 +529,26 @@ class iCalDiff(object):
             else:
                 serverAttendee.setParameter("RSVP", "TRUE")
 
+        for pname in config.Scheduling.CalDAV.AttendeePublicParameters:
+            serverValue = serverAttendee.parameterValue(pname)
+            clientValue = clientAttendee.parameterValue(pname)
+            if serverValue != clientValue:
+                if clientValue is None:
+                    serverAttendee.removeParameter(pname)
+                else:
+                    serverAttendee.setParameter(pname, clientValue)
+                replyNeeded = True
+
         # Transfer these properties from the client data
-        replyNeeded |= self._transferProperty("X-CALENDARSERVER-PRIVATE-COMMENT", serverComponent, clientComponent)
         self._transferProperty("TRANSP", serverComponent, clientComponent)
         self._transferProperty("DTSTAMP", serverComponent, clientComponent)
         self._transferProperty("LAST-MODIFIED", serverComponent, clientComponent)
         self._transferProperty("COMPLETED", serverComponent, clientComponent)
         for pname in config.Scheduling.CalDAV.PerAttendeeProperties:
             self._transferProperty(pname, serverComponent, clientComponent)
+        replyNeeded |= self._transferProperty(PRIVATE_COMMENT, serverComponent, clientComponent)
+        for pname in config.Scheduling.CalDAV.AttendeePublicProperties:
+            replyNeeded |= self._transferProperty(pname, serverComponent, clientComponent)
 
         # Dropbox - this now never returns false
         if config.EnableDropBox:
@@ -957,7 +972,7 @@ class iCalDiff(object):
                 "DTSTAMP",
                 "CREATED",
                 "LAST-MODIFIED",
-                "X-CALENDARSERVER-PRIVATE-COMMENT",
+                PRIVATE_COMMENT,
             ):
                 continue
             if prop.name() == "ATTENDEE":

@@ -650,6 +650,40 @@
         <true/>
         <key>EnablePrivateComments</key>
         <true/>
+        <key>OrganizerPublicProperties</key>
+        <array>
+        	<string>X-APPLE-DROPBOX</string>
+        	<string>X-APPLE-STRUCTURED-LOCATION</string>
+        	<string>X-TEST-ORGANIZER-PROP1</string>
+        	<string>X-TEST-ORGANIZER-PROP2</string>
+        	<string>X-TEST-ORGANIZER-PROP3</string>
+        	<string>X-TEST-ORGANIZER-PROP4</string>
+        	<string>X-TEST-ORGANIZER-PROP5</string>
+        </array>
+        <key>OrganizerPublicParameters</key>
+        <array>
+        	<string>X-TEST-ORGANIZER-PARAM1</string>
+        	<string>X-TEST-ORGANIZER-PARAM2</string>
+        	<string>X-TEST-ORGANIZER-PARAM3</string>
+        	<string>X-TEST-ORGANIZER-PARAM4</string>
+        	<string>X-TEST-ORGANIZER-PARAM5</string>
+        </array>
+        <key>AttendeePublicProperties</key>
+        <array>
+        	<string>X-TEST-ALL-PROP1</string>
+        	<string>X-TEST-ALL-PROP2</string>
+        	<string>X-TEST-ALL-PROP3</string>
+        	<string>X-TEST-ALL-PROP4</string>
+        	<string>X-TEST-ALL-PROP5</string>
+        </array>
+        <key>AttendeePublicParameters</key>
+        <array>
+        	<string>X-TEST-ALL-PARAM1</string>
+        	<string>X-TEST-ALL-PARAM2</string>
+        	<string>X-TEST-ALL-PARAM3</string>
+        	<string>X-TEST-ALL-PARAM4</string>
+        	<string>X-TEST-ALL-PARAM5</string>
+        </array>
       </dict>
 
       <!-- iSchedule protocol options -->
