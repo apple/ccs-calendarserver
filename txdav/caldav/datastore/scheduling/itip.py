@@ -31,9 +31,12 @@ from twext.python.log import Logger
 
 from twistedcaldav.config import config
 from twistedcaldav.ical import Property, iCalendarProductID, Component, \
-    ignoredComponents
+    ignoredComponents, PRIVATE_COMMENT, ATTENDEE_COMMENT, ATTENDEE_COMMENT_REF, \
+    DTSTAMP_PARAM
 
 from pycalendar.datetime import PyCalendarDateTime
+
+from collections import namedtuple
 
 log = Logger()
 
@@ -124,13 +127,13 @@ class iTipProcessing(object):
         current_master = calendar.masterComponent()
         if current_master:
             valarms = [comp for comp in current_master.subcomponents() if comp.name() == "VALARM"]
-            private_comments = tuple(current_master.properties("X-CALENDARSERVER-PRIVATE-COMMENT"))
+            private_comments = tuple(current_master.properties(PRIVATE_COMMENT))
             transps = tuple(current_master.properties("TRANSP"))
             completeds = tuple(current_master.properties("COMPLETED"))
             organizer = current_master.getProperty("ORGANIZER")
             organizer_schedule_status = organizer.parameterValue("SCHEDULE-STATUS", None) if organizer else None
             attendee = current_master.getAttendeeProperty((recipient,))
-            attendee_dtstamp = attendee.parameterValue("X-CALENDARSERVER-DTSTAMP") if attendee else None
+            attendee_dtstamp = attendee.parameterValue(DTSTAMP_PARAM) if attendee else None
             other_props = {}
             for pname in config.Scheduling.CalDAV.PerAttendeeProperties:
                 props = tuple(current_master.properties(pname))
@@ -310,6 +313,11 @@ class iTipProcessing(object):
             return True, False, rids
 
 
+    # Tuple used to hold information about what an ATTENDEE changed in their REPLY
+    # "params" indicates which parameters in the ATTENDEE property changes
+    # "props" indicates which properties changed
+    ReplyChanges = namedtuple("ReplyChanges", ("params", "props"))
+
     @staticmethod
     def processReply(itip_message, calendar):
         """
@@ -340,13 +348,13 @@ class iTipProcessing(object):
         old_master = calendar.masterComponent()
         new_master = itip_message.masterComponent()
         attendees = set()
-        rids = set()
+        rids = []
         if new_master is not None and old_master is not None:
-            attendee, partstat, private_comment = iTipProcessing.updateAttendeeData(new_master, old_master)
+            attendee, reply_changes = iTipProcessing.updateAttendeeData(new_master, old_master)
             if attendee:
                 attendees.add(attendee)
-                if partstat or private_comment:
-                    rids.add(("", partstat, private_comment,))
+                if reply_changes is not None:
+                    rids.append(("", reply_changes,))
 
         # Make sure all overridden components in the organizer's copy have matching overridden components
         # in the iTIP message
@@ -392,11 +400,11 @@ class iTipProcessing(object):
                     log.error("Ignoring instance: %s in iTIP REPLY for: %s" % (rid, itip_message.resourceUID()))
                     continue
 
-            attendee, partstat, private_comment = iTipProcessing.updateAttendeeData(itip_component, match_component)
+            attendee, reply_changes = iTipProcessing.updateAttendeeData(itip_component, match_component)
             if attendee:
                 attendees.add(attendee)
-                if rids is not None and (partstat or private_comment):
-                    rids.add((rid.getText(), partstat, private_comment,))
+                if rids is not None and reply_changes is not None:
+                    rids.append((rid.getText(), reply_changes,))
 
         # Check for an invalid instance by itself
         len_attendees = len(attendees)
@@ -419,11 +427,13 @@ class iTipProcessing(object):
         @type from_component: L{Component}
         @param to_component: component to copy to
         @type to_component: L{Component}
+
+        @return: tuple of attendee property value and reply changes
+        @rtype: L{tuple} of L{str}, L{ReplyChanges}
         """
 
         # Track what changed
-        partstat_changed = False
-        private_comment_changed = False
+        reply_changes = iTipProcessing.ReplyChanges([], [])
 
         # Get REQUEST-STATUS as we need to write that into the saved ATTENDEE property
         reqstatus = tuple(from_component.properties("REQUEST-STATUS"))
@@ -436,7 +446,7 @@ class iTipProcessing(object):
         attendees = tuple(from_component.properties("ATTENDEE"))
         if len(attendees) != 1:
             log.error("There must be one and only one ATTENDEE property in a REPLY\n%s" % (str(from_component),))
-            return None, False, False
+            return None, None
 
         attendee = attendees[0]
         partstat = attendee.parameterValue("PARTSTAT", "NEEDS-ACTION")
@@ -444,28 +454,40 @@ class iTipProcessing(object):
         # Now find matching ATTENDEE in to_component
         existing_attendee = to_component.getAttendeeProperty((attendee.value(),))
         if existing_attendee:
+            # Look for change to partstat
             oldpartstat = existing_attendee.parameterValue("PARTSTAT", "NEEDS-ACTION")
             existing_attendee.setParameter("PARTSTAT", partstat)
             existing_attendee.setParameter("SCHEDULE-STATUS", reqstatus)
-            partstat_changed = (oldpartstat != partstat)
+            if oldpartstat != partstat:
+                reply_changes.params.append("PARTSTAT")
 
-            # Always delete RSVP on PARTSTAT change
-            if partstat_changed:
+                # Always delete RSVP on PARTSTAT change
                 try:
                     existing_attendee.removeParameter("RSVP")
                 except KeyError:
                     pass
 
+            # Look for change to X- parameters
+            for paramname in config.Scheduling.CalDAV.AttendeePublicParameters:
+                oldparam = existing_attendee.parameterValue(paramname)
+                newparam = attendee.parameterValue(paramname)
+                if oldparam != newparam:
+                    if newparam is None:
+                        existing_attendee.removeParameter(paramname)
+                    else:
+                        existing_attendee.setParameter(paramname, newparam)
+                    reply_changes.params.append(paramname)
+
             # Handle attendee comments
             if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
                 # Look for X-CALENDARSERVER-PRIVATE-COMMENT property in iTIP component (State 1 in spec)
-                attendee_comment = tuple(from_component.properties("X-CALENDARSERVER-PRIVATE-COMMENT"))
+                attendee_comment = tuple(from_component.properties(PRIVATE_COMMENT))
                 attendee_comment = attendee_comment[0] if len(attendee_comment) else None
 
                 # Look for matching X-CALENDARSERVER-ATTENDEE-COMMENT property in existing data (State 2 in spec)
-                private_comments = tuple(to_component.properties("X-CALENDARSERVER-ATTENDEE-COMMENT"))
+                private_comments = tuple(to_component.properties(ATTENDEE_COMMENT))
                 for comment in private_comments:
-                    attendeeref = comment.parameterValue("X-CALENDARSERVER-ATTENDEE-REF")
+                    attendeeref = comment.parameterValue(ATTENDEE_COMMENT_REF)
                     if attendeeref == attendee.value():
                         private_comment = comment
                         break
@@ -484,22 +506,22 @@ class iTipProcessing(object):
                 # We now remove the private comment on the organizer's side if the attendee removed it
                 to_component.removeProperty(private_comment)
 
-                private_comment_changed = True
+                reply_changes.props.append(PRIVATE_COMMENT)
 
             elif attendee_comment is not None and private_comment is None:
 
                 # Add new property
                 private_comment = Property(
-                    "X-CALENDARSERVER-ATTENDEE-COMMENT",
+                    ATTENDEE_COMMENT,
                     attendee_comment.value(),
                     params={
-                        "X-CALENDARSERVER-ATTENDEE-REF": attendee.value(),
-                        "X-CALENDARSERVER-DTSTAMP": PyCalendarDateTime.getNowUTC().getText(),
+                        ATTENDEE_COMMENT_REF: attendee.value(),
+                        DTSTAMP_PARAM: PyCalendarDateTime.getNowUTC().getText(),
                     }
                 )
                 to_component.addProperty(private_comment)
 
-                private_comment_changed = True
+                reply_changes.props.append(PRIVATE_COMMENT)
 
             else:
                 # Only change if different
@@ -508,15 +530,29 @@ class iTipProcessing(object):
                     private_comment.removeAllParameters()
 
                     # Add default parameters
-                    private_comment.setParameter("X-CALENDARSERVER-ATTENDEE-REF", attendee.value())
-                    private_comment.setParameter("X-CALENDARSERVER-DTSTAMP", PyCalendarDateTime.getNowUTC().getText())
+                    private_comment.setParameter(ATTENDEE_COMMENT_REF, attendee.value())
+                    private_comment.setParameter(DTSTAMP_PARAM, PyCalendarDateTime.getNowUTC().getText())
 
                     # Set new value
                     private_comment.setValue(attendee_comment.value())
 
-                    private_comment_changed = True
+                    reply_changes.props.append(PRIVATE_COMMENT)
 
-        return attendee.value(), partstat_changed, private_comment_changed
+        for propname in config.Scheduling.CalDAV.AttendeePublicProperties:
+            # Copy any property in the incoming component to the existing one.
+            # We do not currently delete anything in the existing component.
+            # We also remove all properties that match the name of the incoming one
+            # (i.e. we do not allow multi-occurring properties.
+            copy_props = tuple(from_component.properties(propname))
+            if copy_props:
+                to_component.removeProperties(propname)
+                for prop in copy_props:
+                    to_component.addProperty(prop.duplicate())
+                reply_changes.props.append(propname)
+
+        if len(reply_changes.props) == 0 and len(reply_changes.params) == 0:
+            reply_changes = None
+        return attendee.value(), reply_changes
 
 
     @staticmethod
@@ -558,13 +594,13 @@ class iTipProcessing(object):
         matched = from_calendar.overriddenComponent(rid)
         if matched:
             valarms = [comp for comp in matched.subcomponents() if comp.name() == "VALARM"]
-            private_comments = tuple(matched.properties("X-CALENDARSERVER-PRIVATE-COMMENT"))
+            private_comments = tuple(matched.properties(PRIVATE_COMMENT))
             transps = tuple(matched.properties("TRANSP"))
             completeds = tuple(matched.properties("COMPLETED"))
             organizer = matched.getProperty("ORGANIZER")
             organizer_schedule_status = organizer.parameterValue("SCHEDULE-STATUS", None) if organizer else None
             attendee = matched.getAttendeeProperty((recipient,))
-            attendee_dtstamp = attendee.parameterValue("X-CALENDARSERVER-DTSTAMP") if attendee else None
+            attendee_dtstamp = attendee.parameterValue(DTSTAMP_PARAM) if attendee else None
             other_props = {}
             for pname in config.Scheduling.CalDAV.PerAttendeeProperties:
                 props = tuple(matched.properties(pname))
@@ -631,7 +667,7 @@ class iTipProcessing(object):
         # into the new one. But first remove any of the stuff we want to copy from
         # the component being copied to.
         to_component.removeAlarms()
-        to_component.removeProperty("X-CALENDARSERVER-PRIVATE-COMMENT")
+        to_component.removeProperty(PRIVATE_COMMENT)
         to_component.removeProperty("TRANSP")
         to_component.removeProperty("COMPLETED")
         for propname in other_props.keys():
@@ -653,7 +689,7 @@ class iTipProcessing(object):
         attendee = to_component.getAttendeeProperty((recipient,))
 
         if attendee_dtstamp and attendee:
-            attendee.setParameter("X-CALENDARSERVER-DTSTAMP", attendee_dtstamp)
+            attendee.setParameter(DTSTAMP_PARAM, attendee_dtstamp)
 
         return False
 
@@ -928,7 +964,7 @@ class iTipGenerator(object):
         itip.removeAlarms()
 
         # Remove all but essential properties
-        itip.filterProperties(keep=(
+        keep_properties = (
             "UID",
             "RECURRENCE-ID",
             "SEQUENCE",
@@ -942,11 +978,13 @@ class iTipGenerator(object):
             "EXDATE",
             "ORGANIZER",
             "ATTENDEE",
-            "X-CALENDARSERVER-PRIVATE-COMMENT",
             "SUMMARY",
             "LOCATION",
             "DESCRIPTION",
-        ))
+            PRIVATE_COMMENT,
+        )
+        keep_properties += tuple(config.Scheduling.CalDAV.AttendeePublicProperties)
+        itip.filterProperties(keep=keep_properties)
 
         # Now set each ATTENDEE's PARTSTAT to DECLINED
         if force_decline:
@@ -982,14 +1020,16 @@ class iTipGenerator(object):
         # Component properties - remove all X- except for those specified
         if not reply:
             # Organizer properties that need to go to the Attendees
-            keep_properties = config.Scheduling.CalDAV.OrganizerPublicProperties
+            keep_properties = config.Scheduling.CalDAV.OrganizerPublicProperties + config.Scheduling.CalDAV.AttendeePublicProperties
+            keep_parameters = config.Scheduling.CalDAV.OrganizerPublicParameters + config.Scheduling.CalDAV.AttendeePublicParameters
         else:
             # Attendee properties that need to go to the Organizer
-            keep_properties = ("X-CALENDARSERVER-PRIVATE-COMMENT",)
-        itip.removeXProperties(keep_properties=keep_properties)
+            keep_properties = (PRIVATE_COMMENT,) + tuple(config.Scheduling.CalDAV.AttendeePublicProperties)
+            keep_parameters = config.Scheduling.CalDAV.AttendeePublicParameters
+        itip.removeXProperties(keep_properties=keep_properties, keep_parameters=keep_parameters)
 
         # Property Parameters
-        itip.removePropertyParameters("ATTENDEE", ("SCHEDULE-AGENT", "SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND", "X-CALENDARSERVER-DTSTAMP",))
+        itip.removePropertyParameters("ATTENDEE", ("SCHEDULE-AGENT", "SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND", DTSTAMP_PARAM,))
         itip.removePropertyParameters("ORGANIZER", ("SCHEDULE-AGENT", "SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND",))
 
 

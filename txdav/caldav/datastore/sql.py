@@ -53,7 +53,7 @@ from twistedcaldav.config import config
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.dateops import normalizeForIndex, datetimeMktime, \
     pyCalendarTodatetime, parseSQLDateToPyCalendar
-from twistedcaldav.ical import Component, InvalidICalendarDataError, Property
+from twistedcaldav.ical import Component, InvalidICalendarDataError, Property, ATTENDEE_COMMENT
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcacher import Memcacher
 
@@ -1785,7 +1785,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
             old_has_private_comments = not inserting and self.hasPrivateComment
             new_has_private_comments = component.hasPropertyInAnyComponent((
-                "X-CALENDARSERVER-ATTENDEE-COMMENT",
+                ATTENDEE_COMMENT,
             ))
 
             if old_has_private_comments and not new_has_private_comments and internal_state == ComponentUpdateState.NORMAL:
@@ -1793,7 +1793,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 log.debug("Organizer private comment properties were entirely removed by the client. Restoring existing properties.")
                 old_calendar = (yield self.componentForUser())
                 component.transferProperties(old_calendar, (
-                    "X-CALENDARSERVER-ATTENDEE-COMMENT",
+                    ATTENDEE_COMMENT,
                 ))
 
             self.hasPrivateComment = new_has_private_comments
@@ -1803,7 +1803,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # Look for properties with duplicate "X-CALENDARSERVER-ATTENDEE-REF" values in the same component
             if component.hasDuplicatePrivateComments(doFix=config.RemoveDuplicatePrivateComments) and internal_state == ComponentUpdateState.NORMAL:
-                raise DuplicatePrivateCommentsError("Duplicate X-CALENDARSERVER-ATTENDEE-COMMENT properties present.")
+                raise DuplicatePrivateCommentsError("Duplicate {} properties present.".format(ATTENDEE_COMMENT))
 
 
     @inlineCallbacks

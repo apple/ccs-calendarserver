@@ -21,7 +21,7 @@ from pycalendar.timezone import PyCalendarTimezone
 from twisted.trial import unittest
 
 from twistedcaldav.stdconfig import config
-from twistedcaldav.ical import Component
+from twistedcaldav.ical import Component, diff_iCalStrs, normalize_iCalStr
 
 from txdav.caldav.datastore.scheduling.itip import iTipProcessing, iTipGenerator
 
@@ -33,6 +33,42 @@ class iTIPProcessing (unittest.TestCase):
     """
     iCalendar support tests
     """
+
+    def setUp(self):
+        self.patch(config.Scheduling.CalDAV, "OrganizerPublicProperties", [
+            "X-APPLE-DROPBOX",
+            "X-APPLE-STRUCTURED-LOCATION",
+            "X-TEST-ORGANIZER-PROP1",
+            "X-TEST-ORGANIZER-PROP2",
+            "X-TEST-ORGANIZER-PROP3",
+            "X-TEST-ORGANIZER-PROP4",
+            "X-TEST-ORGANIZER-PROP5",
+        ])
+
+        self.patch(config.Scheduling.CalDAV, "OrganizerPublicParameters", [
+            "X-TEST-ORGANIZER-PARAM1",
+            "X-TEST-ORGANIZER-PARAM2",
+            "X-TEST-ORGANIZER-PARAM3",
+            "X-TEST-ORGANIZER-PARAM4",
+            "X-TEST-ORGANIZER-PARAM5",
+        ])
+
+        self.patch(config.Scheduling.CalDAV, "AttendeePublicProperties", [
+            "X-TEST-ALL-PROP1",
+            "X-TEST-ALL-PROP2",
+            "X-TEST-ALL-PROP3",
+            "X-TEST-ALL-PROP4",
+            "X-TEST-ALL-PROP5",
+        ])
+
+        self.patch(config.Scheduling.CalDAV, "AttendeePublicParameters", [
+            "X-TEST-ALL-PARAM1",
+            "X-TEST-ALL-PARAM2",
+            "X-TEST-ALL-PARAM3",
+            "X-TEST-ALL-PARAM4",
+            "X-TEST-ALL-PARAM5",
+        ])
+
 
     def test_processRequest(self):
         """
@@ -1178,7 +1214,7 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                True, "mailto:user1@example.com", (("", True, False),),
+                True, "mailto:user1@example.com", (("", iTipProcessing.ReplyChanges(params=['PARTSTAT'], props=[])),),
             ),
             (
                 "#1.2 Simple component, accepted",
@@ -1219,7 +1255,7 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                True, "mailto:user1@example.com", (("", True, False),),
+                True, "mailto:user1@example.com", (("", iTipProcessing.ReplyChanges(params=['PARTSTAT'], props=[])),),
             ),
             (
                 "#1.3 Simple component, no change",
@@ -1327,7 +1363,10 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                True, "mailto:user1@example.com", (("", True, False), ("20080801T120000Z", True, False),),
+                True, "mailto:user1@example.com", (
+                    ("", iTipProcessing.ReplyChanges(params=['PARTSTAT'], props=[])),
+                    ("20080801T120000Z", iTipProcessing.ReplyChanges(params=['PARTSTAT'], props=[])),
+                ),
             ),
             (
                 "#2.2 Recurring component, change master only",
@@ -1388,7 +1427,7 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                True, "mailto:user1@example.com", (("", True, False),),
+                True, "mailto:user1@example.com", (("", iTipProcessing.ReplyChanges(params=['PARTSTAT'], props=[])),),
             ),
             (
                 "#2.3 Recurring component, change override only",
@@ -1450,7 +1489,7 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                True, "mailto:user1@example.com", (("20080801T120000Z", True, False),),
+                True, "mailto:user1@example.com", (("20080801T120000Z", iTipProcessing.ReplyChanges(params=['PARTSTAT'], props=[])),),
             ),
             (
                 "#3.1 Recurring component, change master/override, new override",
@@ -1532,7 +1571,11 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                True, "mailto:user1@example.com", (("", True, False), ("20080801T120000Z", True, False), ("20080901T120000Z", True, False),),
+                True, "mailto:user1@example.com", (
+                    ("", iTipProcessing.ReplyChanges(params=['PARTSTAT'], props=[])),
+                    ("20080801T120000Z", iTipProcessing.ReplyChanges(params=['PARTSTAT'], props=[])),
+                    ("20080901T120000Z", iTipProcessing.ReplyChanges(params=['PARTSTAT'], props=[])),
+                ),
             ),
             (
                 "#3.2 Recurring component, change master, new override",
@@ -1608,7 +1651,10 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                True, "mailto:user1@example.com", (("", True, False), ("20080901T120000Z", True, False),),
+                True, "mailto:user1@example.com", (
+                    ("", iTipProcessing.ReplyChanges(params=['PARTSTAT'], props=[])),
+                    ("20080901T120000Z", iTipProcessing.ReplyChanges(params=['PARTSTAT'], props=[])),
+                ),
             ),
             (
                 "#3.3 Recurring component, change override, new override",
@@ -1685,7 +1731,10 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                True, "mailto:user1@example.com", (("20080801T120000Z", True, False), ("20080901T120000Z", True, False),),
+                True, "mailto:user1@example.com", (
+                    ("20080801T120000Z", iTipProcessing.ReplyChanges(params=['PARTSTAT'], props=[])),
+                    ("20080901T120000Z", iTipProcessing.ReplyChanges(params=['PARTSTAT'], props=[])),
+                ),
             ),
             (
                 "#4.1 Recurring component, invalid override",
@@ -1882,7 +1931,7 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                True, "mailto:user1@example.com", (("", True, False),),
+                True, "mailto:user1@example.com", (("", iTipProcessing.ReplyChanges(params=['PARTSTAT'], props=[])),),
             ),
             (
                 "#6.2 Multiple REQUEST-STATUS",
@@ -1925,7 +1974,7 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                True, "mailto:user1@example.com", (("", True, False),),
+                True, "mailto:user1@example.com", (("", iTipProcessing.ReplyChanges(params=['PARTSTAT'], props=[])),),
             ),
             (
                 "#6.3 Bad REQUEST-STATUS",
@@ -1967,7 +2016,7 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                True, "mailto:user1@example.com", (("", True, False),),
+                True, "mailto:user1@example.com", (("", iTipProcessing.ReplyChanges(params=['PARTSTAT'], props=[])),),
             ),
         )
 
@@ -1975,11 +2024,6 @@ END:VCALENDAR
             calendar = Component.fromString(calendar_txt)
             itipmsg = Component.fromString(itipmsg_txt)
             reply_success, reply_processed = iTipProcessing.processReply(itipmsg, calendar)
-#            if not description.startswith("#3.1"):
-#                continue
-#            print(description)
-#            print(str(calendar))
-#            print(str(result))
             self.assertEqual(
                 str(calendar).replace("\r", "").replace("\n ", ""),
                 str(result).replace("\n ", ""),
@@ -2008,6 +2052,663 @@ END:VCALENDAR
                     None,
                     msg=description
                 )
+
+
+    def test_processReply_XDash(self):
+        """
+        Test iTIPProcessing.processReply with X- property and parameter changes
+        """
+
+        data = (
+            (
+                "1.1 Simple Reply - with X- param",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071115T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;X-TEST-ALL-PARAM1=p1;PARTSTAT=ACCEPTED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;X-TEST-ALL-PARAM1=p1;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user02@example.com", (
+                    ("", iTipProcessing.ReplyChanges(params=['PARTSTAT', 'X-TEST-ALL-PARAM1'], props=[])),
+                ),
+            ),
+            (
+                "1.2 Simple Reply - with X- param update",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;X-TEST-ALL-PARAM1=p1;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071115T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;X-TEST-ALL-PARAM1=p1-1;PARTSTAT=ACCEPTED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;X-TEST-ALL-PARAM1=p1-1;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user02@example.com", (
+                    ("", iTipProcessing.ReplyChanges(params=['X-TEST-ALL-PARAM1'], props=[])),
+                ),
+            ),
+            (
+                "1.3 Simple Reply - with X- param remove",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;X-TEST-ALL-PARAM1=p1;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071115T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user02@example.com", (
+                    ("", iTipProcessing.ReplyChanges(params=['X-TEST-ALL-PARAM1'], props=[])),
+                ),
+            ),
+            (
+                "2.1 Simple Reply - with X- prop",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071115T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+X-TEST-ALL-PROP1:p1
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+X-TEST-ALL-PROP1:p1
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user02@example.com", (
+                    ("", iTipProcessing.ReplyChanges(params=['PARTSTAT'], props=["X-TEST-ALL-PROP1"])),
+                ),
+            ),
+            (
+                "2.2 Simple Reply - with X- prop update",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+X-TEST-ALL-PROP1:p1
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071115T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+X-TEST-ALL-PROP1:p1-1
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+X-TEST-ALL-PROP1:p1-1
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user02@example.com", (
+                    ("", iTipProcessing.ReplyChanges(params=[], props=["X-TEST-ALL-PROP1"])),
+                ),
+            ),
+            (
+                "2.3 Simple Reply - with X- prop preserve",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+X-TEST-ALL-PROP1:p1-1
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071115T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=DECLINED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=DECLINED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+X-TEST-ALL-PROP1:p1-1
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user02@example.com", (
+                    ("", iTipProcessing.ReplyChanges(params=["PARTSTAT"], props=[])),
+                ),
+            ),
+            (
+                "3.1 Recurrence Reply - with X- param",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071116T000000Z
+DTSTART:20071116T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;X-TEST-ALL-PARAM1=p1;PARTSTAT=ACCEPTED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071116T000000Z
+DTSTART:20071116T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;X-TEST-ALL-PARAM1=p1;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user02@example.com", (
+                    ("20071116T000000Z", iTipProcessing.ReplyChanges(params=['PARTSTAT', 'X-TEST-ALL-PARAM1'], props=[])),
+                ),
+            ),
+            (
+                "3.2 Recurrence Reply - with X- param update",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;X-TEST-ALL-PARAM1=p1;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071116T000000Z
+DTSTART:20071116T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;X-TEST-ALL-PARAM1=p1-1;PARTSTAT=ACCEPTED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;X-TEST-ALL-PARAM1=p1;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071116T000000Z
+DTSTART:20071116T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;X-TEST-ALL-PARAM1=p1-1;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user02@example.com", (
+                    ("20071116T000000Z", iTipProcessing.ReplyChanges(params=['X-TEST-ALL-PARAM1'], props=[])),
+                ),
+            ),
+            (
+                "3.3 Recurrence Reply - with X- param remove",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;X-TEST-ALL-PARAM1=p1;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071116T000000Z
+DTSTART:20071116T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;X-TEST-ALL-PARAM1=p1;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071116T000000Z
+DTSTART:20071116T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user02@example.com", (
+                    ("20071116T000000Z", iTipProcessing.ReplyChanges(params=['X-TEST-ALL-PARAM1'], props=[])),
+                ),
+            ),
+            (
+                "4.1 Recurrence Reply - with X- prop",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071116T000000Z
+DTSTART:20071116T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+X-TEST-ALL-PROP1:p1
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071116T000000Z
+DTSTART:20071116T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+X-TEST-ALL-PROP1:p1
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user02@example.com", (
+                    ("20071116T000000Z", iTipProcessing.ReplyChanges(params=['PARTSTAT'], props=["X-TEST-ALL-PROP1"])),
+                ),
+            ),
+            (
+                "4.2 Recurrence Reply - with X- prop update",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+RRULE:FREQ=DAILY
+X-TEST-ALL-PROP1:p1
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071116T000000Z
+DTSTART:20071116T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+X-TEST-ALL-PROP1:p1-1
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+RRULE:FREQ=DAILY
+X-TEST-ALL-PROP1:p1
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071116T000000Z
+DTSTART:20071116T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+X-TEST-ALL-PROP1:p1-1
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user02@example.com", (
+                    ("20071116T000000Z", iTipProcessing.ReplyChanges(params=[], props=["X-TEST-ALL-PROP1"])),
+                ),
+            ),
+            (
+                "4.3 Recurrence Reply - with X- prop preserve",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+RRULE:FREQ=DAILY
+X-TEST-ALL-PROP1:p1
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071116T000000Z
+DTSTART:20071116T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=DECLINED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+RRULE:FREQ=DAILY
+X-TEST-ALL-PROP1:p1
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071116T000000Z
+DTSTART:20071116T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=DECLINED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+X-TEST-ALL-PROP1:p1
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user02@example.com", (
+                    ("20071116T000000Z", iTipProcessing.ReplyChanges(params=["PARTSTAT"], props=[])),
+                ),
+            ),
+        )
+
+        for title, calendar_txt, itip_txt, changed_txt, attendee, rids in data:
+            calendar = Component.fromString(calendar_txt)
+            itip = Component.fromString(itip_txt)
+            changed = Component.fromString(changed_txt)
+
+            result, reply_processed = iTipProcessing.processReply(itip, calendar)
+            self.assertTrue(result)
+            self.assertEqual(normalize_iCalStr(changed), normalize_iCalStr(calendar), "Calendar mismatch: {}:\n{}".format(title, diff_iCalStrs(changed, calendar),))
+            reply_attendee, reply_rids, = reply_processed
+            self.assertEqual(
+                reply_attendee,
+                attendee,
+                msg=title
+            )
+            self.assertEqual(
+                tuple(sorted(list(reply_rids), key=lambda x: x[0])),
+                rids,
+                msg=title
+            )
 
 
     def test_sequenceComparison(self):
@@ -2511,6 +3212,42 @@ class iTIPGenerator (unittest.TestCase):
     iCalendar support tests
     """
     data_dir = os.path.join(os.path.dirname(__file__), "data")
+
+    def setUp(self):
+        self.patch(config.Scheduling.CalDAV, "OrganizerPublicProperties", [
+            "X-APPLE-DROPBOX",
+            "X-APPLE-STRUCTURED-LOCATION",
+            "X-TEST-ORGANIZER-PROP1",
+            "X-TEST-ORGANIZER-PROP2",
+            "X-TEST-ORGANIZER-PROP3",
+            "X-TEST-ORGANIZER-PROP4",
+            "X-TEST-ORGANIZER-PROP5",
+        ])
+
+        self.patch(config.Scheduling.CalDAV, "OrganizerPublicParameters", [
+            "X-TEST-ORGANIZER-PARAM1",
+            "X-TEST-ORGANIZER-PARAM2",
+            "X-TEST-ORGANIZER-PARAM3",
+            "X-TEST-ORGANIZER-PARAM4",
+            "X-TEST-ORGANIZER-PARAM5",
+        ])
+
+        self.patch(config.Scheduling.CalDAV, "AttendeePublicProperties", [
+            "X-TEST-ALL-PROP1",
+            "X-TEST-ALL-PROP2",
+            "X-TEST-ALL-PROP3",
+            "X-TEST-ALL-PROP4",
+            "X-TEST-ALL-PROP5",
+        ])
+
+        self.patch(config.Scheduling.CalDAV, "AttendeePublicParameters", [
+            "X-TEST-ALL-PARAM1",
+            "X-TEST-ALL-PARAM2",
+            "X-TEST-ALL-PARAM3",
+            "X-TEST-ALL-PARAM4",
+            "X-TEST-ALL-PARAM5",
+        ])
+
 
     def test_request(self):
 
@@ -3140,3 +3877,283 @@ END:VCALENDAR
         itipped = str(itipped).replace("\r", "")
         itipped = "".join([line for line in itipped.splitlines(True) if not line.startswith("DTSTAMP:")])
         self.assertEqual(filtered, itipped)
+
+
+    def test_prepareSchedulingMessage(self):
+        """
+        Make sure L{iTIPGenerator.prepareSchedulingMessage} correctly filters X-
+        properties and parameters.
+        """
+
+        data = (
+            (
+                "Nothing to filter",
+                """BEGIN:VCALENDAR
+METHOD:REQUEST
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=UTC:20071114T000000
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+METHOD:REQUEST
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=UTC:20071114T000000
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+            ),
+            (
+                "Filter X- property",
+                """BEGIN:VCALENDAR
+METHOD:REQUEST
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=UTC:20071114T000000
+X-FOO:BAR
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+METHOD:REQUEST
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=UTC:20071114T000000
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+            ),
+            (
+                "Filter X- param",
+                """BEGIN:VCALENDAR
+METHOD:REQUEST
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=UTC:20071114T000000
+LOCATION;X-FOO=BAR:Home
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+METHOD:REQUEST
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=UTC:20071114T000000
+LOCATION:Home
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+            ),
+            (
+                "Keep X- property",
+                """BEGIN:VCALENDAR
+METHOD:REQUEST
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=UTC:20071114T000000
+X-TEST-ORGANIZER-PROP1:organizer
+X-TEST-ALL-PROP1:all
+X-FOO:BAR
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+METHOD:REQUEST
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=UTC:20071114T000000
+X-TEST-ORGANIZER-PROP1:organizer
+X-TEST-ALL-PROP1:all
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+            ),
+            (
+                "Keep X- param",
+                """BEGIN:VCALENDAR
+METHOD:REQUEST
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=UTC:20071114T000000
+LOCATION;X-TEST-ORGANIZER-PARAM1=o;X-TEST-ALL-PARAM1=a:Home
+X-TEST-ORGANIZER-PROP1;X-TEST-ORGANIZER-PARAM2=o;X-FOO=BAR:dropped-it
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+METHOD:REQUEST
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=UTC:20071114T000000
+LOCATION;X-TEST-ORGANIZER-PARAM1=o;X-TEST-ALL-PARAM1=a:Home
+X-TEST-ORGANIZER-PROP1;X-TEST-ORGANIZER-PARAM2=o;X-FOO=BAR:dropped-it
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+            ),
+            (
+                "Nothing to filter - reply",
+                """BEGIN:VCALENDAR
+METHOD:REQUEST
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=UTC:20071114T000000
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+METHOD:REQUEST
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=UTC:20071114T000000
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+            ),
+            (
+                "Filter X- property - reply",
+                """BEGIN:VCALENDAR
+METHOD:REQUEST
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=UTC:20071114T000000
+X-TEST-ORGANIZER-PROP1:organizer
+X-FOO:BAR
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+METHOD:REQUEST
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=UTC:20071114T000000
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+            ),
+            (
+                "Filter X- param - reply",
+                """BEGIN:VCALENDAR
+METHOD:REQUEST
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=UTC:20071114T000000
+LOCATION;X-TEST-ORGANIZER-PARAM1=o;X-FOO=BAR:Home
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+METHOD:REQUEST
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=UTC:20071114T000000
+LOCATION:Home
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+            ),
+            (
+                "Keep X- property - reply",
+                """BEGIN:VCALENDAR
+METHOD:REQUEST
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=UTC:20071114T000000
+X-TEST-ORGANIZER-PROP1:organizer
+X-TEST-ALL-PROP1:all
+X-FOO:BAR
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+METHOD:REQUEST
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=UTC:20071114T000000
+X-TEST-ALL-PROP1:all
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+            ),
+            (
+                "Keep X- param - reply",
+                """BEGIN:VCALENDAR
+METHOD:REQUEST
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=UTC:20071114T000000
+LOCATION;X-TEST-ORGANIZER-PARAM1=o;X-TEST-ALL-PARAM1=a:Home
+X-TEST-ALL-PROP1;X-TEST-ALL-PARAM2=a;X-FOO=BAR:oragnizer
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+METHOD:REQUEST
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=UTC:20071114T000000
+LOCATION;X-TEST-ALL-PARAM1=a:Home
+X-TEST-ALL-PROP1;X-TEST-ALL-PARAM2=a;X-FOO=BAR:oragnizer
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+            ),
+        )
+
+        for title, original, processed, reply in data:
+            component = Component.fromString(original)
+            new_component = Component.fromString(processed)
+            iTipGenerator.prepareSchedulingMessage(component, reply)
+            self.assertEqual(normalize_iCalStr(new_component), normalize_iCalStr(component), "Failed {}:\n{}".format(title, diff_iCalStrs(new_component, component),))

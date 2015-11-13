@@ -23,7 +23,7 @@ from twext.python.log import Logger
 
 from twistedcaldav import accounting
 from twistedcaldav.config import config
-from twistedcaldav.ical import Component, Property
+from twistedcaldav.ical import Component, Property, PRIVATE_COMMENT, DTSTAMP_PARAM
 from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 from txdav.caldav.datastore.scheduling.itip import iTipGenerator
 
@@ -40,7 +40,6 @@ class iCalDiff(object):
     operation might be needed. The behavior will varying based on whether the
     change is being triggered by an Organizer or an Attendee.
     """
-
 
     def __init__(self, oldcalendar, newcalendar, smart_merge, forceTRANSP=False):
         """
@@ -83,7 +82,10 @@ class iCalDiff(object):
                 "DTSTAMP",
                 "LAST-MODIFIED",
             ))
-            calendar.removeXProperties(keep_properties=config.Scheduling.CalDAV.OrganizerPublicProperties)
+            calendar.removeXProperties(keep_properties=(
+                config.Scheduling.CalDAV.OrganizerPublicProperties +
+                config.Scheduling.CalDAV.AttendeePublicProperties
+            ))
             calendar.removePropertyParameters("ATTENDEE", ("RSVP", "SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND",))
             calendar.normalizeAll()
             return calendar
@@ -356,7 +358,7 @@ class iCalDiff(object):
 
                     # If smart_merge is happening, then derive an instance in the new data as the change in the old
                     # data is valid and likely due to some other attendee changing their status.
-                    if  self.smart_merge:
+                    if self.smart_merge:
                         newOverride = self.newcalendar.deriveInstance(rid, allowCancelled=True)
                         if newOverride is None:
                             self._logDiffError("attendeeMerge: Could not derive instance for uncancelled component: %s" % (key,))
@@ -506,7 +508,7 @@ class iCalDiff(object):
 
             # If PARTSTAT was changed by the attendee, add a timestamp if needed
             if config.Scheduling.Options.TimestampAttendeePartStatChanges:
-                serverAttendee.setParameter("X-CALENDARSERVER-DTSTAMP", PyCalendarDateTime.getNowUTC().getText())
+                serverAttendee.setParameter(DTSTAMP_PARAM, PyCalendarDateTime.getNowUTC().getText())
             serverAttendee.removeParameter("X-CALENDARSERVER-AUTO")
 
             replyNeeded = True
@@ -527,14 +529,26 @@ class iCalDiff(object):
             else:
                 serverAttendee.setParameter("RSVP", "TRUE")
 
+        for pname in config.Scheduling.CalDAV.AttendeePublicParameters:
+            serverValue = serverAttendee.parameterValue(pname)
+            clientValue = clientAttendee.parameterValue(pname)
+            if serverValue != clientValue:
+                if clientValue is None:
+                    serverAttendee.removeParameter(pname)
+                else:
+                    serverAttendee.setParameter(pname, clientValue)
+                replyNeeded = True
+
         # Transfer these properties from the client data
-        replyNeeded |= self._transferProperty("X-CALENDARSERVER-PRIVATE-COMMENT", serverComponent, clientComponent)
         self._transferProperty("TRANSP", serverComponent, clientComponent)
         self._transferProperty("DTSTAMP", serverComponent, clientComponent)
         self._transferProperty("LAST-MODIFIED", serverComponent, clientComponent)
         self._transferProperty("COMPLETED", serverComponent, clientComponent)
         for pname in config.Scheduling.CalDAV.PerAttendeeProperties:
             self._transferProperty(pname, serverComponent, clientComponent)
+        replyNeeded |= self._transferProperty(PRIVATE_COMMENT, serverComponent, clientComponent)
+        for pname in config.Scheduling.CalDAV.AttendeePublicProperties:
+            replyNeeded |= self._transferProperty(pname, serverComponent, clientComponent)
 
         # Dropbox - this now never returns false
         if config.EnableDropBox:
@@ -621,8 +635,8 @@ class iCalDiff(object):
             duration = component.getProperty("DURATION")
 
             timeRange = PyCalendarPeriod(
-                start=dtstart.value()  if dtstart  is not None else None,
-                end=dtend.value()    if dtend    is not None else None,
+                start=dtstart.value() if dtstart is not None else None,
+                end=dtend.value() if dtend is not None else None,
                 duration=duration.value() if duration is not None else None,
             )
             newdue = None
@@ -633,7 +647,7 @@ class iCalDiff(object):
 
             if dtstart or duration:
                 timeRange = PyCalendarPeriod(
-                    start=dtstart.value()  if dtstart  is not None else None,
+                    start=dtstart.value() if dtstart is not None else None,
                     duration=duration.value() if duration is not None else None,
                 )
             else:
@@ -838,7 +852,7 @@ class iCalDiff(object):
                 "DTSTAMP",
                 "CREATED",
                 "LAST-MODIFIED",
-                "X-CALENDARSERVER-PRIVATE-COMMENT",
+                PRIVATE_COMMENT,
             ):
                 continue
             propsChanged.setdefault(prop.name(), set())
