@@ -15,7 +15,7 @@
 ----
 
 ---------------------------------------------------
--- Upgrade database schema from VERSION 30 to 31 --
+-- Upgrade database schema from VERSION 32 to 33 --
 ---------------------------------------------------
 
 -- Add timestamp to revision tables --
