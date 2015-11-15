@@ -27,7 +27,7 @@ create table APN_SUBSCRIPTIONS (
   RESOURCE_KEY                  varchar(255) not null,
   MODIFIED                      integer not null,
   SUBSCRIBER_GUID               varchar(255) not null,
-  unique(TOKEN, RESOURCE_KEY) -- implicit index
+  unique (TOKEN, RESOURCE_KEY) -- implicit index
 );
 
 create index APN_SUBSCRIPTIONS_RESOURCE_KEY

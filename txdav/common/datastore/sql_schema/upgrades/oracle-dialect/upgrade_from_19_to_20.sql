@@ -37,8 +37,8 @@ create table SHARED_ADDRESSBOOK_BIND (
     "BIND_STATUS" integer not null,
     "BIND_REVISION" integer default 0 not null,
     "MESSAGE" nclob, 
-    primary key("ADDRESSBOOK_HOME_RESOURCE_ID", "OWNER_HOME_RESOURCE_ID"), 
-    unique("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_NAME")
+    primary key ("ADDRESSBOOK_HOME_RESOURCE_ID", "OWNER_HOME_RESOURCE_ID"), 
+    unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_NAME")
 );
 
 create index SHARED_ADDRESSBOOK_BI_e9a2e6d4 on SHARED_ADDRESSBOOK_BIND (
@@ -60,8 +60,8 @@ create table SHARED_GROUP_BIND (
     "BIND_STATUS" integer not null,
     "BIND_REVISION" integer default 0 not null,
     "MESSAGE" nclob, 
-    primary key("ADDRESSBOOK_HOME_RESOURCE_ID", "GROUP_RESOURCE_ID"), 
-    unique("ADDRESSBOOK_HOME_RESOURCE_ID", "GROUP_ADDRESSBOOK_NAME")
+    primary key ("ADDRESSBOOK_HOME_RESOURCE_ID", "GROUP_RESOURCE_ID"), 
+    unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "GROUP_ADDRESSBOOK_NAME")
 );
 
 create index SHARED_GROUP_BIND_RES_cf52f95d on SHARED_GROUP_BIND (
@@ -92,7 +92,7 @@ create table ABO_MEMBERS (
     "GROUP_ID" integer not null references ADDRESSBOOK_OBJECT on delete cascade,
     "ADDRESSBOOK_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
     "MEMBER_ID" integer not null references ADDRESSBOOK_OBJECT, 
-    primary key("GROUP_ID", "MEMBER_ID")
+    primary key ("GROUP_ID", "MEMBER_ID")
 );
 
 
@@ -104,7 +104,7 @@ create table ABO_FOREIGN_MEMBERS (
     "GROUP_ID" integer not null references ADDRESSBOOK_OBJECT on delete cascade,
     "ADDRESSBOOK_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
     "MEMBER_ADDRESS" nvarchar2(255), 
-    primary key("GROUP_ID", "MEMBER_ADDRESS")
+    primary key ("GROUP_ID", "MEMBER_ADDRESS")
 );
 
 

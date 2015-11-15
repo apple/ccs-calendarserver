@@ -39,7 +39,7 @@ update ATTACHMENT set ATTACHMENT_ID = ATTACHMENT_ID_SEQ.nextval;
 
 -- now set ATTACHMENT_ID as primary key, which implies unique and not null
 alter table ATTACHMENT
- add primary key(ATTACHMENT_ID);
+ add primary key (ATTACHMENT_ID);
 
 create table ATTACHMENT_CALENDAR_OBJECT (
     "ATTACHMENT_ID" integer not null references ATTACHMENT on delete cascade,

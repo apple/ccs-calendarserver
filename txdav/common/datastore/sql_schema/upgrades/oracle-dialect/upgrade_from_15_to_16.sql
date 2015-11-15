@@ -27,7 +27,7 @@ create table IMIP_TOKENS (
     "ATTENDEE" nvarchar2(255),
     "ICALUID" nvarchar2(255),
     "ACCESSED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
-    primary key("ORGANIZER", "ATTENDEE", "ICALUID")
+    primary key ("ORGANIZER", "ATTENDEE", "ICALUID")
 );
 
 create index IMIP_TOKENS_TOKEN_e94b918f on IMIP_TOKENS (

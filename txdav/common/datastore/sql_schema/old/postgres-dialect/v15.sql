@@ -106,7 +106,7 @@ create table NOTIFICATION (
   CREATED                       timestamp default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                      timestamp default timezone('UTC', CURRENT_TIMESTAMP),
 
-  unique(NOTIFICATION_UID, NOTIFICATION_HOME_RESOURCE_ID) -- implicit index
+  unique (NOTIFICATION_UID, NOTIFICATION_HOME_RESOURCE_ID) -- implicit index
 );
 
 create index NOTIFICATION_NOTIFICATION_HOME_RESOURCE_ID on
@@ -126,8 +126,8 @@ create table CALENDAR_BIND (
   BIND_STATUS               integer      not null, -- enum CALENDAR_BIND_STATUS
   MESSAGE                   text,
 
-  primary key(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID), -- implicit index
-  unique(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_NAME)     -- implicit index
+  primary key (CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID), -- implicit index
+  unique (CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_NAME)     -- implicit index
 );
 
 create index CALENDAR_BIND_RESOURCE_ID on CALENDAR_BIND(CALENDAR_RESOURCE_ID);
@@ -189,7 +189,7 @@ create table CALENDAR_OBJECT (
   -- calendar objects, this constraint has to be selectively enforced by the
   -- application layer.
 
-  -- unique(CALENDAR_RESOURCE_ID, ICALENDAR_UID)
+  -- unique (CALENDAR_RESOURCE_ID, ICALENDAR_UID)
 );
 
 create index CALENDAR_OBJECT_CALENDAR_RESOURCE_ID_AND_ICALENDAR_UID on
@@ -468,7 +468,7 @@ create table NOTIFICATION_OBJECT_REVISIONS (
   REVISION                      integer      default nextval('REVISION_SEQ') not null,
   DELETED                       boolean      not null,
 
-  unique(NOTIFICATION_HOME_RESOURCE_ID, RESOURCE_NAME) -- implicit index
+  unique (NOTIFICATION_HOME_RESOURCE_ID, RESOURCE_NAME) -- implicit index
 );
 
 create index NOTIFICATION_OBJECT_REVISIONS_RESOURCE_ID_REVISION

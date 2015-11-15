@@ -56,9 +56,9 @@ create index NOTIFICATION_OBJECT_R_036a9cee
 
 -- Change a constraint
 alter table APN_SUBSCRIPTIONS
- drop unique(TOKEN, RESOURCE_KEY);
+ drop unique (TOKEN, RESOURCE_KEY);
 alter table APN_SUBSCRIPTIONS
- add primary key(TOKEN, RESOURCE_KEY);
+ add primary key (TOKEN, RESOURCE_KEY);
 
 -- Now update the version
 update CALENDARSERVER set VALUE = '7' where NAME = 'VERSION';

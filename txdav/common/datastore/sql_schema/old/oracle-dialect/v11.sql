@@ -47,7 +47,7 @@ create table NOTIFICATION (
     "MD5" nchar(32),
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
-    unique("NOTIFICATION_UID", "NOTIFICATION_HOME_RESOURCE_ID")
+    unique ("NOTIFICATION_UID", "NOTIFICATION_HOME_RESOURCE_ID")
 );
 
 create table CALENDAR_BIND (
@@ -59,8 +59,8 @@ create table CALENDAR_BIND (
     "SEEN_BY_OWNER" integer not null,
     "SEEN_BY_SHAREE" integer not null,
     "MESSAGE" nclob, 
-    primary key("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_ID"), 
-    unique("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_NAME")
+    primary key ("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_ID"), 
+    unique ("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_NAME")
 );
 
 create table CALENDAR_BIND_MODE (
@@ -102,7 +102,7 @@ create table CALENDAR_OBJECT (
     "MD5" nchar(32),
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
-    unique("CALENDAR_RESOURCE_ID", "RESOURCE_NAME")
+    unique ("CALENDAR_RESOURCE_ID", "RESOURCE_NAME")
 );
 
 create table CALENDAR_OBJECT_ATTACHMENTS_MO (
@@ -159,7 +159,7 @@ create table ATTACHMENT (
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "PATH" nvarchar2(1024), 
-    primary key("DROPBOX_ID", "PATH")
+    primary key ("DROPBOX_ID", "PATH")
 );
 
 create table RESOURCE_PROPERTY (
@@ -167,7 +167,7 @@ create table RESOURCE_PROPERTY (
     "NAME" nvarchar2(255),
     "VALUE" nclob,
     "VIEWER_UID" nvarchar2(255), 
-    primary key("RESOURCE_ID", "NAME", "VIEWER_UID")
+    primary key ("RESOURCE_ID", "NAME", "VIEWER_UID")
 );
 
 create table ADDRESSBOOK_HOME (
@@ -202,8 +202,8 @@ create table ADDRESSBOOK_BIND (
     "SEEN_BY_OWNER" integer not null,
     "SEEN_BY_SHAREE" integer not null,
     "MESSAGE" nclob, 
-    primary key("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_ID"), 
-    unique("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_NAME")
+    primary key ("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_ID"), 
+    unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_NAME")
 );
 
 create table ADDRESSBOOK_OBJECT (
@@ -215,8 +215,8 @@ create table ADDRESSBOOK_OBJECT (
     "MD5" nchar(32),
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
-    unique("ADDRESSBOOK_RESOURCE_ID", "RESOURCE_NAME"), 
-    unique("ADDRESSBOOK_RESOURCE_ID", "VCARD_UID")
+    unique ("ADDRESSBOOK_RESOURCE_ID", "RESOURCE_NAME"), 
+    unique ("ADDRESSBOOK_RESOURCE_ID", "VCARD_UID")
 );
 
 create table CALENDAR_OBJECT_REVISIONS (
@@ -242,7 +242,7 @@ create table NOTIFICATION_OBJECT_REVISIONS (
     "RESOURCE_NAME" nvarchar2(255),
     "REVISION" integer not null,
     "DELETED" integer not null, 
-    unique("NOTIFICATION_HOME_RESOURCE_ID", "RESOURCE_NAME")
+    unique ("NOTIFICATION_HOME_RESOURCE_ID", "RESOURCE_NAME")
 );
 
 create table APN_SUBSCRIPTIONS (
@@ -252,7 +252,7 @@ create table APN_SUBSCRIPTIONS (
     "SUBSCRIBER_GUID" nvarchar2(255),
     "USER_AGENT" nvarchar2(255) default null,
     "IP_ADDR" nvarchar2(255) default null, 
-    primary key("TOKEN", "RESOURCE_KEY")
+    primary key ("TOKEN", "RESOURCE_KEY")
 );
 
 create table CALENDARSERVER (

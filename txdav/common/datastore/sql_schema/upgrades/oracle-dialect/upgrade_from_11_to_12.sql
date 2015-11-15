@@ -23,7 +23,7 @@ create table NODE_INFO (
     "PID" integer not null,
     "PORT" integer not null,
     "TIME" timestamp default CURRENT_TIMESTAMP at time zone 'UTC' not null,
-    primary key("HOSTNAME", "PORT")
+    primary key ("HOSTNAME", "PORT")
 );
 
 -- Now update the version

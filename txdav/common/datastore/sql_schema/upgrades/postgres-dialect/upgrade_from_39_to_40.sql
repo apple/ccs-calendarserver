@@ -37,7 +37,7 @@ create index DELEGATE_GROUPS_GROUP_ID on
 
 drop index SCHEDULE_REFRESH_ATTENDEES_RESOURCE_ID_ATTENDEE;
 alter table SCHEDULE_REFRESH_ATTENDEES add
-  primary key(RESOURCE_ID, ATTENDEE);
+  primary key (RESOURCE_ID, ATTENDEE);
 
 -- update the version
 update CALENDARSERVER set VALUE = '40' where NAME = 'VERSION';

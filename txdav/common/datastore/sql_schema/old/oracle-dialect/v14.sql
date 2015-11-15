@@ -7,7 +7,7 @@ create table NODE_INFO (
     "PID" integer not null,
     "PORT" integer not null,
     "TIME" timestamp default CURRENT_TIMESTAMP at time zone 'UTC' not null, 
-    primary key("HOSTNAME", "PORT")
+    primary key ("HOSTNAME", "PORT")
 );
 
 create table CALENDAR_HOME (
@@ -48,7 +48,7 @@ create table NOTIFICATION (
     "MD5" nchar(32),
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
-    unique("NOTIFICATION_UID", "NOTIFICATION_HOME_RESOURCE_ID")
+    unique ("NOTIFICATION_UID", "NOTIFICATION_HOME_RESOURCE_ID")
 );
 
 create table CALENDAR_BIND (
@@ -58,8 +58,8 @@ create table CALENDAR_BIND (
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
     "MESSAGE" nclob, 
-    primary key("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_ID"), 
-    unique("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_NAME")
+    primary key ("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_ID"), 
+    unique ("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_NAME")
 );
 
 create table CALENDAR_BIND_MODE (
@@ -101,7 +101,7 @@ create table CALENDAR_OBJECT (
     "MD5" nchar(32),
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
-    unique("CALENDAR_RESOURCE_ID", "RESOURCE_NAME")
+    unique ("CALENDAR_RESOURCE_ID", "RESOURCE_NAME")
 );
 
 create table CALENDAR_OBJECT_ATTACHMENTS_MO (
@@ -165,8 +165,8 @@ create table ATTACHMENT_CALENDAR_OBJECT (
     "ATTACHMENT_ID" integer not null references ATTACHMENT on delete cascade,
     "MANAGED_ID" nvarchar2(255),
     "CALENDAR_OBJECT_RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade, 
-    primary key("ATTACHMENT_ID", "CALENDAR_OBJECT_RESOURCE_ID"), 
-    unique("MANAGED_ID", "CALENDAR_OBJECT_RESOURCE_ID")
+    primary key ("ATTACHMENT_ID", "CALENDAR_OBJECT_RESOURCE_ID"), 
+    unique ("MANAGED_ID", "CALENDAR_OBJECT_RESOURCE_ID")
 );
 
 create table RESOURCE_PROPERTY (
@@ -174,7 +174,7 @@ create table RESOURCE_PROPERTY (
     "NAME" nvarchar2(255),
     "VALUE" nclob,
     "VIEWER_UID" nvarchar2(255), 
-    primary key("RESOURCE_ID", "NAME", "VIEWER_UID")
+    primary key ("RESOURCE_ID", "NAME", "VIEWER_UID")
 );
 
 create table ADDRESSBOOK_HOME (
@@ -207,8 +207,8 @@ create table ADDRESSBOOK_BIND (
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
     "MESSAGE" nclob, 
-    primary key("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_ID"), 
-    unique("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_NAME")
+    primary key ("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_ID"), 
+    unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_NAME")
 );
 
 create table ADDRESSBOOK_OBJECT (
@@ -220,8 +220,8 @@ create table ADDRESSBOOK_OBJECT (
     "MD5" nchar(32),
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
-    unique("ADDRESSBOOK_RESOURCE_ID", "RESOURCE_NAME"), 
-    unique("ADDRESSBOOK_RESOURCE_ID", "VCARD_UID")
+    unique ("ADDRESSBOOK_RESOURCE_ID", "RESOURCE_NAME"), 
+    unique ("ADDRESSBOOK_RESOURCE_ID", "VCARD_UID")
 );
 
 create table CALENDAR_OBJECT_REVISIONS (
@@ -247,7 +247,7 @@ create table NOTIFICATION_OBJECT_REVISIONS (
     "RESOURCE_NAME" nvarchar2(255),
     "REVISION" integer not null,
     "DELETED" integer not null, 
-    unique("NOTIFICATION_HOME_RESOURCE_ID", "RESOURCE_NAME")
+    unique ("NOTIFICATION_HOME_RESOURCE_ID", "RESOURCE_NAME")
 );
 
 create table APN_SUBSCRIPTIONS (
@@ -257,7 +257,7 @@ create table APN_SUBSCRIPTIONS (
     "SUBSCRIBER_GUID" nvarchar2(255),
     "USER_AGENT" nvarchar2(255) default null,
     "IP_ADDR" nvarchar2(255) default null, 
-    primary key("TOKEN", "RESOURCE_KEY")
+    primary key ("TOKEN", "RESOURCE_KEY")
 );
 
 create table CALENDARSERVER (

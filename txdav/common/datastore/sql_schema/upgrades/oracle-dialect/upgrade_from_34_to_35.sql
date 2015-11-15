@@ -56,7 +56,7 @@ create table DELEGATES (
     "DELEGATOR" nvarchar2(255),
     "DELEGATE" nvarchar2(255),
     "READ_WRITE" integer not null,
-    primary key("DELEGATOR", "READ_WRITE", "DELEGATE")
+    primary key ("DELEGATOR", "READ_WRITE", "DELEGATE")
 );
 
 create table DELEGATE_GROUPS (
@@ -64,7 +64,7 @@ create table DELEGATE_GROUPS (
     "GROUP_ID" integer not null,
     "READ_WRITE" integer not null,
     "IS_EXTERNAL" integer not null,
-    primary key("DELEGATOR", "READ_WRITE", "GROUP_ID")
+    primary key ("DELEGATOR", "READ_WRITE", "GROUP_ID")
 );
 
 create table EXTERNAL_DELEGATE_GROUPS (

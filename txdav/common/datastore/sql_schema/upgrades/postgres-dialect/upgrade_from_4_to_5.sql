@@ -24,7 +24,7 @@ drop index CALENDAR_HOME_OWNER_UID;
 
 drop index CALENDAR_HOME_METADATA_RESOURCE_ID;
 alter table CALENDAR_HOME_METADATA
- add primary key(RESOURCE_ID);
+ add primary key (RESOURCE_ID);
 
 drop index INVITE_RESOURCE_ID;
 create index INVITE_RESOURCE_ID on INVITE(RESOURCE_ID);
@@ -43,7 +43,7 @@ drop index CALENDAR_OBJECT_CALENDAR_RESOURCE_ID;
 drop index ATTACHMENT_DROPBOX_ID;
 alter table ATTACHMENT
  drop constraint ATTACHMENT_DROPBOX_ID_PATH_KEY,
- add primary key(DROPBOX_ID, PATH);
+ add primary key (DROPBOX_ID, PATH);
 create index ATTACHMENT_CALENDAR_HOME_RESOURCE_ID on
   ATTACHMENT(CALENDAR_HOME_RESOURCE_ID);
 
@@ -51,7 +51,7 @@ drop index ADDRESSBOOK_HOME_OWNER_UID;
   
 drop index ADDRESSBOOK_HOME_METADATA_RESOURCE_ID;
 alter table ADDRESSBOOK_HOME_METADATA
- add primary key(RESOURCE_ID);
+ add primary key (RESOURCE_ID);
 
 drop index ADDRESSBOOK_BIND_HOME_RESOURCE_ID;
 
@@ -73,7 +73,7 @@ drop index NOTIFICATION_OBJECT_REVISIONS_HOME_RESOURCE_ID;
 
 alter table CALENDARSERVER
  drop constraint CALENDARSERVER_NAME_KEY,
- add primary key(NAME);
+ add primary key (NAME);
 
 -- Now update the version
 update CALENDARSERVER set VALUE = '5' where NAME = 'VERSION';
