@@ -14,7 +14,10 @@
 # limitations under the License.
 ##
 
-from calendarserver.tap.util import MemoryLimitService, Stepper, verifyTLSCertificate, memoryForPID
+from calendarserver.tap.util import (
+    MemoryLimitService, Stepper, verifyTLSCertificate, memoryForPID,
+    secondsSinceLastPost, recordTimeStamp
+)
 
 from twisted.internet.defer import succeed, inlineCallbacks
 from twisted.internet.task import Clock
@@ -296,3 +299,40 @@ class PreFlightChecksTestCase(TestCase):
             )
         )
         self.assertFalse(success)
+
+
+class AlertTestCase(TestCase):
+
+    def test_secondsSinceLastPost(self):
+
+        timestampsDir = self.mktemp()
+        os.mkdir(timestampsDir)
+
+        # Non existent timestamp file
+        self.assertEquals(
+            secondsSinceLastPost("TestAlert", timestampsDirectory=timestampsDir, now=10),
+            10
+        )
+
+        # Existing valid, past timestamp file
+        recordTimeStamp("TestAlert", timestampsDirectory=timestampsDir, now=5)
+        self.assertEquals(
+            secondsSinceLastPost("TestAlert", timestampsDirectory=timestampsDir, now=12),
+            7
+        )
+
+        # Existing valid, future timestamp file
+        recordTimeStamp("TestAlert", timestampsDirectory=timestampsDir, now=20)
+        self.assertEquals(
+            secondsSinceLastPost("TestAlert", timestampsDirectory=timestampsDir, now=12),
+            -8
+        )
+
+        # Existing invalid timestamp file
+        dirFP = FilePath(timestampsDir)
+        child = dirFP.child(".TestAlert.timestamp")
+        child.setContent("not a number")
+        self.assertEquals(
+            secondsSinceLastPost("TestAlert", timestampsDirectory=timestampsDir, now=12),
+            12
+        )

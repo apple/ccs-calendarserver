@@ -42,6 +42,8 @@ import dateutil.parser
 import dateutil.tz
 import email.utils
 
+from OpenSSL.SSL import Error as TLSError
+from calendarserver.tap.util import postAlert
 
 log = Logger()
 
@@ -634,6 +636,12 @@ class POP3DownloadFactory(protocol.ClientFactory):
 
 class IMAP4DownloadProtocol(imap4.IMAP4Client):
     log = Logger()
+
+
+    def connectionLost(self, reason):
+        if reason.type is TLSError:
+            postAlert("MailCertificateAlert", 7 * 24 * 60 * 60, [])
+
 
     def serverGreeting(self, capabilities):
         self.log.debug("IMAP servergreeting")

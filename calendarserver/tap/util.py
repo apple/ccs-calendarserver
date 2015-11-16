@@ -111,6 +111,7 @@ import errno
 import os
 import psutil
 import sys
+import time
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -1325,7 +1326,7 @@ def verifyTLSCertificate(config):
                         cert=config.SSLCertificate
                     )
                 )
-                postAlert("MissingCertificateAlert", ["path", config.SSLCertificate])
+                postAlert("MissingCertificateAlert", 0, ["path", config.SSLCertificate])
                 return False, message
 
             length = os.stat(config.SSLCertificate).st_size
@@ -1392,7 +1393,7 @@ def verifyAPNSCertificate(config):
                         topic = getAPNTopicFromIdentity(protoConfig.KeychainIdentity)
                         protoConfig.Topic = topic
                     if not protoConfig.Topic:
-                        postAlert("PushNotificationKeychainIdentityAlert", [])
+                        postAlert("PushNotificationKeychainIdentityAlert", 0, [])
                         message = "Cannot extract APN topic"
                         return False, message
 
@@ -1415,7 +1416,7 @@ def verifyAPNSCertificate(config):
                             proto=protocol,
                         )
                     )
-                    postAlert("MissingKeychainIdentityAlert", [])
+                    postAlert("MissingKeychainIdentityAlert", 0, [])
                     return False, message
 
             else:
@@ -1426,7 +1427,7 @@ def verifyAPNSCertificate(config):
                             cert=protoConfig.CertificatePath
                         )
                     )
-                    postAlert("PushNotificationCertificateAlert", [])
+                    postAlert("PushNotificationCertificateAlert", 0, [])
                     return False, message
 
                 # Verify we can extract the topic
@@ -1434,7 +1435,7 @@ def verifyAPNSCertificate(config):
                     topic = getAPNTopicFromCertificate(protoConfig.CertificatePath)
                     protoConfig.Topic = topic
                 if not protoConfig.Topic:
-                    postAlert("PushNotificationCertificateAlert", [])
+                    postAlert("PushNotificationCertificateAlert", 0, [])
                     message = "Cannot extract APN topic"
                     return False, message
 
@@ -1448,7 +1449,7 @@ def verifyAPNSCertificate(config):
                         pass
                     except KeychainPasswordNotFound:
                         # The password doesn't exist in the keychain.
-                        postAlert("PushNotificationCertificateAlert", [])
+                        postAlert("PushNotificationCertificateAlert", 0, [])
                         message = "Cannot retrieve APN passphrase from keychain"
                         return False, message
 
@@ -1484,7 +1485,7 @@ def verifyAPNSCertificate(config):
                             reason=str(e)
                         )
                     )
-                postAlert("PushNotificationCertificateAlert", [])
+                postAlert("PushNotificationCertificateAlert", 0, [])
                 return False, message
 
         return True, "APNS enabled"
@@ -1562,11 +1563,51 @@ def getSSLPassphrase(*ignored):
 
 
 
-def postAlert(alertType, args):
+def secondsSinceLastPost(alertType, timestampsDirectory=None, now=None):
+    if timestampsDirectory is None:
+        timestampsDirectory = config.DataRoot
+    if now is None:
+        now = int(time.time())
+
+    dirFP = FilePath(timestampsDirectory)
+    childFP = dirFP.child(".{}.timestamp".format(alertType))
+    if not childFP.exists():
+        timestamp = 0
+    else:
+        with childFP.open() as child:
+            try:
+                line = child.readline().strip()
+                timestamp = int(line)
+            except:
+                timestamp = 0
+    return now - timestamp
+
+
+
+def recordTimeStamp(alertType, timestampsDirectory=None, now=None):
+    if timestampsDirectory is None:
+        timestampsDirectory = config.DataRoot
+    if now is None:
+        now = int(time.time())
+
+    dirFP = FilePath(timestampsDirectory)
+    childFP = dirFP.child(".{}.timestamp".format(alertType))
+    childFP.setContent(str(now))
+
+
+
+def postAlert(alertType, ignoreWithinSeconds, args):
     if (
         config.AlertPostingProgram and
         os.path.exists(config.AlertPostingProgram)
     ):
+        if ignoreWithinSeconds:
+            seconds = secondsSinceLastPost(alertType)
+            if seconds < ignoreWithinSeconds:
+                return
+
+        recordTimeStamp(alertType)
+
         try:
             commandLine = [config.AlertPostingProgram, alertType]
             commandLine.extend(args)
