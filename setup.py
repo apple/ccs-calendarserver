@@ -344,7 +344,7 @@ install_requirements = [
     "setproctitle",
 ]
 
-if sys.platform == "darwin":
+if sys.platform == "darwin" and os.getenv("USE_OPENSSL") is None:
     install_requirements.extend([
         "OSXFrameworks",
         "pySecureTransport",
