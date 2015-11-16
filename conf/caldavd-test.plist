@@ -703,10 +703,6 @@
       <dict>
         <key>Enabled</key>
         <false/>
-        <key>MailGatewayServer</key>
-        <string>localhost</string>
-        <key>MailGatewayPort</key>
-        <integer>62310</integer>
         <key>Sending</key>
         <dict>
           <key>Server</key>
