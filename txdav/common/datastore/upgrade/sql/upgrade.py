@@ -22,12 +22,15 @@ data stores.
 
 import re
 
+from twext.enterprise.dal.parseschema import schemaFromPath
 from twext.python.log import Logger
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.failure import Failure
 from twisted.python.modules import getModule
 from twisted.python.reflect import namedObject
+
+from twistedcaldav.config import config
 
 from txdav.common.datastore.upgrade.sql.others import attachment_migration
 
@@ -96,7 +99,7 @@ class UpgradeDatabaseCoreStep(object):
     """
     log = Logger()
 
-    def __init__(self, sqlStore, uid=None, gid=None, failIfUpgradeNeeded=False):
+    def __init__(self, sqlStore, uid=None, gid=None, failIfUpgradeNeeded=False, checkExistingSchema=False):
         """
         Initialize the service.
         """
@@ -104,6 +107,7 @@ class UpgradeDatabaseCoreStep(object):
         self.uid = uid
         self.gid = gid
         self.failIfUpgradeNeeded = failIfUpgradeNeeded
+        self.checkExistingSchema = checkExistingSchema
         self.schemaLocation = getModule(__name__).filePath.parent().parent().sibling("sql_schema")
         self.pyLocation = getModule(__name__).filePath.parent()
 
@@ -133,6 +137,14 @@ class UpgradeDatabaseCoreStep(object):
 
         if required_version == actual_version:
             self.log.warn("{vers} version check complete: no upgrade needed.", vers=self.versionDescriptor.capitalize())
+            if self.checkExistingSchema:
+                if dialect == "postgres-dialect":
+                    expected_schema = self.schemaLocation.child("current.sql")
+                    schema_name = "public"
+                else:
+                    expected_schema = self.schemaLocation.child("current-oracle-dialect.sql")
+                    schema_name = config.DatabaseConnection.user
+                yield self.sqlStore.checkSchema(schemaFromPath(expected_schema), schema_name)
         elif required_version < actual_version:
             msg = "Actual %s version %s is more recent than the expected version %s. The service cannot be started" % (
                 self.versionDescriptor, actual_version, required_version,
@@ -140,6 +152,13 @@ class UpgradeDatabaseCoreStep(object):
             self.log.error(msg)
             raise RuntimeError(msg)
         elif self.failIfUpgradeNeeded:
+            if self.checkExistingSchema:
+                expected_schema = self.schemaLocation.child("old").child(dialect).child("v{}.sql".format(actual_version))
+                if dialect == "postgres-dialect":
+                    schema_name = "public"
+                else:
+                    schema_name = config.DatabaseConnection.user
+                yield self.sqlStore.checkSchema(schemaFromPath(expected_schema), schema_name)
             raise NotAllowedToUpgrade()
         else:
             self.sqlStore.setUpgrading(True)
@@ -213,7 +232,7 @@ class UpgradeDatabaseCoreStep(object):
             self.log.error("Database {vers} upgrade failed using: {path}", vers=self.versionDescriptor, path=fp.basename())
             raise
 
-        self.log.warn("{vers} upgraded from version {fr} to {o}.", vers=self.versionDescriptor.capitalize(), fr=fromVersion, to=toVersion)
+        self.log.warn("{vers} upgraded from version {fr} to {to}.", vers=self.versionDescriptor.capitalize(), fr=fromVersion, to=toVersion)
 
 
     def getPathToUpgrades(self, dialect):
@@ -318,7 +337,13 @@ class UpgradeDatabaseSchemaStep(UpgradeDatabaseCoreStep):
             sql = fp.getContent()
             yield sqlTxn.execSQLBlock(sql)
             yield sqlTxn.commit()
-        except RuntimeError:
+        except (RuntimeError, StandardError) as e:
+            if hasattr(e, "stmt"):
+                self.log.error("Apply upgrade failed for '{basename}' on statement: {stmt}\n{err}".format(
+                    basename=fp.basename(),
+                    stmt=e.stmt,
+                    err=e,
+                ))
             f = Failure()
             yield sqlTxn.abort()
             f.raiseException()

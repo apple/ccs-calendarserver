@@ -248,6 +248,10 @@ DEFAULT_CONFIG = {
                                    # tools from running if the database needs a schema
                                    # upgrade.
 
+    "CheckExistingSchema": False,  # Set to True to check the current database schema
+                                   # against the schema file matching the database schema
+                                   # version.
+
     "UpgradeHomePrefix": "",    # When upgrading, only upgrade homes where the owner UID starts with
                                 # the specified prefix. The upgrade will only be partial and only
                                 # apply to upgrade pieces that affect entire homes. The upgrade will

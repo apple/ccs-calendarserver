@@ -1556,7 +1556,8 @@ class CalDAVServiceMaker (object):
                 pps.addStep(
                     UpgradeDatabaseSchemaStep(
                         store, uid=overrideUID, gid=overrideGID,
-                        failIfUpgradeNeeded=config.FailIfUpgradeNeeded
+                        failIfUpgradeNeeded=config.FailIfUpgradeNeeded,
+                        checkExistingSchema=config.CheckExistingSchema,
                     )
                 )
 

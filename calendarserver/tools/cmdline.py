@@ -29,9 +29,8 @@ from twistedcaldav.timezones import TimezoneCache
 
 from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, succeed
-from twisted.logger import STDLibLogObserver
+from twisted.logger import STDLibLogObserver, FileLogObserver, formatEventAsClassicLogText
 from twisted.python.logfile import LogFile
-from twisted.python.log import addObserver
 
 import sys
 from errno import ENOENT, EACCES
@@ -105,8 +104,9 @@ def utilityMain(
             rotateLength=config.ErrorLogRotateMB * 1024 * 1024,
             maxRotatedFiles=config.ErrorLogMaxRotatedFiles
         )
-        utilityLogObserver = Logger.makeFilteredFileLogObserver(utilityLogFile)
-        addObserver(utilityLogObserver)
+        utilityLogObserver = FileLogObserver(utilityLogFile, lambda event: formatEventAsClassicLogText(event))
+        utilityLogObserver._encoding = "utf-8"
+        Logger.beginLoggingTo([utilityLogObserver, ])
 
         config.ProcessType = "Utility"
         config.UtilityServiceClass = _makeValidService

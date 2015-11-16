@@ -62,6 +62,7 @@ from txdav.common.datastore.podding.migration.work import MigratedHomeCleanupWor
 from txdav.common.datastore.sql_apn import APNSubscriptionsMixin
 from txdav.common.datastore.sql_directory import DelegatesAPIMixin, \
     GroupsAPIMixin, GroupCacherAPIMixin
+from txdav.common.datastore.sql_dump import dumpSchema
 from txdav.common.datastore.sql_imip import imipAPIMixin
 from txdav.common.datastore.sql_notification import NotificationCollection
 from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, _BIND_STATUS_ACCEPTED, \
@@ -388,6 +389,32 @@ class CommonDataStore(Service, object):
                     returnValue((True, None,))
         else:
             returnValue((False, None,))
+
+
+    @inlineCallbacks
+    def checkSchema(self, expected_schema, schema_name):
+        """
+        Check the schema actually in the database against the one in the supplied
+        schema file.
+
+        @param expected_schema: the expected schema
+        @type expected_schema: L{Schema}
+        """
+        txn = yield self.newTransaction(label="CommonDataStore.checkSchema")
+        try:
+            actual_schema = yield dumpSchema(txn, "actual", schema_name)
+            results = actual_schema.compare(expected_schema)
+            if results:
+                if not hasattr(self.__class__, "checkSchemaResults"):
+                    self.__class__.checkSchemaResults = results
+                log.warn("Schema comparison mismatch:\n{}".format("\n".join(results)))
+            else:
+                log.warn("Schema comparison match")
+        except Exception as e:
+            log.error("Schema comparison match failed: {}".format(e))
+            yield txn.abort()
+        else:
+            yield txn.commit()
 
 
 
@@ -990,7 +1017,11 @@ class CommonStoreTransaction(
         """
         for stmt in splitSQLString(sql):
             if not stmt.startswith("--"):
-                yield self.execSQL(stmt)
+                try:
+                    yield self.execSQL(stmt)
+                except (RuntimeError, StandardError) as e:
+                    e.stmt = "SQLBlock statement failed: {}".format(stmt)
+                    raise
 
 
     def commit(self):

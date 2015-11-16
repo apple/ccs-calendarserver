@@ -20,13 +20,15 @@
 This tool allows any necessary upgrade to complete, then exits.
 """
 
-from __future__ import print_function
 import os
 import sys
 import time
 
+from txdav.common.datastore.sql import CommonDataStore
+
 from twisted.internet.defer import succeed
 from twisted.logger import LogLevel, formatEvent
+from twisted.logger import FilteringLogObserver, LogLevelFilterPredicate
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
 
@@ -77,6 +79,7 @@ class UpgradeOptions(Options):
 
     optFlags = [
         ['status', 's', "Check database status and exit."],
+        ['check', 'c', "Check current database schema and exit."],
         ['postprocess', 'p', "Perform post-database-import processing."],
         ['debug', 'D', "Print log messages to STDOUT."],
     ]
@@ -146,6 +149,11 @@ class UpgraderService(WorkerService, object):
         # If we get this far the database is OK
         if self.options["status"]:
             self.output.write("Database OK.\n")
+        elif self.options["check"]:
+            if hasattr(CommonDataStore, "checkSchemaResults"):
+                self.output.write("Database check failed:\n{}\n".format("\n".join(CommonDataStore.checkSchemaResults))) #@UndefinedVariable
+            else:
+                self.output.write("Database check OK.\n")
         else:
             self.output.write("Upgrade complete, shutting down.\n")
         UpgraderService.started = True
@@ -154,10 +162,15 @@ class UpgraderService(WorkerService, object):
 
     def doWorkWithoutStore(self):
         """
-        Immediately stop.  The upgrade will have been run before this.
+        Immediately stop.  The upgrade will have been run before this and failed.
         """
         if self.options["status"]:
             self.output.write("Upgrade needed.\n")
+        elif self.options["check"]:
+            if hasattr(CommonDataStore, "checkSchemaResults"):
+                self.output.write("Database check failed:\n{}\n".format("\n".join(CommonDataStore.checkSchemaResults))) #@UndefinedVariable
+            else:
+                self.output.write("Database check OK.\n")
         else:
             self.output.write("Upgrade failed.\n")
         UpgraderService.started = True
@@ -220,9 +233,12 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         output.write(logDateString() + " " + text + "\n")
         output.flush()
 
-    if not options["status"]:
-        log.levels().setLogLevelForNamespace(None, LogLevel.debug)
-        log.observer.addObserver(onlyUpgradeEvents)
+    if not options["status"] and not options["check"]:
+        # When doing an upgrade always send L{LogLevel.warn} logging to the tool output
+        log.observer.addObserver(FilteringLogObserver(
+            onlyUpgradeEvents,
+            [LogLevelFilterPredicate(defaultLogLevel=LogLevel.warn), ]
+        ))
 
 
     def customServiceMaker():
@@ -232,9 +248,12 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
 
 
     def _patchConfig(config):
-        config.FailIfUpgradeNeeded = options["status"]
+        config.FailIfUpgradeNeeded = options["status"] or options["check"]
+        config.CheckExistingSchema = options["check"]
         if options["prefix"]:
             config.UpgradeHomePrefix = options["prefix"]
+        if not options["status"] and not options["check"]:
+            config.DefaultLogLevel = "debug"
 
 
     def _onShutdown():
