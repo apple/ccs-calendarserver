@@ -106,7 +106,7 @@ def utilityMain(
         )
         utilityLogObserver = FileLogObserver(utilityLogFile, lambda event: formatEventAsClassicLogText(event))
         utilityLogObserver._encoding = "utf-8"
-        Logger.beginLoggingTo([utilityLogObserver, ])
+        Logger.beginLoggingTo([utilityLogObserver, ], redirectStandardIO=False)
 
         config.ProcessType = "Utility"
         config.UtilityServiceClass = _makeValidService
