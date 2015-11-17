@@ -183,7 +183,6 @@ class RunCommandTestCase(TestCase):
 
 
 
-
 class GatewayTestCase(RunCommandTestCase):
 
     def _flush(self):

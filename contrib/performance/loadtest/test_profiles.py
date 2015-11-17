@@ -1094,6 +1094,7 @@ class OperationLoggerTests(TestCase):
             logger.failures())
 
 
+
 class AlarmAcknowledgerTests(TestCase):
 
     def test_pastTheHour(self):

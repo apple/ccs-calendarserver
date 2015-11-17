@@ -410,8 +410,6 @@ class ConfigTestCase(RunCommandTestCase):
         )
 
 
-
-
     def test_keyPath(self):
         d = ConfigDict()
         setKeyPath(d, "one", "A")

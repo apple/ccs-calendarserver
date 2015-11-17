@@ -127,7 +127,7 @@ class ConfigurationPageElement(PageElement):
                     name = html.code(namespace)
 
                 value = html.code(
-                    Logger.publisher.levels.logLevelForNamespace(
+                    Logger.levels().logLevelForNamespace(
                         namespace
                     ).name
                 )
@@ -138,7 +138,7 @@ class ConfigurationPageElement(PageElement):
                 )
 
         # FIXME: Using private attributes is bad.
-        namespaces = Logger.publisher.levels._logLevelsByNamespace.keys()
+        namespaces = Logger.levels()._logLevelsByNamespace.keys()
 
         return rowsForNamespaces(namespaces)
 

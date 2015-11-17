@@ -218,7 +218,6 @@ def loopWithDistribution(reactor, distribution, function):
 
 
 
-
 class Inviter(ProfileBase):
     """
     A Calendar user who invites other users to new events.
@@ -602,6 +601,7 @@ END:VCALENDAR
         return self._newOperation("create", d)
 
 
+
 class EventUpdaterBase(ProfileBase):
 
     @inlineCallbacks
@@ -633,8 +633,9 @@ class EventUpdaterBase(ProfileBase):
 
 
     def modifyEvent(self, href, vevent):
-        """Overriden by subclasses"""
+        """Overridden by subclasses"""
         pass
+
 
 
 class TitleChanger(EventUpdaterBase):
@@ -649,10 +650,12 @@ class TitleChanger(EventUpdaterBase):
         self._interval = interval
         self._titleLength = titleLengthDistribution
 
+
     def modifyEvent(self, _ignore_href, vevent):
         length = max(5, int(self._titleLength.sample()))
         vevent.replaceProperty(Property("SUMMARY", "Event" + "." * (length - 5)))
         return succeed("update{title}")
+
 
 
 class Attacher(EventUpdaterBase):
@@ -667,11 +670,13 @@ class Attacher(EventUpdaterBase):
         self._interval = interval
         self._fileSize = fileSizeDistribution
 
+
     @inlineCallbacks
     def modifyEvent(self, href, vevent):
         fileSize = int(self._fileSize.sample())
         yield self._client.postAttachment(href, 'x' * fileSize)
         returnValue("attach{files}")
+
 
 
 class EventCountLimiter(EventUpdaterBase):
@@ -690,6 +695,7 @@ class EventCountLimiter(EventUpdaterBase):
         self.enabled = enabled
         self._interval = interval
         self._limit = eventCountLimit
+
 
     @inlineCallbacks
     def action(self):

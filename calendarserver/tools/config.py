@@ -126,6 +126,7 @@ def usage(e=None):
         sys.exit(0)
 
 
+
 def runAsRootCheck():
     """
     If we're running in Server.app context and are not running as root, exit.
@@ -135,6 +136,7 @@ def runAsRootCheck():
         if os.getuid() != 0:
             print("Must be run as root")
             sys.exit(1)
+
 
 
 def main():
@@ -247,6 +249,7 @@ def main():
     processArgs(writable, args)
 
 
+
 def setServiceState(service, state):
     """
     Invoke serverctl to enable/disable a service
@@ -258,11 +261,12 @@ def setServiceState(service, state):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    output, error = child.communicate()
+    _ignore_output, error = child.communicate()
     if child.returncode:
         sys.stdout.write(
             "Error from serverctl: %d, %s" % (child.returncode, error)
         )
+
 
 
 def setEnabled(enabled):
@@ -276,6 +280,7 @@ def setEnabled(enabled):
 
     runner = Runner([command], quiet=True)
     runner.run()
+
 
 
 def setReverseProxies():

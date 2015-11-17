@@ -86,7 +86,7 @@ class DelegatesMigrationService(WorkerService):
 
 def main():
     try:
-        (optargs, args) = getopt(
+        (optargs, _ignore_args) = getopt(
             sys.argv[1:], "d:f:hp:P:s:t:u:", [
                 "help",
                 "config=",
@@ -152,6 +152,7 @@ def main():
     utilityMain(configFileName, DelegatesMigrationService)
 
 
+
 @inlineCallbacks
 def getAssignments(db):
     """
@@ -163,6 +164,7 @@ def getAssignments(db):
     rows = yield db.query("select GROUPNAME, MEMBER from GROUPS;")
     print("Fetched {} delegate assignments".format(len(rows)))
     returnValue(rows)
+
 
 
 @inlineCallbacks
@@ -272,6 +274,7 @@ def copyAssignments(assignments, pod, directory, store):
             print(uid)
 
 
+
 @inlineCallbacks
 def migrateDelegates(service, store, server, user, password, pod, database, dbtype):
     print("Migrating from server {}".format(server))
@@ -285,7 +288,6 @@ def migrateDelegates(service, store, server, user, password, pod, database, dbty
     except IOError:
         log.error("Could not start proxydb service")
         raise
-
 
 
 

@@ -196,7 +196,7 @@ class CalendarClientSimulator(object):
             # There is only one item and caller doesn't want it!
             return None
 
-        for i in xrange(100):
+        for _i in xrange(100):
             # Try to find one that is not "besides"
             n = self._random.randint(0, count - 1)
             if besides != n:
@@ -206,7 +206,6 @@ class CalendarClientSimulator(object):
             # Give up
             return None
         return self._records[n]
-
 
 
     def _nextUserNumber(self):

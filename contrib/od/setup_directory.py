@@ -260,6 +260,7 @@ def usage(e=None):
         sys.exit(0)
 
 
+
 def lookupRecordName(node, recordType, name):
     query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
         node,
@@ -328,8 +329,6 @@ def main():
             "groups" : localGroups,
         },
     }
-
-
 
     session = odframework.ODSession.defaultSession()
     userRecords = []
