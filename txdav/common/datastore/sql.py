@@ -404,9 +404,8 @@ class CommonDataStore(Service, object):
         try:
             actual_schema = yield dumpSchema(txn, "actual", schema_name)
             results = actual_schema.compare(expected_schema)
+            self.__class__.checkSchemaResults = results
             if results:
-                if not hasattr(self.__class__, "checkSchemaResults"):
-                    self.__class__.checkSchemaResults = results
                 log.warn("Schema comparison mismatch:\n{}".format("\n".join(results)))
             else:
                 log.warn("Schema comparison match")

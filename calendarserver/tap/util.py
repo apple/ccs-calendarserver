@@ -1148,22 +1148,13 @@ class Stepper(object):
         return succeed(result)
 
 
-    def defaultStepWithFailure(self, failure):
+    def defaultStepWithFailure(self, failure, step):
         if failure.type not in (
             NotAllowedToUpgrade, ConfigurationError,
             OpenSSL.SSL.Error
         ):
-            log.failure("Step failure", failure=failure)
+            log.failure("Step failure: {name}", name=step.__class__.__name__, failure=failure)
         return failure
-
-    # def protectStep(self, callback):
-    #     def _protected(result):
-    #         try:
-    #             return callback(result)
-    #         except Exception, e:
-    #             # TODO: how to turn Exception into Failure
-    #             return Failure()
-    #     return _protected
 
 
     def start(self, result=None):
@@ -1188,11 +1179,13 @@ class Stepper(object):
                 callBack = self.defaultStepWithResult
             if hasattr(step, "stepWithFailure"):
                 errBack = step.stepWithFailure
+                errbackArgs = ()
             else:
                 errBack = self.defaultStepWithFailure
+                errbackArgs = (step,)
 
             # Add callbacks to the Deferred
-            self.deferred.addCallbacks(callBack, errBack)
+            self.deferred.addCallbacks(callBack, errBack, errbackArgs=errbackArgs)
 
         # Get things going
         self.deferred.callback(result)

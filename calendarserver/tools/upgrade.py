@@ -27,7 +27,7 @@ import time
 from txdav.common.datastore.sql import CommonDataStore
 
 from twisted.internet.defer import succeed
-from twisted.logger import LogLevel, formatEvent
+from twisted.logger import LogLevel, formatEvent, formatTime
 from twisted.logger import FilteringLogObserver, LogLevelFilterPredicate
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
@@ -150,10 +150,14 @@ class UpgraderService(WorkerService, object):
         if self.options["status"]:
             self.output.write("Database OK.\n")
         elif self.options["check"]:
-            if hasattr(CommonDataStore, "checkSchemaResults"):
-                self.output.write("Database check failed:\n{}\n".format("\n".join(CommonDataStore.checkSchemaResults))) #@UndefinedVariable
+            checkResult = getattr(CommonDataStore, "checkSchemaResults", None)
+            if checkResult is not None:
+                if checkResult:
+                    self.output.write("Database check FAILED:\n{}\n".format("\n".join(checkResult)))
+                else:
+                    self.output.write("Database check OK.\n")
             else:
-                self.output.write("Database check OK.\n")
+                self.output.write("Database check FAILED.\n")
         else:
             self.output.write("Upgrade complete, shutting down.\n")
         UpgraderService.started = True
@@ -167,10 +171,14 @@ class UpgraderService(WorkerService, object):
         if self.options["status"]:
             self.output.write("Upgrade needed.\n")
         elif self.options["check"]:
-            if hasattr(CommonDataStore, "checkSchemaResults"):
-                self.output.write("Database check failed:\n{}\n".format("\n".join(CommonDataStore.checkSchemaResults))) #@UndefinedVariable
+            checkResult = getattr(CommonDataStore, "checkSchemaResults", None)
+            if checkResult is not None:
+                if checkResult:
+                    self.output.write("Database check FAILED:\n{}\n".format("\n".join(checkResult)))
+                else:
+                    self.output.write("Database check OK.\n")
             else:
-                self.output.write("Database check OK.\n")
+                self.output.write("Database check FAILED.\n")
         else:
             self.output.write("Upgrade failed.\n")
         UpgraderService.started = True
@@ -230,7 +238,7 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
 
     def onlyUpgradeEvents(eventDict):
         text = formatEvent(eventDict)
-        output.write(logDateString() + " " + text + "\n")
+        output.write(formatTime(eventDict.get("log_time", time.time())) + " " + text + "\n")
         output.flush()
 
     if not options["status"] and not options["check"]:
@@ -262,29 +270,6 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
 
     utilityMain(options["config"], makeService, reactor, customServiceMaker, patchConfig=_patchConfig, onShutdown=_onShutdown, verbose=options["debug"])
 
-
-
-def logDateString():
-    logtime = time.localtime()
-    Y, M, D, h, m, s = logtime[:6]
-    tz = computeTimezoneForLog(time.timezone)
-
-    return '%02d-%02d-%02d %02d:%02d:%02d%s' % (Y, M, D, h, m, s, tz)
-
-
-
-def computeTimezoneForLog(tz):
-    if tz > 0:
-        neg = 1
-    else:
-        neg = 0
-        tz = -tz
-    h, rem = divmod(tz, 3600)
-    m, rem = divmod(rem, 60)
-    if neg:
-        return '-%02d%02d' % (h, m)
-    else:
-        return '+%02d%02d' % (h, m)
 
 if __name__ == '__main__':
     main()
