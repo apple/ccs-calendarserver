@@ -193,7 +193,7 @@ class ScheduleViaISchedule(DeliveryService):
         if serverURI not in self.otherServers:
             self.otherServers[serverURI] = IScheduleServerRecord(
                 uri=joinURL(serverURI, config.Servers.InboxName),
-                unNormalizeAddresses=not recipient.record.server().isImplicit,
+                rewriteCUAddresses=recipient.record.server().v5,
                 moreHeaders=[recipient.record.server().secretHeader(), ],
                 podding=True,
             )
@@ -379,13 +379,28 @@ class IScheduleRequest(object):
 
         # The Originator must be the ORGANIZER (for a request) or ATTENDEE (for a reply)
         originator = self.scheduler.organizer.cuaddr if self.scheduler.isiTIPRequest else self.scheduler.attendee
-        if self.server.unNormalizeAddresses:
-            originator = yield normalizeCUAddress(originator, normalizationLookup, self.scheduler.txn.directoryService().recordWithCalendarUserAddress, toCanonical=False)
+        if self.server.rewriteCUAddresses:
+            originator = yield normalizeCUAddress(
+                originator,
+                normalizationLookup,
+                self.scheduler.txn.directoryService().recordWithCalendarUserAddress,
+                toCanonical=False,
+                toURN_UUID=self.server.podding(),
+            )
         self.headers.addRawHeader("Originator", utf8String(originator))
         self.sign_headers.append("Originator")
 
         for recipient in self.recipients:
-            self.headers.addRawHeader("Recipient", utf8String(recipient.cuaddr))
+            cuaddr = recipient.cuaddr
+            if self.server.rewriteCUAddresses and self.server.podding():
+                cuaddr = yield normalizeCUAddress(
+                    cuaddr,
+                    normalizationLookup,
+                    self.scheduler.txn.directoryService().recordWithCalendarUserAddress,
+                    toCanonical=False,
+                    toURN_UUID=True,
+                )
+            self.headers.addRawHeader("Recipient", utf8String(cuaddr))
 
         # Only one Recipient header as they get concatenated in ischedule-relaxed canonicalization
         self.sign_headers.append("Recipient")
@@ -434,11 +449,13 @@ class IScheduleRequest(object):
             # Need to remap cuaddrs from urn:uuid
             normalizedCalendar = self.scheduler.calendar.duplicate()
             self.original_organizer = normalizedCalendar.getOrganizer()
-            if self.server.unNormalizeAddresses:
+            if self.server.rewriteCUAddresses:
                 yield normalizedCalendar.normalizeCalendarUserAddresses(
                     normalizationLookup,
                     self.scheduler.txn.directoryService().recordWithCalendarUserAddress,
-                    toCanonical=False)
+                    toCanonical=False,
+                    toURN_UUID=self.server.podding(),
+                )
 
             # For VFREEBUSY we need to strip out ATTENDEEs that do not match the recipient list
             if self.scheduler.isfreebusy:
@@ -524,7 +541,7 @@ class IScheduleRequest(object):
             calendar_data = response.childOfType(CalendarData)
             if calendar_data:
                 calendar_data = str(calendar_data)
-                if self.server.unNormalizeAddresses and self.original_organizer is not None:
+                if self.server.rewriteCUAddresses and self.original_organizer is not None:
                     # Need to restore original ORGANIZER value if it got unnormalized
                     calendar = Component.fromString(calendar_data)
                     organizers = calendar.getAllPropertiesInAnyComponent("ORGANIZER", depth=1)

@@ -8191,6 +8191,76 @@ END:VCALENDAR
 
 
     @inlineCallbacks
+    def test_normalizeCalendarUserAddressesFromCanonical_URN_UUID(self):
+        """
+        Ensure mailto is preferred, followed by path form, then http form.
+        """
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+DTSTART:20071114T000000Z
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20071114T000000Z
+ATTENDEE:urn:x-uid:foo
+ATTENDEE:urn:x-uid:bar
+ATTENDEE:urn:x-uid:baz
+ATTENDEE:urn:x-uid:buz
+DTSTAMP:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+"""
+
+        component = Component.fromString(data)
+
+
+        def lookupFunction(cuaddr, ignored1, ignored2):
+            return succeed(
+                {
+                    "urn:x-uid:foo" : (
+                        "Foo",
+                        "foo",
+                        "INDIVIDUAL",
+                        ("urn:x-uid:foo", "urn:uuid:foo", "http://example.com/foo", "/foo")
+                    ),
+                    "urn:x-uid:bar" : (
+                        "Bar",
+                        "bar",
+                        "INDIVIDUAL",
+                        ("urn:x-uid:bar", "urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
+                    ),
+                    "urn:x-uid:baz" : (
+                        "Baz",
+                        "baz",
+                        "INDIVIDUAL",
+                        ("urn:x-uid:baz", "urn:uuid:baz", "http://example.com/baz")
+                    ),
+                    "urn:x-uid:buz" : (
+                        "Buz",
+                        "buz",
+                        "INDIVIDUAL",
+                        ("urn:x-uid:buz", "urn:uuid:buz", "http://example.com/buz")
+                    ),
+                }[cuaddr]
+            )
+
+        yield component.normalizeCalendarUserAddresses(lookupFunction, None, toCanonical=False, toURN_UUID=True)
+
+        self.assertEquals(
+            "urn:uuid:foo",
+            component.getAttendeeProperty(("urn:uuid:foo",)).value())
+        self.assertEquals(
+            "urn:uuid:bar",
+            component.getAttendeeProperty(("urn:uuid:bar",)).value())
+        self.assertEquals(
+            "urn:uuid:baz",
+            component.getAttendeeProperty(("urn:uuid:baz",)).value())
+        self.assertEquals(
+            "urn:uuid:buz",
+            component.getAttendeeProperty(("urn:uuid:buz",)).value())
+
+
+    @inlineCallbacks
     def test_normalizeCalendarUserAddressesAndLocationChange(self):
         """
         Ensure http(s) and /path CUA values are tucked away into the property
@@ -9171,6 +9241,82 @@ END:VCALENDAR
 
         for cuaddr, result in data:
             new_cuaddr = yield normalizeCUAddress(cuaddr, lookupFunction, None, toCanonical=True)
+            self.assertEquals(new_cuaddr, result)
+
+
+    @inlineCallbacks
+    def test_normalizeCUAddressFromCanonical_URN_UUID(self):
+        """
+        Ensure mailto is preferred, followed by path form, then http form.
+        """
+
+        data = (
+            ("urn:uuid:foo", "/foo"),
+            ("urn:uuid:bar", "mailto:bar@example.com",),
+            ("urn:uuid:baz", "http://example.com/baz",),
+            ("urn:uuid:buz", "urn:x-uid:buz",),
+            ("urn:x-uid:foo", "urn:uuid:foo"),
+            ("urn:x-uid:bar", "urn:uuid:bar",),
+            ("urn:x-uid:baz", "urn:uuid:baz",),
+            ("urn:x-uid:buz", "urn:uuid:buz",),
+        )
+
+        def lookupFunction(cuaddr, ignored1, ignored2):
+            return succeed(
+                {
+                    "urn:uuid:foo" : (
+                        "Foo",
+                        "foo",
+                        "INDIVIDUAL",
+                        ("urn:x-uid:foo", "urn:uuid:foo", "http://example.com/foo", "/foo")
+                    ),
+                    "urn:uuid:bar" : (
+                        "Bar",
+                        "bar",
+                        "INDIVIDUAL",
+                        ("urn:x-uid:bar", "urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
+                    ),
+                    "urn:uuid:baz" : (
+                        "Baz",
+                        "baz",
+                        "INDIVIDUAL",
+                        ("urn:x-uid:baz", "urn:uuid:baz", "http://example.com/baz")
+                    ),
+                    "urn:uuid:buz" : (
+                        "Buz",
+                        "buz",
+                        "INDIVIDUAL",
+                        ("urn:x-uid:buz", "urn:uuid:buz",)
+                    ),
+                    "urn:x-uid:foo" : (
+                        "Foo",
+                        "foo",
+                        "INDIVIDUAL",
+                        ("urn:x-uid:foo", "urn:uuid:foo", "http://example.com/foo", "/foo")
+                    ),
+                    "urn:x-uid:bar" : (
+                        "Bar",
+                        "bar",
+                        "INDIVIDUAL",
+                        ("urn:x-uid:bar", "urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
+                    ),
+                    "urn:x-uid:baz" : (
+                        "Baz",
+                        "baz",
+                        "INDIVIDUAL",
+                        ("urn:x-uid:baz", "urn:uuid:baz", "http://example.com/baz")
+                    ),
+                    "urn:x-uid:buz" : (
+                        "Buz",
+                        "buz",
+                        "INDIVIDUAL",
+                        ("urn:x-uid:buz", "urn:uuid:buz",)
+                    ),
+                }[cuaddr]
+            )
+
+        for cuaddr, result in data:
+            new_cuaddr = yield normalizeCUAddress(cuaddr, lookupFunction, None, toCanonical=False, toURN_UUID=True)
             self.assertEquals(new_cuaddr, result)
 
 

@@ -148,7 +148,7 @@ class Server(object):
         self.ips = set()
         self.allowed_from_ips = set()
         self.shared_secret = sharedSecret
-        self.isImplicit = True
+        self.v5 = False   # Needs old style urn:uuid cu-address
 
 
     def details(self):
@@ -274,7 +274,7 @@ ELEMENT_ID = "id"
 ELEMENT_URI = "uri"
 ELEMENT_ALLOWED_FROM = "allowed-from"
 ELEMENT_SHARED_SECRET = "shared-secret"
-ATTR_IMPLICIT = "implicit"
+ATTR_V5 = "v5"
 ATTR_VALUE_YES = "yes"
 ATTR_VALUE_NO = "no"
 
@@ -299,7 +299,7 @@ class ServersParser(object):
                 raise RuntimeError("Unknown server type: '{}' in servers file: '{}'".format(child.tag, xmlFile,))
 
             server = Server()
-            server.isImplicit = child.get(ATTR_IMPLICIT, ATTR_VALUE_YES) == ATTR_VALUE_YES
+            server.v5 = child.get(ATTR_V5, ATTR_VALUE_NO) == ATTR_VALUE_YES
 
             for node in child:
                 if node.tag == ELEMENT_ID:

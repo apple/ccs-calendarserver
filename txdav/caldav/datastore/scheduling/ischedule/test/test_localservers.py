@@ -59,6 +59,26 @@ class ServerTests(unittest.TestCase):
 </servers>
 """
 
+    data_v5 = """<?xml version="1.0" encoding="utf-8"?>
+<servers>
+  <server>
+    <id>00001</id>
+    <uri>http://caldav1.example.com:8008</uri>
+    <allowed-from>127.0.0.1</allowed-from>
+    <shared-secret>foobar</shared-secret>
+  </server>
+  <server v5='yes'>
+    <id>00002</id>
+    <uri>https://caldav2.example.com:8843</uri>
+  </server>
+  <server v5='no'>
+    <id>00003</id>
+    <uri>https://caldav3.example.com:8943</uri>
+  </server>
+</servers>
+"""
+
+
     def _setupServers(self, data=data1):
         self.patch(config, "ServerHostName", "caldav1.example.com")
         self.patch(config, "HTTPPort", 8008)
@@ -178,3 +198,12 @@ class ServerTests(unittest.TestCase):
 
         request = SimpleRequest(None, "POST", "/ischedule")
         self.assertTrue(servers.getServerById("00002").checkSharedSecret(request.headers))
+
+
+    def test_urn_uuid(self):
+
+        servers = self._setupServers(self.data_v5)
+
+        self.assertFalse(servers.getServerById("00001").v5)
+        self.assertTrue(servers.getServerById("00002").v5)
+        self.assertFalse(servers.getServerById("00003").v5)

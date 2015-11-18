@@ -17,7 +17,7 @@ limitations under the License.
 <!ELEMENT servers (server*) >
 
 	<!ELEMENT server (id, uri, allowed-from*, shared-secret?) >
-		<!ATTLIST server implicit (yes|no) "yes">
+		<!ATTLIST server v5 (yes|no) "no">
 
 		<!ELEMENT id  (#PCDATA) >
 		<!ELEMENT uri (#PCDATA) >

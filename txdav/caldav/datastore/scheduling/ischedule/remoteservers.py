@@ -138,7 +138,7 @@ class IScheduleServerRecord (object):
     """
     Contains server-to-server details.
     """
-    def __init__(self, uri=None, unNormalizeAddresses=True, moreHeaders=[], podding=False):
+    def __init__(self, uri=None, rewriteCUAddresses=True, moreHeaders=[], podding=False):
         """
         @param recordType: record type for directory entry.
         """
@@ -148,7 +148,7 @@ class IScheduleServerRecord (object):
         self.allow_to = True
         self.domains = []
         self.client_hosts = []
-        self.unNormalizeAddresses = unNormalizeAddresses
+        self.rewriteCUAddresses = rewriteCUAddresses
         self.moreHeaders = moreHeaders
         self._podding = podding
 

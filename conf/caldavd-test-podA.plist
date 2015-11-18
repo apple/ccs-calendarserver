@@ -106,8 +106,6 @@
 	    <string>./conf/localservers-test.xml</string>
 	    <key>MaxClients</key>
 	    <integer>5</integer>
-	    <key>InboxName</key>
-	    <string>podding</string>
 	</dict>
 
     <key>Notifications</key>

@@ -3463,7 +3463,7 @@ END:VCALENDAR
 
     @inlineCallbacks
     def normalizeCalendarUserAddresses(
-        self, lookupFunction, recordFunction, toCanonical=True
+        self, lookupFunction, recordFunction, toCanonical=True, toURN_UUID=False,
     ):
         """
         Do the ORGANIZER/ATTENDEE property normalization.
@@ -3477,10 +3477,14 @@ END:VCALENDAR
         @param toCanonical: whether to convert to the canonical CUA form (True)
             or to the mailto: form (False)
         @type toCanonical: L{bool}
+
+        @param toURN_UUID: whether to convert to urn:x-uid to urn:uuid: for
+            compatibility with older servers
+        @type toURN_UUID: L{bool}
         """
 
         # Keep a cache of records because events with lots of recurrence overrides can contain
-        # the same attendee cu-address multuiple times
+        # the same attendee cu-address multiple times
         cache = {}
 
         for component in self.subcomponents(ignore=True):
@@ -3512,6 +3516,10 @@ END:VCALENDAR
                 if toCanonical:
                     # Always re-write value to urn:x-uid
                     prop.setValue("urn:x-uid:{uid}".format(uid=uid))
+
+                # Look for urn:x-uid: -> urn:uuid: conversion
+                elif toURN_UUID and cuaddr.startswith("urn:x-uid:"):
+                    prop.setValue(cuaddr.replace("urn:x-uid:", "urn:uuid:"))
 
                 # If it is already a non-x-uid address leave it be
                 elif (cuaddr.startswith("urn:x-uid:") or cuaddr.startswith("urn:uuid:")):
@@ -3910,7 +3918,7 @@ def tzexpandlocal(tzdata, start, end, utc_onset=False):
 # #
 
 @inlineCallbacks
-def normalizeCUAddress(cuaddr, lookupFunction, recordFunction, toCanonical=True):
+def normalizeCUAddress(cuaddr, lookupFunction, recordFunction, toCanonical=True, toURN_UUID=False):
     # Check that we can lookup this calendar user address - if not
     # we cannot do anything with it
     _ignore_name, uid, _ignore_cuType, cuaddrs = (yield lookupFunction(normalizeCUAddr(cuaddr), recordFunction, config))
@@ -3919,6 +3927,10 @@ def normalizeCUAddress(cuaddr, lookupFunction, recordFunction, toCanonical=True)
         # Always re-write value to urn:x-uid
         if uid:
             returnValue("urn:x-uid:{0}".format(uid,))
+
+    # Look for urn:x-uid: -> urn:uuid: conversion
+    elif toURN_UUID and cuaddr.startswith("urn:x-uid:"):
+        returnValue(cuaddr.replace("urn:x-uid:", "urn:uuid:"))
 
     # If it is already a non-x-uid address leave it be
     elif (cuaddr.startswith("urn:x-uid:") or cuaddr.startswith("urn:uuid:")):
