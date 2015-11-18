@@ -473,15 +473,14 @@ class RecurrenceDistribution(object, FancyEqMixin):
 
 if __name__ == '__main__':
 
+    import matplotlib.pyplot as plt
     from collections import defaultdict
-    mu = 1.5
-    sigma = 1.22
-    distribution = LogNormalDistribution(mu, sigma, 100)
+    mode = 6.0
+    median = 8.0
+    distribution = LogNormalDistribution(mode=mode, median=median, maximum=60)
     result = defaultdict(int)
-    for i in range(100000):
+    for i in range(1000000):
         s = int(distribution.sample())
-        if s > 300:
-            continue
         result[s] += 1
 
     total = 0
@@ -490,3 +489,9 @@ if __name__ == '__main__':
         total += k * v
 
     print("Average: %.2f" % (float(total) / sum(result.values()),))
+
+    x, y = zip(*sorted(result.items()))
+    plt.plot(x, y)
+    plt.xlabel("Samples")
+    plt.ylabel("LogNormal")
+    plt.show()
