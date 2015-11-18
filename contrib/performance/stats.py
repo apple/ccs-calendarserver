@@ -285,13 +285,13 @@ class LogNormalDistribution(object, FancyEqMixin):
             raise ValueError("When mu and sigma are not defined, mode must be defined")
         elif median is not None:
             scale = mode
-            median /= mode
+            median /= float(mode)
             mode = 1.0
             mu = log(median)
             sigma = sqrt(log(median) - log(mode))
         elif mean is not None:
             scale = mode
-            mean /= mode
+            mean /= float(mode)
             mode = 1.0
             mu = log(mean) + log(mode) / 2.0
             sigma = sqrt(log(mean) - log(mode) / 2.0)
@@ -475,9 +475,9 @@ if __name__ == '__main__':
 
     import matplotlib.pyplot as plt
     from collections import defaultdict
-    mode = 6.0
-    median = 8.0
-    distribution = LogNormalDistribution(mode=mode, median=median, maximum=60)
+    mode_val = 6.0
+    median_val = 8.0
+    distribution = LogNormalDistribution(mode=mode_val, median=median_val, maximum=60)
     result = defaultdict(int)
     for i in range(1000000):
         s = int(distribution.sample())
