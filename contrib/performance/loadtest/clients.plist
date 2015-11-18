@@ -304,6 +304,41 @@
 						</dict>
 					</dict>
 
+					<!-- Picks a random event and changes the description -->
+					<dict>
+						<key>class</key>
+						<string>contrib.performance.loadtest.profiles.DescriptionChanger</string>
+
+						<key>params</key>
+						<dict>
+							<key>enabled</key>
+							<true/>
+
+							<!-- Define the interval (in seconds) at which this profile will use
+								its client to create a new event. -->
+							<key>interval</key>
+							<integer>120</integer>
+
+							<!-- Define the description length distribution. -->
+							<key>descriptionLengthDistribution</key>
+							<dict>
+								<key>type</key>
+								<string>contrib.performance.stats.NormalDistribution</string>
+								<key>params</key>
+								<dict>
+									<!-- mu gives the mean of the normal distribution (in seconds). -->
+									<key>mu</key>
+									<integer>5000</integer>
+
+									<!-- and sigma gives its standard deviation. -->
+									<key>sigma</key>
+									<integer>100</integer>
+								</dict>
+							</dict>
+
+						</dict>
+					</dict>
+
 					<!-- Picks a random event and attaches -->
 					<dict>
 						<key>class</key>

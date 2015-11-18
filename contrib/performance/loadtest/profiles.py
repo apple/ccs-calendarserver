@@ -657,6 +657,24 @@ class TitleChanger(EventUpdaterBase):
         return succeed("update{title}")
 
 
+class DescriptionChanger(EventUpdaterBase):
+
+    def setParameters(
+        self,
+        enabled=True,
+        interval=60,
+        descriptionLengthDistribution=NormalDistribution(10, 2)
+    ):
+        self.enabled = enabled
+        self._interval = interval
+        self._descriptionLength = descriptionLengthDistribution
+
+
+    def modifyEvent(self, _ignore_href, vevent):
+        length = int(self._descriptionLength.sample())
+        vevent.replaceProperty(Property("DESCRIPTION", "." * length))
+        return succeed("update{description}")
+
 
 class Attacher(EventUpdaterBase):
 
