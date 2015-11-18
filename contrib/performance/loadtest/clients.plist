@@ -323,16 +323,18 @@
 							<key>descriptionLengthDistribution</key>
 							<dict>
 								<key>type</key>
-								<string>contrib.performance.stats.NormalDistribution</string>
+								<string>contrib.performance.stats.LogNormalDistribution</string>
 								<key>params</key>
 								<dict>
-									<!-- mu gives the mean of the normal distribution (in seconds). -->
-									<key>mu</key>
-									<integer>5000</integer>
-
-									<!-- and sigma gives its standard deviation. -->
-									<key>sigma</key>
-									<integer>100</integer>
+									<!-- mode - peak-->
+									<key>mode</key>
+									<integer>1024</integer>
+									<!-- mean - average-->
+									<key>median</key>
+									<integer>20480</integer>
+									<!-- maximum -->
+									<key>maximum</key>
+									<real>1000000</real>
 								</dict>
 							</dict>
 
@@ -487,10 +489,10 @@
 								<dict>
 									<!-- mode - peak-->
 									<key>mode</key>
-									<integer>1</integer>
+									<integer>6</integer>
 									<!-- mean - average-->
 									<key>median</key>
-									<integer>6</integer>
+									<integer>8</integer>
 									<!-- maximum -->
 									<key>maximum</key>
 									<real>60</real>
