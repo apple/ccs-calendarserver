@@ -904,12 +904,12 @@ class BaseAppleClient(BaseClient):
         return calendars, notificationCollection
 
 
-    def _updateCalendar(self, calendar, newToken):
+    def _updateCalendar(self, calendar, newToken, fetchEvents=True):
         """
         Update the local cached data for a calendar in an appropriate manner.
         """
         if self.supportSync:
-            return self._updateCalendar_SYNC(calendar, newToken)
+            return self._updateCalendar_SYNC(calendar, newToken, fetchEvents=fetchEvents)
         else:
             return self._updateCalendar_PROPFIND(calendar, newToken)
 
@@ -939,7 +939,7 @@ class BaseAppleClient(BaseClient):
 
 
     @inlineCallbacks
-    def _updateCalendar_SYNC(self, calendar, newToken):
+    def _updateCalendar_SYNC(self, calendar, newToken, fetchEvents=True):
         """
         Execute a sync REPORT against a calendar and apply changes to the local cache.
         The new token from the changed collection is passed in and must be applied to
@@ -976,36 +976,37 @@ class BaseAppleClient(BaseClient):
 
         result, others = result
 
-        changed = []
-        for responseHref in result:
-            if responseHref == calendar.url:
-                continue
+        if fetchEvents:
+            changed = []
+            for responseHref in result:
+                if responseHref == calendar.url:
+                    continue
 
-            try:
-                etag = result[responseHref].getTextProperties()[davxml.getetag]
-            except KeyError:
-                # XXX Ignore things with no etag?  Seems to be dropbox.
-                continue
+                try:
+                    etag = result[responseHref].getTextProperties()[davxml.getetag]
+                except KeyError:
+                    # XXX Ignore things with no etag?  Seems to be dropbox.
+                    continue
 
-            # Differentiate a remove vs new/update result
-            if result[responseHref].getStatus() / 100 == 2:
-                if responseHref not in self._events:
-                    self._setEvent(responseHref, Event(self.serializeLocation(), responseHref, None))
+                # Differentiate a remove vs new/update result
+                if result[responseHref].getStatus() / 100 == 2:
+                    if responseHref not in self._events:
+                        self._setEvent(responseHref, Event(self.serializeLocation(), responseHref, None))
 
-                event = self._events[responseHref]
-                if event.etag != etag:
-                    changed.append(responseHref)
-            elif result[responseHref].getStatus() == 404:
-                self._removeEvent(responseHref)
+                    event = self._events[responseHref]
+                    if event.etag != etag:
+                        changed.append(responseHref)
+                elif result[responseHref].getStatus() == 404:
+                    self._removeEvent(responseHref)
 
-        yield self._updateChangedEvents(calendar, changed)
+            yield self._updateChangedEvents(calendar, changed)
 
-        # Handle removals only when doing an initial sync
-        if fullSync:
-            # Detect removed items and purge them
-            remove_hrefs = old_hrefs - set(changed)
-            for href in remove_hrefs:
-                self._removeEvent(href)
+            # Handle removals only when doing an initial sync
+            if fullSync:
+                # Detect removed items and purge them
+                remove_hrefs = old_hrefs - set(changed)
+                for href in remove_hrefs:
+                    self._removeEvent(href)
 
         # Now update calendar to the new token taken from the report
         for node in others:
@@ -1269,7 +1270,14 @@ class BaseAppleClient(BaseClient):
                 # Calendar seen for the first time - reload it
                 self._calendars[cal.url] = cal
                 cal.changeToken = ""
-                yield self._updateCalendar(self._calendars[cal.url], newToken)
+                # If this is the first time this run and we have no cached copy
+                # of this calendar, do an update but don't fetch the events.
+                # We'll only take notice of ongoing activity and not bother
+                # with existing events.
+                yield self._updateCalendar(
+                    self._calendars[cal.url], newToken,
+                    fetchEvents=(not firstTime)
+                )
             elif self._calendars[cal.url].changeToken != newToken:
                 # Calendar changed - reload it
                 yield self._updateCalendar(self._calendars[cal.url], newToken)
