@@ -55,8 +55,10 @@
 
 					<key>supportAmpPush</key>
 					<true/>
-					<key>ampPushHost</key>
-					<string>localhost</string>
+					<key>ampPushHosts</key>
+					<array>
+						<string>localhost</string>
+				    </array>
 					<key>ampPushPort</key>
 					<integer>62311</integer>
 				</dict>

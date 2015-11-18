@@ -492,7 +492,7 @@ class BaseAppleClient(BaseClient):
         calendarHomePollInterval=None,
         supportPush=True,
         supportAmpPush=True,
-        ampPushHost=None,
+        ampPushHosts=None,
         ampPushPort=62311,
     ):
 
@@ -523,9 +523,9 @@ class BaseAppleClient(BaseClient):
         self.supportPush = supportPush
 
         self.supportAmpPush = supportAmpPush
-        if ampPushHost is None:
-            ampPushHost = urlparse(self.root)[1].split(":")[0]
-        self.ampPushHost = ampPushHost
+        if ampPushHosts is None:
+            ampPushHosts = [urlparse(self.root)[1].split(":")[0]]
+        self.ampPushHosts = ampPushHosts
         self.ampPushPort = ampPushPort
 
         self.serializePath = serializePath
@@ -1452,10 +1452,11 @@ class BaseAppleClient(BaseClient):
         """
         Start monitoring for AMP-based push notifications
         """
-        subscribeToIDs(
-            self.ampPushHost, self.ampPushPort, pushKeys,
-            self._receivedPush, self.reactor
-        )
+        for host in self.ampPushHosts:
+            subscribeToIDs(
+                host, self.ampPushPort, pushKeys,
+                self._receivedPush, self.reactor
+            )
 
 
     @inlineCallbacks
