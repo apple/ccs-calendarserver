@@ -993,6 +993,33 @@ END:VCALENDAR
             return self._newOperation("create", d)
 
 
+class Resetter(ProfileBase):
+    """
+    A Calendar user who resets their account and re-downloads everything.
+    """
+
+    def setParameters(
+        self,
+        enabled=True,
+        interval=600,
+    ):
+        self.enabled = enabled
+        self._interval = interval
+
+
+    def run(self):
+        self._call = LoopingCall(self._resetAccount)
+        self._call.clock = self._reactor
+        return self._call.start(self._interval)
+
+
+    def _resetAccount(self):
+        # Don't perform any operations until the client is up and running
+        if not self._client.started:
+            return succeed(None)
+
+        return self._client.reset()
+
 
 class OperationLogger(SummarizingMixin):
     """

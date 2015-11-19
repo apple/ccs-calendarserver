@@ -65,6 +65,7 @@ from StringIO import StringIO
 import json
 import os
 import random
+import shutil
 
 QName.__repr__ = lambda self: '<QName %r>' % (self.text,)
 
@@ -1586,6 +1587,13 @@ class BaseAppleClient(BaseClient):
         for calendar in data["calendars"]:
             calendar = Calendar.deserialize(calendar, self._events)
             self._calendars[calendar.url] = calendar
+
+
+    def reset(self):
+        path = self.serializeLocation()
+        if path is not None and os.path.exists(path):
+            shutil.rmtree(path)
+        return self.startup()
 
 
     def _makeSelfAttendee(self):
