@@ -298,6 +298,8 @@ class LogNormalDistribution(object, FancyEqMixin):
         else:
             raise ValueError("When using mode one of median or mean must be defined")
 
+        self._mode = mode
+        self._median = median
         self._mu = mu
         self._sigma = sigma
         self._scale = scale
@@ -470,28 +472,3 @@ class RecurrenceDistribution(object, FancyEqMixin):
                 return prop
 
         return None
-
-if __name__ == '__main__':
-
-    import matplotlib.pyplot as plt
-    from collections import defaultdict
-    mode_val = 6.0
-    median_val = 8.0
-    distribution = LogNormalDistribution(mode=mode_val, median=median_val, maximum=60)
-    result = defaultdict(int)
-    for i in range(1000000):
-        s = int(distribution.sample())
-        result[s] += 1
-
-    total = 0
-    for k, v in sorted(result.items(), key=lambda x: x[0]):
-        print("%d\t%.5f" % (k, float(v) / result[1]))
-        total += k * v
-
-    print("Average: %.2f" % (float(total) / sum(result.values()),))
-
-    x, y = zip(*sorted(result.items()))
-    plt.plot(x, y)
-    plt.xlabel("Samples")
-    plt.ylabel("LogNormal")
-    plt.show()
