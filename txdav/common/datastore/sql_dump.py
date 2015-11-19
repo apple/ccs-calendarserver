@@ -228,4 +228,10 @@ def dumpSchema_oracle(txn, title, schemaname="public"):
             for column in columns:
                 index.addColumn(column)
 
+    # Functions
+    rows = yield txn.execSQL("select object_name from all_procedures where owner = '%s'" % (schemaname.upper(),))
+    for row in rows:
+        name = row[0]
+        Function(schema, name)
+
     returnValue(schema)
