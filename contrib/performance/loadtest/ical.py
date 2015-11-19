@@ -1589,11 +1589,13 @@ class BaseAppleClient(BaseClient):
             self._calendars[calendar.url] = calendar
 
 
+    @inlineCallbacks
     def reset(self):
         path = self.serializeLocation()
         if path is not None and os.path.exists(path):
             shutil.rmtree(path)
-        return self.startup()
+        yield self.startup()
+        yield self._checkCalendarsForEvents(self.calendarHomeHref)
 
 
     def _makeSelfAttendee(self):
