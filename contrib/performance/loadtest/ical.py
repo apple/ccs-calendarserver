@@ -209,13 +209,18 @@ class Event(object):
 
 
 class Calendar(object):
-    def __init__(self, resourceType, componentTypes, name, url, changeToken):
+    def __init__(
+        self, resourceType, componentTypes, name, url, changeToken,
+        shared=False, sharedByMe=False
+    ):
         self.resourceType = resourceType
         self.componentTypes = componentTypes
         self.name = name
         self.url = url
         self.changeToken = changeToken
         self.events = {}
+        self.shared = shared
+        self.sharedByMe = sharedByMe
 
         if self.name is None and self.url is not None:
             self.name = self.url.rstrip("/").split("/")[-1]
@@ -227,7 +232,7 @@ class Calendar(object):
         """
 
         result = {}
-        for attr in ("resourceType", "name", "url", "changeToken"):
+        for attr in ("resourceType", "name", "url", "changeToken", "shared", "sharedByMe"):
             result[attr] = getattr(self, attr)
         result["componentTypes"] = list(sorted(self.componentTypes))
         result["events"] = sorted(self.events.keys())
@@ -241,7 +246,7 @@ class Calendar(object):
         """
 
         calendar = Calendar(None, None, None, None, None)
-        for attr in ("resourceType", "name", "url", "changeToken"):
+        for attr in ("resourceType", "name", "url", "changeToken", "shared", "sharedByMe"):
             setattr(calendar, attr, u2str(data[attr]))
         calendar.componentTypes = set(map(u2str, data["componentTypes"]))
 
@@ -878,29 +883,44 @@ class BaseAppleClient(BaseClient):
                         self.xmpp[href] = XMPPPush(server, uri, pushkey)
 
             nodes = results[href].getNodeProperties()
+            isCalendar = False
+            isNotifications = False
+            isShared = False
+            isSharedByMe = False
             for nodeType in nodes[davxml.resourcetype]:
                 if nodeType.tag in self._CALENDAR_TYPES:
-                    textProps = results[href].getTextProperties()
-                    componentTypes = set()
-                    if nodeType.tag == caldavxml.calendar:
-                        if caldavxml.supported_calendar_component_set in nodes:
-                            for comp in nodes[caldavxml.supported_calendar_component_set]:
-                                componentTypes.add(comp.get("name").upper())
-
-                    calendars.append(Calendar(
-                        nodeType.tag,
-                        componentTypes,
-                        textProps.get(davxml.displayname, None),
-                        href,
-                        textProps.get(changeTag, None),
-                    ))
-                    break
+                    isCalendar = True
                 elif nodeType.tag == csxml.notification:
-                    textProps = results[href].getTextProperties()
-                    notificationCollection = NotificationCollection(
-                        href,
-                        textProps.get(changeTag, None)
-                    )
+                    isNotifications = True
+                elif nodeType.tag.startswith("{http://calendarserver.org/ns/}shared"):
+                    isShared = True
+                    if nodeType.tag == "{http://calendarserver.org/ns/}shared-owner":
+                        isSharedByMe = True
+
+            if isCalendar:
+                textProps = results[href].getTextProperties()
+                componentTypes = set()
+                if nodeType.tag == caldavxml.calendar:
+                    if caldavxml.supported_calendar_component_set in nodes:
+                        for comp in nodes[caldavxml.supported_calendar_component_set]:
+                            componentTypes.add(comp.get("name").upper())
+
+                calendars.append(Calendar(
+                    nodeType.tag,
+                    componentTypes,
+                    textProps.get(davxml.displayname, None),
+                    href,
+                    textProps.get(changeTag, None),
+                    shared=isShared,
+                    sharedByMe=isSharedByMe
+                ))
+
+            elif isNotifications:
+                textProps = results[href].getTextProperties()
+                notificationCollection = NotificationCollection(
+                    href,
+                    textProps.get(changeTag, None)
+                )
 
         return calendars, notificationCollection
 

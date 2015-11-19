@@ -75,21 +75,26 @@ class ProfileBase(object):
         return succeed(None)
 
 
-    def _calendarsOfType(self, calendarType, componentType):
-        return [
-            cal
-            for cal
-            in self._client._calendars.itervalues()
-            if cal.resourceType == calendarType and componentType in cal.componentTypes
-        ]
+    def _calendarsOfType(self, calendarType, componentType, justOwned=False):
+        results = []
+
+        for cal in self._client._calendars.itervalues():
+            if cal.resourceType == calendarType and componentType in cal.componentTypes:
+                if justOwned:
+                    if (not cal.shared) or cal.sharedByMe:
+                        results.append(cal)
+                else:
+                    results.append(cal)
+
+        return results
 
 
-    def _getRandomCalendarOfType(self, componentType):
+    def _getRandomCalendarOfType(self, componentType, justOwned=False):
         """
         Return a random L{Calendar} object from the current user
         or C{None} if there are no calendars to work with
         """
-        calendars = self._calendarsOfType(caldavxml.calendar, componentType)
+        calendars = self._calendarsOfType(caldavxml.calendar, componentType, justOwned=justOwned)
         if not calendars:
             return None
         # Choose a random calendar
@@ -97,12 +102,12 @@ class ProfileBase(object):
         return calendar
 
 
-    def _getRandomEventOfType(self, componentType):
+    def _getRandomEventOfType(self, componentType, justOwned=True):
         """
         Return a random L{Event} object from the current user
         or C{None} if there are no events to work with
         """
-        calendars = self._calendarsOfType(caldavxml.calendar, componentType)
+        calendars = self._calendarsOfType(caldavxml.calendar, componentType, justOwned=justOwned)
         while calendars:
             calendar = self.random.choice(calendars)
             calendars.remove(calendar)
@@ -610,7 +615,7 @@ class EventUpdaterBase(ProfileBase):
         if not self._client.started:
             returnValue(None)
 
-        event = self._getRandomEventOfType('VEVENT')
+        event = self._getRandomEventOfType('VEVENT', justOwned=True)
         if not event:
             returnValue(None)
         component = event.component
@@ -721,7 +726,7 @@ class EventCountLimiter(EventUpdaterBase):
         if not self._client.started:
             returnValue(None)
 
-        for calendar in self._calendarsOfType(caldavxml.calendar, "VEVENT"):
+        for calendar in self._calendarsOfType(caldavxml.calendar, "VEVENT", justOwned=True):
             while len(calendar.events) > self._limit:
                 event = calendar.events[self.random.choice(calendar.events.keys())]
                 yield self._client.deleteEvent(event.url)
@@ -760,7 +765,7 @@ class CalendarSharer(ProfileBase):
     def shareCalendar(self):
 
         # pick a calendar
-        calendar = self._getRandomCalendarOfType('VEVENT')
+        calendar = self._getRandomCalendarOfType('VEVENT', justOwned=True)
         if not calendar:
             returnValue(None)
 
