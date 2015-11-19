@@ -1571,6 +1571,8 @@ END:VCALENDAR
     {
       "changeToken": "123",
       "name": "calendar",
+      "shared": false,
+      "sharedByMe": false,
       "resourceType": "{urn:ietf:params:xml:ns:caldav}calendar",
       "componentTypes": [
         "VEVENT"
@@ -1583,6 +1585,8 @@ END:VCALENDAR
     {
       "changeToken": "789",
       "name": "calendar",
+      "shared": false,
+      "sharedByMe": false,
       "resourceType": "{urn:ietf:params:xml:ns:caldav}schedule-inbox",
       "componentTypes": [
         "VEVENT",
@@ -1596,6 +1600,8 @@ END:VCALENDAR
     {
       "changeToken": "456",
       "name": "tasks",
+      "shared": false,
+      "sharedByMe": false,
       "resourceType": "{urn:ietf:params:xml:ns:caldav}calendar",
       "componentTypes": [
         "VTODO"
@@ -1678,6 +1684,8 @@ END:VCALENDAR
     {
       "changeToken": "321",
       "name": "calendar",
+      "shared": false,
+      "sharedByMe": false,
       "resourceType": "{urn:ietf:params:xml:ns:caldav}calendar",
       "componentTypes": [
         "VEVENT"
@@ -1690,6 +1698,8 @@ END:VCALENDAR
     {
       "changeToken": "987",
       "name": "calendar",
+      "shared": false,
+      "sharedByMe": false,
       "resourceType": "{urn:ietf:params:xml:ns:caldav}schedule-inbox",
       "componentTypes": [
         "VEVENT",
@@ -1703,6 +1713,8 @@ END:VCALENDAR
     {
       "changeToken": "654",
       "name": "tasks",
+      "shared": false,
+      "sharedByMe": false,
       "resourceType": "{urn:ietf:params:xml:ns:caldav}calendar",
       "componentTypes": [
         "VTODO"
