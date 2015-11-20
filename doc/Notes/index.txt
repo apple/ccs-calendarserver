@@ -1,0 +1,6 @@
+Calendar Server Notes
+=====================
+
+*  Processing of X- properties and parameters during scheduling: x-items.txt
+
+*  How the server handles the case where an attendee imports iCalendar data from some other sources and how that impacts scheduling when internal (local to the server) and external organizers are involved: attendee-import.txt

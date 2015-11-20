@@ -1,0 +1,29 @@
+Attendees importing iCalendar data from external sources
+========================================================
+
+This note documents how the server handles various scenarios in which the attendee imports some external iCalendar data. The iCalendar data may or may not contain an `ORGANIZER` property which itself may refer to either an internal (local to the server) or external organizer. Once the import is done, the question then arises as to what happens if subsequent scheduling operations are done. In particular, what happens if an internal organizer uses the same `UID` property value in an invite to the attendee.
+
+Import scenarios:
+
+1. Attendee stores event with external organizer with their attendee property:
+   - The server allows any change except for changing the organizer
+
+2. Attendee stores event with external organizer without their attendee property:
+   - The server allows any change except for changing the organizer
+
+3. Attendee stores event with internal organizer (SCHEDULE-AGENT=SERVER) with their attendee property present:
+   - The server will reject this
+
+4. Attendee stores event with internal organizer but without their attendee property, then gets invited by server organizer:
+   - The server will coerce the attendee PUT data to have SCHEDULE-AGENT=NONE
+   - The server will overwrite the attendee PUT data with the organizer's invite
+
+5. Attendee stores event with no organizer, then gets invited by server organizer:
+   - The server will rename the existing resource and give it a new UID
+   - The server will deliver the organizer's new invite
+
+6. Attendee stores event with internal organizer (SCHEDULE-AGENT=NONE) with their attendee property present:
+   - The server will overwrite the existing attendee resource with the organizer's new invite.
+
+7. Attendee stores event with internal organizer (SCHEDULE-AGENT=NONE) without their attendee property present:
+   - The server will overwrite the existing attendee resource with the organizer's new invite.

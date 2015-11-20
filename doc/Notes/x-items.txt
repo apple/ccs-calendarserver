@@ -1,0 +1,62 @@
+Whitelist for X- properties and parameters
+==========================================
+
+This note describes how CalendarServer supports X- properties and parameters during scheduling operations with regard to its configuration options that allow control of how the X- items are transmitted between organizers and attendees.
+
+The relevant config options are:
+
+	# Names of X- properties sent from ORGANIZER to ATTENDEE
+	Scheduling.CalDAV.OrganizerPublicProperties
+
+	# Names of X- parameters sent from ORGANIZER to ATTENDEE
+	Scheduling.CalDAV.OrganizerPublicParameters
+
+	# Names of X- properties sent from ATTENDEE to ORGANIZER
+	# These are also implicitly added to OrganizerPublicProperties
+	Scheduling.CalDAV.AttendeePublicProperties
+
+    # Names of X-  parameters sent from ATTENDEE to ORGANIZER
+    # These are also implicitly added to OrganizerPublicParameters
+    Scheduling.CalDAV.AttendeePublicParameters
+
+	# Names of properties that are preserved for an Attendee
+    Scheduling.CalDAV.PerAttendeeProperties
+
+Notes:
+
+OrganizerPublicProperties and OrganizerPublicParameters can be added by
+the organizer and are sent to all attendees, but attendees cannot change
+them.
+
+AttendeePublicProperties and AttendeePublicParameters can be added by
+either organizer or attendee and are sent to everyone and can be changed
+by everyone, subject to limitations for attendees noted below.
+
+Behaviors:
+
+ORGANIZER->ATTENDEE
+-------------------
+All non X- properties are sent to ATTENDEE
+All X- properties are removed other than those in
+	OrganizerPublicProperties and AttendeePublicProperties
+All non X- params on properties being sent are sent to the ATTENDEE
+All X- params are removed from sent properties except for those in
+	OrganizerPublicParameters and AttendeePublicParameters
+
+ATTENDEE->ORGANIZER
+-------------------
+A limited set of non X- properties are sent to ORGANIZER (only the
+	attendee's own ATTENDEE is sent)
+All X- properties are removed other than those in whitelist
+All non X- params on properties being sent are sent to the ORGANIZER
+All X- params are removed from sent properties except for those on whitelist
+
+ATTENDEE updating their copy of event
+-------------------------------------
+The calendar server merges specific properties from an ATTENDEE PUT request into the
+copy of the iCalendar data on the server:
+
+Specific non X- properties are updated (e.g. TRANSP, attendee's own ATTENDEE property)
+Only X- properties in whitelist are updated
+All non X- parameters are always included in copied properties
+Only X- parameters in whitelist are included in copied properties
