@@ -105,8 +105,8 @@ class ServersDB(object):
         return self._thisServer
 
 
-    def allServersExceptThis(self):
-        return filter(lambda x: x != self._thisServer, self._servers.values())
+    def allServersExceptThis(self, filter_v5=False):
+        return filter(lambda x: x != self._thisServer and not (filter_v5 and x.v5), self._servers.values())
 
 
     def installReverseProxies(self, maxClients):

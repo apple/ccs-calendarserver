@@ -568,7 +568,10 @@ class CachingDelegates(object):
         @param readWrite: if True, read and write access is granted; read-only
             access otherwise
         """
-        return txn.store().conduit.send_set_delegates(txn, delegator, delegates, readWrite)
+        if delegator.server().v5:
+            return succeed(None)
+        else:
+            return txn.store().conduit.send_set_delegates(txn, delegator, delegates, readWrite)
 
 
     def _podDelegates(self, txn, delegator, readWrite, expanded=False):
@@ -584,7 +587,10 @@ class CachingDelegates(object):
         """
 
         log.debug("_podDelegates for: {uid} and read-write = {rw} and expanded = {expanded}", uid=delegator.uid, rw=readWrite, expanded=expanded)
-        return txn.store().conduit.send_get_delegates(txn, delegator, readWrite, expanded)
+        if delegator.server().v5:
+            return succeed(set())
+        else:
+            return txn.store().conduit.send_get_delegates(txn, delegator, readWrite, expanded)
 
 
     @inlineCallbacks
@@ -602,10 +608,14 @@ class CachingDelegates(object):
         """
 
         log.debug("_podDelegators for: {uid} and read-write = {rw}", uid=delegate.uid, rw=readWrite)
-        results = yield DeferredList([
-            txn.store().conduit.send_get_delegators(txn, server, delegate, readWrite) for
-            server in txn.directoryService().serversDB().allServersExceptThis()
-        ], consumeErrors=True)
+        otherServers = txn.directoryService().serversDB().allServersExceptThis(filter_v5=True)
+        if len(otherServers) != 0:
+            results = yield DeferredList([
+                txn.store().conduit.send_get_delegators(txn, server, delegate, readWrite) for
+                server in txn.directoryService().serversDB().allServersExceptThis()
+            ], consumeErrors=True)
+        else:
+            results = []
         delegators = set()
         for result in results:
             if result and result[0]:

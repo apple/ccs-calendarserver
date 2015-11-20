@@ -554,11 +554,15 @@ class SharedResourceMixin(object):
             if sharee is None:
                 returnValue(False)
 
-        result = (yield self._newStoreObject.inviteUIDToShare(
-            sharee.principalUID(),
-            invitationBindModeFromXMLMap[type(ace)],
-            summary,
-        ))
+        try:
+            result = (yield self._newStoreObject.inviteUIDToShare(
+                sharee.principalUID(),
+                invitationBindModeFromXMLMap[type(ace)],
+                summary,
+            ))
+        except Exception as e:
+            self.log.error("Could not send sharing invite '{userid}': {ex}", userid=userid, ex=e)
+            result = None
 
         returnValue(result)
 
@@ -577,7 +581,11 @@ class SharedResourceMixin(object):
         else:
             returnValue(False)
 
-        result = (yield self._newStoreObject.uninviteUIDFromShare(uid))
+        try:
+            result = (yield self._newStoreObject.uninviteUIDFromShare(uid))
+        except Exception as e:
+            self.log.error("Could not send sharing uninvite '{userid}': {ex}", userid=userid, ex=e)
+            result = None
 
         returnValue(result)
 

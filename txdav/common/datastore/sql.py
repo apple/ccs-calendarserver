@@ -1951,9 +1951,11 @@ class CommonHome(SharingHomeMixIn):
 
             if status is None:
                 createStatus = _HOME_STATUS_NORMAL if record.thisServer() else _HOME_STATUS_EXTERNAL
+                if record.server() is not None and record.server().v5:
+                    raise RecordNotAllowedError("Cannot create external home for user on v5 pod: {}".format(uid))
             elif status == _HOME_STATUS_MIGRATING:
                 if record.thisServer():
-                    raise RecordNotAllowedError("Cannot migrate a user data for a user already hosted on this server")
+                    raise RecordNotAllowedError("Cannot migrate user data for a user already hosted on this server")
                 createStatus = status
             elif status in (_HOME_STATUS_NORMAL, _HOME_STATUS_EXTERNAL,):
                 createStatus = status
