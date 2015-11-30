@@ -162,13 +162,13 @@ class Populator(object):
 
 
 class CalendarClientSimulator(object):
-    def __init__(self, records, populator, random, parameters, reactor, server,
+    def __init__(self, records, populator, random, parameters, reactor, servers,
                  principalPathTemplate, serializationPath, workerIndex=0, workerCount=1):
         self._records = records
         self.populator = populator
         self._random = random
         self.reactor = reactor
-        self.server = server
+        self.servers = servers
         self.principalPathTemplate = principalPathTemplate
         self.serializationPath = serializationPath
         self._pop = self.populator.populate(parameters)
@@ -220,16 +220,16 @@ class CalendarClientSimulator(object):
         authBasic = HTTPBasicAuthHandler(password_mgr=HTTPPasswordMgrWithDefaultRealm())
         authBasic.add_password(
             realm=None,
-            uri=self.server,
+            uri=self.servers[record.podID]["uri"],
             user=user.encode('utf-8'),
             passwd=record.password.encode('utf-8'))
         authDigest = HTTPDigestAuthHandler(passwd=HTTPPasswordMgrWithDefaultRealm())
         authDigest.add_password(
             realm=None,
-            uri=self.server,
+            uri=self.servers[record.podID]["uri"],
             user=user.encode('utf-8'),
             passwd=record.password.encode('utf-8'))
-        return user, {"basic": authBasic, "digest": authDigest, }
+        return record, user, {"basic": authBasic, "digest": authDigest, }
 
 
     def stop(self):
@@ -260,15 +260,15 @@ class CalendarClientSimulator(object):
                     # runs the same arrival policy).
                     continue
 
-                _ignore_user, auth = self._createUser(number)
+                record, _ignore_user, auth = self._createUser(number)
 
                 reactor = loggedReactor(self.reactor)
                 client = clientType.new(
                     reactor,
-                    self.server,
+                    self.servers[record.podID]["uri"],
                     self.principalPathTemplate,
                     self.serializationPath,
-                    self.getUserRecord(number),
+                    record,
                     auth,
                 )
                 self.clients.append(client)
@@ -407,7 +407,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
     _fail_cut_off = 1.0     # % of total count at which failed requests will cause a failure
 
     _fields_init = [
-        ('request', -25, '%-25s'),
+        ('request', -30, '%-30s'),
         ('count', 8, '%8s'),
         ('failed', 8, '%8s'),
     ]
@@ -427,7 +427,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         self._failed_clients = []
         self._failed_sim = collections.defaultdict(int)
         self._startTime = datetime.now()
-        self._expired_data = None
+        self._expired_data = {}
 
         # Load parameters from config
         if "thresholdsPath" in params:
@@ -496,7 +496,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
 
 
     def simExpired(self, event):
-        self._expired_data = event['reason']
+        self._expired_data[event['podID']] = event['reason']
 
 
     def printMiscellaneous(self, output, items):
@@ -576,14 +576,14 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         self.printMiscellaneous(output, items)
         output.write("\n")
 
-        if self._expired_data is not None:
+        for podID, data in self._expired_data.items():
             items = {
-                "Req/sec" : "%.1f" % (self._expired_data[0],),
-                "Response": "%.1f (ms)" % (self._expired_data[1],),
-                "Slots": "%.2f" % (self._expired_data[2],),
-                "CPU": "%.1f%%" % (self._expired_data[3],),
+                "Req/sec" : "%.1f" % (data[0],),
+                "Response": "%.1f (ms)" % (data[1],),
+                "Slots": "%.2f" % (data[2],),
+                "CPU": "%.1f%%" % (data[3],),
             }
-            output.write("* Server (Last 5 minutes)\n")
+            output.write("* Server {podID} (Last 5 minutes)\n".format(podID=podID))
             self.printMiscellaneous(output, items)
             output.write("\n")
         output.write("* Details\n")

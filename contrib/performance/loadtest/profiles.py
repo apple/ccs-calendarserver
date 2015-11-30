@@ -662,6 +662,7 @@ class TitleChanger(EventUpdaterBase):
         return succeed("update{title}")
 
 
+
 class DescriptionChanger(EventUpdaterBase):
 
     def setParameters(
@@ -679,6 +680,7 @@ class DescriptionChanger(EventUpdaterBase):
         length = int(self._descriptionLength.sample())
         vevent.replaceProperty(Property("DESCRIPTION", "." * length))
         return succeed("update{description}")
+
 
 
 class Attacher(EventUpdaterBase):
@@ -998,6 +1000,7 @@ END:VCALENDAR
             return self._newOperation("create", d)
 
 
+
 class Resetter(ProfileBase):
     """
     A Calendar user who resets their account and re-downloads everything.
@@ -1024,6 +1027,7 @@ class Resetter(ProfileBase):
             return succeed(None)
 
         return self._client.reset()
+
 
 
 class OperationLogger(SummarizingMixin):
@@ -1053,7 +1057,7 @@ class OperationLogger(SummarizingMixin):
     _fail_cut_off = 1.0     # % of total count at which failed requests will cause a failure
 
     _fields_init = [
-        ('operation', -25, '%-25s'),
+        ('operation', -30, '%-30s'),
         ('count', 8, '%8s'),
         ('failed', 8, '%8s'),
     ]

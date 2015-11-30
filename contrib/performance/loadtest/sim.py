@@ -17,7 +17,7 @@
 ##
 from __future__ import print_function
 
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from os import environ, mkdir
 from os.path import isdir
 from plistlib import readPlist
@@ -25,6 +25,7 @@ from random import Random
 from sys import argv, stdout
 from urlparse import urlsplit
 from xml.parsers.expat import ExpatError
+import itertools
 import json
 import shutil
 import socket
@@ -55,12 +56,17 @@ from contrib.performance.loadtest.webadmin import LoadSimAdminResource
 
 
 class _DirectoryRecord(object):
-    def __init__(self, uid, password, commonName, email, guid):
+    def __init__(self, uid, password, commonName, email, guid, podID="PodA"):
         self.uid = uid
         self.password = password
         self.commonName = commonName
         self.email = email
         self.guid = guid
+        self.podID = podID
+
+
+    def __repr__(self):
+        return "user='{}'".format(self.uid)
 
 
 
@@ -72,7 +78,7 @@ def safeDivision(value, total, factor=1):
 def generateRecords(
     count, uidPattern="user%d", passwordPattern="user%d",
     namePattern="User %d", emailPattern="user%d@example.com",
-    guidPattern="user%d"
+    guidPattern="user%d", podID="PodA",
 ):
     for i in xrange(count):
         i += 1
@@ -81,19 +87,32 @@ def generateRecords(
         name = namePattern % (i,)
         email = emailPattern % (i,)
         guid = guidPattern % (i,)
-        yield _DirectoryRecord(uid, password, name, email, guid)
+        yield _DirectoryRecord(uid, password, name, email, guid, podID)
 
 
 
-def recordsFromCSVFile(path):
+def recordsFromCSVFile(path, interleavePods):
     if path:
         pathObj = FilePath(path)
     else:
         pathObj = FilePath(__file__).sibling("accounts.csv")
-    return [
+    records = [
         _DirectoryRecord(*line.decode('utf-8').split(u','))
         for line
-        in pathObj.getContent().splitlines()]
+        in pathObj.getContent().splitlines()
+    ]
+
+    if interleavePods:
+        # For Pods we re-order the record list so that we alternate between the pods
+        recordsByPod = defaultdict(list)
+        for record in records:
+            recordsByPod[record.podID].append(record)
+
+        records = []
+        for items in itertools.izip(*[recordsByPod[k] for k in sorted(recordsByPod.keys())]):
+            records.extend(items)
+
+    return records
 
 
 
@@ -228,15 +247,14 @@ class LoadSimulator(object):
         user information about the accounts on the server being put
         under load.
     """
-    def __init__(self, server, principalPathTemplate, webadminPort, serverStats, serializationPath, arrival, parameters, observers=None,
+    def __init__(self, servers, principalPathTemplate, webadminPort, serializationPath, arrival, parameters, observers=None,
                  records=None, reactor=None, runtime=None, workers=None,
                  configTemplate=None, workerID=None, workerCount=1):
         if reactor is None:
             from twisted.internet import reactor
-        self.server = server
+        self.servers = servers
         self.principalPathTemplate = principalPathTemplate
         self.webadminPort = webadminPort
-        self.serverStats = serverStats
         self.serializationPath = serializationPath
         self.arrival = arrival
         self.parameters = parameters
@@ -278,7 +296,7 @@ class LoadSimulator(object):
             workerID = config.get("workerID", 0)
             workerCount = config.get("workerCount", 1)
             configTemplate = None
-            server = config.get('server', 'http://127.0.0.1:8008')
+            servers = config.get('servers')
             principalPathTemplate = config.get('principalPathTemplate', '/principals/users/%s/')
             serializationPath = None
 
@@ -324,7 +342,7 @@ class LoadSimulator(object):
                                                 [Eventer, Inviter, Accepter]))
         else:
             # Manager / observer process.
-            server = ''
+            servers = {}
             principalPathTemplate = ''
             serializationPath = None
             arrival = None
@@ -338,12 +356,6 @@ class LoadSimulator(object):
             if config['webadmin']['enabled']:
                 webadminPort = config['webadmin']['HTTPPort']
 
-        serverStats = None
-        if 'serverStats' in config:
-            if config['serverStats']['enabled']:
-                serverStats = config['serverStats']
-                serverStats['server'] = config['server'] if 'server' in config else ''
-
         observers = []
         if 'observers' in config:
             for observer in config['observers']:
@@ -356,13 +368,13 @@ class LoadSimulator(object):
             loader = config['accounts']['loader']
             params = config['accounts']['params']
             records.extend(namedAny(loader)(**params))
+            records = cls.filterRecords(records, servers)
             output.write("Loaded {0} accounts.\n".format(len(records)))
 
         return cls(
-            server,
+            servers,
             principalPathTemplate,
             webadminPort,
-            serverStats,
             serializationPath,
             arrival,
             parameters,
@@ -403,6 +415,22 @@ class LoadSimulator(object):
 
 
     @classmethod
+    def filterRecords(cls, records, servers):
+        """
+        Remove records that do not correspond to an enabled pod.
+
+        @param records: list of records to process
+        @type records: L{list}
+        @param servers: dictionary of servers
+        @type servers: L{dict}
+        """
+
+        # Get all enabled pod ids
+        enabled = set(filter(lambda podID: servers[podID]["enabled"], servers.keys()))
+        return filter(lambda record: record.podID in enabled, records)
+
+
+    @classmethod
     def main(cls, args=None):
         simulator = cls.fromCommandLine(args)
         raise SystemExit(simulator.run())
@@ -416,7 +444,7 @@ class LoadSimulator(object):
             Random(),
             self.parameters,
             self.reactor,
-            self.server,
+            self.servers,
             self.principalPathTemplate,
             self.serializationPath,
             self.workerID,
@@ -480,18 +508,19 @@ class LoadSimulator(object):
         Capture server stats and stop.
         """
 
-        if self.serverStats is not None:
-            _ignore_scheme, hostname, _ignore_path, _ignore_query, _ignore_fragment = urlsplit(self.serverStats["server"])
-            data = self.readStatsSock((hostname.split(":")[0], self.serverStats["Port"],), True)
-            if "Failed" not in data:
-                data = data["stats"]["5m"] if "stats" in data else data["5 Minutes"]
-                result = (
-                    safeDivision(float(data["requests"]), 5 * 60),
-                    safeDivision(data["t"], data["requests"]),
-                    safeDivision(float(data["slots"]), data["requests"]),
-                    safeDivision(data["cpu"], data["requests"]),
-                )
-                msg(type="sim-expired", reason=result)
+        for podID, server in self.servers.items():
+            if server["enabled"] and server["stats"]["enabled"]:
+                _ignore_scheme, hostname, _ignore_path, _ignore_query, _ignore_fragment = urlsplit(server["uri"])
+                data = self.readStatsSock((hostname.split(":")[0], server["stats"]["Port"],), True)
+                if "Failed" not in data:
+                    data = data["stats"]["5m"] if "stats" in data else data["5 Minutes"]
+                    result = (
+                        safeDivision(float(data["requests"]), 5 * 60),
+                        safeDivision(data["t"], data["requests"]),
+                        safeDivision(float(data["slots"]), data["requests"]),
+                        safeDivision(data["cpu"], data["requests"]),
+                    )
+                    msg(type="sim-expired", podID=podID, reason=result)
 
 
     def stopAndReport(self):
