@@ -38,7 +38,13 @@ from contrib.performance.loadtest.sim import (
 
 
 VALID_CONFIG = {
-    'server': 'tcp:127.0.0.1:8008',
+    'servers': {
+        "PodA": {
+            "enabled": True,
+            "uri": 'http://example.org:1234/',
+            "stats": {"enabled": False},
+        },
+    },
     'webadmin': {
         'enabled': True,
         'HTTPPort': 8080,
@@ -121,11 +127,19 @@ class CalendarClientSimulatorTests(TestCase):
         """
         calsim = CalendarClientSimulator(
             [self._user('alice'), self._user('bob'), self._user('carol')],
-            Populator(None), None, None, None, 'http://example.org:1234/', None, None)
+            Populator(None), None, None, None,
+            {
+                "PodA": {
+                    "enabled": True,
+                    "uri": 'http://example.org:1234/',
+                    "stats": {"enabled": False},
+                },
+            },
+            None, None)
         users = sorted([
-            calsim._createUser(0)[0],
-            calsim._createUser(1)[0],
-            calsim._createUser(2)[0],
+            calsim._createUser(0)[1],
+            calsim._createUser(1)[1],
+            calsim._createUser(2)[1],
         ])
         self.assertEqual(['alice', 'bob', 'carol'], users)
 
@@ -137,8 +151,16 @@ class CalendarClientSimulatorTests(TestCase):
         """
         calsim = CalendarClientSimulator(
             [self._user('alice')],
-            Populator(None), None, None, None, 'http://example.org:1234/', None, None)
-        user, auth = calsim._createUser(0)
+            Populator(None), None, None, None,
+            {
+                "PodA": {
+                    "enabled": True,
+                    "uri": 'http://example.org:1234/',
+                    "stats": {"enabled": False},
+                },
+            },
+            None, None)
+        _ignore_record, user, auth = calsim._createUser(0)
         self.assertEqual(
             auth['basic'].passwd.find_user_password('Test Realm', 'http://example.org:1234/')[1],
             'password-' + user)
@@ -182,7 +204,15 @@ class CalendarClientSimulatorTests(TestCase):
             [ProfileType(BrokenProfile, {'runResult': profileRunResult})])
         )
         sim = CalendarClientSimulator(
-            [self._user('alice')], Populator(None), None, params, None, 'http://example.com:1234/', None, None)
+            [self._user('alice')], Populator(None), None, params, None,
+            {
+                "PodA": {
+                    "enabled": True,
+                    "uri": 'http://example.org:1234/',
+                    "stats": {"enabled": False},
+                },
+            },
+            None, None)
         sim.add(1, 1)
         sim.stop()
         clientRunResult.errback(RuntimeError("Some fictional client problem"))
@@ -270,14 +300,20 @@ class LoadSimulatorTests(TestCase):
         with its own reactor and host and port information from the
         configuration file.
         """
-        server = 'http://127.0.0.7:1243/'
+        servers = {
+            "PodA": {
+                "enabled": True,
+                "uri": 'http://example.org:1234/',
+                "stats": {"enabled": False},
+            },
+        }
         reactor = object()
-        sim = LoadSimulator(server, None, None, None, None, None, None, reactor=reactor)
+        sim = LoadSimulator(servers, None, None, None, None, None, None, reactor=reactor)
         calsim = sim.createSimulator()
         self.assertIsInstance(calsim, CalendarClientSimulator)
         self.assertIsInstance(calsim.reactor, LagTrackingReactor)
         self.assertIdentical(calsim.reactor._reactor, reactor)
-        self.assertEquals(calsim.server, server)
+        self.assertEquals(calsim.servers, servers)
 
 
     def test_loadAccountsFromFile(self):
@@ -292,7 +328,8 @@ class LoadSimulatorTests(TestCase):
         config["accounts"] = {
             "loader": "contrib.performance.loadtest.sim.recordsFromCSVFile",
             "params": {
-                "path": accounts.path
+                "path": accounts.path,
+                "interleavePods": True,
             },
         }
         configpath = FilePath(self.mktemp())
@@ -321,7 +358,8 @@ class LoadSimulatorTests(TestCase):
         config["accounts"] = {
             "loader": "contrib.performance.loadtest.sim.recordsFromCSVFile",
             "params": {
-                "path": ""
+                "path": "",
+                "interleavePods": True,
             },
         }
         configpath = FilePath(self.mktemp())
@@ -417,10 +455,16 @@ class LoadSimulatorTests(TestCase):
         """
         config = FilePath(self.mktemp())
         config.setContent(
-            writePlistToString({"server": "https://127.0.0.3:8432/"})
+            writePlistToString({"servers": {
+                "PodA": {
+                    "enabled": True,
+                    "uri": 'https://127.0.0.3:8432/',
+                    "stats": {"enabled": False},
+                },
+            }})
         )
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
-        self.assertEquals(sim.server, "https://127.0.0.3:8432/")
+        self.assertEquals(sim.servers["PodA"]["uri"], "https://127.0.0.3:8432/")
 
 
     def test_loadArrivalConfig(self):
@@ -460,7 +504,7 @@ class LoadSimulatorTests(TestCase):
 
         reactor = object()
         sim = LoadSimulator(
-            None, None, None, None, None, Arrival(FakeArrival, {'x': 3, 'y': 2}), None, reactor=reactor)
+            None, None, None, None, Arrival(FakeArrival, {'x': 3, 'y': 2}), None, reactor=reactor)
         arrival = sim.createArrivalPolicy()
         self.assertIsInstance(arrival, FakeArrival)
         self.assertIdentical(arrival.reactor, sim.reactor)
@@ -575,9 +619,14 @@ class LoadSimulatorTests(TestCase):
         """
         observers = [Observer()]
         sim = LoadSimulator(
-            "http://example.com:123/",
+            {
+                "PodA": {
+                    "enabled": True,
+                    "uri": 'http://example.org:1234/',
+                    "stats": {"enabled": False},
+                },
+            },
             "/principals/users/%s/",
-            None,
             None,
             None,
             Arrival(lambda reactor: NullArrival(), {}),
