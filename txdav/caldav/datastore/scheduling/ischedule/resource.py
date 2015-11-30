@@ -234,8 +234,12 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         # Need a transaction to work with
         txn = transactionFromRequest(request, self._newStore)
 
+        # Log extended item
+        if not hasattr(request, "extendedLogItems"):
+            request.extendedLogItems = {}
+
         # This is a server-to-server scheduling operation.
-        scheduler = IScheduleScheduler(txn, None, podding=self._podding)
+        scheduler = IScheduleScheduler(txn, None, logItems=request.extendedLogItems, podding=self._podding)
 
         # Check content first
         contentType = request.headers.getHeader("content-type")

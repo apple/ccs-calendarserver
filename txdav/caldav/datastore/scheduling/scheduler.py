@@ -177,6 +177,13 @@ class Scheduler(object):
             yield NamedLock.acquire(self.txn, "ImplicitUIDLock:{}".format(hashlib.md5(uid).hexdigest(),))
 
         result = (yield self.doSchedulingDirectly("POST", originator, recipients, calendar))
+
+        if self.logItems is not None:
+            if self.checkForFreeBusy():
+                self.logItems["freebusy"] = "true"
+            else:
+                self.logItems["itip-method"] = self.calendar.propertyValue("METHOD").lower()
+
         returnValue(result)
 
 
