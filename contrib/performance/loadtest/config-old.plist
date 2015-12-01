@@ -20,8 +20,46 @@
 <plist version="1.0">
 	<dict>
 		<!-- Identify the server to be load tested. -->
-		<key>server</key>
-		<string>https://localhost:8443</string>
+		<key>servers</key>
+		<dict>
+			<key>PodA</key>
+			<dict>
+				<key>enabled</key>
+				<true/>
+
+				<!-- Identify the server to be load tested. -->
+				<key>uri</key>
+				<string>https://localhost:8443</string>
+
+				<!--  Define whether server supports stats socket. -->
+				<key>stats</key>
+				<dict>
+					<key>enabled</key>
+					<true/>
+					<key>Port</key>
+					<integer>8100</integer>
+				</dict>
+			</dict>
+			<key>PodB</key>
+			<dict>
+				<key>enabled</key>
+				<false/>
+
+				<!-- Identify the server to be load tested. -->
+				<key>uri</key>
+				<string>https://localhost:8543</string>
+
+				<!--  Define whether server supports stats socket. -->
+				<key>stats</key>
+				<dict>
+					<key>enabled</key>
+					<true/>
+					<key>Port</key>
+					<integer>8101</integer>
+				</dict>
+			</dict>
+		</dict>
+
 
 		<!-- The template URI for doing initial principal lookup on. -->
 		<key>principalPathTemplate</key>
@@ -35,15 +73,6 @@
 
 			<key>HTTPPort</key>
 			<integer>8080</integer>
-		</dict>
-
-		<!--  Define whether server supports stats socket. -->
-		<key>serverStats</key>
-		<dict>
-			<key>enabled</key>
-			<true/>
-			<key>Port</key>
-			<integer>8100</integer>
 		</dict>
 
 		<!--  Define whether client data should be re-used. It will always be saved to the specified path.-->
@@ -75,6 +104,11 @@
 					a relative path. This isn't a great solution. -->
 				<key>path</key>
 				<string>contrib/performance/loadtest/accounts.csv</string>
+
+				<!-- When there are accounts for multiple pods, interleave the accounts for each
+					pod so that the arrival mechanism will cycle clients between each pod. -->
+				<key>interleavePods</key>
+				<true/>
 			</dict>
 		</dict>
 
