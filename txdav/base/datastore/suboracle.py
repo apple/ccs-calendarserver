@@ -31,6 +31,10 @@ log = Logger()
 
 
 class OracleService(MultiService):
+    """
+    A service for connecting to a locally running Oracle DB VM. This is only used
+    during unit tests.
+    """
 
     def __init__(
         self, dataStoreDirectory, subServiceFactory,

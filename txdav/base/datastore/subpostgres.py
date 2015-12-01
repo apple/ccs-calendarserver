@@ -350,28 +350,7 @@ class PostgresService(MultiService):
         """
         Produce a DB-API 2.0 connection pointed at this database.
         """
-        connection = self._connectorFor(databaseName).connect(label)
-
-        if postgres.__name__ == "pg8000":
-            # Patch pg8000 behavior to match what we need wrt text processing
-
-            def my_text_out(v):
-                return v.encode("utf-8") if isinstance(v, unicode) else str(v)
-            connection.realConnection.py_types[str] = (705, postgres.core.FC_TEXT, my_text_out)
-            connection.realConnection.py_types[postgres.six.text_type] = (705, postgres.core.FC_TEXT, my_text_out)
-
-            def my_text_recv(data, offset, length):
-                return str(data[offset: offset + length])
-            connection.realConnection.default_factory = lambda: (postgres.core.FC_TEXT, my_text_recv)
-            connection.realConnection.pg_types[19] = (postgres.core.FC_BINARY, my_text_recv)
-            connection.realConnection.pg_types[25] = (postgres.core.FC_BINARY, my_text_recv)
-            connection.realConnection.pg_types[705] = (postgres.core.FC_BINARY, my_text_recv)
-            connection.realConnection.pg_types[829] = (postgres.core.FC_TEXT, my_text_recv)
-            connection.realConnection.pg_types[1042] = (postgres.core.FC_BINARY, my_text_recv)
-            connection.realConnection.pg_types[1043] = (postgres.core.FC_BINARY, my_text_recv)
-            connection.realConnection.pg_types[2275] = (postgres.core.FC_BINARY, my_text_recv)
-
-        return connection
+        return self._connectorFor(databaseName).connect(label)
 
 
     def ready(self, createDatabaseConn, createDatabaseCursor):

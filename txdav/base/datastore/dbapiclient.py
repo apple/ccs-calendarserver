@@ -322,7 +322,7 @@ class DBAPIConnector(object):
             dbkwargs["host"] = params.host
             if params.port:
                 dbkwargs["port"] = int(params.port)
-        return DBAPIConnector(dbmodule, postgresPreflight, **dbkwargs)
+        return DBAPIConnector(dbmodule, pg8000Preflight, **dbkwargs)
 
 
     @staticmethod
@@ -406,3 +406,33 @@ def postgresPreflight(connection):
     # connection can safely be pooled without executing anything on it.
     connection.commit()
     c.close()
+
+
+
+def pg8000Preflight(connection):
+    """
+    Pre-flight function for pg8000/PostgreSQL connections: setup type mappings
+    in addition to the normal postgres preflight.
+    """
+
+    # Do the base PostgreSQL preflight
+    postgresPreflight(connection)
+
+    # Patch pg8000 behavior to match what we need wrt text processing
+    def my_text_out(v):
+        return v.encode("utf-8") if isinstance(v, unicode) else str(v)
+
+    connection.realConnection.py_types[str] = (705, postgres.core.FC_TEXT, my_text_out)
+    connection.realConnection.py_types[postgres.six.text_type] = (705, postgres.core.FC_TEXT, my_text_out)
+
+    def my_text_recv(data, offset, length):
+        return str(data[offset: offset + length])
+
+    connection.realConnection.default_factory = lambda: (postgres.core.FC_TEXT, my_text_recv)
+    connection.realConnection.pg_types[19] = (postgres.core.FC_BINARY, my_text_recv)
+    connection.realConnection.pg_types[25] = (postgres.core.FC_BINARY, my_text_recv)
+    connection.realConnection.pg_types[705] = (postgres.core.FC_BINARY, my_text_recv)
+    connection.realConnection.pg_types[829] = (postgres.core.FC_TEXT, my_text_recv)
+    connection.realConnection.pg_types[1042] = (postgres.core.FC_BINARY, my_text_recv)
+    connection.realConnection.pg_types[1043] = (postgres.core.FC_BINARY, my_text_recv)
+    connection.realConnection.pg_types[2275] = (postgres.core.FC_BINARY, my_text_recv)
