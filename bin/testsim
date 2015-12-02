@@ -54,8 +54,8 @@ while getopts 'hl:r:' option; do
   case "$option" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
-    'r') runtime="--runtime ${OPTARG}"; ;;
-    'l') logfile="--logfile ${OPTARG}"; ;;
+    'r') runtime="--runtime=${OPTARG}"; ;;
+    'l') logfile="--logfile=${OPTARG}"; ;;
   esac;
 done;
 
@@ -127,7 +127,7 @@ set +e
 
 echo "Starting Sim run"
 
-"${python}" "${sim}" --config "${config}" --clients "${clients}" ${runtime} "${logfile}"
+"${python}" "${sim}" --config "${config}" --clients "${clients}" "${runtime}" "${logfile}"
 
 # Capture exit status of sim.py to use as this script's exit status.
 
