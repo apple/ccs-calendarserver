@@ -68,7 +68,9 @@ class SimRegress(object):
         print("\n*** Results:")
         print("Rev\tQos")
         for result in self.results:
-            print("{}\t{:.4f}".format(*result))
+            rev, qos = result
+            qos = "{:.4f}".format(qos) if qos is not None else "-"
+            print("{}\t{}".format(rev, qos))
 
 
     def getRevisions(self):
@@ -120,7 +122,10 @@ class SimRegress(object):
 
     def updateRevision(self):
         print("Updating to revision: {}".format(self.currentRev))
-        subprocess.call("svn up -r {rev} .".format(rev=self.currentRev).split())
+        subprocess.call(
+            "svn up -r {rev} .".format(rev=self.currentRev).split(),
+            stdout=self.log, stderr=self.log,
+        )
 
 
     def patchConfig(self, configPath):
