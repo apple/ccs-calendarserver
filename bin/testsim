@@ -36,23 +36,26 @@ sim="${wd}/contrib/performance/loadtest/sim.py";
     config="${wd}/contrib/performance/loadtest/config.plist";
    clients="${wd}/contrib/performance/loadtest/clients.plist";
    runtime="--runtime 300";
+   logfile="";
 
 usage ()
 {
   program="$(basename "$0")";
-  echo "Usage: ${program} [-r RUNTIME]";
+  echo "Usage: ${program} [-r RUNTIME] [-l LOGFILE]";
   echo "Options:";
   echo "        -r  Set the runtime";
+  echo "        -l  Log file";
 
   if [ "${1-}" = "-" ]; then return 0; fi;
   exit 64;
 }
 
-while getopts 'r:' option; do
+while getopts 'hl:r:' option; do
   case "$option" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
     'r') runtime="--runtime ${OPTARG}"; ;;
+    'l') logfile="--logfile ${OPTARG}"; ;;
   esac;
 done;
 
@@ -124,7 +127,7 @@ set +e
 
 echo "Starting Sim run"
 
-"${python}" "${sim}" --config "${config}" --clients "${clients}" ${runtime}
+"${python}" "${sim}" --config "${config}" --clients "${clients}" ${runtime} "${logfile}"
 
 # Capture exit status of sim.py to use as this script's exit status.
 

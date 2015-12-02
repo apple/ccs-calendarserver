@@ -42,7 +42,7 @@ usage ()
   exit 64;
 }
 
-while getopts 'r:' option; do
+while getopts 'h' option; do
   case "$option" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
