@@ -59,7 +59,10 @@ class SimRegress(object):
                 self.stopServer()
             with open(logfile) as f:
                 qos = filter(lambda line: line.strip().startswith("Qos : "), f.read().splitlines())
-                qos = float(qos[0].strip()[len("Qos : "):]) if qos else None
+                try:
+                    qos = float(qos[0].strip()[len("Qos : "):])
+                except (IndexError, ValueError):
+                    qos = None
                 print("Revision: {}  Qos: {}".format(self.currentRev, qos))
                 self.results.append((self.currentRev, qos))
 

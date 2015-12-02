@@ -433,7 +433,9 @@ class LoadSimulator(object):
     @classmethod
     def main(cls, args=None):
         simulator = cls.fromCommandLine(args)
-        raise SystemExit(simulator.run())
+        exitCode = simulator.run()
+        print("Exit code: {}".format(exitCode))
+        raise SystemExit(exitCode)
 
 
     def createSimulator(self):
@@ -488,6 +490,9 @@ class LoadSimulator(object):
         if self.webadminPort:
             self.reactor.listenTCP(self.webadminPort, Site(LoadSimAdminResource(self)))
         self.reactor.run()
+
+        # Return code to indicate pass or fail
+        return 0 if all([len(obs.failures()) == 0 for obs in self.observers]) else 1
 
 
     def stop(self):

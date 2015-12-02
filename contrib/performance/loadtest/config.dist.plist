@@ -44,6 +44,13 @@
 				<key>uri</key>
 				<string>https://localhost:8443</string>
 
+				<key>ampPushHosts</key>
+				<array>
+					<string>localhost</string>
+			    </array>
+				<key>ampPushPort</key>
+				<integer>62311</integer>
+
 				<!--  Define whether server supports stats socket. -->
 				<key>stats</key>
 				<dict>
@@ -61,6 +68,13 @@
 				<!-- Identify the server to be load tested. -->
 				<key>uri</key>
 				<string>https://localhost:8543</string>
+
+				<key>ampPushHosts</key>
+				<array>
+					<string>localhost</string>
+			    </array>
+				<key>ampPushPort</key>
+				<integer>62312</integer>
 
 				<!--  Define whether server supports stats socket. -->
 				<key>stats</key>

@@ -55,12 +55,6 @@
 
 					<key>supportAmpPush</key>
 					<true/>
-					<key>ampPushHosts</key>
-					<array>
-						<string>localhost</string>
-				    </array>
-					<key>ampPushPort</key>
-					<integer>62311</integer>
 				</dict>
 
 				<!-- The profiles define certain types of user behavior on top of the

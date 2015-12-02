@@ -489,7 +489,7 @@ class BaseAppleClient(BaseClient):
     def __init__(
         self,
         reactor,
-        root,
+        server,
         principalPathTemplate,
         serializePath,
         record,
@@ -498,8 +498,6 @@ class BaseAppleClient(BaseClient):
         calendarHomePollInterval=None,
         supportPush=True,
         supportAmpPush=True,
-        ampPushHosts=None,
-        ampPushPort=62311,
     ):
 
         self._client_id = str(uuid4())
@@ -514,7 +512,7 @@ class BaseAppleClient(BaseClient):
         agent = ContentDecoderAgent(agent, [("gzip", GzipDecoder)])
         self.agent = AuthHandlerAgent(agent, auth)
 
-        self.root = root
+        self.server = server
         self.principalPathTemplate = principalPathTemplate
         self.record = record
 
@@ -529,10 +527,11 @@ class BaseAppleClient(BaseClient):
         self.supportPush = supportPush
 
         self.supportAmpPush = supportAmpPush
+        ampPushHosts = self.server.get("ampPushHosts")
         if ampPushHosts is None:
-            ampPushHosts = [urlparse(self.root)[1].split(":")[0]]
+            ampPushHosts = [urlparse(self.server["uri"])[1].split(":")[0]]
         self.ampPushHosts = ampPushHosts
-        self.ampPushPort = ampPushPort
+        self.ampPushPort = self.server.get("ampPushPort", 62311)
 
         self.serializePath = serializePath
 
@@ -666,7 +665,7 @@ class BaseAppleClient(BaseClient):
         response = yield self._request(
             allowedStatus,
             'PROPFIND',
-            self.root + url.encode('utf-8'),
+            self.server["uri"] + url.encode('utf-8'),
             hdrs,
             StringProducer(body),
             method_label=method_label,
@@ -687,7 +686,7 @@ class BaseAppleClient(BaseClient):
         response = yield self._request(
             (OK, MULTI_STATUS,),
             'PROPPATCH',
-            self.root + url.encode('utf-8'),
+            self.server["uri"] + url.encode('utf-8'),
             hdrs,
             StringProducer(body),
             method_label=method_label,
@@ -711,7 +710,7 @@ class BaseAppleClient(BaseClient):
         response = yield self._request(
             allowedStatus,
             'REPORT',
-            self.root + url.encode('utf-8'),
+            self.server["uri"] + url.encode('utf-8'),
             hdrs,
             StringProducer(body),
             method_label=method_label,
@@ -1203,7 +1202,7 @@ class BaseAppleClient(BaseClient):
                 response = yield self._request(
                     OK,
                     'GET',
-                    self.root + responseHref.encode('utf-8'),
+                    self.server["uri"] + responseHref.encode('utf-8'),
                     method_label="GET{notification}",
                 )
                 body = yield readBody(response)
@@ -1261,7 +1260,7 @@ class BaseAppleClient(BaseClient):
             response = yield self._request(
                 (NO_CONTENT, NOT_FOUND),
                 'DELETE',
-                self.root + responseHref.encode('utf-8'),
+                self.server["uri"] + responseHref.encode('utf-8'),
                 method_label="DELETE{invite}",
             )
 
@@ -1572,7 +1571,7 @@ class BaseAppleClient(BaseClient):
             "principalURL": self.principalURL,
             "calendars": [calendar.serialize() for calendar in sorted(self._calendars.values(), key=lambda x:x.name)],
             "events": [event.serialize() for event in sorted(self._events.values(), key=lambda x:x.url)],
-            "notificationCollection" : self._notificationCollection.serialize(),
+            "notificationCollection" : self._notificationCollection.serialize() if self._notificationCollection else {},
         }
         # Write JSON data
         with open(os.path.join(path, "index.json"), "w") as f:
@@ -1607,6 +1606,8 @@ class BaseAppleClient(BaseClient):
         for calendar in data["calendars"]:
             calendar = Calendar.deserialize(calendar, self._events)
             self._calendars[calendar.url] = calendar
+        if data["notificationCollection"]:
+            self._notificationCollection = NotificationCollection.deserialize(data, {})
 
 
     @inlineCallbacks
@@ -1674,7 +1675,7 @@ class BaseAppleClient(BaseClient):
         response = yield self._request(
             (NO_CONTENT, PRECONDITION_FAILED,),
             'PUT',
-            self.root + href.encode('utf-8'),
+            self.server["uri"] + href.encode('utf-8'),
             Headers({
                     'content-type': ['text/calendar'],
                     'if-match': [event.etag]}),
@@ -1769,7 +1770,7 @@ class BaseAppleClient(BaseClient):
         response = yield self._request(
             okCodes,
             'PUT',
-            self.root + href.encode('utf-8'),
+            self.server["uri"] + href.encode('utf-8'),
             headers, StringProducer(component.getTextWithTimezones(includeTimezones=True)),
             method_label="PUT{attendee-%s}" % (label_suffix,),
         )
@@ -1790,7 +1791,7 @@ class BaseAppleClient(BaseClient):
         response = yield self._request(
             (NO_CONTENT, NOT_FOUND),
             'DELETE',
-            self.root + href.encode('utf-8'),
+            self.server["uri"] + href.encode('utf-8'),
             method_label="DELETE{event}",
         )
         returnValue(response)
@@ -1814,7 +1815,7 @@ class BaseAppleClient(BaseClient):
         response = yield self._request(
             CREATED,
             'PUT',
-            self.root + href.encode('utf-8'),
+            self.server["uri"] + href.encode('utf-8'),
             headers,
             StringProducer(component.getTextWithTimezones(includeTimezones=True)),
             method_label="PUT{organizer-%s}" % (label_suffix,) if invite else "PUT{event}",
@@ -1850,7 +1851,7 @@ class BaseAppleClient(BaseClient):
         response = yield self._request(
             (NO_CONTENT, PRECONDITION_FAILED,),
             'PUT',
-            self.root + href.encode('utf-8'),
+            self.server["uri"] + href.encode('utf-8'),
             Headers({
                 'content-type': ['text/calendar'],
                 'if-match': [event.etag]
@@ -1882,7 +1883,7 @@ class BaseAppleClient(BaseClient):
         response = yield self._request(
             OK,
             'GET',
-            self.root + href.encode('utf-8'),
+            self.server["uri"] + href.encode('utf-8'),
             method_label="GET{event}",
         )
         headers = response.headers
@@ -1913,7 +1914,7 @@ class BaseAppleClient(BaseClient):
         @return: A C{Deferred} which fires with a C{dict}.  Keys in the dict
             are user UUIDs (those requested) and values are something else.
         """
-        outbox = self.root + self.outbox
+        outbox = self.server["uri"] + self.outbox
 
         if mask:
             maskStr = u'\r\n'.join(['X-CALENDARSERVER-MASK-UID:' + uid
@@ -1970,7 +1971,7 @@ class BaseAppleClient(BaseClient):
 
     @inlineCallbacks
     def postAttachment(self, href, content):
-        url = self.root + "{0}?{1}".format(href, "action=attachment-add")
+        url = self.server["uri"] + "{0}?{1}".format(href, "action=attachment-add")
         filename = 'file-{}.txt'.format(len(content))
         headers = Headers({
             'Content-Disposition': ['attachment; filename="{}"'.format(filename)]
@@ -1995,7 +1996,7 @@ class BaseAppleClient(BaseClient):
         response = yield self._request(
             (OK, CREATED, MULTI_STATUS),
             'POST',
-            self.root + href,
+            self.server["uri"] + href,
             headers=headers,
             body=StringProducer(content),
             method_label=label
