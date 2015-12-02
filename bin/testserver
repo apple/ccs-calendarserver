@@ -108,7 +108,7 @@ datadir="${sandboxdir}/Data"
 configdir_u="${sandboxdir_u}/Config"
 datadir_u="${sandboxdir_u}/Data"
 
-mkdir -p "${configdir}/Config" "${sandboxdir}/Logs" "${sandboxdir}/Run" "${datadir}/Documents"
+mkdir -p "${sandboxdir}/Config" "${sandboxdir}/Logs" "${sandboxdir}/Run" "${datadir}/Documents"
 
 cp conf/caldavd-test.plist "${configdir}/caldavd-cdt.plist"
 cp conf/auth/proxies-test.xml "${datadir}/proxies-cdt.xml"

@@ -1,0 +1,124 @@
+#!/bin/sh
+# -*- sh-basic-offset: 2 -*-
+
+##
+# Copyright (c) 2005-2015 Apple Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+##
+
+set -e;
+set -u;
+
+wd="$(cd "$(dirname "$0")/.." && pwd -L)";
+
+. "${wd}/bin/_build.sh";
+
+init_build > /dev/null;
+
+sqlusage="${wd}/contrib/performance/sqlusage/sqlusage.py";
+
+##
+# Command line handling
+##
+
+usage ()
+{
+  program="$(basename "$0")";
+  echo "Usage: ${program}";
+  echo "Options:";
+
+  if [ "${1-}" = "-" ]; then return 0; fi;
+  exit 64;
+}
+
+while getopts 'r:' option; do
+  case "$option" in
+    '?') usage; ;;
+    'h') usage -; exit 0; ;;
+  esac;
+done;
+
+shift $((${OPTIND} - 1));
+
+##
+# Do The Right Thing
+##
+
+do_setup="false";
+develop > /dev/null;
+
+# Set up sandbox
+
+sandboxdir="/tmp/sqlusage_sandbox💣"
+sandboxdir_u="/tmp/sqlusage_sandbox\ud83d\udca3"
+
+if [ -d "${sandboxdir}" ]; then
+  rm -rf "${sandboxdir}"
+fi;
+
+configdir="${sandboxdir}/Config"
+datadir="${sandboxdir}/Data"
+
+configdir_u="${sandboxdir_u}/Config"
+datadir_u="${sandboxdir_u}/Data"
+
+mkdir -p "${sandboxdir}/Config" "${sandboxdir}/Logs" "${sandboxdir}/Run" "${datadir}/Documents"
+
+cp conf/caldavd-test.plist "${configdir}/caldavd-sqlusage.plist"
+cp conf/auth/proxies-test.xml "${datadir}/proxies-sqlusage.xml"
+cp conf/auth/resources-test.xml "${datadir}/resources-sqlusage.xml"
+cp conf/auth/augments-test.xml "${datadir}/augments-sqlusage.xml"
+cp conf/auth/accounts-test.xml "${datadir}/accounts-sqlusage.xml"
+
+# Modify the plist
+
+python -c "import plistlib; f=plistlib.readPlist('${configdir}/caldavd-sqlusage.plist'); f['HTTPPort'] = 18008; f['BindHTTPPorts'] = [18008]; f['SSLPort'] = 18443; f['BindSSLPorts'] = [18443]; f['Notifications']['Services']['AMP']['Port'] = 62312; f['ServerRoot'] = u'${sandboxdir_u}'; f['ConfigRoot'] = 'Config'; f['RunRoot'] = 'Run'; f['ProxyLoadFromFile'] = u'${datadir_u}/proxies-sqlusage.xml'; f['ResourceService']['params']['xmlFile'] = u'${datadir_u}/resources-sqlusage.xml'; f['DirectoryService']['params']['xmlFile'] = u'${datadir_u}/accounts-sqlusage.xml'; f['AugmentService']['params']['xmlFiles'] = [u'${datadir_u}/augments-sqlusage.xml']; f['Authentication']['Kerberos']['Enabled'] = False; f['LogDatabase'] = {}; f['LogDatabase']['Statistics'] = True; plistlib.writePlist(f, '${configdir}/caldavd-sqlusage.plist');"
+
+# Start the server
+
+"${wd}/bin/run" -nd -c "${configdir}/caldavd-sqlusage.plist"
+
+/bin/echo -n "Waiting for server to start up..."
+
+while [ ! -f "${sandboxdir}/Run/caldav-instance-0.pid" ]; do
+  sleep 1
+  /bin/echo -n "."
+done;
+
+echo "Server has started"
+
+# Don't exit if sqlusage.py fails, because we need to clean up afterwards.
+
+set +e
+
+# Run sqlusage
+
+echo "Starting sqlusage run"
+
+"${python}" "${sqlusage}" --port 18008 --event --share "${sandboxdir}/Logs/sqlstats.log"
+
+# Capture exit status of sqlusage.py to use as this script's exit status.
+
+STATUS=$?
+
+# Re-enable exit on failure incase run -nk fails
+
+set -e
+
+echo "Stopping server"
+"${wd}/bin/run" -nk -c "${configdir}/caldavd-sqlusage.plist"
+
+# Exit with the exit status of sqlusage.py, to reflect the sqlusage result
+
+exit $STATUS
