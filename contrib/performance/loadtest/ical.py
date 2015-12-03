@@ -1606,7 +1606,7 @@ class BaseAppleClient(BaseClient):
         for calendar in data["calendars"]:
             calendar = Calendar.deserialize(calendar, self._events)
             self._calendars[calendar.url] = calendar
-        if data["notificationCollection"]:
+        if data.get("notificationCollection"):
             self._notificationCollection = NotificationCollection.deserialize(data, {})
 
 
