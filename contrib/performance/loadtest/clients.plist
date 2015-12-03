@@ -615,6 +615,19 @@
 						</dict>
 					</dict>
 
+
+					<!-- This profile downloads attachments when an event changes. -->
+					<dict>
+						<key>class</key>
+						<string>contrib.performance.loadtest.profiles.AttachmentDownloader</string>
+
+						<key>params</key>
+						<dict>
+							<key>enabled</key>
+							<true/>
+						</dict>
+					</dict>
+
 					<!-- A task-creating profile, which will periodically create
 						new tasks at a random time on a random calendar. -->
 					<dict>

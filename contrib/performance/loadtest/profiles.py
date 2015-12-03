@@ -525,6 +525,47 @@ class Accepter(ProfileBase):
         return accepted
 
 
+class AttachmentDownloader(ProfileBase):
+    """
+    A Calendar user who downloads attachments.
+    """
+    def setParameters(
+        self,
+        enabled=True,
+    ):
+        self.enabled = enabled
+
+    def run(self):
+        self._subscription = self._client.catalog["eventChanged"].subscribe(self.eventChanged)
+        return Deferred()
+
+
+    def eventChanged(self, href):
+        # Just respond to normal calendar events
+        calendar = href.rsplit('/', 1)[0] + '/'
+        try:
+            calendar = self._client._calendars[calendar]
+        except KeyError:
+            return
+
+        if calendar.resourceType == caldavxml.calendar:
+            self.calendarEventChanged(calendar, href)
+
+
+    def calendarEventChanged(self, calendar, href):
+        component = self._client._events[href].component
+        attachments = tuple(component.mainComponent().properties('ATTACH'))
+        if attachments:
+            for attachment in attachments:
+                attachmentHref = attachment.value()
+                self._reactor.callLater(
+                    0, self._downloadAttachment, attachmentHref
+                )
+
+    def _downloadAttachment(self, href):
+        return self._client._get(href, 200)
+
+
 
 class Eventer(ProfileBase):
     """
@@ -622,13 +663,14 @@ class EventUpdaterBase(ProfileBase):
         vevent = component.mainComponent()
 
         label = yield self.modifyEvent(event.url, vevent)
-        vevent.replaceProperty(Property("DTSTAMP", DateTime.getNowUTC()))
+        if label:
+            vevent.replaceProperty(Property("DTSTAMP", DateTime.getNowUTC()))
 
-        event.component = component
-        yield self._newOperation(
-            label,
-            self._client.changeEvent(event.url)
-        )
+            event.component = component
+            yield self._newOperation(
+                label,
+                self._client.changeEvent(event.url)
+            )
 
 
     def run(self):
@@ -700,7 +742,7 @@ class Attacher(EventUpdaterBase):
     def modifyEvent(self, href, vevent):
         fileSize = int(self._fileSize.sample())
         yield self._client.postAttachment(href, 'x' * fileSize)
-        returnValue("attach{files}")
+        returnValue(None)
 
 
 

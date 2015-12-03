@@ -700,6 +700,22 @@ class BaseAppleClient(BaseClient):
 
 
     @inlineCallbacks
+    def _get(self, url, allowedStatus=(MULTI_STATUS,), method_label=None):
+        """
+        Issue a GET on the chosen URL
+        """
+        response = yield self._request(
+            allowedStatus,
+            'GET',
+            url,
+            method_label=method_label,
+        )
+
+        body = yield readBody(response)
+        returnValue(body)
+
+
+    @inlineCallbacks
     def _report(self, url, body, depth='0', allowedStatus=(MULTI_STATUS,), otherTokens=False, method_label=None):
         """
         Issue a REPORT on the chosen URL
@@ -886,9 +902,11 @@ class BaseAppleClient(BaseClient):
             isNotifications = False
             isShared = False
             isSharedByMe = False
+            resourceType = None
             for nodeType in nodes[davxml.resourcetype]:
                 if nodeType.tag in self._CALENDAR_TYPES:
                     isCalendar = True
+                    resourceType = nodeType.tag
                 elif nodeType.tag == csxml.notification:
                     isNotifications = True
                 elif nodeType.tag.startswith("{http://calendarserver.org/ns/}shared"):
@@ -905,7 +923,7 @@ class BaseAppleClient(BaseClient):
                             componentTypes.add(comp.get("name").upper())
 
                 calendars.append(Calendar(
-                    nodeType.tag,
+                    resourceType,
                     componentTypes,
                     textProps.get(davxml.displayname, None),
                     href,
@@ -1985,6 +2003,7 @@ class BaseAppleClient(BaseClient):
             method_label="POST{attach}"
         )
         body = yield readBody(response)
+        yield self.updateEvent(href)
         returnValue(body)
 
 
