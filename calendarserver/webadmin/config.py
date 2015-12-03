@@ -29,7 +29,7 @@ from twext.python.log import Logger
 
 from .resource import PageElement, TemplateResource
 
-
+log = Logger()
 
 class ConfigurationPageElement(PageElement):
     """
@@ -89,6 +89,9 @@ class ConfigurationPageElement(PageElement):
                 if value is None:
                     return u"(no value)"
 
+                if isinstance(value, str):
+                    value = value.decode("utf-8")
+
                 return html.code(unicode(value))
 
             if isinstance(value, list):
@@ -127,7 +130,7 @@ class ConfigurationPageElement(PageElement):
                     name = html.code(namespace)
 
                 value = html.code(
-                    Logger.levels().logLevelForNamespace(
+                    log.levels().logLevelForNamespace(
                         namespace
                     ).name
                 )
@@ -138,7 +141,7 @@ class ConfigurationPageElement(PageElement):
                 )
 
         # FIXME: Using private attributes is bad.
-        namespaces = Logger.levels()._logLevelsByNamespace.keys()
+        namespaces = log.levels()._logLevelsByNamespace.keys()
 
         return rowsForNamespaces(namespaces)
 

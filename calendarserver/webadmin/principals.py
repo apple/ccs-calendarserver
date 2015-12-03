@@ -353,8 +353,8 @@ def slotsForRecord(record):
         u"guid": joinWithBR((record.guid,)),
         u"recordType": joinWithBR((record.recordType,)),
         u"shortNames": joinWithBR(record.shortNames),
-        u"fullNames": joinWithBR((record.fullName,)),
+        u"fullNames": joinWithBR(record.fullNames),
         u"emailAddresses": joinWithBR(record.emailAddresses),
         u"calendarUserAddresses": joinWithBR(record.calendarUserAddresses),
-        u"serverID": joinWithBR((record.serverID,)),
+        u"serverURI": joinWithBR((record.serverURI(),)),
     }
