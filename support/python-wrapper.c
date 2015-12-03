@@ -8,6 +8,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <pwd.h>
+
+const char * const allowedUsernames[] = {
+    "_calendar",
+    "_devicemgr",
+    "_teamsserver",
+    "_xserverdocs"
+};
 
 const char* python = "/usr/bin/python2.7";
 const char* bin = "/Applications/Server.app/Contents/ServerRoot/Library/CalendarServer/bin";
@@ -35,13 +43,46 @@ int prependToPath(const char* name, const char* prepend) {
     return 0;
 }
 
+int uidIsAllowed() {
+    // Returns 1 if we're root or any of the whitelisted users; 0 otherwise
+
+    int uid = getuid();
+
+    if (uid == 0) {
+        // Always allow root
+        return 1;
+
+    } else {
+        // Check the other whitelisted users
+        int i, len;
+        struct passwd* passwdInfo;
+
+        len = sizeof(allowedUsernames) / sizeof(allowedUsernames[0]);
+        for (i = 0; i < len; i++) {
+            passwdInfo = getpwnam(allowedUsernames[i]);
+            if (passwdInfo != NULL) {
+                if (passwdInfo->pw_uid == uid) {
+                    return 1;
+                }
+            }
+        }
+    }
+
+    // No match
+    return 0;
+}
+
 int main(int argc, const char * argv[]) {
-    
-    // Update PATH and PYTHONPATH
-    prependToPath("PATH", bin);
-    prependToPath("PYTHONPATH", site);
-    
-    // Launch real python
-    argv[0] = python;
-    return execvp(python, (char* const*)argv);
+
+    if (uidIsAllowed()) {
+        // Update PATH and PYTHONPATH
+        prependToPath("PATH", bin);
+        prependToPath("PYTHONPATH", site);
+
+        // Launch real python
+        argv[0] = python;
+        return execvp(python, (char* const*)argv);
+    } else {
+        printf("You are not allowed to run this executable.\n");
+    }
 }
