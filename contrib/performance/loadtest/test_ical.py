@@ -1170,7 +1170,9 @@ class OS_X_10_11Mixin:
         os.mkdir(serializePath)
         self.client = OS_X_10_11(
             None,
-            "http://127.0.0.1",
+            {
+                "uri": "http://127.0.0.1",
+            },
             "/principals/users/%s/",
             serializePath,
             self.record,
