@@ -84,5 +84,6 @@ int main(int argc, const char * argv[]) {
         return execvp(python, (char* const*)argv);
     } else {
         printf("You are not allowed to run this executable.\n");
+        return 1;
     }
 }
