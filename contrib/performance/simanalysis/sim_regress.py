@@ -156,7 +156,13 @@ class SimRegress(object):
         if os.path.exists("data"):
             shutil.rmtree("data")
         subprocess.call("./bin/run -nd".split(), stdout=self.log, stderr=self.log)
-        time.sleep(10)
+
+        # Wait for first child pid to appear then wait another 10 seconds
+        t = time.time()
+        while time.time() - t < 60:
+            if os.path.exists("data/Logs/state/caldav-instance-0.pid"):
+                time.sleep(10)
+                break
 
 
     def stopServer(self):
