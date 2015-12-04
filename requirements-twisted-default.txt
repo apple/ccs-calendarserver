@@ -3,7 +3,7 @@
 ##
 
 
-Twisted==15.2.1
+Twisted==15.4.0
     #zope.interface
 
     # NOTE: Twisted also uses pyOpenSSL, pycrypto and service_identity,
