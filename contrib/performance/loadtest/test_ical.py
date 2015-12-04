@@ -1626,7 +1626,8 @@ END:VCALENDAR
       "etag": "123.123",
       "uid": "00a79cad-857b-418e-a54a-340b5686d747"
     }
-  ]
+  ],
+  "attachments": {}
 }""")))
 
         event1Path = os.path.join(clientPath, "calendar", "1.ics")

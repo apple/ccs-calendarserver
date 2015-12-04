@@ -302,15 +302,17 @@ class NotificationCollection(object):
 
         coll = NotificationCollection(None, None)
         for attr in ("url", "changeToken"):
-            setattr(coll, attr, u2str(data[attr]))
+            if attr in data:
+                setattr(coll, attr, u2str(data[attr]))
 
-        for notification in data["notifications"]:
-            url = urljoin(coll.url, notification)
-            if url in notifications:
-                coll.notifications[notification] = notifications[url]
-            else:
-                # Ughh - a notification is missing - force changeToken to empty to trigger full resync
-                coll.changeToken = ""
+        if "notifications" in data:
+            for notification in data["notifications"]:
+                url = urljoin(coll.url, notification)
+                if url in notifications:
+                    coll.notifications[notification] = notifications[url]
+                else:
+                    # Ughh - a notification is missing - force changeToken to empty to trigger full resync
+                    coll.changeToken = ""
         return coll
 
 
@@ -573,6 +575,9 @@ class BaseAppleClient(BaseClient):
         self.catalog = {
             "eventChanged": Periodical(),
         }
+
+        # Keep track of previously downloaded attachments
+        self._attachments = {}
 
 
     def _addDefaultHeaders(self, headers):
@@ -1590,6 +1595,7 @@ class BaseAppleClient(BaseClient):
             "calendars": [calendar.serialize() for calendar in sorted(self._calendars.values(), key=lambda x:x.name)],
             "events": [event.serialize() for event in sorted(self._events.values(), key=lambda x:x.url)],
             "notificationCollection" : self._notificationCollection.serialize() if self._notificationCollection else {},
+            "attachments": self._attachments
         }
         # Write JSON data
         with open(os.path.join(path, "index.json"), "w") as f:
@@ -1603,6 +1609,7 @@ class BaseAppleClient(BaseClient):
 
         self._calendars = {}
         self._events = {}
+        self._attachments = {}
 
         path = self.serializeLocation()
         if path is None:
@@ -1626,6 +1633,8 @@ class BaseAppleClient(BaseClient):
             self._calendars[calendar.url] = calendar
         if data.get("notificationCollection"):
             self._notificationCollection = NotificationCollection.deserialize(data, {})
+        self._attachments = data.get("attachments", {})
+
 
 
     @inlineCallbacks
@@ -2003,8 +2012,24 @@ class BaseAppleClient(BaseClient):
             method_label="POST{attach}"
         )
         body = yield readBody(response)
+
+        # We don't want to download an attachment we uploaded, so look for the
+        # Cal-Managed-Id: and Location: headers and remember those
+        managedId = response.headers.getRawHeaders("Cal-Managed-Id")[0]
+        location = response.headers.getRawHeaders("Location")[0]
+        self._attachments[managedId] = location
+
         yield self.updateEvent(href)
         returnValue(body)
+
+
+    @inlineCallbacks
+    def getAttachment(self, href, managedId):
+
+        # If we've already downloaded this managedId, skip it.
+        if managedId not in self._attachments:
+            self._attachments[managedId] = href
+            yield self._newOperation("download", self._get(href, 200))
 
 
     @inlineCallbacks

@@ -558,12 +558,10 @@ class AttachmentDownloader(ProfileBase):
         if attachments:
             for attachment in attachments:
                 attachmentHref = attachment.value()
+                managedId = attachment.parameterValue('MANAGED-ID')
                 self._reactor.callLater(
-                    0, self._downloadAttachment, attachmentHref
+                    0, self._client.getAttachment, attachmentHref, managedId
                 )
-
-    def _downloadAttachment(self, href):
-        return self._client._get(href, 200)
 
 
 
