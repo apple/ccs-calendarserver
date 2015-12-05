@@ -588,7 +588,7 @@ class APNProviderService(APNConnectionService):
     def startService(self):
         self.log.debug("APNProviderService startService")
         self.factory = APNProviderFactory(self, self.store)
-        self.connect(self.factory)
+        self.reactor.callWhenRunning(self.connect, self.factory)
 
 
     def stopService(self):
@@ -807,7 +807,7 @@ class APNFeedbackService(APNConnectionService):
     def startService(self):
         self.log.debug("APNFeedbackService startService")
         self.factory = APNFeedbackFactory(self.store)
-        self.checkForFeedback()
+        self.reactor.callWhenRunning(self.checkForFeedback)
 
 
     def stopService(self):

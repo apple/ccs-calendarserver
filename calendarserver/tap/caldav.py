@@ -581,12 +581,19 @@ class WorkSchedulingService(Service):
         self.doPrincipalPurging = doPrincipalPurging
 
 
-    @inlineCallbacks
     def startService(self):
+        # Do the actual DB work after the reactor has started up
+        from twisted.internet import reactor
+        reactor.callWhenRunning(self.initializeWork)
+
+
+    @inlineCallbacks
+    def initializeWork(self):
         # Note: the "seconds in the future" args are being set to the LogID
         # numbers to spread them out.  This is only needed until
         # ultimatelyPerform( ) handles groups correctly.  Once that is fixed
         # these can be set to zero seconds in the future.
+
         if self.doImip:
             yield scheduleNextMailPoll(
                 self.store,
@@ -786,6 +793,13 @@ class CalDAVServiceMaker (object):
                 .format(config.ProcessType)
             )
         else:
+            # Always want a thread pool - so start it here before we start anything else
+            # so that it is started before any other callWhenRunning callables. This avoids
+            # a race condition that could cause a deadlock with our long-lived ADBAPI2
+            # connections which grab and hold a thread.
+            from twisted.internet import reactor
+            reactor.getThreadPool()
+
             #
             # Configure Memcached Client Pool
             #
