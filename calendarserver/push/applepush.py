@@ -108,7 +108,7 @@ class ApplePushNotifierService(service.MultiService):
 
         for protocol in ("CalDAV", "CardDAV"):
 
-            if settings[protocol]["CertificatePath"]:
+            if settings[protocol].Enabled:
 
                 providerTestConnector = None
                 feedbackTestConnector = None

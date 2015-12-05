@@ -853,6 +853,7 @@ DEFAULT_CONFIG = {
                 "EnableStaggering" : False,
                 "StaggerSeconds" : 3,
                 "CalDAV" : {
+                    "Enabled" : False,
                     "CertificatePath" : "Certificates/apns:com.apple.calendar.cert.pem",
                     "PrivateKeyPath" : "Certificates/apns:com.apple.calendar.key.pem",
                     "AuthorityChainPath" : "Certificates/apns:com.apple.calendar.chain.pem",
@@ -861,6 +862,7 @@ DEFAULT_CONFIG = {
                     "Topic" : "",
                 },
                 "CardDAV" : {
+                    "Enabled" : False,
                     "CertificatePath" : "Certificates/apns:com.apple.contact.cert.pem",
                     "PrivateKeyPath" : "Certificates/apns:com.apple.contact.key.pem",
                     "AuthorityChainPath" : "Certificates/apns:com.apple.contact.chain.pem",
@@ -1688,6 +1690,14 @@ def _updateNotifications(configDict, reloading=False):
                 ("CalDAV", "apns:com.apple.calendar"),
                 ("CardDAV", "apns:com.apple.contact"),
             ):
+
+                # Set protocol-specific Enabled key only if that protocol's
+                # service is actually enabled
+                if configDict["Enable{}".format(protocol)]:
+                    service[protocol].Enabled = True
+                else:
+                    continue
+
                 if not service[protocol]["Topic"]:
                     certPath = service[protocol]["CertificatePath"]
                     if certPath:
