@@ -19,8 +19,7 @@ A curses (or plain text) based dashboard for viewing various aspects of the
 server as exposed by the L{DashboardProtocol} stats socket.
 """
 
-from getopt import getopt, GetoptError
-
+import argparse
 import curses.panel
 import errno
 import fcntl
@@ -58,45 +57,26 @@ def usage(e=None):
         sys.exit(0)
 
 
-BOX_WIDTH = 52
-
 
 def main():
-    try:
-        (optargs, _ignore_args) = getopt(
-            sys.argv[1:], "hs:t", [
-                "help",
-            ],
-        )
-    except GetoptError, e:
-        usage(e)
+    parser = argparse.ArgumentParser(description="Dashboard service for CalendarServer.")
+    parser.add_argument("-t", action="store_false", help="text output, not curses")
+    parser.add_argument("-s", default="localhost:8100", help="server host (and optional port), or unix socket path prefixed by 'unix:'")
+    args = parser.parse_args()
 
     #
     # Get configuration
     #
-    useCurses = True
-    server = ("localhost", 8100)
-
-    for opt, arg in optargs:
-        if opt in ("-h", "--help"):
-            usage()
-
-        elif opt in ("-t"):
-            useCurses = False
-
-        elif opt in ("-s"):
-            if not arg.startswith("unix:"):
-                server = arg.split(":")
-                if len(server) == 1:
-                    server.append(8100)
-                else:
-                    server[1] = int(server[1])
-                server = tuple(server)
-            else:
-                server = arg
-
+    useCurses = args.t
+    if not args.s.startswith("unix:"):
+        server = args.s.split(":")
+        if len(server) == 1:
+            server.append(8100)
         else:
-            raise NotImplementedError(opt)
+            server[1] = int(server[1])
+        server = tuple(server)
+    else:
+        server = args.s
 
     if useCurses:
         def _wrapped(stdscrn):
@@ -142,6 +122,10 @@ class Dashboard(object):
 
     screen = None
     registered_windows = {}
+    registered_window_sets = {
+        "H": ("HTTP Panels", [],),
+        "J": ("Jobs Panels", [],),
+    }
     registered_order = []
 
     def __init__(self, server, screen, usesCurses):
@@ -166,6 +150,17 @@ class Dashboard(object):
         cls.registered_order.append(keypress)
 
 
+    @classmethod
+    def registerWindowSet(cls, wtype, keypress):
+        """
+        Register a set of window types along with a key press action. This allows the
+        controller to select the appropriate set of windows when its key is pressed,
+        and also provides help information to the L{HelpWindow} for each
+        available window set type.
+        """
+        cls.registered_window_sets[keypress][1].append(wtype)
+
+
     def run(self):
         """
         Create the initial window and run the L{scheduler}.
@@ -182,7 +177,7 @@ class Dashboard(object):
         """
 
         # Toggle a specific window on or off
-        if wtype is not None:
+        if isinstance(wtype, type):
             if wtype not in [type(w) for w in self.windows]:
                 self.windows.append(wtype(self.usesCurses, self.client).makeWindow())
                 self.windows[-1].activate()
@@ -203,7 +198,11 @@ class Dashboard(object):
                     window.deactivate()
                 self.windows = []
             top = 0
-            ordered_windows = [self.registered_windows[i] for i in self.registered_order]
+            if wtype is None:
+                # All windows in registered order
+                ordered_windows = [self.registered_windows[i] for i in self.registered_order]
+            else:
+                ordered_windows = list(wtype)
             for wtype in filter(lambda x: x.all, ordered_windows):
                 new_win = wtype(self.usesCurses, self.client).makeWindow(top=top)
                 logging.debug('created %r at panel level %r' % (new_win, new_win.z_order))
@@ -292,6 +291,8 @@ class Dashboard(object):
                     self.displayWindow(self.registered_windows["h"])
             elif c in self.registered_windows:
                 self.displayWindow(self.registered_windows[c])
+            elif c in self.registered_window_sets:
+                self.displayWindow(self.registered_window_sets[c][1])
 
         if not initialUpdate:
             self.sched.enter(self.seconds, 0, self.updateDisplay, ())
@@ -390,6 +391,10 @@ class BaseWindow(object):
     all = True
     clientItem = None
 
+    windowTitle = ""
+    formatWidth = 0
+    additionalRows = 0
+
     def __init__(self, usesCurses, client):
         self.usesCurses = usesCurses
         self.client = client
@@ -399,11 +404,25 @@ class BaseWindow(object):
 
 
     def makeWindow(self, top=0, left=0):
+        self.updateRowCount()
+        self._createWindow(
+            self.windowTitle,
+            self.rowCount + self.additionalRows,
+            self.formatWidth,
+            begin_y=top, begin_x=left
+        )
+        return self
+
+
+    def updateRowCount(self):
+        """
+        Update L{self.rowCount} based on the current data
+        """
         raise NotImplementedError()
 
 
     def _createWindow(
-        self, title, nlines, ncols=BOX_WIDTH, begin_y=0, begin_x=0
+        self, title, nlines, ncols, begin_y=0, begin_x=0
     ):
         """
         Initialize a curses window based on the sizes required.
@@ -482,7 +501,6 @@ class HelpWindow(BaseWindow):
     help = "dashboard help"
     all = False
     helpItems = (
-        "",
         "a - all windows",
         "n - no windows",
         "  - (space) pause dashboard polling",
@@ -491,17 +509,18 @@ class HelpWindow(BaseWindow):
         "q - exit the dashboard",
     )
 
+    windowTitle = "Help"
+    formatWidth = 48
+    additionalRows = 3
+
     def makeWindow(self, top=0, left=0):
         term_w, _ignore_term_h = terminal_size()
-        help_x_offset = term_w - BOX_WIDTH + 4
-        self._createWindow(
-            "Help",
-            len(self.helpItems) + len(Dashboard.registered_windows) + 2,
-            ncols=BOX_WIDTH - 4,
-            begin_y=0,
-            begin_x=help_x_offset,
-        )
-        return self
+        help_x_offset = term_w - self.formatWidth
+        return super(HelpWindow, self).makeWindow(0, help_x_offset)
+
+
+    def updateRowCount(self):
+        self.rowCount = len(self.helpItems) + len(filter(lambda x: len(x[1]) != 0, Dashboard.registered_window_sets.values())) + len(Dashboard.registered_windows)
 
 
     def requiresUpdate(self):
@@ -526,6 +545,13 @@ class HelpWindow(BaseWindow):
             Dashboard.registered_windows.items(), key=lambda x: x[0]
         ):
             items.append("{} - {}".format(keypress, wtype.help))
+
+        items.append("")
+        for key, value in Dashboard.registered_window_sets.items():
+            description, panels = value
+            if panels:
+                items.append("{} - {}".format(key, description))
+
         items.extend(self.helpItems)
         for item in items:
             if self.usesCurses:
@@ -549,13 +575,13 @@ class JobsWindow(BaseWindow):
 
     help = "server jobs"
     clientItem = "jobs"
-    FORMAT_WIDTH = 98
 
-    def makeWindow(self, top=0, left=0):
-        nlines = defaultIfNone(self.readItem("jobcount"), 0)
-        self.rowCount = nlines
-        self._createWindow("Jobs", self.rowCount + 6, ncols=self.FORMAT_WIDTH, begin_y=top, begin_x=left)
-        return self
+    windowTitle = "Jobs"
+    formatWidth = 98
+    additionalRows = 6
+
+    def updateRowCount(self):
+        self.rowCount = defaultIfNone(self.readItem("jobcount"), 0)
 
 
     def update(self):
@@ -640,7 +666,7 @@ class JobsWindow(BaseWindow):
             safeDivision(total_time, total_completed, 1000.0)
         )
         if self.usesCurses:
-            self.window.hline(y, x, "-", self.FORMAT_WIDTH - 2)
+            self.window.hline(y, x, "-", self.formatWidth - 2)
             y += 1
             self.window.addstr(y, x, s)
         else:
@@ -662,16 +688,13 @@ class AssignmentsWindow(BaseWindow):
 
     help = "server child job assignments"
     clientItem = "job_assignments"
-    FORMAT_WIDTH = 40
 
-    def makeWindow(self, top=0, left=0):
-        slots = defaultIfNone(self.readItem(self.clientItem), {"workers": ()})["workers"]
-        self.rowCount = len(slots)
-        self._createWindow(
-            "Job Assignments", self.rowCount + 5, self.FORMAT_WIDTH,
-            begin_y=top, begin_x=left
-        )
-        return self
+    windowTitle = "Job Assignments"
+    formatWidth = 40
+    additionalRows = 5
+
+    def updateRowCount(self):
+        self.rowCount = len(defaultIfNone(self.readItem(self.clientItem), {"workers": ()})["workers"])
 
 
     def update(self):
@@ -736,7 +759,7 @@ class AssignmentsWindow(BaseWindow):
             total_completed,
         )
         if self.usesCurses:
-            self.window.hline(y, x, "-", self.FORMAT_WIDTH - 2)
+            self.window.hline(y, x, "-", self.formatWidth - 2)
             y += 1
             self.window.addstr(y, x, s)
         else:
@@ -758,16 +781,13 @@ class HTTPSlotsWindow(BaseWindow):
 
     help = "server child slots"
     clientItem = "slots"
-    FORMAT_WIDTH = 72
 
-    def makeWindow(self, top=0, left=0):
-        slots = defaultIfNone(self.readItem(self.clientItem), {"slots": ()})["slots"]
-        self.rowCount = len(slots)
-        self._createWindow(
-            "HTTP Slots", self.rowCount + 5, self.FORMAT_WIDTH,
-            begin_y=top, begin_x=left
-        )
-        return self
+    windowTitle = "HTTP Slots"
+    formatWidth = 72
+    additionalRows = 5
+
+    def updateRowCount(self):
+        self.rowCount = len(defaultIfNone(self.readItem(self.clientItem), {"slots": ()})["slots"])
 
 
     def update(self):
@@ -840,7 +860,7 @@ class HTTPSlotsWindow(BaseWindow):
             sum([record["total"] for record in records]),
         )
         if self.usesCurses:
-            self.window.hline(y, x, "-", self.FORMAT_WIDTH - 2)
+            self.window.hline(y, x, "-", self.formatWidth - 2)
             y += 1
             self.window.addstr(y, x, s)
             x += len(s) + 4
@@ -871,11 +891,12 @@ class SystemWindow(BaseWindow):
     help = "system details"
     clientItem = "stats_system"
 
-    def makeWindow(self, top=0, left=0):
-        slots = defaultIfNone(self.readItem(self.clientItem), (1, 2, 3, 4,))
-        self.rowCount = len(slots)
-        self._createWindow("System", self.rowCount + 3, begin_y=top, begin_x=left)
-        return self
+    windowTitle = "System"
+    formatWidth = 52
+    additionalRows = 3
+
+    def updateRowCount(self):
+        self.rowCount = len(defaultIfNone(self.readItem(self.clientItem), (1, 2, 3, 4,)))
 
 
     def update(self):
@@ -952,11 +973,13 @@ class RequestStatsWindow(BaseWindow):
 
     help = "server request stats"
     clientItem = "stats"
-    FORMAT_WIDTH = 84
 
-    def makeWindow(self, top=0, left=0):
-        self._createWindow("Request Statistics", 8, self.FORMAT_WIDTH, begin_y=top, begin_x=left)
-        return self
+    windowTitle = "Request Statistics"
+    formatWidth = 84
+    additionalRows = 4
+
+    def updateRowCount(self):
+        self.rowCount = 4
 
 
     def update(self):
@@ -1031,18 +1054,19 @@ class MethodsWindow(BaseWindow):
 
     help = "server methods"
     clientItem = "stats"
-    FORMAT_WIDTH = 116
     stats_keys = ("current", "1m", "5m", "1h",)
 
-    def makeWindow(self, top=0, left=0):
+    windowTitle = "Methods"
+    formatWidth = 116
+    additionalRows = 7
+
+    def updateRowCount(self):
         stats = defaultIfNone(self.clientData(), {})
         methods = set()
         for key in self.stats_keys:
             methods.update(stats.get(key, {}).get("method", {}).keys())
         nlines = len(methods)
         self.rowCount = nlines
-        self._createWindow("Methods", self.rowCount + 7, ncols=self.FORMAT_WIDTH, begin_y=top, begin_x=left)
-        return self
 
 
     def update(self):
@@ -1128,7 +1152,7 @@ class MethodsWindow(BaseWindow):
             *items
         )
         if self.usesCurses:
-            self.window.hline(y, x, "-", self.FORMAT_WIDTH - 2)
+            self.window.hline(y, x, "-", self.formatWidth - 2)
             y += 1
             self.window.addstr(y, x, s1)
             y += 1
@@ -1153,17 +1177,13 @@ class DirectoryStatsWindow(BaseWindow):
 
     help = "directory service stats"
     clientItem = "directory"
-    FORMAT_WIDTH = 89
 
+    windowTitle = "Directory Service"
+    formatWidth = 89
+    additionalRows = 8
 
-    def makeWindow(self, top=0, left=0):
-        nlines = len(defaultIfNone(self.readItem("directory"), {}))
-        self.rowCount = nlines
-        self._createWindow(
-            "Directory Service", self.rowCount + 8, ncols=self.FORMAT_WIDTH,
-            begin_y=top, begin_x=left
-        )
-        return self
+    def updateRowCount(self):
+        self.rowCount = len(defaultIfNone(self.readItem("directory"), {}))
 
 
     def update(self):
@@ -1250,7 +1270,7 @@ class DirectoryStatsWindow(BaseWindow):
             "",
         )
         if self.usesCurses:
-            self.window.hline(y, x, "-", self.FORMAT_WIDTH - 2)
+            self.window.hline(y, x, "-", self.formatWidth - 2)
             y += 1
             self.window.addstr(y, x, s)
             self.window.addstr(y + 1, x, s_cached)
@@ -1269,13 +1289,21 @@ class DirectoryStatsWindow(BaseWindow):
 
 Dashboard.registerWindow(HelpWindow, "h")
 Dashboard.registerWindow(SystemWindow, "s")
-Dashboard.registerWindow(AssignmentsWindow, "w")
 Dashboard.registerWindow(RequestStatsWindow, "r")
-Dashboard.registerWindow(MethodsWindow, "m")
-Dashboard.registerWindow(JobsWindow, "j")
 Dashboard.registerWindow(HTTPSlotsWindow, "c")
+Dashboard.registerWindow(MethodsWindow, "m")
+Dashboard.registerWindow(AssignmentsWindow, "w")
+Dashboard.registerWindow(JobsWindow, "j")
 Dashboard.registerWindow(DirectoryStatsWindow, "d")
 
+Dashboard.registerWindowSet(SystemWindow, "H")
+Dashboard.registerWindowSet(RequestStatsWindow, "H")
+Dashboard.registerWindowSet(HTTPSlotsWindow, "H")
+Dashboard.registerWindowSet(MethodsWindow, "H")
+
+Dashboard.registerWindowSet(SystemWindow, "J")
+Dashboard.registerWindowSet(AssignmentsWindow, "J")
+Dashboard.registerWindowSet(JobsWindow, "J")
 
 if __name__ == "__main__":
     main()
