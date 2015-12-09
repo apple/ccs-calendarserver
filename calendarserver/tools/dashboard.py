@@ -20,12 +20,12 @@ server as exposed by the L{DashboardProtocol} stats socket.
 """
 
 import argparse
+import collections
 import curses.panel
 import errno
 import fcntl
 import json
 import logging
-import os
 import sched
 import socket
 import struct
@@ -34,60 +34,42 @@ import termios
 import time
 
 LOG_FILENAME = 'db.log'
-# logging.basicConfig(filename=LOG_FILENAME,level=logging.DEBUG)
-
-
-
-def usage(e=None):
-    name = os.path.basename(sys.argv[0])
-    print("usage: %s [options]" % (name,))
-    print("")
-    print("  TODO: describe usage")
-    print("")
-    print("options:")
-    print("  -h --help: print this help and exit")
-    print("  -t: text output, not curses")
-    print("  -s: server host (and optional port) [localhost:8100]")
-    print("      or unix socket path prefixed by 'unix:'")
-    print("")
-
-    if e:
-        sys.exit(64)
-    else:
-        sys.exit(0)
+#logging.basicConfig(filename=LOG_FILENAME, level=logging.DEBUG)
 
 
 
 def main():
     parser = argparse.ArgumentParser(description="Dashboard service for CalendarServer.")
     parser.add_argument("-t", action="store_false", help="text output, not curses")
-    parser.add_argument("-s", default="localhost:8100", help="server host (and optional port), or unix socket path prefixed by 'unix:'")
+    parser.add_argument("-s", nargs="*", default=["localhost:8100"], help="server host (and optional port), or unix socket path prefixed by 'unix:'")
     args = parser.parse_args()
 
     #
     # Get configuration
     #
     useCurses = args.t
-    if not args.s.startswith("unix:"):
-        server = args.s.split(":")
-        if len(server) == 1:
-            server.append(8100)
+    servers = []
+    for server in args.s:
+        if not server.startswith("unix:"):
+            server = server.split(":")
+            if len(server) == 1:
+                server.append(8100)
+            else:
+                server[1] = int(server[1])
+            servers.append(tuple(server))
         else:
-            server[1] = int(server[1])
-        server = tuple(server)
-    else:
-        server = args.s
+            servers.append(server)
 
     if useCurses:
         def _wrapped(stdscrn):
             curses.curs_set(0)
             curses.use_default_colors()
             curses.init_pair(1, curses.COLOR_RED, curses.COLOR_WHITE)
-            d = Dashboard(server, stdscrn, True)
+            d = Dashboard(servers, stdscrn, True)
             d.run()
         curses.wrapper(_wrapped)
     else:
-        d = Dashboard(server, None, False)
+        d = Dashboard(servers, None, False)
         d.run()
 
 
@@ -121,20 +103,24 @@ class Dashboard(object):
     """
 
     screen = None
-    registered_windows = {}
+    registered_windows = collections.OrderedDict()
     registered_window_sets = {
         "H": ("HTTP Panels", [],),
         "J": ("Jobs Panels", [],),
     }
-    registered_order = []
 
-    def __init__(self, server, screen, usesCurses):
+    def __init__(self, servers, screen, usesCurses):
         self.screen = screen
         self.usesCurses = usesCurses
         self.paused = False
         self.seconds = 0.1 if usesCurses else 1.0
         self.sched = sched.scheduler(time.time, time.sleep)
-        self.client = DashboardClient(server)
+
+        self.servers = servers
+        self.current_server = 0
+        self.server_window = None
+
+        self.client = DashboardClient(servers[0])
         self.client_error = False
 
 
@@ -147,7 +133,6 @@ class Dashboard(object):
         available window type.
         """
         cls.registered_windows[keypress] = wtype
-        cls.registered_order.append(keypress)
 
 
     @classmethod
@@ -179,7 +164,7 @@ class Dashboard(object):
         # Toggle a specific window on or off
         if isinstance(wtype, type):
             if wtype not in [type(w) for w in self.windows]:
-                self.windows.append(wtype(self.usesCurses, self.client).makeWindow())
+                self.windows.append(wtype(self.usesCurses, self).makeWindow())
                 self.windows[-1].activate()
             else:
                 for window in self.windows:
@@ -198,25 +183,33 @@ class Dashboard(object):
                     window.deactivate()
                 self.windows = []
             top = 0
+
+            if len(self.servers) > 1:
+                self.server_window = ServersMenu(self.usesCurses, self).makeWindow()
+                self.windows.append(self.server_window)
+                self.windows[-1].activate()
+                top += self.windows[-1].nlines + 1
+            help_top = top
+
             if wtype is None:
                 # All windows in registered order
-                ordered_windows = [self.registered_windows[i] for i in self.registered_order]
+                ordered_windows = self.registered_windows.values()
             else:
                 ordered_windows = list(wtype)
             for wtype in filter(lambda x: x.all, ordered_windows):
-                new_win = wtype(self.usesCurses, self.client).makeWindow(top=top)
+                new_win = wtype(self.usesCurses, self).makeWindow(top=top)
                 logging.debug('created %r at panel level %r' % (new_win, new_win.z_order))
-                self.windows.append(wtype(self.usesCurses, self.client).makeWindow(top=top))
+                self.windows.append(wtype(self.usesCurses, self).makeWindow(top=top))
                 self.windows[-1].activate()
                 top += self.windows[-1].nlines + 1
 
             # Don't display help panel if the window is too narrow
             if self.usesCurses:
                 term_w, term_h = terminal_size()
-                logging.debug("logger displayWindow: rows: %s  cols: %s" % (term_h, term_w))
+                logging.debug("HelpWindow: rows: %s  cols: %s" % (term_h, term_w))
                 if int(term_w) > 100:
-                    logging.debug('term_w > 100, making window with top at %d' % (top))
-                    self.windows.append(HelpWindow(self.usesCurses, self.client).makeWindow(top=top))
+                    logging.debug('HelpWindow: term_w > 100, making window with top at %d' % (top))
+                    self.windows.append(HelpWindow(self.usesCurses, self).makeWindow(top=help_top))
                     self.windows[-1].activate()
 
         if self.usesCurses:
@@ -237,7 +230,7 @@ class Dashboard(object):
             top = 0
             for old in old_windows:
                 logging.debug('processing window of type %r' % (type(old)))
-                self.windows.append(old.__class__(self.usesCurses, self.client).makeWindow(top=top))
+                self.windows.append(old.__class__(self.usesCurses, self).makeWindow(top=top))
                 self.windows[-1].activate()
                 # Allow the help window to float on the right edge
                 if old.__class__.__name__ != "HelpWindow":
@@ -271,31 +264,50 @@ class Dashboard(object):
 
         # Check keystrokes
         if self.usesCurses:
-            try:
-                c = self.windows[-1].window.getkey()
-            except:
-                c = -1
-            if c == "q":
-                sys.exit(0)
-            elif c == " ":
-                self.paused = not self.paused
-            elif c == "t":
-                self.seconds = 1.0 if self.seconds == 0.1 else 0.1
-            elif c == "a":
-                self.displayWindow(None)
-            elif c == "n":
-                if self.windows:
-                    for window in self.windows:
-                        window.deactivate()
-                    self.windows = []
-                    self.displayWindow(self.registered_windows["h"])
-            elif c in self.registered_windows:
-                self.displayWindow(self.registered_windows[c])
-            elif c in self.registered_window_sets:
-                self.displayWindow(self.registered_window_sets[c][1])
+            self.processKeys()
 
         if not initialUpdate:
             self.sched.enter(self.seconds, 0, self.updateDisplay, ())
+
+
+    def processKeys(self):
+        """
+        Check for a key press.
+        """
+        try:
+            self.windows[-1].window.keypad(1)
+            c = self.windows[-1].window.getkey()
+        except:
+            c = -1
+        if c == "q":
+            sys.exit(0)
+        elif c == " ":
+            self.paused = not self.paused
+        elif c == "t":
+            self.seconds = 1.0 if self.seconds == 0.1 else 0.1
+        elif c == "a":
+            self.displayWindow(None)
+        elif c == "n":
+            if self.windows:
+                for window in self.windows:
+                    window.deactivate()
+                self.windows = []
+                self.displayWindow(self.registered_windows["h"])
+
+        elif c in self.registered_windows:
+            self.displayWindow(self.registered_windows[c])
+
+        elif c in self.registered_window_sets:
+            self.displayWindow(self.registered_window_sets[c][1])
+
+        elif c in (curses.keyname(curses.KEY_LEFT), curses.keyname(curses.KEY_RIGHT)) and self.server_window:
+            self.current_server += (-1 if c == curses.keyname(curses.KEY_LEFT) else 1)
+            if self.current_server < 0:
+                self.current_server = 0
+            elif self.current_server >= len(self.servers):
+                self.current_server = len(self.servers) - 1
+            self.client = DashboardClient(self.servers[self.current_server])
+            self.resetWindows()
 
 
 
@@ -378,7 +390,27 @@ class DashboardClient(object):
         """
         No need to monitor this item.
         """
-        self.items.remove(item)
+        try:
+            self.items.remove(item)
+        except ValueError:
+            # Don't care if the item is not present
+            pass
+
+
+
+class Point(object):
+
+    def __init__(self, x=0, y=0):
+        self.x = x
+        self.y = y
+
+
+    def xplus(self, xdiff=1):
+        self.x += xdiff
+
+
+    def yplus(self, ydiff=1):
+        self.y += ydiff
 
 
 
@@ -395,9 +427,9 @@ class BaseWindow(object):
     formatWidth = 0
     additionalRows = 0
 
-    def __init__(self, usesCurses, client):
+    def __init__(self, usesCurses, dashboard):
         self.usesCurses = usesCurses
-        self.client = client
+        self.dashboard = dashboard
         self.rowCount = 0
         self.needsReset = False
         self.z_order = 'bottom'
@@ -453,7 +485,7 @@ class BaseWindow(object):
     def requiresReset(self):
         """
         Indicates that the window needs a full reset, because e.g., the
-        number of items it didplays has changed.
+        number of items it displays has changed.
         """
         return self.needsReset
 
@@ -463,7 +495,11 @@ class BaseWindow(object):
         About to start displaying.
         """
         if self.clientItem:
-            self.client.addItem(self.clientItem)
+            self.dashboard.client.addItem(self.clientItem)
+
+        # Update once when activated
+        if not self.requiresUpdate():
+            self.update()
 
 
     def deactivate(self):
@@ -471,7 +507,8 @@ class BaseWindow(object):
         Clear any drawing done by the current window type.
         """
         if self.clientItem:
-            self.client.removeItem(self.clientItem)
+            self.dashboard.client.removeItem(self.clientItem)
+
         if self.usesCurses:
             self.window.erase()
             self.window.refresh()
@@ -484,12 +521,130 @@ class BaseWindow(object):
         raise NotImplementedError()
 
 
+    def tableHeader(self, hdrs, count):
+        """
+        Generate the header rows.
+        """
+        if self.usesCurses:
+            self.window.erase()
+            self.window.border()
+            self.window.addstr(
+                0, 2,
+                self.title + " {} ({})".format(count, self.iter)
+            )
+
+        pt = Point(1, 1)
+
+        if not self.usesCurses:
+            print("------------ {}".format(self.title))
+
+        for hdr in hdrs:
+            if self.usesCurses:
+                self.window.addstr(pt.y, pt.x, hdr, curses.A_REVERSE)
+            else:
+                print(hdr)
+            pt.yplus()
+
+        return pt
+
+
+    def tableFooter(self, feet, pt):
+        """
+        Generate the footer rows.
+        """
+        if self.usesCurses:
+            self.window.hline(pt.y, pt.x, "-", self.formatWidth - 2)
+            pt.yplus()
+            for footer in feet:
+                self.window.addstr(pt.y, pt.x, footer)
+                pt.yplus()
+        else:
+            for footer in feet:
+                print(footer)
+                pt.yplus()
+            print("")
+
+
+    def tableRow(self, text, pt, style=curses.A_NORMAL):
+        """
+        Generate a single row.
+        """
+        try:
+            if self.usesCurses:
+                self.window.addstr(
+                    pt.y, pt.x, text,
+                    style
+                )
+            else:
+                print(text)
+        except curses.error:
+            pass
+        pt.yplus()
+
+
     def clientData(self):
-        return self.client.currentData.get(self.clientItem)
+        return self.dashboard.client.currentData.get(self.clientItem)
 
 
     def readItem(self, item):
-        return self.client.getOneItem(item)
+        return self.dashboard.client.getOneItem(item)
+
+
+
+class ServersMenu(BaseWindow):
+    """
+    Top menu if multiple servers are present.
+    """
+
+    help = "servers help"
+    all = False
+
+    windowTitle = "Servers"
+    formatWidth = 0
+    additionalRows = 0
+
+    def makeWindow(self, top=0, left=0):
+        term_w, _ignore_term_h = terminal_size()
+        self.formatWidth = term_w - 50
+        return super(ServersMenu, self).makeWindow(0, 0)
+
+
+    def updateRowCount(self):
+        self.rowCount = 1
+
+
+    def requiresUpdate(self):
+        return False
+
+
+    def update(self):
+
+        if not self.usesCurses:
+            return
+
+        self.window.erase()
+
+        pt = Point()
+        s = "Servers: |"
+        self.window.addstr(pt.y, pt.x, s)
+        pt.xplus(len(s))
+
+        selected_server = None
+        for ctr, server in enumerate(self.dashboard.servers):
+            s = " {:02d} ".format(ctr + 1)
+            self.window.addstr(
+                pt.y, pt.x, s,
+                curses.A_REVERSE if ctr == self.dashboard.current_server else curses.A_NORMAL
+            )
+            pt.xplus(len(s))
+            self.window.addstr(pt.y, pt.x, "|")
+            pt.xplus()
+            if ctr == self.dashboard.current_server:
+                selected_server = "{}:{}".format(*server)
+
+        self.window.addstr(pt.y, pt.x, " {}".format(selected_server))
+
+        self.window.refresh()
 
 
 
@@ -498,19 +653,20 @@ class HelpWindow(BaseWindow):
     Display help for the dashboard.
     """
 
-    help = "dashboard help"
+    help = "Help"
     all = False
     helpItems = (
-        "a - all windows",
-        "n - no windows",
-        "  - (space) pause dashboard polling",
-        "t - toggle update between 0.1 and 1.0 seconds",
+        " a - All Panels",
+        " n - No Panels",
         "",
-        "q - exit the dashboard",
+        "   - (space) Pause",
+        " t - Toggle Update Speed",
+        "",
+        " q - Quit",
     )
 
     windowTitle = "Help"
-    formatWidth = 48
+    formatWidth = 28
     additionalRows = 3
 
     def makeWindow(self, top=0, left=0):
@@ -534,37 +690,368 @@ class HelpWindow(BaseWindow):
             self.window.border()
             self.window.addstr(0, 2, "Hotkeys")
 
-        x = 1
-        y = 1
+        pt = Point(1, 1)
 
         if not self.usesCurses:
             print("------------ {}".format(self.title))
 
-        items = []
-        for keypress, wtype in sorted(
-            Dashboard.registered_windows.items(), key=lambda x: x[0]
-        ):
-            items.append("{} - {}".format(keypress, wtype.help))
-
+        items = [" {} - {}".format(keypress, wtype.help) for keypress, wtype in Dashboard.registered_windows.items()]
         items.append("")
-        for key, value in Dashboard.registered_window_sets.items():
-            description, panels = value
-            if panels:
-                items.append("{} - {}".format(key, description))
-
+        items.extend([" {} - {}".format(key, value[0]) for key, value in Dashboard.registered_window_sets.items() if value[1]])
         items.extend(self.helpItems)
-        for item in items:
-            if self.usesCurses:
-                self.window.addstr(y, x, item)
-            else:
-                print(item)
-            y += 1
 
-        if not self.usesCurses:
-            print("")
+        for item in items:
+            self.tableRow(item, pt)
 
         if self.usesCurses:
             self.window.refresh()
+
+
+
+class SystemWindow(BaseWindow):
+    """
+    Displays the system information provided by the server.
+    """
+
+    help = "System Status"
+    clientItem = "stats_system"
+
+    windowTitle = "System"
+    formatWidth = 52
+    additionalRows = 3
+
+    def updateRowCount(self):
+        self.rowCount = len(defaultIfNone(self.readItem(self.clientItem), (1, 2, 3, 4,)))
+
+
+    def update(self):
+        records = defaultIfNone(self.clientData(), {
+            "cpu use": 0.0,
+            "memory percent": 0.0,
+            "memory used": 0,
+            "start time": time.time(),
+        })
+        if len(records) != self.rowCount:
+            self.needsReset = True
+            return
+        self.iter += 1
+
+        s = " {:<30}{:>18} ".format("Item", "Value")
+        pt = self.tableHeader((s,), len(records))
+
+        records["cpu use"] = "{:.2f}".format(records["cpu use"])
+        records["memory percent"] = "{:.1f}".format(records["memory percent"])
+        records["memory used"] = "{:.2f} GB".format(
+            records["memory used"] / (1000.0 * 1000.0 * 1000.0)
+        )
+        records["uptime"] = int(time.time() - records["start time"])
+        hours, mins = divmod(records["uptime"] / 60, 60)
+        records["uptime"] = "{}:{:02d} hh:mm".format(hours, mins)
+        del records["start time"]
+
+        for item, value in sorted(records.items(), key=lambda x: x[0]):
+            changed = (
+                item in self.lastResult and self.lastResult[item] != value
+            )
+            s = " {:<30}{:>18} ".format(item, value)
+            self.tableRow(
+                s, pt,
+                curses.A_REVERSE if changed else curses.A_NORMAL,
+            )
+
+        if self.usesCurses:
+            self.window.refresh()
+
+        self.lastResult = records
+
+
+
+class RequestStatsWindow(BaseWindow):
+    """
+    Displays the status of the server's master process worker slave slots.
+    """
+
+    help = "HTTP Requests"
+    clientItem = "stats"
+
+    windowTitle = "Request Statistics"
+    formatWidth = 84
+    additionalRows = 4
+
+    def updateRowCount(self):
+        self.rowCount = 4
+
+
+    def update(self):
+        records = defaultIfNone(self.clientData(), {})
+        self.iter += 1
+
+        s1 = " {:<8}{:>8}{:>10}{:>10}{:>10}{:>10}{:>8}{:>8}{:>8} ".format(
+            "Period", "Reqs", "Av-Reqs", "Av-Resp", "Av-NoWr", "Max-Resp", "Slot", "CPU ", "500's"
+        )
+        s2 = " {:<8}{:>8}{:>10}{:>10}{:>10}{:>10}{:>8}{:>8}{:>8} ".format(
+            "", "", "per sec", "(ms)", "(ms)", "(ms)", "Avg.", "Avg.", ""
+        )
+        pt = self.tableHeader((s1, s2,), len(records))
+
+        for key, seconds in (("current", 60,), ("1m", 60,), ("5m", 5 * 60,), ("1h", 60 * 60,),):
+            stat = records.get(key, {
+                "requests": 0,
+                "t": 0.0,
+                "t-resp-wr": 0.0,
+                "T-MAX": 0.0,
+                "slots": 0,
+                "cpu": 0.0,
+                "500": 0,
+            })
+            s = " {:<8}{:>8}{:>10.1f}{:>10.1f}{:>10.1f}{:>10.1f}{:>8.2f}{:>7.1f}%{:>8} ".format(
+                key,
+                stat["requests"],
+                safeDivision(float(stat["requests"]), seconds),
+                safeDivision(stat["t"], stat["requests"]),
+                safeDivision(stat["t"] - stat["t-resp-wr"], stat["requests"]),
+                stat["T-MAX"],
+                safeDivision(float(stat["slots"]), stat["requests"]),
+                safeDivision(stat["cpu"], stat["requests"]),
+                stat["500"],
+            )
+            self.tableRow(s, pt)
+
+        if self.usesCurses:
+            self.window.refresh()
+
+        self.lastResult = records
+
+
+
+class HTTPSlotsWindow(BaseWindow):
+    """
+    Displays the status of the server's master process worker slave slots.
+    """
+
+    help = "HTTP Slots"
+    clientItem = "slots"
+
+    windowTitle = "HTTP Slots"
+    formatWidth = 72
+    additionalRows = 5
+
+    def updateRowCount(self):
+        self.rowCount = len(defaultIfNone(self.readItem(self.clientItem), {"slots": ()})["slots"])
+
+
+    def update(self):
+        data = defaultIfNone(self.clientData(), {"slots": {}, "overloaded": False})
+        records = data["slots"]
+        if len(records) != self.rowCount:
+            self.needsReset = True
+            return
+        self.iter += 1
+
+        s = " {:>4}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8} ".format(
+            "Slot", "unack", "ack", "uncls", "total",
+            "start", "strting", "stopped", "abd"
+        )
+        pt = self.tableHeader((s,), len(records))
+
+        for record in sorted(records, key=lambda x: x["slot"]):
+            changed = (
+                record["slot"] in self.lastResult and
+                self.lastResult[record["slot"]] != record
+            )
+            s = " {:>4}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8} ".format(
+                record["slot"],
+                record["unacknowledged"],
+                record["acknowledged"],
+                record["unclosed"],
+                record["total"],
+                record["started"],
+                record["starting"],
+                record["stopped"],
+                record["abandoned"],
+            )
+            count = record["unacknowledged"] + record["acknowledged"]
+            self.tableRow(
+                s, pt,
+                curses.A_REVERSE if changed else (
+                    curses.A_BOLD if count else curses.A_NORMAL
+                ),
+            )
+
+        s = " {:<12}{:>8}{:>16}".format(
+            "Total:",
+            sum(
+                [
+                    record["unacknowledged"] + record["acknowledged"]
+                    for record in records
+                ]
+            ),
+            sum([record["total"] for record in records]),
+        )
+        if data["overloaded"]:
+            s += "    OVERLOADED"
+        self.tableFooter((s,), pt)
+
+        if self.usesCurses:
+            self.window.refresh()
+
+        self.lastResult = records
+
+
+
+class MethodsWindow(BaseWindow):
+    """
+    Display the status of the server's request methods.
+    """
+
+    help = "HTTP Methods"
+    clientItem = "stats"
+    stats_keys = ("current", "1m", "5m", "1h",)
+
+    windowTitle = "Methods"
+    formatWidth = 116
+    additionalRows = 8
+
+    def updateRowCount(self):
+        stats = defaultIfNone(self.clientData(), {})
+        methods = set()
+        for key in self.stats_keys:
+            methods.update(stats.get(key, {}).get("method", {}).keys())
+        nlines = len(methods)
+        self.rowCount = nlines
+
+
+    def update(self):
+        stats = defaultIfNone(self.clientData(), {})
+        methods = set()
+        for key in self.stats_keys:
+            methods.update(stats.get(key, {}).get("method", {}).keys())
+        if len(methods) != self.rowCount:
+            self.needsReset = True
+            return
+
+        records = {}
+        records_t = {}
+        for key in self.stats_keys:
+            records[key] = defaultIfNone(self.clientData(), {}).get(key, {}).get("method", {})
+            records_t[key] = defaultIfNone(self.clientData(), {}).get(key, {}).get("method-t", {})
+        self.iter += 1
+
+        s1 = " {:<40}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10} ".format(
+            "", "------", "current---", "------", "1m--------", "------", "5m--------", "------", "1h--------",
+        )
+        s2 = " {:<40}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10} ".format(
+            "Method", "Number", "Av-Time", "Number", "Av-Time", "Number", "Av-Time", "Number", "Av-Time",
+        )
+        s3 = " {:<40}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10} ".format(
+            "", "", "(ms)", "", "(ms)", "", "(ms)", "", "(ms)",
+        )
+        pt = self.tableHeader((s1, s2, s3,), len(records))
+
+        total_methods = dict([(key, 0) for key in self.stats_keys])
+        total_time = dict([(key, 0.0) for key in self.stats_keys])
+        for method_type in sorted(methods):
+            for key in self.stats_keys:
+                total_methods[key] += records[key].get(method_type, 0)
+                total_time[key] += records_t[key].get(method_type, 0.0)
+            changed = self.lastResult.get(method_type, 0) != records["current"].get(method_type, 0)
+            items = [method_type]
+            for key in self.stats_keys:
+                items.append(records[key].get(method_type, 0))
+                items.append(safeDivision(records_t[key].get(method_type, 0), records[key].get(method_type, 0)))
+            s = " {:<40}{:>8}{:>10.1f}{:>8}{:>10.1f}{:>8}{:>10.1f}{:>8}{:>10.1f} ".format(
+                *items
+            )
+            self.tableRow(
+                s, pt,
+                curses.A_REVERSE if changed else curses.A_NORMAL,
+            )
+
+        items = ["Total:"]
+        for key in self.stats_keys:
+            items.append(total_methods[key])
+            items.append(safeDivision(total_time[key], total_methods[key]))
+        s1 = " {:<40}{:>8}{:>10.1f}{:>8}{:>10.1f}{:>8}{:>10.1f}{:>8}{:>10.1f} ".format(
+            *items
+        )
+        items = ["401s:"]
+        for key in self.stats_keys:
+            items.append(defaultIfNone(self.clientData(), {}).get(key, {}).get("401", 0))
+            items.append("")
+        s2 = " {:<40}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10} ".format(
+            *items
+        )
+        self.tableFooter((s1, s2,), pt)
+
+        if self.usesCurses:
+            self.window.refresh()
+
+        self.lastResult = defaultIfNone(self.clientData(), {}).get("current", {}).get("method", {})
+
+
+
+class AssignmentsWindow(BaseWindow):
+    """
+    Displays the status of the server's master process worker slave slots.
+    """
+
+    help = "Job Assignments"
+    clientItem = "job_assignments"
+
+    windowTitle = "Job Assignments"
+    formatWidth = 40
+    additionalRows = 5
+
+    def updateRowCount(self):
+        self.rowCount = len(defaultIfNone(self.readItem(self.clientItem), {"workers": ()})["workers"])
+
+
+    def update(self):
+        data = defaultIfNone(self.clientData(), {"workers": {}, "level": 0})
+        records = data["workers"]
+        if len(records) != self.rowCount:
+            self.needsReset = True
+            return
+        self.iter += 1
+
+        s = " {:>4}{:>12}{:>8}{:>12} ".format(
+            "Slot", "assigned", "load", "completed"
+        )
+        pt = self.tableHeader((s,), len(records))
+
+        total_assigned = 0
+        total_completed = 0
+        for ctr, details in enumerate(records):
+            assigned, load, completed = details
+            total_assigned += assigned
+            total_completed += completed
+            changed = (
+                ctr in self.lastResult and
+                self.lastResult[ctr] != assigned
+            )
+            s = " {:>4}{:>12}{:>8}{:>12} ".format(
+                ctr,
+                assigned,
+                load,
+                completed,
+            )
+            self.tableRow(
+                s, pt,
+                curses.A_REVERSE if changed else curses.A_NORMAL,
+            )
+
+        s = " {:<6}{:>10}{:>8}{:>12}".format(
+            "Total:",
+            total_assigned,
+            "{}%".format(data["level"]),
+            total_completed,
+        )
+        self.tableFooter((s,), pt)
+
+        if self.usesCurses:
+            self.window.refresh()
+
+        self.lastResult = records
 
 
 
@@ -573,7 +1060,7 @@ class JobsWindow(BaseWindow):
     Display the status of the server's job queue.
     """
 
-    help = "server jobs"
+    help = "Job Activity"
     clientItem = "jobs"
 
     windowTitle = "Jobs"
@@ -591,30 +1078,14 @@ class JobsWindow(BaseWindow):
             return
         self.iter += 1
 
-        if self.usesCurses:
-            self.window.erase()
-            self.window.border()
-            self.window.addstr(
-                0, 2,
-                self.title + " {} ({})".format(len(records), self.iter)
-            )
-
-        x = 1
-        y = 1
         s1 = " {:<40}{:>8}{:>10}{:>8}{:>8}{:>10}{:>10} ".format(
             "Work Type", "Queued", "Assigned", "Late", "Failed", "Completed", "Av-Time",
         )
         s2 = " {:<40}{:>8}{:>10}{:>8}{:>8}{:>10}{:>10} ".format(
             "", "", "", "", "", "", "(ms)",
         )
-        if self.usesCurses:
-            self.window.addstr(y, x, s1, curses.A_REVERSE)
-            self.window.addstr(y + 1, x, s2, curses.A_REVERSE)
-        else:
-            print("------------ {}".format(self.title))
-            print(s1)
-            print(s2)
-        y += 2
+        pt = self.tableHeader((s1, s2,), len(records))
+
         total_queued = 0
         total_assigned = 0
         total_late = 0
@@ -642,19 +1113,12 @@ class JobsWindow(BaseWindow):
                 details["completed"],
                 safeDivision(details["time"], details["completed"], 1000.0)
             )
-            try:
-                if self.usesCurses:
-                    self.window.addstr(
-                        y, x, s,
-                        curses.A_REVERSE if changed else (
-                            curses.A_BOLD if details["queued"] else curses.A_NORMAL
-                        )
-                    )
-                else:
-                    print(s)
-            except curses.error:
-                pass
-            y += 1
+            self.tableRow(
+                s, pt,
+                curses.A_REVERSE if changed else (
+                    curses.A_BOLD if details["queued"] else curses.A_NORMAL
+                ),
+            )
 
         s = " {:<40}{:>8}{:>10}{:>8}{:>8}{:>10}{:>10.1f} ".format(
             "Total:",
@@ -665,508 +1129,12 @@ class JobsWindow(BaseWindow):
             total_completed,
             safeDivision(total_time, total_completed, 1000.0)
         )
-        if self.usesCurses:
-            self.window.hline(y, x, "-", self.formatWidth - 2)
-            y += 1
-            self.window.addstr(y, x, s)
-        else:
-            print(s)
-            print("")
-        y += 1
+        self.tableFooter((s,), pt)
 
         if self.usesCurses:
             self.window.refresh()
 
         self.lastResult = records
-
-
-
-class AssignmentsWindow(BaseWindow):
-    """
-    Displays the status of the server's master process worker slave slots.
-    """
-
-    help = "server child job assignments"
-    clientItem = "job_assignments"
-
-    windowTitle = "Job Assignments"
-    formatWidth = 40
-    additionalRows = 5
-
-    def updateRowCount(self):
-        self.rowCount = len(defaultIfNone(self.readItem(self.clientItem), {"workers": ()})["workers"])
-
-
-    def update(self):
-        data = defaultIfNone(self.clientData(), {"workers": {}, "level": 0})
-        records = data["workers"]
-        if len(records) != self.rowCount:
-            self.needsReset = True
-            return
-        self.iter += 1
-
-        if self.usesCurses:
-            self.window.erase()
-            self.window.border()
-            self.window.addstr(
-                0, 2,
-                self.title + " {} ({})".format(len(records), self.iter)
-            )
-
-        x = 1
-        y = 1
-        s = " {:>4}{:>12}{:>8}{:>12} ".format(
-            "Slot", "assigned", "load", "completed"
-        )
-        if self.usesCurses:
-            self.window.addstr(y, x, s, curses.A_REVERSE)
-        else:
-            print("------------ {}".format(self.title))
-            print(s)
-        y += 1
-        total_assigned = 0
-        total_completed = 0
-        for ctr, details in enumerate(records):
-            assigned, load, completed = details
-            total_assigned += assigned
-            total_completed += completed
-            changed = (
-                ctr in self.lastResult and
-                self.lastResult[ctr] != assigned
-            )
-            s = " {:>4}{:>12}{:>8}{:>12} ".format(
-                ctr,
-                assigned,
-                load,
-                completed,
-            )
-            try:
-                if self.usesCurses:
-                    self.window.addstr(
-                        y, x, s,
-                        curses.A_REVERSE if changed else curses.A_NORMAL
-                    )
-                else:
-                    print(s)
-            except curses.error:
-                pass
-            y += 1
-
-        s = " {:<6}{:>10}{:>8}{:>12}".format(
-            "Total:",
-            total_assigned,
-            "{}%".format(data["level"]),
-            total_completed,
-        )
-        if self.usesCurses:
-            self.window.hline(y, x, "-", self.formatWidth - 2)
-            y += 1
-            self.window.addstr(y, x, s)
-        else:
-            print(s)
-            print("")
-        y += 1
-
-        if self.usesCurses:
-            self.window.refresh()
-
-        self.lastResult = records
-
-
-
-class HTTPSlotsWindow(BaseWindow):
-    """
-    Displays the status of the server's master process worker slave slots.
-    """
-
-    help = "server child slots"
-    clientItem = "slots"
-
-    windowTitle = "HTTP Slots"
-    formatWidth = 72
-    additionalRows = 5
-
-    def updateRowCount(self):
-        self.rowCount = len(defaultIfNone(self.readItem(self.clientItem), {"slots": ()})["slots"])
-
-
-    def update(self):
-        data = defaultIfNone(self.clientData(), {"slots": {}, "overloaded": False})
-        records = data["slots"]
-        if len(records) != self.rowCount:
-            self.needsReset = True
-            return
-        self.iter += 1
-
-        if self.usesCurses:
-            self.window.erase()
-            self.window.border()
-            self.window.addstr(
-                0, 2,
-                self.title + " {} ({})".format(len(records), self.iter)
-            )
-
-        x = 1
-        y = 1
-        s = " {:>4}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8} ".format(
-            "Slot", "unack", "ack", "uncls", "total",
-            "start", "strting", "stopped", "abd"
-        )
-        if self.usesCurses:
-            self.window.addstr(y, x, s, curses.A_REVERSE)
-        else:
-            print("------------ {}".format(self.title))
-            print(s)
-        y += 1
-        for record in sorted(records, key=lambda x: x["slot"]):
-            changed = (
-                record["slot"] in self.lastResult and
-                self.lastResult[record["slot"]] != record
-            )
-            s = " {:>4}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8} ".format(
-                record["slot"],
-                record["unacknowledged"],
-                record["acknowledged"],
-                record["unclosed"],
-                record["total"],
-                record["started"],
-                record["starting"],
-                record["stopped"],
-                record["abandoned"],
-            )
-            try:
-                count = record["unacknowledged"] + record["acknowledged"]
-                if self.usesCurses:
-                    self.window.addstr(
-                        y, x, s,
-                        curses.A_REVERSE if changed else (
-                            curses.A_BOLD if count else curses.A_NORMAL
-                        )
-                    )
-                else:
-                    print(s)
-            except curses.error:
-                pass
-            y += 1
-
-        s = " {:<12}{:>8}{:>16}".format(
-            "Total:",
-            sum(
-                [
-                    record["unacknowledged"] + record["acknowledged"]
-                    for record in records
-                ]
-            ),
-            sum([record["total"] for record in records]),
-        )
-        if self.usesCurses:
-            self.window.hline(y, x, "-", self.formatWidth - 2)
-            y += 1
-            self.window.addstr(y, x, s)
-            x += len(s) + 4
-            s = "{:>10}".format("OVERLOADED" if data["overloaded"] else "")
-            self.window.addstr(
-                y, x, s,
-                curses.color_pair(1) + curses.A_BOLD if data["overloaded"] else curses.A_NORMAL
-            )
-        else:
-            if data["overloaded"]:
-                s += "    OVERLOADED"
-            print(s)
-            print("")
-        y += 1
-
-        if self.usesCurses:
-            self.window.refresh()
-
-        self.lastResult = records
-
-
-
-class SystemWindow(BaseWindow):
-    """
-    Displays the system information provided by the server.
-    """
-
-    help = "system details"
-    clientItem = "stats_system"
-
-    windowTitle = "System"
-    formatWidth = 52
-    additionalRows = 3
-
-    def updateRowCount(self):
-        self.rowCount = len(defaultIfNone(self.readItem(self.clientItem), (1, 2, 3, 4,)))
-
-
-    def update(self):
-        records = defaultIfNone(self.clientData(), {
-            "cpu use": 0.0,
-            "memory percent": 0.0,
-            "memory used": 0,
-            "start time": time.time(),
-        })
-        if len(records) != self.rowCount:
-            self.needsReset = True
-            return
-        self.iter += 1
-
-        if self.usesCurses:
-            self.window.erase()
-            self.window.border()
-            self.window.addstr(
-                0, 2,
-                self.title + " {} ({})".format(len(records), self.iter)
-            )
-
-        x = 1
-        y = 1
-        s = " {:<30}{:>18} ".format("Item", "Value")
-        if self.usesCurses:
-            self.window.addstr(y, x, s, curses.A_REVERSE)
-        else:
-            print("------------ {}".format(self.title))
-            print(s)
-        y += 1
-
-        records["cpu use"] = "{:.2f}".format(records["cpu use"])
-        records["memory percent"] = "{:.1f}".format(records["memory percent"])
-        records["memory used"] = "{:.2f} GB".format(
-            records["memory used"] / (1000.0 * 1000.0 * 1000.0)
-        )
-        records["uptime"] = int(time.time() - records["start time"])
-        hours, mins = divmod(records["uptime"] / 60, 60)
-        records["uptime"] = "{}:{:02d} hh:mm".format(hours, mins)
-        del records["start time"]
-
-        for item, value in sorted(records.items(), key=lambda x: x[0]):
-            changed = (
-                item in self.lastResult and self.lastResult[item] != value
-            )
-            s = " {:<30}{:>18} ".format(item, value)
-            try:
-                if self.usesCurses:
-                    self.window.addstr(
-                        y, x, s,
-                        curses.A_REVERSE if changed else curses.A_NORMAL
-                    )
-                else:
-                    print(s)
-            except curses.error:
-                pass
-            y += 1
-
-        if not self.usesCurses:
-            print("")
-
-        if self.usesCurses:
-            self.window.refresh()
-
-        self.lastResult = records
-
-
-
-class RequestStatsWindow(BaseWindow):
-    """
-    Displays the status of the server's master process worker slave slots.
-    """
-
-    help = "server request stats"
-    clientItem = "stats"
-
-    windowTitle = "Request Statistics"
-    formatWidth = 84
-    additionalRows = 4
-
-    def updateRowCount(self):
-        self.rowCount = 4
-
-
-    def update(self):
-        records = defaultIfNone(self.clientData(), {})
-        self.iter += 1
-
-        if self.usesCurses:
-            self.window.erase()
-            self.window.border()
-            self.window.addstr(0, 2, self.title + " {} ({})".format(len(records), self.iter,))
-
-        x = 1
-        y = 1
-        s1 = " {:<8}{:>8}{:>10}{:>10}{:>10}{:>10}{:>8}{:>8}{:>8} ".format(
-            "Period", "Reqs", "Av-Reqs", "Av-Resp", "Av-NoWr", "Max-Resp", "Slot", "CPU ", "500's"
-        )
-        s2 = " {:<8}{:>8}{:>10}{:>10}{:>10}{:>10}{:>8}{:>8}{:>8} ".format(
-            "", "", "per sec", "(ms)", "(ms)", "(ms)", "Avg.", "Avg.", ""
-        )
-        if self.usesCurses:
-            self.window.addstr(y, x, s1, curses.A_REVERSE)
-            self.window.addstr(y + 1, x, s2, curses.A_REVERSE)
-        else:
-            print("------------ {}".format(self.title))
-            print(s1)
-            print(s2)
-        y += 2
-        for key, seconds in (("current", 60,), ("1m", 60,), ("5m", 5 * 60,), ("1h", 60 * 60,),):
-            stat = records.get(key, {
-                "requests": 0,
-                "t": 0.0,
-                "t-resp-wr": 0.0,
-                "T-MAX": 0.0,
-                "slots": 0,
-                "cpu": 0.0,
-                "500": 0,
-            })
-            s = " {:<8}{:>8}{:>10.1f}{:>10.1f}{:>10.1f}{:>10.1f}{:>8.2f}{:>7.1f}%{:>8} ".format(
-                key,
-                stat["requests"],
-                safeDivision(float(stat["requests"]), seconds),
-                safeDivision(stat["t"], stat["requests"]),
-                safeDivision(stat["t"] - stat["t-resp-wr"], stat["requests"]),
-                stat["T-MAX"],
-                safeDivision(float(stat["slots"]), stat["requests"]),
-                safeDivision(stat["cpu"], stat["requests"]),
-                stat["500"],
-            )
-            try:
-                if self.usesCurses:
-                    self.window.addstr(y, x, s)
-                else:
-                    print(s)
-            except curses.error:
-                pass
-            y += 1
-
-        if not self.usesCurses:
-            print("")
-
-        if self.usesCurses:
-            self.window.refresh()
-
-        self.lastResult = records
-
-
-
-class MethodsWindow(BaseWindow):
-    """
-    Display the status of the server's request methods.
-    """
-
-    help = "server methods"
-    clientItem = "stats"
-    stats_keys = ("current", "1m", "5m", "1h",)
-
-    windowTitle = "Methods"
-    formatWidth = 116
-    additionalRows = 7
-
-    def updateRowCount(self):
-        stats = defaultIfNone(self.clientData(), {})
-        methods = set()
-        for key in self.stats_keys:
-            methods.update(stats.get(key, {}).get("method", {}).keys())
-        nlines = len(methods)
-        self.rowCount = nlines
-
-
-    def update(self):
-        stats = defaultIfNone(self.clientData(), {})
-        methods = set()
-        for key in self.stats_keys:
-            methods.update(stats.get(key, {}).get("method", {}).keys())
-
-        records = {}
-        records_t = {}
-        for key in self.stats_keys:
-            records[key] = defaultIfNone(self.clientData(), {}).get(key, {}).get("method", {})
-            records_t[key] = defaultIfNone(self.clientData(), {}).get(key, {}).get("method-t", {})
-        self.iter += 1
-
-        if self.usesCurses:
-            self.window.erase()
-            self.window.border()
-            self.window.addstr(
-                0, 2,
-                self.title + " {} ({})".format(len(records), self.iter)
-            )
-
-        x = 1
-        y = 1
-        s1 = " {:<40}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10} ".format(
-            "", "------", "current---", "------", "1m--------", "------", "5m--------", "------", "1h--------",
-        )
-        s2 = " {:<40}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10} ".format(
-            "Method", "Number", "Av-Time", "Number", "Av-Time", "Number", "Av-Time", "Number", "Av-Time",
-        )
-        s3 = " {:<40}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10} ".format(
-            "", "", "(ms)", "", "(ms)", "", "(ms)", "", "(ms)",
-        )
-        if self.usesCurses:
-            self.window.addstr(y, x, s1, curses.A_REVERSE)
-            self.window.addstr(y + 1, x, s2, curses.A_REVERSE)
-            self.window.addstr(y + 2, x, s3, curses.A_REVERSE)
-        else:
-            print("------------ {}".format(self.title))
-            print(s1)
-            print(s2)
-            print(s3)
-        y += 2
-        total_methods = dict([(key, 0) for key in self.stats_keys])
-        total_time = dict([(key, 0.0) for key in self.stats_keys])
-        for method_type in sorted(methods):
-            for key in self.stats_keys:
-                total_methods[key] += records[key].get(method_type, 0)
-                total_time[key] += records_t[key].get(method_type, 0.0)
-            changed = self.lastResult.get(method_type, 0) != records["current"].get(method_type, 0)
-            items = [method_type]
-            for key in self.stats_keys:
-                items.append(records[key].get(method_type, 0))
-                items.append(safeDivision(records_t[key].get(method_type, 0), records[key].get(method_type, 0)))
-            s = " {:<40}{:>8}{:>10.1f}{:>8}{:>10.1f}{:>8}{:>10.1f}{:>8}{:>10.1f} ".format(
-                *items
-            )
-            try:
-                if self.usesCurses:
-                    self.window.addstr(
-                        y, x, s,
-                        curses.A_REVERSE if changed else curses.A_NORMAL,
-                    )
-                else:
-                    print(s)
-            except curses.error:
-                pass
-            y += 1
-
-        items = ["Total:"]
-        for key in self.stats_keys:
-            items.append(total_methods[key])
-            items.append(safeDivision(total_time[key], total_methods[key]))
-        s1 = " {:<40}{:>8}{:>10.1f}{:>8}{:>10.1f}{:>8}{:>10.1f}{:>8}{:>10.1f} ".format(
-            *items
-        )
-        items = ["401s:"]
-        for key in self.stats_keys:
-            items.append(defaultIfNone(self.clientData(), {}).get(key, {}).get("401", 0))
-            items.append("")
-        s2 = " {:<40}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10}{:>8}{:>10} ".format(
-            *items
-        )
-        if self.usesCurses:
-            self.window.hline(y, x, "-", self.formatWidth - 2)
-            y += 1
-            self.window.addstr(y, x, s1)
-            y += 1
-            self.window.addstr(y, x, s2)
-        else:
-            print(s1)
-            print(s2)
-            print("")
-        y += 1
-
-        if self.usesCurses:
-            self.window.refresh()
-
-        self.lastResult = defaultIfNone(self.clientData(), {}).get("current", {}).get("method", {})
 
 
 
@@ -1175,7 +1143,7 @@ class DirectoryStatsWindow(BaseWindow):
     Displays the status of the server's directory service calls
     """
 
-    help = "directory service stats"
+    help = "Directory Service"
     clientItem = "directory"
 
     windowTitle = "Directory Service"
@@ -1194,27 +1162,13 @@ class DirectoryStatsWindow(BaseWindow):
 
         self.iter += 1
 
-        if self.usesCurses:
-            self.window.erase()
-            self.window.border()
-            self.window.addstr(0, 2, self.title + " {} ({})".format(len(records), self.iter,))
-
-        x = 1
-        y = 1
         s1 = " {:<40}{:>15}{:>15}{:>15} ".format(
             "Method", "Calls", "Total", "Average"
         )
         s2 = " {:<40}{:>15}{:>15}{:>15} ".format(
             "", "", "(sec)", "(ms)"
         )
-        if self.usesCurses:
-            self.window.addstr(y, x, s1, curses.A_REVERSE)
-            self.window.addstr(y + 1, x, s2, curses.A_REVERSE)
-        else:
-            print("------------ {}".format(self.title))
-            print(s1)
-            print(s2)
-        y += 2
+        pt = self.tableHeader((s1, s2,), len(records))
 
         overallCount = 0
         overallCountRatio = 0
@@ -1242,14 +1196,7 @@ class DirectoryStatsWindow(BaseWindow):
                 timeSpent,
                 (1000.0 * timeSpent) / count,
             )
-            try:
-                if self.usesCurses:
-                    self.window.addstr(y, x, s)
-                else:
-                    print(s)
-            except curses.error:
-                pass
-            y += 1
+            self.tableRow(s, pt)
 
         s = " {:<40}{:>15d}{:>15.1f}{:>15.3f} ".format(
             "Total:",
@@ -1269,18 +1216,7 @@ class DirectoryStatsWindow(BaseWindow):
             safeDivision(overallCountUncached, overallCountRatio, 100.0),
             "",
         )
-        if self.usesCurses:
-            self.window.hline(y, x, "-", self.formatWidth - 2)
-            y += 1
-            self.window.addstr(y, x, s)
-            self.window.addstr(y + 1, x, s_cached)
-            self.window.addstr(y + 2, x, s_uncached)
-        else:
-            print(s)
-            print(s1)
-            print(s2)
-            print("")
-        y += 3
+        self.tableFooter((s, s_cached, s_uncached), pt)
 
         if self.usesCurses:
             self.window.refresh()
