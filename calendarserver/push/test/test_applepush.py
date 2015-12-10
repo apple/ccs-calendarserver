@@ -25,6 +25,7 @@ from twistedcaldav.test.util import StoreTestCase
 from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.internet.task import Clock
 from txdav.common.icommondatastore import InvalidSubscriptionValues
+from twistedcaldav.config import ConfigDict
 
 
 class ApplePushNotifierServiceTests(StoreTestCase):
@@ -32,7 +33,7 @@ class ApplePushNotifierServiceTests(StoreTestCase):
     @inlineCallbacks
     def test_ApplePushNotifierService(self):
 
-        settings = {
+        settings = ConfigDict({
             "Enabled" : True,
             "SubscriptionURL" : "apn",
             "SubscriptionPurgeSeconds" : 24 * 60 * 60,
@@ -45,6 +46,7 @@ class ApplePushNotifierServiceTests(StoreTestCase):
             "EnableStaggering" : True,
             "StaggerSeconds" : 3,
             "CalDAV" : {
+                "Enabled" : True,
                 "CertificatePath" : "caldav.cer",
                 "PrivateKeyPath" : "caldav.pem",
                 "AuthorityChainPath" : "chain.pem",
@@ -53,6 +55,7 @@ class ApplePushNotifierServiceTests(StoreTestCase):
                 "Topic" : "caldav_topic",
             },
             "CardDAV" : {
+                "Enabled" : True,
                 "CertificatePath" : "carddav.cer",
                 "PrivateKeyPath" : "carddav.pem",
                 "AuthorityChainPath" : "chain.pem",
@@ -60,7 +63,7 @@ class ApplePushNotifierServiceTests(StoreTestCase):
                 "KeychainIdentity": "org.calendarserver.test",
                 "Topic" : "carddav_topic",
             },
-        }
+        })
 
         # Add subscriptions
         txn = self._sqlCalendarStore.newTransaction()
