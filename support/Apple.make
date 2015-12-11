@@ -64,7 +64,7 @@ build:: build-wrapper
 build-wrapper: $(BuildDirectory)/python-wrapper
 
 $(BuildDirectory)/python-wrapper: $(Sources)/support/python-wrapper.c
-	$(CC) -sectcreate __TEXT __info_plist $(Sources)/support/appgroup.plist $(Sources)/support/python-wrapper.c -o $(BuildDirectory)/python-wrapper
+	$(CC) -I /usr/include/python2.7 -l python2.7 -sectcreate __TEXT __info_plist $(Sources)/support/appgroup.plist $(Sources)/support/python-wrapper.c -o $(BuildDirectory)/python-wrapper
 
 install:: install-python
 install-python:: build
