@@ -257,10 +257,16 @@ class ErrorLoggingMultiService(MultiService, object):
             )
             if self.logRotateOnStart:
                 errorLogFile.rotate()
+            encoding = "utf-8"
         else:
             errorLogFile = sys.stdout
+            encoding = sys.stdout.encoding
         withTime = not (not config.ErrorLogFile and config.ProcessType in ("Slave", "DPS",))
         errorLogObserver = Logger.makeFilteredFileLogObserver(errorLogFile, withTime=withTime)
+
+        # We need to do this because the current Twisted logger implementation fails to setup the encoding
+        # correctly when a L{twisted.python.logile.LogFile} is passed to a {twisted.logger._file.FileLogObserver}
+        errorLogObserver._observers[0]._encoding = encoding
 
         # Registering ILogObserver with the Application object
         # gets our observer picked up within AppLogger.start( )

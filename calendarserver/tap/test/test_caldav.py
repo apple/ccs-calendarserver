@@ -40,8 +40,7 @@ from twisted.internet.protocol import ServerFactory
 from twisted.internet.defer import Deferred, inlineCallbacks, succeed, gatherResults
 from twisted.internet.task import Clock
 from twisted.internet import reactor
-from twisted.application.service import (IService, IServiceCollection
-                                         )
+from twisted.application.service import IService, IServiceCollection, Application
 from twisted.application import internet
 
 from twext.python.log import Logger
@@ -66,11 +65,11 @@ from calendarserver.tap.caldav import (
     CalDAVOptions, CalDAVServiceMaker, CalDAVService, GroupOwnedUNIXServer,
     DelayedStartupProcessMonitor, DelayedStartupLineLogger, TwistdSlaveProcess,
     _CONTROL_SERVICE_NAME, getSystemIDs, PreProcessingService,
-    DataStoreMonitor
-)
+    DataStoreMonitor, ErrorLoggingMultiService)
 from calendarserver.provision.root import RootResource
 from StringIO import StringIO
 import tempfile
+from twisted.python.log import ILogObserver
 
 log = Logger()
 
@@ -450,6 +449,36 @@ class TestLoggingProtocol(LoggingProtocol):
     def processEnded(self, reason):
         LoggingProtocol.processEnded(self, reason)
         self.service.processEnded(self.name)
+
+
+
+class TestErrorLoggingMultiService(TestCase):
+
+    def test_nonAsciiLog(self):
+        """
+        Make sure that the file based error log can write non ascii data
+        """
+
+        logpath = self.mktemp()
+        service = ErrorLoggingMultiService(
+            True,
+            logpath,
+            10000,
+            10,
+            False,
+        )
+        app = Application("non-ascii")
+        service.setServiceParent(app)
+
+        observer = app.getComponent(ILogObserver, None)
+        self.assertTrue(observer is not None)
+
+        log = Logger(observer=observer)
+        log.error(u"Couldn\u2019t be wrong")
+
+        with open(logpath) as f:
+            logentry = f.read()
+        self.assertIn("Couldn\xe2\x80\x99t be wrong", logentry)
 
 
 

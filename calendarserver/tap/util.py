@@ -1378,9 +1378,20 @@ def verifyAPNSCertificate(config):
         ):
             protoConfig = config.Notifications.Services.APNS[protocol]
 
-            # Verify the cert exists
             if hasattr(OpenSSL, "__SecureTransport__"):
                 if protoConfig.KeychainIdentity:
+                    # Verify the identity exists
+                    error = OpenSSL.crypto.check_keychain_identity(protoConfig.KeychainIdentity)
+                    if error:
+                        message = (
+                            "The {proto} APNS Keychain Identity ({cert}) cannot be used: {reason}".format(
+                                proto=protocol,
+                                cert=protoConfig.KeychainIdentity,
+                                reason=error
+                            )
+                        )
+                        return False, message
+
                     # Verify we can extract the topic
                     if not protoConfig.Topic:
                         topic = getAPNTopicFromIdentity(protoConfig.KeychainIdentity)
@@ -1390,19 +1401,6 @@ def verifyAPNSCertificate(config):
                         message = "Cannot extract APN topic"
                         return False, message
 
-                    # Fall through to see if we can load the identity from the keychain
-                    certificate_title = "Keychain: {}".format(protoConfig.KeychainIdentity)
-
-                    error = OpenSSL.crypto.check_keychain_identity(protoConfig.KeychainIdentity)
-                    if error:
-                        message = (
-                            "The {proto} APNS Keychain Identity ({cert}) cannot be used: {reason}".format(
-                                proto=protocol,
-                                cert=certificate_title,
-                                reason=error
-                            )
-                        )
-                        return False, message
                 else:
                     message = (
                         "No {proto} APNS Keychain Identity was set".format(
@@ -1413,6 +1411,7 @@ def verifyAPNSCertificate(config):
                     return False, message
 
             else:
+                # Verify the cert exists
                 if not os.path.exists(protoConfig.CertificatePath):
                     message = (
                         "The {proto} APNS certificate ({cert}) is missing".format(
@@ -1466,7 +1465,7 @@ def verifyAPNSCertificate(config):
                     message = (
                         "The {proto} APNS Keychain Identity ({cert}) cannot be used: {reason}".format(
                             proto=protocol,
-                            cert=certificate_title,
+                            cert=protoConfig.KeychainIdentity,
                             reason=str(e)
                         )
                     )
