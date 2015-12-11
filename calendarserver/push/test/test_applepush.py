@@ -115,8 +115,12 @@ class ApplePushNotifierServiceTests(StoreTestCase):
 
         yield txn.commit()
 
-        # Set up the service
+        # Set up the service (note since Clock has no 'callWhenRunning' we add our own)
+        def callWhenRunning(callable, *args):
+            callable(*args)
         clock = Clock()
+        clock.callWhenRunning = callWhenRunning
+
         service = (yield ApplePushNotifierService.makeService(
             settings,
             self._sqlCalendarStore, testConnectorClass=TestConnector, reactor=clock))
