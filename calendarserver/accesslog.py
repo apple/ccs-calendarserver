@@ -473,6 +473,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
             "t"          : 0.0,
             "t-resp-wr"  : 0.0,
             "slots"      : 0,
+            "max-slots"  : 0,
             "T"          : initTimeHistogram(),
             "T-RESP-WR"  : initTimeHistogram(),
             "T-MAX"      : 0.0,
@@ -499,6 +500,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         current["t"] += stats.get("t", 0.0)
         current["t-resp-wr"] += stats.get("t-resp-wr", 0.0)
         current["slots"] += stats.get("outstandingRequests", 0)
+        current["max-slots"] = max(current["max-slots"], self.limiter.maxOutstandingRequests if hasattr(self, "limiter") else 0)
         current["cpu"] += self.systemStats.items["cpu use"]
 
         def histogramUpdate(t, key):
@@ -548,6 +550,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         current["t"] += stats["t"]
         current["t-resp-wr"] += stats["t-resp-wr"]
         current["slots"] += stats["slots"]
+        current["max-slots"] = max(current["max-slots"], stats["max-slots"])
         current["cpu"] += stats["cpu"]
 
         def histogramUpdate(t, key):

@@ -320,6 +320,7 @@ class ConnectionLimiter(MultiService, object):
     """
 
     _outstandingRequests = 0
+    _maxOutstandingRequests = 0
 
     def __init__(self, maxAccepts, maxRequests):
         """
@@ -429,6 +430,7 @@ class ConnectionLimiter(MultiService, object):
         current = sum(status.effective()
                       for status in self.dispatcher.statuses)
         self._outstandingRequests = current # preserve for or= field in log
+        self._maxOutstandingRequests = max(self._maxOutstandingRequests, self._outstandingRequests)
         maximum = self.maxRequests
         overloaded = (current >= maximum)
         available = len(filter(lambda x: x.active(), self.dispatcher.statuses))
@@ -443,6 +445,17 @@ class ConnectionLimiter(MultiService, object):
     @property # make read-only
     def outstandingRequests(self):
         return self._outstandingRequests
+
+
+    @property # make read-only
+    def maxOutstandingRequests(self):
+        """
+        Reset the max value to the current outstanding value every time the max is read. It
+        is up to the caller to track the overall max value.
+        """
+        temp = self._maxOutstandingRequests
+        self._maxOutstandingRequests = self._outstandingRequests
+        return temp
 
 
 

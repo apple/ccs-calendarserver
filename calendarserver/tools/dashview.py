@@ -401,7 +401,7 @@ class DashboardClient(object):
         """
         if len(self.currentData) == 0:
             self.update()
-        return self.currentData["pods"][pod][server][item]
+        return self.currentData["pods"][pod][server].get(item)
 
 
 
@@ -755,7 +755,7 @@ class RequestStatsWindow(BaseWindow):
     clientItem = "stats"
 
     windowTitle = "Request Statistics"
-    formatWidth = 84
+    formatWidth = 92
     additionalRows = 4
 
     def updateRowCount(self):
@@ -766,11 +766,11 @@ class RequestStatsWindow(BaseWindow):
         records = defaultIfNone(self.clientData(), {})
         self.iter += 1
 
-        s1 = " {:<8}{:>8}{:>10}{:>10}{:>10}{:>10}{:>8}{:>8}{:>8} ".format(
-            "Period", "Reqs", "Av-Reqs", "Av-Resp", "Av-NoWr", "Max-Resp", "Slot", "CPU ", "500's"
+        s1 = " {:<8}{:>8}{:>10}{:>10}{:>10}{:>10}{:>8}{:>8}{:>8}{:>8} ".format(
+            "Period", "Reqs", "Av-Reqs", "Av-Resp", "Av-NoWr", "Max-Resp", "Slot", "Slot", "CPU ", "500's"
         )
-        s2 = " {:<8}{:>8}{:>10}{:>10}{:>10}{:>10}{:>8}{:>8}{:>8} ".format(
-            "", "", "per sec", "(ms)", "(ms)", "(ms)", "Avg.", "Avg.", ""
+        s2 = " {:<8}{:>8}{:>10}{:>10}{:>10}{:>10}{:>8}{:>8}{:>8}{:>8} ".format(
+            "", "", "per sec", "(ms)", "(ms)", "(ms)", "Avg.", "Max", "Avg.", ""
         )
         pt = self.tableHeader((s1, s2,), len(records))
 
@@ -784,7 +784,7 @@ class RequestStatsWindow(BaseWindow):
                 "cpu": 0.0,
                 "500": 0,
             })
-            s = " {:<8}{:>8}{:>10.1f}{:>10.1f}{:>10.1f}{:>10.1f}{:>8.2f}{:>7.1f}%{:>8} ".format(
+            s = " {:<8}{:>8}{:>10.1f}{:>10.1f}{:>10.1f}{:>10.1f}{:>8.2f}{:>8}{:>7.1f}%{:>8} ".format(
                 key,
                 stat["requests"],
                 safeDivision(float(stat["requests"]), seconds),
@@ -792,6 +792,7 @@ class RequestStatsWindow(BaseWindow):
                 safeDivision(stat["t"] - stat["t-resp-wr"], stat["requests"]),
                 stat["T-MAX"],
                 safeDivision(float(stat["slots"]), stat["requests"]),
+                stat["max-slots"],
                 safeDivision(stat["cpu"], stat["requests"]),
                 stat["500"],
             )

@@ -209,6 +209,7 @@ class DashboardServer(Factory):
     def __init__(self, logObserver, limiter):
         self.logger = logObserver
         self.limiter = limiter
+        self.logger.limiter = self.limiter
         self.store = None
         self.directory = None
 
