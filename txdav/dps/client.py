@@ -446,11 +446,13 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
 
 
     def verifyPlaintextPassword(self, password):
+        if isinstance(password, unicode):
+            password = password.encode("utf-8")
         return self.service._call(
             VerifyPlaintextPasswordCommand,
             lambda x: x['authenticated'],
             uid=self.uid.encode("utf-8"),
-            password=password.encode("utf-8")
+            password=password,
         )
 
 

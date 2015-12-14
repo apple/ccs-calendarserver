@@ -15,7 +15,9 @@
 ##
 
 from twisted.trial.unittest import TestCase
-from calendarserver.accesslog import SystemMonitor
+from calendarserver.accesslog import SystemMonitor, \
+    RotatingFileAccessLoggingObserver
+from twistedcaldav.stdconfig import DEFAULT_CONFIG #@UnusedImport
 
 class AccessLog(TestCase):
     """
@@ -36,3 +38,18 @@ class AccessLog(TestCase):
 
         monitor.stop()
         self.assertNotEqual(monitor.items["cpu count"], 0)
+
+
+    def test_unicodeLog(self):
+        """
+        Make sure L{RotatingFileAccessLoggingObserver} handles non-ascii data properly.
+        """
+
+        logpath = self.mktemp()
+        observer = RotatingFileAccessLoggingObserver(logpath)
+        observer.start()
+        observer.accessLog(u"Can\u2019 log this")
+        observer.stop()
+
+        with open(logpath) as f:
+            self.assertIn("log this", f.read())

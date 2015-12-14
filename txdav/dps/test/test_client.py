@@ -340,7 +340,8 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
     def test_verifyPlaintextPassword(self):
         expectations = (
             (testPassword, True),  # Correct
-            ("wrong", False)  # Incorrect
+            ("wrong", False),  # Incorrect
+            ("wrong\xc3\xa5", False),  # Incorrect
         )
         record = (
             yield self.directory.recordWithShortName(

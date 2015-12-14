@@ -262,6 +262,8 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         if self.shouldRotate() and allowrotate:
             self.flush()
             self.rotate()
+        if isinstance(message, unicode):
+            message = message.encode("utf-8")
         self.f.write(message + "\n")
 
 
