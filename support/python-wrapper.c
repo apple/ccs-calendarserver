@@ -9,7 +9,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <pwd.h>
-#include <Python.h>
 
 const char * const allowedUsernames[] = {
     "_calendar",
@@ -73,29 +72,6 @@ int uidIsAllowed() {
     return 0;
 }
 
-char *getCodeToExecute() {
-    char *buffer = NULL;
-    const char* filename = getenv("CS_EXECUTE_EMBEDDED");
-    if (filename != NULL) {
-        FILE *file;
-        if ((file = fopen(filename, "r"))) {
-            struct stat statbuf;
-            if (fstat(fileno(file), &statbuf) == 0) {
-                int size = statbuf.st_size;
-                buffer = malloc((size+1) * sizeof(char));
-                int num = fread(buffer, 1, size, file);
-                if (num != size) {
-                    free(buffer);
-                    buffer = NULL;
-                } else {
-                    buffer[size] = 0;
-                }
-            }
-            fclose(file);
-        }
-    }
-    return buffer;
-}
 
 int main(int argc, const char * argv[]) {
 
@@ -104,19 +80,9 @@ int main(int argc, const char * argv[]) {
         prependToPath("PATH", bin);
         prependToPath("PYTHONPATH", site);
 
-        char *code = getCodeToExecute();
-        if (code != NULL) {
-            printf("Executing code:\n%s\n", code);
-            Py_SetProgramName((char *)argv[0]);
-            Py_Initialize();
-            PyRun_SimpleString(code);
-            Py_Finalize();
-            return 0;
-        } else {
-            // Launch real python
-            argv[0] = python;
-            return execvp(python, (char* const*)argv);
-        }
+        // Launch real python
+        argv[0] = python;
+        return execvp(python, (char* const*)argv);
     } else {
         printf("You are not allowed to run this executable.\n");
         return 1;
