@@ -216,6 +216,10 @@
 					<!-- The % of failures that constitute a failed test -->
 					<key>failCutoff</key>
 					<real>1.0</real>
+
+					<!-- There must be at least one push operation -->
+					<key>failIfNoPush</key>
+					<true/>
 				</dict>
 			</dict>
 		</array>

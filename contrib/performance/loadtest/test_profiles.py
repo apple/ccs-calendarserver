@@ -1094,6 +1094,65 @@ class OperationLoggerTests(TestCase):
             logger.failures())
 
 
+    def test_failureNoPush(self):
+        """
+        If there are no pushes, L{OperationLogger.failures} will/will not fail depending
+        on whether the "failIfNoPush" parameter is set.
+        """
+
+        # No pushes, no param
+        logger = OperationLogger(outfile=StringIO())
+        for _ignore in range(98):
+            logger.observe(dict(
+                type='operation', phase='end', user='user01',
+                duration=0.25, label='testing', success=True)
+            )
+        self.assertEqual(
+            [],
+            logger.failures())
+
+        # No pushes, have param True
+        logger = OperationLogger(outfile=StringIO(), failIfNoPush=True)
+        for _ignore in range(98):
+            logger.observe(dict(
+                type='operation', phase='end', user='user01',
+                duration=0.25, label='testing', success=True)
+            )
+        self.assertEqual(
+            [OperationLogger._PUSH_MISSING_REASON],
+            logger.failures())
+
+        # Pushes, have param False
+        logger = OperationLogger(outfile=StringIO(), failIfNoPush=False)
+        for _ignore in range(98):
+            logger.observe(dict(
+                type='operation', phase='end', user='user01',
+                duration=0.25, label='testing', success=True)
+            )
+            logger.observe(dict(
+                type='operation', phase='end', user='user01',
+                duration=0.25, label='push', success=True)
+            )
+        self.assertEqual(
+            [],
+            logger.failures())
+
+        # Pushes, have param True
+        logger = OperationLogger(outfile=StringIO(), failIfNoPush=True)
+        for _ignore in range(98):
+            logger.observe(dict(
+                type='operation', phase='end', user='user01',
+                duration=0.25, label='testing', success=True)
+            )
+            logger.observe(dict(
+                type='operation', phase='end', user='user01',
+                duration=0.25, label='push', success=True)
+            )
+        self.assertEqual(
+            [],
+            logger.failures())
+
+
 
 class AlarmAcknowledgerTests(TestCase):
 

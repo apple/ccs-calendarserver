@@ -525,6 +525,7 @@ class Accepter(ProfileBase):
         return accepted
 
 
+
 class AttachmentDownloader(ProfileBase):
     """
     A Calendar user who downloads attachments.
@@ -534,6 +535,7 @@ class AttachmentDownloader(ProfileBase):
         enabled=True,
     ):
         self.enabled = enabled
+
 
     def run(self):
         self._subscription = self._client.catalog["eventChanged"].subscribe(self.eventChanged)
@@ -1141,6 +1143,8 @@ class OperationLogger(SummarizingMixin):
         if "failCutoff" in params:
             self._fail_cut_off = params["failCutoff"]
 
+        self._fail_if_no_push = params.get("failIfNoPush", False)
+
 
     def observe(self, event):
         if event.get("type") == "operation":
@@ -1182,6 +1186,7 @@ class OperationLogger(SummarizingMixin):
 
     _LATENCY_REASON = "Median %(operation)s scheduling lag greater than %(cutoff)sms"
     _FAILED_REASON = "Greater than %(cutoff).0f%% %(operation)s failed"
+    _PUSH_MISSING_REASON = "Push was configured but no pushes were received by clients"
 
     def failures(self):
         reasons = []
@@ -1196,5 +1201,8 @@ class OperationLogger(SummarizingMixin):
             if failures * 100.0 / len(times) > self._fail_cut_off:
                 reasons.append(self._FAILED_REASON % dict(
                     operation=operation.upper(), cutoff=self._fail_cut_off))
+
+        if self._fail_if_no_push and "push" not in self._perOperationTimes:
+            reasons.append(self._PUSH_MISSING_REASON)
 
         return reasons
