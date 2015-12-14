@@ -10,5 +10,5 @@ Twisted==15.4.0
         #cffi==1.3.0
         #    pycparser==2.14
 
-    --editable svn+http://svn.calendarserver.org/repository/calendarserver/PySecureTransport/trunk@15229#egg=pysecuretransport
+    --editable svn+http://svn.calendarserver.org/repository/calendarserver/PySecureTransport/trunk@15385#egg=pysecuretransport
 
