@@ -17,7 +17,9 @@
 from twisted.trial.unittest import TestCase
 from calendarserver.accesslog import SystemMonitor, \
     RotatingFileAccessLoggingObserver
-from twistedcaldav.stdconfig import DEFAULT_CONFIG #@UnusedImport
+from twistedcaldav.stdconfig import config as stdconfig
+
+hasattr(stdconfig, "Servers")   # Quell pyflakes
 
 class AccessLog(TestCase):
     """
