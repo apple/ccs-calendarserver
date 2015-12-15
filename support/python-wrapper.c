@@ -9,6 +9,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <pwd.h>
+#include <Python.h>
 
 const char * const allowedUsernames[] = {
     "_calendar",
@@ -80,9 +81,10 @@ int main(int argc, const char * argv[]) {
         prependToPath("PATH", bin);
         prependToPath("PYTHONPATH", site);
 
-        // Launch real python
-        argv[0] = python;
-        return execvp(python, (char* const*)argv);
+        Py_Initialize();
+        Py_Main(argc, (char **)argv);
+        Py_Finalize();
+        return 0;
     } else {
         printf("You are not allowed to run this executable.\n");
         return 1;
