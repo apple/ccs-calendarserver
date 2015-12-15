@@ -86,9 +86,9 @@ def utilityMain(
         return service
 
     # Install std i/o observer
+    observers = []
     if verbose:
-        observer = STDLibLogObserver()
-        observer.start()
+        observers.append(STDLibLogObserver())
 
     if reactor is None:
         from twisted.internet import reactor
@@ -106,7 +106,8 @@ def utilityMain(
         )
         utilityLogObserver = FileLogObserver(utilityLogFile, lambda event: formatEventAsClassicLogText(event))
         utilityLogObserver._encoding = "utf-8"
-        Logger.beginLoggingTo([utilityLogObserver, ], redirectStandardIO=False)
+        observers.append(utilityLogObserver)
+        Logger.beginLoggingTo(observers, redirectStandardIO=False)
 
         config.ProcessType = "Utility"
         config.UtilityServiceClass = _makeValidService
