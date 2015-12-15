@@ -238,6 +238,8 @@ class SchemaUpgradeTests(TestCase):
                 mismatched.remove(i)
             except ValueError:
                 pass
+        if mismatched and mismatched[0].startswith("Comparing schema: current.sql to Upgraded from"):
+            del mismatched[0]
         self.assertEqual(len(mismatched), 0, "Schema mismatch:\n" + "\n".join(mismatched))
 
         yield _unloadOldSchema()

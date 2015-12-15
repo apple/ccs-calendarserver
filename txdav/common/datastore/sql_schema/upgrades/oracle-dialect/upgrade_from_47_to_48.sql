@@ -31,7 +31,7 @@ drop index PERUSER_TIME_RANGE_IN_5468a226;
 
 -- Add unique to ADDRESSBOOK_OBJECT_REVISIONS and remove old index
 --Not for IS&T: alter table ADDRESSBOOK_OBJECT_REVISIONS add unique (ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_HOME_RESOURCE_ID, ADDRESSBOOK_NAME, RESOURCE_NAME);
-drop index ADDRESSBOOK_OBJECT_RE_40cc2d73; -- Name of index changed for IS&T
+drop index ADDRESSBOOK_OBJECT_RE_2bfcf757;
 
 
 -- update the version

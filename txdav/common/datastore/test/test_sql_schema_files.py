@@ -136,7 +136,7 @@ class SQLSchemaFiles(TestCase):
         v6Schema = schemaFromPath(sqlSchema.child("old").child("postgres-dialect").child("v6.sql"))
         v5Schema = schemaFromPath(sqlSchema.child("old").child("postgres-dialect").child("v5.sql"))
         mismatched = v6Schema.compare(v5Schema)
-        self.assertEqual(len(mismatched), 4, msg="\n".join(mismatched))
+        self.assertEqual(len(mismatched), 5, msg="\n".join(mismatched))
 
 
     def test_references_index(self):
