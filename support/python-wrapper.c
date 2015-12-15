@@ -77,14 +77,16 @@ int uidIsAllowed() {
 int main(int argc, const char * argv[]) {
 
     if (uidIsAllowed()) {
+        int result;
+
         // Update PATH and PYTHONPATH
         prependToPath("PATH", bin);
         prependToPath("PYTHONPATH", site);
 
         Py_Initialize();
-        Py_Main(argc, (char **)argv);
+        result = Py_Main(argc, (char **)argv);
         Py_Finalize();
-        return 0;
+        return result;
     } else {
         printf("You are not allowed to run this executable.\n");
         return 1;
