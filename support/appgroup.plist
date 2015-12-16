@@ -5,13 +5,13 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.7</string>
+	<string>1.0.0</string>
 	<key>CFBundleExecutable</key>
-	<string>python</string>
+	<string>python-wrapper</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.apple.server.python</string>
+	<string>com.apple.python-wrapper</string>
 	<key>CFBundleName</key>
-	<string>python</string>
+	<string>python-wrapper</string>
 	<key>Application-Group</key>
 	<array>
 		<string>com.apple.identity.export</string>
