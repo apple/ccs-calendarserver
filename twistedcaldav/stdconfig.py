@@ -23,7 +23,7 @@ import os
 import re
 import sys
 
-from calendarserver.push.util import getAPNTopicFromCertificate
+from calendarserver.push.util import getAPNTopicFromConfig
 
 from twext.enterprise.jobs.jobitem import JobItem
 from twext.enterprise.jobs.queue import ControllerQueue
@@ -1699,31 +1699,13 @@ def _updateNotifications(configDict, reloading=False):
                     continue
 
                 if not service[protocol]["Topic"]:
-                    certPath = service[protocol]["CertificatePath"]
-                    if certPath:
-                        if os.path.exists(certPath):
-                            topic = getAPNTopicFromCertificate(certPath)
-                            service[protocol]["Topic"] = topic
-                        else:
-                            log.error("APNS certificate not found: {p}", p=certPath)
-                    else:
-                        log.error("APNS certificate path not specified")
+                    try:
+                        getAPNTopicFromConfig(protocol, accountName, service[protocol])
+                    except ValueError as e:
+                        log.error(e)
 
                 # If we already have the cert passphrase, don't fetch it again
-                if service[protocol]["Passphrase"]:
-                    continue
-
-                # Get passphrase from keychain.  If not there, fall back to what
-                # is in the plist.
-                try:
-                    passphrase = getPasswordFromKeychain(accountName)
-                    service[protocol]["Passphrase"] = passphrase
-                    log.info("{p} APNS certificate passphrase retreived from keychain", p=protocol)
-                except KeychainAccessError:
-                    # The system doesn't support keychain
-                    pass
-                except KeychainPasswordNotFound:
-                    # The password doesn't exist in the keychain.
+                if not service[protocol]["Passphrase"]:
                     log.info("{p} APNS certificate passphrase not found in keychain", p=protocol)
 
 

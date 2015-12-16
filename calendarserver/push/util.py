@@ -14,9 +14,17 @@
 # limitations under the License.
 ##
 
-from OpenSSL import crypto
 from twext.python.log import Logger
+
 from twisted.python.constants import Values, ValueConstant
+
+from twistedcaldav.util import getPasswordFromKeychain, KeychainAccessError, \
+    KeychainPasswordNotFound
+
+import OpenSSL
+from OpenSSL import crypto
+
+import os
 
 
 
@@ -27,6 +35,75 @@ class PushPriority(Values):
     low = ValueConstant(1)
     medium = ValueConstant(5)
     high = ValueConstant(10)
+
+
+
+def getAPNTopicFromConfig(protocol, accountName, protoConfig):
+    """
+    Given the APNS protocol config, extract the APN topic.
+
+    @param accountName: account name
+    @type accountName: L{str}
+    @param protocol: APNS protocol name
+    @type protocol: L{str}
+    @param protoConfig: APNS specific config
+    @type protoConfig: L{dict}
+
+    @raise: ValueError
+    """
+
+    if hasattr(OpenSSL, "__SecureTransport__"):
+        if protoConfig.KeychainIdentity:
+            # Verify the identity exists
+            error = OpenSSL.crypto.check_keychain_identity(protoConfig.KeychainIdentity)
+            if error:
+                raise ValueError(
+                    "The {proto} APNS Keychain Identity ({cert}) cannot be used: {reason}".format(
+                        proto=protocol,
+                        cert=protoConfig.KeychainIdentity,
+                        reason=error
+                    )
+                )
+
+            # Verify we can extract the topic
+            if not protoConfig.Topic:
+                topic = getAPNTopicFromIdentity(protoConfig.KeychainIdentity)
+                protoConfig.Topic = topic
+            if not protoConfig.Topic:
+                raise ValueError("Cannot extract {proto} APNS topic".format(proto=protocol))
+
+        else:
+            raise ValueError(
+                "No {proto} APNS Keychain Identity was set".format(proto=protocol))
+
+    else:
+        # Verify the cert exists
+        if not os.path.exists(protoConfig.CertificatePath):
+            raise ValueError(
+                "The {proto} APNS certificate ({cert}) is missing".format(
+                    proto=protocol,
+                    cert=protoConfig.CertificatePath
+                )
+            )
+
+        # Verify we can extract the topic
+        if not protoConfig.Topic:
+            topic = getAPNTopicFromCertificate(protoConfig.CertificatePath)
+            protoConfig.Topic = topic
+        if not protoConfig.Topic:
+            raise ValueError("Cannot extract {proto} APNS topic".format(proto=protocol))
+
+        # Verify we can acquire the passphrase
+        if not protoConfig.Passphrase:
+            try:
+                passphrase = getPasswordFromKeychain(accountName)
+                protoConfig.Passphrase = passphrase
+            except KeychainAccessError:
+                # The system doesn't support keychain
+                pass
+            except KeychainPasswordNotFound:
+                # The password doesn't exist in the keychain.
+                raise ValueError("Cannot retrieve {proto} APNS passphrase from keychain".format(proto=protocol))
 
 
 
