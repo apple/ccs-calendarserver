@@ -361,7 +361,7 @@ create table CALENDAR_OBJECT_REVISIONS (
     "RESOURCE_NAME" nvarchar2(255),
     "REVISION" integer not null,
     "DELETED" integer not null,
-    "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC' not null, 
+    "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
     unique ("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_ID", "CALENDAR_NAME", "RESOURCE_NAME")
 );
 
@@ -373,7 +373,7 @@ create table ADDRESSBOOK_OBJECT_REVISIONS (
     "RESOURCE_NAME" nvarchar2(255),
     "REVISION" integer not null,
     "DELETED" integer not null,
-    "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC' not null, 
+    "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
     unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "OWNER_HOME_RESOURCE_ID", "ADDRESSBOOK_NAME", "RESOURCE_NAME")
 );
 
@@ -382,7 +382,7 @@ create table NOTIFICATION_OBJECT_REVISIONS (
     "RESOURCE_NAME" nvarchar2(255),
     "REVISION" integer not null,
     "DELETED" integer not null,
-    "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC' not null, 
+    "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
     unique ("NOTIFICATION_HOME_RESOURCE_ID", "RESOURCE_NAME")
 );
 
@@ -667,7 +667,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '60');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '59');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');

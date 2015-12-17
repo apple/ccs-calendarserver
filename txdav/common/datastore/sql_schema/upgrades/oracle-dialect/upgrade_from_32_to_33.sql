@@ -22,12 +22,14 @@
 
 alter table ABO_MEMBERS
  add ("MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC');
+
+-- For IS&T: add "not null" to these and remove the modify in upgrade_from_59_to_60
 alter table CALENDAR_OBJECT_REVISIONS
- add ("MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC');
+ add ("MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC' not null);
 alter table ADDRESSBOOK_OBJECT_REVISIONS
- add ("MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC');
+ add ("MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC' not null);
 alter table NOTIFICATION_OBJECT_REVISIONS
- add ("MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC');
+ add ("MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC' not null);
 
  -- Add cleanup work tables --
  

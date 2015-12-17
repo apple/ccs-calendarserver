@@ -658,7 +658,7 @@ create table CALENDAR_OBJECT_REVISIONS (
   RESOURCE_NAME             varchar(255),
   REVISION                  integer      default nextval('REVISION_SEQ') not null,
   DELETED                   boolean      not null,
-  MODIFIED                  timestamp    default timezone('UTC', CURRENT_TIMESTAMP) not null,
+  MODIFIED                  timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
 
   unique (CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID, CALENDAR_NAME, RESOURCE_NAME)    -- implicit index
 );
@@ -685,7 +685,7 @@ create table ADDRESSBOOK_OBJECT_REVISIONS (
   RESOURCE_NAME                 varchar(255),
   REVISION                      integer      default nextval('REVISION_SEQ') not null,
   DELETED                       boolean      not null,
-  MODIFIED                      timestamp    default timezone('UTC', CURRENT_TIMESTAMP) not null,
+  MODIFIED                      timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
 
   unique (ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_HOME_RESOURCE_ID, ADDRESSBOOK_NAME, RESOURCE_NAME)    -- implicit index
 );
@@ -706,7 +706,7 @@ create table NOTIFICATION_OBJECT_REVISIONS (
   RESOURCE_NAME                 varchar(255),
   REVISION                      integer      default nextval('REVISION_SEQ') not null,
   DELETED                       boolean      not null,
-  MODIFIED                      timestamp    default timezone('UTC', CURRENT_TIMESTAMP) not null,
+  MODIFIED                      timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
 
   unique (NOTIFICATION_HOME_RESOURCE_ID, RESOURCE_NAME) -- implicit index
 );
@@ -1275,7 +1275,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '60');
+insert into CALENDARSERVER values ('VERSION', '59');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');
