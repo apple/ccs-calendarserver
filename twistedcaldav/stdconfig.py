@@ -57,15 +57,15 @@ else:
 
 DEFAULT_SERVICE_PARAMS = {
     "xml": {
-        "recordTypes": ("users", "groups"),
+        "recordTypes": ["users", "groups"],
         "xmlFile": "accounts.xml",
     },
     "opendirectory": {
-        "recordTypes": ("users", "groups"),
+        "recordTypes": ["users", "groups"],
         "node": "/Search",
     },
     "ldap": {
-        "recordTypes": ("users", "groups"),
+        "recordTypes": ["users", "groups"],
         "uri": "ldap://localhost/",
         "credentials": {
             "dn": None,
@@ -80,17 +80,17 @@ DEFAULT_SERVICE_PARAMS = {
             "addresses": "cn=addresses",
         },
         "mapping": {
-            "uid": ["apple-generateduid", ],
-            "guid": ["apple-generateduid", ],
-            "shortNames": ["uid", ],
-            "fullNames": ["cn", ],
-            "emailAddresses": ["mail", ],
-            "memberDNs": ["uniqueMember", ],
+            "uid": ["apple-generateduid"],
+            "guid": ["apple-generateduid"],
+            "shortNames": ["uid"],
+            "fullNames": ["cn"],
+            "emailAddresses": ["mail"],
+            "memberDNs": ["uniqueMember"],
             "hasCalendars": [],
             "autoScheduleMode": [],
             "autoAcceptGroup": [],
-            "readWriteProxy": ["icsContact", ],
-            "readOnlyProxy": ["icsSecondaryOwners", ],
+            "readWriteProxy": ["icsContact"],
+            "readOnlyProxy": ["icsSecondaryOwners"],
             "serviceNodeUID": [],
         },
         "extraFilters": {
@@ -106,18 +106,18 @@ DEFAULT_SERVICE_PARAMS = {
 
 DEFAULT_RESOURCE_PARAMS = {
     "xml": {
-        "recordTypes": ("locations", "resources", "addresses"),
+        "recordTypes": ["locations", "resources", "addresses"],
         "xmlFile": "resources.xml",
     },
     "opendirectory": {
-        "recordTypes": ("locations", "resources", "addresses"),
+        "recordTypes": ["locations", "resources", "addresses"],
         "node": "/Search",
     },
 }
 
 DEFAULT_AUGMENT_PARAMS = {
     "twistedcaldav.directory.augment.AugmentXMLDB": {
-        "xmlFiles": ["augments.xml", ],
+        "xmlFiles": ["augments.xml"],
         "statSeconds": 15,
     },
     "twistedcaldav.directory.augment.AugmentSqliteDB": {
@@ -132,7 +132,7 @@ DEFAULT_AUGMENT_PARAMS = {
 }
 
 
-directoryAddressBookBackingServiceDefaultParams = {
+DEFAULT_DIRECTORY_ADDRESSBOOK_PARAMS = {
     "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
         "xmlFile": "/etc/carddavd/accounts.xml",
     },
@@ -157,9 +157,8 @@ directoryAddressBookBackingServiceDefaultParams = {
     },
 }
 
+# Note: Don't use None values below; that confuses the command-line parser.
 DEFAULT_CONFIG = {
-    # Note: Don't use None values below; that confuses the command-line parser.
-
     #
     # Public network address information
     #
@@ -169,6 +168,7 @@ DEFAULT_CONFIG = {
     #    default.  For example, it may be the address of a load balancer or
     #    proxy which forwards connections to the server.
     #
+
     "ServerHostName": "", # Network host name.
     "HTTPPort": 0, # HTTP port (0 to disable HTTP)
     "SSLPort": 0, # SSL port (0 to disable HTTPS)
@@ -177,12 +177,11 @@ DEFAULT_CONFIG = {
     "SSLMethod": "SSLv23_METHOD", # SSLv2_METHOD, SSLv3_METHOD, SSLv23_METHOD, TLSv1_METHOD
     "SSLCiphers": "RC4-SHA:HIGH:!ADH",
 
-    # Max-age value for Strict-Transport-Security header; set to 0 to
-    # disable header.
+    # Max-age value for Strict-Transport-Security header; set to 0 to disable header.
     "StrictTransportSecuritySeconds": 7 * 24 * 60 * 60,
 
     #
-    # Network address configuration information
+    # Network address configuration information.
     #
     #    This configures the actual network address that the server binds to.
     #
@@ -200,17 +199,12 @@ DEFAULT_CONFIG = {
     "BindAddresses": [], # List of IP addresses to bind to [empty = all]
     "BindHTTPPorts": [], # List of port numbers to bind to for HTTP
                          # [empty = same as "Port"]
-    "BindSSLPorts": [], # List of port numbers to bind to for SSL
-                        # [empty = same as "SSLPort"]
-    "InheritFDs": [], # File descriptors to inherit for HTTP requests
-                      # (empty = don't inherit)
-    "InheritSSLFDs": [], # File descriptors to inherit for HTTPS requests
-                         # (empty = don't inherit)
-    "MetaFD": 0, # Inherited file descriptor to call recvmsg() on to
-                 # receive sockets (none = don't inherit)
+    "BindSSLPorts": [], # List of port numbers to bind to for SSL [empty = same as "SSLPort"]
+    "InheritFDs": [], # File descriptors to inherit for HTTP requests [empty = don't inherit]
+    "InheritSSLFDs": [], # File descriptors to inherit for HTTPS requests [empty = don't inherit]
+    "MetaFD": 0, # Inherited file descriptor to call recvmsg() on to receive sockets (none = don't inherit)
 
-    "UseMetaFD": True, # Use a 'meta' FD, i.e. an FD to transmit other FDs
-                       # to slave processes.
+    "UseMetaFD": True, # Use a 'meta' FD, i.e. an FD to transmit other FDs to slave processes.
 
     "UseDatabase": True, # True: database; False: files
 
@@ -261,11 +255,13 @@ DEFAULT_CONFIG = {
     #
     # Work queue configuration information
     #
+
     "WorkQueue": {
         "queuePollInterval": 0.1,   # Interval in seconds for job queue polling
         "queueOverdueTimeout": 300, # Number of seconds before an assigned job is considered overdue
         "queuePollingBackoff": [     # Array of array that describe the threshold and new polling interval
-            [60, 60], [5, 1]         # for job queue polling back off
+                                     # for job queue polling back off
+            [60, 60], [5, 1]
         ],
 
         "overloadLevel": 95,        # Queue capacity (percentage) which causes job processing to halt
@@ -426,7 +422,7 @@ DEFAULT_CONFIG = {
     "AccessLogFile"  : "access.log", # Apache-style access log
     "ErrorLogFile"   : "error.log", # Server activity log
     "AgentLogFile"   : "agent.log", # Agent activity log
-    "UtilityLogFile"   : "{}.log".format(basename(sys.argv[0])), # Command line utility log
+    "UtilityLogFile" : "utility.log", # Utility log - name will be dynamically changed to executable name
     "ErrorLogEnabled"   : True, # True = use log file, False = stdout
     "ErrorLogRotateMB"  : 10, # Rotate error log after so many megabytes
     "ErrorLogMaxRotatedFiles"  : 5, # Retain this many error log files
@@ -480,11 +476,11 @@ DEFAULT_CONFIG = {
     # Process management
     #
 
-    # Username and Groupname to drop privileges to, if empty privileges will
-    # not be dropped.
-
+    # Username and Groupname to drop privileges to, if empty privileges will not be dropped.
     "UserName": "",
     "GroupName": "",
+
+    # Multi-process
     "ProcessType": "Combined",
     "MultiProcess": {
         "ProcessCount": 0,
@@ -502,14 +498,10 @@ DEFAULT_CONFIG = {
         "Enabled" : True,
         "Seconds" : 60, # How often to check memory sizes (in seconds)
         "Bytes"   : 2 * 1024 * 1024 * 1024, # Memory limit (RSS in bytes)
-        "ResidentOnly" : True,  # True: only take into account resident memory;
-                                # False: include virtual memory
+        "ResidentOnly" : True,  # True: only take into account resident memory; False: include virtual memory
     },
 
-    #
-    # Service ACLs
-    #
-    "EnableSACLs": False,
+    "EnableSACLs": False, # Service ACLs
 
     "EnableReadOnlyServer": False, # Make all data read-only
 
@@ -616,17 +608,16 @@ DEFAULT_CONFIG = {
                                                   # If on, it will also cause new accounts to provision with separate
                                                   # calendars for events and tasks.
 
-    "SupportedComponents" : [                      # Set of supported iCalendar components
+    "SupportedComponents" : [                     # Set of supported iCalendar components
         "VEVENT",
         "VTODO",
-        # "VPOLL",
     ],
 
     "EnableTrashCollection": False,  # Enable Trash Collection
     "ExposeTrashCollection": False,  # Expose Trash Collection as a resource
 
     "ParallelUpgrades": False, # Perform upgrades - currently only the
-                               # database -> filesystem migration - but in
+                               # database to filesystem migration - but in
                                # the future, hopefully all relevant
                                # upgrades - in parallel in subprocesses.
 
@@ -670,7 +661,7 @@ DEFAULT_CONFIG = {
     "DirectoryAddressBook": {
         "Enabled": True,
         "type": "twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService",
-        "params": directoryAddressBookBackingServiceDefaultParams["twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService"],
+        "params": DEFAULT_DIRECTORY_ADDRESSBOOK_PARAMS["twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService"],
         "name": "directory",
         "MaxQueryResults": 1000,
     },
@@ -679,14 +670,10 @@ DEFAULT_CONFIG = {
 
     # /XXX CardDAV
 
-    #
     # Web-based administration
-    #
     "EnableWebAdmin"          : True,
 
-    #
     # JSON control API - only for testing
-    #
     "EnableControlAPI"        : False,
 
     #
@@ -974,8 +961,7 @@ DEFAULT_CONFIG = {
     # processes. If blank, then an AF_INET socket is used instead.
     "ControlSocket": "caldavd.sock",
 
-    # Support for Content-Encoding compression options as specified in
-    # RFC2616 Section 3.5
+    # Support for Content-Encoding compression options as specified in RFC2616 Section 3.5
     # Defaults off, because it weakens TLS (CRIME attack).
     "ResponseCompression": False,
 
@@ -999,8 +985,7 @@ DEFAULT_CONFIG = {
                 "ServerEnabled": True,
                 "BindAddress": "127.0.0.1",
                 "Port": 11311,
-                "HandleCacheTypes": [
-                    "Default",
+                "HandleCacheTypes": [ # Possible types:
                     # "OpenDirectoryBacker",
                     # "ImplicitUIDLock",
                     # "RefreshUIDLock",
@@ -1012,6 +997,7 @@ DEFAULT_CONFIG = {
                     # "SQL.props",
                     # "SQL.calhome",
                     # "SQL.adbkhome",
+                    "Default",
                 ]
             },
             # "Shared": {
@@ -1051,9 +1037,9 @@ DEFAULT_CONFIG = {
         "Options": [
             "-c standard_conforming_strings=on",
         ],
-        "Ctl": "pg_ctl", # Iff the DBType is '', and we're spawning postgres
+        "Ctl": "pg_ctl", # If the DBType is '', and we're spawning postgres
                          # ourselves, where is the pg_ctl tool to spawn it with?
-        "Init": "initdb", # Iff the DBType is '', and we're spawning postgres
+        "Init": "initdb", # If the DBType is '', and we're spawning postgres
                           # ourselves, where is the initdb tool to create its
                           # database cluster with?
     },
@@ -1110,12 +1096,10 @@ DEFAULT_CONFIG = {
     # The RootResource uses a twext property store. Specify the class here
     "RootResourcePropStoreClass": "txweb2.dav.xattrprops.xattrPropertyStore",
 
-    # Used in the command line utilities to specify which service class to
-    # use to carry out work.
+    # Used in the command line utilities to specify which service class to use to carry out work.
     "UtilityServiceClass": "",
 
-    # Inbox items created more than MigratedInboxDaysCutoff days in the past are removed
-    # during migration
+    # Inbox items created more than MigratedInboxDaysCutoff days in the past are removed during migration
     "MigratedInboxDaysCutoff": 60,
 
     # The default timezone for the server; on OS X you can leave this empty and the
@@ -1496,19 +1480,19 @@ def _preUpdateDirectoryAddressBookBackingDirectoryService(configDict, items, rel
             newParams = items["DirectoryAddressBook"].get("params", {})
             mergeData(oldParams, newParams)
         else:
-            if dsType in directoryAddressBookBackingServiceDefaultParams:
-                configDict.DirectoryAddressBook.params = copy.deepcopy(directoryAddressBookBackingServiceDefaultParams[dsType])
+            if dsType in DEFAULT_DIRECTORY_ADDRESSBOOK_PARAMS:
+                configDict.DirectoryAddressBook.params = copy.deepcopy(DEFAULT_DIRECTORY_ADDRESSBOOK_PARAMS[dsType])
             else:
                 configDict.DirectoryAddressBook.params = {}
 
     for param in items.get("DirectoryAddressBook", {}).get("params", {}):
-        if param not in directoryAddressBookBackingServiceDefaultParams[dsType]:
+        if param not in DEFAULT_DIRECTORY_ADDRESSBOOK_PARAMS[dsType]:
             raise ConfigurationError("Parameter %s is not supported by service %s" % (param, dsType))
 
     mergeData(configDict, items)
 
     for param in tuple(configDict.DirectoryAddressBook.params):
-        if param not in directoryAddressBookBackingServiceDefaultParams[configDict.DirectoryAddressBook.type]:
+        if param not in DEFAULT_DIRECTORY_ADDRESSBOOK_PARAMS[configDict.DirectoryAddressBook.type]:
             del configDict.DirectoryAddressBook.params[param]
 
 
@@ -1639,6 +1623,11 @@ def _updateClientFixes(configDict, reloading=False):
             configDict.ClientFixesCompiled[key] = [re.compile("^{}$".format(x)) for x in expressions]
     except re.error, e:
         raise ConfigurationError("Invalid regular expression in ClientFixes: %s" % (e,))
+
+
+
+def _updateUtilityLog(configDict, reloading=False):
+    configDict["UtilityLogFile"] = "{}.log".format(basename(sys.argv[0])), # Command line utility log
 
 
 
@@ -1787,12 +1776,12 @@ POST_UPDATE_HOOKS = (
     _updateACLs,
     _updateRejectClients,
     _updateClientFixes,
+    _updateUtilityLog,
     _updateLogLevels,
     _updateNotifications,
     _updateICalendar,
     _updateScheduling,
     _updateSharing,
-    # _updateServers,
     _updateCompliance,
 )
 
