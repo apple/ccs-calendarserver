@@ -626,6 +626,9 @@
 		<key>iSchedule</key>
 		<false/>
 
+		<key>Invalid Instance</key>
+		<false/>
+
 		<key>migration</key>
 		<false/>
 	</dict>
