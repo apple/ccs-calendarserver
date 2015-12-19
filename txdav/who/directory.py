@@ -25,7 +25,7 @@ from twext.who.expression import (
     MatchType, Operand, MatchExpression, CompoundExpression, MatchFlags,
     ExistsExpression, BooleanExpression
 )
-from twext.who.idirectory import RecordType as BaseRecordType
+from twext.who.idirectory import RecordType as BaseRecordType, FieldName as BaseFieldName
 from twisted.cred.credentials import UsernamePassword
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav.config import config
@@ -80,6 +80,10 @@ class CalendarDirectoryServiceMixin(object):
     ):
         address = normalizeCUAddr(address)
         record = None
+
+        if config.Scheduling.Options.FakeResourceLocationEmail:
+            if address.startswith("mailto:") and address.endswith("@do_not_reply"):
+                address = "urn:x-uid:{}".format(address[7:-13].decode("hex"))
 
         if address.startswith("urn:x-uid:"):
             uid = address[10:]
@@ -340,6 +344,12 @@ class CalendarDirectoryRecordMixin(object):
     Calendar (and Contacts) specific logic for directory records lives in this
     class
     """
+
+    def __init__(self):
+        if config.Scheduling.Options.FakeResourceLocationEmail:
+            if self.recordType in (DAVRecordType.location, DAVRecordType.resource) and not getattr(self, "emailAddresses", None):
+                self.fields[BaseFieldName.emailAddresses] = ("{}@do_not_reply".format(self.uid.encode("hex"),),)
+
 
     @inlineCallbacks
     def verifyCredentials(self, credentials):

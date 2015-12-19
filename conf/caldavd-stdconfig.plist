@@ -1420,6 +1420,10 @@
 			<key>TrackUnscheduledResourceData</key>
 			<true/>
 
+			<!-- Add fake email addresses to work around client bug -->
+			<key>FakeResourceLocationEmail</key>
+			<false/>
+
 			<!-- Maximum number of attendees to request freebusy for -->
 			<key>LimitFreeBusyAttendees</key>
 			<integer>30</integer>

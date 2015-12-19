@@ -80,6 +80,11 @@ limitations under the License.
     <short-name>sanchezoffice</short-name>
     <full-name>Sanchez Office</full-name>
   </record>
+  <record type="resource">
+    <short-name>resource01</short-name>
+    <uid>resource01</uid>
+    <full-name>Resource 01</full-name>
+  </record>
   <record type="location">
     <uid>75EA36BE-F71B-40F9-81F9-CF59BF40CA8F</uid>
     <guid>75EA36BE-F71B-40F9-81F9-CF59BF40CA8F</guid>

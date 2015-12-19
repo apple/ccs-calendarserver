@@ -21,6 +21,7 @@ import itertools
 from twisted.trial.unittest import SkipTest
 from twisted.internet.defer import inlineCallbacks, succeed
 
+from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeForExpand
 from twistedcaldav.ical import Component, Property, InvalidICalendarDataError, \
     normalizeCUAddress, normalize_iCalStr, diff_iCalStrs
@@ -8432,6 +8433,73 @@ END:VCALENDAR
         prop = component.getAttendeeProperty(("urn:x-uid:buzz",))
         self.assertEquals("urn:x-uid:buzz", prop.value())
         self.assertEquals(prop.parameterValue("CN"), "{Restricted} Buzz")
+
+
+    def test_normalizeCalendarUserAddressesWithFakeEmail(self):
+        """
+        Ensure fake email addresses are not inserted as EMAIL parameters.
+        """
+
+        self.patch(config.Scheduling.Options, "FakeResourceLocationEmail", True)
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+DTSTART:20071114T000000Z
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20071114T000000Z
+ATTENDEE:/principals/users/foo
+ATTENDEE;CN=Fake 1;CUTYPE=ROOM:mailto:fake1@do_not_reply
+ATTENDEE;CN=Fake 2;CUTYPE=ROOM;EMAIL=fake2@do_not_reply:mailto:fake2@do_not_reply
+LOCATION:Buzz
+DTSTAMP:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+"""
+
+        result = """BEGIN:VCALENDAR
+VERSION:2.0
+DTSTART:20071114T000000Z
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20071114T000000Z
+ATTENDEE;CN=Foo;EMAIL=foo@example.com:urn:x-uid:foo
+ATTENDEE;CN=Fake 1;CUTYPE=ROOM:urn:x-uid:fake1
+ATTENDEE;CN=Fake 2;CUTYPE=ROOM:urn:x-uid:fake2
+LOCATION:Buzz
+DTSTAMP:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+"""
+
+        component = Component.fromString(data)
+
+
+        def lookupFunction(cuaddr, ignored1, ignored2):
+            return succeed({
+                "/principals/users/foo" : (
+                    "Foo",
+                    "foo",
+                    "INDIVIDUAL",
+                    ("urn:x-uid:foo", "mailto:foo@example.com")
+                ),
+                "mailto:fake1@do_not_reply" : (
+                    "Fake 1",
+                    "fake1",
+                    "ROOM",
+                    ("urn:x-uid:fake1", "mailto:fake1@do_not_reply")
+                ),
+                "mailto:fake2@do_not_reply" : (
+                    "Fake 2",
+                    "fake2",
+                    "ROOM",
+                    ("urn:x-uid:fake2", "mailto:fake2@do_not_reply")
+                ),
+            }[cuaddr])
+
+        component.normalizeCalendarUserAddresses(lookupFunction, None, toURN_UUID=True)
+
+        self.assertEqual(normalize_iCalStr(component), normalize_iCalStr(result))
 
 
     def test_serializationCaching(self):

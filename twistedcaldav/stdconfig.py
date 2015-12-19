@@ -767,6 +767,7 @@ DEFAULT_CONFIG = {
             "AllowResourceWithoutOrganizer"       : True, # Allow resources to have events without an Organizer
             "TrackUnscheduledLocationData"        : True, # Track who the last modifier of an unscheduled location event is
             "TrackUnscheduledResourceData"        : True, # Track who the last modifier of an unscheduled resource event is
+            "FakeResourceLocationEmail"           : False, # Add fake email addresses to work around client bug
             "LimitFreeBusyAttendees"              : 30, # Maximum number of attendees to request freebusy for
             "AttendeeRefreshBatch"                : 5, # Number of attendees to do batched refreshes: 0 - no batching
             "AttendeeRefreshCountLimit"           : 50, # Number of attendees above which attendee refreshes are suppressed: 0 - no limit
@@ -1768,6 +1769,7 @@ PRE_UPDATE_HOOKS = (
 )
 POST_UPDATE_HOOKS = (
     _updateMultiProcess,
+    _updateUtilityLog,  # Must be before _updateDataStore for proper relative path
     _updateDataStore,
     _updateHostName,
     _updateWorkQueue,
@@ -1777,7 +1779,6 @@ POST_UPDATE_HOOKS = (
     _updateACLs,
     _updateRejectClients,
     _updateClientFixes,
-    _updateUtilityLog,
     _updateLogLevels,
     _updateNotifications,
     _updateICalendar,

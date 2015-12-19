@@ -19,15 +19,16 @@ Directory tests
 """
 
 from twisted.internet.defer import inlineCallbacks
+from twistedcaldav.config import config
 from twistedcaldav.test.util import StoreTestCase
 from twext.who.directory import DirectoryRecord
 from twext.who.idirectory import FieldName, RecordType
 from txdav.who.directory import CalendarDirectoryRecordMixin, AutoScheduleMode
-from txdav.who.util import startswithFilter
-from uuid import UUID
 from twext.who.expression import (
     MatchType, MatchFlags, MatchExpression
 )
+from txdav.who.util import startswithFilter
+from uuid import UUID
 
 
 
@@ -206,6 +207,33 @@ class DirectoryTestCase(StoreTestCase):
 
 
     @inlineCallbacks
+    def test_recordWithCalendarUserAddress_no_fake_email(self):
+        """
+        Make sure that recordWithCalendarUserAddress handles fake emails for
+        resources and locations.
+        """
+
+        record = yield self.directory.recordWithCalendarUserAddress(u"mailto:{}@do_not_reply".format("resource01".encode("hex")))
+        self.assertTrue(record is None)
+        record = yield self.directory.recordWithCalendarUserAddress(u"mailto:{}@do_not_reply".format("75EA36BE-F71B-40F9-81F9-CF59BF40CA8F".encode("hex")))
+        self.assertTrue(record is None)
+        record = yield self.directory.recordWithCalendarUserAddress(u"mailto:{}@do_not_reply".format("resource02".encode("hex")))
+        self.assertTrue(record is None)
+
+
+    @inlineCallbacks
+    def test_calendarUserAddress_no_fake_email(self):
+        """
+        Make sure that recordWs have fake email addresses.
+        """
+
+        record = yield self.directory.recordWithUID(u"resource01")
+        self.assertTrue(record is not None)
+        self.assertTrue(len(getattr(record, "emailAddresses", ())) == 0)
+        self.assertTrue(len([cuaddr for cuaddr in record.calendarUserAddresses if cuaddr.startswith("mailto:")]) == 0)
+
+
+    @inlineCallbacks
     def test_recordsMatchingTokensNoFilter(self):
         """
         Records with names containing the token are returned
@@ -328,3 +356,43 @@ class DirectoryTestCase(StoreTestCase):
                 ),
                 notInGroupMode
             )
+
+
+
+class DirectoryTestCaseFakeEmail(StoreTestCase):
+
+
+    def configure(self):
+        """
+        Adjust the global configuration for this test.
+        """
+        super(StoreTestCase, self).configure()
+
+        config.Scheduling.Options.FakeResourceLocationEmail = True
+
+
+    @inlineCallbacks
+    def test_recordWithCalendarUserAddress_fake_email(self):
+        """
+        Make sure that recordWithCalendarUserAddress handles fake emails for
+        resources and locations.
+        """
+
+        record = yield self.directory.recordWithCalendarUserAddress(u"mailto:{}@do_not_reply".format("resource01".encode("hex")))
+        self.assertTrue(record is not None)
+        record = yield self.directory.recordWithCalendarUserAddress(u"mailto:{}@do_not_reply".format("75EA36BE-F71B-40F9-81F9-CF59BF40CA8F".encode("hex")))
+        self.assertTrue(record is not None)
+        record = yield self.directory.recordWithCalendarUserAddress(u"mailto:{}@do_not_reply".format("resource02".encode("hex")))
+        self.assertTrue(record is None)
+
+
+    @inlineCallbacks
+    def test_calendarUserAddress_fake_email(self):
+        """
+        Make sure that recordWs have fake email addresses.
+        """
+
+        record = yield self.directory.recordWithUID(u"resource01")
+        self.assertTrue(record is not None)
+        self.assertIn(u"{}@do_not_reply".format("resource01".encode("hex")), record.emailAddresses)
+        self.assertIn(u"mailto:{}@do_not_reply".format("resource01".encode("hex")), record.calendarUserAddresses)

@@ -476,6 +476,7 @@ class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
 
     def __init__(self, service, baseRecord, augmentedFields):
         DirectoryRecord.__init__(self, service, augmentedFields)
+        CalendarDirectoryRecordMixin.__init__(self)
         self._baseRecord = baseRecord
 
 

@@ -148,6 +148,11 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
     log = Logger()
 
 
+    def __init__(self, service, fields):
+        BaseDirectoryRecord.__init__(self, service, fields)
+        CalendarDirectoryRecordMixin.__init__(self)
+
+
     @property
     def name(self):
         return self.shortNames[0]
