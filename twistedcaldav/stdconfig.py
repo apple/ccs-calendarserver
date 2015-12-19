@@ -1628,7 +1628,7 @@ def _updateClientFixes(configDict, reloading=False):
 
 
 def _updateUtilityLog(configDict, reloading=False):
-    configDict["UtilityLogFile"] = "{}.log".format(basename(sys.argv[0])), # Command line utility log
+    configDict["UtilityLogFile"] = "{}.log".format(basename(sys.argv[0]))
 
 
 
