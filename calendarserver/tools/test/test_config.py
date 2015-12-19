@@ -353,6 +353,7 @@ class ConfigTestCase(RunCommandTestCase):
                 'iSchedule': False,
                 'iTIP': False,
                 'iTIP-VFREEBUSY': False,
+                'Invalid Instance': False,
                 'migration': False,
             }
         )
@@ -379,6 +380,7 @@ class ConfigTestCase(RunCommandTestCase):
                 'iSchedule': False,
                 'iTIP': True,
                 'iTIP-VFREEBUSY': True,
+                'Invalid Instance': False,
                 'migration': False,
             }
         )
@@ -405,6 +407,7 @@ class ConfigTestCase(RunCommandTestCase):
                 'iSchedule': False,
                 'iTIP': False,
                 'iTIP-VFREEBUSY': False,
+                'Invalid Instance': False,
                 'migration': False,
             }
         )
