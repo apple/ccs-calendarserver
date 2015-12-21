@@ -240,14 +240,18 @@ def buildDirectory(
     #
     # Setup the Augment Service
     #
-    if augmentServiceInfo.type:
+    if augmentServiceInfo.Enabled:
+        serviceClass = {
+            "xml": "twistedcaldav.directory.augment.AugmentXMLDB",
+        }
+
         for augmentFile in augmentServiceInfo.params.xmlFiles:
             augmentFile = fullServerPath(dataRoot, augmentFile)
             augmentFilePath = FilePath(augmentFile)
             if not augmentFilePath.exists():
                 augmentFilePath.setContent(DEFAULT_AUGMENT_CONTENT)
 
-        augmentClass = namedClass(augmentServiceInfo.type)
+        augmentClass = namedClass(serviceClass[augmentServiceInfo.type])
         log.info(
             "Configuring augment service of type: {augmentClass}",
             augmentClass=augmentClass

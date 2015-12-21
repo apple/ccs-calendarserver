@@ -82,8 +82,10 @@
     <!-- XML File Augment Service -->
     <key>AugmentService</key>
     <dict>
+      <key>Enabled</key>
+      <true/>
       <key>type</key>
-      <string>twistedcaldav.directory.augment.AugmentXMLDB</string>
+      <string>xml</string>
       
       <key>params</key>
       <dict>

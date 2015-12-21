@@ -23,6 +23,25 @@ import os
 import re
 import textwrap
 
+COPYRIGHT = """
+<!--
+    Copyright (c) 2006-2015 Apple Inc. All rights reserved.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+  -->
+"""
+
+
 def parseConfigItem(item):
     """
     Read the definition of a "DEFAULT_*" value from the stdconfig.py file so that we get
@@ -244,6 +263,7 @@ def writeOrderedPlist(rootObject, pathOrFile):
         pathOrFile = open(pathOrFile, "w")
         didOpen = 1
     writer = OrderedPlistWriter(pathOrFile)
+    writer.writeln(COPYRIGHT)
     writer.writeln("<plist version=\"1.0\">")
     writer.writeValue(rootObject)
     writer.writeln("</plist>")
@@ -264,7 +284,25 @@ def writeOrderedPlistToString(rootObject):
     writeOrderedPlist(rootObject, f)
     return f.getvalue()
 
-if __name__ == '__main__':
+
+
+def writeStdConfig(data):
+    """
+    Write the actual plist data to conf/caldavd-stdconfig.plist.
+
+    @param data: plist data
+    @type data: L{str}
+    """
+
+    with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), "conf", "caldavd-stdconfig.plist"), "w") as f:
+        f.write(data)
+
+
+
+def dumpConfig():
+    """
+    Dump the full stdconfig to a string.
+    """
 
     # Generate a set of serialized JSON objects for the *_PARAMS config items
     maps = {
@@ -281,4 +319,11 @@ if __name__ == '__main__':
     # Generate the plist for the default config, substituting for the *_PARAMS items
     lines = parseConfigItem("DEFAULT_CONFIG")
     j = processConfig(lines, with_comments=True, verbose=False, substitutions=maps)
-    print(writeOrderedPlistToString(j))
+    return writeOrderedPlistToString(j)
+
+
+if __name__ == '__main__':
+
+    data = dumpConfig()
+    writeStdConfig(data)
+    print(data)

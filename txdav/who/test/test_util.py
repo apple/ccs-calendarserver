@@ -84,7 +84,7 @@ class UtilTest(TestCase):
                 },
                 "DirectoryService": {
                     "Enabled": True,
-                    "type": "XML",
+                    "type": "xml",
                     "params": {
                         "xmlFile": "accounts.xml",
                         "recordTypes": ["users", "groups"],
@@ -92,7 +92,7 @@ class UtilTest(TestCase):
                 },
                 "ResourceService": {
                     "Enabled": True,
-                    "type": "XML",
+                    "type": "xml",
                     "params": {
                         "xmlFile": "resources.xml",
                         "recordTypes": ["locations", "resources", "addresses"],
@@ -100,8 +100,7 @@ class UtilTest(TestCase):
                 },
                 "AugmentService": {
                     "Enabled": True,
-                    # FIXME: This still uses an actual class name:
-                    "type": "twistedcaldav.directory.augment.AugmentXMLDB",
+                    "type": "xml",
                     "params": {
                         "xmlFiles": ["augments.xml"],
                     },

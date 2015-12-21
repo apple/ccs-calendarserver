@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 
 <!--
     Copyright (c) 2006-2015 Apple Inc. All rights reserved.
@@ -16,7 +17,6 @@
     limitations under the License.
   -->
 
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<!-- Public network address information
@@ -405,8 +405,11 @@
 
 	<key>AugmentService</key>
 	<dict>
+		<key>Enabled</key>
+		<true/>
+
 		<key>type</key>
-		<string>twistedcaldav.directory.augment.AugmentXMLDB</string>
+		<string>xml</string>
 
 		<key>params</key>
 		<dict>
@@ -1075,7 +1078,7 @@
 		<true/>
 
 		<key>type</key>
-		<string>twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService</string>
+		<string>opendirectory</string>
 
 		<key>params</key>
 		<dict>

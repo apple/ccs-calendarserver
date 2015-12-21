@@ -543,8 +543,10 @@
     <!-- Directory searching -->
     <key>DirectoryAddressBook</key>
     <dict>
-	    <key>Enabled</key>
-	    <true/>
+	  <key>Enabled</key>
+	  <true/>
+	  <key>type</key>
+	  <string>opendirectory</string>
       <key>params</key>
       <dict>
         <key>queryUserRecords</key>

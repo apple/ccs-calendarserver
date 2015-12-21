@@ -753,7 +753,8 @@ def buildTestDirectory(
     )
     augmentServiceInfo = ConfigDict(
         {
-            "type": "twistedcaldav.directory.augment.AugmentXMLDB",
+            "Enabled": True,
+            "type": "xml",
             "params": {
                 "xmlFiles": ["augments.xml", ],
                 "statSeconds": 15,

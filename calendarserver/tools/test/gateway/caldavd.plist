@@ -140,7 +140,7 @@
     <key>DirectoryService</key>
     <dict>
       <key>type</key>
-      <string>twistedcaldav.directory.xmlfile.XMLDirectoryService</string>
+      <string>xml</string>
 
       <key>params</key>
       <dict>
@@ -160,7 +160,7 @@
       <key>Enabled</key>
       <true/>
       <key>type</key>
-      <string>twistedcaldav.directory.xmlfile.XMLDirectoryService</string>
+      <string>xml</string>
 
       <key>params</key>
       <dict>
@@ -175,23 +175,6 @@
       </dict>
     </dict>
 
-    <!-- Open Directory Service (Mac OS X) -->
-    <!--
-    <key>DirectoryService</key>
-    <dict>
-      <key>type</key>
-      <string>twistedcaldav.directory.appleopendirectory.OpenDirectoryService</string>
-
-      <key>params</key>
-      <dict>
-        <key>node</key>
-        <string>/Search</string>
-        <key>cacheTimeout</key>
-        <integer>30</integer>
-      </dict>
-    </dict>
-    -->
-
     <!--
         Augment service
 
@@ -203,8 +186,10 @@
     <!-- XML File Augment Service -->
     <key>AugmentService</key>
     <dict>
+      <key>Enabled</key>
+      <true/>
       <key>type</key>
-      <string>twistedcaldav.directory.augment.AugmentXMLDB</string>
+      <string>xml</string>
 
       <key>params</key>
       <dict>
@@ -214,38 +199,6 @@
         </array>
       </dict>
     </dict>
-
-    <!-- Sqlite Augment Service -->
-    <!--
-    <key>AugmentService</key>
-    <dict>
-      <key>type</key>
-      <string>twistedcaldav.directory.augment.AugmentSqliteDB</string>
-
-      <key>params</key>
-      <dict>
-        <key>dbpath</key>
-        <string>/etc/caldavd/augments.sqlite</string>
-      </dict>
-    </dict>
-     -->
-
-    <!-- PostgreSQL Augment Service -->
-    <!--
-    <key>AugmentService</key>
-    <dict>
-      <key>type</key>
-      <string>twistedcaldav.directory.augment.AugmentPostgreSQLDB</string>
-
-      <key>params</key>
-      <dict>
-        <key>host</key>
-        <string>localhost</string>
-        <key>database</key>
-        <string>augments</string>
-      </dict>
-    </dict>
-     -->
 
     <!-- Sqlite ProxyDB Service -->
     <key>ProxyDBService</key>

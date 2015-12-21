@@ -14,10 +14,12 @@
 # limitations under the License.
 ##
 
-from unittest.case import TestCase
-from twistedcaldav.dumpconfig import parseConfigItem, processConfig, \
-    writeOrderedPlistToString
 from collections import OrderedDict
+from difflib import unified_diff
+from twistedcaldav.dumpconfig import parseConfigItem, dumpConfig, \
+    writeOrderedPlistToString, COPYRIGHT
+from unittest.case import TestCase
+import os
 
 class TestDumpConfig (TestCase):
 
@@ -54,6 +56,7 @@ class TestDumpConfig (TestCase):
         plist = writeOrderedPlistToString(data)
         self.assertEqual(plist, """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+{copyright}
 <plist version="1.0">
 <dict>
 \t<key>KeyB</key>
@@ -72,7 +75,7 @@ class TestDumpConfig (TestCase):
 \t<string>5</string>
 </dict>
 </plist>
-""")
+""".format(copyright=COPYRIGHT))
 
 
     def test_plistWithComments(self):
@@ -92,6 +95,7 @@ class TestDumpConfig (TestCase):
         plist = writeOrderedPlistToString(data)
         self.assertEqual(plist, """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+{copyright}
 <plist version="1.0">
 <dict>
 \t<!-- All about KeyB -->
@@ -109,7 +113,7 @@ class TestDumpConfig (TestCase):
 \t<string>3</string>
 </dict>
 </plist>
-""")
+""".format(copyright=COPYRIGHT))
 
 
     def test_fullPlistDump(self):
@@ -117,19 +121,10 @@ class TestDumpConfig (TestCase):
         Make sure a full dump of DEFAULT_CONFIG works
         """
 
-        maps = {
-            "DEFAULT_SERVICE_PARAMS": "",
-            "DEFAULT_RESOURCE_PARAMS": "",
-            "DEFAULT_AUGMENT_PARAMS": "",
-            "DEFAULT_DIRECTORY_ADDRESSBOOK_PARAMS": "",
-        }
-
-        for item in maps.keys():
-            lines = parseConfigItem(item)
-            maps[item] = processConfig(lines, with_comments=True, verbose=False)
-
-        # Generate the plist for the default config, substituting for the *_PARAMS items
-        lines = parseConfigItem("DEFAULT_CONFIG")
-        j = processConfig(lines, with_comments=True, verbose=False, substitutions=maps)
-        result = writeOrderedPlistToString(j)
+        result = dumpConfig()
         self.assertIn('<plist version="1.0">', result)
+
+        # Check that caldavd-stdconfig.plist matches
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "conf", "caldavd-stdconfig.plist")) as f:
+            actual = f.read()
+        self.assertEqual(result, actual, msg="\n".join(unified_diff(result.splitlines(), actual.splitlines())))
