@@ -51,7 +51,7 @@ from txdav.common.datastore.test.util import transactionClean
 from txdav.common.icommondatastore import ConcurrentModification
 from twistedcaldav.ical import Component
 from twistedcaldav.config import config
-from calendarserver.push.util import PushPriority
+from calendarserver.push.ipush import PushPriority
 
 import hashlib
 import json

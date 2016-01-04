@@ -36,9 +36,8 @@ import OpenSSL
 import struct
 import time
 from txdav.common.icommondatastore import InvalidSubscriptionValues
-from calendarserver.push.util import (
-    validToken, TokenHistory, PushScheduler, PushPriority
-)
+from calendarserver.push.ipush import PushPriority
+from calendarserver.push.util import validToken, TokenHistory, PushScheduler
 from twext.internet.adaptendpoint import connect
 from twext.internet.gaiendpoint import GAIEndpoint
 from twisted.python.constants import Values, ValueConstant

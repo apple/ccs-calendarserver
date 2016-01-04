@@ -20,7 +20,8 @@ import time
 from calendarserver.push.applepush import (
     ApplePushNotifierService, APNProviderProtocol, ApplePushPriority
 )
-from calendarserver.push.util import validToken, TokenHistory, PushPriority
+from calendarserver.push.ipush import PushPriority
+from calendarserver.push.util import validToken, TokenHistory
 from twistedcaldav.test.util import StoreTestCase
 from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.internet.task import Clock

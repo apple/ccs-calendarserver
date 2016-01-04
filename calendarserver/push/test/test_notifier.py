@@ -22,7 +22,7 @@ from twisted.internet.defer import inlineCallbacks, succeed
 from twistedcaldav.config import ConfigDict
 from txdav.common.datastore.test.util import populateCalendarsFrom
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
-from calendarserver.push.util import PushPriority
+from calendarserver.push.ipush import PushPriority
 from txdav.idav import ChangeCategory
 from twext.enterprise.jobs.jobitem import JobItem
 from twisted.internet import reactor

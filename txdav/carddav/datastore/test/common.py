@@ -39,7 +39,7 @@ from txdav.common.icommondatastore import NoSuchHomeChildError
 from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError
 from txdav.idav import IPropertyStore, IDataStore
 from txdav.xml.element import WebDAVUnknownElement
-from calendarserver.push.util import PushPriority
+from calendarserver.push.ipush import PushPriority
 
 import hashlib
 

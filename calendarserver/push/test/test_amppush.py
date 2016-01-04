@@ -18,7 +18,7 @@ from calendarserver.push.amppush import AMPPushMaster, AMPPushNotifierProtocol
 from calendarserver.push.amppush import NotificationForID
 from twistedcaldav.test.util import StoreTestCase
 from twisted.internet.task import Clock
-from calendarserver.push.util import PushPriority
+from calendarserver.push.ipush import PushPriority
 
 class AMPPushMasterTests(StoreTestCase):
 

@@ -34,7 +34,7 @@ from zope.interface.declarations import implements
 
 import datetime
 
-from calendarserver.push.util import PushPriority
+from calendarserver.push.ipush import PushPriority
 
 log = Logger()
 

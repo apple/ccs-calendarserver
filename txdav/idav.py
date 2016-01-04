@@ -35,7 +35,7 @@ from zope.interface import Attribute, Interface
 from zope.interface.common.mapping import IMapping
 
 from twisted.python.constants import Values, ValueConstant
-from calendarserver.push.util import PushPriority
+from calendarserver.push.ipush import PushPriority
 
 #
 # Exceptions

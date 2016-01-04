@@ -14,6 +14,7 @@
 # limitations under the License.
 ##
 
+from calendarserver.push.ipush import PushPriority
 from calendarserver.push.util import PushScheduler
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -23,7 +24,6 @@ from twisted.protocols import amp
 import time
 import uuid
 
-from calendarserver.push.util import PushPriority
 
 
 log = Logger()

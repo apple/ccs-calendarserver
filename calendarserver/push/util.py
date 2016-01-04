@@ -16,8 +16,6 @@
 
 from twext.python.log import Logger
 
-from twisted.python.constants import Values, ValueConstant
-
 from twistedcaldav.util import getPasswordFromKeychain, KeychainAccessError, \
     KeychainPasswordNotFound
 
@@ -25,16 +23,6 @@ import OpenSSL
 from OpenSSL import crypto
 
 import os
-
-
-
-class PushPriority(Values):
-    """
-    Constants to use for push priorities
-    """
-    low = ValueConstant(1)
-    medium = ValueConstant(5)
-    high = ValueConstant(10)
 
 
 
