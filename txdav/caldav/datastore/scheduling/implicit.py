@@ -859,7 +859,7 @@ class ImplicitScheduler(object):
             for rid, props in diffs.iteritems():
 
                 # Ignore this case - it should only happen when there is no master component
-                if not props:
+                if props is None:
                     continue
 
                 # Ignore sequence only changes
@@ -876,7 +876,7 @@ class ImplicitScheduler(object):
                     "DURATION",
                     "DUE",
                     "RECURRENCE-ID",
-                )]):
+                )]) or len(props) == 0:
                     date_changed_rids.add(rid)
 
                 # Check to see whether a change to R-ID's happened
