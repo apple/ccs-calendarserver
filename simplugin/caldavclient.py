@@ -452,62 +452,6 @@ class BaseAppleClient(BaseClient):
 
 
 
-    def _addDefaultHeaders(self, headers):
-        """
-        Add the clients default set of headers to ones being used in a request.
-        Default is to add User-Agent, sub-classes should override to add other
-        client specific things, Accept etc.
-        """
-        headers.setRawHeaders('User-Agent', [self.USER_AGENT])
-
-
-    @inlineCallbacks
-    def _request(self, expectedResponseCodes, method, url, headers=None, body=None, method_label=None):
-        """
-        Execute a request and check against the expected response codes.
-        """
-        if type(expectedResponseCodes) is int:
-            expectedResponseCodes = (expectedResponseCodes,)
-        if headers is None:
-            headers = Headers({})
-        self._addDefaultHeaders(headers)
-        msg(
-            type="request",
-            method=method_label if method_label else method,
-            url=url,
-            user=self.record.uid,
-            client_type=self.title,
-            client_id=self._client_id,
-        )
-
-        before = self.reactor.seconds()
-        response = yield self.agent.request(method, url, headers, body)
-
-        # XXX This is time to receive response headers, not time
-        # to receive full response.  Should measure the latter, if
-        # not both.
-        after = self.reactor.seconds()
-
-        success = response.code in expectedResponseCodes
-
-        msg(
-            type="response",
-            success=success,
-            method=method_label if method_label else method,
-            headers=headers,
-            body=body,
-            code=response.code,
-            user=self.record.uid,
-            client_type=self.title,
-            client_id=self._client_id,
-            duration=(after - before),
-            url=url,
-        )
-
-        if success:
-            returnValue(response)
-
-        raise IncorrectResponseCode(expectedResponseCodes, response)
 
 
     def _parseMultiStatus(self, response, otherTokens=False):
