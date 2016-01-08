@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<x0:propfind xmlns:x0="DAV:" xmlns:x1="http://calendarserver.org/ns/">
+ <x0:prop>
+  <x0:getetag/>
+  <x0:resourcetype/>
+  <x1:notificationtype/>
+ </x0:prop>
+</x0:propfind>

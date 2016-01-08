@@ -1,0 +1,14 @@
+BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+VERSION:2.0
+METHOD:REQUEST
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+BEGIN:VFREEBUSY
+UID:%(vfreebusy-uid)s
+DTEND:%(end)s
+%(attendees)sDTSTART:%(start)s
+%(event-mask)sDTSTAMP:%(now)s
+ORGANIZER:%(organizer)s
+SUMMARY:%(summary)s
+END:VFREEBUSY
+END:VCALENDAR

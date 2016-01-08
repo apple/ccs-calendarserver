@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<A:propfind xmlns:A="DAV:">
+  <A:prop>
+    <A:add-member/>
+    <C:allowed-sharing-modes xmlns:C="http://calendarserver.org/ns/"/>
+    <E:bulk-requests xmlns:E="http://me.com/_namespace/"/>
+    <H:calendar-color xmlns:H="http://apple.com/ns/ical/"/>
+    <G:calendar-description xmlns:G="urn:ietf:params:xml:ns:caldav"/>
+    <G:calendar-free-busy-set xmlns:G="urn:ietf:params:xml:ns:caldav"/>
+    <H:calendar-order xmlns:H="http://apple.com/ns/ical/"/>
+    <G:calendar-timezone xmlns:G="urn:ietf:params:xml:ns:caldav"/>
+    <A:current-user-privilege-set/>
+    <A:displayname/>
+    <C:getctag xmlns:C="http://calendarserver.org/ns/"/>
+    <B:max-image-size xmlns:B="urn:ietf:params:xml:ns:carddav"/>
+    <B:max-resource-size xmlns:B="urn:ietf:params:xml:ns:carddav"/>
+    <C:me-card xmlns:C="http://calendarserver.org/ns/"/>
+    <A:owner/>
+    <C:publish-url xmlns:C="http://calendarserver.org/ns/"/>
+    <C:push-transports xmlns:C="http://calendarserver.org/ns/"/>
+    <C:pushkey xmlns:C="http://calendarserver.org/ns/"/>
+    <A:quota-available-bytes/>
+    <A:quota-used-bytes/>
+    <H:refreshrate xmlns:H="http://apple.com/ns/ical/"/>
+    <A:resource-id/>
+    <A:resourcetype/>
+    <G:schedule-calendar-transp xmlns:G="urn:ietf:params:xml:ns:caldav"/>
+    <G:schedule-default-calendar-URL xmlns:G="urn:ietf:params:xml:ns:caldav"/>
+    <C:source xmlns:C="http://calendarserver.org/ns/"/>
+    <C:subscribed-strip-alarms xmlns:C="http://calendarserver.org/ns/"/>
+    <C:subscribed-strip-attachments xmlns:C="http://calendarserver.org/ns/"/>
+    <C:subscribed-strip-todos xmlns:C="http://calendarserver.org/ns/"/>
+    <G:supported-calendar-component-set xmlns:G="urn:ietf:params:xml:ns:caldav"/>
+    <A:supported-report-set/>
+    <A:sync-token/>
+    <C:xmpp-server xmlns:C="http://calendarserver.org/ns/"/>
+    <C:xmpp-uri xmlns:C="http://calendarserver.org/ns/"/>
+  </A:prop>
+</A:propfind>

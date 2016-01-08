@@ -1,0 +1,71 @@
+PROPFIND  ./well-known/caldav					- startup_well_known_propfind
+
+PROPFIND  /principals/							- startup_principal_initial_propfind
+
+PROPFIND  /principals/__uids__/<uid>/			- startup_principal_propfind
+
+REPORT    /principals/							- startup_principals_report
+
+PROPFIND  /calendars/__uids__/<uid>/inbox/		- ???
+	calendar-availability						
+
+PROPFIND  /calendars/__uids__/<uid>/			- poll_calendar_home_depth1_propfind
+
+PROPPATCH /calendars/__uids__/<uid>/			- startup_calendarhome_default_alarm_date_proppatch
+PROPPATCH /calendars/__uids__/<uid>/			- startup_calendarhome_default_alarm_datetime_proppatch
+
+PROPPATCH /calendars/__uids__/<uid>/calendar/	- startup_calendar_order_proppatch
+PROPPATCH /calendars/__uids__/<uid>/calendar/	- startup_calendar_displayname_proppatch
+PROPPATCH /calendars/__uids__/<uid>/calendar/	- startup_calendar_color_proppatch
+PROPPATCH /calendars/__uids__/<uid>/calendar/	- startup_calendar_timezone_proppatch
+
+PROPPATCH /calendars/__uids__/<uid>/tasks/		- startup_calendar_order_proppatch
+PROPPATCH /calendars/__uids__/<uid>/tasks/		- startup_calendar_displayname_proppatch
+PROPPATCH /calendars/__uids__/<uid>/tasks/		- startup_calendar_color_proppatch
+PROPPATCH /calendars/__uids__/<uid>/tasks/		- startup_calendar_timezone_proppatch
+
+PROPFIND  /calendars/__uids__/<uid>/calendar/	- poll_calendar_propfind
+
+REPORT   /calendars/__uids__/<uid>/calendar/ 	- startup_query_events_depth1_report.request
+
+PROPFIND  /calendars/__uids__/<uid>/calendar/	- poll_calendar_propfind
+PROPFIND  /calendars/__uids__/<uid>/calendar/	- poll_calendar_depth1_propfind
+
+PROPFIND  /calendars/__uids__/<uid>/tasks/		- poll_calendar_propfind
+PROPFIND  /calendars/__uids__/<uid>/tasks/		- poll_calendar_depth1_propfind
+PROPFIND  /calendars/__uids__/<uid>/inbox/		- poll_calendar_propfind
+PROPFIND  /calendars/__uids__/<uid>/inbox/		- poll_calendar_depth1_propfind
+PROPFIND  /calendars/__uids__/<uid>/tasks/		- poll_calendar_propfind
+PROPFIND  /calendars/__uids__/<uid>/tasks/		- poll_calendar_depth1_propfind
+PROPFIND  /calendars/__uids__/<uid>/notification/	- poll_calendar_propfind
+PROPFIND  /calendars/__uids__/<uid>/notification/	- poll_notification_depth1_propfind
+
+REPORT    /principals/__uids__/<uid>/
+	calendar-proxy-write-for
+		calendar-user-address-set
+		email-address-set
+		displayname
+	calendar-proxy-read-for
+		calendar-user-address-set
+		email-address-set
+		displayname
+
+REPORT    /calendars/__uids__/<uid>/
+	sync-collection
+		sync-token
+		sync-level
+		*lots of properties*
+
+PROPFIND  /calendars/__uids__/<uid>/inbox/
+	getctag
+	sync-token
+
+PROPFIND  /principals/__uids__/<uid>/
+	calendar-proxy-write-for
+		calendar-user-address-set
+		email-address-set
+		displayname
+	calendar-proxy-read-for
+		calendar-user-address-set
+		email-address-set
+		displayname
