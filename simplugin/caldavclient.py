@@ -1315,6 +1315,8 @@ class BaseAppleClient(BaseClient):
         """
         Emulate a CalDAV client.
         """
+
+
         @inlineCallbacks
         def startup():
             principal = yield self.startup()
@@ -1328,7 +1330,7 @@ class BaseAppleClient(BaseClient):
             returnValue(calendarHome)
         calendarHome = yield self._newOperation("startup: %s" % (self.title,), startup())
 
-        self.started = True
+        yield super(BaseAppleClient, self).run()
 
         # Start monitoring PubSub notifications, if possible.
         # _checkCalendarsForEvents populates self.xmpp if it finds
@@ -1344,13 +1346,15 @@ class BaseAppleClient(BaseClient):
             yield self._calendarCheckLoop(calendarHome)
 
 
+    @inlineCallbacks
     def stop(self):
         """
         Called before connections are closed, giving a chance to clean up
         """
 
+        yield super(BaseAppleClient, self).stop()
         self.serialize()
-        return self._unsubscribePubSub()
+        yield self._unsubscribePubSub()
 
 
     def serializeLocation(self):
