@@ -33,6 +33,9 @@
 				<key>software</key>
 				<string>simplugin.caldavclient.OS_X_10_11</string>
 
+				<key>enabled</key>
+				<true/>
+
 				<!-- Arguments to use to initialize the OS_X_10_11 instance. -->
 				<key>params</key>
 				<dict>

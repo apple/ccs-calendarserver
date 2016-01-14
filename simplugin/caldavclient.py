@@ -521,22 +521,6 @@ class BaseAppleClient(BaseClient):
 
 
     @inlineCallbacks
-    def _get(self, url, allowedStatus=(MULTI_STATUS,), method_label=None):
-        """
-        Issue a GET on the chosen URL
-        """
-        response = yield self._request(
-            allowedStatus,
-            'GET',
-            url,
-            method_label=method_label,
-        )
-
-        body = yield readBody(response)
-        returnValue(body)
-
-
-    @inlineCallbacks
     def _report(self, url, body, depth='0', allowedStatus=(MULTI_STATUS,), otherTokens=False, method_label=None):
         """
         Issue a REPORT on the chosen URL

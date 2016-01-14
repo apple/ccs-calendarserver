@@ -40,7 +40,7 @@ from clientsim.framework.stats import NearFutureDistribution, NormalDistribution
 from clientsim.framework.stats import LogNormalDistribution, RecurrenceDistribution
 from clientsim.framework.logger import SummarizingMixin
 from clientsim.framework.baseclient import IncorrectResponseCode
-from clientsim.framework.baseprofile import ProfileBase as SuperProfileBase, loopWithDistribution
+from clientsim.framework.baseprofile import BaseProfile as SuperBaseProfile, loopWithDistribution
 from simplugin.caldavclient import Calendar
 
 from pycalendar.datetime import DateTime
@@ -48,7 +48,7 @@ from pycalendar.duration import Duration
 
 from datetime import datetime
 
-class ProfileBase(SuperProfileBase):
+class BaseProfile(SuperBaseProfile):
 
     def _calendarsOfType(self, calendarType, componentType, justOwned=False):
         results = []
@@ -181,7 +181,7 @@ class CannotAddAttendee(Exception):
 
 
 
-class Inviter(ProfileBase):
+class Inviter(BaseProfile):
     """
     A Calendar user who invites other users to new events.
     """
@@ -332,7 +332,7 @@ END:VCALENDAR
 
 
 
-class Accepter(ProfileBase):
+class Accepter(BaseProfile):
     """
     A Calendar user who accepts invitations to events. As well as accepting requests, this
     will also remove cancels and replies.
@@ -484,7 +484,7 @@ class Accepter(ProfileBase):
 
 
 
-class AttachmentDownloader(ProfileBase):
+class AttachmentDownloader(BaseProfile):
     """
     A Calendar user who downloads attachments.
     """
@@ -525,7 +525,7 @@ class AttachmentDownloader(ProfileBase):
 
 
 
-class Eventer(ProfileBase):
+class Eventer(BaseProfile):
     """
     A Calendar user who creates new events.
     """
@@ -606,7 +606,7 @@ END:VCALENDAR
 
 
 
-class EventUpdaterBase(ProfileBase):
+class EventUpdaterBase(BaseProfile):
 
     @inlineCallbacks
     def action(self):
@@ -735,7 +735,7 @@ class EventCountLimiter(EventUpdaterBase):
 
 
 
-class CalendarSharer(ProfileBase):
+class CalendarSharer(BaseProfile):
     """
     A Calendar user who shares calendars to other random users.
     """
@@ -787,7 +787,7 @@ class CalendarSharer(ProfileBase):
 
 
 
-class AlarmAcknowledger(ProfileBase):
+class AlarmAcknowledger(BaseProfile):
     """
     A Calendar user who creates a new event, and then updates its alarm.
     """
@@ -937,7 +937,7 @@ END:VCALENDAR
 
 
 
-class Tasker(ProfileBase):
+class Tasker(BaseProfile):
     """
     A Calendar user who creates new tasks.
     """
@@ -1001,7 +1001,7 @@ END:VCALENDAR
 
 
 
-class Resetter(ProfileBase):
+class Resetter(BaseProfile):
     """
     A Calendar user who resets their account and re-downloads everything.
     """
