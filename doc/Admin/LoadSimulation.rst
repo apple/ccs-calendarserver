@@ -301,7 +301,7 @@ Client Behaviors
 
 Client behaviors are defined in `contrib/performance/loadtest/clients.plist <http://trac.calendarserver.org/browser/CalendarServer/trunk/contrib/performance/loadtest/clients.plist>`_.  The 'clients' plist key is an array of dictionaries describing the client. The clients.plist is well commented, so no need to repeat those details here.
 
-- 'profiles' is an array of dictionaries specifying individual behaviors of each client. Each dict has a 'class' key which specifies the implementation class for this behavior, and a 'params' dict with options specific to that behavior. See the plist for more information.
+'profiles' is an array of dictionaries specifying individual behaviors of each client. Each dict has a 'class' key which specifies the implementation class for this behavior, and a 'params' dict with options specific to that behavior. See the plist for more information.
 
 Some parameters may be safely modified to suit your purposes, for example you might choose to disable certain profiles (by setting 'enabled' to false) in order to simulate only specific types of activity. Also, you can edit the params for the various distributions to configure how often things happen.
 
