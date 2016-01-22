@@ -290,13 +290,14 @@ class LoadSimulator(object):
         property list.
         """
 
+        servers = config.get('servers')
+
         workers = config.get("workers")
         if workers is None:
             # Client / place where the simulator actually runs configuration
             workerID = config.get("workerID", 0)
             workerCount = config.get("workerCount", 1)
             configTemplate = None
-            servers = config.get('servers')
             principalPathTemplate = config.get('principalPathTemplate', '/principals/users/%s/')
             serializationPath = None
 
@@ -342,7 +343,6 @@ class LoadSimulator(object):
                                                 [Eventer, Inviter, Accepter]))
         else:
             # Manager / observer process.
-            servers = {}
             principalPathTemplate = ''
             serializationPath = None
             arrival = None
