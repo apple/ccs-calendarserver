@@ -3982,8 +3982,6 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
                 else:
                     owner = "urn:x-uid:" + ownerPrincipal.principalUID()
 
-            shareePrincipal = yield self.principalForUID(jsondata["sharee"])
-
             if "supported-components" in jsondata:
                 comps = jsondata["supported-components"]
                 if comps:
@@ -4023,18 +4021,20 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
             shareePrincipal = yield self.principalForUID(jsondata["sharee"])
 
             # FIXME:  use urn:x-uid always?
-            if jsondata["shared-type"] == "calendar":
-                # Prefer mailto:, otherwise use principal URL
-                for cua in shareePrincipal.calendarUserAddresses():
-                    if cua.startswith("mailto:"):
-                        break
+            if shareePrincipal is not None:
+                if jsondata["shared-type"] == "calendar":
+                    # Prefer mailto:, otherwise use principal URL
+                    for cua in shareePrincipal.calendarUserAddresses():
+                        if cua.startswith("mailto:"):
+                            break
+                    else:
+                        cua = shareePrincipal.principalURL()
                 else:
-                    cua = shareePrincipal.principalURL()
+                    cua = "urn:x-uid:" + shareePrincipal.principalUID()
+                commonName = shareePrincipal.displayName()
             else:
-                cua = "urn:x-uid:" + shareePrincipal.principalUID()
-
-            commonName = shareePrincipal.displayName()
-            # record = shareePrincipal.record
+                cua = "urn:x-uid:" + jsondata["sharee"]
+                commonName = ""
 
             typeAttr = {"shared-type": jsondata["shared-type"]}
             xmldata = customxml.Notification(

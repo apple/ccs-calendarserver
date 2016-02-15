@@ -1413,6 +1413,50 @@ class SharingTests(BaseSharingTests):
 
 
     @inlineCallbacks
+    def test_shareeReplyWithMissingSharee(self):
+
+        yield self.resource.upgradeToShare()
+
+        yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:set>
+                    <D:href>mailto:user02@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+            </CS:share>
+            """)
+        propInvite = (yield self.resource.readProperty(customxml.Invite, None))
+        uids = self._getUIDElementValues(propInvite)
+
+        yield self._doPOSTSharerAccept("""<?xml version='1.0' encoding='UTF-8'?>
+            <invite-reply xmlns='http://calendarserver.org/ns/'>
+              <href xmlns='DAV:'>mailto:user01@example.com</href>
+              <invite-accepted/>
+              <hosturl>
+                <href xmlns='DAV:'>/calendars/__uids__/user01/calendar/</href>
+              </hosturl>
+              <in-reply-to>%s</in-reply-to>
+              <summary>The Shared Calendar</summary>
+              <common-name>User 02</common-name>
+              <first-name>user</first-name>
+              <last-name>02</last-name>
+            </invite-reply>
+            """ % (uids["urn:x-uid:user02"],))
+
+        yield self.directory.removeRecords(((yield self.userUIDFromShortName("user02")),))
+        self.assertTrue((yield self.userUIDFromShortName("user02")) is None)
+
+        request = SimpleStoreRequest(self, "GET", "/calendars/__uids__/user01/notification/")
+        notification = yield request.locateResource("/calendars/__uids__/user01/notification/")
+        names = yield notification.listChildren()
+        self.assertEqual(len(names), 1)
+        note_child = yield notification.getChild(names[0])
+        note = yield note_child.text()
+        self.assertTrue(isinstance(note, str))
+
+
+    @inlineCallbacks
     def test_hideInvalidSharers(self):
 
         yield self.resource.upgradeToShare()
