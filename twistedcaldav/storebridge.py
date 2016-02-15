@@ -655,6 +655,12 @@ class _CommonHomeChildCollectionMixin(object):
         for index, component in indexedComponents:
 
             try:
+                if component is None:
+                    newchildURL = ""
+                    newchild = None
+                    changedComponent = None
+                    raise ValueError("Invalid component")
+
                 # Create a new name if one was not provided
                 name = hashlib.md5(str(index) + component.resourceUID() + str(time.time()) + request.path).hexdigest() + self.resourceSuffix()
 
@@ -701,7 +707,7 @@ class _CommonHomeChildCollectionMixin(object):
                         davxml.PropertyStatus(
                             davxml.PropertyContainer(
                                 davxml.GETETag.fromString(etag.generate()),
-                                customxml.UID.fromString(component.resourceUID()),
+                                customxml.UID.fromString(component.resourceUID() if component else ""),
                             ),
                             davxml.Status.fromResponseCode(OK),
                         )
@@ -727,7 +733,7 @@ class _CommonHomeChildCollectionMixin(object):
                     davxml.Status.fromResponseCode(code),
                     davxml.Error(
                         WebDAVUnknownElement.withName(*error),
-                        customxml.UID.fromString(component.resourceUID()),
+                        customxml.UID.fromString(component.resourceUID() if component else ""),
                     ) if error else None,
                 )
             )
@@ -818,7 +824,10 @@ class _CommonHomeChildCollectionMixin(object):
             indexedComponents = []
             for index, xmldata in crudCreateInfo:
 
-                component = xmldata.generateComponent()
+                try:
+                    component = xmldata.generateComponent()
+                except:
+                    component = None
                 format = xmldata.content_type
 
                 if hasPrivilege is not True:
@@ -3345,6 +3354,12 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         for index, component in indexedComponents:
 
             try:
+                if component is None:
+                    newchildURL = ""
+                    newchild = None
+                    changedComponent = None
+                    raise ValueError("Invalid component")
+
                 # Create a new name if one was not provided
                 name = hashlib.md5(str(index) + component.resourceUID() + str(time.time()) + request.path).hexdigest() + self.resourceSuffix()
 
