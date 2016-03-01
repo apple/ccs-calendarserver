@@ -1011,18 +1011,19 @@ def migrateAutoSchedule(config, directory):
                 "select GUID, AUTOSCHEDULE from RESOURCEINFO"
             )
             for uid, autoSchedule in results:
-                record = yield directory.recordWithUID(uid)
-                if record is not None:
-                    augmentRecord = (
-                        yield augmentService.getAugmentRecord(
-                            uid,
-                            directory.recordTypeToOldName(record.recordType)
+                if uid is not None:
+                    record = yield directory.recordWithUID(uid)
+                    if record is not None:
+                        augmentRecord = (
+                            yield augmentService.getAugmentRecord(
+                                uid,
+                                directory.recordTypeToOldName(record.recordType)
+                            )
                         )
-                    )
-                    augmentRecord.autoScheduleMode = (
-                        "automatic" if autoSchedule else "default"
-                    )
-                    augmentRecords.append(augmentRecord)
+                        augmentRecord.autoScheduleMode = (
+                            "automatic" if autoSchedule else "default"
+                        )
+                        augmentRecords.append(augmentRecord)
 
             if augmentRecords:
                 yield augmentService.addAugmentRecords(augmentRecords)

@@ -14,26 +14,29 @@
 # limitations under the License.
 ##
 
-import cPickle
-import hashlib
-import os
-import zlib
 
 from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.python.filepath import FilePath
+from twisted.python.reflect import namedClass
+
 from twistedcaldav.config import config
 from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
+from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.test.util import StoreTestCase
-from twistedcaldav.upgrade import (
-    xattrname, upgradeData, updateFreeBusySet,
-    removeIllegalCharacters, normalizeCUAddrs,
-    loadDelegatesFromXMLintoProxyDB, migrateDelegatesToStore,
-    upgradeResourcesXML, upgradeAugmentsXML
-)
+from twistedcaldav.upgrade import xattrname, upgradeData, updateFreeBusySet, \
+    removeIllegalCharacters, normalizeCUAddrs, \
+    loadDelegatesFromXMLintoProxyDB, migrateDelegatesToStore, \
+    upgradeResourcesXML, upgradeAugmentsXML, migrateAutoSchedule
+
 from txdav.caldav.datastore.index_file import db_basename
 from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokensDatabase
 from txdav.who.delegates import Delegates
 from txdav.xml.parser import WebDAVDocument
+
+import cPickle
+import hashlib
+import os
+import zlib
 
 
 
@@ -1503,6 +1506,50 @@ class UpgradeTests(StoreTestCase):
 
         yield txn.commit()
         sqliteProxyService.close()
+
+
+    @inlineCallbacks
+    def test_migrateAutoSchedule(self):
+
+        serviceClass = {
+            "xml": "twistedcaldav.directory.augment.AugmentXMLDB",
+        }
+        augmentClass = namedClass(serviceClass[config.AugmentService.type])
+
+        # Auto-schedule not currently set
+        augmentService = augmentClass(**config.AugmentService.params)
+        augmentRecord = (
+            yield augmentService.getAugmentRecord(
+                "mercury",
+                "locations"
+            )
+        )
+        self.assertEqual(augmentRecord.autoScheduleMode, "default")
+
+        # Create bogus record in resourceinfo db
+        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
+        resourceInfoDatabase._db_execute(
+            "insert into RESOURCEINFO (GUID, AUTOSCHEDULE) values (:1, :2)",
+            "mercury", 1,
+        )
+        resourceInfoDatabase._db_execute(
+            "insert into RESOURCEINFO (GUID, AUTOSCHEDULE) values (:1, :2)",
+            None, 1,
+        )
+        resourceInfoDatabase._db_commit()
+
+        # Migrate auto-schedule from sqlite into directory
+        yield migrateAutoSchedule(config, self.directory)
+
+        # Auto-schedule now set
+        augmentService = augmentClass(**config.AugmentService.params)
+        augmentRecord = (
+            yield augmentService.getAugmentRecord(
+                "mercury",
+                "locations"
+            )
+        )
+        self.assertEqual(augmentRecord.autoScheduleMode, "automatic")
 
 
     def test_resourcesXML(self):
