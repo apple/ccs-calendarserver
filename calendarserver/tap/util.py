@@ -151,6 +151,7 @@ def pgServiceFromConfig(config, subServiceFactory, uid=None, gid=None):
         socketDir=config.Postgres.SocketDirectory,
         socketName=config.Postgres.SocketName,
         listenAddresses=config.Postgres.ListenAddresses,
+        txnTimeoutSeconds=config.Postgres.TxnTimeoutSeconds,
         sharedBuffers=config.Postgres.SharedBuffers,
         maxConnections=config.Postgres.MaxConnections,
         options=config.Postgres.Options,

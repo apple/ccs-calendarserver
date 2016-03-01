@@ -199,7 +199,7 @@ class DBAPIParameters(object):
     are then used to create the actual parameters for each module.
     """
 
-    def __init__(self, endpoint=None, user=None, password=None, database=None):
+    def __init__(self, endpoint=None, user=None, password=None, database=None, **kwargs):
         """
         @param endpoint: endpoint string describing the connection
         @type endpoint: L{str}
@@ -250,7 +250,7 @@ class DBAPIConnector(object):
     def connect(self, label="<unlabeled>"):
         connection = self.dbModule.connect(*self.connectArgs, **self.connectKw)
         w = self.wrapper(connection, label)
-        self.preflight(w)
+        self.preflight(w, **self.connectKw)
         return w
 
 
@@ -289,6 +289,8 @@ class DBAPIConnector(object):
         dbkwargs = {}
         if params.port:
             dbkwargs["host"] = "{}:{}".format(params.host, params.port)
+        if "txnTimeoutSeconds" in kwargs:
+            dbkwargs["txnTimeoutSeconds"] = kwargs["txnTimeoutSeconds"]
         return DBAPIConnector(postgres, postgresPreflight, dsn, **dbkwargs)
 
 
@@ -322,6 +324,8 @@ class DBAPIConnector(object):
             dbkwargs["host"] = params.host
             if params.port:
                 dbkwargs["port"] = int(params.port)
+        if "txnTimeoutSeconds" in kwargs:
+            dbkwargs["txnTimeoutSeconds"] = kwargs["txnTimeoutSeconds"]
         return DBAPIConnector(dbmodule, pg8000Preflight, **dbkwargs)
 
 
@@ -358,7 +362,7 @@ class OracleConnector(DBAPIConnector):
 
 
 
-def oraclePreflight(connection):
+def oraclePreflight(connection, **kwargs):
     """
     Pre-flight function for Oracle connections: set the timestamp format to be
     something closely resembling our default assumption from Postgres.
@@ -377,7 +381,7 @@ def oraclePreflight(connection):
 
 
 
-def postgresPreflight(connection):
+def postgresPreflight(connection, **kwargs):
     """
     Pre-flight function for PostgreSQL connections: enable standard conforming
     strings, and set a non-infinite statement timeout.
@@ -390,14 +394,14 @@ def postgresPreflight(connection):
     # vulnerable to certain types of SQL injection.
     c.execute("set standard_conforming_strings=on")
 
-    # Abort any second that takes more than 30 seconds (30000ms) to
+    # Abort any second that takes more than 30 seconds (default) to
     # execute. This is necessary as a temporary workaround since it's
     # hypothetically possible that different database operations could
     # block each other, while executing SQL in the same process (in the
     # same thread, since SQL executes in the main thread now).  It's
     # preferable to see some exceptions while we're in this state than to
     # have the entire worker process hang.
-    c.execute("set statement_timeout=30000")
+    c.execute("set statement_timeout={}".format(kwargs.get("txnTimeoutSeconds", 30) * 1000))
 
     # pgdb (as per DB-API 2.0) automatically puts the connection into a
     # 'executing a transaction' state when _any_ statement is executed on
@@ -409,14 +413,14 @@ def postgresPreflight(connection):
 
 
 
-def pg8000Preflight(connection):
+def pg8000Preflight(connection, **kwargs):
     """
     Pre-flight function for pg8000/PostgreSQL connections: setup type mappings
     in addition to the normal postgres preflight.
     """
 
     # Do the base PostgreSQL preflight
-    postgresPreflight(connection)
+    postgresPreflight(connection, **kwargs)
 
     # Patch pg8000 behavior to match what we need wrt text processing
     def my_text_out(v):

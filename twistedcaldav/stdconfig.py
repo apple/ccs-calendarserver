@@ -1017,6 +1017,7 @@ DEFAULT_CONFIG = {
         "SocketDirectory": "",
         "SocketName": "",
         "ListenAddresses": [],
+        "TxnTimeoutSeconds": 30, # Time out transactions
         "SharedBuffers": 0, # BuffersToConnectionsRatio * MaxConnections
                             # Note: don't set this, it will be computed dynamically
                             # See _updateMultiProcess( ) below for details

@@ -182,8 +182,11 @@ class PostgresService(MultiService):
         logDirectory="",
         socketDir="",
         socketName="",
-        listenAddresses=[], sharedBuffers=30,
-        maxConnections=20, options=[],
+        listenAddresses=[],
+        txnTimeoutSeconds=30,
+        sharedBuffers=30,
+        maxConnections=20,
+        options=[],
         testMode=False,
         uid=None, gid=None,
         spawnedDBUser="caldav",
@@ -258,6 +261,8 @@ class PostgresService(MultiService):
             self.host = self.socketDir.path
             self.port = None
             self.listenAddresses = []
+
+        self.txnTimeoutSeconds = txnTimeoutSeconds
 
         self.testMode = testMode
         self.sharedBuffers = max(sharedBuffers if not testMode else 16, 16)
@@ -342,6 +347,7 @@ class PostgresService(MultiService):
             kwargs["user"] = self.spawnedDBUser
         elif self.uid is not None:
             kwargs["user"] = pwd.getpwuid(self.uid).pw_name
+        kwargs["txnTimeoutSeconds"] = self.txnTimeoutSeconds
 
         return DBAPIConnector.connectorFor("postgres", **kwargs)
 
