@@ -1928,6 +1928,10 @@
 		<array>
 		</array>
 
+		<!-- Time out transactions -->
+		<key>TxnTimeoutSeconds</key>
+		<integer>30</integer>
+
 		<!-- BuffersToConnectionsRatio * MaxConnections Note: don't set this, it will
 		     be computed dynamically See _updateMultiProcess( ) below for details -->
 		<key>SharedBuffers</key>
