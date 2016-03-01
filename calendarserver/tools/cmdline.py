@@ -29,7 +29,7 @@ from twistedcaldav.timezones import TimezoneCache
 
 from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, succeed
-from twisted.logger import STDLibLogObserver, FileLogObserver, formatEventAsClassicLogText
+from twisted.logger import FileLogObserver, formatEventAsClassicLogText
 from twisted.python.logfile import LogFile
 
 import sys
@@ -88,7 +88,7 @@ def utilityMain(
     # Install std i/o observer
     observers = []
     if verbose:
-        observers.append(STDLibLogObserver())
+        observers.append(FileLogObserver(sys.stdout, lambda event: formatEventAsClassicLogText(event)))
 
     if reactor is None:
         from twisted.internet import reactor

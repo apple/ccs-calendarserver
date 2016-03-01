@@ -22,8 +22,10 @@ from twisted.trial.unittest import TestCase
 
 from twistedcaldav.config import Config, ConfigDict
 from twistedcaldav.stdconfig import NoUnicodePlistParser, PListConfigProvider,\
-    _updateDataStore, _updateMultiProcess
+    _updateDataStore, _updateMultiProcess, _updateUtilityLog
 import twistedcaldav.stdconfig
+import sys
+import os
 
 nonASCIIValue = "→←"
 nonASCIIPlist = "<plist version='1.0'><string>%s</string></plist>" % (
@@ -174,3 +176,17 @@ class ConfigParsingTests(TestCase):
         _updateMultiProcess(configDict)
         self.assertEquals(45, configDict.Postgres.MaxConnections)
         self.assertEquals(67, configDict.Postgres.SharedBuffers)
+
+
+    def test_updateUtilityLog(self):
+        configDict = {
+            "ServerRoot" : "/a/b/c/",
+            "LogRoot" : "Logs",
+            "UtilityLogFile" : "util.txt",
+        }
+        _updateUtilityLog(configDict)
+        self.assertEquals(configDict["UtilityLogFile"], "{}.log".format(os.path.basename(sys.argv[0])))
+
+        _updateDataStore(configDict)
+        _updateUtilityLog(configDict)
+        self.assertEquals(configDict["UtilityLogFile"], "/a/b/c/Logs/{}.log".format(os.path.basename(sys.argv[0])))

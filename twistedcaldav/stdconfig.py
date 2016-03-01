@@ -1620,7 +1620,8 @@ def _updateClientFixes(configDict, reloading=False):
 
 
 def _updateUtilityLog(configDict, reloading=False):
-    configDict["UtilityLogFile"] = "{}.log".format(basename(sys.argv[0]))
+    # Change just the file name to match the process - leave directory as-is
+    configDict["UtilityLogFile"] = os.path.join(os.path.dirname(configDict["UtilityLogFile"]), "{}.log".format(basename(sys.argv[0])))
 
 
 
