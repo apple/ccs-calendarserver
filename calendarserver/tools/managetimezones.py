@@ -16,17 +16,20 @@
 ##
 from __future__ import print_function
 
-from pycalendar.icalendar.calendar import Calendar
+from calendarserver.tools.util import loadConfig
+
 from pycalendar.datetime import DateTime
+from pycalendar.icalendar.calendar import Calendar
 
+from twext.python.log import Logger
 
-from twext.python.log import StandardIOObserver
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
+from twisted.logger import FileLogObserver, formatEventAsClassicLogText
 from twisted.python.filepath import FilePath
 
-from calendarserver.tools.util import loadConfig
 from twistedcaldav.config import ConfigurationError
+from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.timezonestdservice import PrimaryTimezoneDatabase, \
     SecondaryTimezoneDatabase
@@ -39,7 +42,6 @@ import sys
 import tarfile
 import tempfile
 import urllib
-from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
 
 def _doPrimaryActions(action, tzpath, xmlfile, changed, tzvers):
@@ -222,8 +224,9 @@ def _doSecondaryActions(action, tzpath, xmlfile, url):
     if action == "cache":
         print("Caching from secondary server: %s" % (url,))
 
-        observer = StandardIOObserver()
-        observer.start()
+        observer = FileLogObserver(sys.stdout, lambda event: formatEventAsClassicLogText(event))
+        Logger.beginLoggingTo([observer], redirectStandardIO=False)
+
         reactor.callLater(0, _runInReactor, tzdb)
         reactor.run()
     else:

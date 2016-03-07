@@ -340,7 +340,7 @@ def processArgs(writable, args, restart=True):
         try:
             plist = readPlistFromString(rawInput)
             # Note: values in plist will already be unicode
-        except xml.parsers.expat.ExpatError, e:
+        except xml.parsers.expat.ExpatError, e: #@UndefinedVariable
             respondWithError(str(e))
             return
 

@@ -161,7 +161,7 @@ def main():
     rawInput = sys.stdin.read()
     try:
         plist = readPlistFromString(rawInput)
-    except xml.parsers.expat.ExpatError, e:
+    except xml.parsers.expat.ExpatError, e: #@UndefinedVariable
         respondWithError(str(e))
         return
 

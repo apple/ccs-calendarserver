@@ -280,10 +280,10 @@ def migrateDelegates(service, store, server, user, password, pod, database, dbty
     print("Migrating from server {}".format(server))
     try:
         calendaruserproxy.ProxyDBService = calendaruserproxy.ProxyPostgreSQLDB(server, database, user, password, dbtype)
-        calendaruserproxy.ProxyDBService.open()
+        calendaruserproxy.ProxyDBService.open() #@UndefinedVariable
         assignments = yield getAssignments(calendaruserproxy.ProxyDBService)
         yield copyAssignments(assignments, pod, store.directoryService(), store)
-        calendaruserproxy.ProxyDBService.close()
+        calendaruserproxy.ProxyDBService.close() #@UndefinedVariable
 
     except IOError:
         log.error("Could not start proxydb service")
