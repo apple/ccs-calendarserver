@@ -2,7 +2,7 @@
 <!DOCTYPE timezones SYSTEM "timezones.dtd">
 
 <timezones>
-  <dtstamp>2015-10-08T14:49:43Z</dtstamp>
+  <dtstamp>2016-03-07T15:11:27Z</dtstamp>
   <timezone>
     <tzid>AUS Central Standard Time</tzid>
     <dtstamp>2014-08-25T14:48:40Z</dtstamp>
@@ -104,9 +104,9 @@
   </timezone>
   <timezone>
     <tzid>Africa/Casablanca</tzid>
-    <dtstamp>2015-07-01T14:44:04Z</dtstamp>
+    <dtstamp>2016-03-07T15:11:27Z</dtstamp>
     <alias>Morocco Standard Time</alias>
-    <md5>bc9dfe82c24d4798a1c952fa92ed4746</md5>
+    <md5>0e6bfe0253fb84addc55f059f77e31c9</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Ceuta</tzid>
@@ -140,8 +140,8 @@
   </timezone>
   <timezone>
     <tzid>Africa/El_Aaiun</tzid>
-    <dtstamp>2015-07-01T14:44:04Z</dtstamp>
-    <md5>2404746bd6c906d84ba245b48ba0ebcb</md5>
+    <dtstamp>2016-03-07T15:11:27Z</dtstamp>
+    <md5>562ac43ed7aa3390544394c11d9085ea</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Freetown</tzid>
@@ -554,8 +554,8 @@
   </timezone>
   <timezone>
     <tzid>America/Cayman</tzid>
-    <dtstamp>2015-07-01T14:44:04Z</dtstamp>
-    <md5>32249cf2917460aa068887267d979a5d</md5>
+    <dtstamp>2016-03-07T15:11:27Z</dtstamp>
+    <md5>8319a9f7d2931dbc39b4960360992fa3</md5>
   </timezone>
   <timezone>
     <tzid>America/Chicago</tzid>
@@ -920,8 +920,8 @@
   </timezone>
   <timezone>
     <tzid>America/Metlakatla</tzid>
-    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
-    <md5>7d1a3aeb0252bca412da643a1c2dbf48</md5>
+    <dtstamp>2016-03-07T15:11:27Z</dtstamp>
+    <md5>12976c8a704691ba5a1f3a1ed8a4d059</md5>
   </timezone>
   <timezone>
     <tzid>America/Mexico_City</tzid>
@@ -1113,9 +1113,9 @@
   </timezone>
   <timezone>
     <tzid>America/Santa_Isabel</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2016-03-07T15:11:27Z</dtstamp>
     <alias>Pacific Standard Time (Mexico)</alias>
-    <md5>258b10f97d147ad0fb9c3815fadf9b40</md5>
+    <md5>aefa9339b54c3daa058fef82c700b353</md5>
   </timezone>
   <timezone>
     <tzid>America/Santarem</tzid>
@@ -1213,6 +1213,7 @@
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>America/Ensenada</alias>
     <alias>Mexico/BajaNorte</alias>
+    <alias>America/Santa_Isabel</alias>
     <md5>6e5df24afff030e0e4ee771e91e28713</md5>
   </timezone>
   <timezone>
@@ -1437,8 +1438,8 @@
   </timezone>
   <timezone>
     <tzid>Asia/Chita</tzid>
-    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
-    <md5>0345954ed3de7f79e67f7d03ffaa6782</md5>
+    <dtstamp>2016-03-07T15:11:27Z</dtstamp>
+    <md5>2128455ec81d2154cec338b50084df7f</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Choibalsan</tzid>
@@ -1571,9 +1572,9 @@
   </timezone>
   <timezone>
     <tzid>Asia/Karachi</tzid>
-    <dtstamp>2014-09-29T08:55:38Z</dtstamp>
+    <dtstamp>2016-03-07T15:11:27Z</dtstamp>
     <alias>Pakistan Standard Time</alias>
-    <md5>ce7c56400e7108503d31b705ac530139</md5>
+    <md5>0f86f0a833108f791e4c2512162d66d3</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Kashgar</tzid>
@@ -1790,10 +1791,10 @@
   </timezone>
   <timezone>
     <tzid>Asia/Tehran</tzid>
-    <dtstamp>2015-04-24T16:13:20Z</dtstamp>
+    <dtstamp>2016-03-07T15:11:27Z</dtstamp>
     <alias>Iran</alias>
     <alias>Iran Standard Time</alias>
-    <md5>53cfb8fe87458bd08c07aac624d4ee53</md5>
+    <md5>a11dd9983f7f920ff19ca709f61ba031</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Tel_Aviv</tzid>
@@ -3002,13 +3003,13 @@
   </timezone>
   <timezone>
     <tzid>Iran</tzid>
-    <dtstamp>2015-04-24T16:13:20Z</dtstamp>
-    <md5>1adeeb903841b714660330174ca03f7b</md5>
+    <dtstamp>2016-03-07T15:11:27Z</dtstamp>
+    <md5>13e31206ec532765a8a33ff760df64b4</md5>
   </timezone>
   <timezone>
     <tzid>Iran Standard Time</tzid>
-    <dtstamp>2015-04-24T16:13:20Z</dtstamp>
-    <md5>84672c3817a03e4ff3e6d3c3b533a5aa</md5>
+    <dtstamp>2016-03-07T15:11:27Z</dtstamp>
+    <md5>4d0549348865c720890b3a31a7dd3c55</md5>
   </timezone>
   <timezone>
     <tzid>Israel</tzid>
@@ -3117,8 +3118,8 @@
   </timezone>
   <timezone>
     <tzid>Morocco Standard Time</tzid>
-    <dtstamp>2015-07-01T14:44:04Z</dtstamp>
-    <md5>1e27973c6723a745831c474ebedbf11a</md5>
+    <dtstamp>2016-03-07T15:11:27Z</dtstamp>
+    <md5>3eee56b1f430f90afed034a8fdb936f7</md5>
   </timezone>
   <timezone>
     <tzid>Mountain Standard Time</tzid>
@@ -3207,8 +3208,8 @@
   </timezone>
   <timezone>
     <tzid>Pacific Standard Time (Mexico)</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>48e275bef2a5475110835bdf3a7dbb49</md5>
+    <dtstamp>2016-03-07T15:11:27Z</dtstamp>
+    <md5>0cb35dacfe450fed888b35855e0989a1</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Apia</tzid>
@@ -3450,8 +3451,8 @@
   </timezone>
   <timezone>
     <tzid>Pakistan Standard Time</tzid>
-    <dtstamp>2014-09-29T08:55:38Z</dtstamp>
-    <md5>92311f87a1e1205e1ff5db7c14ea3bd0</md5>
+    <dtstamp>2016-03-07T15:11:27Z</dtstamp>
+    <md5>3692437d3cc5d7f6a7ed98a4070c7b26</md5>
   </timezone>
   <timezone>
     <tzid>Paraguay Standard Time</tzid>

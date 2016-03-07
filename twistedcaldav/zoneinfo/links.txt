@@ -45,6 +45,7 @@ America/Aruba	America/Curacao
 America/Atka	America/Adak
 America/Buenos_Aires	America/Argentina/Buenos_Aires
 America/Catamarca	America/Argentina/Catamarca
+America/Cayman	America/Panama
 America/Coral_Harbour	America/Atikokan
 America/Cordoba	America/Argentina/Cordoba
 America/Dominica	America/Port_of_Spain
@@ -64,6 +65,7 @@ America/Montreal	America/Toronto
 America/Montserrat	America/Port_of_Spain
 America/Porto_Acre	America/Rio_Branco
 America/Rosario	America/Argentina/Cordoba
+America/Santa_Isabel	America/Tijuana
 America/Shiprock	America/Denver
 America/St_Barthelemy	America/Port_of_Spain
 America/St_Kitts	America/Port_of_Spain
