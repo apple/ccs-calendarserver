@@ -239,6 +239,7 @@ Modes of operation:
 --double            : detect double-bookings.
 --dark-purge        : purge room/resource events with invalid organizer
 --split             : split recurring event
+--upgrade           : upgrade iCalendar data.
 
 --nuke PATH|RID     : remove specific calendar resources - can
                       only be used by itself. PATH is the full
@@ -251,7 +252,7 @@ Options for all modes:
 --config   : caldavd.plist file for the server.
 -v         : verbose logging
 
-Options for --ical:
+Options for --ical / --upgrade:
 
 --uuid     : only scan specified calendar homes. Can be a partial GUID
              to scan all GUIDs with that as a prefix.
@@ -336,6 +337,8 @@ class CalVerifyOptions(Options):
         ['dark-purge', 'p', "Purge room/resource events with invalid organizer."],
         ['missing-location', 'g', "Room events with missing location."],
         ['split', 'l', "Split an event."],
+        ['upgrade', 'u', "Upgrade calendar data."],
+
         ['fix', 'x', "Fix problems."],
         ['verbose', 'v', "Verbose logging."],
         ['details', 'V', "Detailed logging."],
@@ -2994,6 +2997,153 @@ class EventSplitService(CalVerifyService):
 
 
 
+class UpgradeDataService(CalVerifyService):
+    """
+    Service which scans calendar data.
+    """
+
+    def title(self):
+        return "Upgrade Data Service"
+
+
+    @inlineCallbacks
+    def doAction(self):
+
+        self.output.write("\n---- Scanning calendar data ----\n")
+
+        self.now = DateTime.getNowUTC()
+        self.start = DateTime.getToday()
+        self.start.setDateOnly(False)
+        self.end = self.start.duplicate()
+        self.end.offsetYear(1)
+        self.fix = self.options["fix"]
+
+        self.tzid = Timezone(tzid=self.options["tzid"] if self.options["tzid"] else "America/Los_Angeles")
+
+        self.txn = self.store.newTransaction()
+
+        if self.options["verbose"]:
+            t = time.time()
+        descriptor = None
+        if self.options["uuid"]:
+            rows = yield self.getAllResourceInfoWithUUID(self.options["uuid"], inbox=True)
+            descriptor = "getAllResourceInfoWithUUID"
+        elif self.options["uid"]:
+            rows = yield self.getAllResourceInfoWithUID(self.options["uid"], inbox=True)
+            descriptor = "getAllResourceInfoWithUID"
+        else:
+            rows = yield self.getAllResourceInfo(inbox=True)
+            descriptor = "getAllResourceInfo"
+
+        yield self.txn.commit()
+        self.txn = None
+
+        if self.options["verbose"]:
+            self.output.write("%s time: %.1fs\n" % (descriptor, time.time() - t,))
+
+        self.total = len(rows)
+        self.logResult("Number of events to process", self.total)
+        self.addSummaryBreak()
+
+        yield self.calendarDataUpgrade(rows)
+
+        self.printSummary()
+
+
+    @inlineCallbacks
+    def calendarDataUpgrade(self, rows):
+        """
+        Check each calendar resource for valid iCalendar data.
+        """
+
+        self.output.write("\n---- Upgrading each calendar object resource ----\n")
+        self.txn = self.store.newTransaction()
+
+        if self.options["verbose"]:
+            t = time.time()
+
+        results_bad = []
+        count = 0
+        total = len(rows)
+        upgradelen = 0
+        badlen = 0
+        rjust = 10
+        for owner, resid, uid, _ignore_calname, _ignore_md5, _ignore_organizer, _ignore_created, _ignore_modified in rows:
+            try:
+                calendarObj = yield CalendarStoreFeatures(self.txn._store).calendarObjectWithID(self.txn, resid)
+                if calendarObj._dataversion < calendarObj._currentDataVersion:
+                    upgradelen += 1
+                yield calendarObj.component(doUpdate=True)
+                result = True
+            except Exception, e:
+                result = False
+                message = "Exception when reading resource"
+                if self.options["verbose"]:
+                    print(e)
+            if not result:
+                results_bad.append((owner, uid, resid, message))
+                badlen += 1
+            count += 1
+            if self.options["verbose"]:
+                if count == 1:
+                    self.output.write("Upgraded".rjust(rjust) + "Bad".rjust(rjust) + "Current".rjust(rjust) + "Total".rjust(rjust) + "Complete".rjust(rjust) + "\n")
+                if divmod(count, 100)[1] == 0:
+                    self.output.write((
+                        "\r" +
+                        ("%s" % upgradelen).rjust(rjust) +
+                        ("%s" % badlen).rjust(rjust) +
+                        ("%s" % count).rjust(rjust) +
+                        ("%s" % total).rjust(rjust) +
+                        ("%d%%" % safePercent(count, total)).rjust(rjust)
+                    ).ljust(80))
+                    self.output.flush()
+
+            # To avoid holding locks on all the rows scanned, commit every 100 resources
+            if divmod(count, 100)[1] == 0:
+                yield self.txn.commit()
+                self.txn = self.store.newTransaction()
+
+        yield self.txn.commit()
+        self.txn = None
+        if self.options["verbose"]:
+            self.output.write((
+                "\r" +
+                ("%s" % upgradelen).rjust(rjust) +
+                ("%s" % badlen).rjust(rjust) +
+                ("%s" % count).rjust(rjust) +
+                ("%s" % total).rjust(rjust) +
+                ("%d%%" % safePercent(count, total)).rjust(rjust)
+            ).ljust(80) + "\n")
+
+        # Print table of results
+        table = tables.Table()
+        table.addHeader(("Owner", "Event UID", "RID", "Problem",))
+        for item in sorted(results_bad, key=lambda x: (x[0], x[1])):
+            owner, uid, resid, message = item
+            owner_record = yield self.directoryService().recordWithUID(owner)
+            table.addRow((
+                "%s/%s (%s)" % (owner_record.recordType if owner_record else "-", owner_record.shortNames[0] if owner_record else "-", owner,),
+                uid,
+                resid,
+                message,
+            ))
+
+        self.output.write("\n")
+        self.logResult("Upgraded iCalendar data", upgradelen, total)
+        self.logResult("Bad iCalendar data", len(results_bad), total)
+        self.results["Upgraded iCalendar data"] = upgradelen
+        self.results["Bad iCalendar data"] = results_bad
+        table.printTable(os=self.output)
+
+        if self.options["verbose"]:
+            diff_time = time.time() - t
+            self.output.write("Time: %.2f s  Average: %.1f ms/resource\n" % (
+                diff_time,
+                safePercent(diff_time, total, 1000.0),
+            ))
+
+
+
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
 
     if reactor is None:
@@ -3030,6 +3180,8 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
             return MissingLocationService(store, options, output, reactor, config)
         elif options["split"]:
             return EventSplitService(store, options, output, reactor, config)
+        elif options["upgrade"]:
+            return UpgradeDataService(store, options, output, reactor, config)
         else:
             printusage("Invalid operation")
             sys.exit(1)
