@@ -389,10 +389,15 @@ class DirectoryTestCaseFakeEmail(StoreTestCase):
     @inlineCallbacks
     def test_calendarUserAddress_fake_email(self):
         """
-        Make sure that recordWs have fake email addresses.
+        Make sure that records have fake email addresses.
         """
 
         record = yield self.directory.recordWithUID(u"resource01")
         self.assertTrue(record is not None)
+
+        # Verify the fake email address is in fact unicode
+        for address in record.emailAddresses:
+            self.assertTrue(isinstance(address, unicode))
+
         self.assertIn(u"{}@do_not_reply".format("resource01".encode("hex")), record.emailAddresses)
         self.assertIn(u"mailto:{}@do_not_reply".format("resource01".encode("hex")), record.calendarUserAddresses)

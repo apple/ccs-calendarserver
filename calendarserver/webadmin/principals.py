@@ -352,9 +352,9 @@ def slotsForRecord(record):
         u"uid": joinWithBR((record.uid,)),
         u"guid": joinWithBR((record.guid,)),
         u"recordType": joinWithBR((record.recordType,)),
-        u"shortNames": joinWithBR(record.shortNames),
+        u"shortNames":  joinWithBR(record.shortNames) if hasattr(record, "shortNames") else "",
         u"fullNames": joinWithBR(record.fullNames),
-        u"emailAddresses": joinWithBR(record.emailAddresses),
+        u"emailAddresses": joinWithBR(record.emailAddresses) if hasattr(record, "emailAddresses") else "",
         u"calendarUserAddresses": joinWithBR(record.calendarUserAddresses),
         u"serverURI": joinWithBR((record.serverURI(),)),
     }

@@ -348,7 +348,7 @@ class CalendarDirectoryRecordMixin(object):
     def __init__(self):
         if config.Scheduling.Options.FakeResourceLocationEmail:
             if self.recordType in (DAVRecordType.location, DAVRecordType.resource) and not getattr(self, "emailAddresses", None):
-                self.fields[BaseFieldName.emailAddresses] = ("{}@do_not_reply".format(self.uid.encode("hex"),),)
+                self.fields[BaseFieldName.emailAddresses] = (u"{}@do_not_reply".format(self.uid.encode("hex"),),)
 
 
     @inlineCallbacks
