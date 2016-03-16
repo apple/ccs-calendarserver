@@ -1511,6 +1511,7 @@ class UpgradeTests(StoreTestCase):
     @inlineCallbacks
     def test_migrateAutoSchedule(self):
 
+        self.patch(config.AugmentService, "params", {"xmlFiles":["augments.xml"]})
         serviceClass = {
             "xml": "twistedcaldav.directory.augment.AugmentXMLDB",
         }

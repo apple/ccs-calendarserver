@@ -154,6 +154,7 @@ def buildDirectory(
                     LDAPFieldName.memberDNs: mapping.memberDNs,
                     CalFieldName.readOnlyProxy: mapping.readOnlyProxy,
                     CalFieldName.readWriteProxy: mapping.readWriteProxy,
+                    CalFieldName.loginAllowed: mapping.loginAllowed,
                     CalFieldName.hasCalendars: mapping.hasCalendars,
                     CalFieldName.autoScheduleMode: mapping.autoScheduleMode,
                     CalFieldName.autoAcceptGroup: mapping.autoAcceptGroup,
@@ -240,29 +241,26 @@ def buildDirectory(
     #
     # Setup the Augment Service
     #
-    if augmentServiceInfo.Enabled:
-        serviceClass = {
-            "xml": "twistedcaldav.directory.augment.AugmentXMLDB",
-        }
+    serviceClass = {
+        "xml": "twistedcaldav.directory.augment.AugmentXMLDB",
+    }
 
-        for augmentFile in augmentServiceInfo.params.xmlFiles:
-            augmentFile = fullServerPath(dataRoot, augmentFile)
-            augmentFilePath = FilePath(augmentFile)
-            if not augmentFilePath.exists():
-                augmentFilePath.setContent(DEFAULT_AUGMENT_CONTENT)
+    for augmentFile in augmentServiceInfo.params.xmlFiles:
+        augmentFile = fullServerPath(dataRoot, augmentFile)
+        augmentFilePath = FilePath(augmentFile)
+        if not augmentFilePath.exists():
+            augmentFilePath.setContent(DEFAULT_AUGMENT_CONTENT)
 
-        augmentClass = namedClass(serviceClass[augmentServiceInfo.type])
-        log.info(
-            "Configuring augment service of type: {augmentClass}",
-            augmentClass=augmentClass
-        )
-        try:
-            augmentService = augmentClass(**augmentServiceInfo.params)
-        except IOError:
-            log.error("Could not start augment service")
-            raise
-    else:
-        augmentService = None
+    augmentClass = namedClass(serviceClass[augmentServiceInfo.type])
+    log.info(
+        "Configuring augment service of type: {augmentClass}",
+        augmentClass=augmentClass
+    )
+    try:
+        augmentService = augmentClass(**augmentServiceInfo.params)
+    except IOError:
+        log.error("Could not start augment service")
+        raise
 
     userDirectory = None
     for directory in aggregatedServices:

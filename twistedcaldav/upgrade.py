@@ -991,15 +991,14 @@ def migrateAutoSchedule(config, directory):
     # Fetch the autoSchedule assignments from resourceinfo.sqlite and store
     # the values in augments
     augmentService = None
-    if config.AugmentService.Enabled:
-        serviceClass = {
-            "xml": "twistedcaldav.directory.augment.AugmentXMLDB",
-        }
-        augmentClass = namedClass(serviceClass[config.AugmentService.type])
-        try:
-            augmentService = augmentClass(**config.AugmentService.params)
-        except:
-            log.error("Could not start augment service")
+    serviceClass = {
+        "xml": "twistedcaldav.directory.augment.AugmentXMLDB",
+    }
+    augmentClass = namedClass(serviceClass[config.AugmentService.type])
+    try:
+        augmentService = augmentClass(**config.AugmentService.params)
+    except:
+        log.error("Could not start augment service")
 
     if augmentService:
         augmentRecords = []

@@ -405,9 +405,6 @@
 
 	<key>AugmentService</key>
 	<dict>
-		<key>Enabled</key>
-		<true/>
-
 		<key>type</key>
 		<string>xml</string>
 
@@ -415,7 +412,6 @@
 		<dict>
 			<key>xmlFiles</key>
 			<array>
-				<string>augments.xml</string>
 			</array>
 
 			<key>statSeconds</key>

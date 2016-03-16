@@ -117,7 +117,7 @@ DEFAULT_RESOURCE_PARAMS = {
 
 DEFAULT_AUGMENT_PARAMS = {
     "xml": {
-        "xmlFiles": ["augments.xml"],
+        "xmlFiles": [],
         "statSeconds": 15,
     },
 }
@@ -342,7 +342,6 @@ DEFAULT_CONFIG = {
     #    Augments for the directory service records to add calendar specific attributes.
     #
     "AugmentService": {
-        "Enabled": True,
         "type": "xml",
         "params": DEFAULT_AUGMENT_PARAMS["xml"],
     },
@@ -1490,22 +1489,21 @@ def _preUpdateDirectoryAddressBookBackingDirectoryService(configDict, items, rel
 
 
 def _postUpdateAugmentService(configDict, reloading=False):
-    if configDict.AugmentService.Enabled:
-        if configDict.AugmentService.type in DEFAULT_AUGMENT_PARAMS:
-            for param in tuple(configDict.AugmentService.params):
-                if param not in DEFAULT_AUGMENT_PARAMS[configDict.AugmentService.type]:
-                    log.warn("Parameter {p} is not supported by service {t}", p=param, t=configDict.AugmentService.type)
-                    del configDict.AugmentService.params[param]
+    if configDict.AugmentService.type in DEFAULT_AUGMENT_PARAMS:
+        for param in tuple(configDict.AugmentService.params):
+            if param not in DEFAULT_AUGMENT_PARAMS[configDict.AugmentService.type]:
+                log.warn("Parameter {p} is not supported by service {t}", p=param, t=configDict.AugmentService.type)
+                del configDict.AugmentService.params[param]
 
-        # Upgrading augments.xml must be done prior to using the store/directory
-        if configDict.AugmentService.type == "xml":
-            for fileName in configDict.AugmentService.params.xmlFiles:
-                if fileName[0] not in ("/", "."):
-                    fileName = os.path.join(configDict.DataRoot, fileName)
-                filePath = FilePath(fileName)
-                if filePath.exists():
-                    from twistedcaldav.upgrade import upgradeAugmentsXML
-                    upgradeAugmentsXML(filePath)
+    # Upgrading augments.xml must be done prior to using the store/directory
+    if configDict.AugmentService.type == "xml":
+        for fileName in configDict.AugmentService.params.xmlFiles:
+            if fileName[0] not in ("/", "."):
+                fileName = os.path.join(configDict.DataRoot, fileName)
+            filePath = FilePath(fileName)
+            if filePath.exists():
+                from twistedcaldav.upgrade import upgradeAugmentsXML
+                upgradeAugmentsXML(filePath)
 
 
 

@@ -99,7 +99,6 @@ class UtilTest(TestCase):
                     },
                 },
                 "AugmentService": {
-                    "Enabled": True,
                     "type": "xml",
                     "params": {
                         "xmlFiles": ["augments.xml"],

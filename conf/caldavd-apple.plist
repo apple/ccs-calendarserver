@@ -230,6 +230,21 @@
       </dict>
     </dict>
 
+    <!-- XML File Augment Service -->
+    <key>AugmentService</key>
+    <dict>
+      <key>type</key>
+      <string>xml</string>
+
+      <key>params</key>
+      <dict>
+        <key>xmlFiles</key>
+        <array>
+          <string>augments.xml</string>
+        </array>
+      </dict>
+    </dict>
+
     <key>DirectoryFilterStartsWith</key>
     <true/>
 
