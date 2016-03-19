@@ -1,0 +1,221 @@
+#!/bin/sh
+
+##
+# Copyright (c) 2005-2016 Apple Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+##
+
+##
+# Submit project to B&I (Apple internal build)
+##
+
+set -e
+set -u
+
+
+ wd="$(cd "$(dirname "$0")" && pwd)";
+src="$(cd "${wd}/.." && pwd)";
+
+unset CALENDARSERVER_BUILD_DEPS;
+
+project="CalendarServer";
+uri="https://github.com/macosforge/ccs-calendarserver-copy.git";
+
+##
+# Command line
+##
+
+  build=false;
+install=false;
+package=false;
+
+    build_no_verify_source=false;
+              tag_to_build="";
+           project_version="";
+
+usage ()
+{
+  program="$(basename "$0")";
+
+  if [ "${1-}" != "-" ]; then echo "$@"; echo; fi;
+
+  echo "Usage: ${program} release [release ...]";
+  echo "       ${program} release -b[ipn]";
+  echo "";
+  echo "Options:";
+  echo "	-b Run buildit";
+  echo "	-i Install resulting build on this system";
+  echo "	-p Create a package with the resulting build";
+  echo "	-n skip buildit source verification";
+  echo "  -t which tag to submit";
+  echo "  -v project version (defaults to -t value)";
+
+  if [ "${1-}" == "-" ]; then return 0; fi;
+  exit 64;
+}
+
+while getopts 'hbipnt:v:' option; do
+  case "$option" in
+    '?') usage; ;;
+    'h') usage -; exit 0; ;;
+    'b')                      build=true; ;;
+    'i')                    install=true; ;;
+    'p')                    package=true; ;;
+    'n') 	   build_no_verify_source=true; ;;
+    't')        tag_to_build="${OPTARG}"; ;;
+    'v')     project_version="${OPTARG}"; ;;
+  esac;
+done;
+shift $((${OPTIND} - 1));
+
+if [ "${tag_to_build}" != "" ]; then
+  if [ "${project_version}" == "" ]; then
+    project_version="${tag_to_build}";
+  fi;
+fi;
+
+
+if ! "${build}"; then
+  # Submitting, not just building
+  if "${install}"; then usage "-i flag requires -b"; fi;
+  if "${package}"; then usage "-p flag requires -b"; fi;
+  if "${build_no_verify_source}"; then usage "-n flag requires -b"; fi;
+  if [ "${project_version}" == "" ]; then usage "project_version required if submitting"; fi;
+else
+  # Not submitting, just building
+  if [ "${project_version}" == "" ]; then
+    project_version="${project}-untagged";
+  fi;
+fi;
+
+if [ $# == 0 ]; then usage "No releases specified"; fi;
+releases="$@"; shift $#;
+
+if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
+
+##
+# Do the Right Thing
+##
+
+#
+# Do submission
+#
+
+tmp="$(mktemp -d -t CalendarServer_build)";
+wc="${tmp}/${project_version}";
+
+echo "${tag_to_build}";
+
+if [ "${tag_to_build}" != "" ]; then
+  # Clone and checkout tag
+  git clone "${uri}" "${wc}";
+  cd "${wc}";
+  git checkout "${tag_to_build}";
+else
+  # Copy from local directory
+  echo "";
+  echo "Copying ${src}...";
+  # Only copy files that are under revision control
+  git_files="$(mktemp -t git_files_XXXX)";
+  cd "${src}";
+  git ls-tree --name-only -r HEAD > "${git_files}";
+  rsync -av                      \
+    --files-from="${git_files}"  \
+    "${src}/" "${wc}"            \
+    ;
+  rm "${git_files}";
+fi;
+
+cd "${wc}";
+
+echo ""
+echo "Tweaking for B&I...";
+ln -s support/Apple.make "${wc}/Makefile";
+
+cat - >> "${wc}/SubmissionInfo.xml" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<submission>
+ <project>${project}</project>
+ <version>${project_version}</version>
+ <source>
+  <git>
+   <repository>${uri}</repository>
+   <tag>${tag_to_build}</tag>
+   <date>$(date -u)</date>
+  </git>
+ </source>
+</submission>
+EOF
+
+echo "${tag_to_build}" > "${wc}/gitversion.txt";
+
+echo "";
+echo "Preparing sources for ${project_version}...";
+"${wc}/support/_cache_deps_git";
+
+# Clean up after _cache_deps
+find "${wc}/.develop" -depth 1 ! '(' -name pip_downloads -o -name tools ')' -print | {
+  while read filename; do
+    echo "Cruft in .develop: ${filename}";
+    # exit 1;
+  done;
+}
+
+if "${build}"; then
+  echo "";
+  echo "Building ${project_version}...";
+
+  if "${package}"; then
+    package_tmp="${tmp}/pkg";
+    install -d "${package_tmp}";
+    merge_flags="-merge ${package_tmp}";
+  elif "${install}"; then
+    merge_flags="-merge /";
+  else
+    merge_flags="";
+  fi;
+
+  release_flags="";
+  for release in "${releases}"; do
+    release_flags="${release_flags} -update Prevailing${release}";
+  done;
+
+  if "${build_no_verify_source}"; then
+    verify_flags=" -noverifysource";
+  else
+    verify_flags="";
+  fi;
+
+  sudo ~rc/bin/buildit "${wc}" \
+    $(file /System/Library/Frameworks/Python.framework/Versions/Current/Python | sed -n -e 's|^.*(for architecture \([^)][^)]*\).*$|-arch \1|p' | sed 's|ppc7400|ppc|') \
+    ${merge_flags}${release_flags}${verify_flags};
+
+  if "${package}"; then
+    package_file="${src}/${project_version}.tgz";
+    echo "Creating package: ${package_file}...";
+    tar -C "${package_tmp}" -cvzf "${package_file}" .;
+    sudo rm -rf "${package_tmp}";
+    if "${install}"; then
+      echo "Installing package: ${package_file}";
+      tar -C / -xvzf "${package_file}";
+    fi;
+  fi;
+else
+  echo "";
+  echo "Submitting sources for ${project_version}...";
+  rm -rf "${wc}/.dependencies";
+  ~rc/bin/submitproject "${wc}" ${releases};
+fi;
+
+sudo rm -rf "${tmp}";
