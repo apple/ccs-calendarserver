@@ -1377,6 +1377,9 @@ def verifyAPNSCertificate(config):
         ):
             protoConfig = config.Notifications.Services.APNS[protocol]
 
+            if not protoConfig.Enabled:
+                continue
+
             try:
                 getAPNTopicFromConfig(protocol, accountName, protoConfig)
             except ValueError as e:
