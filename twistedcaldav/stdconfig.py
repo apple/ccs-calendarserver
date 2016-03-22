@@ -1679,15 +1679,16 @@ def _updateNotifications(configDict, reloading=False):
                 else:
                     continue
 
-                if not service[protocol]["Topic"]:
-                    try:
-                        getAPNTopicFromConfig(protocol, accountName, service[protocol])
-                    except ValueError as e:
-                        log.error(e)
+                if service[protocol].Enabled:
+                    if not service[protocol]["Topic"]:
+                        try:
+                            getAPNTopicFromConfig(protocol, accountName, service[protocol])
+                        except ValueError as e:
+                            log.error(e)
 
-                # If we already have the cert passphrase, don't fetch it again
-                if not service[protocol]["Passphrase"]:
-                    log.info("{p} APNS certificate passphrase not found in keychain", p=protocol)
+                    # If we already have the cert passphrase, don't fetch it again
+                    if not service[protocol]["Passphrase"]:
+                        log.info("{p} APNS certificate passphrase not found in keychain", p=protocol)
 
 
 
