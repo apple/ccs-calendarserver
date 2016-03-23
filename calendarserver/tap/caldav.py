@@ -24,7 +24,7 @@ __all__ = [
 
 import sys
 from collections import OrderedDict
-from os import getuid, getgid, umask, remove, environ, stat, chown, W_OK
+from os import getuid, getgid, geteuid, umask, remove, environ, stat, chown, W_OK
 from os.path import exists, basename
 import socket
 from stat import S_ISSOCK
@@ -74,6 +74,7 @@ from twext.enterprise.jobs.queue import WorkerFactory as QueueWorkerFactory
 from twext.application.service import ReExecService
 from txdav.who.groups import GroupCacherPollingWork
 from calendarserver.tools.purge import PrincipalPurgePollingWork
+from calendarserver.tools.util import checkDirectory
 
 from txweb2.channel.http import (
     LimitingHTTPFactory, SSLRedirectRequest, HTTPChannel
@@ -119,6 +120,7 @@ from calendarserver.tap.util import (
     pgServiceFromConfig, getDBPool, MemoryLimitService,
     storeFromConfig, getSSLPassphrase, preFlightChecks,
     storeFromConfigWithDPSClient, storeFromConfigWithoutDPS,
+    serverRootLocation
 )
 try:
     from calendarserver.version import version
@@ -405,11 +407,27 @@ class CalDAVOptions (Options):
 
     def postOptions(self):
         try:
+            if geteuid() == 0:
+                self.waitForServerRoot()
             self.loadConfiguration()
             self.checkConfiguration()
         except ConfigurationError, e:
             print("Invalid configuration:", e)
             sys.exit(1)
+
+
+    def waitForServerRoot(self):
+        """
+        Block until server root directory is available
+        """
+        serverRootPath = serverRootLocation()
+        if serverRootPath:
+            checkDirectory(
+                serverRootPath,
+                "Server root",
+                access=W_OK,
+                wait=True  # Wait in a loop until ServerRoot exists
+            )
 
 
     def loadConfiguration(self):

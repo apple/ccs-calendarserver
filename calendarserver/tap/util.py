@@ -103,6 +103,7 @@ from txweb2.http_headers import Headers
 from txweb2.resource import Resource
 from txweb2.static import File as FileResource
 
+from plistlib import readPlist
 from urllib import quote
 import OpenSSL
 import errno
@@ -110,6 +111,7 @@ import os
 import psutil
 import sys
 import time
+
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -1554,3 +1556,19 @@ def postAlert(alertType, ignoreWithinSeconds, args):
                 "Could not post alert: {alertType} {args} ({error})",
                 alertType=alertType, args=args, error=e
             )
+
+
+def serverRootLocation():
+    """
+    Return the ServerRoot value from the OS X preferences plist.  If plist not
+    present, return empty string.
+
+    @rtype: C{unicode}
+    """
+    defaultPlistPath = "/Library/Server/Preferences/Calendar.plist"
+    serverRoot = u""
+    if os.path.exists(defaultPlistPath):
+        serverRoot = readPlist(defaultPlistPath).get("ServerRoot", serverRoot)
+    if isinstance(serverRoot, str):
+        serverRoot = serverRoot.decode("utf-8")
+    return serverRoot
