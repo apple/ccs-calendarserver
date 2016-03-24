@@ -250,7 +250,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
                     operand=operand,
                     recordType=recordType,
                     limitResults=clientLimit,
-                    timeoutSeconds=10
+                    timeoutSeconds=config.PrincipalSearchReportTimeout
                 )
             )
 
@@ -357,7 +357,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
             tokens,
             context=context,
             limitResults=limitResults,
-            timeoutSeconds=10
+            timeoutSeconds=config.PrincipalSearchReportTimeout
         ))
 
         for record in records:

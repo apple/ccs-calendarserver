@@ -904,8 +904,11 @@ DEFAULT_CONFIG = {
     "MaxMultigetWithDataHrefs": 5000,
     "MaxQueryWithDataResults": 1000,
 
-    # How many results to return for principal-property-search REPORT requests
+    # How many results to return for principal search REPORT requests
     "MaxPrincipalSearchReportResults": 500,
+
+    # How many seconds to wait for principal search REPORT results
+    "PrincipalSearchReportTimeout": 10,
 
     #
     # Client fixes per user-agent match
