@@ -19,13 +19,11 @@ access" and a voice in the future of the project.
 The community exists mainly through mailing lists and a GitHub
 repository. To participate, go to:
 
-[FIXME: new mailing list link?]
   http://trac.calendarserver.org/projects/calendarserver/wiki/MailLists
 
 and join the appropriate mailing lists.  We also use IRC, as described
 here:
 
-[FIXME: new IRC link?]
   http://trac.calendarserver.org/projects/calendarserver/wiki/IRC
 
 There are many ways to join the project.  One may write code, test the
@@ -43,8 +41,7 @@ changes in the code, and the second because people sometimes file an
 issue without noticing that it has already been reported. If you are
 not sure about an issue, post a question to
 
-[FIXME: new address?]
-calendarserver-dev@lists.macosforge.org.
+  calendarserver-dev@lists.macosforge.org.
 
 Before filing bugs, please take a moment to perform a quick search to
 see if someone else has already filed your bug.  In that case, add a
