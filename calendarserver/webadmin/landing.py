@@ -65,48 +65,48 @@ class WebAdminLandingResource(TemplateResource):
         # self._root = root
         # self._principalCollections = principalCollections
 
-        # from .config import ConfigurationResource
-        # self.putChild(u"config", ConfigurationResource(configuration, principalCollections))
+        from .config import ConfigurationResource
+        self.putChild(u"config", ConfigurationResource(configuration, principalCollections))
 
-        # from .principals import PrincipalsResource
-        # self.putChild(u"principals", PrincipalsResource(directory, store, principalCollections))
+        from .principals import PrincipalsResource
+        self.putChild(u"principals", PrincipalsResource(directory, store, principalCollections))
 
-        # from .logs import LogsResource
-        # self.putChild(u"logs", LogsResource())
+        from .logs import LogsResource
+        self.putChild(u"logs", LogsResource(principalCollections))
 
         # from .work import WorkMonitorResource
         # self.putChild(u"work", WorkMonitorResource(store))
 
 
-    def getChild(self, name):
-        bound = super(WebAdminLandingResource, self).getChild(name)
+    # def getChild(self, name):
+    #     bound = super(WebAdminLandingResource, self).getChild(name)
 
-        if bound is not None:
-            return bound
+    #     if bound is not None:
+    #         return bound
 
-        #
-        # Dynamically load and vend child resources not bound using putChild()
-        # in __init__().  This is useful for development, since it allows one
-        # to comment out the putChild() call above, and then code will be
-        # re-loaded for each request.
-        #
+    #     #
+    #     # Dynamically load and vend child resources not bound using putChild()
+    #     # in __init__().  This is useful for development, since it allows one
+    #     # to comment out the putChild() call above, and then code will be
+    #     # re-loaded for each request.
+    #     #
 
-        from . import config, principals, logs, work
+    #     from . import config, principals, logs, work
 
-        if name == u"config":
-            reload(config)
-            return config.ConfigurationResource(self.configuration, self._principalCollections)
+    #     if name == u"config":
+    #         reload(config)
+    #         return config.ConfigurationResource(self.configuration, self._principalCollections)
 
-        elif name == u"principals":
-            reload(principals)
-            return principals.PrincipalsResource(self.directory, self.store, self._principalCollections)
+    #     elif name == u"principals":
+    #         reload(principals)
+    #         return principals.PrincipalsResource(self.directory, self.store, self._principalCollections)
 
-        elif name == u"logs":
-            reload(logs)
-            return logs.LogsResource(self._principalCollections)
+    #     elif name == u"logs":
+    #         reload(logs)
+    #         return logs.LogsResource(self._principalCollections)
 
-        elif name == u"work":
-            reload(work)
-            return work.WorkMonitorResource(self.store, self._principalCollections)
+    #     elif name == u"work":
+    #         reload(work)
+    #         return work.WorkMonitorResource(self.store, self._principalCollections)
 
-        return None
+    #     return None

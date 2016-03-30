@@ -95,11 +95,14 @@ class ConfigurationPageElement(PageElement):
                 return html.code(unicode(value))
 
             if isinstance(value, list):
-                result = []
-                for item in value:
-                    result.append(describe(item))
-                    result.append(html.br())
-                result.pop()
+                if len(value) == 0:
+                    result = u"(empty list)"
+                else:
+                    result = []
+                    for item in value:
+                        result.append(describe(item))
+                        result.append(html.br())
+                    result.pop()
 
             else:
                 result = describe(value)

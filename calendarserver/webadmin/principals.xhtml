@@ -39,7 +39,7 @@
       </thead>
       <tbody>
         <tr class="record" t:render="search_results_row">
-          <t:attr name="onclick">window.open("./<t:slot name="uid" />");</t:attr>
+          <t:attr name="onclick">window.open("/admin/principals/<t:slot name="uid" />");</t:attr>
           <td class="record_full_name"><t:slot name="fullNames" /></td>
           <td class="record_type"><t:slot name="recordType" /></td>
           <td class="record_short_name"><t:slot name="shortNames" /></td>
