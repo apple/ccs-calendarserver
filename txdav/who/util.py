@@ -144,6 +144,7 @@ def buildDirectory(
             directory = LDAPDirectoryService(
                 params.uri,
                 params.rdnSchema.base,
+                useTLS=params.useTLS,
                 credentials=creds,
                 fieldNameToAttributesMap=MappingProxyType({
                     BaseFieldName.uid: mapping.uid,

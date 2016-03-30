@@ -67,6 +67,7 @@ DEFAULT_SERVICE_PARAMS = {
     "ldap": {
         "recordTypes": ["users", "groups"],
         "uri": "ldap://localhost/",
+        "useTLS": False,
         "credentials": {
             "dn": None,
             "password": None,
