@@ -1558,6 +1558,7 @@ def postAlert(alertType, ignoreWithinSeconds, args):
             )
 
 
+
 def serverRootLocation():
     """
     Return the ServerRoot value from the OS X preferences plist.  If plist not
