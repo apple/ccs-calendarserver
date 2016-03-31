@@ -1768,9 +1768,13 @@
 	<key>MaxQueryWithDataResults</key>
 	<integer>1000</integer>
 
-	<!-- How many results to return for principal-property-search REPORT requests -->
+	<!-- How many results to return for principal search REPORT requests -->
 	<key>MaxPrincipalSearchReportResults</key>
 	<integer>500</integer>
+
+	<!-- How many seconds to wait for principal search REPORT results -->
+	<key>PrincipalSearchReportTimeout</key>
+	<integer>10</integer>
 
 	<!-- Client fixes per user-agent match -->
 
