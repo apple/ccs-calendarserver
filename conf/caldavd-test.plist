@@ -516,6 +516,8 @@
       <false/>
       <key>iSchedule</key>
       <false/>
+      <key>xPod</key>
+      <false/>
     </dict>
 
     <!-- Enable accounting for specific principal GUIDs or use "*" for all  -->

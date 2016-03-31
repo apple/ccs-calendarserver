@@ -425,14 +425,15 @@ DEFAULT_CONFIG = {
     "LogID"             : "",
 
     "AccountingCategories": {
-        "HTTP": False,
-        "iTIP": False,
-        "iTIP-VFREEBUSY": False,
-        "Implicit Errors": False,
-        "AutoScheduling": False,
-        "iSchedule": False,
-        "Invalid Instance": False,
-        "migration": False,
+        "HTTP": False, # Log regular HTTP requests
+        "iTIP": False, # Log non-freebusy iTIP details
+        "iTIP-VFREEBUSY": False, # Log freebusy iTIP details
+        "Implicit Errors": False, # Log extra details about implicit scheduling errors
+        "AutoScheduling": False, # Log extra details about auto-accept iTIP processing
+        "iSchedule": False, # Log iSchedule HTTP requests (including cross-pod)
+        "xPod": False, # Log cross-pod conduit HTTP requests
+        "Invalid Instance": False, # Log invalid recurrence instance details
+        "migration": False, # Log cross-pod migration details
     },
     "AccountingPrincipals": [],
     "AccountingLogRoot"   : "accounting",

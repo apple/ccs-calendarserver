@@ -607,27 +607,39 @@
 
 	<key>AccountingCategories</key>
 	<dict>
+		<!-- Log regular HTTP requests -->
 		<key>HTTP</key>
 		<false/>
 
+		<!-- Log non-freebusy iTIP details -->
 		<key>iTIP</key>
 		<false/>
 
+		<!-- Log freebusy iTIP details -->
 		<key>iTIP-VFREEBUSY</key>
 		<false/>
 
+		<!-- Log extra details about implicit scheduling errors -->
 		<key>Implicit Errors</key>
 		<false/>
 
+		<!-- Log extra details about auto-accept iTIP processing -->
 		<key>AutoScheduling</key>
 		<false/>
 
+		<!-- Log iSchedule HTTP requests (including cross-pod) -->
 		<key>iSchedule</key>
 		<false/>
 
+		<!-- Log cross-pod conduit HTTP requests -->
+		<key>xPod</key>
+		<false/>
+
+		<!-- Log invalid recurrence instance details -->
 		<key>Invalid Instance</key>
 		<false/>
 
+		<!-- Log cross-pod migration details -->
 		<key>migration</key>
 		<false/>
 	</dict>
@@ -2131,3 +2143,4 @@
 	<string></string>
 </dict>
 </plist>
+
