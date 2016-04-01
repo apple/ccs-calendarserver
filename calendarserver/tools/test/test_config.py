@@ -351,6 +351,7 @@ class ConfigTestCase(RunCommandTestCase):
                 'HTTP': False,
                 'Implicit Errors': False,
                 'iSchedule': False,
+                'xPod': False,
                 'iTIP': False,
                 'iTIP-VFREEBUSY': False,
                 'Invalid Instance': False,
