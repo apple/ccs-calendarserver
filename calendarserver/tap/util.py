@@ -36,7 +36,7 @@ from calendarserver.push.notifier import NotifierFactory
 from calendarserver.push.util import getAPNTopicFromConfig
 from calendarserver.tools import diagnose
 from calendarserver.tools.util import checkDirectory
-from calendarserver.webadmin.landing import WebAdminLandingResource
+from calendarserver.webadmin.delegation import WebAdminResource
 from calendarserver.webcal.resource import WebCalendarResource
 
 from socket import fromfd, AF_UNIX, SOCK_STREAM, socketpair
@@ -420,7 +420,7 @@ def getRootResource(config, newStore, resources=None):
     timezoneServiceResourceClass = TimezoneServiceResource
     timezoneStdServiceResourceClass = TimezoneStdServiceResource
     webCalendarResourceClass = WebCalendarResource
-    webAdminResourceClass = WebAdminLandingResource
+    webAdminResourceClass = WebAdminResource
     addressBookResourceClass = DirectoryAddressBookHomeProvisioningResource
     directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
     apnSubscriptionResourceClass = APNSubscriptionResource

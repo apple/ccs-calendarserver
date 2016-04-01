@@ -71,8 +71,8 @@ class WebAdminLandingResource(TemplateResource):
         from .principals import PrincipalsResource
         self.putChild(u"principals", PrincipalsResource(directory, store, principalCollections))
 
-        from .logs import LogsResource
-        self.putChild(u"logs", LogsResource(principalCollections))
+        # from .logs import LogsResource
+        # self.putChild(u"logs", LogsResource(principalCollections))
 
         # from .work import WorkMonitorResource
         # self.putChild(u"work", WorkMonitorResource(store))

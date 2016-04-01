@@ -37,6 +37,8 @@ class EventGenerationTests(TestCase):
     Tests for emitting HTML5 EventSource events.
     """
 
+    todo = "Disabling new webadmin"
+
     def test_textAsEvent(self):
         """
         Generate an event from some text.
@@ -119,6 +121,8 @@ class EventSourceResourceTests(TestCase):
     """
     Tests for L{EventSourceResource}.
     """
+
+    todo = "Disabling new webadmin"
 
     def eventSourceResource(self):
         return EventSourceResource(DictionaryEventDecoder, None)

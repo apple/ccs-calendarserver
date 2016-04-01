@@ -49,6 +49,9 @@ from txdav.base.propertystore.base import PropertyName
 from txdav.xml import element
 from pycalendar.datetime import DateTime, Timezone
 
+from twext.who.idirectory import RecordType
+from txdav.who.idirectory import RecordType as CalRecordType
+
 
 log = Logger()
 
@@ -248,7 +251,18 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
         if checkOnly:
             returnValue(None)
 
-        recordType, shortName = principalID.split(":", 1)
+        recordTypeDescription, shortName = principalID.split(":", 1)
+        for recordType in (
+            RecordType.user,
+            RecordType.group,
+            CalRecordType.location,
+            CalRecordType.resource,
+            CalRecordType.address,
+        ):
+            if recordType.description == recordTypeDescription:
+                break
+        else:
+            returnValue(None)
 
         returnValue((yield directory.principalCollection.principalForShortName(recordType, shortName)))
 
@@ -366,7 +380,7 @@ def action_removeProxyPrincipal(rootResource, directory, store, principal, proxy
 def addProxy(rootResource, directory, store, principal, proxyType, proxyPrincipal):
     proxyURL = proxyPrincipal.url()
 
-    subPrincipal = proxySubprincipal(principal, proxyType)
+    subPrincipal = yield proxySubprincipal(principal, proxyType)
     if subPrincipal is None:
         raise ProxyError(
             "Unable to edit %s proxies for %s\n" % (
@@ -412,7 +426,7 @@ def removeProxy(rootResource, directory, store, principal, proxyPrincipal, **kwa
     for proxyType in proxyTypes:
         proxyURL = proxyPrincipal.url()
 
-        subPrincipal = proxySubprincipal(principal, proxyType)
+        subPrincipal = yield proxySubprincipal(principal, proxyType)
         if subPrincipal is None:
             raise ProxyError(
                 "Unable to edit %s proxies for %s\n" % (
@@ -448,7 +462,7 @@ def removeProxy(rootResource, directory, store, principal, proxyPrincipal, **kwa
 
 
 def prettyPrincipal(principal):
-    prettyRecord(principal.record)
+    return prettyRecord(principal.record)
 
 
 
