@@ -18,6 +18,7 @@ from twisted.trial.unittest import TestCase
 from calendarserver.accesslog import SystemMonitor, \
     RotatingFileAccessLoggingObserver
 from twistedcaldav.stdconfig import config as stdconfig
+from twistedcaldav.config import config
 
 hasattr(stdconfig, "Servers")   # Quell pyflakes
 
@@ -40,6 +41,47 @@ class AccessLog(TestCase):
 
         monitor.stop()
         self.assertNotEqual(monitor.items["cpu count"], 0)
+
+
+    def test_disableSystemMonitor(self):
+        """
+        L{SystemMonitor} is not created when stats socket not in use.
+        """
+
+        # Disabled
+        self.patch(config.Stats, "EnableUnixStatsSocket", False)
+        self.patch(config.Stats, "EnableTCPStatsSocket", False)
+
+        logger = RotatingFileAccessLoggingObserver("")
+        self.assertTrue(logger.systemStats is None)
+
+        logger.logStats({})
+        self.assertTrue(logger.systemStats is None)
+
+        logger.getStats()
+        self.assertTrue(logger.systemStats is None)
+
+        # Enabled
+        self.patch(config.Stats, "EnableUnixStatsSocket", True)
+        self.patch(config.Stats, "EnableTCPStatsSocket", False)
+
+        logger = RotatingFileAccessLoggingObserver("")
+        self.assertTrue(logger.systemStats is None)
+
+        logger.logStats({})
+        self.assertTrue(logger.systemStats is not None)
+        logger.systemStats.stop()
+
+        # Enabled
+        self.patch(config.Stats, "EnableUnixStatsSocket", False)
+        self.patch(config.Stats, "EnableTCPStatsSocket", True)
+
+        logger = RotatingFileAccessLoggingObserver("")
+        self.assertTrue(logger.systemStats is None)
+
+        logger.logStats({})
+        self.assertTrue(logger.systemStats is not None)
+        logger.systemStats.stop()
 
 
     def test_unicodeLog(self):

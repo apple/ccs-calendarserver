@@ -376,6 +376,11 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         Update stats
         """
 
+        # Only use the L{SystemMonitor} when stats socket is in use
+        if not config.Stats.EnableUnixStatsSocket and not config.Stats.EnableTCPStatsSocket:
+            return
+
+        # Initialize a L{SystemMonitor} on the first call
         if self.systemStats is None:
             self.systemStats = SystemMonitor()
 
@@ -395,6 +400,11 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         Return the stats
         """
 
+        # Only use the L{SystemMonitor} when stats socket is in use
+        if not config.Stats.EnableUnixStatsSocket and not config.Stats.EnableTCPStatsSocket:
+            return {}
+
+        # Initialize a L{SystemMonitor} on the first call
         if self.systemStats is None:
             self.systemStats = SystemMonitor()
 
