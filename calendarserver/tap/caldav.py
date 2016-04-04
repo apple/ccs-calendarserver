@@ -1477,7 +1477,6 @@ class CalDAVServiceMaker (object):
         config.reload()
 
         # Verify that server root actually exists and is not phantom
-        from calendarserver.tools.util import checkDirectory
         checkDirectory(
             config.ServerRoot,
             "Server root",
