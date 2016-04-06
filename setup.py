@@ -414,6 +414,7 @@ def doSetup():
                 "images/*/*.jpg",
             ],
             "calendarserver.webadmin": [
+                "*.html",
                 "*.xhtml"
             ],
             "twistedcaldav.directory": [
