@@ -992,6 +992,18 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
+    def test_calendar_missingNotifier(self):
+        """
+        L{ICalendarHomeChild.getNotifier} returns L{None} when no notifiers exist
+        """
+        home = yield self.homeUnderTest()
+        home._notifiers = {}
+        calendar = yield home.calendarWithName("calendar_1")
+        result = calendar.getNotifier("push")
+        self.assertTrue(result is None)
+
+
+    @inlineCallbacks
     def test_hasCalendarResourceUIDSomewhereElse(self):
         """
         L{ICalendarHome.hasCalendarResourceUIDSomewhereElse} will determine if

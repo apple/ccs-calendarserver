@@ -1315,7 +1315,7 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
 
 
     def getNotifier(self, factory_name):
-        return self._notifiers.get(factory_name)
+        return self._notifiers.get(factory_name) if self._notifiers else None
 
 
     def notifierID(self):

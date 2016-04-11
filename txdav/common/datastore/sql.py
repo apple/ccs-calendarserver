@@ -2929,7 +2929,7 @@ class CommonHome(SharingHomeMixIn):
 
 
     def getNotifier(self, factory_name):
-        return self._notifiers.get(factory_name)
+        return self._notifiers.get(factory_name) if self._notifiers else None
 
 
     def notifierID(self):
@@ -4443,7 +4443,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     def getNotifier(self, factory_name):
-        return self._notifiers.get(factory_name)
+        return self._notifiers.get(factory_name) if self._notifiers else None
 
 
     def notifierID(self):

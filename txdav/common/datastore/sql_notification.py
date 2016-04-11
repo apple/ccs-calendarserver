@@ -506,8 +506,6 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
 
     def addNotifier(self, factory_name, notifier):
-        if self._notifiers is None:
-            self._notifiers = {}
         self._notifiers[factory_name] = notifier
 
 
