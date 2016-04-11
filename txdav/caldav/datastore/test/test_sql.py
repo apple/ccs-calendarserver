@@ -5039,9 +5039,9 @@ END:VCALENDAR
 
 
     @inlineCallbacks
-    def test_calendarObjectSplit_no_non_organizer_split(self):
+    def test_calendarObjectSplit_no_split_small_size(self):
         """
-        Test that calendar objects do not split on attendee change.
+        Test that calendar objects do not split when the size is below the threshold.
         """
         self.patch(config.Scheduling.Options.Splitting, "Enabled", True)
         self.patch(config.Scheduling.Options.Splitting, "Size", 1024)
@@ -5103,6 +5103,83 @@ END:VCALENDAR
         cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
+
+
+    @inlineCallbacks
+    def test_calendarObjectSplit_no_split_disabled_organizer(self):
+        """
+        Test that calendar objects do not split when the organizer is not enabled.
+        """
+        self.patch(config.Scheduling.Options.Splitting, "Enabled", False)
+        self.patch(config.Scheduling.Options.Splitting, "Size", 1024)
+        self.patch(config.Scheduling.Options.Splitting, "PastDays", 14)
+        self.patch(config.Scheduling.Options.Splitting, "Delay", 2)
+
+        # Create one event that will not split
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back28)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+RRULE:FREQ=DAILY;COUNT=50
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back25)s
+DTSTART:%(now_back25)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        # See if it will split
+        component = Component.fromString(data % self.dtsubs)
+        cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
+        self.assertFalse(hasattr(cobj, "_workItems"))
+        yield self.commit()
+
+        # Enable splitting and make sure it won't split
+        self.patch(config.Scheduling.Options.Splitting, "Enabled", True)
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        yield self.removeRecord(u"user01")
+        willSplit = yield cobj.willSplit()
+        self.assertFalse(willSplit)
 
 
     @inlineCallbacks

@@ -5192,8 +5192,29 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
 
         splitter = iCalSplitter(config.Scheduling.Options.Splitting.Size, config.Scheduling.Options.Splitting.PastDays)
-        ical = (yield self.component())
-        will_split, _ignore_fullyInFuture = splitter.willSplit(ical)
+        component = (yield self.component())
+
+        # Do some sanity checks first
+
+        # Organizer either missing or must be valid
+        organizer = component.getOrganizer()
+        if organizer is not None:
+            # Must be valid for scheduling
+            organizerAddress = (yield calendarUserFromCalendarUserAddress(organizer, self._txn))
+            if organizerAddress is None:
+                returnValue(False)
+
+            if organizerAddress.hosted():
+                # Must be enabled and organizer
+                if not organizerAddress.record.enabledAsOrganizer():
+                    returnValue(False)
+
+                # Cannot be the attendee
+                if organizerAddress.record.uid != self.calendar().ownerHome().uid():
+                    returnValue(False)
+
+
+        will_split, _ignore_fullyInFuture = splitter.willSplit(component)
         returnValue(will_split)
 
 
