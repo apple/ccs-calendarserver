@@ -53,12 +53,6 @@ class GroupsRecord(SerializableRecord, fromTable(schema.GROUPS)):
 
 
     @classmethod
-    def allGroups(cls, txn):
-
-        return GroupsRecord.query(txn, None)
-
-
-    @classmethod
     def groupsMissingSince(cls, txn, since):
 
         return GroupsRecord.query(
@@ -475,7 +469,7 @@ class GroupCacherAPIMixin(object):
         @rtype: a Deferred resulting in a set
         """
 
-        results = yield GroupsRecord.allGroups(self)
+        results = yield GroupsRecord.all(self)
         groups = set([record.groupUID.decode("utf-8") for record in results])
 
         returnValue(groups)
