@@ -52,6 +52,20 @@ class GroupsRecord(SerializableRecord, fromTable(schema.GROUPS)):
         )
 
 
+    @classmethod
+    def allGroups(cls, txn):
+
+        return GroupsRecord.query(txn, None)
+
+
+    @classmethod
+    def groupsMissingSince(cls, txn, since):
+
+        return GroupsRecord.query(
+            txn,
+            (cls.extant == 0).And(cls.modified < since)
+        )
+
 
 class GroupMembershipRecord(SerializableRecord, fromTable(schema.GROUP_MEMBERSHIP)):
     """
@@ -451,6 +465,39 @@ class GroupCacherAPIMixin(object):
         groups = yield GroupsRecord.groupsForMember(self, uid)
         returnValue(set([group.groupUID.decode("utf-8") for group in groups]))
 
+
+    @inlineCallbacks
+    def allGroups(self):
+        """
+        Return the UIDs of all groups.
+
+        @returns: the UIDs of all groups
+        @rtype: a Deferred resulting in a set
+        """
+
+        results = yield GroupsRecord.allGroups(self)
+        groups = set([record.groupUID.decode("utf-8") for record in results])
+
+        returnValue(groups)
+
+
+    @inlineCallbacks
+    def groupsMissingSince(self, since):
+        """
+        @param since: datetime to compare against
+        @type since: C{datetime.datetime}
+
+        Return the UIDs of all groups marked as non-extant who have not been
+            modified since the given datetime.
+
+        @returns: UIDs
+        @rtype: a Deferred resulting in a set
+        """
+
+        results = yield GroupsRecord.groupsMissingSince(self, since)
+        groups = set([record.groupUID.decode("utf-8") for record in results])
+
+        returnValue(groups)
 
 
 class DelegatesAPIMixin(object):

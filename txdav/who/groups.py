@@ -272,31 +272,40 @@ class GroupCacher(object):
         #     "Groups to refresh: {g}", g=groupUIDs
         # )
 
-        if config.AutomaticPurging.Enabled and groupUIDs:
-            # remove unused groups and groups that have not been seen in a while
+        # Get the set of all known groups in the DB
+        knownGroupUIDs = yield txn.allGroups()
+
+        # We'll want to remove groups no longer in use
+        groupsToRemove = knownGroupUIDs - groupUIDs
+
+        # Also look for groups which have been marked as missing for a while
+        if config.AutomaticPurging.Enabled:
             dateLimit = (
                 datetime.datetime.utcnow() -
                 datetime.timedelta(seconds=float(config.AutomaticPurging.GroupPurgeIntervalSeconds))
             )
+            missingGroups = yield txn.groupsMissingSince(dateLimit)
+            groupsToRemove |= missingGroups
+
+        # Delete the groups in batches
+        groupsToRemove = list(groupsToRemove)
+        batchSize = 100
+        deletedGroupUIDs = []
+        while groupsToRemove:
+            batch = groupsToRemove[:batchSize]
+            del groupsToRemove[:batchSize]
+
             rows = yield GroupsRecord.deletesome(
                 txn,
-                (
-                    (GroupsRecord.extant == 0).And(GroupsRecord.modified < dateLimit)
-                ).Or(
-                    GroupsRecord.groupUID.NotIn(groupUIDs)
-                ),
+                GroupsRecord.groupUID.In(batch),
                 returnCols=GroupsRecord.groupUID,
             )
-        else:
-            # remove unused groups
-            rows = yield GroupsRecord.deletesome(
-                txn,
-                GroupsRecord.groupUID.NotIn(groupUIDs) if groupUIDs else None,
-                returnCols=GroupsRecord.groupUID,
-            )
-        deletedGroupUIDs = [row[0] for row in rows]
+            deletedGroupUIDs.extend([row[0] for row in rows])
+
         if deletedGroupUIDs:
-            self.log.debug("Deleted old or unused groups {d}", d=deletedGroupUIDs)
+            self.log.debug(
+                "Deleted old or unused groups {d}", d=deletedGroupUIDs
+            )
 
         # For each of those groups, create a per-group refresh work item
         for groupUID in set(groupUIDs) - set(deletedGroupUIDs):
@@ -390,10 +399,10 @@ class GroupCacher(object):
     @inlineCallbacks
     def refreshGroup(self, txn, groupUID):
         """
-            Does the work of a per-group refresh work item
-            Faults in the flattened membership of a group, as UIDs
-            and updates the GROUP_MEMBERSHIP table
-            WorkProposal is returned for tests
+        Does the work of a per-group refresh work item
+        Faults in the flattened membership of a group, as UIDs
+        and updates the GROUP_MEMBERSHIP table
+        WorkProposal is returned for tests
         """
         self.log.debug("Refreshing group: {g}", g=groupUID)
 
