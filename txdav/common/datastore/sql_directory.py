@@ -61,6 +61,7 @@ class GroupsRecord(SerializableRecord, fromTable(schema.GROUPS)):
         )
 
 
+
 class GroupMembershipRecord(SerializableRecord, fromTable(schema.GROUP_MEMBERSHIP)):
     """
     @DynamicAttrs
@@ -492,6 +493,7 @@ class GroupCacherAPIMixin(object):
         groups = set([record.groupUID.decode("utf-8") for record in results])
 
         returnValue(groups)
+
 
 
 class DelegatesAPIMixin(object):
