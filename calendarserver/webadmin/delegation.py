@@ -208,8 +208,10 @@ class stan(object):
         return self.tag
 
 
+
 def recordTitle(record):
     return u"{} ({} {})".format(record.fullNames[0], record.recordType.description, record.uid)
+
 
 
 class DetailsElement(Element):
