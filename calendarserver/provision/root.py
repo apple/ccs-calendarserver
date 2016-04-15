@@ -39,6 +39,7 @@ from twistedcaldav.extensions import DAVFile, CachingPropertyStore
 from twistedcaldav.extensions import DirectoryPrincipalPropertySearchMixIn
 from twistedcaldav.extensions import ReadOnlyResourceMixIn
 from twistedcaldav.resource import CalDAVComplianceMixIn
+from txdav.who.delegates import CachingDelegates
 from txdav.who.wiki import DirectoryService as WikiDirectoryService
 from txdav.who.wiki import uidForAuthToken
 from txweb2 import responsecode
@@ -93,9 +94,8 @@ class RootResource(
 
             # These class attributes need to be setup with our memcache\
             # notifier
-            DirectoryPrincipalResource.cacheNotifierFactory = (
-                MemcacheChangeNotifier
-            )
+            DirectoryPrincipalResource.cacheNotifierFactory = MemcacheChangeNotifier
+            CachingDelegates.cacheNotifier = MemcacheChangeNotifier(None, cacheHandle="PrincipalToken")
         else:
             self.responseCache = DisabledCache()
 

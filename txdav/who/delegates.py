@@ -233,6 +233,8 @@ class CachingDelegates(object):
     Manages access to the store's delegates API, including caching of results.
     """
 
+    cacheNotifier = None
+
     class DelegatesMemcacher(Memcacher):
 
         def __init__(self, namespace):
@@ -358,6 +360,11 @@ class CachingDelegates(object):
         else:
             yield txn.addDelegate(delegator.uid, delegate.uid, readWrite)
 
+        # Make sure notifications are sent
+        if self.cacheNotifier is not None:
+            yield self.cacheNotifier.changed("/principals/__uids__/{}/".format(delegator.uid))
+            yield self.cacheNotifier.changed("/principals/__uids__/{}/".format(delegate.uid))
+
         # Update cache (remove the member cache entry first as we need to recalculate it for
         # memberships removal)
         yield self._memcacher.deleteMember(delegator.uid, readWrite)
@@ -392,6 +399,11 @@ class CachingDelegates(object):
             yield txn.removeDelegateGroup(delegator.uid, group.groupID, readWrite)
         else:
             yield txn.removeDelegate(delegator.uid, delegate.uid, readWrite)
+
+        # Make sure notifications are sent
+        if self.cacheNotifier is not None:
+            yield self.cacheNotifier.changed("/principals/__uids__/{}/".format(delegator.uid))
+            yield self.cacheNotifier.changed("/principals/__uids__/{}/".format(delegate.uid))
 
         # Update cache (remove the member cache entry first as we need to recalculate it for
         # memberships removal)

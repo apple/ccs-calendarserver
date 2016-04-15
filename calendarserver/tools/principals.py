@@ -39,7 +39,9 @@ from twext.who.idirectory import RecordType, InvalidDirectoryRecordError
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav.config import config
-from txdav.who.delegates import Delegates, RecordType as DelegateRecordType
+from twistedcaldav.cache import MemcacheChangeNotifier
+from txdav.who.delegates import Delegates, RecordType as DelegateRecordType, \
+    CachingDelegates
 from txdav.who.idirectory import AutoScheduleMode
 from txdav.who.groups import GroupCacherPollingWork
 
@@ -125,12 +127,21 @@ class PrincipalService(WorkerService):
         Calls the function that's been assigned to "function" and passes the root
         resource, directory, store, and whatever has been assigned to "params".
         """
+        if (
+            config.EnableResponseCache and
+            config.Memcached.Pools.Default.ClientEnabled
+        ):
+            # These class attributes need to be setup with our memcache\
+            # notifier
+            CachingDelegates.cacheNotifier = MemcacheChangeNotifier(None, cacheHandle="PrincipalToken")
+
         if self.function is not None:
             yield self.function(self.store, *self.params)
 
 
 
 def main():
+
     try:
         (optargs, args) = getopt(
             sys.argv[1:], "a:hf:P:v", [

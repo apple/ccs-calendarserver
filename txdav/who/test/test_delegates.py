@@ -21,11 +21,27 @@ Delegates implementation tests
 from txdav.common.datastore.sql import CommonStoreTransaction
 from txdav.common.datastore.sql_directory import DelegateRecord, \
     DelegateGroupsRecord
-from txdav.who.delegates import Delegates, RecordType as DelegateRecordType
+from txdav.who.delegates import Delegates, RecordType as DelegateRecordType, \
+    CachingDelegates
 from txdav.who.groups import GroupCacher
 from twext.who.idirectory import RecordType
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, succeed
 from twistedcaldav.test.util import StoreTestCase
+
+
+class CapturingCacheNotifier(object):
+    def __init__(self, *args, **kwargs):
+        self.history = []
+
+
+    def changed(self, url=None):
+        self.history.append(url)
+        return succeed(None)
+
+
+    def clear(self):
+        self.history = []
+
 
 
 class DelegationTest(StoreTestCase):
@@ -301,6 +317,8 @@ class DelegationCachingTest(StoreTestCase):
 
         yield Delegates._memcacher.flushAll()
 
+        self.patch(CachingDelegates, "cacheNotifier", CapturingCacheNotifier())
+
 
     @inlineCallbacks
     def _memcacherMemberResults(self, delegate, readWrite, expanded, results):
@@ -447,6 +465,10 @@ class DelegationCachingTest(StoreTestCase):
         yield Delegates.addDelegate(self.transactionUnderTest(), delegator, delegate1, True)
         yield self.commit()
 
+        # Notifications
+        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sagen1__/",))) #@UndefinedVariable
+        Delegates.cacheNotifier.clear() #@UndefinedVariable
+
         # Some cache entries invalid
         yield self._memcacherAllMemberResults(delegator, None, [delegate1], None, None)
         yield self._memcacherAllMemberResults(delegate1, None, None, None, None)
@@ -498,6 +520,10 @@ class DelegationCachingTest(StoreTestCase):
         # Remove delegate
         yield Delegates.removeDelegate(self.transactionUnderTest(), delegator, delegate1, True)
         yield self.commit()
+
+        # Notifications
+        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sagen1__/",))) #@UndefinedVariable
+        Delegates.cacheNotifier.clear() #@UndefinedVariable
 
         # Some cache entries invalid
         yield self._memcacherAllMemberResults(delegator, None, [], [], [])
@@ -562,6 +588,10 @@ class DelegationCachingTest(StoreTestCase):
         yield Delegates.setDelegates(self.transactionUnderTest(), delegator, [delegates[0], delegates[1]], True)
         yield self.commit()
 
+        # Notifications
+        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sagen1__/", u"/principals/__uids__/__cdaboo1__/",))) #@UndefinedVariable
+        Delegates.cacheNotifier.clear() #@UndefinedVariable
+
         # Some cache entries invalid
         yield self._memcacherAllMemberResults(delegator, None, [delegates[0], delegates[1]], None, None)
         yield self._memcacherAllMembershipResults(delegator, None, None)
@@ -592,6 +622,10 @@ class DelegationCachingTest(StoreTestCase):
         # Remove delegate
         yield Delegates.setDelegates(self.transactionUnderTest(), delegator, [delegates[1], delegates[2]], True)
         yield self.commit()
+
+        # Notifications
+        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sagen1__/", u"/principals/__uids__/__dre1__/"))) #@UndefinedVariable
+        Delegates.cacheNotifier.clear() #@UndefinedVariable
 
         # Some cache entries invalid
         yield self._memcacherAllMemberResults(delegator, None, [delegates[1], delegates[2]], [], [])
@@ -625,6 +659,10 @@ class DelegationCachingTest(StoreTestCase):
         # Add delegate with other mode
         yield Delegates.setDelegates(self.transactionUnderTest(), delegator, [delegates[0]], False)
         yield self.commit()
+
+        # Notifications
+        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sagen1__/"))) #@UndefinedVariable
+        Delegates.cacheNotifier.clear() #@UndefinedVariable
 
         # Some cache entries invalid
         yield self._memcacherAllMemberResults(delegator, [delegates[1], delegates[2]], [delegates[1], delegates[2]], None, [delegates[0]])
@@ -679,6 +717,10 @@ class DelegationCachingTest(StoreTestCase):
         yield Delegates.setDelegates(self.transactionUnderTest(), delegator, [group1], True)
         yield self.commit()
 
+        # Notifications
+        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__top_group_1__/",))) #@UndefinedVariable
+        Delegates.cacheNotifier.clear() #@UndefinedVariable
+
         # Some cache entries invalid
         yield self._memcacherAllMemberResults(delegator, None, delegateMatch(0, 1, 2), None, None)
         yield self._memcacherAllMembershipResults(delegator, None, None)
@@ -711,6 +753,10 @@ class DelegationCachingTest(StoreTestCase):
         # Add individual delegate
         yield Delegates.setDelegates(self.transactionUnderTest(), delegator, [group1, delegates[3]], True)
         yield self.commit()
+
+        # Notifications
+        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__dre1__/"))) #@UndefinedVariable
+        Delegates.cacheNotifier.clear() #@UndefinedVariable
 
         # Some cache entries invalid
         yield self._memcacherAllMemberResults(delegator, None, delegateMatch(0, 1, 2, 3), [], [])
@@ -748,6 +794,10 @@ class DelegationCachingTest(StoreTestCase):
         yield Delegates.setDelegates(self.transactionUnderTest(), delegator, [group2, delegates[3]], True)
         yield self.commit()
 
+        # Notifications
+        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__top_group_1__/", u"/principals/__uids__/__sub_group_1__/"))) #@UndefinedVariable
+        Delegates.cacheNotifier.clear() #@UndefinedVariable
+
         # Some cache entries invalid
         yield self._memcacherAllMemberResults(delegator, None, delegateMatch(0, 1, 3), [], [])
         for delegate in delegates:
@@ -784,6 +834,10 @@ class DelegationCachingTest(StoreTestCase):
         yield Delegates.setDelegates(self.transactionUnderTest(), delegator, [group2, delegates[0], delegates[3]], True)
         yield self.commit()
 
+        # Notifications
+        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sagen1__/"))) #@UndefinedVariable
+        Delegates.cacheNotifier.clear() #@UndefinedVariable
+
         # Some cache entries invalid
         yield self._memcacherAllMemberResults(delegator, None, delegateMatch(0, 1, 3), [], [])
         for delegate in delegates:
@@ -819,6 +873,10 @@ class DelegationCachingTest(StoreTestCase):
         # Remove group
         yield Delegates.setDelegates(self.transactionUnderTest(), delegator, [delegates[0], delegates[3]], True)
         yield self.commit()
+
+        # Notifications
+        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sub_group_1__/"))) #@UndefinedVariable
+        Delegates.cacheNotifier.clear() #@UndefinedVariable
 
         # Some cache entries invalid
         yield self._memcacherAllMemberResults(delegator, None, delegateMatch(0, 3), [], [])

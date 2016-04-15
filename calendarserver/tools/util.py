@@ -100,9 +100,14 @@ def autoDisableMemcached(config):
     for pool in config.Memcached.Pools.itervalues():
         if pool.ClientEnabled:
             try:
-                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                s.connect((pool.BindAddress, pool.Port))
-                s.close()
+                if pool.MemcacheSocket:
+                    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                    s.connect(pool.MemcacheSocket)
+                    s.close()
+                else:
+                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s.connect((pool.BindAddress, pool.Port))
+                    s.close()
 
             except socket.error:
                 pool.ClientEnabled = False

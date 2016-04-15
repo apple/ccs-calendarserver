@@ -75,7 +75,7 @@ class DisabledCacheNotifier(object):
         pass
 
 
-    def changed(self):
+    def changed(self, url=None):
         return succeed(None)
 
 
@@ -118,15 +118,20 @@ class MemcacheChangeNotifier(CachePoolUserMixIn):
         return str(uuid.uuid4())
 
 
-    def changed(self):
+    def changed(self, url=None):
         """
         Change the cache token for a resource
+
+        @param url: the url whose token is being changed, or C{None} to determine
+            the URL from the supplied resource
+        @type: L{str}
 
         return: A L{Deferred} that fires when the token has been changed.
         """
 
         # For shared resources we use the owner URL as the cache key
-        url = self._resource.url()
+        if url is None:
+            url = self._resource.url()
 
         self.log.debug("Changing Cache Token for {url}", url=url)
         return self.getCachePool().set(
