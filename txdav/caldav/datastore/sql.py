@@ -3504,7 +3504,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                         changed = True
 
             # Update the LOCATION
-            newLocationValue = ";".join(existingLocations)
+            newLocationValue = "; ".join(existingLocations)
             if newLocationValue != existingLocationValue:
                 newLocProperty = Property(
                     "LOCATION",

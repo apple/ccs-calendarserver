@@ -2948,7 +2948,7 @@ END:VCALENDAR
         locProp = components[0].getProperty("LOCATION")
         self.assertEquals(
             locProp.value(),
-            "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014;Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014"
+            "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014; Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014"
         )
         structProps = tuple(components[0].properties("X-APPLE-STRUCTURED-LOCATION"))
         self.assertEqual(len(structProps), 2)
@@ -2985,7 +2985,7 @@ END:VCALENDAR
         locProp = components[0].getProperty("LOCATION")
         self.assertEquals(
             locProp.value(),
-            "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014;Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014"
+            "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014; Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014"
         )
         structProps = tuple(components[0].properties("X-APPLE-STRUCTURED-LOCATION"))
         self.assertEqual(len(structProps), 2)
@@ -3063,7 +3063,7 @@ END:VCALENDAR
         locProp = components[0].getProperty("LOCATION")
         self.assertEquals(
             locProp.value(),
-            "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014;Unstructured Location;Mercury Seven;Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014"
+            "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014; Unstructured Location; Mercury Seven; Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014"
         )
         structProps = tuple(components[0].properties("X-APPLE-STRUCTURED-LOCATION"))
         self.assertEqual(len(structProps), 3)
@@ -3132,7 +3132,7 @@ END:VCALENDAR
         locProp = components[0].getProperty("LOCATION")
         self.assertEquals(
             locProp.value(),
-            "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014;Unstructured Location;Falafel Stop\n1325 Sunnyvale Saratoga, Sunnyvale, CA 94087;Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014"
+            "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014; Unstructured Location; Falafel Stop\n1325 Sunnyvale Saratoga, Sunnyvale, CA 94087; Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014"
         )
 
         yield self.commit()
