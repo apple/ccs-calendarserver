@@ -1,5 +1,5 @@
-Developer's Guide to Hacking the Calendar Server
-================================================
+Developer's Guide to Contributing to the Calendar Server
+========================================================
 
 If you are interested in contributing to the Calendar and Contacts
 Server project, please read this document.
@@ -8,28 +8,30 @@ Server project, please read this document.
 Participating in the Community
 ==============================
 
-Although the Calendar and Contacts Server is sponsored and hosted by
-Apple Inc. (http://www.apple.com/), it's a true open-source project
-under an Apache license.  Contributions from other developers are
-welcome, and, as with all open development projects, may lead to
-"commit access" and a voice in the future of the project.
+The Calendar and Contacts Server began in 1996 -- an open source
+project sponsored and hosted by Apple Inc. (http://www.apple.com/).
+The project is now hosted at GitHub, and although it lives within
+the "apple" namespace it's still a true open-source project under
+an Apache license.  Contributions from other developers are welcome,
+and, as with all open development projects, may lead to "commit
+access" and a voice in the future of the project.
 
-The community exists mainly through mailing lists and a Subversion
+The community exists mainly through mailing lists and a GitHub
 repository. To participate, go to:
 
-  http://trac.calendarserver.org/projects/calendarserver/wiki/MailLists
+  https://trac.calendarserver.org/wiki/MailLists
 
 and join the appropriate mailing lists.  We also use IRC, as described
 here:
 
-  http://trac.calendarserver.org/projects/calendarserver/wiki/IRC
+  https://trac.calendarserver.org/wiki/IRC
 
 There are many ways to join the project.  One may write code, test the
 software and file bugs, write documentation, etc.
 
-The bug tracking database is here:
+The issue tracking database is here:
 
-  http://trac.calendarserver.org/projects/calendarserver/report
+  https://github.com/apple/ccs-calendarserver/issues
 
 To help manage the issues database, read over the issue summaries,
 looking and testing for issues that are either invalid, or are
@@ -38,7 +40,8 @@ because bugs often get unknowingly fixed as side effects of other
 changes in the code, and the second because people sometimes file an
 issue without noticing that it has already been reported. If you are
 not sure about an issue, post a question to
-calendarserver-dev@lists.macosforge.org.
+
+  calendarserver-dev@lists.macosforge.org.
 
 Before filing bugs, please take a moment to perform a quick search to
 see if someone else has already filed your bug.  In that case, add a
@@ -50,24 +53,9 @@ Obtaining the Code
 ==================
 
 The source code to the Calendar and Contacts Server is available via
-Subversion at this repository URL:
+Git at this repository URL:
 
-  http://svn.calendarserver.org/repository/calendarserver/CalendarServer/trunk/
-
-You can also browse the repository directly using your web browser, or
-use WebDAV clients to browse the repository, such as Mac OS X's Finder
-(`Go -> Connect to Server`).
-
-A richer web interface which provides access to version history and
-logs is available via Trac here:
-
-  http://trac.calendarserver.org/browser/
-
-Most developers will want to use a full-featured Subversion client.
-More information about Subversion, including documentation and client
-download instructions, is available from the Subversion project:
-
-  http://subversion.tigris.org/
+  https://github.com/apple/ccs-calendarserver.git
 
 
 Directory Layout
@@ -86,8 +74,6 @@ A rough guide to the source tree:
    Server
 
  * ``twistedcaldav/`` - Source code for CalDAV library
-
- * ``twistedcaldav/`` - Source code for extensions to Twisted
 
  * ``twisted/`` - Files required to set up the Calendar and Contacts
    Server as a Twisted service.  Twisted (http://twistedmatrix.com/)
@@ -123,14 +109,14 @@ that does not work with Python versions older than 2.6.
 
 Read PEP-8:
 
-  http://www.python.org/dev/peps/pep-0008/
+  https://www.python.org/dev/peps/pep-0008/
 
 For the most part, our code should follow PEP-8, with a few exceptions
 and a few additions.  It is also useful to review the Twisted Coding
 Standard, from which we borrow some standards, though we don't
 strictly follow it:
 
-   http://twistedmatrix.com/trac/browser/trunk/doc/development/policy/coding-standard.xhtml?format=raw
+   https://twistedmatrix.com/documents/current/core/development/policy/coding-standard.html
 
 Key items to follow, and specifics:
 
@@ -422,34 +408,14 @@ Units tests are written using the ``twisted.trial`` framework.  Test
 module names should start with ``test_``.  Twisted has some tips on
 writing tests here:
 
-  http://twistedmatrix.com/projects/core/documentation/howto/testing.html
+  https://twistedmatrix.com/documents/current/core/howto/testing.html
 
-  http://twistedmatrix.com/trac/browser/trunk/doc/development/policy/test-standard.xhtml?format=raw
+  https://twistedmatrix.com/documents/current/core/development/policy/test-standard.html
 
 We also use CalDAVTester (which is a companion to the Calendar and
-Contacts Server in the same Mac OS Forge project), which performs more
-"black box"-type testing against the server to ensure compliance with
-the CalDAV protocol.  That requires running the server with a test
-configuration and then running CalDAVTester against it.  For
-information about CalDAVTester is available here:
+Contacts Server), which performs more "black box"-type testing against
+the server to ensure compliance with the CalDAV protocol.  That requires
+running the server with a test configuration and then running
+CalDAVTester against it.  Information about CalDAVTester is available here:
 
-  http://trac.calendarserver.org/projects/calendarserver/wiki/CalDAVTester
-
-
-Commit Policy
-=============
-
-We follow a commit-then-review policy for relatively "safe" changes to
-the code.  If you have a rather straightforward change or are working
-on new functionality that does not affect existing functionality, you
-can commit that code without review at your discretion.
-
-Developers are encouraged to monitor the commit notifications that are
-sent via email after each commit and review/critique/comment on
-modifications as appropriate.
-
-Any changes that impact existing functionality should be reviewed by
-another developer before being committed.  Large changes should be
-made on a branch and merged after review.
-
-This policy relies on the discretion of committers.
+  https://github.com/apple/ccs-caldavtester
