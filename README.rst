@@ -58,7 +58,7 @@ Before you can run the server, you need to set up a configuration file for devel
 You will need to choose a directory service to use to populate your server's principals (users, groups, resources, and locations). A directory service provides the Calendar and Contacts Server with information about these principals. The directory services supported by Calendar and Contacts Server are:
 
 - XMLDirectoryService: this service is configurable via an XML file that contains principal information. The file conf/auth/accounts.xml provides an example principals configuration.
-- OpenDirectoryService: this service uses Apple's OpenDirectory client, the bulk of the configuration for which is handled external to Calendar and Contacts Server (e.g. System Preferences --> Usersi & Groups --> Login Options --> Network Account Server).
+- OpenDirectoryService: this service uses Apple's OpenDirectory client, the bulk of the configuration for which is handled external to Calendar and Contacts Server (e.g. System Preferences --> Users & Groups --> Login Options --> Network Account Server).
 - LdapDirectoryService: a highly flexible LDAP client that can leverage existing LDAP servers. See `twistedcaldav/stdconfig.py <https://trac.calendarserver.org/browser/CalendarServer/trunk/twistedcaldav/stdconfig.py>`_ for the available LdapDirectoryService options and their defaults. 
 
 The caldavd-test.plist configuration uses XMLDirectoryService by default, set up to use conf/auth/accounts-test.xml. This is a generally useful configuration for development and testing.
