@@ -32,9 +32,13 @@ import uuid
 
 from twext.python.log import Logger
 from twext.who.idirectory import RecordType as BaseRecordType
+
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.python.modules import getModule
 from twisted.web.template import XMLFile, Element, renderer
+
+from twistedcaldav import customxml
+from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.config import config, fullServerPath
 from twistedcaldav.database import (
     AbstractADBAPIDatabase, ADBAPISqliteMixin, ADBAPIPostgreSQLMixin
@@ -43,7 +47,6 @@ from twistedcaldav.directory.util import normalizeUUID
 from twistedcaldav.directory.util import (
     formatLink, formatLinks, formatPrincipals
 )
-
 from twistedcaldav.extensions import (
     DAVPrincipalResource, DAVResourceWithChildrenMixin
 )
@@ -51,9 +54,11 @@ from twistedcaldav.extensions import DirectoryElement
 from twistedcaldav.extensions import ReadOnlyWritePropertiesResourceMixIn
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.resource import CalDAVComplianceMixIn
+
 from txdav.who.delegates import RecordType as DelegateRecordType
 from txdav.xml import element as davxml
 from txdav.xml.base import dav_namespace
+
 from txweb2 import responsecode
 from txweb2.dav.noneprops import NonePropertyStore
 from txweb2.dav.util import joinURL
@@ -260,6 +265,33 @@ class CalendarUserProxyPrincipalResource (
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = NonePropertyStore(self)
         return self._dead_properties
+
+
+    @inlineCallbacks
+    def readProperty(self, property, request):
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        namespace, name = qname
+
+        if namespace == calendarserver_namespace:
+            if name == "record-type":
+                if hasattr(self.parent, "record"):
+                    returnValue(
+                        customxml.RecordType(
+                            self._recordTypeFromProxyType().description
+                        )
+                    )
+                else:
+                    raise HTTPError(StatusResponse(
+                        responsecode.NOT_FOUND,
+                        "Property %s does not exist." % (qname,)
+                    ))
+
+        result = (yield super(CalendarUserProxyPrincipalResource, self).readProperty(property, request))
+        returnValue(result)
 
 
     def writeProperty(self, property, request):
