@@ -283,6 +283,7 @@ class CommonHomeChildExternal(CommonHomeChild):
         return True
 
 
+    @inlineCallbacks
     def fixNonExistentExternalShare(self):
         """
         An external request has returned and indicates the external share no longer exists. That
@@ -291,6 +292,7 @@ class CommonHomeChildExternal(CommonHomeChild):
         log.error("Non-existent share detected and removed for {share}", share=self)
         ownerView = yield self.ownerView()
         yield ownerView.removeShare(self)
+        yield ownerView.cleanExternalShare()
 
 
     @inlineCallbacks

@@ -83,11 +83,20 @@ class FakeConduitRequest(ConduitRequest):
         """
 
         store = self.storeMap[self.server.details()]
+
+        # Force a failure of the entire request with the supplied exception type
+        if getattr(store, "_poddingFailure", None) is not None:
+            raise store._poddingFailure("Failed cross-pod request")
+
         j = json.loads(self.data)
         if self.stream is not None:
             j["stream"] = self.stream
             j["streamType"] = self.streamType
         try:
+            # Force a BAD cross-pod request with the supplied exception type
+            if getattr(store, "_poddingError", None) is not None:
+                raise store._poddingError("Failed cross-pod request")
+
             if store.conduit.isStreamAction(j):
                 stream = ProducerStream()
 

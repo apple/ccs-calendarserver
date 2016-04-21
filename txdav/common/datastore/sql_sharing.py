@@ -132,9 +132,7 @@ class SharingHomeMixIn(object):
 
         # See if there are any references to the external share. If not,
         # remove it
-        invites = yield ownerView.sharingInvites()
-        if len(invites) == 0:
-            yield ownerHome.removeExternalChild(ownerView)
+        yield ownerView.cleanExternalShare()
 
 
     @inlineCallbacks
@@ -476,7 +474,14 @@ class SharingMixIn(object):
         shareeView = yield self.shareeView(shareeUID)
         if shareeView is not None:
             if shareeView.viewerHome().external():
-                yield self._sendExternalUninvite(shareeView)
+                try:
+                    yield self._sendExternalUninvite(shareeView)
+                except Exception as e:
+                    # If the cross-pod request fails for some reason, ignore the exception and go ahead
+                    # and remove the share on this pod. It is up to the other pod to "heal" itself
+                    # by  detecting an invalid share when it is running properly again.
+                    log.error("Could not send sharing uninvite '{userid}': {ex}", userid=shareeUID, ex=e)
+
             else:
                 # If current user state is accepted then we send an invite with the new state, otherwise
                 # we cancel any existing invites for the user. Also, if the ownerHome is disabled, we assume
@@ -549,6 +554,20 @@ class SharingMixIn(object):
         # Remove all sharees (direct and invited)
         for invitation in (yield self.sharingInvites()):
             yield self.uninviteUIDFromShare(invitation.shareeUID)
+
+
+    @inlineCallbacks
+    def cleanExternalShare(self):
+        """
+        Called when an external share is removed. This method will remove the reference to
+        the external shared calendar when there are no more sharees on this pod.
+        """
+
+        # See if there are any references to the external share. If not,
+        # remove it
+        invites = yield self.sharingInvites()
+        if len(invites) == 0:
+            yield self._home.removeExternalChild(self)
 
 
     def newShare(self, displayname=None):
@@ -694,15 +713,21 @@ class SharingMixIn(object):
     @inlineCallbacks
     def _replyExternalInvite(self, status, summary=None):
 
-        yield self._txn.store().conduit.send_sharereply(
-            self._txn,
-            self.viewerHome()._homeType,
-            self.ownerHome().uid(),
-            self.viewerHome().uid(),
-            self.shareUID(),
-            status,
-            summary,
-        )
+        # If a reply to an external share fails, then assume the external share
+        # is broken and remove it from the local pod
+        try:
+            yield self._txn.store().conduit.send_sharereply(
+                self._txn,
+                self.viewerHome()._homeType,
+                self.ownerHome().uid(),
+                self.viewerHome().uid(),
+                self.shareUID(),
+                status,
+                summary,
+            )
+        except ExternalShareFailed:
+            yield self.fixNonExistentExternalShare()
+            raise ExternalShareFailed("External share does not exist")
 
 
     #

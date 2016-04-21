@@ -19,6 +19,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.common.datastore.podding.base import FailedCrossPodRequestError
 from txdav.common.datastore.sql_notification import NotificationCollection, \
     NotificationObject
+from txdav.common.icommondatastore import NonExistentExternalShare
 
 
 class UtilityConduitMixin(object):
@@ -137,7 +138,9 @@ class UtilityConduitMixin(object):
         elif "homeChildSharedID" in request:
             homeChild = yield home.childWithName(request["homeChildSharedID"])
             if homeChild is None:
-                raise FailedCrossPodRequestError("Invalid home child specified")
+                # Raise NonExistentExternalShare here so we can indicate to the other pod
+                # that it has a bogus share and it can fix itself
+                raise NonExistentExternalShare("Invalid home child specified")
             returnObject = homeChild
             if request.get("classMethod", False):
                 classObject = homeChild._objectResourceClass

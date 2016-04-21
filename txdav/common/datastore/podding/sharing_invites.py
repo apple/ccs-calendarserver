@@ -166,7 +166,7 @@ class SharingInvitesConduitMixin(object):
         # Sharee home on this pod must already exist
         shareeHome = yield txn.homeWithUID(request["type"], request["sharee"])
         if shareeHome is None or shareeHome.external():
-            FailedCrossPodRequestError("Invalid sharee UID specified")
+            raise FailedCrossPodRequestError("Invalid sharee UID specified")
 
         # Remove a share
         yield shareeHome.processExternalUninvite(
@@ -229,7 +229,7 @@ class SharingInvitesConduitMixin(object):
         # Sharer home on this pod must already exist
         ownerHome = yield txn.homeWithUID(request["type"], request["owner"])
         if ownerHome is None or ownerHome.external():
-            FailedCrossPodRequestError("Invalid owner UID specified")
+            raise FailedCrossPodRequestError("Invalid owner UID specified")
 
         # Process a reply
         yield ownerHome.processExternalReply(

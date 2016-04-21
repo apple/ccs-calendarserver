@@ -63,6 +63,7 @@ from txdav.caldav.icalendarstore import (
 from txdav.carddav.iaddressbookstore import (
     KindChangeNotAllowedError, GroupWithUnsharedAddressNotAllowedError
 )
+from txdav.common.datastore.podding.base import FailedCrossPodRequestError
 from txdav.common.datastore.sql_tables import (
     _BIND_MODE_READ, _BIND_MODE_WRITE,
     _BIND_MODE_DIRECT, _BIND_STATUS_ACCEPTED
@@ -204,7 +205,101 @@ class _NewStoreFileMetaDataHelper(object):
 
 
 
-class _CommonHomeChildCollectionMixin(object):
+class _CommonStoreExceptionHandler(object):
+    """
+    A mix-in class that is used to help trap store exceptions and turn them into
+    appropriate HTTP errors.
+
+    The class properties define mappings from a store exception type to a L{tuple} whose
+    first item is one of the class methods defined in this mix-in, and whose second argument
+    is the L{arg} passed to the class method. In some cases the second L{tuple} item will not
+    be present, and instead the argument will be directly provided to the class method.
+    """
+
+    # The following are used to map store exceptions into HTTP error responses
+    StoreExceptionsErrors = {}
+    StoreMoveExceptionsErrors = {}
+
+    @classmethod
+    def _storeExceptionStatus(cls, err, arg):
+        """
+        Raise a status error.
+
+        @param err: the actual exception that caused the error
+        @type err: L{Exception}
+        @param arg: description of error or C{None}
+        @type arg: C{str} or C{None}
+        """
+        raise HTTPError(StatusResponse(responsecode.FORBIDDEN, arg if arg is not None else str(err)))
+
+
+    @classmethod
+    def _storeExceptionError(cls, err, arg):
+        """
+        Raise a DAV:error error with the supplied error element.
+
+        @param err: the actual exception that caused the error
+        @type err: L{Exception}
+        @param arg: the error element
+        @type arg: C{tuple}
+        """
+        raise HTTPError(ErrorResponse(
+            responsecode.FORBIDDEN,
+            arg,
+            str(err),
+        ))
+
+
+    @classmethod
+    def _storeExceptionUnavailable(cls, err, arg):
+        """
+        Raise a service unavailable error.
+
+        @param err: the actual exception that caused the error
+        @type err: L{Exception}
+        @param arg: description of error or C{None}
+        @type arg: C{str} or C{None}
+        """
+        raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE, arg if arg is not None else str(err)))
+
+
+    @classmethod
+    def _handleStoreException(cls, ex, exceptionMap):
+        """
+        Process a store exception and see if it is in the supplied mapping. If so, execute the
+        method in the mapping (which will raise an HTTPError).
+
+        @param ex: the store exception that was raised
+        @type ex: L{Exception}
+        @param exceptionMap: the store exception mapping to use
+        @type exceptionMap: L{dict}
+        """
+        if type(ex) in exceptionMap:
+            error, arg = exceptionMap[type(ex)]
+            error(ex, arg)
+
+
+    @classmethod
+    def _handleStoreExceptionArg(cls, ex, exceptionMap, arg):
+        """
+        Process a store exception and see if it is in the supplied mapping. If so, execute the
+        method in the mapping (which will raise an HTTPError). This method is used when the argument
+        to the class method needs to be provided at runtime, rather than statically.
+
+        @param ex: the store exception that was raised
+        @type ex: L{Exception}
+        @param exceptionSet: the store exception set to use
+        @type exceptionSet: L{set}
+        @param arg: the argument to use
+        @type arg: L{object}
+        """
+        if type(ex) in exceptionMap:
+            error = exceptionMap[type(ex)]
+            error(ex, arg)
+
+
+
+class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
     """
     Methods for things which are like calendars.
     """
@@ -446,7 +541,11 @@ class _CommonHomeChildCollectionMixin(object):
             )
             log.error(msg)
             raise HTTPError(StatusResponse(BAD_REQUEST, msg))
-        response = (yield self.storeRemove(request))
+        try:
+            response = (yield self.storeRemove(request))
+        except Exception as err:
+            self._handleStoreException(err, self.StoreExceptionsErrors)
+            raise
         returnValue(response)
 
 
@@ -1051,6 +1150,12 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
     """
     Wrapper around a L{txdav.caldav.icalendar.ICalendar}.
     """
+
+    StoreExceptionsErrors = {
+        LockTimeout: (_CommonStoreExceptionHandler._storeExceptionUnavailable, "Lock timed out.",),
+        AlreadyInTrashError: (_CommonStoreExceptionHandler._storeExceptionError, (calendarserver_namespace, "not-in-trash",),),
+        FailedCrossPodRequestError: (_CommonStoreExceptionHandler._storeExceptionUnavailable, "Cross-pod request failed.",),
+    }
 
     def __init__(self, calendar, home, name=None, *args, **kw):
         """
@@ -2204,7 +2309,7 @@ class NoParent(CalDAVResource):
 
 
 
-class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEqMixin):
+class _CommonObjectResource(_NewStoreFileMetaDataHelper, _CommonStoreExceptionHandler, CalDAVResource, FancyEqMixin):
 
     _componentFromStream = None
 
@@ -2323,53 +2428,6 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
         returnValue(response)
 
-    # The following are used to map store exceptions into HTTP error responses
-    StoreExceptionsErrors = {}
-    StoreMoveExceptionsErrors = {}
-    StoreRemoveExceptionsErrors = {}
-
-    @classmethod
-    def _storeExceptionStatus(cls, err, arg):
-        """
-        Raise a status error.
-
-        @param err: the actual exception that caused the error
-        @type err: L{Exception}
-        @param arg: description of error or C{None}
-        @type arg: C{str} or C{None}
-        """
-        raise HTTPError(StatusResponse(responsecode.FORBIDDEN, arg if arg is not None else str(err)))
-
-
-    @classmethod
-    def _storeExceptionError(cls, err, arg):
-        """
-        Raise a DAV:error error with the supplied error element.
-
-        @param err: the actual exception that caused the error
-        @type err: L{Exception}
-        @param arg: the error element
-        @type arg: C{tuple}
-        """
-        raise HTTPError(ErrorResponse(
-            responsecode.FORBIDDEN,
-            arg,
-            str(err),
-        ))
-
-
-    @classmethod
-    def _storeExceptionUnavailable(cls, err, arg):
-        """
-        Raise a service unavailable error.
-
-        @param err: the actual exception that caused the error
-        @type err: L{Exception}
-        @param arg: description of error or C{None}
-        @type arg: C{str} or C{None}
-        """
-        raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE, arg if arg is not None else str(err)))
-
 
     @requiresPermissions(fromParent=[davxml.Unbind()])
     def http_DELETE(self, request):
@@ -2459,16 +2517,8 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
         # Handle the various store errors
         except Exception as err:
-
-            # Grab the current exception state here so we can use it in a re-raise - we need this because
-            # an inlineCallback might be called and that raises an exception when it returns, wiping out the
-            # original exception "context".
-            if type(err) in self.StoreMoveExceptionsErrors:
-                error, arg = self.StoreMoveExceptionsErrors[type(err)]
-                error(err, arg)
-            else:
-                # Return the original failure (exception) state
-                raise
+            self._handleStoreException(err, self.StoreMoveExceptionsErrors)
+            raise
 
 
     def http_PROPPATCH(self, request):
@@ -2508,11 +2558,8 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
         # Map store exception to HTTP errors
         except Exception as err:
-            if type(err) in self.StoreExceptionsErrors:
-                error, arg = self.StoreExceptionsErrors[type(err)]
-                error(err, arg)
-            else:
-                raise
+            self._handleStoreException(err, self.StoreExceptionsErrors)
+            raise
 
 
     @inlineCallbacks
@@ -2557,11 +2604,8 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
         # Map store exception to HTTP errors
         except Exception as err:
-            if type(err) in self.StoreExceptionsErrors:
-                error, arg = self.StoreExceptionsErrors[type(err)]
-                error(err, arg)
-            else:
-                raise
+            self._handleStoreException(err, self.StoreExceptionsErrors)
+            raise
 
         # Re-initialize to get stuff setup again now we have no object
         self._initializeWithObject(None, self._newStoreParent)
@@ -2698,52 +2742,49 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             return False
 
     StoreExceptionsErrors = {
-        ObjectResourceNameNotAllowedError: (_CommonObjectResource._storeExceptionStatus, None,),
-        ObjectResourceNameAlreadyExistsError: (_CommonObjectResource._storeExceptionStatus, None,),
-        TooManyObjectResourcesError: (_CommonObjectResource._storeExceptionError, customxml.MaxResources(),),
-        ObjectResourceTooBigError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "max-resource-size"),),
-        InvalidObjectResourceError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-calendar-data"),),
-        InvalidComponentForStoreError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-calendar-object-resource"),),
-        InvalidComponentTypeError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "supported-calendar-component"),),
-        TooManyAttendeesError: (_CommonObjectResource._storeExceptionError, MaxAttendeesPerInstance.fromString(str(config.MaxAttendeesPerInstance)),),
-        InvalidCalendarAccessError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "valid-access-restriction"),),
-        ValidOrganizerError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "valid-organizer"),),
-        UIDExistsError: (_CommonObjectResource._storeExceptionError, NoUIDConflict(),),
-        UIDExistsElsewhereError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "unique-scheduling-object-resource"),),
-        InvalidUIDError: (_CommonObjectResource._storeExceptionError, NoUIDConflict(),),
-        InvalidPerUserDataMerge: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-calendar-data"),),
-        AttendeeAllowedError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "attendee-allowed"),),
-        InvalidOverriddenInstanceError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-calendar-data"),),
-        TooManyInstancesError: (_CommonObjectResource._storeExceptionError, MaxInstances.fromString(str(config.MaxAllowedInstances)),),
-        AttachmentStoreValidManagedID: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-managed-id"),),
-        ShareeAllowedError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "sharee-privilege-needed",),),
-        DuplicatePrivateCommentsError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "no-duplicate-private-comments",),),
-        LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
-        UnknownTimezone: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-timezone"),),
-        AlreadyInTrashError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "not-in-trash",),),
+        ObjectResourceNameNotAllowedError: (_CommonStoreExceptionHandler._storeExceptionStatus, None,),
+        ObjectResourceNameAlreadyExistsError: (_CommonStoreExceptionHandler._storeExceptionStatus, None,),
+        TooManyObjectResourcesError: (_CommonStoreExceptionHandler._storeExceptionError, customxml.MaxResources(),),
+        ObjectResourceTooBigError: (_CommonStoreExceptionHandler._storeExceptionError, (caldav_namespace, "max-resource-size"),),
+        InvalidObjectResourceError: (_CommonStoreExceptionHandler._storeExceptionError, (caldav_namespace, "valid-calendar-data"),),
+        InvalidComponentForStoreError: (_CommonStoreExceptionHandler._storeExceptionError, (caldav_namespace, "valid-calendar-object-resource"),),
+        InvalidComponentTypeError: (_CommonStoreExceptionHandler._storeExceptionError, (caldav_namespace, "supported-calendar-component"),),
+        TooManyAttendeesError: (_CommonStoreExceptionHandler._storeExceptionError, MaxAttendeesPerInstance.fromString(str(config.MaxAttendeesPerInstance)),),
+        InvalidCalendarAccessError: (_CommonStoreExceptionHandler._storeExceptionError, (calendarserver_namespace, "valid-access-restriction"),),
+        ValidOrganizerError: (_CommonStoreExceptionHandler._storeExceptionError, (calendarserver_namespace, "valid-organizer"),),
+        UIDExistsError: (_CommonStoreExceptionHandler._storeExceptionError, NoUIDConflict(),),
+        UIDExistsElsewhereError: (_CommonStoreExceptionHandler._storeExceptionError, (caldav_namespace, "unique-scheduling-object-resource"),),
+        InvalidUIDError: (_CommonStoreExceptionHandler._storeExceptionError, NoUIDConflict(),),
+        InvalidPerUserDataMerge: (_CommonStoreExceptionHandler._storeExceptionError, (caldav_namespace, "valid-calendar-data"),),
+        AttendeeAllowedError: (_CommonStoreExceptionHandler._storeExceptionError, (caldav_namespace, "attendee-allowed"),),
+        InvalidOverriddenInstanceError: (_CommonStoreExceptionHandler._storeExceptionError, (caldav_namespace, "valid-calendar-data"),),
+        TooManyInstancesError: (_CommonStoreExceptionHandler._storeExceptionError, MaxInstances.fromString(str(config.MaxAllowedInstances)),),
+        AttachmentStoreValidManagedID: (_CommonStoreExceptionHandler._storeExceptionError, (caldav_namespace, "valid-managed-id"),),
+        ShareeAllowedError: (_CommonStoreExceptionHandler._storeExceptionError, (calendarserver_namespace, "sharee-privilege-needed",),),
+        DuplicatePrivateCommentsError: (_CommonStoreExceptionHandler._storeExceptionError, (calendarserver_namespace, "no-duplicate-private-comments",),),
+        LockTimeout: (_CommonStoreExceptionHandler._storeExceptionUnavailable, "Lock timed out.",),
+        UnknownTimezone: (_CommonStoreExceptionHandler._storeExceptionError, (caldav_namespace, "valid-timezone"),),
+        AlreadyInTrashError: (_CommonStoreExceptionHandler._storeExceptionError, (calendarserver_namespace, "not-in-trash",),),
+        FailedCrossPodRequestError: (_CommonStoreExceptionHandler._storeExceptionUnavailable, "Cross-pod request failed.",),
     }
 
     StoreMoveExceptionsErrors = {
-        ObjectResourceNameNotAllowedError: (_CommonObjectResource._storeExceptionStatus, None,),
-        ObjectResourceNameAlreadyExistsError: (_CommonObjectResource._storeExceptionStatus, None,),
-        TooManyObjectResourcesError: (_CommonObjectResource._storeExceptionError, customxml.MaxResources(),),
-        InvalidResourceMove: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "valid-move"),),
-        InvalidComponentTypeError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "supported-calendar-component"),),
-        LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
+        ObjectResourceNameNotAllowedError: (_CommonStoreExceptionHandler._storeExceptionStatus, None,),
+        ObjectResourceNameAlreadyExistsError: (_CommonStoreExceptionHandler._storeExceptionStatus, None,),
+        TooManyObjectResourcesError: (_CommonStoreExceptionHandler._storeExceptionError, customxml.MaxResources(),),
+        InvalidResourceMove: (_CommonStoreExceptionHandler._storeExceptionError, (calendarserver_namespace, "valid-move"),),
+        InvalidComponentTypeError: (_CommonStoreExceptionHandler._storeExceptionError, (caldav_namespace, "supported-calendar-component"),),
+        LockTimeout: (_CommonStoreExceptionHandler._storeExceptionUnavailable, "Lock timed out.",),
     }
 
-    StoreRemoveExceptionsErrors = {
-        LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
+    StoreAttachmentValidErrors = {
+        AttachmentStoreFailed: _CommonStoreExceptionHandler._storeExceptionError,
+        InvalidAttachmentOperation: _CommonStoreExceptionHandler._storeExceptionError,
     }
-
-    StoreAttachmentValidErrors = set((
-        AttachmentStoreFailed,
-        InvalidAttachmentOperation,
-    ))
 
     StoreAttachmentExceptionsErrors = {
-        AttachmentStoreValidManagedID: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-managed-id-parameter",),),
-        AttachmentRemoveFailed: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-attachment-remove",),),
+        AttachmentStoreValidManagedID: (_CommonStoreExceptionHandler._storeExceptionError, (caldav_namespace, "valid-managed-id-parameter",),),
+        AttachmentRemoveFailed: (_CommonStoreExceptionHandler._storeExceptionError, (caldav_namespace, "valid-attachment-remove",),),
     }
 
 
@@ -3218,19 +3259,10 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         # Map store exception to HTTP errors
         except Exception as err:
 
-            if type(err) in self.StoreAttachmentValidErrors:
-                self._storeExceptionError(err, (caldav_namespace, valid_preconditions[action],))
-
-            elif type(err) in self.StoreAttachmentExceptionsErrors:
-                error, arg = self.StoreAttachmentExceptionsErrors[type(err)]
-                error(err, arg)
-
-            elif type(err) in self.StoreExceptionsErrors:
-                error, arg = self.StoreExceptionsErrors[type(err)]
-                error(err, arg)
-
-            else:
-                raise
+            self._handleStoreExceptionArg(err, self.StoreAttachmentValidErrors, (caldav_namespace, valid_preconditions[action],))
+            self._handleStoreException(err, self.StoreAttachmentExceptionsErrors)
+            self._handleStoreException(err, self.StoreExceptionsErrors)
+            raise
 
         # Look for Prefer header
         result = yield self._processPrefer(request, post_result)
@@ -3530,28 +3562,25 @@ class AddressBookObjectResource(_CommonObjectResource):
     vCard = _CommonObjectResource.component
 
     StoreExceptionsErrors = {
-        ObjectResourceNameNotAllowedError: (_CommonObjectResource._storeExceptionStatus, None,),
-        ObjectResourceNameAlreadyExistsError: (_CommonObjectResource._storeExceptionStatus, None,),
-        TooManyObjectResourcesError: (_CommonObjectResource._storeExceptionError, customxml.MaxResources(),),
-        ObjectResourceTooBigError: (_CommonObjectResource._storeExceptionError, (carddav_namespace, "max-resource-size"),),
-        InvalidObjectResourceError: (_CommonObjectResource._storeExceptionError, (carddav_namespace, "valid-address-data"),),
-        InvalidComponentForStoreError: (_CommonObjectResource._storeExceptionError, (carddav_namespace, "valid-addressbook-object-resource"),),
-        UIDExistsError: (_CommonObjectResource._storeExceptionError, NovCardUIDConflict(),),
-        InvalidUIDError: (_CommonObjectResource._storeExceptionError, NovCardUIDConflict(),),
-        InvalidPerUserDataMerge: (_CommonObjectResource._storeExceptionError, (carddav_namespace, "valid-address-data"),),
-        LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
+        ObjectResourceNameNotAllowedError: (_CommonStoreExceptionHandler._storeExceptionStatus, None,),
+        ObjectResourceNameAlreadyExistsError: (_CommonStoreExceptionHandler._storeExceptionStatus, None,),
+        TooManyObjectResourcesError: (_CommonStoreExceptionHandler._storeExceptionError, customxml.MaxResources(),),
+        ObjectResourceTooBigError: (_CommonStoreExceptionHandler._storeExceptionError, (carddav_namespace, "max-resource-size"),),
+        InvalidObjectResourceError: (_CommonStoreExceptionHandler._storeExceptionError, (carddav_namespace, "valid-address-data"),),
+        InvalidComponentForStoreError: (_CommonStoreExceptionHandler._storeExceptionError, (carddav_namespace, "valid-addressbook-object-resource"),),
+        UIDExistsError: (_CommonStoreExceptionHandler._storeExceptionError, NovCardUIDConflict(),),
+        InvalidUIDError: (_CommonStoreExceptionHandler._storeExceptionError, NovCardUIDConflict(),),
+        InvalidPerUserDataMerge: (_CommonStoreExceptionHandler._storeExceptionError, (carddav_namespace, "valid-address-data"),),
+        LockTimeout: (_CommonStoreExceptionHandler._storeExceptionUnavailable, "Lock timed out.",),
+        FailedCrossPodRequestError: (_CommonStoreExceptionHandler._storeExceptionUnavailable, "Cross-pod request failed.",),
     }
 
     StoreMoveExceptionsErrors = {
-        ObjectResourceNameNotAllowedError: (_CommonObjectResource._storeExceptionStatus, None,),
-        ObjectResourceNameAlreadyExistsError: (_CommonObjectResource._storeExceptionStatus, None,),
-        TooManyObjectResourcesError: (_CommonObjectResource._storeExceptionError, customxml.MaxResources(),),
-        InvalidResourceMove: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "valid-move"),),
-        LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
-    }
-
-    StoreRemoveExceptionsErrors = {
-        LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
+        ObjectResourceNameNotAllowedError: (_CommonStoreExceptionHandler._storeExceptionStatus, None,),
+        ObjectResourceNameAlreadyExistsError: (_CommonStoreExceptionHandler._storeExceptionStatus, None,),
+        TooManyObjectResourcesError: (_CommonStoreExceptionHandler._storeExceptionError, customxml.MaxResources(),),
+        InvalidResourceMove: (_CommonStoreExceptionHandler._storeExceptionError, (calendarserver_namespace, "valid-move"),),
+        LockTimeout: (_CommonStoreExceptionHandler._storeExceptionUnavailable, "Lock timed out.",),
     }
 
 

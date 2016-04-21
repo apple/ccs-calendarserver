@@ -57,7 +57,7 @@ from twistedcaldav.vcard import Component as vComponent
 
 from txdav.caldav.datastore.util import normalizationLookup
 from txdav.common.icommondatastore import InternalDataStoreError, \
-    SyncTokenValidException
+    SyncTokenValidException, ExternalShareFailed
 from txdav.xml import element
 from txdav.xml.element import dav_namespace
 
@@ -357,6 +357,12 @@ class CalDAVResource (
             response = yield super(CalDAVResource, self).renderHTTP(request)
         except AlreadyFinishedError:
             self._transactionError = True
+        except ExternalShareFailed:
+            # This happens when an external share is no longer valid and has been fixed
+            # by removing it from this pod. We need to treat this as a 503 "error" but let
+            # the transaction commit
+            self._transactionError = False
+            response = StatusResponse(responsecode.SERVICE_UNAVAILABLE, "Shared collection not valid - removing.")
         if transaction is None:
             transaction = self._associatedTransaction
         if transaction is not None:

@@ -20,8 +20,11 @@ from twisted.internet.defer import inlineCallbacks
 from twext.python.clsprop import classproperty
 from txdav.common.datastore.test.util import populateCalendarsFrom
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, \
-    _BIND_STATUS_INVITED, _BIND_MODE_DIRECT, _BIND_STATUS_ACCEPTED
+    _BIND_STATUS_INVITED, _BIND_MODE_DIRECT, _BIND_STATUS_ACCEPTED, \
+    _HOME_STATUS_EXTERNAL, _BIND_MODE_WRITE
 from txdav.common.datastore.podding.test.util import MultiStoreConduitTest
+from txdav.common.datastore.podding.base import FailedCrossPodRequestError
+from txdav.common.icommondatastore import ExternalShareFailed
 
 
 class BaseSharingTests(MultiStoreConduitTest):
@@ -83,6 +86,14 @@ END:VCALENDAR
 
 
 class CalendarSharing(BaseSharingTests):
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(CalendarSharing, self).setUp()
+        for store in self.theStores:
+            store._poddingFailure = None
+            store._poddingError = None
+
 
     @inlineCallbacks
     def test_no_shares(self):
@@ -564,6 +575,166 @@ class CalendarSharing(BaseSharingTests):
         txn2 = self.theTransactionUnderTest(1)
         otherCal = yield self.calendarUnderTest(txn=txn2, home="puser03", name=shared_name2)
         self.assertTrue(otherCal is not None)
+        yield self.commitTransaction(1)
+
+
+    @inlineCallbacks
+    def test_invite_sharee_failure(self):
+        """
+        Test invite fails gracefully when the other pod is down.
+        """
+
+        # Force store to generate 500 error
+        self.patch(self.theStores[1], "_poddingFailure", ValueError)
+
+        # Invite
+        calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 0)
+        self.assertFalse(calendar.isShared())
+
+        yield self.assertFailure(calendar.inviteUIDToShare("puser02", _BIND_MODE_READ, "summary"), FailedCrossPodRequestError)
+
+
+    @inlineCallbacks
+    def test_uninvite_sharee_failure(self):
+        """
+        Test uninvite fails gracefully when the other pod is down.
+        Also test that the sharee bind entry is removed when an invalid share is detected.
+        """
+
+        # Invite
+        sharedName = yield self.createShare("user01", "puser02", "calendar")
+
+        # Has external sharee bind entry
+        home = yield self.homeUnderTest(
+            txn=self.theTransactionUnderTest(0), name="puser02", status=_HOME_STATUS_EXTERNAL
+        )
+        calendar = yield home.anyObjectWithShareUID(sharedName)
+        self.assertTrue(calendar is not None)
+        yield self.commitTransaction(0)
+
+        # Force store to generate 500 error
+        self.patch(self.theStores[1], "_poddingFailure", ValueError)
+
+        yield self.removeShare("user01", "puser02", "calendar")
+
+        # Store working again
+        self.patch(self.theStores[1], "_poddingFailure", None)
+
+        # No external sharee bind entry
+        home = yield self.homeUnderTest(
+            txn=self.theTransactionUnderTest(0), name="puser02", status=_HOME_STATUS_EXTERNAL
+        )
+        calendar = yield home.anyObjectWithShareUID(sharedName)
+        self.assertTrue(calendar is None)
+        yield self.commitTransaction(0)
+
+        # Has external sharer bind entry
+        home = yield self.homeUnderTest(
+            txn=self.theTransactionUnderTest(1), name="user01", status=_HOME_STATUS_EXTERNAL
+        )
+        calendar = yield home.anyObjectWithShareUID("calendar")
+        self.assertTrue(calendar is not None)
+        yield self.commitTransaction(1)
+
+        # Has sharee bind entry
+        home = yield self.homeUnderTest(
+            txn=self.theTransactionUnderTest(1), name="puser02"
+        )
+        calendar = yield home.anyObjectWithShareUID(sharedName)
+        self.assertTrue(calendar is not None)
+        yield self.commitTransaction(1)
+
+        # Force clean-up of sharee calendar
+        home = yield self.homeUnderTest(
+            txn=self.theTransactionUnderTest(1), name="puser02"
+        )
+        calendar = yield home.anyObjectWithShareUID(sharedName)
+        yield self.assertFailure(calendar.syncTokenRevision(), ExternalShareFailed)
+        yield self.commitTransaction(1)
+
+        # External sharer bind entry gone
+        home = yield self.homeUnderTest(
+            txn=self.theTransactionUnderTest(1), name="user01", status=_HOME_STATUS_EXTERNAL
+        )
+        calendar = yield home.anyObjectWithShareUID("calendar")
+        self.assertTrue(calendar is None)
+        yield self.commitTransaction(1)
+
+        # Sharee bind entry gone
+        home = yield self.homeUnderTest(
+            txn=self.theTransactionUnderTest(1), name="puser02"
+        )
+        calendar = yield home.anyObjectWithShareUID(sharedName)
+        self.assertTrue(calendar is None)
+        yield self.commitTransaction(1)
+
+
+    @inlineCallbacks
+    def test_reply_sharee_failure(self):
+        """
+        Test sharee reply fails and cleans up when the share is invalid.
+        """
+
+        # Invite
+        home = yield self.homeUnderTest(
+            txn=self.theTransactionUnderTest(0), name="user01", create=True
+        )
+        calendar = yield home.calendarWithName("calendar")
+        yield calendar.inviteUIDToShare(
+            "puser02", _BIND_MODE_WRITE, "shared", shareName="shared-calendar"
+        )
+        yield self.commitTransaction(0)
+
+        # Has external sharee bind entry
+        home = yield self.homeUnderTest(
+            txn=self.theTransactionUnderTest(0), name="puser02", status=_HOME_STATUS_EXTERNAL
+        )
+        calendar = yield home.anyObjectWithShareUID("shared-calendar")
+        self.assertTrue(calendar is not None)
+        yield self.commitTransaction(0)
+
+        # Has external sharer bind entry
+        home = yield self.homeUnderTest(
+            txn=self.theTransactionUnderTest(1), name="user01", status=_HOME_STATUS_EXTERNAL
+        )
+        calendar = yield home.anyObjectWithShareUID("calendar")
+        self.assertTrue(calendar is not None)
+        yield self.commitTransaction(1)
+
+        # Has sharee bind entry
+        home = yield self.homeUnderTest(
+            txn=self.theTransactionUnderTest(1), name="puser02"
+        )
+        calendar = yield home.anyObjectWithShareUID("shared-calendar")
+        self.assertTrue(calendar is not None)
+        yield self.commitTransaction(1)
+
+        # Force store to generate an error
+        self.patch(self.theStores[0], "_poddingError", ExternalShareFailed)
+
+        # ACK: home2 is None
+        home2 = yield self.homeUnderTest(
+            txn=self.theTransactionUnderTest(1), name="puser02"
+        )
+        yield self.assertFailure(home2.acceptShare("shared-calendar"), ExternalShareFailed)
+        yield self.commitTransaction(1)
+
+        # External sharer bind entry gone
+        home = yield self.homeUnderTest(
+            txn=self.theTransactionUnderTest(1), name="user01", status=_HOME_STATUS_EXTERNAL
+        )
+        calendar = yield home.anyObjectWithShareUID("calendar")
+        self.assertTrue(calendar is None)
+        yield self.commitTransaction(1)
+
+        # Sharee bind entry gone
+        home = yield self.homeUnderTest(
+            txn=self.theTransactionUnderTest(1), name="puser02"
+        )
+        calendar = yield home.anyObjectWithShareUID("shared-calendar")
+        self.assertTrue(calendar is None)
         yield self.commitTransaction(1)
 
 
