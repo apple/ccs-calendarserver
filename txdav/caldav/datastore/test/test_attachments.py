@@ -1440,6 +1440,61 @@ class ManagedAttachmentTests(AttachmentTests):
         self.assertEqual(quota, 0)
 
 
+    @inlineCallbacks
+    def test_resourceCheckAttachments_clientRemovesParameters(self):
+        """
+        L{ICalendarObject.resourceCheckAttachments} will properly handle clients stripping parameters.
+        """
+
+        # Create attachment
+        obj = yield self.calendarObjectUnderTest()
+        yield obj.addAttachment(None, MimeType("text", "x-fixture"), "new.attachment", MemoryStream("new attachment text"))
+        yield self.commit()
+
+        # Verify parameters exist
+        obj = yield self.calendarObjectUnderTest()
+        component = yield obj.componentForUser()
+        attachments = component.getAllPropertiesInAnyComponent("ATTACH", depth=1,)
+        self.assertEqual(len(attachments), 1)
+        attach = attachments[0]
+        managed_id = attach.parameterValue("MANAGED-ID")
+        fmttype = attach.parameterValue("FMTTYPE")
+        filename = attach.parameterValue("FILENAME")
+        size = attach.parameterValue("SIZE")
+
+        self.assertEqual(fmttype, "text/x-fixture")
+        self.assertEqual(filename, "new.attachment")
+        self.assertEqual(int(size), 19)
+
+        # Remove parameters and write it back
+        attach.removeParameter("MANAGED-ID")
+        attach.removeParameter("FMTTYPE")
+        attach.removeParameter("FILENAME")
+        attach.removeParameter("SIZE")
+        yield obj.setComponent(component.duplicate())
+        yield self.commit()
+
+        # Verify parameters recovered
+        obj = yield self.calendarObjectUnderTest()
+        component = yield obj.componentForUser()
+        attachments = component.getAllPropertiesInAnyComponent("ATTACH", depth=1,)
+        self.assertEqual(len(attachments), 1)
+        attach = attachments[0]
+        managed_id2 = attach.parameterValue("MANAGED-ID")
+        fmttype2 = attach.parameterValue("FMTTYPE")
+        filename2 = attach.parameterValue("FILENAME")
+        size2 = attach.parameterValue("SIZE")
+
+        self.assertEqual(managed_id2, managed_id)
+        self.assertEqual(fmttype2, "text/x-fixture")
+        self.assertEqual(filename2, "new.attachment")
+        self.assertEqual(int(size2), 19)
+
+        attachment = yield obj.attachmentWithManagedID(managed_id2)
+        data = yield self.attachmentToString(attachment)
+        self.assertEquals(data, "new attachment text")
+
+
 
 now = DateTime.getToday().getYear()
 

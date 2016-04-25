@@ -4686,6 +4686,23 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # Determine what was removed
         removed = set(oldattached_keys) - set(newattached_keys)
 
+        # Make sure that clients don't accidently remove the parameters we care about
+        if not inserting:
+            for managed_id in list(removed):
+                oldattachment = oldattached[managed_id][0]
+                oldattachment_value = oldattachment.value()
+                found_match = False
+                for newattachment in newattachments:
+                    if newattachment.value() == oldattachment_value:
+                        newattachment.setParameter("MANAGED-ID", oldattachment.parameterValue("MANAGED-ID"))
+                        newattachment.setParameter("FMTTYPE", oldattachment.parameterValue("FMTTYPE"))
+                        newattachment.setParameter("FILENAME", oldattachment.parameterValue("FILENAME"))
+                        newattachment.setParameter("SIZE", oldattachment.parameterValue("SIZE"))
+                        found_match = True
+                if found_match:
+                    removed.remove(managed_id)
+
+
         # Determine what was added
         added = set(newattached_keys) - set(oldattached_keys)
         changed = {}
