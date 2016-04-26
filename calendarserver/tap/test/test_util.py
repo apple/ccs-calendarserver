@@ -16,12 +16,15 @@
 
 from calendarserver.tap.util import (
     MemoryLimitService, Stepper, verifyTLSCertificate, memoryForPID,
-    secondsSinceLastPost, recordTimeStamp
+    AlertPoster, AMPAlertProtocol,
+    AMPAlertSender
 )
 
 from twisted.internet.defer import succeed, inlineCallbacks
 from twisted.internet.task import Clock
+from twisted.protocols.amp import AMP
 from twisted.python.filepath import FilePath
+from twisted.test.testutils import returnConnected
 
 from twistedcaldav.config import ConfigDict
 from twistedcaldav.test.util import TestCase
@@ -311,21 +314,21 @@ class AlertTestCase(TestCase):
 
         # Non existent timestamp file
         self.assertEquals(
-            secondsSinceLastPost("TestAlert", timestampsDirectory=timestampsDir, now=10),
+            AlertPoster.secondsSinceLastPost("TestAlert", timestampsDirectory=timestampsDir, now=10),
             10
         )
 
         # Existing valid, past timestamp file
-        recordTimeStamp("TestAlert", timestampsDirectory=timestampsDir, now=5)
+        AlertPoster.recordTimeStamp("TestAlert", timestampsDirectory=timestampsDir, now=5)
         self.assertEquals(
-            secondsSinceLastPost("TestAlert", timestampsDirectory=timestampsDir, now=12),
+            AlertPoster.secondsSinceLastPost("TestAlert", timestampsDirectory=timestampsDir, now=12),
             7
         )
 
         # Existing valid, future timestamp file
-        recordTimeStamp("TestAlert", timestampsDirectory=timestampsDir, now=20)
+        AlertPoster.recordTimeStamp("TestAlert", timestampsDirectory=timestampsDir, now=20)
         self.assertEquals(
-            secondsSinceLastPost("TestAlert", timestampsDirectory=timestampsDir, now=12),
+            AlertPoster.secondsSinceLastPost("TestAlert", timestampsDirectory=timestampsDir, now=12),
             -8
         )
 
@@ -334,6 +337,29 @@ class AlertTestCase(TestCase):
         child = dirFP.child(".TestAlert.timestamp")
         child.setContent("not a number")
         self.assertEquals(
-            secondsSinceLastPost("TestAlert", timestampsDirectory=timestampsDir, now=12),
+            AlertPoster.secondsSinceLastPost("TestAlert", timestampsDirectory=timestampsDir, now=12),
             12
         )
+
+
+    def stubPostAlert(self, alertType, ignoreWithinSeconds, args):
+        self.alertType = alertType
+        self.ignoreWithinSeconds = ignoreWithinSeconds
+        self.args = args
+
+
+    def test_protocol(self):
+        self.patch(AlertPoster, "postAlert", self.stubPostAlert)
+        AlertPoster.setupForTest()
+
+        client = AMP()
+        server = AMPAlertProtocol()
+        pump = returnConnected(server, client)
+
+        sender = AMPAlertSender(protocol=client)
+        sender.sendAlert("alertType", ["arg1", "arg2"])
+        pump.flush()
+
+        self.assertEquals(self.alertType, "alertType")
+        self.assertEquals(self.ignoreWithinSeconds, 0)
+        self.assertEquals(self.args, ["arg1", "arg2"])

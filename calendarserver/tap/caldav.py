@@ -120,7 +120,7 @@ from calendarserver.tap.util import (
     pgServiceFromConfig, getDBPool, MemoryLimitService,
     storeFromConfig, getSSLPassphrase, preFlightChecks,
     storeFromConfigWithDPSClient, storeFromConfigWithoutDPS,
-    serverRootLocation
+    serverRootLocation, AlertPoster
 )
 try:
     from calendarserver.version import version
@@ -972,6 +972,9 @@ class CalDAVServiceMaker (object):
         else:
             groupCacher = None
 
+        # Allow worker to post alerts to master
+        AlertPoster.setupForWorker(controlSocketClient)
+
         def decorateTransaction(txn):
             txn._pushDistributor = pushDistributor
             txn._rootResource = result.rootResource
@@ -1741,6 +1744,9 @@ class CalDAVServiceMaker (object):
 
         controlSocket = ControlSocket()
         controlSocket.addFactory(_LOG_ROUTE, logger)
+
+        # Allow master to receive alert posts from workers
+        AlertPoster.setupForMaster(controlSocket)
 
         # Optionally set up AMPPushMaster
         if (

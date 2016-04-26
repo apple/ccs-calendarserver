@@ -25,7 +25,7 @@ __all__ = [
     "getRootResource",
     "getSSLPassphrase",
     "MemoryLimitService",
-    "postAlert",
+    "AlertPoster",
     "preFlightChecks",
 ]
 
@@ -59,7 +59,9 @@ from twisted.cred.portal import Portal
 from twisted.internet import reactor as _reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, Deferred, succeed
 from twisted.internet.reactor import addSystemEventTrigger
+from twisted.internet.protocol import Factory
 from twisted.internet.tcp import Connection
+from twisted.protocols import amp
 from twisted.python.usage import UsageError
 
 from twistedcaldav.bind import doBind
@@ -1320,7 +1322,7 @@ def verifyTLSCertificate(config):
                         cert=config.SSLCertificate
                     )
                 )
-                postAlert("MissingCertificateAlert", 0, ["path", config.SSLCertificate])
+                AlertPoster.getAlertPoster().postAlert("MissingCertificateAlert", 0, ["path", config.SSLCertificate])
                 return False, message
 
             length = os.stat(config.SSLCertificate).st_size
@@ -1385,7 +1387,7 @@ def verifyAPNSCertificate(config):
             try:
                 getAPNTopicFromConfig(protocol, accountName, protoConfig)
             except ValueError as e:
-                postAlert("PushNotificationCertificateAlert", 0, [])
+                AlertPoster.getAlertPoster().postAlert("PushNotificationCertificateAlert", 0, [])
                 return False, str(e)
 
             # Let OpenSSL try to use the cert
@@ -1420,7 +1422,7 @@ def verifyAPNSCertificate(config):
                             reason=str(e)
                         )
                     )
-                postAlert("PushNotificationCertificateAlert", 0, [])
+                AlertPoster.getAlertPoster().postAlert("PushNotificationCertificateAlert", 0, [])
                 return False, message
 
         return True, "APNS enabled"
@@ -1497,65 +1499,207 @@ def getSSLPassphrase(*ignored):
     return None
 
 
+#
+# Server Alert Posting
+#
 
-def secondsSinceLastPost(alertType, timestampsDirectory=None, now=None):
-    if timestampsDirectory is None:
-        timestampsDirectory = config.DataRoot
-    if now is None:
-        now = int(time.time())
+class AlertPoster(object):
+    """
+    Encapsulates the posting of server alerts via a singleton which can be
+    configured differently depending on whether you want to directly spawn
+    the external alert program from this process, or send an AMP request to
+    another process to spawn.  Workers should call setupForWorker( ), and
+    then calls to postAlert( ) will send an AMP message to the master.  The
+    master should call setupForMaster( ), and then calls to postAlert( )
+    within the master will spawn the external alert program.
+    """
 
-    dirFP = FilePath(timestampsDirectory)
-    childFP = dirFP.child(".{}.timestamp".format(alertType))
-    if not childFP.exists():
-        timestamp = 0
-    else:
-        with childFP.open() as child:
-            try:
-                line = child.readline().strip()
-                timestamp = int(line)
-            except:
-                timestamp = 0
-    return now - timestamp
+    # Control socket message-routing constants
+    ALERT_ROUTE = "alert"
 
-
-
-def recordTimeStamp(alertType, timestampsDirectory=None, now=None):
-    if timestampsDirectory is None:
-        timestampsDirectory = config.DataRoot
-    if now is None:
-        now = int(time.time())
-
-    dirFP = FilePath(timestampsDirectory)
-    childFP = dirFP.child(".{}.timestamp".format(alertType))
-    childFP.setContent(str(now))
+    _alertPoster = None
 
 
+    @classmethod
+    def setupForMaster(cls, controlSocket):
+        cls._alertPoster = cls()
+        AMPAlertReceiver(controlSocket)
 
-def postAlert(alertType, ignoreWithinSeconds, args):
-    if (
-        config.AlertPostingProgram and
-        os.path.exists(config.AlertPostingProgram)
-    ):
+
+    @classmethod
+    def setupForWorker(cls, controlSocket):
+        cls._alertPoster = cls(controlSocket)
+
+
+    @classmethod
+    def setupForTest(cls):
+        cls._alertPoster = cls()
+
+
+    @classmethod
+    def getAlertPoster(cls):
+        return cls._alertPoster
+
+
+    def __init__(self, controlSocket=None):
+
+        if controlSocket is None:
+            self.sender = None
+        else:
+            self.sender = AMPAlertSender(controlSocket)
+
+
+    def postAlert(self, alertType, ignoreWithinSeconds, args):
+
+        if not config.AlertPostingProgram:
+            return
+
+        if not os.path.exists(config.AlertPostingProgram):
+            return
+
         if ignoreWithinSeconds:
-            seconds = secondsSinceLastPost(alertType)
+            seconds = self.secondsSinceLastPost(alertType)
             if seconds < ignoreWithinSeconds:
                 return
 
-        recordTimeStamp(alertType)
+        if self.sender is None:
+            # Just do it
 
-        try:
-            commandLine = [config.AlertPostingProgram, alertType]
-            commandLine.extend(args)
-            Popen(
-                commandLine,
-                stdout=PIPE,
-                stderr=PIPE,
-            ).communicate()
-        except Exception, e:
-            log.error(
-                "Could not post alert: {alertType} {args} ({error})",
-                alertType=alertType, args=args, error=e
+            self.recordTimeStamp(alertType)
+
+            try:
+                commandLine = [config.AlertPostingProgram, alertType]
+                commandLine.extend(args)
+                Popen(
+                    commandLine,
+                    stdout=PIPE,
+                    stderr=PIPE,
+                ).communicate()
+            except Exception, e:
+                log.error(
+                    "Could not post alert: {alertType} {args} ({error})",
+                    alertType=alertType, args=args, error=e
+                )
+
+        else:
+            # Send request to master over AMP
+            self.sender.sendAlert(alertType, args)
+
+
+
+    @classmethod
+    def secondsSinceLastPost(cls, alertType, timestampsDirectory=None, now=None):
+        if timestampsDirectory is None:
+            timestampsDirectory = config.DataRoot
+        if now is None:
+            now = int(time.time())
+
+        dirFP = FilePath(timestampsDirectory)
+        childFP = dirFP.child(".{}.timestamp".format(alertType))
+        if not childFP.exists():
+            timestamp = 0
+        else:
+            with childFP.open() as child:
+                try:
+                    line = child.readline().strip()
+                    timestamp = int(line)
+                except:
+                    timestamp = 0
+        return now - timestamp
+
+
+
+    @classmethod
+    def recordTimeStamp(cls, alertType, timestampsDirectory=None, now=None):
+        if timestampsDirectory is None:
+            timestampsDirectory = config.DataRoot
+        if now is None:
+            now = int(time.time())
+
+        dirFP = FilePath(timestampsDirectory)
+        childFP = dirFP.child(".{}.timestamp".format(alertType))
+        childFP.setContent(str(now))
+
+
+
+
+class AMPAlertSendingFactory(Factory):
+
+    def __init__(self, sender):
+        self.sender = sender
+
+    def buildProtocol(self, addr):
+        protocol = amp.AMP()
+        self.sender.protocol = protocol
+        return protocol
+
+
+
+class AMPAlertSender(object):
+    """
+    Runs in the workers, sends alerts to the master via AMP
+    """
+
+    def __init__(self, controlSocket=None, protocol=None):
+        self.protocol = protocol
+        if controlSocket is not None:
+            controlSocket.addFactory(AlertPoster.ALERT_ROUTE, AMPAlertSendingFactory(self))
+
+
+    def sendAlert(self, alertType, args):
+        return self.protocol.callRemote(
+            PostAlert, alertType=alertType, args=args
+        )
+
+
+
+class AMPAlertReceiverFactory(Factory):
+
+    def buildProtocol(self, addr):
+        return AMPAlertProtocol()
+
+
+
+class AMPAlertReceiver(object):
+    """
+    Runs in the master, receives alerts from workers, executes the alert posting program
+    """
+
+    def __init__(self, controlSocket):
+        if controlSocket is not None:
+            # Set up the listener which gets alerts from the slaves
+            controlSocket.addFactory(
+                AlertPoster.ALERT_ROUTE, AMPAlertReceiverFactory()
             )
+
+
+
+class PostAlert(amp.Command):
+    arguments = [
+        ('alertType', amp.String()),
+        ('args', amp.ListOf(amp.String())),
+    ]
+    response = [
+        ('status', amp.String()),
+    ]
+
+
+
+
+class AMPAlertProtocol(amp.AMP):
+    """
+    Defines the AMP protocol for sending alerts from worker to master
+    """
+
+    @PostAlert.responder
+    def postAlert(self, alertType, args):
+        """
+        The "PostAlert" handler in the master
+        """
+        AlertPoster.getAlertPoster().postAlert(alertType, 0, args)
+        return {
+            "status": "OK"
+        }
 
 
 
