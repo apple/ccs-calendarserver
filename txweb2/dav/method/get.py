@@ -29,28 +29,28 @@ WebDAV GET and HEAD methods
 
 __all__ = ["http_OPTIONS", "http_HEAD", "http_GET"]
 
-import txweb2
 
 from txdav.xml import element as davxml
+from txweb2.dav.resource import DAVResource
 from txweb2.dav.util import parentForURL
 
 def http_OPTIONS(self, request):
     d = authorize(self, request)
-    d.addCallback(lambda _: super(txweb2.dav.resource.DAVResource, self).http_OPTIONS(request))
+    d.addCallback(lambda _: super(DAVResource, self).http_OPTIONS(request))
     return d
 
 
 
 def http_HEAD(self, request):
     d = authorize(self, request)
-    d.addCallback(lambda _: super(txweb2.dav.resource.DAVResource, self).http_HEAD(request))
+    d.addCallback(lambda _: super(DAVResource, self).http_HEAD(request))
     return d
 
 
 
 def http_GET(self, request):
     d = authorize(self, request)
-    d.addCallback(lambda _: super(txweb2.dav.resource.DAVResource, self).http_GET(request))
+    d.addCallback(lambda _: super(DAVResource, self).http_GET(request))
     return d
 
 
