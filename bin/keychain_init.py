@@ -19,6 +19,7 @@ from subprocess import Popen, PIPE, STDOUT
 import os
 import re
 import sys
+import OpenSSL
 
 identity_preference = "org.calendarserver.test"
 certname_regex = re.compile(r'"alis"<blob>="(.*)"')
@@ -107,11 +108,29 @@ def certificateImport():
         print("Imported certificate '{}'".format(certificate_name))
         return True
 
+
+
+def checkCertificate():
+
+        # Validate identity
+        error = OpenSSL.crypto.check_keychain_identity(identity_preference, allowInteraction=True)
+        if error:
+            raise RuntimeError(
+                "The configured TLS Keychain Identity ({cert}) cannot be used: {reason}".format(
+                    cert=identity_preference,
+                    reason=error
+                )
+            )
+        else:
+            print("Certificate/key can be used.")
+
+
 if __name__ == '__main__':
 
     if os.path.isfile("/usr/bin/security"):
         # If the identity exists we are done
         if identityExists():
+            checkCertificate()
             sys.exit(0)
 
         # Check for certificate and import if not present
@@ -121,5 +140,6 @@ if __name__ == '__main__':
         # Create the identity
         identityCreate()
 
+        checkCertificate()
     else:
         raise RuntimeError("Keychain access utility ('security') not found")
