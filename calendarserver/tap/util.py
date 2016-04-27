@@ -87,9 +87,7 @@ from txdav.base.datastore.subpostgres import PostgresService
 from txdav.caldav.datastore.scheduling.ischedule.dkim import DKIMUtils, DomainKeyResource
 from txdav.caldav.datastore.scheduling.ischedule.localservers import buildServersDB
 from txdav.caldav.datastore.scheduling.ischedule.resource import IScheduleInboxResource
-from txdav.common.datastore.file import CommonDataStore as CommonFileDataStore
 from txdav.common.datastore.podding.resource import ConduitResource
-from txdav.common.datastore.sql import CommonDataStore as CommonSQLDataStore
 from txdav.common.datastore.sql import current_sql_schema
 from txdav.common.datastore.upgrade.sql.upgrade import NotAllowedToUpgrade
 from txdav.dps.client import DirectoryService as DirectoryProxyClientService
@@ -292,6 +290,7 @@ def storeFromConfig(config, txnFactory, directoryService):
         else:
             uri = "https://{config.ServerHostName}:{config.HTTPPort}".format(config=config)
         attachments_uri = uri + "/calendars/__uids__/%(home)s/dropbox/%(dropbox_id)s/%(name)s"
+        from txdav.common.datastore.sql import CommonDataStore as CommonSQLDataStore
         store = CommonSQLDataStore(
             txnFactory, notifierFactories,
             directoryService,
@@ -310,6 +309,7 @@ def storeFromConfig(config, txnFactory, directoryService):
             cacheExpireSeconds=config.QueryCaching.ExpireSeconds
         )
     else:
+        from txdav.common.datastore.file import CommonDataStore as CommonFileDataStore
         store = CommonFileDataStore(
             FilePath(config.DocumentRoot),
             notifierFactories, directoryService,
