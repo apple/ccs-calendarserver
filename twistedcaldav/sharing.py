@@ -79,7 +79,7 @@ class SharedResourceMixin(object):
                 ))
 
             # See if this property is on the shared calendar
-            if self.isShared():
+            if self.isSharedByOwner():
                 invitations = yield self.validateInvites(request)
                 returnValue(customxml.Invite(
                     *[(yield invitePropertyElement(invitation)) for invitation in invitations]
@@ -220,12 +220,12 @@ class SharedResourceMixin(object):
         ))
 
 
-    def isShared(self):
+    def isSharedByOwner(self):
         """
         Return True if this is an owner shared calendar collection.
         """
         try:
-            return self._newStoreObject.isShared() if self._newStoreObject else False
+            return self._newStoreObject.isSharedByOwner() if self._newStoreObject else False
         except AttributeError:
             return False
 
@@ -731,7 +731,7 @@ class SharedResourceMixin(object):
         numRecords = len(invites)
 
         # Set the sharing state on the collection
-        shared = self.isShared()
+        shared = self.isSharedByOwner()
         if shared and numRecords == 0:
             yield self.downgradeFromShare(request)
         elif not shared and numRecords != 0:

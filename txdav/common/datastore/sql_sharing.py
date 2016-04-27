@@ -274,7 +274,7 @@ class SharingHomeMixIn(object):
 
 SharingInvitation = namedtuple(
     "SharingInvitation",
-    ["uid", "ownerUID", "ownerHomeID", "shareeUID", "shareeHomeID", "mode", "status", "summary"]
+    ["uid", "ownerUID", "ownerHomeID", "shareeUID", "shareeHomeID", "shareeHomeStatus", "mode", "status", "summary"]
 )
 
 
@@ -341,6 +341,7 @@ class SharingMixIn(object):
             [
                 home.OWNER_UID,
                 bind.HOME_RESOURCE_ID,
+                home.STATUS,
                 bind.RESOURCE_ID,
                 bind.RESOURCE_NAME,
                 bind.BIND_MODE,
@@ -576,6 +577,38 @@ class SharingMixIn(object):
         is first accepted.
         """
         return succeed(None)
+
+
+    @inlineCallbacks
+    def notifyExternalShare(self):
+        """
+        Send a cross-pod message to all external shares to ensure change notifications are sent
+        to external sharees' clients subscribed to notifications on the other pods.
+        """
+
+        # We need to resolve the ownerView which may be this object, or if this is
+        # a shared object, may be something else. The ownerView is the one that
+        # knows about all the sharing invites and the bindUID (which is the identifier
+        # used to identify it on another pod).
+        if not self.owned():
+            ownerView = yield self.ownerView()
+        else:
+            ownerView = self
+
+        # Get all invites and figure out if any are external
+        externalUIDs = set()
+        for invitation in (yield ownerView.sharingInvites()):
+            if invitation.shareeHomeStatus == _HOME_STATUS_EXTERNAL:
+                externalUIDs.add(invitation.shareeUID)
+
+        if externalUIDs and ownerView.bindUID() is not None:
+            yield self._txn.store().conduit.send_sharenotification(
+                self._txn,
+                self.ownerHome()._homeType,
+                self.ownerHome().uid(),
+                ownerView.bindUID(),
+                externalUIDs,
+            )
 
 
     @inlineCallbacks
@@ -1033,13 +1066,14 @@ class SharingMixIn(object):
         )
 
         result = []
-        for homeUID, homeRID, _ignore_resourceID, resourceName, bindMode, bindStatus, bindMessage in invitedRows:
+        for homeUID, homeRID, homeStatus, _ignore_resourceID, resourceName, bindMode, bindStatus, bindMessage in invitedRows:
             invite = SharingInvitation(
                 resourceName,
                 self.ownerHome().name(),
                 self.ownerHome().id(),
                 homeUID,
                 homeRID,
+                homeStatus,
                 bindMode,
                 bindStatus,
                 bindMessage,
@@ -1216,7 +1250,7 @@ class SharingMixIn(object):
         return self._bindMode == _BIND_MODE_OWN
 
 
-    def isShared(self):
+    def isSharedByOwner(self):
         """
         For an owned collection indicate whether it is shared.
 

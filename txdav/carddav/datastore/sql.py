@@ -1831,13 +1831,14 @@ class AddressBookObjectSharingMixIn(SharingMixIn):
         )
 
         result = []
-        for homeUID, homeRID, resourceID, resourceName, bindMode, bindStatus, bindMessage in acceptedRows: #@UnusedVariable
+        for homeUID, homeRID, homeStatus, resourceID, resourceName, bindMode, bindStatus, bindMessage in acceptedRows: #@UnusedVariable
             invite = SharingInvitation(
                 resourceName,
                 self.addressbook()._home.name(),
                 self.addressbook()._home.id(),
                 homeUID,
                 homeRID,
+                homeStatus,
                 bindMode,
                 bindStatus,
                 bindMessage,

@@ -546,7 +546,7 @@ class CalDAVResource (
                     customxml.AllowedSharingModes.qname(),
                     customxml.SharedURL.qname(),
                 )
-                if self.isShared() or self.isShareeResource():
+                if self.isSharedByOwner() or self.isShareeResource():
                     baseProperties += (
                         customxml.Invite.qname(),
                     )

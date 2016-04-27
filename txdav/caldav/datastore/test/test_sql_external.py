@@ -25,6 +25,8 @@ from txdav.common.datastore.sql_tables import _BIND_MODE_READ, \
 from txdav.common.datastore.podding.test.util import MultiStoreConduitTest
 from txdav.common.datastore.podding.base import FailedCrossPodRequestError
 from txdav.common.icommondatastore import ExternalShareFailed
+from twistedcaldav.ical import Component
+from operator import methodcaller, itemgetter
 
 
 class BaseSharingTests(MultiStoreConduitTest):
@@ -55,6 +57,21 @@ DURATION:PT1H
 CREATED:20060102T190000Z
 DTSTAMP:20051222T210507Z
 SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR
+"""
+
+    cal2 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid2
+DTSTART:20131123T140000
+DURATION:PT1H
+CREATED:20060102T190000Z
+DTSTAMP:20051222T210507Z
+SUMMARY:event 2
 END:VEVENT
 END:VCALENDAR
 """
@@ -104,7 +121,7 @@ class CalendarSharing(BaseSharingTests):
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(calendar.isShared())
+        self.assertFalse(calendar.isSharedByOwner())
 
 
     @inlineCallbacks
@@ -117,7 +134,7 @@ class CalendarSharing(BaseSharingTests):
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(calendar.isShared())
+        self.assertFalse(calendar.isSharedByOwner())
 
         shareeView = yield calendar.inviteUIDToShare("puser02", _BIND_MODE_READ, "summary")
         invites = yield calendar.sharingInvites()
@@ -132,7 +149,7 @@ class CalendarSharing(BaseSharingTests):
         inviteUID = shareeView.shareUID()
         sharedName = shareeView.name()
 
-        self.assertTrue(calendar.isShared())
+        self.assertTrue(calendar.isSharedByOwner())
 
         yield self.commitTransaction(0)
 
@@ -153,7 +170,7 @@ class CalendarSharing(BaseSharingTests):
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
 
-        self.assertTrue(calendar.isShared())
+        self.assertTrue(calendar.isSharedByOwner())
 
         yield self.commitTransaction(0)
 
@@ -163,9 +180,9 @@ class CalendarSharing(BaseSharingTests):
         yield self.commitTransaction(1)
 
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
-        self.assertTrue(calendar.isShared())
+        self.assertTrue(calendar.isSharedByOwner())
         yield calendar.setShared(False)
-        self.assertFalse(calendar.isShared())
+        self.assertFalse(calendar.isSharedByOwner())
 
 
     @inlineCallbacks
@@ -178,7 +195,7 @@ class CalendarSharing(BaseSharingTests):
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(calendar.isShared())
+        self.assertFalse(calendar.isSharedByOwner())
 
         shareeView = yield calendar.inviteUIDToShare("puser02", _BIND_MODE_READ, "summary")
         invites = yield calendar.sharingInvites()
@@ -187,7 +204,7 @@ class CalendarSharing(BaseSharingTests):
         inviteUID = shareeView.shareUID()
         sharedName = shareeView.name()
 
-        self.assertTrue(calendar.isShared())
+        self.assertTrue(calendar.isSharedByOwner())
 
         yield self.commitTransaction(0)
 
@@ -213,7 +230,7 @@ class CalendarSharing(BaseSharingTests):
         self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
-        self.assertTrue(calendar.isShared())
+        self.assertTrue(calendar.isSharedByOwner())
 
         yield self.commitTransaction(0)
 
@@ -231,7 +248,7 @@ class CalendarSharing(BaseSharingTests):
         self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
-        self.assertTrue(calendar.isShared())
+        self.assertTrue(calendar.isSharedByOwner())
 
 
     @inlineCallbacks
@@ -244,7 +261,7 @@ class CalendarSharing(BaseSharingTests):
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(calendar.isShared())
+        self.assertFalse(calendar.isSharedByOwner())
 
         shareeView = yield calendar.inviteUIDToShare("puser02", _BIND_MODE_READ, "summary")
         invites = yield calendar.sharingInvites()
@@ -253,7 +270,7 @@ class CalendarSharing(BaseSharingTests):
         inviteUID = shareeView.shareUID()
         sharedName = shareeView.name()
 
-        self.assertTrue(calendar.isShared())
+        self.assertTrue(calendar.isSharedByOwner())
 
         yield self.commitTransaction(0)
 
@@ -280,7 +297,7 @@ class CalendarSharing(BaseSharingTests):
         self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
-        self.assertTrue(calendar.isShared())
+        self.assertTrue(calendar.isSharedByOwner())
 
         yield self.commitTransaction(0)
 
@@ -298,7 +315,7 @@ class CalendarSharing(BaseSharingTests):
         self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
-        self.assertTrue(calendar.isShared())
+        self.assertTrue(calendar.isSharedByOwner())
 
 
     @inlineCallbacks
@@ -312,7 +329,7 @@ class CalendarSharing(BaseSharingTests):
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(calendar.isShared())
+        self.assertFalse(calendar.isSharedByOwner())
 
         shareeView = yield calendar.inviteUIDToShare("puser02", _BIND_MODE_READ, "summary")
         invites = yield calendar.sharingInvites()
@@ -321,7 +338,7 @@ class CalendarSharing(BaseSharingTests):
 
         sharedName = shareeView.name()
 
-        self.assertTrue(calendar.isShared())
+        self.assertTrue(calendar.isSharedByOwner())
 
         yield self.commitTransaction(0)
 
@@ -348,7 +365,7 @@ class CalendarSharing(BaseSharingTests):
         self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
-        self.assertTrue(calendar.isShared())
+        self.assertTrue(calendar.isSharedByOwner())
 
         yield self.commitTransaction(0)
 
@@ -366,7 +383,7 @@ class CalendarSharing(BaseSharingTests):
         self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
-        self.assertTrue(calendar.isShared())
+        self.assertTrue(calendar.isSharedByOwner())
 
 
     @inlineCallbacks
@@ -505,7 +522,7 @@ class CalendarSharing(BaseSharingTests):
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(calendar.isShared())
+        self.assertFalse(calendar.isSharedByOwner())
 
         shareeView = yield calendar.directShareWithUser("puser02")
         invites = yield calendar.sharingInvites()
@@ -591,7 +608,7 @@ class CalendarSharing(BaseSharingTests):
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(calendar.isShared())
+        self.assertFalse(calendar.isSharedByOwner())
 
         yield self.assertFailure(calendar.inviteUIDToShare("puser02", _BIND_MODE_READ, "summary"), FailedCrossPodRequestError)
 
@@ -736,6 +753,50 @@ class CalendarSharing(BaseSharingTests):
         calendar = yield home.anyObjectWithShareUID("shared-calendar")
         self.assertTrue(calendar is None)
         yield self.commitTransaction(1)
+
+
+    @inlineCallbacks
+    def test_shared_notifications(self):
+        shared_name_puser02 = yield self.createShare()
+        shared_name_user02 = yield self.createShare(shareeGUID="user02", pod=0)
+
+        map(methodcaller("reset"), self.theNotifiers)
+
+        # Change by owner
+        home = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01")
+        self.assertEquals(home.notifierID(), ("CalDAV", "user01",))
+        calendar = yield home.calendarWithName("calendar")
+        yield calendar.createObjectResourceWithName("2.ics", Component.fromString(self.cal2))
+        yield self.commitTransaction(0)
+
+        self.assertEqual(set(map(itemgetter(0), self.theNotifiers[0].history)), set(["/CalDAV/example.com/user01/", "/CalDAV/example.com/user01/calendar/"]))
+        self.assertEqual(set(map(itemgetter(0), self.theNotifiers[1].history)), set(["/CalDAV/example.com/user01/", "/CalDAV/example.com/user01/calendar/"]))
+        map(methodcaller("reset"), self.theNotifiers)
+
+        # Change by sharee on other pod
+        txn2 = self.theTransactionUnderTest(1)
+        home = yield self.homeUnderTest(txn=txn2, name="puser02")
+        self.assertEquals(home.notifierID(), ("CalDAV", "puser02",))
+        calendar = yield home.calendarWithName(shared_name_puser02)
+        cobj = yield calendar.calendarObjectWithName("2.ics")
+        yield cobj.remove()
+        yield self.commitTransaction(1)
+
+        self.assertEqual(set(map(itemgetter(0), self.theNotifiers[0].history)), set(["/CalDAV/example.com/user01/", "/CalDAV/example.com/user01/calendar/"]))
+        self.assertEqual(set(map(itemgetter(0), self.theNotifiers[1].history)), set(["/CalDAV/example.com/user01/", "/CalDAV/example.com/user01/calendar/"]))
+        map(methodcaller("reset"), self.theNotifiers)
+
+        # Change by sharee on same pod
+        txn2 = self.theTransactionUnderTest(0)
+        home = yield self.homeUnderTest(txn=txn2, name="user02")
+        self.assertEquals(home.notifierID(), ("CalDAV", "user02",))
+        calendar = yield home.calendarWithName(shared_name_user02)
+        yield calendar.createObjectResourceWithName("2_1.ics", Component.fromString(self.cal2))
+        yield self.commitTransaction(0)
+
+        self.assertEqual(set(map(itemgetter(0), self.theNotifiers[0].history)), set(["/CalDAV/example.com/user01/", "/CalDAV/example.com/user01/calendar/"]))
+        self.assertEqual(set(map(itemgetter(0), self.theNotifiers[1].history)), set(["/CalDAV/example.com/user01/", "/CalDAV/example.com/user01/calendar/"]))
+        map(methodcaller("reset"), self.theNotifiers)
 
 
 

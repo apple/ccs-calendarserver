@@ -239,7 +239,7 @@ class SharingTests(BaseSharingTests):
 
         rtype = self.resource.resourceType()
         self.assertEquals(rtype, regularCalendarType)
-        isShared = self.resource.isShared()
+        isShared = self.resource.isSharedByOwner()
         self.assertFalse(isShared)
         isShareeResource = self.resource.isShareeResource()
         self.assertFalse(isShareeResource)
@@ -248,7 +248,7 @@ class SharingTests(BaseSharingTests):
 
         rtype = self.resource.resourceType()
         self.assertEquals(rtype, sharedOwnerType)
-        isShared = self.resource.isShared()
+        isShared = self.resource.isSharedByOwner()
         self.assertTrue(isShared)
         isShareeResource = self.resource.isShareeResource()
         self.assertFalse(isShareeResource)
@@ -261,7 +261,7 @@ class SharingTests(BaseSharingTests):
 
         rtype = self.resource.resourceType()
         self.assertEquals(rtype, sharedOwnerType)
-        isShared = self.resource.isShared()
+        isShared = self.resource.isSharedByOwner()
         self.assertTrue(isShared)
         isShareeResource = self.resource.isShareeResource()
         self.assertFalse(isShareeResource)
@@ -270,7 +270,7 @@ class SharingTests(BaseSharingTests):
 
         rtype = self.resource.resourceType()
         self.assertEquals(rtype, regularCalendarType)
-        isShared = self.resource.isShared()
+        isShared = self.resource.isSharedByOwner()
         self.assertFalse(isShared)
         isShareeResource = self.resource.isShareeResource()
         self.assertFalse(isShareeResource)
@@ -302,7 +302,7 @@ class SharingTests(BaseSharingTests):
             )
         ))
 
-        isShared = self.resource.isShared()
+        isShared = self.resource.isSharedByOwner()
         self.assertTrue(isShared)
         isShareeResource = self.resource.isShareeResource()
         self.assertFalse(isShareeResource)
@@ -332,7 +332,7 @@ class SharingTests(BaseSharingTests):
             )
         ))
 
-        isShared = self.resource.isShared()
+        isShared = self.resource.isSharedByOwner()
         self.assertTrue(isShared)
         isShareeResource = (yield self.resource.isShareeResource())
         self.assertFalse(isShareeResource)
@@ -341,7 +341,7 @@ class SharingTests(BaseSharingTests):
     @inlineCallbacks
     def test_POSTupdateInvitee(self):
 
-        isShared = self.resource.isShared()
+        isShared = self.resource.isSharedByOwner()
         self.assertFalse(isShared)
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
@@ -354,7 +354,7 @@ class SharingTests(BaseSharingTests):
             </CS:share>
             """)
 
-        isShared = self.resource.isShared()
+        isShared = self.resource.isSharedByOwner()
         self.assertTrue(isShared)
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
@@ -367,7 +367,7 @@ class SharingTests(BaseSharingTests):
             </CS:share>
             """)
 
-        isShared = self.resource.isShared()
+        isShared = self.resource.isSharedByOwner()
         self.assertTrue(isShared)
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
@@ -385,7 +385,7 @@ class SharingTests(BaseSharingTests):
     @inlineCallbacks
     def test_POSTremoveInvitee(self):
 
-        isShared = self.resource.isShared()
+        isShared = self.resource.isSharedByOwner()
         self.assertFalse(isShared)
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
@@ -398,7 +398,7 @@ class SharingTests(BaseSharingTests):
             </CS:share>
             """)
 
-        isShared = self.resource.isShared()
+        isShared = self.resource.isSharedByOwner()
         self.assertTrue(isShared)
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
@@ -409,7 +409,7 @@ class SharingTests(BaseSharingTests):
             </CS:share>
             """)
 
-        isShared = self.resource.isShared()
+        isShared = self.resource.isSharedByOwner()
         self.assertFalse(isShared)
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
@@ -868,7 +868,7 @@ class SharingTests(BaseSharingTests):
             </CS:share>
             """)
 
-        isShared = self.resource.isShared()
+        isShared = self.resource.isSharedByOwner()
         self.assertFalse(isShared)
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))

@@ -14,10 +14,13 @@
 # limitations under the License.
 ##
 
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
 
 from txdav.common.datastore.podding.base import FailedCrossPodRequestError
+from txdav.common.datastore.sql_tables import _HOME_STATUS_EXTERNAL
+from twext.python.log import Logger
 
+log = Logger()
 
 class SharingInvitesConduitMixin(object):
     """
@@ -239,3 +242,76 @@ class SharingInvitesConduitMixin(object):
             request["status"],
             summary=request.get("summary")
         )
+
+
+    @inlineCallbacks
+    def send_sharenotification(
+        self, txn, homeType, ownerUID,
+        bindUID, shareeUIDs,
+    ):
+        """
+        Send a sharing notification cross-pod message for the specified sharees. Note that we
+        will aggregate sharees by their pod and send only one message to each pod. Will do this
+        using a DeferredList that ignores any errors.
+
+        @param homeType: Type of home being shared.
+        @type homeType: C{int}
+
+        @param ownerUID: UID of the sharer.
+        @type ownerUID: C{str}
+        @param bindUID: bind UID of the sharer calendar
+        @type bindUID: C{str}
+
+        @param shareeUIDs: UIDs of the sharees
+        @type shareeUIDs: C{str}
+        """
+
+        recipients = {}
+        for shareeUID in shareeUIDs:
+            _ignore_sender, recipient = yield self.validRequest(
+                ownerUID, shareeUID
+            )
+            recipients[recipient.server().id] = recipient.server()
+
+        request = {
+            "action": "sharenotification",
+            "type": homeType,
+            "ownerUID": ownerUID,
+            "bindUID": bindUID,
+        }
+
+        deferreds = []
+        for server in recipients.values():
+            deferreds.append(self.sendRequestToServer(txn, server, request))
+
+        # Always trap errors and ignore them as we want share notifications to be
+        # "fire and forget"
+        try:
+            yield DeferredList(deferreds, consumeErrors=True)
+        except Exception as ex:
+            log.error("Failed to send sharenotification: {exc}", exc=ex)
+
+
+    @inlineCallbacks
+    def recv_sharenotification(self, txn, request):
+        """
+        Process a sharing notification cross-pod request.
+        Request arguments as per L{send_sharenotification}.
+
+        @param request: request arguments
+        @type request: C{dict}
+        """
+
+        # Sharer home/calendar on this pod must already exist - however, we are going to ignore these
+        # failures as we want notifications to be "fire and forget". Plus we do get a notification
+        # when a share is removed, but AFTER the uninvite has been processed and the bind entries removed.
+        # We definitely do not want to treat that as a failure.
+        ownerHome = yield txn.homeWithUID(request["type"], request["ownerUID"], status=_HOME_STATUS_EXTERNAL)
+        if ownerHome is None:
+            returnValue(None)
+        ownerCalendar = yield ownerHome.childWithBindUID(request["bindUID"])
+        if ownerCalendar is None:
+            returnValue(None)
+
+        # Send the notification
+        yield ownerCalendar.notifyChanged()

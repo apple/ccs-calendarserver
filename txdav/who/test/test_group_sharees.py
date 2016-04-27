@@ -133,7 +133,7 @@ class GroupShareeReconciliationTests(GroupShareeTestBase):
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(calendar.isShared())
+        self.assertFalse(calendar.isSharedByOwner())
 
         yield self._check_notifications("user01", [])
         shareeViews = yield calendar.inviteUIDToShare("group04", _BIND_MODE_READ)
@@ -217,7 +217,7 @@ class GroupShareeReconciliationTests(GroupShareeTestBase):
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(calendar.isShared())
+        self.assertFalse(calendar.isSharedByOwner())
 
         yield self._check_notifications("user01", [])
         shareeViews = yield calendar.inviteUIDToShare("group04", _BIND_MODE_READ)
@@ -301,7 +301,7 @@ class GroupShareeReconciliationTests(GroupShareeTestBase):
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(calendar.isShared())
+        self.assertFalse(calendar.isSharedByOwner())
 
         yield self._check_notifications("user01", [])
         shareeViews = yield calendar.inviteUIDToShare("group02", _BIND_MODE_READ)
@@ -384,7 +384,7 @@ class GroupShareeReconciliationTests(GroupShareeTestBase):
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(calendar.isShared())
+        self.assertFalse(calendar.isSharedByOwner())
 
         yield self._check_notifications("user01", [])
         shareeViews = yield calendar.inviteUIDToShare("group05", _BIND_MODE_READ)
@@ -465,7 +465,7 @@ class GroupShareeReconciliationTests(GroupShareeTestBase):
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(calendar.isShared())
+        self.assertFalse(calendar.isSharedByOwner())
 
         yield self._check_notifications("user01", [])
         shareeViews = yield calendar.inviteUIDToShare("group06", _BIND_MODE_READ)
@@ -549,7 +549,7 @@ class GroupShareeReconciliationTests(GroupShareeTestBase):
         calendar = yield self.calendarUnderTest(home="user01", name="shared")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(calendar.isShared())
+        self.assertFalse(calendar.isSharedByOwner())
 
         yield self._check_notifications("user01", [])
         shareeViews = yield calendar.inviteUIDToShare("group02", _BIND_MODE_READ)
@@ -630,7 +630,7 @@ class GroupShareeReconciliationTests(GroupShareeTestBase):
         calendar = yield self.calendarUnderTest(home="user01", name="shared")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(calendar.isShared())
+        self.assertFalse(calendar.isSharedByOwner())
 
         yield self._check_notifications("user01", [])
         shareeViews = yield calendar.inviteUIDToShare("group02", _BIND_MODE_READ)
@@ -704,7 +704,7 @@ class GroupShareeReconciliationTests(GroupShareeTestBase):
         calendar = yield self.calendarUnderTest(home="user03", name="calendar")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(calendar.isShared())
+        self.assertFalse(calendar.isSharedByOwner())
 
         shareeViews = yield calendar.inviteUIDToShare("group05", _BIND_MODE_WRITE)
         self.assertEqual(len(shareeViews), 2)
@@ -787,7 +787,7 @@ class GroupShareeReconciliationTests(GroupShareeTestBase):
         calendar = yield self.calendarUnderTest(home="user03", name="calendar")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(calendar.isShared())
+        self.assertFalse(calendar.isSharedByOwner())
 
         shareeView = yield calendar.inviteUIDToShare("user01", _BIND_MODE_READ)
         self.assertTrue(shareeView is not None)

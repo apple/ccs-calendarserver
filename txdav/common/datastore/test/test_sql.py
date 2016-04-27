@@ -310,6 +310,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
             pass
 
         class TestCommonHomeChild(CommonHomeChild):
+            _homeSchema = schema.CALENDAR_HOME
             _homeChildSchema = schema.CALENDAR
             _homeChildMetaDataSchema = schema.CALENDAR_METADATA
             _bindSchema = schema.CALENDAR_BIND

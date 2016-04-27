@@ -856,14 +856,14 @@ class CommonCommonTests(object):
         self.config = config
 
 
-    def buildStore(self, storeBuilder=theStoreBuilder):
+    def buildStore(self, storeBuilder=theStoreBuilder, notifierFactory=None):
         """
         Builds and returns a store
         """
 
         # Build the store before the directory; the directory will be assigned
         # to the store via setDirectoryService()
-        return storeBuilder.buildStore(self, self.notifierFactory, None)
+        return storeBuilder.buildStore(self, notifierFactory if notifierFactory is not None else self.notifierFactory, None)
 
 
     def transactionUnderTest(self, txn=None):

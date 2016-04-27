@@ -88,7 +88,8 @@ from txdav.common.datastore.sql_tables import _ATTACHMENTS_MODE_NONE, \
     _ATTACHMENTS_MODE_READ, _ATTACHMENTS_MODE_WRITE, _BIND_MODE_DIRECT, \
     _BIND_MODE_GROUP, _BIND_MODE_GROUP_READ, _BIND_MODE_GROUP_WRITE, \
     _BIND_MODE_OWN, _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_STATUS_ACCEPTED, \
-    _TRANSP_OPAQUE, _TRANSP_TRANSPARENT, schema, _CHILD_TYPE_TRASH
+    _TRANSP_OPAQUE, _TRANSP_TRANSPARENT, schema, _CHILD_TYPE_TRASH, \
+    _HOME_STATUS_NORMAL
 from txdav.common.datastore.sql_sharing import SharingInvitation
 from txdav.common.icommondatastore import IndexedSearchException, \
     InternalDataStoreError, HomeChildNameAlreadyExistsError, \
@@ -2588,6 +2589,7 @@ class Calendar(CommonHomeChild):
                 self.ownerHome().id(),
                 guid,
                 0,
+                _HOME_STATUS_NORMAL,
                 gmode,
                 _BIND_STATUS_ACCEPTED,
                 "",

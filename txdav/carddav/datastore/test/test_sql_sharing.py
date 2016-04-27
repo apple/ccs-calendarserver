@@ -249,7 +249,7 @@ class AddressBookSharing(BaseSharingTests):
         addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
         invites = yield addressbook.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(addressbook.isShared())
+        self.assertFalse(addressbook.isSharedByOwner())
 
 
     @inlineCallbacks
@@ -262,7 +262,7 @@ class AddressBookSharing(BaseSharingTests):
         addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
         invites = yield addressbook.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(addressbook.isShared())
+        self.assertFalse(addressbook.isSharedByOwner())
 
         shareeView = yield addressbook.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield addressbook.sharingInvites()
@@ -281,7 +281,7 @@ class AddressBookSharing(BaseSharingTests):
 
         yield self._check_notifications("user02", [inviteUID, ])
 
-        self.assertTrue(addressbook.isShared())
+        self.assertTrue(addressbook.isSharedByOwner())
 
         yield self.commit()
 
@@ -289,7 +289,7 @@ class AddressBookSharing(BaseSharingTests):
         addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
         invites = yield addressbook.sharingInvites()
         self.assertEqual(len(invites), 1)
-        self.assertTrue(addressbook.isShared())
+        self.assertTrue(addressbook.isSharedByOwner())
 
         yield addressbook.uninviteUIDFromShare("user02")
         invites = yield addressbook.sharingInvites()
@@ -297,12 +297,12 @@ class AddressBookSharing(BaseSharingTests):
 
         yield self._check_notifications("user02", [])
 
-        self.assertTrue(addressbook.isShared())
+        self.assertTrue(addressbook.isSharedByOwner())
 
         yield self.commit()
 
         addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
-        self.assertFalse(addressbook.isShared())
+        self.assertFalse(addressbook.isSharedByOwner())
 
 
     @inlineCallbacks
@@ -315,7 +315,7 @@ class AddressBookSharing(BaseSharingTests):
         addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
         invites = yield addressbook.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(addressbook.isShared())
+        self.assertFalse(addressbook.isSharedByOwner())
 
         shareeView = yield addressbook.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield addressbook.sharingInvites()
@@ -328,7 +328,7 @@ class AddressBookSharing(BaseSharingTests):
 
         yield self._check_notifications("user02", [inviteUID, ])
 
-        self.assertTrue(addressbook.isShared())
+        self.assertTrue(addressbook.isSharedByOwner())
 
         yield self.commit()
 
@@ -343,7 +343,7 @@ class AddressBookSharing(BaseSharingTests):
         yield self._check_notifications("user01", [inviteUID + "-reply", ])
 
         addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
-        self.assertTrue(addressbook.isShared())
+        self.assertTrue(addressbook.isSharedByOwner())
 
         yield self.commit()
 
@@ -358,7 +358,7 @@ class AddressBookSharing(BaseSharingTests):
         yield self._check_notifications("user01", [inviteUID + "-reply", ])
 
         addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
-        self.assertTrue(addressbook.isShared())
+        self.assertTrue(addressbook.isSharedByOwner())
 
 
     @inlineCallbacks
@@ -371,7 +371,7 @@ class AddressBookSharing(BaseSharingTests):
         addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
         invites = yield addressbook.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(addressbook.isShared())
+        self.assertFalse(addressbook.isSharedByOwner())
 
         shareeView = yield addressbook.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield addressbook.sharingInvites()
@@ -384,7 +384,7 @@ class AddressBookSharing(BaseSharingTests):
 
         yield self._check_notifications("user02", [inviteUID, ])
 
-        self.assertTrue(addressbook.isShared())
+        self.assertTrue(addressbook.isSharedByOwner())
 
         yield self.commit()
 
@@ -398,7 +398,7 @@ class AddressBookSharing(BaseSharingTests):
         yield self._check_notifications("user01", [inviteUID + "-reply", ])
 
         addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
-        self.assertTrue(addressbook.isShared())
+        self.assertTrue(addressbook.isSharedByOwner())
 
         yield self.commit()
 
@@ -412,7 +412,7 @@ class AddressBookSharing(BaseSharingTests):
         yield self._check_notifications("user01", [inviteUID + "-reply", ])
 
         addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
-        self.assertTrue(addressbook.isShared())
+        self.assertTrue(addressbook.isSharedByOwner())
 
 
     @inlineCallbacks
@@ -593,7 +593,7 @@ class GroupSharing(BaseSharingTests):
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group1.vcf")
         invites = yield group.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(group.isShared())
+        self.assertFalse(group.isSharedByOwner())
 
         shareeView = yield group.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield group.sharingInvites()
@@ -606,7 +606,7 @@ class GroupSharing(BaseSharingTests):
         self.assertEqual(invites[0].summary, "summary")
         inviteUID = shareeView.shareUID()
 
-        self.assertTrue(group.isShared())
+        self.assertTrue(group.isSharedByOwner())
 
         yield self.commit()
 
@@ -616,7 +616,7 @@ class GroupSharing(BaseSharingTests):
         yield self._check_notifications("user02", [inviteUID, ])
 
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group1.vcf")
-        self.assertTrue(group.isShared())
+        self.assertTrue(group.isSharedByOwner())
 
         yield self.commit()
 
@@ -624,19 +624,19 @@ class GroupSharing(BaseSharingTests):
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group1.vcf")
         invites = yield group.sharingInvites()
         self.assertEqual(len(invites), 1)
-        self.assertTrue(group.isShared())
+        self.assertTrue(group.isSharedByOwner())
 
         yield group.uninviteUIDFromShare("user02")
         invites = yield group.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertTrue(group.isShared())
+        self.assertTrue(group.isSharedByOwner())
 
         yield self._check_notifications("user02", [])
 
         yield self.commit()
 
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group1.vcf")
-        self.assertFalse(group.isShared())
+        self.assertFalse(group.isSharedByOwner())
 
 
     @inlineCallbacks
@@ -649,7 +649,7 @@ class GroupSharing(BaseSharingTests):
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group1.vcf")
         invites = yield group.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(group.isShared())
+        self.assertFalse(group.isSharedByOwner())
 
         shareeView = yield group.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield group.sharingInvites()
@@ -661,7 +661,7 @@ class GroupSharing(BaseSharingTests):
 
         yield self._check_notifications("user02", [inviteUID, ])
 
-        self.assertTrue(group.isShared())
+        self.assertTrue(group.isSharedByOwner())
 
         yield self.commit()
 
@@ -673,7 +673,7 @@ class GroupSharing(BaseSharingTests):
         yield self._check_notifications("user01", [inviteUID + "-reply", ])
 
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group1.vcf")
-        self.assertTrue(group.isShared())
+        self.assertTrue(group.isSharedByOwner())
 
         yield self.commit()
 
@@ -685,7 +685,7 @@ class GroupSharing(BaseSharingTests):
         yield self._check_notifications("user01", [inviteUID + "-reply", ])
 
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group1.vcf")
-        self.assertTrue(group.isShared())
+        self.assertTrue(group.isSharedByOwner())
 
 
     @inlineCallbacks
@@ -698,7 +698,7 @@ class GroupSharing(BaseSharingTests):
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group1.vcf")
         invites = yield group.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(group.isShared())
+        self.assertFalse(group.isSharedByOwner())
 
         shareeView = yield group.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield group.sharingInvites()
@@ -710,7 +710,7 @@ class GroupSharing(BaseSharingTests):
 
         yield self._check_notifications("user02", [inviteUID, ])
 
-        self.assertTrue(group.isShared())
+        self.assertTrue(group.isSharedByOwner())
 
         yield self.commit()
 
@@ -724,7 +724,7 @@ class GroupSharing(BaseSharingTests):
         yield self._check_notifications("user01", [inviteUID + "-reply", ])
 
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group1.vcf")
-        self.assertTrue(group.isShared())
+        self.assertTrue(group.isSharedByOwner())
 
         yield self.commit()
 
@@ -738,7 +738,7 @@ class GroupSharing(BaseSharingTests):
         yield self._check_notifications("user01", [inviteUID + "-reply", ])
 
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group1.vcf")
-        self.assertTrue(group.isShared())
+        self.assertTrue(group.isSharedByOwner())
 
 
     @inlineCallbacks
@@ -752,7 +752,7 @@ class GroupSharing(BaseSharingTests):
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group1.vcf")
         invites = yield group.sharingInvites()
         self.assertEqual(len(invites), 0)
-        self.assertFalse(group.isShared())
+        self.assertFalse(group.isSharedByOwner())
 
         shareeView = yield group.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield group.sharingInvites()
@@ -764,7 +764,7 @@ class GroupSharing(BaseSharingTests):
 
         yield self._check_notifications("user02", [inviteUID, ])
 
-        self.assertTrue(group.isShared())
+        self.assertTrue(group.isSharedByOwner())
 
         yield self.commit()
 
@@ -776,7 +776,7 @@ class GroupSharing(BaseSharingTests):
         yield self._check_notifications("user01", [inviteUID + "-reply", ])
 
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group1.vcf")
-        self.assertTrue(group.isShared())
+        self.assertTrue(group.isSharedByOwner())
 
         yield self.commit()
 
@@ -790,7 +790,7 @@ class GroupSharing(BaseSharingTests):
         yield self._check_notifications("user01", [inviteUID + "-reply", ])
 
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group1.vcf")
-        self.assertTrue(group.isShared())
+        self.assertTrue(group.isSharedByOwner())
 
 
     @inlineCallbacks

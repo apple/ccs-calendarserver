@@ -70,8 +70,13 @@ class CommonHomeExternal(CommonHome):
 
     def initFromStore(self):
         """
-        NoOp for an external share as there is no metadata or properties.
+        External share does not have metadata or properties so we skip those by by-passing
+        the super method, but we do need to add notifiers.
         """
+
+        for factory_type, factory in self._txn._notifierFactories.items():
+            self.addNotifier(factory_type, factory.newNotifier(self))
+
         return succeed(self)
 
 

@@ -24,9 +24,7 @@ from txdav.caldav.datastore.scheduling.ischedule.localservers import (
 from txdav.common.datastore.podding.conduit import PoddingConduit
 from txdav.common.datastore.podding.request import ConduitRequest
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
-from txdav.common.datastore.test.util import (
-    CommonCommonTests, SQLStoreBuilder, buildTestDirectory
-)
+from txdav.common.datastore.test.util import CommonCommonTests, SQLStoreBuilder, buildTestDirectory, StubNotifierFactory
 
 import txweb2.dav.test.util
 from txweb2 import responsecode
@@ -150,6 +148,7 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
 
     theStoreBuilders = []
     theStores = []
+    theNotifiers = []
     activeTransactions = []
     accounts = None
     augments = None
@@ -161,6 +160,7 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
                 SQLStoreBuilder(count=len(self.theStoreBuilders))
             )
         self.theStores = [None] * self.numberOfStores
+        self.theNotifiers = [None] * self.numberOfStores
         self.activeTransactions = [None] * self.numberOfStores
 
 
@@ -187,9 +187,12 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
                     augments=self.augments,
                 )
                 self.theStores[i] = self.store
+                self.theNotifiers[i] = self.notifierFactory
             else:
+                self.theNotifiers[i] = StubNotifierFactory()
                 self.theStores[i] = yield self.buildStore(
-                    self.theStoreBuilders[i]
+                    self.theStoreBuilders[i],
+                    notifierFactory=self.theNotifiers[i],
                 )
                 directory = buildTestDirectory(
                     self.theStores[i],
@@ -272,7 +275,7 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
 
     @inlineCallbacks
     def createShare(
-        self, ownerGUID="user01", shareeGUID="puser02", name="calendar"
+        self, ownerGUID="user01", shareeGUID="puser02", name="calendar", pod=1
     ):
 
         home = yield self.homeUnderTest(
@@ -286,10 +289,10 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
 
         # ACK: home2 is None
         home2 = yield self.homeUnderTest(
-            txn=self.theTransactionUnderTest(1), name=shareeGUID
+            txn=self.theTransactionUnderTest(pod), name=shareeGUID
         )
         yield home2.acceptShare("shared-calendar")
-        yield self.commitTransaction(1)
+        yield self.commitTransaction(pod)
 
         returnValue("shared-calendar")
 

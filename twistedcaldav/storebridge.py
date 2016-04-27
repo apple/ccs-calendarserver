@@ -1195,7 +1195,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
 
     def resourceType(self):
-        if self.isShared():
+        if self.isSharedByOwner():
             return customxml.ResourceType.sharedownercalendar
         elif self.isShareeResource():
             return customxml.ResourceType.sharedcalendar
@@ -3315,7 +3315,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
 
 
     def resourceType(self):
-        if self.isShared():
+        if self.isSharedByOwner():
             return customxml.ResourceType.sharedowneraddressbook
         elif self.isShareeResource():
             return customxml.ResourceType.sharedaddressbook
@@ -3585,7 +3585,7 @@ class AddressBookObjectResource(_CommonObjectResource):
 
 
     def resourceType(self):
-        if self.isShared():
+        if self.isSharedByOwner():
             return customxml.ResourceType.sharedownergroup
         elif self.isShareeResource():
             return customxml.ResourceType.sharedgroup
@@ -3610,7 +3610,7 @@ class AddressBookObjectResource(_CommonObjectResource):
             abCollectionResource = (yield request.locateResource(parentForURL(request.uri)))
             returnValue((yield abCollectionResource.storeRemove(request)))
 
-        elif self.isShared():
+        elif self.isSharedByOwner():
             yield self.downgradeFromShare(request)
 
         response = (

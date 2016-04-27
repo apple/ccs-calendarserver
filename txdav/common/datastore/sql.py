@@ -3690,7 +3690,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         @return: a L{Deferred} which fires when the modification is complete.
         """
 
-        if self.isShared() or self.external():
+        if not self.owned() or self.external():
             raise ShareNotAllowed("Cannot rename a shared collection")
 
         oldName = self._name
@@ -4506,6 +4506,9 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             notifier = self._notifiers.get("push", None)
             if notifier:
                 yield notifier.notify(self._txn, priority=category.value)
+
+        if not self.external():
+            yield self.notifyExternalShare()
 
 
     @classproperty

@@ -223,7 +223,7 @@ END:VCALENDAR
 """
 
         calendar_collection = (yield self.calendarUnderTest(home="user01"))
-        calendar_collection.setSupportedComponents("VTODO")
+        yield calendar_collection.setSupportedComponents("VTODO")
         calendar = Component.fromString(data1)
         yield self.failUnlessFailure(calendar_collection.createCalendarObjectWithName("test.ics", calendar), InvalidComponentTypeError)
         yield self.commit()
