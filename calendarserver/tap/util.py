@@ -1499,6 +1499,7 @@ def getSSLPassphrase(*ignored):
     return None
 
 
+
 #
 # Server Alert Posting
 #
@@ -1586,7 +1587,6 @@ class AlertPoster(object):
             self.sender.sendAlert(alertType, args)
 
 
-
     @classmethod
     def secondsSinceLastPost(cls, alertType, timestampsDirectory=None, now=None):
         if timestampsDirectory is None:
@@ -1608,7 +1608,6 @@ class AlertPoster(object):
         return now - timestamp
 
 
-
     @classmethod
     def recordTimeStamp(cls, alertType, timestampsDirectory=None, now=None):
         if timestampsDirectory is None:
@@ -1622,11 +1621,11 @@ class AlertPoster(object):
 
 
 
-
 class AMPAlertSendingFactory(Factory):
 
     def __init__(self, sender):
         self.sender = sender
+
 
     def buildProtocol(self, addr):
         protocol = amp.AMP()
@@ -1682,7 +1681,6 @@ class PostAlert(amp.Command):
     response = [
         ('status', amp.String()),
     ]
-
 
 
 
