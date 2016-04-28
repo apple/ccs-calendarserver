@@ -1322,7 +1322,7 @@ def verifyTLSCertificate(config):
                         cert=config.SSLCertificate
                     )
                 )
-                AlertPoster.getAlertPoster().postAlert("MissingCertificateAlert", 0, ["path", config.SSLCertificate])
+                AlertPoster.postAlert("MissingCertificateAlert", 0, ["path", config.SSLCertificate])
                 return False, message
 
             length = os.stat(config.SSLCertificate).st_size
@@ -1387,7 +1387,7 @@ def verifyAPNSCertificate(config):
             try:
                 getAPNTopicFromConfig(protocol, accountName, protoConfig)
             except ValueError as e:
-                AlertPoster.getAlertPoster().postAlert("PushNotificationCertificateAlert", 0, [])
+                AlertPoster.postAlert("PushNotificationCertificateAlert", 0, [])
                 return False, str(e)
 
             # Let OpenSSL try to use the cert
@@ -1422,7 +1422,7 @@ def verifyAPNSCertificate(config):
                             reason=str(e)
                         )
                     )
-                AlertPoster.getAlertPoster().postAlert("PushNotificationCertificateAlert", 0, [])
+                AlertPoster.postAlert("PushNotificationCertificateAlert", 0, [])
                 return False, message
 
         return True, "APNS enabled"
@@ -1533,12 +1533,9 @@ class AlertPoster(object):
 
 
     @classmethod
-    def setupForTest(cls):
-        cls._alertPoster = cls()
-
-
-    @classmethod
-    def getAlertPoster(cls):
+    def _getAlertPoster(cls):
+        if cls._alertPoster is None:
+            cls._alertPoster = cls()
         return cls._alertPoster
 
 
@@ -1550,7 +1547,10 @@ class AlertPoster(object):
             self.sender = AMPAlertSender(controlSocket)
 
 
-    def postAlert(self, alertType, ignoreWithinSeconds, args):
+    @classmethod
+    def postAlert(cls, alertType, ignoreWithinSeconds, args):
+
+        poster = cls._getAlertPoster()
 
         if not config.AlertPostingProgram:
             return
@@ -1559,14 +1559,14 @@ class AlertPoster(object):
             return
 
         if ignoreWithinSeconds:
-            seconds = self.secondsSinceLastPost(alertType)
+            seconds = cls.secondsSinceLastPost(alertType)
             if seconds < ignoreWithinSeconds:
                 return
 
-        if self.sender is None:
+        if poster.sender is None:
             # Just do it
 
-            self.recordTimeStamp(alertType)
+            cls.recordTimeStamp(alertType)
 
             try:
                 commandLine = [config.AlertPostingProgram, alertType]
@@ -1584,7 +1584,7 @@ class AlertPoster(object):
 
         else:
             # Send request to master over AMP
-            self.sender.sendAlert(alertType, args)
+            poster.sender.sendAlert(alertType, args)
 
 
     @classmethod
@@ -1694,7 +1694,7 @@ class AMPAlertProtocol(amp.AMP):
         """
         The "PostAlert" handler in the master
         """
-        AlertPoster.getAlertPoster().postAlert(alertType, 0, args)
+        AlertPoster.postAlert(alertType, 0, args)
         return {
             "status": "OK"
         }

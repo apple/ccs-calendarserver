@@ -350,7 +350,6 @@ class AlertTestCase(TestCase):
 
     def test_protocol(self):
         self.patch(AlertPoster, "postAlert", self.stubPostAlert)
-        AlertPoster.setupForTest()
 
         client = AMP()
         server = AMPAlertProtocol()

@@ -640,7 +640,7 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
 
     def connectionLost(self, reason):
         if reason.type is TLSError:
-            AlertPoster.getAlertPoster().postAlert("MailCertificateAlert", 7 * 24 * 60 * 60, [])
+            AlertPoster.postAlert("MailCertificateAlert", 7 * 24 * 60 * 60, [])
 
 
     def serverGreeting(self, capabilities):

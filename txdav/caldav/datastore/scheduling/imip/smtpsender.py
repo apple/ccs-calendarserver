@@ -62,7 +62,7 @@ class SMTPSender(object):
             from OpenSSL.SSL import Error as TLSError
             if failure.type is TLSError:
                 from calendarserver.tap.util import AlertPoster
-                AlertPoster.getAlertPoster().postAlert("MailCertificateAlert", 7 * 24 * 60 * 60, [])
+                AlertPoster.postAlert("MailCertificateAlert", 7 * 24 * 60 * 60, [])
             return False
 
         deferred = defer.Deferred()
