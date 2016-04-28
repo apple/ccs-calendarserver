@@ -30,6 +30,7 @@ from txdav.common.datastore.sql_notification import NotificationCollection, \
 from txdav.common.datastore.sql_tables import _HOME_STATUS_EXTERNAL
 from txdav.common.icommondatastore import NonExistentExternalShare, \
     ExternalShareFailed
+from txdav.idav import ChangeCategory
 
 
 log = Logger()
@@ -203,7 +204,7 @@ class CommonHomeExternal(CommonHome):
         raise AssertionError("CommonHomeExternal: not supported")
 
 
-    def notifyChanged(self):
+    def notifyChanged(self, category=ChangeCategory.default):
         """
         Notifications are not handled for external homes - make this a no-op.
         """

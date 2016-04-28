@@ -4508,7 +4508,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
                 yield notifier.notify(self._txn, priority=category.value)
 
         if not self.external():
-            yield self.notifyExternalShare()
+            yield self.notifyExternalShare(category)
 
 
     @classproperty

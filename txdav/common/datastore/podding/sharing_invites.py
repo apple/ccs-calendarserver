@@ -18,6 +18,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
 
 from txdav.common.datastore.podding.base import FailedCrossPodRequestError
 from txdav.common.datastore.sql_tables import _HOME_STATUS_EXTERNAL
+from txdav.idav import ChangeCategory
 from twext.python.log import Logger
 
 log = Logger()
@@ -247,7 +248,7 @@ class SharingInvitesConduitMixin(object):
     @inlineCallbacks
     def send_sharenotification(
         self, txn, homeType, ownerUID,
-        bindUID, shareeUIDs,
+        bindUID, shareeUIDs, category,
     ):
         """
         Send a sharing notification cross-pod message for the specified sharees. Note that we
@@ -264,6 +265,9 @@ class SharingInvitesConduitMixin(object):
 
         @param shareeUIDs: UIDs of the sharees
         @type shareeUIDs: C{str}
+
+        @param category: category (priority) of notification
+        @type category: C{ChangeCategory}
         """
 
         recipients = {}
@@ -278,6 +282,7 @@ class SharingInvitesConduitMixin(object):
             "type": homeType,
             "ownerUID": ownerUID,
             "bindUID": bindUID,
+            "category": category.name,
         }
 
         deferreds = []
@@ -313,5 +318,11 @@ class SharingInvitesConduitMixin(object):
         if ownerCalendar is None:
             returnValue(None)
 
+        # Extract category - use default if unknown
+        try:
+            category = ChangeCategory.lookupByName(request["category"])
+        except ValueError:
+            category = ChangeCategory.default
+
         # Send the notification
-        yield ownerCalendar.notifyChanged()
+        yield ownerCalendar.notifyChanged(category=category)

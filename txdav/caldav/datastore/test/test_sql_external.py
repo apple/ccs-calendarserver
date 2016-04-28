@@ -15,18 +15,24 @@
 ##
 
 
-from twisted.internet.defer import inlineCallbacks
+from calendarserver.push.ipush import PushPriority
+
+from operator import methodcaller
 
 from twext.python.clsprop import classproperty
-from txdav.common.datastore.test.util import populateCalendarsFrom
+
+from twisted.internet.defer import inlineCallbacks
+
+from twistedcaldav.ical import Component
+
+from txdav.common.datastore.podding.base import FailedCrossPodRequestError
+from txdav.common.datastore.podding.test.util import MultiStoreConduitTest
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, \
     _BIND_STATUS_INVITED, _BIND_MODE_DIRECT, _BIND_STATUS_ACCEPTED, \
     _HOME_STATUS_EXTERNAL, _BIND_MODE_WRITE
-from txdav.common.datastore.podding.test.util import MultiStoreConduitTest
-from txdav.common.datastore.podding.base import FailedCrossPodRequestError
+from txdav.common.datastore.test.util import populateCalendarsFrom
 from txdav.common.icommondatastore import ExternalShareFailed
-from twistedcaldav.ical import Component
-from operator import methodcaller, itemgetter
+from txdav.idav import ChangeCategory
 
 
 class BaseSharingTests(MultiStoreConduitTest):
@@ -762,16 +768,18 @@ class CalendarSharing(BaseSharingTests):
 
         map(methodcaller("reset"), self.theNotifiers)
 
+        def _checkNotifications(priority=PushPriority.high):
+            self.assertEqual(set(self.theNotifiers[0].history), set([("/CalDAV/example.com/user01/", priority), ("/CalDAV/example.com/user01/calendar/", priority)]))
+            self.assertEqual(set(self.theNotifiers[1].history), set([("/CalDAV/example.com/user01/", priority), ("/CalDAV/example.com/user01/calendar/", priority)]))
+            map(methodcaller("reset"), self.theNotifiers)
+
         # Change by owner
         home = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01")
         self.assertEquals(home.notifierID(), ("CalDAV", "user01",))
         calendar = yield home.calendarWithName("calendar")
         yield calendar.createObjectResourceWithName("2.ics", Component.fromString(self.cal2))
         yield self.commitTransaction(0)
-
-        self.assertEqual(set(map(itemgetter(0), self.theNotifiers[0].history)), set(["/CalDAV/example.com/user01/", "/CalDAV/example.com/user01/calendar/"]))
-        self.assertEqual(set(map(itemgetter(0), self.theNotifiers[1].history)), set(["/CalDAV/example.com/user01/", "/CalDAV/example.com/user01/calendar/"]))
-        map(methodcaller("reset"), self.theNotifiers)
+        _checkNotifications()
 
         # Change by sharee on other pod
         txn2 = self.theTransactionUnderTest(1)
@@ -781,10 +789,7 @@ class CalendarSharing(BaseSharingTests):
         cobj = yield calendar.calendarObjectWithName("2.ics")
         yield cobj.remove()
         yield self.commitTransaction(1)
-
-        self.assertEqual(set(map(itemgetter(0), self.theNotifiers[0].history)), set(["/CalDAV/example.com/user01/", "/CalDAV/example.com/user01/calendar/"]))
-        self.assertEqual(set(map(itemgetter(0), self.theNotifiers[1].history)), set(["/CalDAV/example.com/user01/", "/CalDAV/example.com/user01/calendar/"]))
-        map(methodcaller("reset"), self.theNotifiers)
+        _checkNotifications()
 
         # Change by sharee on same pod
         txn2 = self.theTransactionUnderTest(0)
@@ -793,10 +798,15 @@ class CalendarSharing(BaseSharingTests):
         calendar = yield home.calendarWithName(shared_name_user02)
         yield calendar.createObjectResourceWithName("2_1.ics", Component.fromString(self.cal2))
         yield self.commitTransaction(0)
+        _checkNotifications()
 
-        self.assertEqual(set(map(itemgetter(0), self.theNotifiers[0].history)), set(["/CalDAV/example.com/user01/", "/CalDAV/example.com/user01/calendar/"]))
-        self.assertEqual(set(map(itemgetter(0), self.theNotifiers[1].history)), set(["/CalDAV/example.com/user01/", "/CalDAV/example.com/user01/calendar/"]))
-        map(methodcaller("reset"), self.theNotifiers)
+        # Different priority for owner change
+        home = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01")
+        self.assertEquals(home.notifierID(), ("CalDAV", "user01",))
+        calendar = yield home.calendarWithName("calendar")
+        yield calendar.notifyChanged(category=ChangeCategory.attendeeITIPUpdate)
+        yield self.commitTransaction(0)
+        _checkNotifications(priority=PushPriority.medium)
 
 
 

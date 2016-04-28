@@ -32,6 +32,7 @@ from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, _BIND_MODE_DIRECT,
     _HOME_STATUS_EXTERNAL, _HOME_STATUS_DISABLED
 from txdav.common.icommondatastore import ExternalShareFailed, \
     HomeChildNameAlreadyExistsError, AllRetriesFailed
+from txdav.idav import ChangeCategory
 from txdav.xml import element
 
 from uuid import uuid4
@@ -580,7 +581,7 @@ class SharingMixIn(object):
 
 
     @inlineCallbacks
-    def notifyExternalShare(self):
+    def notifyExternalShare(self, category=ChangeCategory.default):
         """
         Send a cross-pod message to all external shares to ensure change notifications are sent
         to external sharees' clients subscribed to notifications on the other pods.
@@ -608,6 +609,7 @@ class SharingMixIn(object):
                 self.ownerHome().uid(),
                 ownerView.bindUID(),
                 externalUIDs,
+                category,
             )
 
 
