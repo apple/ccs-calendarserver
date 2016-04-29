@@ -17,6 +17,12 @@
 ##
 from __future__ import print_function
 
+import sys
+
+if "twisted.internet.reactor" not in sys.modules:
+    from twisted.internet import kqreactor
+    kqreactor.install()
+
 from collections import namedtuple, defaultdict
 from os import environ, mkdir
 from os.path import isdir
@@ -52,8 +58,6 @@ from contrib.performance.loadtest.population import (
     Populator, ProfileType, ClientType, PopulationParameters, SmoothRampUp,
     CalendarClientSimulator)
 from contrib.performance.loadtest.webadmin import LoadSimAdminResource
-
-
 
 class _DirectoryRecord(object):
     def __init__(self, uid, password, commonName, email, guid, podID="PodA"):

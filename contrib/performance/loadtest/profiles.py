@@ -963,7 +963,11 @@ END:VCALENDAR
             return succeed(None)
 
         # If it does not exist, try to create it
-        calendar = self._calendarsOfType(caldavxml.calendar, "VEVENT")[0]
+        try:
+            calendar = self._calendarsOfType(caldavxml.calendar, "VEVENT")[0]
+        except IndexError:
+            # There is no calendar
+            return succeed(None)
         if not calendar.events:
             return self._initEvent()
         events = [event for event in calendar.events.values() if event.url.endswith("event_to_update.ics")]
