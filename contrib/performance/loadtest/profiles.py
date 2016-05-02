@@ -886,7 +886,7 @@ END:VCALENDAR
 
         @return: a L{Deferred} that fires when initialization is done
         """
-
+        self.myEventHref = None
         return self._initEvent()
 
 
@@ -900,13 +900,13 @@ END:VCALENDAR
         # Don't perform any operations until the client is up and running
         if not self._client.started:
             return succeed(None)
+        try:
+            calendar = self._calendarsOfType(caldavxml.calendar, "VEVENT")[0]
+        except IndexError:
+            # There is no calendar
+            return succeed(None)
 
-        # If it already exists, don't re-create
-        calendar = self._calendarsOfType(caldavxml.calendar, "VEVENT")[0]
-        if calendar.events:
-            events = [event for event in calendar.events.values() if event.url.endswith("event_to_update.ics")]
-            if events:
-                return succeed(None)
+        self.myEventHref = '{}{}.ics'.format(calendar.url, str(uuid4()))
 
         # Copy the template event and fill in some of its fields
         # to make a new event to create on the calendar.
@@ -920,13 +920,13 @@ END:VCALENDAR
         vevent.replaceProperty(Property("DTSTART", dtstart))
         vevent.replaceProperty(Property("DTEND", dtend))
         vevent.replaceProperty(Property("UID", uid))
+        vevent.replaceProperty(Property("DESCRIPTION", "AlarmAcknowledger"))
 
         rrule = self._recurrenceDistribution.sample()
         if rrule is not None:
             vevent.addProperty(Property(None, None, None, pycalendar=rrule))
 
-        href = '%s%s' % (calendar.url, "event_to_update.ics")
-        d = self._client.addEvent(href, vcalendar)
+        d = self._client.addEvent(self.myEventHref, vcalendar)
         return self._newOperation("create", d)
 
 
@@ -962,18 +962,10 @@ END:VCALENDAR
         if not self._client.started:
             return succeed(None)
 
-        # If it does not exist, try to create it
-        try:
-            calendar = self._calendarsOfType(caldavxml.calendar, "VEVENT")[0]
-        except IndexError:
-            # There is no calendar
-            return succeed(None)
-        if not calendar.events:
+        if self.myEventHref is None:
             return self._initEvent()
-        events = [event for event in calendar.events.values() if event.url.endswith("event_to_update.ics")]
-        if not events:
-            return self._initEvent()
-        event = events[0]
+
+        event = self._client.eventByHref(self.myEventHref)
 
         # Add/update the ACKNOWLEDGED property
         component = event.component.mainComponent()

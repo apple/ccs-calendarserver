@@ -350,6 +350,13 @@ class BaseClient(object):
         del self._calendars[calendar + '/'].events[basePath]
 
 
+    def eventByHref(self, href):
+        """
+        Return the locally cached event by its href
+        """
+        return self._events[href]
+
+
     def addEvent(self, href, calendar):
         """
         Called when a profile needs to add an event (no scheduling).
@@ -1698,20 +1705,26 @@ class BaseAppleClient(BaseClient):
         if len(attendees) > 75:
             label_suffix = "huge"
 
+        headers = Headers({
+            'content-type': ['text/calendar'],
+            'if-match': [event.etag]})
+        if event.etag is None:
+            headers.removeHeader('if-match')
+
         # At last, upload the new event definition
         response = yield self._request(
             (NO_CONTENT, PRECONDITION_FAILED,),
             'PUT',
             self.server["uri"] + href.encode('utf-8'),
-            Headers({
-                    'content-type': ['text/calendar'],
-                    'if-match': [event.etag]}),
+            headers,
             StringProducer(component.getTextWithTimezones(includeTimezones=True)),
             method_label="PUT{organizer-%s}" % (label_suffix,)
         )
 
         # Finally, re-retrieve the event to update the etag
-        yield self._updateEvent(response, href)
+        if not response.headers.hasHeader("etag"):
+            response = yield self.updateEvent(href)
+
 
 
     @inlineCallbacks
@@ -1803,7 +1816,8 @@ class BaseAppleClient(BaseClient):
         )
 
         # Finally, re-retrieve the event to update the etag
-        yield self._updateEvent(response, href)
+        if not response.headers.hasHeader("etag"):
+            response = yield self.updateEvent(href)
 
 
     @inlineCallbacks
@@ -1849,6 +1863,9 @@ class BaseAppleClient(BaseClient):
         )
         self._localUpdateEvent(response, href, component)
 
+        if not response.headers.hasHeader("etag"):
+            response = yield self.updateEvent(href)
+
 
     @inlineCallbacks
     def addInvite(self, href, component):
@@ -1874,21 +1891,25 @@ class BaseAppleClient(BaseClient):
         event = self._events[href]
         component = event.component
 
+        headers = Headers({
+            'content-type': ['text/calendar'],
+            'if-match': [event.etag]})
+        if event.etag is None:
+            headers.removeHeader('if-match')
+
         # At last, upload the new event definition
         response = yield self._request(
             (NO_CONTENT, PRECONDITION_FAILED,),
             'PUT',
             self.server["uri"] + href.encode('utf-8'),
-            Headers({
-                'content-type': ['text/calendar'],
-                'if-match': [event.etag]
-            }),
+            headers,
             StringProducer(component.getTextWithTimezones(includeTimezones=True)),
             method_label="PUT{update}"
         )
 
         # Finally, re-retrieve the event to update the etag
-        yield self._updateEvent(response, href)
+        if not response.headers.hasHeader("etag"):
+            response = yield self.updateEvent(href)
 
 
     def _localUpdateEvent(self, response, href, component):
@@ -1901,12 +1922,8 @@ class BaseAppleClient(BaseClient):
         self._setEvent(href, event)
 
 
-    def updateEvent(self, href):
-        return self._updateEvent(None, href)
-
-
     @inlineCallbacks
-    def _updateEvent(self, ignored, href):
+    def updateEvent(self, href):
         response = yield self._request(
             OK,
             'GET',
@@ -1918,6 +1935,7 @@ class BaseAppleClient(BaseClient):
         scheduleTag = headers.getRawHeaders('schedule-tag', [None])[0]
         body = yield readBody(response)
         self.eventChanged(href, etag, scheduleTag, body)
+        returnValue(response)
 
 
     @inlineCallbacks
