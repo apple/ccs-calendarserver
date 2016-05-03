@@ -41,7 +41,6 @@ from txdav.base.propertystore.xattr import PropertyStore as XattrPropertyStore
 from txdav.caldav.datastore.util import fixOneCalendarObject
 from txdav.caldav.datastore.util import migrateHome as migrateCalendarHome
 from txdav.carddav.datastore.util import migrateHome as migrateAddressbookHome
-from txdav.common.datastore.file import CommonDataStore as FileStore, TOPPATHS
 from txdav.common.datastore.sql import EADDRESSBOOKTYPE, ECALENDARTYPE
 
 from txdav.common.datastore.upgrade.sql.upgrades.calendar_upgrade_from_1_to_2 import doUpgrade as doCalendarUpgrade_1_to_2
@@ -203,6 +202,7 @@ class UpgradeHelperProcess(AMP):
     @Configure.responder
     def configure(self, filename, appropriateStoreClass, merge):
         subsvc = None
+        from txdav.common.datastore.file import CommonDataStore as FileStore
         self.upgrader = UpgradeToDatabaseStep(
             FileStore(
                 CachingFilePath(filename), None, None, True, True,
@@ -269,9 +269,8 @@ class UpgradeToDatabaseStep(object):
         @type path: L{CachingFilePath}
         """
 
-        # TODO: TOPPATHS should be computed based on enabled flags in 'store',
-        # not hard coded.
-        for homeType in TOPPATHS:
+        # Legacy: old file store only ever used these two top-level paths
+        for homeType in ("calendars", "addressbooks"):
             if path.child(homeType).exists():
                 if platform.isMacOSX():
                     appropriateStoreClass = XattrPropertyStore
@@ -303,6 +302,7 @@ class UpgradeToDatabaseStep(object):
 
                     appropriateStoreClass = AppleDoubleStore
 
+                from txdav.common.datastore.file import CommonDataStore as FileStore
                 return FileStore(
                     path, None, None, True, True,
                     propertyStoreClass=appropriateStoreClass)
