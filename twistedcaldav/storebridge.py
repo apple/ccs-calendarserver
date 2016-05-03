@@ -260,7 +260,9 @@ class _CommonStoreExceptionHandler(object):
         @param arg: description of error or C{None}
         @type arg: C{str} or C{None}
         """
-        raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE, arg if arg is not None else str(err)))
+        response = StatusResponse(responsecode.SERVICE_UNAVAILABLE, arg if arg is not None else str(err))
+        response.headers.setHeader("Retry-After", time.time() + config.TransactionHTTPRetrySeconds)
+        raise HTTPError(response)
 
 
     @classmethod
@@ -398,7 +400,11 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
         """
 
         if self._newStoreObject:
-            newStoreObject = yield self._newStoreObject.objectResourceWithName(name)
+            try:
+                newStoreObject = yield self._newStoreObject.objectResourceWithName(name)
+            except Exception as err:
+                self._handleStoreException(err, self.StoreExceptionsErrors)
+                raise
 
             similar = self._childClass(
                 newStoreObject,

@@ -58,6 +58,7 @@ from twistedcaldav.vcard import Component as vComponent
 from txdav.caldav.datastore.util import normalizationLookup
 from txdav.common.icommondatastore import InternalDataStoreError, \
     SyncTokenValidException, ExternalShareFailed
+from txdav.common.datastore.podding.base import FailedCrossPodRequestError
 from txdav.xml import element
 from txdav.xml.element import dav_namespace
 
@@ -363,6 +364,12 @@ class CalDAVResource (
             # the transaction commit
             self._transactionError = False
             response = StatusResponse(responsecode.SERVICE_UNAVAILABLE, "Shared collection not valid - removing.")
+        except FailedCrossPodRequestError:
+            # This happens when a cross-pod connection attempt fails. Treat as a 503 so the client
+            # can try again once the pod is back up.
+            response = StatusResponse(responsecode.SERVICE_UNAVAILABLE, "Unable to do cross-pod request.")
+            response.headers.setHeader("Retry-After", time.time() + config.TransactionHTTPRetrySeconds)
+
         if transaction is None:
             transaction = self._associatedTransaction
         if transaction is not None:

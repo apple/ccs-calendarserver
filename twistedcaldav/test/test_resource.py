@@ -28,6 +28,9 @@ from twistedcaldav.test.util import TestCase
 from twistedcaldav.test.util import \
     InMemoryPropertyStore, StoreTestCase, SimpleStoreRequest
 
+from txdav.caldav.datastore.sql import Calendar
+from txdav.common.datastore.podding.base import FailedCrossPodRequestError
+from txdav.common.icommondatastore import ExternalShareFailed
 from txdav.xml import element
 from txdav.xml.element import HRef
 
@@ -90,11 +93,11 @@ class CalDAVResourceTests(TestCase):
 
 
 
-class TransactionTimeoutTests(StoreTestCase):
+class TransactionErrorTests(StoreTestCase):
 
     @inlineCallbacks
     def setUp(self):
-        yield super(TransactionTimeoutTests, self).setUp()
+        yield super(TransactionErrorTests, self).setUp()
 
 
     @inlineCallbacks
@@ -120,6 +123,76 @@ class TransactionTimeoutTests(StoreTestCase):
         # Run delayed request
         authPrincipal = yield self.actualRoot.findPrincipalForAuthID("user01")
         request = SimpleStoreRequest(self, "GET", "/calendars/__uids__/user01/calendar/", authPrincipal=authPrincipal)
+        try:
+            yield self.send(request)
+        except HTTPError as e:
+            self.assertEqual(e.response.code, responsecode.SERVICE_UNAVAILABLE)
+            self.assertTrue(e.response.headers.hasHeader("Retry-After"))
+            self.assertApproximates(int(e.response.headers.getRawHeaders("Retry-After")[0]), config.TransactionHTTPRetrySeconds, 1)
+        else:
+            self.fail("HTTPError not raised")
+
+
+    @inlineCallbacks
+    def test_conduitRetry(self):
+        """
+        Test that a cross-pod error during an HTTP request results in a 503 error
+        with a Retry-After header.
+        """
+
+        # Patch request handling to raise an exception
+        def _iCalendarRolledup(self, request):
+            raise FailedCrossPodRequestError()
+        self.patch(CalendarCollectionResource, "iCalendarRolledup", _iCalendarRolledup)
+
+        self.patch(self.store, "timeoutTransactions", 1)
+
+        # Run delayed request
+        authPrincipal = yield self.actualRoot.findPrincipalForAuthID("user01")
+        request = SimpleStoreRequest(self, "GET", "/calendars/__uids__/user01/calendar/", authPrincipal=authPrincipal)
+        response = yield self.send(request)
+        self.assertEqual(response.code, responsecode.SERVICE_UNAVAILABLE)
+        self.assertTrue(response.headers.hasHeader("Retry-After"))
+        self.assertApproximates(int(response.headers.getRawHeaders("Retry-After")[0]), config.TransactionHTTPRetrySeconds, 1)
+
+
+    @inlineCallbacks
+    def test_failedShareRetry(self):
+        """
+        Test that a cross-pod error during an HTTP request results in a 503 error
+        without a Retry-After header.
+        """
+
+        # Patch request handling to raise an exception
+        def _iCalendarRolledup(self, request):
+            raise ExternalShareFailed()
+        self.patch(CalendarCollectionResource, "iCalendarRolledup", _iCalendarRolledup)
+
+        # Run delayed request
+        authPrincipal = yield self.actualRoot.findPrincipalForAuthID("user01")
+        request = SimpleStoreRequest(self, "GET", "/calendars/__uids__/user01/calendar/", authPrincipal=authPrincipal)
+        response = yield self.send(request)
+        self.assertEqual(response.code, responsecode.SERVICE_UNAVAILABLE)
+        self.assertFalse(response.headers.hasHeader("Retry-After"))
+
+
+    @inlineCallbacks
+    def test_failedPodChildRetry(self):
+        """
+        Test that a cross-pod error during an HTTP request results in a 503 error
+        with a Retry-After header.
+        """
+
+        # Patch request handling to raise an exception
+        def _objectResourceWithName(self, name):
+            raise FailedCrossPodRequestError()
+        self.patch(Calendar, "objectResourceWithName", _objectResourceWithName)
+
+        self.patch(self.store, "timeoutTransactions", 1)
+
+        # Run delayed request
+        authPrincipal = yield self.actualRoot.findPrincipalForAuthID("user01")
+        request = SimpleStoreRequest(self, "GET", "/calendars/__uids__/user01/calendar/1.ics", authPrincipal=authPrincipal)
         try:
             yield self.send(request)
         except HTTPError as e:
