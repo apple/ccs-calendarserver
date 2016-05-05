@@ -59,6 +59,8 @@ from contrib.performance.loadtest.population import (
     CalendarClientSimulator)
 from contrib.performance.loadtest.webadmin import LoadSimAdminResource
 
+from contrib.performance.loadtest.amphub import AMPHub
+
 class _DirectoryRecord(object):
     def __init__(self, uid, password, commonName, email, guid, podID="PodA"):
         self.uid = uid
@@ -487,12 +489,24 @@ class LoadSimulator(object):
         attachService(self.reactor, self, self.ms)
 
 
+    def startAmpHub(self):
+        hostsAndPorts = []
+        for serverInfo in self.servers.itervalues():
+            if serverInfo["enabled"]:
+                for host in serverInfo.get("ampPushHosts", []):
+                    hostsAndPorts.append((host, serverInfo["ampPushPort"]))
+        if hostsAndPorts:
+            AMPHub.start(hostsAndPorts)
+
+
+
     def run(self, output=stdout):
         self.attachServices(output)
         if self.runtime is not None:
             self.reactor.callLater(self.runtime, self.stopAndReport)
         if self.webadminPort:
             self.reactor.listenTCP(self.webadminPort, Site(LoadSimAdminResource(self)))
+        self.startAmpHub()
         self.reactor.run()
 
         # Return code to indicate pass or fail

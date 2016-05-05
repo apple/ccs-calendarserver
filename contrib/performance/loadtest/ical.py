@@ -25,9 +25,9 @@ from caldavclientlibrary.protocol.utils.xmlhelpers import BetterElementTree
 from caldavclientlibrary.protocol.webdav.definitions import davxml
 from caldavclientlibrary.protocol.webdav.propfindparser import PropFindParser
 
-from calendarserver.push.amppush import subscribeToIDs
 from calendarserver.tools.notifications import PubSubClientFactory
 
+from contrib.performance.loadtest.amphub import AMPHub
 from contrib.performance.httpauth import AuthHandlerAgent
 from contrib.performance.httpclient import StringProducer, readBody
 from contrib.performance.loadtest.subscribe import Periodical
@@ -1510,11 +1510,7 @@ class BaseAppleClient(BaseClient):
         """
         Start monitoring for AMP-based push notifications
         """
-        for host in self.ampPushHosts:
-            subscribeToIDs(
-                host, self.ampPushPort, pushKeys,
-                self._receivedPush, self.reactor
-            )
+        AMPHub.subscribeToIDs(pushKeys, self._receivedPush)
 
 
     @inlineCallbacks
