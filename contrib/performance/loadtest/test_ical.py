@@ -27,7 +27,7 @@ from contrib.performance.loadtest.sim import _DirectoryRecord
 from pycalendar.datetime import DateTime
 from pycalendar.timezone import Timezone
 
-from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
+from twisted.internet.defer import Deferred, inlineCallbacks, returnValue, succeed
 from twisted.internet.protocol import ProtocolToConsumerAdapter
 from twisted.python.failure import Failure
 from twisted.trial.unittest import TestCase
@@ -1356,7 +1356,7 @@ class OS_X_10_11Tests(OS_X_10_11Mixin, TestCase):
 
         def requested(ignored):
             response = MemoryResponse(
-                ('HTTP', '1', '1'), CREATED, "Created", Headers({}),
+                ('HTTP', '1', '1'), CREATED, "Created", Headers({"etag": ["foo"]}),
                 StringProducer(""))
             result.callback(response)
         finished.addCallback(requested)
@@ -1447,7 +1447,20 @@ class OS_X_10_11Tests(OS_X_10_11Mixin, TestCase):
 
             returnValue(response)
 
-        requests = [_testReport, _testPost02, _testReport, _testPost03, _testPut, ]
+        def _testGet(*args, **kwargs):
+            expectedResponseCode, method, url = args
+            self.assertEqual(expectedResponseCode, OK)
+            self.assertEqual(method, 'GET')
+            self.assertEqual(url, 'http://127.0.0.1/mumble/frotz.ics')
+            self.assertIsInstance(url, str)
+
+            response = MemoryResponse(
+                ('HTTP', '1', '1'), OK, "OK", Headers({"etag": ["foo"]}),
+                StringProducer(EVENT_INVITE))
+
+            return succeed(response)
+
+        requests = [_testReport, _testPost02, _testReport, _testPost03, _testPut, _testGet]
 
         def _requestHandler(*args, **kwargs):
             handler = requests.pop(0)
