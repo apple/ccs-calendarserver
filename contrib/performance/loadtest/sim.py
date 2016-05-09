@@ -20,8 +20,12 @@ from __future__ import print_function
 import sys
 
 if "twisted.internet.reactor" not in sys.modules:
-    from twisted.internet import kqreactor
-    kqreactor.install()
+    try:
+        from twisted.internet import kqreactor
+        kqreactor.install()
+    except ImportError:
+        from twisted.internet import epollreactor
+        epollreactor.install()
 
 from collections import namedtuple, defaultdict
 from os import environ, mkdir
