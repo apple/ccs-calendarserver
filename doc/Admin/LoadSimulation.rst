@@ -178,6 +178,8 @@ Server Specification
 
 The client sim supports testing of 'podded' environments. If you aren't using pods, not to worry, the default configuration still works. For each pod, define the uri and other server-specific attributes such as the amp push host and port (used for client notifications in lieu of APNS), and the stats socket port (if enabled in the server config).
 
+Use of AMP push is recommended if your production service uses APNS push, and is the only push mechanism supported by the client sim. The shape of the load produced by the client sim when using push is vastly different than when not using push. Enable AMP in the server in caldavd.plist under `Notifications --> Services --> AMP <http://trac.calendarserver.org/browser/CalendarServer/trunk/conf/caldavd-stdconfig.plist#L1684>`_. Note that ampPushHosts is an array - if you are testing a service behind a load balancer, the client sim needs an AMP connection to each individual server, so ensure the network allows that and specify all the Calendar Server hosts in ampPushHosts.
+
 ::
 
   <key>servers</key>
