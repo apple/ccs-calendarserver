@@ -321,6 +321,8 @@ To use four instances on the local host::
         <array>
             <string>./bin/python contrib/performance/loadtest/ampsim.py</string>
             <string>./bin/python contrib/performance/loadtest/ampsim.py</string>
+            <string>./bin/python contrib/performance/loadtest/ampsim.py</string>
+            <string>./bin/python contrib/performance/loadtest/ampsim.py</string>
         </array>
 
 To use two instances each on two different remote hosts, use something like::
