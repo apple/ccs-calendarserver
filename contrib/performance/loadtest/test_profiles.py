@@ -31,7 +31,7 @@ from twisted.web.client import Response
 
 from twistedcaldav.ical import Component, Property
 
-from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter, OperationLogger, AlarmAcknowledger
+from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter, OperationLogger, AlarmAcknowledger, AttachmentDownloader
 from contrib.performance.loadtest.population import Populator, CalendarClientSimulator
 from contrib.performance.loadtest.ical import IncorrectResponseCode, Calendar, Event, BaseClient
 from contrib.performance.loadtest.sim import _DirectoryRecord
@@ -258,13 +258,13 @@ class StubClient(BaseClient):
         return path
 
 
-    def addEvent(self, href, vevent):
+    def addEvent(self, href, vevent, attachmentSize=0):
         self._events[href] = Event(self.serializePath, href, None, vevent)
         return succeed(None)
 
 
-    def addInvite(self, href, vevent):
-        return self.addEvent(href, vevent)
+    def addInvite(self, href, vevent, attachmentSize=0):
+        return self.addEvent(href, vevent, attachmentSize=attachmentSize)
 
 
     def deleteEvent(self, href,):
@@ -291,11 +291,14 @@ class StubClient(BaseClient):
 
     def changeEventAttendee(self, href, old, new):
         if href in self.rescheduled:
-            return fail(IncorrectResponseCode(
-                NO_CONTENT,
-                Response(
-                    ('HTTP', 1, 1), PRECONDITION_FAILED,
-                    'Precondition Failed', None, None))
+            return fail(
+                IncorrectResponseCode(
+                    NO_CONTENT,
+                    Response(
+                        ('HTTP', 1, 1), PRECONDITION_FAILED,
+                        'Precondition Failed', None, None),
+                    None
+                ),
             )
 
         vevent = self._events[href].component
@@ -851,7 +854,7 @@ class AccepterTests(TestCase):
             NO_CONTENT,
             Response(
                 ('HTTP', 1, 1), PRECONDITION_FAILED,
-                'Precondition Failed', None, None))
+                'Precondition Failed', None, None), None)
         )
         accepter = Accepter(clock, self.sim, client, userNumber)
         accepter.eventChanged(inboxEvent.url)
@@ -1033,6 +1036,24 @@ class EventerTests(TestCase):
 
         # XXX Vary the event period/interval and the uid
 
+
+class AttachmentDownloaderTests(TestCase):
+    """
+    Tests for L{AttachmentDownloader}.
+    """
+
+    def setUp(self):
+        self.sim = CalendarClientSimulator(
+            AnyUser(), Populator(None), None, None, None, None, None, None)
+
+    def test_normalize(self):
+        client = StubClient(1, self.mktemp())
+        client._managed_attachments_server_url = "https://thisserver:8443"
+        downloader = AttachmentDownloader(Clock(), self.sim, client, None)
+        self.assertEquals(
+            downloader._normalizeHref("http://otherserver/attachment/url"),
+            "https://thisserver:8443/attachment/url"
+        )
 
 
 class OperationLoggerTests(TestCase):

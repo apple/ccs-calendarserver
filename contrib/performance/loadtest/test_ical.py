@@ -1358,7 +1358,7 @@ class OS_X_10_11Tests(OS_X_10_11Mixin, TestCase):
             response = MemoryResponse(
                 ('HTTP', '1', '1'), CREATED, "Created", Headers({"etag": ["foo"]}),
                 StringProducer(""))
-            result.callback(response)
+            result.callback((response, ""))
         finished.addCallback(requested)
 
         return d
@@ -1399,7 +1399,7 @@ class OS_X_10_11Tests(OS_X_10_11Mixin, TestCase):
                 ('HTTP', '1', '1'), MULTI_STATUS, "MultiStatus", Headers({}),
                 StringProducer("<?xml version='1.0' encoding='UTF-8'?><multistatus xmlns='DAV:' />"))
 
-            returnValue(response)
+            returnValue((response, "<?xml version='1.0' encoding='UTF-8'?><multistatus xmlns='DAV:' />"))
 
         @inlineCallbacks
         def _testPost(*args, **kwargs):
@@ -1418,7 +1418,7 @@ class OS_X_10_11Tests(OS_X_10_11Mixin, TestCase):
                 ('HTTP', '1', '1'), OK, "OK", Headers({}),
                 StringProducer(""))
 
-            returnValue(response)
+            returnValue((response, ""))
 
         def _testPost02(*args, **kwargs):
             return _testPost(*args, attendee="ATTENDEE:mailto:user02@example.com", **kwargs)
@@ -1445,7 +1445,7 @@ class OS_X_10_11Tests(OS_X_10_11Mixin, TestCase):
                 ('HTTP', '1', '1'), CREATED, "Created", Headers({}),
                 StringProducer(""))
 
-            returnValue(response)
+            returnValue((response, ""))
 
         def _testGet(*args, **kwargs):
             expectedResponseCode, method, url = args
@@ -1458,7 +1458,7 @@ class OS_X_10_11Tests(OS_X_10_11Mixin, TestCase):
                 ('HTTP', '1', '1'), OK, "OK", Headers({"etag": ["foo"]}),
                 StringProducer(EVENT_INVITE))
 
-            return succeed(response)
+            return succeed((response, EVENT_INVITE))
 
         requests = [_testReport, _testPost02, _testReport, _testPost03, _testPut, _testGet]
 
@@ -1499,7 +1499,7 @@ class OS_X_10_11Tests(OS_X_10_11Mixin, TestCase):
         response = MemoryResponse(
             ('HTTP', '1', '1'), NO_CONTENT, "No Content", None,
             StringProducer(""))
-        result.callback(response)
+        result.callback((response, ""))
         return d
 
 
@@ -1935,9 +1935,13 @@ END:VCALENDAR
         self.assertEqual((MULTI_STATUS, FORBIDDEN), expectedResponseCode)
 
         result.callback(
-            MemoryResponse(
-                ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
-                StringProducer(self._CALENDAR_PROPFIND_RESPONSE_BODY)))
+            (
+                MemoryResponse(
+                    ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
+                    StringProducer(self._CALENDAR_PROPFIND_RESPONSE_BODY)),
+                self._CALENDAR_PROPFIND_RESPONSE_BODY
+            )
+        )
 
         result, req = requests.pop(0)
         expectedResponseCode, method, url, _ignore_headers, _ignore_body = req
@@ -1949,9 +1953,13 @@ END:VCALENDAR
         del self.client._events["/something/anotherthing.ics"]
 
         result.callback(
-            MemoryResponse(
-                ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
-                StringProducer(self._CALENDAR_REPORT_RESPONSE_BODY)))
+            (
+                MemoryResponse(
+                    ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
+                    StringProducer(self._CALENDAR_REPORT_RESPONSE_BODY)),
+                self._CALENDAR_REPORT_RESPONSE_BODY
+            )
+        )
 
         # Verify that processing proceeded to the response after the one with a
         # 404 status.
@@ -1978,9 +1986,13 @@ END:VCALENDAR
         self.assertEqual((MULTI_STATUS, FORBIDDEN), expectedResponseCode)
 
         result.callback(
-            MemoryResponse(
-                ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
-                StringProducer(self._CALENDAR_PROPFIND_RESPONSE_BODY)))
+            (
+                MemoryResponse(
+                    ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
+                    StringProducer(self._CALENDAR_PROPFIND_RESPONSE_BODY)),
+                self._CALENDAR_PROPFIND_RESPONSE_BODY
+            )
+        )
 
         result, req = requests.pop(0)
         expectedResponseCode, method, url, _ignore_headers, _ignore_body = req
@@ -1989,9 +2001,13 @@ END:VCALENDAR
         self.assertEqual((MULTI_STATUS,), expectedResponseCode)
 
         result.callback(
-            MemoryResponse(
-                ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
-                StringProducer(self._CALENDAR_REPORT_RESPONSE_BODY_1)))
+            (
+                MemoryResponse(
+                    ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
+                    StringProducer(self._CALENDAR_REPORT_RESPONSE_BODY_1)),
+                self._CALENDAR_REPORT_RESPONSE_BODY_1
+            )
+        )
 
         self.assertTrue(self.client._events['/something/anotherthing.ics'].etag is not None)
         self.assertTrue(self.client._events['/something/else.ics'].etag is None)
@@ -2003,9 +2019,13 @@ END:VCALENDAR
         self.assertEqual((MULTI_STATUS,), expectedResponseCode)
 
         result.callback(
-            MemoryResponse(
-                ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
-                StringProducer(self._CALENDAR_REPORT_RESPONSE_BODY_2)))
+            (
+                MemoryResponse(
+                    ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
+                    StringProducer(self._CALENDAR_REPORT_RESPONSE_BODY_2)),
+                self._CALENDAR_REPORT_RESPONSE_BODY_2
+            )
+        )
 
         self.assertTrue(self.client._events['/something/anotherthing.ics'].etag is not None)
         self.assertTrue(self.client._events['/something/else.ics'].etag is not None)
@@ -2077,7 +2097,7 @@ END:VCALENDAR
             response = MemoryResponse(
                 ('HTTP', '1', '1'), OK, "Ok", Headers({}),
                 StringProducer(""))
-            result.callback(response)
+            result.callback((response, ""))
         finished.addCallback(requested)
 
         return d

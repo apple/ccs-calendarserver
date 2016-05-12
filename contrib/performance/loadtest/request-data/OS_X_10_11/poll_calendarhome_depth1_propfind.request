@@ -39,5 +39,6 @@
     <B:supported-calendar-component-sets xmlns:B="urn:ietf:params:xml:ns:caldav"/>
     <A:supported-report-set/>
     <A:sync-token/>
+    <B:managed-attachments-server-URL xmlns:B="urn:ietf:params:xml:ns:caldav"/>
   </A:prop>
 </A:propfind>

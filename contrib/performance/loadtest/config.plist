@@ -157,7 +157,7 @@
 				<!-- Number of clients each user is assigned to. -->
 				<!-- Set weight of clients to 1 if this is > 1. Number of clients must match this value if > 1. -->
 				<key>clientsPerUser</key>
-				<integer>1</integer>
+				<integer>2</integer>
 			</dict>
 
 		</dict>
@@ -168,7 +168,8 @@
 			<!-- ReportStatistics generates an end-of-run summary of the HTTP requests
 				made, their timings, and their results. -->
 			<dict>
-				<key>type</key>
+			<key>type</key>
+
 				<string>contrib.performance.loadtest.population.ReportStatistics</string>
 				<key>params</key>
 				<dict>

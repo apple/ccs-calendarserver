@@ -516,7 +516,10 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         # Get means for each type of method
         means = {}
         for method, results in self._perMethodTimes.items():
-            means[method] = mean([duration for success, duration in results if success])
+            try:
+                means[method] = mean([duration for success, duration in results if success])
+            except ZeroDivisionError:
+                pass # Ignore the case where all samples were unsuccessful?
 
         # Determine percentage differences with weighting
         differences = []

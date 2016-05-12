@@ -24,6 +24,7 @@ from __future__ import division
 import json
 import random
 import sys
+from urlparse import urljoin, urlparse
 from uuid import uuid4
 
 from caldavclientlibrary.protocol.caldav.definitions import caldavxml
@@ -260,6 +261,7 @@ END:VCALENDAR
             120 * 60
         ]),
         recurrenceDistribution=RecurrenceDistribution(False),
+        fileSizeDistribution=NormalDistribution(1024, 1),
     ):
         self.enabled = enabled
         self._sendInvitationDistribution = sendInvitationDistribution
@@ -269,6 +271,7 @@ END:VCALENDAR
         self._eventStartDistribution = eventStartDistribution
         self._eventDurationDistribution = eventDurationDistribution
         self._recurrenceDistribution = recurrenceDistribution
+        self._fileSizeDistribution = fileSizeDistribution
 
 
     def run(self):
@@ -333,7 +336,7 @@ END:VCALENDAR
             return succeed(None)
 
         # Find calendars which are eligible for invites
-        calendars = self._calendarsOfType(caldavxml.calendar, "VEVENT")
+        calendars = self._calendarsOfType(caldavxml.calendar, "VEVENT", justOwned=True)
 
         while calendars:
             # Pick one at random from which to try to create an event
@@ -368,8 +371,9 @@ END:VCALENDAR
                 except CannotAddAttendee:
                     continue
 
+            attachmentSize = int(self._fileSizeDistribution.sample())
             href = '%s%s.ics' % (calendar.url, uid)
-            d = self._client.addInvite(href, vcalendar)
+            d = self._client.addInvite(href, vcalendar, attachmentSize=attachmentSize)
             return self._newOperation("invite", d)
 
 
@@ -561,9 +565,14 @@ class AttachmentDownloader(ProfileBase):
             for attachment in attachments:
                 attachmentHref = attachment.value()
                 managedId = attachment.parameterValue('MANAGED-ID')
+                attachmentHref = self._normalizeHref(attachmentHref)
+
                 self._reactor.callLater(
                     0, self._client.getAttachment, attachmentHref, managedId
                 )
+
+    def _normalizeHref(self, href):
+        return urljoin(self._client._managed_attachments_server_url, urlparse(href).path)
 
 
 
@@ -600,12 +609,14 @@ END:VCALENDAR
             120 * 60
         ]),
         recurrenceDistribution=RecurrenceDistribution(False),
+        fileSizeDistribution=NormalDistribution(1024, 1),
     ):
         self.enabled = enabled
         self._interval = interval
         self._eventStartDistribution = eventStartDistribution
         self._eventDurationDistribution = eventDurationDistribution
         self._recurrenceDistribution = recurrenceDistribution
+        self._fileSizeDistribution = fileSizeDistribution
 
 
     def run(self):
@@ -642,8 +653,9 @@ END:VCALENDAR
         if rrule is not None:
             vevent.addProperty(Property(None, None, None, pycalendar=rrule))
 
+        attachmentSize = int(self._fileSizeDistribution.sample())
         href = '%s%s.ics' % (calendar.url, uid)
-        d = self._client.addEvent(href, vcalendar)
+        d = self._client.addEvent(href, vcalendar, attachmentSize=attachmentSize)
         return self._newOperation("create", d)
 
 

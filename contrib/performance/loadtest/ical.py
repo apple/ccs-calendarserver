@@ -85,10 +85,14 @@ class IncorrectResponseCode(Exception):
 
     @ivar response: The response which was received
     @type response: L{twisted.web.client.Response}
+
+    @ivar responseBody: The body of the received response
+    @type responseBody: C{str}
     """
-    def __init__(self, expected, response):
+    def __init__(self, expected, response, responseBody):
         self.expected = expected
         self.response = response
+        self.responseBody = responseBody
 
 
 
@@ -447,6 +451,8 @@ class BaseAppleClient(BaseClient):
 
     _client_type = "Generic"
 
+    _managed_attachments_server_url = None
+
     USER_AGENT = None   # Override this for specific clients
 
     # The default interval, used if none is specified in external
@@ -618,9 +624,8 @@ class BaseAppleClient(BaseClient):
         before = self.reactor.seconds()
         response = yield self.agent.request(method, url, headers, body)
 
-        # XXX This is time to receive response headers, not time
-        # to receive full response.  Should measure the latter, if
-        # not both.
+        responseBody = yield readBody(response)
+
         after = self.reactor.seconds()
 
         success = response.code in expectedResponseCodes
@@ -631,6 +636,7 @@ class BaseAppleClient(BaseClient):
             method=method_label if method_label else method,
             headers=headers,
             body=body,
+            responseBody=responseBody,
             code=response.code,
             user=self.record.uid,
             client_type=self.title,
@@ -640,22 +646,30 @@ class BaseAppleClient(BaseClient):
         )
 
         if success:
-            returnValue(response)
+            returnValue((response, responseBody))
 
-        raise IncorrectResponseCode(expectedResponseCodes, response)
+        raise IncorrectResponseCode(expectedResponseCodes, response, responseBody)
 
 
-    def _parseMultiStatus(self, response, otherTokens=False):
+    def _parseMultiStatus(self, responseBody, otherTokens=False):
         """
         Parse a <multistatus> - might need to return other top-level elements
         in the response - e.g. DAV:sync-token
         I{PROPFIND} request for the principal URL.
 
-        @type response: C{str}
+        @type responseBody: C{str}
         @rtype: C{cls}
         """
         parser = PropFindParser()
-        parser.parseData(response)
+        try:
+            parser.parseData(responseBody)
+        except:
+            print("=" * 80)
+            print("COULD NOT PARSE RESPONSE:")
+            print(responseBody)
+            print("=" * 80)
+            raise
+
         if otherTokens:
             return (parser.getResults(), parser.getOthers(),)
         else:
@@ -674,7 +688,7 @@ class BaseAppleClient(BaseClient):
         hdrs = Headers({'content-type': ['text/xml']})
         if depth is not None:
             hdrs.addRawHeader('depth', depth)
-        response = yield self._request(
+        response, responseBody = yield self._request(
             allowedStatus,
             'PROPFIND',
             self.server["uri"] + url.encode('utf-8'),
@@ -683,8 +697,7 @@ class BaseAppleClient(BaseClient):
             method_label=method_label,
         )
 
-        body = yield readBody(response)
-        result = self._parseMultiStatus(body) if response.code == MULTI_STATUS else None
+        result = self._parseMultiStatus(responseBody) if response.code == MULTI_STATUS else None
 
         returnValue((response, result,))
 
@@ -695,7 +708,7 @@ class BaseAppleClient(BaseClient):
         Issue a PROPPATCH on the chosen URL
         """
         hdrs = Headers({'content-type': ['text/xml']})
-        response = yield self._request(
+        response, responseBody = yield self._request(
             (OK, MULTI_STATUS,),
             'PROPPATCH',
             self.server["uri"] + url.encode('utf-8'),
@@ -704,8 +717,7 @@ class BaseAppleClient(BaseClient):
             method_label=method_label,
         )
         if response.code == MULTI_STATUS:
-            body = yield readBody(response)
-            result = self._parseMultiStatus(body)
+            result = self._parseMultiStatus(responseBody)
             returnValue(result)
         else:
             returnValue(None)
@@ -716,15 +728,14 @@ class BaseAppleClient(BaseClient):
         """
         Issue a GET on the chosen URL
         """
-        response = yield self._request(
+        response, responseBody = yield self._request(
             allowedStatus,
             'GET',
             url,
             method_label=method_label,
         )
 
-        body = yield readBody(response)
-        returnValue(body)
+        returnValue(responseBody)
 
 
     @inlineCallbacks
@@ -735,7 +746,7 @@ class BaseAppleClient(BaseClient):
         hdrs = Headers({'content-type': ['text/xml']})
         if depth is not None:
             hdrs.addRawHeader('depth', depth)
-        response = yield self._request(
+        response, responseBody = yield self._request(
             allowedStatus,
             'REPORT',
             self.server["uri"] + url.encode('utf-8'),
@@ -744,8 +755,7 @@ class BaseAppleClient(BaseClient):
             method_label=method_label,
         )
 
-        body = yield readBody(response)
-        result = self._parseMultiStatus(body, otherTokens) if response.code == MULTI_STATUS else None
+        result = self._parseMultiStatus(responseBody, otherTokens) if response.code == MULTI_STATUS else None
 
         returnValue(result)
 
@@ -890,6 +900,18 @@ class BaseAppleClient(BaseClient):
 
             if href == calendarHome:
                 text = results[href].getTextProperties()
+                hrefs = results[href].getHrefProperties()
+
+                # Extract managed attachments url
+                self._managed_attachments_server_url = None
+                try:
+                    url = hrefs[caldavxml.managed_attachments_server_url]
+                    if url.toString():
+                        self._managed_attachments_server_url = url.toString()
+                except KeyError:
+                    pass
+                if self._managed_attachments_server_url is None:
+                    self._managed_attachments_server_url = self.server['uri']
 
                 try:
                     pushkey = text[csxml.pushkey]
@@ -929,10 +951,9 @@ class BaseAppleClient(BaseClient):
             if isCalendar:
                 textProps = results[href].getTextProperties()
                 componentTypes = set()
-                if nodeType.tag == caldavxml.calendar:
-                    if caldavxml.supported_calendar_component_set in nodes:
-                        for comp in nodes[caldavxml.supported_calendar_component_set]:
-                            componentTypes.add(comp.get("name").upper())
+                if caldavxml.supported_calendar_component_set in nodes:
+                    for comp in nodes[caldavxml.supported_calendar_component_set]:
+                        componentTypes.add(comp.get("name").upper())
 
                 calendars.append(Calendar(
                     resourceType,
@@ -1022,7 +1043,7 @@ class BaseAppleClient(BaseClient):
                     method_label="REPORT{sync}" if calendar.changeToken else "REPORT{sync-init}",
                 )
             else:
-                raise IncorrectResponseCode((MULTI_STATUS,), None)
+                raise IncorrectResponseCode((MULTI_STATUS,), None, None)
 
         result, others = result
 
@@ -1208,7 +1229,7 @@ class BaseAppleClient(BaseClient):
                     method_label="REPORT{sync}" if oldToken else "REPORT{sync-init}",
                 )
             else:
-                raise IncorrectResponseCode((MULTI_STATUS,), None)
+                raise IncorrectResponseCode((MULTI_STATUS,), None, None)
 
         result, _ignore_others = result
 
@@ -1229,24 +1250,24 @@ class BaseAppleClient(BaseClient):
 
             if result[responseHref].getStatus() / 100 == 2:
                 # Get the notification
-                response = yield self._request(
-                    OK,
+                response, responseBody = yield self._request(
+                    (OK, NOT_FOUND),
                     'GET',
                     self.server["uri"] + responseHref.encode('utf-8'),
                     method_label="GET{notification}",
                 )
-                body = yield readBody(response)
-                node = ElementTree(file=StringIO(body)).getroot()
-                if node.tag == str(csxml.notification):
-                    nurl = URL(url=responseHref)
-                    for child in node.getchildren():
-                        if child.tag == str(csxml.invite_notification):
-                            if child.find(str(csxml.invite_noresponse)) is not None:
-                                inviteNotifications.append(
-                                    InviteNotification().parseFromNotification(
-                                        nurl, child
+                if response.code == OK:
+                    node = ElementTree(file=StringIO(responseBody)).getroot()
+                    if node.tag == str(csxml.notification):
+                        nurl = URL(url=responseHref)
+                        for child in node.getchildren():
+                            if child.tag == str(csxml.invite_notification):
+                                if child.find(str(csxml.invite_noresponse)) is not None:
+                                    inviteNotifications.append(
+                                        InviteNotification().parseFromNotification(
+                                            nurl, child
+                                        )
                                     )
-                                )
 
         # Accept the invites
         for notification in inviteNotifications:
@@ -1287,7 +1308,7 @@ class BaseAppleClient(BaseClient):
 
         # Delete all the notification resources
         for responseHref in toDelete:
-            response = yield self._request(
+            response, responseBody = yield self._request(
                 (NO_CONTENT, NOT_FOUND),
                 'DELETE',
                 self.server["uri"] + responseHref.encode('utf-8'),
@@ -1497,8 +1518,8 @@ class BaseAppleClient(BaseClient):
 
 
     def _receivedPush(self, inboundID, dataChangedTimestamp, priority=5):
-        for href, id in self.ampPushKeys.iteritems():
-            if inboundID == id:
+        for href, myId in self.ampPushKeys.iteritems():
+            if inboundID == myId:
                 self._checkCalendarsForEvents(href, push=True)
                 break
         else:
@@ -1708,7 +1729,7 @@ class BaseAppleClient(BaseClient):
             headers.removeHeader('if-match')
 
         # At last, upload the new event definition
-        response = yield self._request(
+        response, responseBody = yield self._request(
             (NO_CONTENT, PRECONDITION_FAILED,),
             'PUT',
             self.server["uri"] + href.encode('utf-8'),
@@ -1803,7 +1824,7 @@ class BaseAppleClient(BaseClient):
         if len(attendees) > 75:
             label_suffix = "huge"
 
-        response = yield self._request(
+        response, responseBody = yield self._request(
             okCodes,
             'PUT',
             self.server["uri"] + href.encode('utf-8'),
@@ -1825,7 +1846,7 @@ class BaseAppleClient(BaseClient):
 
         self._removeEvent(href)
 
-        response = yield self._request(
+        response, responseBody = yield self._request(
             (NO_CONTENT, NOT_FOUND),
             'DELETE',
             self.server["uri"] + href.encode('utf-8'),
@@ -1835,7 +1856,7 @@ class BaseAppleClient(BaseClient):
 
 
     @inlineCallbacks
-    def addEvent(self, href, component, invite=False):
+    def addEvent(self, href, component, invite=False, attachmentSize=0):
         headers = Headers({
             'content-type': ['text/calendar'],
         })
@@ -1849,7 +1870,7 @@ class BaseAppleClient(BaseClient):
         if len(attendees) > 75:
             label_suffix = "huge"
 
-        response = yield self._request(
+        response, responseBody = yield self._request(
             CREATED,
             'PUT',
             self.server["uri"] + href.encode('utf-8'),
@@ -1862,9 +1883,14 @@ class BaseAppleClient(BaseClient):
         if not response.headers.hasHeader("etag"):
             response = yield self.updateEvent(href)
 
+        # Add optional attachment
+        if attachmentSize:
+            yield self.postAttachment(href, 'x' * attachmentSize)
+
+
 
     @inlineCallbacks
-    def addInvite(self, href, component):
+    def addInvite(self, href, component, attachmentSize=0):
         """
         Add an event that is an invite - i.e., has attendees. We will do attendee lookups and freebusy
         checks on each attendee to simulate what happens when an organizer creates a new invite.
@@ -1878,7 +1904,7 @@ class BaseAppleClient(BaseClient):
             yield self._attendeeAutoComplete(component, attendee)
 
         # Now do a normal PUT
-        yield self.addEvent(href, component, invite=True)
+        yield self.addEvent(href, component, invite=True, attachmentSize=attachmentSize)
 
 
     @inlineCallbacks
@@ -1894,7 +1920,7 @@ class BaseAppleClient(BaseClient):
             headers.removeHeader('if-match')
 
         # At last, upload the new event definition
-        response = yield self._request(
+        response, responseBody = yield self._request(
             (NO_CONTENT, PRECONDITION_FAILED,),
             'PUT',
             self.server["uri"] + href.encode('utf-8'),
@@ -1920,7 +1946,7 @@ class BaseAppleClient(BaseClient):
 
     @inlineCallbacks
     def updateEvent(self, href):
-        response = yield self._request(
+        response, responseBody = yield self._request(
             OK,
             'GET',
             self.server["uri"] + href.encode('utf-8'),
@@ -1929,8 +1955,7 @@ class BaseAppleClient(BaseClient):
         headers = response.headers
         etag = headers.getRawHeaders('etag')[0]
         scheduleTag = headers.getRawHeaders('schedule-tag', [None])[0]
-        body = yield readBody(response)
-        self.eventChanged(href, etag, scheduleTag, body)
+        self.eventChanged(href, etag, scheduleTag, responseBody)
         returnValue(response)
 
 
@@ -1988,7 +2013,7 @@ class BaseAppleClient(BaseClient):
         if len(users) > 75:
             label_suffix = "huge"
 
-        response = yield self._request(
+        response, responseBody = yield self._request(
             OK, 'POST', outbox,
             Headers({
                     'content-type': ['text/calendar'],
@@ -2006,8 +2031,7 @@ class BaseAppleClient(BaseClient):
             }),
             method_label="POST{fb-%s}" % (label_suffix,),
         )
-        body = yield readBody(response)
-        returnValue(body)
+        returnValue(responseBody)
 
 
     @inlineCallbacks
@@ -2017,15 +2041,14 @@ class BaseAppleClient(BaseClient):
         headers = Headers({
             'Content-Disposition': ['attachment; filename="{}"'.format(filename)]
         })
-        response = yield self._request(
+        response, responseBody = yield self._request(
             CREATED,
             'POST',
             url,
             headers=headers,
             body=StringProducer(content),
-            method_label="POST{attach}"
+            method_label="POST{attachment}"
         )
-        body = yield readBody(response)
 
         # We don't want to download an attachment we uploaded, so look for the
         # Cal-Managed-Id: and Location: headers and remember those
@@ -2034,7 +2057,7 @@ class BaseAppleClient(BaseClient):
         self._attachments[managedId] = location
 
         yield self.updateEvent(href)
-        returnValue(body)
+        returnValue(responseBody)
 
 
     @inlineCallbacks
@@ -2043,7 +2066,10 @@ class BaseAppleClient(BaseClient):
         # If we've already downloaded this managedId, skip it.
         if managedId not in self._attachments:
             self._attachments[managedId] = href
-            yield self._newOperation("download", self._get(href, 200))
+            yield self._newOperation(
+                "download",
+                self._get(href, (OK, FORBIDDEN), method_label="GET{attachment}")
+            )
 
 
     @inlineCallbacks
@@ -2051,7 +2077,7 @@ class BaseAppleClient(BaseClient):
         headers = Headers({
             'content-type': ['text/xml']
         })
-        response = yield self._request(
+        response, responseBody = yield self._request(
             (OK, CREATED, MULTI_STATUS),
             'POST',
             self.server["uri"] + href,
@@ -2059,8 +2085,7 @@ class BaseAppleClient(BaseClient):
             body=StringProducer(content),
             method_label=label
         )
-        body = yield readBody(response)
-        returnValue(body)
+        returnValue(responseBody)
 
 
 
@@ -2496,7 +2521,7 @@ class iOS_5(BaseAppleClient):
 
 
 class RequestLogger(object):
-    format = u"%(user)s request %(code)s%(success)s[%(duration)5.2f s] %(method)8s %(url)s"
+    format = u"%(user)s %(client)s request %(code)s%(success)s[%(duration)5.2f s] %(method)8s %(url)s"
     success = u"\N{CHECK MARK}"
     failure = u"\N{BALLOT X}"
 
@@ -2508,6 +2533,7 @@ class RequestLogger(object):
                 url=urlunparse(('', '') + urlparse(event['url'])[2:]),
                 code=event['code'],
                 duration=event['duration'],
+                client=event['client_type'],
             )
 
             if event['success']:
@@ -2515,6 +2541,27 @@ class RequestLogger(object):
             else:
                 formatArgs['success'] = self.failure
             print((self.format % formatArgs).encode('utf-8'))
+
+            if not event['success']:
+                body = event['body']
+                if isinstance(body, StringProducer):
+                    body = body._body
+                if body:
+                    body = body[:5000]
+
+                responseBody = event['responseBody']
+                if responseBody:
+                    responseBody = responseBody[:5000]
+
+                print("=" * 80)
+                print("INCORRECT ERROR CODE: {}".format(event['code']))
+                print("URL: {}".format(event['url']))
+                print("METHOD: {}".format(event['method']))
+                print("USER: {}".format(event['user']))
+                print("REQUEST BODY:\n{}".format(body))
+                print("RESPONSE BODY:\n{}".format(responseBody))
+                print("=" * 80)
+
 
 
     def report(self, output):
