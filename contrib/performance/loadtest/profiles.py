@@ -261,6 +261,7 @@ END:VCALENDAR
             120 * 60
         ]),
         recurrenceDistribution=RecurrenceDistribution(False),
+        fileAttachPercentage=30,
         fileSizeDistribution=NormalDistribution(1024, 1),
     ):
         self.enabled = enabled
@@ -271,6 +272,7 @@ END:VCALENDAR
         self._eventStartDistribution = eventStartDistribution
         self._eventDurationDistribution = eventDurationDistribution
         self._recurrenceDistribution = recurrenceDistribution
+        self._fileAttachPercentage = fileAttachPercentage
         self._fileSizeDistribution = fileSizeDistribution
 
 
@@ -371,7 +373,12 @@ END:VCALENDAR
                 except CannotAddAttendee:
                     continue
 
-            attachmentSize = int(self._fileSizeDistribution.sample())
+            choice = self.random.randint(1, 100)
+            if choice <= self._fileAttachPercentage:
+                attachmentSize = int(self._fileSizeDistribution.sample())
+            else:
+                attachmentSize = 0 # no attachment
+
             href = '%s%s.ics' % (calendar.url, uid)
             d = self._client.addInvite(href, vcalendar, attachmentSize=attachmentSize)
             return self._newOperation("invite", d)
@@ -609,6 +616,7 @@ END:VCALENDAR
             120 * 60
         ]),
         recurrenceDistribution=RecurrenceDistribution(False),
+        fileAttachPercentage=30,
         fileSizeDistribution=NormalDistribution(1024, 1),
     ):
         self.enabled = enabled
@@ -616,6 +624,7 @@ END:VCALENDAR
         self._eventStartDistribution = eventStartDistribution
         self._eventDurationDistribution = eventDurationDistribution
         self._recurrenceDistribution = recurrenceDistribution
+        self._fileAttachPercentage = fileAttachPercentage
         self._fileSizeDistribution = fileSizeDistribution
 
 
@@ -653,7 +662,12 @@ END:VCALENDAR
         if rrule is not None:
             vevent.addProperty(Property(None, None, None, pycalendar=rrule))
 
-        attachmentSize = int(self._fileSizeDistribution.sample())
+        choice = self.random.randint(1, 100)
+        if choice <= self._fileAttachPercentage:
+            attachmentSize = int(self._fileSizeDistribution.sample())
+        else:
+            attachmentSize = 0 # no attachment
+
         href = '%s%s.ics' % (calendar.url, uid)
         d = self._client.addEvent(href, vcalendar, attachmentSize=attachmentSize)
         return self._newOperation("create", d)

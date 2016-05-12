@@ -164,6 +164,10 @@
 								</dict>
 							</dict>
 
+							<!-- Percentage of time to attach a file -->
+							<key>fileAttachPercentage</key>
+							<integer>5</integer>
+
 							<!-- Define the attachment size distribution. -->
 							<key>fileSizeDistribution</key>
 							<dict>
@@ -596,6 +600,10 @@
 									</dict>
 								</dict>
 							</dict>
+
+							<!-- Percentage of time to attach a file -->
+							<key>fileAttachPercentage</key>
+							<integer>10</integer>
 
 							<!-- Define the attachment size distribution. -->
 							<key>fileSizeDistribution</key>
