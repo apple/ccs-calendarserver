@@ -67,6 +67,7 @@ METHOD_POST_ORGANIZER = "POST Organizer"
 METHOD_POST_ATTENDEE = "POST Attendee"
 METHOD_POST_OUTBOX = "POST Outbox"
 METHOD_POST_APNS = "POST apns"
+METHOD_POST_CONDUIT = "POST conduit"
 
 # PUTs
 METHOD_PUT_ICS = "PUT ics"
@@ -250,6 +251,9 @@ def getAdjustedMethodName(stats, method=None, uri=None):
 
         elif uribits[0].startswith("apns"):
             return METHOD_POST_APNS
+
+        elif uribits[0].startswith("conduit"):
+            return METHOD_POST_CONDUIT
 
         return method
 
