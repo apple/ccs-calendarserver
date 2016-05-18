@@ -41,30 +41,27 @@ LOG_FILENAME = 'db.log'
 
 def main():
     parser = argparse.ArgumentParser(description="Dashboard collector viewer service for CalendarServer.")
-    parser.add_argument("-s", default=["localhost:8200"], help="Dashboard collector service host:port")
+    parser.add_argument("-s", default="localhost:8200", help="Dashboard collector service host:port")
     args = parser.parse_args()
 
     #
     # Get configuration
     #
-    servers = []
-    for server in args.s:
-        if not server.startswith("unix:"):
-            server = server.split(":")
-            if len(server) == 1:
-                server.append(8100)
-            else:
-                server[1] = int(server[1])
-            servers.append(tuple(server))
+    server = args.s
+    if not server.startswith("unix:"):
+        server = server.split(":")
+        if len(server) == 1:
+            server.append(8100)
         else:
-            servers.append(server)
+            server[1] = int(server[1])
+        server = tuple(server)
 
 
     def _wrapped(stdscrn):
         curses.curs_set(0)
         curses.use_default_colors()
         curses.init_pair(1, curses.COLOR_RED, curses.COLOR_WHITE)
-        d = Dashboard(servers, stdscrn)
+        d = Dashboard(server, stdscrn)
         d.run()
     curses.wrapper(_wrapped)
 
@@ -105,17 +102,16 @@ class Dashboard(object):
         "J": ("Jobs Panels", [],),
     }
 
-    def __init__(self, servers, screen):
+    def __init__(self, server, screen):
         self.screen = screen
         self.paused = False
         self.seconds = 1.0
         self.sched = sched.scheduler(time.time, time.sleep)
 
-        self.servers = servers
         self.selected_server = Point()
         self.server_window = None
 
-        self.client = DashboardClient(servers[0])
+        self.client = DashboardClient(server)
         self.client_error = False
 
 
