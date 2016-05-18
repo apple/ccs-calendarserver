@@ -39,7 +39,7 @@ find .develop/virtualenv/bin -type f -name "calendarserver_*" | {
     target="${wd}/bin/$(basename ${source})";
 
     rm -f "${target}";
-    if [ "$(basename ${target})" = "calendarserver_dashboard" ]; then
+    if [[ "calendarserver_dashboard calendarserver_dashcollect calendarserver_dashview" =~ "$(basename ${target})" ]]; then
       cat << __END__ > "${target}"
 #!/bin/sh
 
@@ -98,6 +98,6 @@ if [ -z "${USE_OPENSSL-}" ]; then
       bin/python bin/keychain_init.py
       ;;
   esac;
-fi;  
+fi;
 
 echo "Dependency setup complete."

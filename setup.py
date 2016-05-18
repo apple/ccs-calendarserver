@@ -245,6 +245,12 @@ script_entry_points = {
     "dashboard":
     ("calendarserver.tools.dashboard", "main"),
 
+    "dashcollect":
+    ("calendarserver.tools.dashcollect", "main"),
+
+    "dashview":
+    ("calendarserver.tools.dashview", "main"),
+
     "dbinspect":
     ("calendarserver.tools.dbinspect", "main"),
 
