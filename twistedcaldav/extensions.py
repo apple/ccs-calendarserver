@@ -283,7 +283,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
 
         if resultsWereLimited is not None:
             if resultsWereLimited[0] == "server":
-                log.error("Too many matching resources in principal-property-search report")
+                log.debug("Too many matching resources in principal-property-search report")
             responses.append(element.StatusResponse(
                 element.HRef.fromString(request.uri),
                 element.Status.fromResponseCode(
@@ -389,7 +389,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
 
         if resultsWereLimited is not None:
             if resultsWereLimited[0] == "server":
-                log.error("Too many matching resources in calendarserver-principal-search report")
+                log.debug("Too many matching resources in calendarserver-principal-search report")
             responses.append(element.StatusResponse(
                 element.HRef.fromString(request.uri),
                 element.Status.fromResponseCode(
