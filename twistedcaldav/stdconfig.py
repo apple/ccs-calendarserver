@@ -101,6 +101,8 @@ DEFAULT_SERVICE_PARAMS = {
             "resources": "",
             "addresses": "",
         },
+        "threadPoolMax": 10,
+        "connectionMax": 10,
         "tries": 3,
     },
 }

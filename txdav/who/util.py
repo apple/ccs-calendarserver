@@ -190,6 +190,8 @@ def buildDirectory(
                     CalRecordType.resource: extraFilters.get("resources", ""),
                     CalRecordType.address: extraFilters.get("addresses", ""),
                 },
+                threadPoolMax=params.get("threadPoolMax", 10),
+                connectionMax=params.get("connectionMax", 10),
                 tries=params.tries
             )
             ldapService = directory
