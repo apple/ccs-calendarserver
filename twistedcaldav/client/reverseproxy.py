@@ -30,6 +30,9 @@ from twext.python.log import Logger
 from twistedcaldav.client.pool import getHTTPClientPool
 from twistedcaldav.config import config
 
+from twisted.internet.defer import returnValue, inlineCallbacks
+
+
 class ReverseProxyResource(LeafResource):
     """
     A L{LeafResource} which always performs a reverse proxy operation.
@@ -41,7 +44,7 @@ class ReverseProxyResource(LeafResource):
     def __init__(self, poolID, *args, **kwargs):
         """
 
-        @param poolID: idenitifier of the pool to use
+        @param poolID: identifier of the pool to use
         @type poolID: C{str}
         """
 
@@ -59,6 +62,7 @@ class ReverseProxyResource(LeafResource):
         return False
 
 
+    @inlineCallbacks
     def renderHTTP(self, request):
         """
         Do the reverse proxy request and return the response.
@@ -69,7 +73,7 @@ class ReverseProxyResource(LeafResource):
         @return: Deferred L{Response}
         """
 
-        self.log.info("{method} {uri} {proto}", method=request.method, uri=request.uri, proto="HTTP/%s.%s" % request.clientproto)
+        self.log.info("{method} {poolID}:{uri} {proto}", method=request.method, poolID=self.poolID, uri=request.uri, proto="HTTP/{}.{}".format(*request.clientproto))
 
         # Check for multi-hop
         if not self.allowMultiHop:
@@ -77,6 +81,7 @@ class ReverseProxyResource(LeafResource):
             if x_server:
                 for item in x_server:
                     if item.lower() == config.ServerHostName.lower():
+                        self.log.error("ReverseProxy loop detected: x-forwarded-server:{xfs}", xfs=str(x_server))
                         raise HTTPError(StatusResponse(responsecode.BAD_GATEWAY, "Too many x-forwarded-server hops"))
 
         clientPool = getHTTPClientPool(self.poolID)
@@ -90,4 +95,10 @@ class ReverseProxyResource(LeafResource):
         proxyRequest.headers.addRawHeader("x-forwarded-for", request.remoteAddr.host)
         proxyRequest.headers.addRawHeader("x-forwarded-server", config.ServerHostName)
 
-        return clientPool.submitRequest(proxyRequest)
+        try:
+            response = yield clientPool.submitRequest(proxyRequest)
+        except Exception as e:
+            self.log.error("ReverseProxy failed: {exc}", exc=str(e))
+            raise HTTPError(StatusResponse(responsecode.BAD_GATEWAY, "Cannot connect via poolID={poolID}".format(poolID=self.poolID)))
+
+        returnValue(response)
