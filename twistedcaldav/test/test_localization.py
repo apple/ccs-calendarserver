@@ -17,7 +17,7 @@
 from __future__ import with_statement
 
 from twistedcaldav.localization import (
-    translationTo, getLanguage, _remapLanguageCode, _
+    foundationImported, processLocalizationFiles, translationTo, getLanguage, _remapLanguageCode, _
 )
 from twistedcaldav.ical import Component
 from twistedcaldav.test.util import TestCase
@@ -26,6 +26,7 @@ from twistedcaldav.timezones import TimezoneCache
 from pycalendar.datetime import DateTime
 
 import os
+import sys
 
 def getComp(str):
     calendar = Component.fromString(str)
@@ -203,3 +204,32 @@ class LocalizationTests(TestCase):
         self.assertEquals(_remapLanguageCode("en"), "en")
         self.assertEquals(_remapLanguageCode("zh-Hans"), "zh_CN")
         self.assertEquals(_remapLanguageCode("zh-Hant"), "zh_TW")
+
+
+    def test_foundationImport(self):
+        """
+        Make sure that on OS X the CoreFoundation imports work.
+        """
+        if sys.platform == "darwin":
+            self.assertTrue(foundationImported)
+
+
+    def test_processLocalizationFiles(self):
+        """
+        Make sure that on OS X the .lproj files are converted properly.
+        """
+        if sys.platform == "darwin":
+            tmpdir = self.mktemp()
+
+            settings = ConfigDict({
+                "TranslationsDirectory": os.path.join(os.path.dirname(__file__), "data", "translations"),
+                "LocalesDirectory": tmpdir,
+            })
+
+            processLocalizationFiles(settings)
+
+            self.assertTrue(os.path.exists(os.path.join(tmpdir, "Testlang", "LC_MESSAGES", "calendarserver.mo")))
+
+            with translationTo('Testlang', localeDir=tmpdir):
+                self.assertEquals(_("String1"), "string 1")
+                self.assertEquals(_("String2"), "string 2")

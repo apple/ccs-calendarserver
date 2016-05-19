@@ -27,8 +27,8 @@ from twext.python.log import Logger
 from pycalendar.duration import Duration
 
 try:
-    from osx.corefoundation import CFError
-    from osx.utils import CFLocaleRef, CFDataRef, CFPropertyListRef
+    from osx.corefoundation import CFError, CFDataRef
+    from osx.utils import CFLocaleRef, CFPropertyListRef
     foundationImported = True
 except ImportError:
     foundationImported = False
