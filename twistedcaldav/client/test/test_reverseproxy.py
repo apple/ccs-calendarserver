@@ -21,6 +21,7 @@ from twistedcaldav.client.pool import _clientPools
 from twistedcaldav.client.reverseproxy import ReverseProxyResource
 from twistedcaldav.config import config
 import twistedcaldav.test.util
+from twisted.internet.defer import succeed, inlineCallbacks
 
 class ReverseProxyNoLoop (twistedcaldav.test.util.TestCase):
     """
@@ -32,50 +33,60 @@ class ReverseProxyNoLoop (twistedcaldav.test.util.TestCase):
         class DummyPool(object):
 
             def submitRequest(self, request):
-                return request
+                return succeed(request)
 
         _clientPools["pool"] = DummyPool()
 
         super(ReverseProxyNoLoop, self).setUp()
 
 
+    @inlineCallbacks
     def test_No_Header(self):
         proxy = ReverseProxyResource("pool")
         request = SimpleRequest(proxy, "GET", "/")
-        self.assertIsInstance(proxy.renderHTTP(request), ClientRequest)
+        response = yield proxy.renderHTTP(request)
+        self.assertIsInstance(response, ClientRequest)
 
 
+    @inlineCallbacks
     def test_Header_Other_Server(self):
         proxy = ReverseProxyResource("pool")
         request = SimpleRequest(proxy, "GET", "/")
         request.headers.addRawHeader("x-forwarded-server", "foobar.example.com")
-        self.assertIsInstance(proxy.renderHTTP(request), ClientRequest)
+        response = yield proxy.renderHTTP(request)
+        self.assertIsInstance(response, ClientRequest)
 
 
+    @inlineCallbacks
     def test_Header_Other_Servers(self):
         proxy = ReverseProxyResource("pool")
         request = SimpleRequest(proxy, "GET", "/")
         request.headers.setHeader("x-forwarded-server", ("foobar.example.com", "bar.example.com",))
-        self.assertIsInstance(proxy.renderHTTP(request), ClientRequest)
+        response = yield proxy.renderHTTP(request)
+        self.assertIsInstance(response, ClientRequest)
 
 
+    @inlineCallbacks
     def test_Header_Our_Server(self):
         proxy = ReverseProxyResource("pool")
         request = SimpleRequest(proxy, "GET", "/")
         request.headers.addRawHeader("x-forwarded-server", config.ServerHostName)
-        self.assertRaises(HTTPError, proxy.renderHTTP, request)
+        yield self.assertFailure(proxy.renderHTTP(request), HTTPError)
 
 
+    @inlineCallbacks
     def test_Header_Our_Server_Moxied(self):
         proxy = ReverseProxyResource("pool")
         request = SimpleRequest(proxy, "GET", "/")
         request.headers.setHeader("x-forwarded-server", ("foobar.example.com", "bar.example.com", config.ServerHostName,))
-        self.assertRaises(HTTPError, proxy.renderHTTP, request)
+        yield self.assertFailure(proxy.renderHTTP(request), HTTPError)
 
 
+    @inlineCallbacks
     def test_Header_Our_Server_Allowed(self):
         proxy = ReverseProxyResource("pool")
         proxy.allowMultiHop = True
         request = SimpleRequest(proxy, "GET", "/")
         request.headers.addRawHeader("x-forwarded-server", config.ServerHostName)
-        self.assertIsInstance(proxy.renderHTTP(request), ClientRequest)
+        response = yield proxy.renderHTTP(request)
+        self.assertIsInstance(response, ClientRequest)
