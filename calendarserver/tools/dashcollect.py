@@ -94,7 +94,7 @@ def main():
     parser.add_argument("-f", help="Server config file")
     parser.add_argument("-l", help="Log file directory")
     parser.add_argument("-n", action="store_true", help="New log file")
-    parser.add_argument("-s", type=int, help="Run the dash_thread service on the specified port")
+    parser.add_argument("-s", default="localhost:8200", help="Run the dash_thread service on the specified host:port")
     parser.add_argument("-v", action="store_true", help="Verbose")
     args = parser.parse_args()
     if args.v:
@@ -121,7 +121,16 @@ def main():
 
     if args.s:
         print("Running the CollectorService...")
-        server = CollectorService(("localhost", args.s), CollectorRequestHandler)
+        host = args.s
+        if not host.startswith("unix:"):
+            host = host.split(":")
+            if len(host) == 1:
+                host.append(8200)
+            else:
+                host[1] = int(host[1])
+            host = tuple(host)
+
+        server = CollectorService(host, CollectorRequestHandler)
         server.dashboard = dash
         server_thread = Thread(target=server.serve_forever)
         server_thread.daemon = True
@@ -182,6 +191,15 @@ class Pod(object):
                 server.addItem("jobs")
 
 
+    def sendSock(self):
+        """
+        Update the data for each L{Server} in this L{Pod}.
+        """
+        _verbose("  Pod: {}".format(self.title))
+        for server in self.servers:
+            server.sendSock()
+
+
     def update(self, data):
         """
         Update the data for each L{Server} in this L{Pod}.
@@ -218,16 +236,28 @@ class Server(object):
         self.items = []
 
 
-    def readSock(self, items):
+    def sendSock(self):
         """
         Open a socket, send the specified request, and retrieve the response. Keep the socket open.
         """
+        items = list(set(self.items))
         try:
             if self.socket is None:
                 self.socket = socket.socket(socket.AF_INET if self.useTCP else socket.AF_UNIX, socket.SOCK_STREAM)
                 self.socket.connect(self.sockname)
                 self.socket.setblocking(0)
             self.socket.sendall(json.dumps(items) + "\r\n")
+        except socket.error:
+            self.socket = None
+        except ValueError:
+            pass
+
+
+    def readSock(self, items):
+        """
+        Open a socket, send the specified request, and retrieve the response. Keep the socket open.
+        """
+        try:
             data = ""
             t = time.time()
             while not data.endswith("\n"):
@@ -332,6 +362,9 @@ class DashboardCollector(object):
         j = OrderedDict()
         j["timestamp"] = datetime.now().replace(microsecond=0).isoformat()
         j["pods"] = OrderedDict()
+
+        for pod in self.pods:
+            pod.sendSock()
 
         for pod in self.pods:
             pod.update(j["pods"])
