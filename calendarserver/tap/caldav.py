@@ -966,6 +966,9 @@ class CalDAVServiceMaker (object):
             groupCacher = GroupCacher(
                 directory,
                 updateSeconds=config.GroupCaching.UpdateSeconds,
+                initialSchedulingDelaySeconds=config.GroupCaching.InitialSchedulingDelaySeconds,
+                batchSize=config.GroupCaching.BatchSize,
+                batchSchedulingIntervalSeconds=config.GroupCaching.BatchSchedulingIntervalSeconds,
                 useDirectoryBasedDelegates=config.GroupCaching.UseDirectoryBasedDelegates,
                 cacheNotifier=cacheNotifier,
             )
@@ -1385,6 +1388,9 @@ class CalDAVServiceMaker (object):
                 groupCacher = GroupCacher(
                     directory,
                     updateSeconds=config.GroupCaching.UpdateSeconds,
+                    initialSchedulingDelaySeconds=config.GroupCaching.InitialSchedulingDelaySeconds,
+                    batchSize=config.GroupCaching.BatchSize,
+                    batchSchedulingIntervalSeconds=config.GroupCaching.BatchSchedulingIntervalSeconds,
                     useDirectoryBasedDelegates=config.GroupCaching.UseDirectoryBasedDelegates,
                     cacheNotifier=cacheNotifier,
                 )
@@ -1961,6 +1967,9 @@ class CalDAVServiceMaker (object):
                 groupCacher = GroupCacher(
                     directory,
                     updateSeconds=config.GroupCaching.UpdateSeconds,
+                    initialSchedulingDelaySeconds=config.GroupCaching.InitialSchedulingDelaySeconds,
+                    batchSize=config.GroupCaching.BatchSize,
+                    batchSchedulingIntervalSeconds=config.GroupCaching.BatchSchedulingIntervalSeconds,
                     useDirectoryBasedDelegates=config.GroupCaching.UseDirectoryBasedDelegates,
                     cacheNotifier=cacheNotifier,
                 )
