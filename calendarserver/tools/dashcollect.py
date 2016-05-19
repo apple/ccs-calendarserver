@@ -243,12 +243,16 @@ class Server(object):
         items = list(set(self.items))
         try:
             if self.socket is None:
-                self.socket = socket.socket(socket.AF_INET if self.useTCP else socket.AF_UNIX, socket.SOCK_STREAM)
-                self.socket.connect(self.sockname)
+                if self.useTCP:
+                    self.socket = socket.create_connection(self.sockname, 1.0)
+                else:
+                    self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                    self.socket.connect(self.sockname)
                 self.socket.setblocking(0)
             self.socket.sendall(json.dumps(items) + "\r\n")
         except socket.error:
             self.socket = None
+            _verbose("    server failed: {}".format(self.host))
         except ValueError:
             pass
 
@@ -257,6 +261,8 @@ class Server(object):
         """
         Open a socket, send the specified request, and retrieve the response. Keep the socket open.
         """
+        if self.socket is None:
+            return {}
         try:
             data = ""
             t = time.time()
