@@ -34,6 +34,7 @@ import sys
 import termios
 import time
 
+
 LOG_FILENAME = 'db.log'
 #logging.basicConfig(filename=LOG_FILENAME, level=logging.DEBUG)
 
@@ -98,6 +99,7 @@ class Dashboard(object):
     screen = None
     registered_windows = collections.OrderedDict()
     registered_window_sets = {
+        "D": ("Directory Panels", [],),
         "H": ("HTTP Panels", [],),
         "J": ("Jobs Panels", [],),
     }
@@ -397,6 +399,14 @@ class DashboardClient(object):
         """
         if len(self.currentData) == 0:
             self.update()
+
+        # jobs are only requested from the first server in a pod because otherwise
+        # it would be too expensive to run the DB query for all servers. So when we
+        # need the jobs data, always substitute the first server's data
+        if item == "jobs":
+            pod = self.currentData["pods"][pod]
+            server = pod.keys()[0]
+
         return self.currentData["pods"][pod][server].get(item)
 
 
@@ -1211,6 +1221,8 @@ Dashboard.registerWindowSet(MethodsWindow, "H")
 Dashboard.registerWindowSet(SystemWindow, "J")
 Dashboard.registerWindowSet(AssignmentsWindow, "J")
 Dashboard.registerWindowSet(JobsWindow, "J")
+
+Dashboard.registerWindowSet(DirectoryStatsWindow, "D")
 
 if __name__ == "__main__":
     main()

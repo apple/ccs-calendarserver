@@ -151,6 +151,7 @@ class Config(object):
             try:
                 jsondata = json.loads(f.read(), object_pairs_hook=OrderedDict)
             except Exception:
+                print("Could not read JSON data from {}".format(path))
                 raise RuntimeError("Could not read JSON data from {}".format(path))
 
         try:
@@ -158,6 +159,7 @@ class Config(object):
             _verbose("Config '{}'".format(self.title))
             self.pods = [Pod(podname, data) for podname, data in jsondata["pods"].items()]
         except Exception:
+            print("No valid JSON data in {}".format(path))
             raise RuntimeError("No valid JSON data in {}".format(path))
 
 
@@ -195,7 +197,7 @@ class Pod(object):
         """
         Update the data for each L{Server} in this L{Pod}.
         """
-        _verbose("  Pod: {}".format(self.title))
+        _verbose("  Pod send: {}".format(self.title))
         for server in self.servers:
             server.sendSock()
 
@@ -204,7 +206,7 @@ class Pod(object):
         """
         Update the data for each L{Server} in this L{Pod}.
         """
-        _verbose("  Pod: {}".format(self.title))
+        _verbose("  Pod read: {}".format(self.title))
         data[self.title] = OrderedDict()
         for server in self.servers:
             server.update(data[self.title])
@@ -296,8 +298,8 @@ class Server(object):
         # Only read each item once
         self.currentData = self.readSock(list(set(self.items)))
         data[self.host] = self.currentData
-        _verbose("    Server: {}".format(self.host))
-        _verbose("      Data: {}".format(self.currentData))
+        _verbose("    Server read: {}".format(self.host))
+        #_verbose("      Data: {}".format(self.currentData))
 
 
     def getOneItem(self, item):
