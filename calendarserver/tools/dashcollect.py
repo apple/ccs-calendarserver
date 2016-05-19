@@ -15,52 +15,14 @@
 # limitations under the License.
 ##
 
-from collections import OrderedDict
-from datetime import datetime, date
-from threading import Thread
-import SocketServer
-import argparse
-import errno
-import json
-import os
-import sched
-import socket
-import sys
-import time
-
 """
 A service that logs dashboard data from multiple hosts and stores them in
 log files. It can also, optionally, make the most recent data available
 for retrieval via a simple TCP socket read on a specific port.
-"""
 
-"""
-JSON schema for servers file:
+This tool uses its own config file, specified with the '-f' option. A
+sample is shown below:
 
-; root object
-OBJECT (title, pods)
-
-; Title/description of this config
-MEMBER title "title" : STRING
-
-; pods - set of pods to monitor
-MEMBER pods "pod" : Object (
-    *pod
-)
-
-; An event type
-MEMBER pod "" : Object(
-    ?description, servers
-)
-
-; The description of a pod
-MEMBER description "description" : STRING
-
-; Servers associated with a pod
-; Server names are either "host:port", or "unix:path"
-MEMBER servers "servers" : ARRAY STRING
-
-Example:
 {
     "title": "My CalDAV service",
     "pods": {
@@ -82,6 +44,19 @@ Example:
 }
 """
 
+from collections import OrderedDict
+from datetime import datetime, date
+from threading import Thread
+import SocketServer
+import argparse
+import errno
+import json
+import os
+import sched
+import socket
+import sys
+import time
+
 verbose = False
 def _verbose(log):
     if verbose:
@@ -90,8 +65,16 @@ def _verbose(log):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Dashboard service for CalendarServer.")
-    parser.add_argument("-f", help="Server config file")
+    try:
+        # to produce a docstring target
+        thisFile = __file__
+    except NameError:
+        # unlikely but possible...
+        thisFile = sys.argv[0]
+    parser = argparse.ArgumentParser(
+        description="Dashboard service for CalendarServer.",
+        epilog="To view the docstring, run: pydoc {}".format(thisFile))
+    parser.add_argument("-f", help="Server config file (see docstring for details)")
     parser.add_argument("-l", help="Log file directory")
     parser.add_argument("-n", action="store_true", help="New log file")
     parser.add_argument("-s", default="localhost:8200", help="Run the dash_thread service on the specified host:port")
@@ -143,6 +126,31 @@ def main():
 class Config(object):
     """
     Loads the config and creates a list of L{Pod}'s.
+
+    JSON schema for server config file:
+
+        ; root object
+        OBJECT (title, pods)
+
+        ; Title/description of this config
+        MEMBER title "title" : STRING
+
+        ; pods - set of pods to monitor
+        MEMBER pods "pod" : Object (
+            *pod
+        )
+
+        ; An event type
+        MEMBER pod "" : Object(
+            ?description, servers
+        )
+
+        ; The description of a pod
+        MEMBER description "description" : STRING
+
+        ; Servers associated with a pod
+        ; Server names are either "host:port", or "unix:path"
+        MEMBER servers "servers" : ARRAY STRING
     """
 
     def loadFromFile(self, path):
