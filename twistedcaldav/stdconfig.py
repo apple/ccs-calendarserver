@@ -1052,6 +1052,9 @@ DEFAULT_CONFIG = {
         "Enabled": True,
         "UpdateSeconds" : 300,
         "UseDirectoryBasedDelegates" : False,
+        "InitialSchedulingDelaySeconds" : 10,
+        "BatchSize" : 100,
+        "BatchSchedulingIntervalSeconds" : 2,
     },
 
     "GroupAttendees" : {

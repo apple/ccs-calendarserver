@@ -230,6 +230,9 @@ class GroupCacher(object):
     def __init__(
         self, directory,
         updateSeconds=600,
+        initialSchedulingDelaySeconds=10,
+        batchSize=100,
+        batchSchedulingIntervalSeconds=2,
         useDirectoryBasedDelegates=False,
         directoryBasedDelegatesSource=None,
         cacheNotifier=None,
@@ -241,6 +244,9 @@ class GroupCacher(object):
         self.directoryBasedDelegatesSource = directoryBasedDelegatesSource
         self.cacheNotifier = cacheNotifier
         self.updateSeconds = updateSeconds
+        self.initialSchedulingDelaySeconds = initialSchedulingDelaySeconds
+        self.batchSize = batchSize
+        self.batchSchedulingIntervalSeconds = batchSchedulingIntervalSeconds
 
 
     @inlineCallbacks
@@ -308,10 +314,18 @@ class GroupCacher(object):
             )
 
         # For each of those groups, create a per-group refresh work item
+        futureSeconds = self.initialSchedulingDelaySeconds
+        i = 0
         for groupUID in set(groupUIDs) - set(deletedGroupUIDs):
-            self.log.debug("Enqueuing group refresh for {u}", u=groupUID)
-            yield GroupRefreshWork.reschedule(txn, 0, groupUID=groupUID)
-
+            self.log.debug(
+                "Enqueuing group refresh for {u} in {sec} seconds",
+                u=groupUID, sec=futureSeconds
+            )
+            yield GroupRefreshWork.reschedule(txn, futureSeconds, groupUID=groupUID)
+            i += 1
+            if i % self.batchSize == 0:
+                i = 0
+                futureSeconds += self.batchSchedulingIntervalSeconds
 
     @inlineCallbacks
     def scheduleExternalAssignments(
