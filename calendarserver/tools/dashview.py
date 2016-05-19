@@ -35,8 +35,8 @@ import termios
 import time
 
 
-LOG_FILENAME = 'db.log'
-#logging.basicConfig(filename=LOG_FILENAME, level=logging.DEBUG)
+LOG_FILENAME = "db.log"
+logging.basicConfig(filename=LOG_FILENAME, level=logging.DEBUG)
 
 
 
@@ -144,6 +144,7 @@ class Dashboard(object):
         Create the initial window and run the L{scheduler}.
         """
         self.windows = []
+        self.client.update()
         self.displayWindow(None)
         self.sched.enter(self.seconds, 0, self.updateDisplay, ())
         self.sched.run()
@@ -199,7 +200,7 @@ class Dashboard(object):
             term_w, term_h = terminal_size()
             logging.debug("HelpWindow: rows: %s  cols: %s" % (term_h, term_w))
             if int(term_w) > 100:
-                logging.debug('HelpWindow: term_w > 100, making window with top at %d' % (top))
+                logging.debug("HelpWindow: term_w > 100, making window with top at %d" % (top))
                 self.windows.append(HelpWindow(self).makeWindow(top=help_top))
                 self.windows[-1].activate()
 
@@ -212,14 +213,14 @@ class Dashboard(object):
         Reset the current set of windows.
         """
         if self.windows:
-            logging.debug('resetting windows: %r' % (self.windows))
+            logging.debug("resetting windows: %r" % (self.windows))
             for window in self.windows:
                 window.deactivate()
             old_windows = self.windows
             self.windows = []
             top = 0
             for old in old_windows:
-                logging.debug('processing window of type %r' % (type(old)))
+                logging.debug("processing window of type %r" % (type(old)))
                 self.windows.append(old.__class__(self).makeWindow(top=top))
                 self.windows[-1].activate()
                 # Allow the help window to float on the right edge
@@ -245,10 +246,10 @@ class Dashboard(object):
                     lambda x: x.requiresUpdate() or initialUpdate,
                     self.windows
                 ):
+                    logging.debug("updating: {}".format(window))
                     window.update()
         except Exception as e:
             logging.debug("updateDisplay failed: {}".format(e))
-            pass
 
         # Check keystrokes
         self.processKeys()
@@ -315,8 +316,7 @@ class Dashboard(object):
 
 
     def pods(self):
-        self.client.update()
-        return self.client.currentData["pods"].keys()
+        return self.client.currentData.get("pods", {}).keys()
 
 
     def selectedPod(self):
@@ -324,8 +324,7 @@ class Dashboard(object):
 
 
     def serversForPod(self, pod):
-        self.client.update()
-        return self.client.currentData["pods"][pod].keys()
+        return self.client.currentData.get("pods", {pod: {}})[pod].keys()
 
 
     def selectedServer(self):
@@ -373,14 +372,16 @@ class DashboardClient(object):
                 else:
                     break
             data = json.loads(data, object_pairs_hook=collections.OrderedDict)
-            logging.debug("data: {}".format(data))
+            logging.debug("data: {}".format(len(data)))
             self.socket.close()
             self.socket = None
-        except socket.error:
+        except socket.error as e:
             data = {}
             self.socket = None
-        except ValueError:
+            logging.debug("readSock: failed: {}".format(e))
+        except ValueError as e:
             data = {}
+            logging.debug("readSock: failed: {}".format(e))
         return data
 
 
@@ -447,7 +448,7 @@ class BaseWindow(object):
         self.dashboard = dashboard
         self.rowCount = 0
         self.needsReset = False
-        self.z_order = 'bottom'
+        self.z_order = "bottom"
 
 
     def makeWindow(self, top=0, left=0):
@@ -566,8 +567,8 @@ class BaseWindow(object):
                 pt.y, pt.x, text,
                 style
             )
-        except curses.error:
-            pass
+        except curses.error as e:
+            logging.debug("tableRow: failed: {}".format(e))
         pt.yplus()
 
 
@@ -607,7 +608,7 @@ class ServersMenu(BaseWindow):
         self.window.erase()
 
         pods = self.dashboard.pods()
-        width = max(map(len, pods))
+        width = max(map(len, pods)) if pods else 0
 
         pt = Point()
         for row, pod in enumerate(pods):

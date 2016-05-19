@@ -411,7 +411,7 @@ class CollectorService(SocketServer.ThreadingTCPServer):
 
 class CollectorRequestHandler(SocketServer.BaseRequestHandler):
     """
-    Request handler for L{CollectorService} that just sends back the current dat.
+    Request handler for L{CollectorService} that just sends back the current data.
     """
 
     def handle(self):
