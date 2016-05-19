@@ -1353,6 +1353,16 @@ class BaseAppleClient(BaseClient):
                 # Calendar changed - reload it
                 yield self._updateCalendar(self._calendars[cal.url], newToken)
 
+        # Clean out previously seen collections that are no longer on the server
+        currentCalendarUris = [c.url for c in calendars]
+        for previouslySeenCalendarUri in self._calendars.keys():
+            if previouslySeenCalendarUri not in currentCalendarUris:
+                calendarToDelete = self._calendars[previouslySeenCalendarUri]
+                for eventUri in calendarToDelete.events.keys():
+                    eventUri = urljoin(previouslySeenCalendarUri, eventUri)
+                    self._removeEvent(eventUri)
+                del self._calendars[previouslySeenCalendarUri]
+
         if notificationCollection is not None:
             if self.supportNotificationSync:
                 if self._notificationCollection:
@@ -2562,6 +2572,25 @@ class RequestLogger(object):
                 print("RESPONSE BODY:\n{}".format(responseBody))
                 print("=" * 80)
 
+            # elif event["duration"] > 9.0:
+            #     body = event['body']
+            #     if isinstance(body, StringProducer):
+            #         body = body._body
+            #     if body:
+            #         body = body[:5000]
+
+            #     responseBody = event['responseBody']
+            #     if responseBody:
+            #         responseBody = responseBody[:5000]
+
+            #     print("=" * 80)
+            #     print("LONG RESPONSE: {}".format(event['duration']))
+            #     print("URL: {}".format(event['url']))
+            #     print("METHOD: {}".format(event['method']))
+            #     print("USER: {}".format(event['user']))
+            #     print("REQUEST BODY:\n{}".format(body))
+            #     print("RESPONSE BODY:\n{}".format(responseBody))
+            #     print("=" * 80)
 
 
     def report(self, output):
