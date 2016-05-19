@@ -404,8 +404,7 @@ class DashboardClient(object):
         # it would be too expensive to run the DB query for all servers. So when we
         # need the jobs data, always substitute the first server's data
         if item == "jobs":
-            pod = self.currentData["pods"][pod]
-            server = pod.keys()[0]
+            server = self.currentData["pods"][pod].keys()[0]
 
         return self.currentData["pods"][pod][server].get(item)
 
