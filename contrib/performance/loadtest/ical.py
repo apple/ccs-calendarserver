@@ -2601,6 +2601,73 @@ class RequestLogger(object):
         return []
 
 
+class ErrorLogger(object):
+    """
+    Requests which get an incorrect response code or take too long are logged
+    """
+
+    def __init__(self, directory, durationThreshold):
+        self.directory = directory
+        self.durationThreshold = durationThreshold
+        if os.path.isdir(directory):
+            shutil.rmtree(directory)
+        os.mkdir(directory)
+        self.errorCounter = 0
+        self.durationCounter = 0
+
+
+    def _getBodies(self, event):
+        body = event['body']
+        if isinstance(body, StringProducer):
+            body = body._body
+        if body:
+            body = body[:5000]
+        responseBody = event['responseBody']
+        return body, responseBody
+
+
+    def observe(self, event):
+        if event.get("type") == "response":
+            if not event['success']:
+                body, responseBody = self._getBodies(event)
+                self.errorCounter += 1
+                filename = "error-{:08d}.txt".format(self.errorCounter)
+                fullname = os.path.join(self.directory, filename)
+                with open(fullname, "w") as f:
+                    f.write("RESPONSE CODE: {}\n".format(event['code']))
+                    f.write("URL: {}\n".format(event['url']))
+                    f.write("METHOD: {}\n".format(event['method']))
+                    f.write("USER: {}\n".format(event['user']))
+                    f.write("REQUEST BODY:\n{}\n".format(body))
+                    f.write("RESPONSE BODY:\n{}\n".format(responseBody))
+
+                print("Incorrect Response Code logged to {}".format(fullname))
+
+            elif event["duration"] > self.durationThreshold:
+                body, responseBody = self._getBodies(event)
+                self.durationCounter += 1
+
+                filename = "duration-{:08d}.txt".format(self.durationCounter)
+                fullname = os.path.join(self.directory, filename)
+                with open(fullname, "w") as f:
+                    f.write("LONG RESPONSE: {:.1f} sec\n".format(event['duration']))
+                    f.write("RESPONSE CODE: {}\n".format(event['code']))
+                    f.write("URL: {}\n".format(event['url']))
+                    f.write("METHOD: {}\n".format(event['method']))
+                    f.write("USER: {}\n".format(event['user']))
+                    f.write("REQUEST BODY:\n{}\n".format(body))
+                    f.write("RESPONSE BODY:\n{}\n".format(responseBody))
+
+                print("Long Duration logged to {}".format(fullname))
+
+
+    def report(self, output):
+        pass
+
+
+    def failures(self):
+        return []
+
 
 def main():
     from urllib2 import HTTPDigestAuthHandler

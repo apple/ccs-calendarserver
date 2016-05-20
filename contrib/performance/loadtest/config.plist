@@ -197,6 +197,20 @@
 				</dict>
 			</dict>
 
+			<!-- ErrorLogger logs the request/response bodies whenever an incorrect
+				response code is received, or if the duration exceeds threshold. -->
+			<dict>
+				<key>type</key>
+				<string>contrib.performance.loadtest.ical.ErrorLogger</string>
+				<key>params</key>
+				<dict>
+					<key>directory</key>
+					<string>/tmp/sim_errors</string>
+					<key>durationThreshold</key>
+					<real>10.0</real>
+				</dict>
+			</dict>
+
 			<!-- OperationLogger generates an end-of-run summary of the gross operations
 				performed (logical operations which may span more than one HTTP request,
 				such as inviting an attendee to an event). -->
