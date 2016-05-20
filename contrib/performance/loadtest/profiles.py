@@ -727,7 +727,7 @@ class TitleChanger(EventUpdaterBase):
     def modifyEvent(self, _ignore_href, vevent):
         length = max(5, int(self._titleLength.sample()))
         vevent.replaceProperty(Property("SUMMARY", "Event" + "." * (length - 5)))
-        return succeed("update{title}")
+        return succeed("update")
 
 
 
@@ -747,7 +747,7 @@ class DescriptionChanger(EventUpdaterBase):
     def modifyEvent(self, _ignore_href, vevent):
         length = int(self._descriptionLength.sample())
         vevent.replaceProperty(Property("DESCRIPTION", "." * length))
-        return succeed("update{description}")
+        return succeed("update")
 
 
 
@@ -1209,6 +1209,8 @@ class OperationLogger(SummarizingMixin):
     _LATENCY_REASON = "Median %(operation)s scheduling lag greater than %(cutoff)sms"
     _FAILED_REASON = "Greater than %(cutoff).0f%% %(operation)s failed"
     _PUSH_MISSING_REASON = "Push was configured but no pushes were received by clients"
+    _REASON_1 = "Greater than %(cutoff)g%% %(method)s exceeded "
+    _REASON_2 = "%g second response time"
 
     def failures(self):
         reasons = []
@@ -1223,6 +1225,24 @@ class OperationLogger(SummarizingMixin):
             if failures * 100.0 / len(times) > self._fail_cut_off:
                 reasons.append(self._FAILED_REASON % dict(
                     operation=operation.upper(), cutoff=self._fail_cut_off))
+
+        for operation, times in self._perOperationTimes.iteritems():
+            overDurations = [0] * len(self._thresholds)
+            for success, duration in times:
+                for ctr, item in enumerate(self._thresholds):
+                    threshold, _ignore_fail_at = item
+                    if duration > threshold:
+                        overDurations[ctr] += 1
+            checks = []
+            for ctr, item in enumerate(self._thresholds):
+                threshold, fail_at = item
+                fail_at = fail_at.get(operation, fail_at["default"])
+                checks.append(
+                    (overDurations[ctr], fail_at, self._REASON_1 + self._REASON_2 % (threshold,))
+                )
+            for count, cutoff, reason in checks:
+                if count * 100.0 / len(times) > cutoff:
+                    reasons.append(reason % dict(method=operation.upper(), cutoff=cutoff))
 
         if self._fail_if_no_push and "push" not in self._perOperationTimes:
             reasons.append(self._PUSH_MISSING_REASON)

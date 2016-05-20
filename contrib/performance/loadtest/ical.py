@@ -1566,7 +1566,7 @@ class BaseAppleClient(BaseClient):
                 self.calendarHomeHref = calendarHome
             yield self._checkCalendarsForEvents(calendarHome, firstTime=True)
             returnValue(calendarHome)
-        calendarHome = yield self._newOperation("startup: %s" % (self.title,), startup())
+        calendarHome = yield self._newOperation("startup", startup())
 
         self.started = True
 

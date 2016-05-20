@@ -166,7 +166,7 @@
 
 							<!-- Percentage of time to attach a file -->
 							<key>fileAttachPercentage</key>
-							<integer>5</integer>
+							<integer>1</integer>
 
 							<!-- Define the attachment size distribution. -->
 							<key>fileSizeDistribution</key>
@@ -175,7 +175,7 @@
 								<string>contrib.performance.stats.NormalDistribution</string>
 								<key>params</key>
 								<dict>
-									<!-- mu gives the mean of the normal distribution (in seconds). -->
+									<!-- mu gives the mean of the normal distribution (in bytes). -->
 									<key>mu</key>
 									<integer>500000</integer>
 
@@ -379,7 +379,7 @@
 								<string>contrib.performance.stats.NormalDistribution</string>
 								<key>params</key>
 								<dict>
-									<!-- mu gives the mean of the normal distribution (in seconds). -->
+									<!-- mu gives the mean of the normal distribution (in bytes). -->
 									<key>mu</key>
 									<integer>500000</integer>
 
@@ -603,7 +603,7 @@
 
 							<!-- Percentage of time to attach a file -->
 							<key>fileAttachPercentage</key>
-							<integer>10</integer>
+							<integer>1</integer>
 
 							<!-- Define the attachment size distribution. -->
 							<key>fileSizeDistribution</key>
