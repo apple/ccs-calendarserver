@@ -113,11 +113,18 @@ def main():
                 host[1] = int(host[1])
             host = tuple(host)
 
-        server = CollectorService(host, CollectorRequestHandler)
-        server.dashboard = dash
-        server_thread = Thread(target=server.serve_forever)
-        server_thread.daemon = True
-        server_thread.start()
+        try:
+            server = CollectorService(host, CollectorRequestHandler)
+            server.dashboard = dash
+            server_thread = Thread(target=server.serve_forever)
+            server_thread.daemon = True
+            server_thread.start()
+        except Exception as e:
+            print("Terminating service due to error: {}".format(e))
+            dash.stop()
+            server.shutdown()
+            server_thread.join()
+            sys.exit(1)
 
     while dash_thread.isAlive():
         try:
@@ -126,6 +133,7 @@ def main():
             print("Terminating service")
             dash.stop()
             server.shutdown()
+            server_thread.join()
 
 
 
@@ -266,11 +274,11 @@ class Server(object):
                     self.socket.connect(self.sockname)
                 self.socket.setblocking(0)
             self.socket.sendall(json.dumps(items) + "\r\n")
-        except socket.error:
+        except socket.error as e:
             self.socket = None
-            _verbose("    server failed: {}".format(self.host))
-        except ValueError:
-            pass
+            _verbose("    server failed: {} {}".format(self.host, e))
+        except ValueError as e:
+            _verbose("    server failed: {} {}".format(self.host, e))
 
 
     def readSock(self, items):
@@ -286,7 +294,7 @@ class Server(object):
                 try:
                     d = self.socket.recv(1024)
                 except socket.error as se:
-                    if se.args[0] != errno.EWOULDBLOCK:
+                    if se.args[0] not in (errno.EWOULDBLOCK, errno.EAGAIN):
                         raise
                     if time.time() - t > 5:
                         raise socket.error
@@ -296,11 +304,13 @@ class Server(object):
                 else:
                     break
             data = json.loads(data, object_pairs_hook=OrderedDict)
-        except socket.error:
+        except socket.error as e:
             data = {}
             self.socket = None
-        except ValueError:
+            _verbose("    server failed: {} {}".format(self.host, e))
+        except ValueError as e:
             data = {}
+            _verbose("    server failed: {} {}".format(self.host, e))
         return data
 
 
@@ -312,7 +322,7 @@ class Server(object):
         # Only read each item once
         self.currentData = self.readSock(list(set(self.items)))
         data[self.host] = self.currentData
-        _verbose("    Server read: {}".format(self.host))
+        _verbose("    Server read: {} {}".format(self.host, len(data[self.host])))
         #_verbose("      Data: {}".format(self.currentData))
 
 

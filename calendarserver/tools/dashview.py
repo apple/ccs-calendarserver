@@ -34,7 +34,6 @@ import sys
 import termios
 import time
 
-
 LOG_FILENAME = "db.log"
 logging.basicConfig(filename=LOG_FILENAME, level=logging.DEBUG)
 
@@ -404,7 +403,7 @@ class DashboardClient(object):
         # jobs are only requested from the first server in a pod because otherwise
         # it would be too expensive to run the DB query for all servers. So when we
         # need the jobs data, always substitute the first server's data
-        if item == "jobs":
+        if item in ("jobs", "jobcount"):
             server = self.currentData["pods"][pod].keys()[0]
 
         return self.currentData["pods"][pod][server].get(item)
@@ -798,7 +797,7 @@ class RequestStatsWindow(BaseWindow):
                 safeDivision(stat["t"] - stat["t-resp-wr"], stat["requests"]),
                 stat["T-MAX"],
                 safeDivision(float(stat["slots"]), stat["requests"]),
-                stat["max-slots"],
+                stat.get("max-slots", 0),
                 safeDivision(stat["cpu"], stat["requests"]),
                 stat["500"],
             )
