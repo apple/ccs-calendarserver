@@ -304,7 +304,7 @@ class NotificationCollection(object):
         Convert dict (deserialized from JSON) into an L{Calendar}.
         """
 
-        coll = NotificationCollection(None, None)
+        coll = NotificationCollection(None, "")
         for attr in ("url", "changeToken"):
             if attr in data:
                 setattr(coll, attr, u2str(data[attr]))

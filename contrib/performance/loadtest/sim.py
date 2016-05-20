@@ -575,6 +575,8 @@ class LoadSimulator(object):
             data = json.loads(data)
         except socket.error:
             data = {"Failed": "Unable to read statistics from server: %s" % (sockname,)}
+        except ValueError:
+            data = {"Failed": "Unable to parse statistics from server: %s" % (sockname,)}
         data["Server"] = sockname
         return data
 
