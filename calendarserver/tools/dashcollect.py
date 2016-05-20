@@ -119,7 +119,13 @@ def main():
         server_thread.daemon = True
         server_thread.start()
 
-    dash_thread.join()
+    while dash_thread.isAlive():
+        try:
+            dash_thread.join(1000)
+        except KeyboardInterrupt:
+            print("Terminating service")
+            dash.stop()
+            server.shutdown()
 
 
 
@@ -350,6 +356,7 @@ class DashboardCollector(object):
         self.sched = sched.scheduler(time.time, time.sleep)
         self.seconds = 1
         self.lastData = {}
+        self._stop = False
 
 
     def run(self):
@@ -359,6 +366,11 @@ class DashboardCollector(object):
         _verbose("Starting Dashboard")
         self.sched.enter(self.seconds, 0, self.update, ())
         self.sched.run()
+        _verbose("Stopped Dashboard")
+
+
+    def stop(self):
+        self._stop = True
 
 
     @staticmethod
@@ -391,7 +403,8 @@ class DashboardCollector(object):
 
         self.lastData = j
 
-        self.sched.enter(self.seconds, 0, self.update, ())
+        if not self._stop:
+            self.sched.enter(self.seconds, 0, self.update, ())
 
 
 
