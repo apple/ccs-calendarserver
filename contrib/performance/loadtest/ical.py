@@ -728,7 +728,7 @@ class BaseAppleClient(BaseClient):
         """
         Issue a GET on the chosen URL
         """
-        response, responseBody = yield self._request(
+        _ignore_response, responseBody = yield self._request(
             allowedStatus,
             'GET',
             url,
@@ -1670,7 +1670,6 @@ class BaseAppleClient(BaseClient):
         self._attachments = data.get("attachments", {})
 
 
-
     @inlineCallbacks
     def reset(self):
         path = self.serializeLocation()
@@ -1739,7 +1738,7 @@ class BaseAppleClient(BaseClient):
             headers.removeHeader('if-match')
 
         # At last, upload the new event definition
-        response, responseBody = yield self._request(
+        response, _ignore_responseBody = yield self._request(
             (NO_CONTENT, PRECONDITION_FAILED,),
             'PUT',
             self.server["uri"] + href.encode('utf-8'),
@@ -1751,7 +1750,6 @@ class BaseAppleClient(BaseClient):
         # Finally, re-retrieve the event to update the etag
         if not response.headers.hasHeader("etag"):
             response = yield self.updateEvent(href)
-
 
 
     @inlineCallbacks
@@ -1834,7 +1832,7 @@ class BaseAppleClient(BaseClient):
         if len(attendees) > 75:
             label_suffix = "huge"
 
-        response, responseBody = yield self._request(
+        response, _ignore_responseBody = yield self._request(
             okCodes,
             'PUT',
             self.server["uri"] + href.encode('utf-8'),
@@ -1856,7 +1854,7 @@ class BaseAppleClient(BaseClient):
 
         self._removeEvent(href)
 
-        response, responseBody = yield self._request(
+        response, _ignore_responseBody = yield self._request(
             (NO_CONTENT, NOT_FOUND),
             'DELETE',
             self.server["uri"] + href.encode('utf-8'),
@@ -1880,7 +1878,7 @@ class BaseAppleClient(BaseClient):
         if len(attendees) > 75:
             label_suffix = "huge"
 
-        response, responseBody = yield self._request(
+        response, _ignore_responseBody = yield self._request(
             CREATED,
             'PUT',
             self.server["uri"] + href.encode('utf-8'),
@@ -1896,7 +1894,6 @@ class BaseAppleClient(BaseClient):
         # Add optional attachment
         if attachmentSize:
             yield self.postAttachment(href, 'x' * attachmentSize)
-
 
 
     @inlineCallbacks
@@ -1930,7 +1927,7 @@ class BaseAppleClient(BaseClient):
             headers.removeHeader('if-match')
 
         # At last, upload the new event definition
-        response, responseBody = yield self._request(
+        response, _ignore_responseBody = yield self._request(
             (NO_CONTENT, PRECONDITION_FAILED,),
             'PUT',
             self.server["uri"] + href.encode('utf-8'),
@@ -2023,7 +2020,7 @@ class BaseAppleClient(BaseClient):
         if len(users) > 75:
             label_suffix = "huge"
 
-        response, responseBody = yield self._request(
+        _ignore_response, responseBody = yield self._request(
             OK, 'POST', outbox,
             Headers({
                     'content-type': ['text/calendar'],
@@ -2087,7 +2084,7 @@ class BaseAppleClient(BaseClient):
         headers = Headers({
             'content-type': ['text/xml']
         })
-        response, responseBody = yield self._request(
+        _ignore_response, responseBody = yield self._request(
             (OK, CREATED, MULTI_STATUS),
             'POST',
             self.server["uri"] + href,

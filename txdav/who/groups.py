@@ -327,6 +327,7 @@ class GroupCacher(object):
                 i = 0
                 futureSeconds += self.batchSchedulingIntervalSeconds
 
+
     @inlineCallbacks
     def scheduleExternalAssignments(
         self, txn, newAssignments, immediately=False
