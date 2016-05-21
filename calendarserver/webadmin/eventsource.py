@@ -172,7 +172,7 @@ class EventSourceResource(SimpleResource):
             self._streams.remove(response.stream)
             return _response
 
-        request.addResponseFilter(cleanupFilter)
+        #request.addResponseFilter(cleanupFilter)
         self._streams.add(response.stream)
 
         return response
@@ -213,7 +213,7 @@ class EventStream(object):
     def didAddEvents(self):
         d = self._deferredRead
         if d is not None:
-            d.addCallback(lambda _: self.read())
+            self._deferredRead = None
             d.callback(None)
 
 
@@ -264,6 +264,7 @@ class EventStream(object):
 
         d = Deferred()
         self._deferredRead = d
+        d.addCallback(lambda _: self.read())
         return d
 
 

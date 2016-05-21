@@ -31,6 +31,7 @@ from json import dumps
 from zope.interface import implementer
 
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.python.failure import Failure
 
 from twext.python.log import Logger
 from twext.enterprise.jobs.jobitem import JobItem
@@ -110,7 +111,7 @@ class WorkEventsResource(EventSourceResource):
     @inlineCallbacks
     def poll(self):
         if self._polling:
-            return
+            returnValue(None)
 
         self._polling = True
 
@@ -152,10 +153,10 @@ class WorkEventsResource(EventSourceResource):
 
                     work = yield job.workItem()
 
-                    attrs = ("workID", "group")
+                    attrs = ("workID",)
 
                     if workType == PushNotificationWork:
-                        attrs += ("pushID", "priority")
+                        attrs += ("pushID", "pushPriority")
                     elif workType == ScheduleOrganizerWork:
                         attrs += ("icalendarUID", "attendeeCount")
                     elif workType == ScheduleRefreshWork:
@@ -212,11 +213,13 @@ class WorkEventsResource(EventSourceResource):
 
             self.addEvents(events)
 
-        except:
+        except Exception:
+            f = Failure()
             self._polling = False
             yield txn.abort()
-            raise
+            returnValue(f)
         else:
+            self._polling = False
             yield txn.commit()
 
         # Schedule the next poll
