@@ -31,6 +31,18 @@ create index NOTIFICATION_OBJECT_R_c251f0fd on NOTIFICATION_OBJECT_REVISIONS (
     "REVISION"
 );
 
+-- New table
+create table INBOX_REMOVE_WORK (
+    "WORK_ID" integer primary key,
+    "JOB_ID" integer not null references JOB,
+    "HOME_ID" integer not null references CALENDAR_HOME on delete cascade,
+    "RESOURCE_NAME" nvarchar2(255), 
+    unique ("HOME_ID", "RESOURCE_NAME")
+);
+
+create index INBOX_REMOVE_WORK_JOB_4b627f1e on INBOX_REMOVE_WORK (
+    "JOB_ID"
+);
 
 -- update the version
 update CALENDARSERVER set VALUE = '61' where NAME = 'VERSION';

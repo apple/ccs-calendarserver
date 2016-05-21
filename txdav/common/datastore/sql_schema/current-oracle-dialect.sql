@@ -557,6 +557,14 @@ create table CLEANUP_ONE_INBOX_WORK (
     "HOME_ID" integer not null unique references CALENDAR_HOME on delete cascade
 );
 
+create table INBOX_REMOVE_WORK (
+    "WORK_ID" integer primary key,
+    "JOB_ID" integer not null references JOB,
+    "HOME_ID" integer not null references CALENDAR_HOME on delete cascade,
+    "RESOURCE_NAME" nvarchar2(255), 
+    unique ("HOME_ID", "RESOURCE_NAME")
+);
+
 create table SCHEDULE_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB,
@@ -968,6 +976,10 @@ create index INBOX_CLEANUP_WORK_JO_799132bd on INBOX_CLEANUP_WORK (
 );
 
 create index CLEANUP_ONE_INBOX_WOR_375dac36 on CLEANUP_ONE_INBOX_WORK (
+    "JOB_ID"
+);
+
+create index INBOX_REMOVE_WORK_JOB_4b627f1e on INBOX_REMOVE_WORK (
     "JOB_ID"
 );
 

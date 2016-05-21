@@ -28,5 +28,18 @@ create index ADDRESSBOOK_OBJECT_REVISIONS_REVISION
 create index NOTIFICATION_OBJECT_REVISIONS_REVISION
   on NOTIFICATION_OBJECT_REVISIONS(REVISION);
 
+-- New table
+create table INBOX_REMOVE_WORK (
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  JOB_ID                        integer      references JOB not null,
+  HOME_ID                       integer      not null references CALENDAR_HOME on delete cascade,
+  RESOURCE_NAME                 varchar(255) not null,
+  
+  unique (HOME_ID, RESOURCE_NAME)    -- implicit index
+);
+
+create index INBOX_REMOVE_WORK_JOB_ID on
+  INBOX_REMOVE_WORK(JOB_ID);
+
 -- update the version
 update CALENDARSERVER set VALUE = '61' where NAME = 'VERSION';

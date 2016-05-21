@@ -77,8 +77,11 @@ class InboxCleanupWork(RegeneratingWorkItem, fromTable(schema.INBOX_CLEANUP_WORK
                 Where=ch.STATUS == _HOME_STATUS_NORMAL,
             ).on(self.transaction)
 
+            # Add an initial delay to the start of the first work item, then add an offset between each item
+            seconds = config.InboxCleanup.StartDelaySeconds
             for homeRow in homeRows:
-                yield CleanupOneInboxWork.reschedule(self.transaction, seconds=0, homeID=homeRow[0])
+                yield CleanupOneInboxWork.reschedule(self.transaction, seconds=seconds, homeID=homeRow[0])
+                seconds += config.InboxCleanup.StaggerSeconds
 
 
 
@@ -91,51 +94,46 @@ class CleanupOneInboxWork(WorkItem, fromTable(schema.CLEANUP_ONE_INBOX_WORK)):
 
         # No need to delete other work items.  They are unique
 
-        # get orphan names
-        orphanNames = set((
-            yield self.transaction.orphanedInboxItemsInHomeID(self.homeID)
-        ))
-        if orphanNames:
-            home = yield self.transaction.calendarHomeWithResourceID(self.homeID)
-            log.info(
-                "Inbox cleanup work in home: {homeUID}, deleting orphaned items: {orphanNames}",
-                homeUID=home.uid(), orphanNames=orphanNames,
-            )
-
         # get old item names
         if float(config.InboxCleanup.ItemLifetimeDays) >= 0: # use -1 to disable; 0 is test case
             cutoff = datetime.datetime.utcnow() - datetime.timedelta(days=float(config.InboxCleanup.ItemLifetimeDays))
             oldItemNames = set((
                 yield self.transaction.listInboxItemsInHomeCreatedBefore(self.homeID, cutoff)
             ))
-            newDeleters = oldItemNames - orphanNames
-            if newDeleters:
+            if oldItemNames:
                 home = yield self.transaction.calendarHomeWithResourceID(self.homeID)
                 log.info(
-                    "Inbox cleanup work in home: {homeUID}, deleting old items: {newDeleters}",
-                    homeUID=home.uid(), newDeleters=newDeleters,
+                    "Inbox cleanup work in home: {homeUID}, deleting old items: {oldItemNames}",
+                    homeUID=home.uid(), newDeleters=oldItemNames,
                 )
-        else:
-            oldItemNames = set()
 
-        # get item name for old events
-        if float(config.InboxCleanup.ItemLifeBeyondEventEndDays) >= 0: # use -1 to disable; 0 is test case
-            cutoff = datetime.datetime.utcnow() - datetime.timedelta(days=float(config.InboxCleanup.ItemLifeBeyondEventEndDays))
-            itemNamesForOldEvents = set((
-                yield self.transaction.listInboxItemsInHomeForEventsBefore(self.homeID, cutoff)
-            ))
-            newDeleters = itemNamesForOldEvents - oldItemNames - orphanNames
-            if newDeleters:
-                home = yield self.transaction.calendarHomeWithResourceID(self.homeID)
-                log.info(
-                    "Inbox cleanup work in home: {homeUID}, deleting items for old events: {newDeleters}",
-                    homeUID=home.uid(), newDeleters=newDeleters,
-                )
-        else:
-            itemNamesForOldEvents = set()
+                # If the number to delete is below our threshold then delete right away,
+                # otherwise queue up more work items to delete these
+                if len(oldItemNames) < config.InboxCleanup.InboxRemoveWorkThreshold:
+                    inbox = yield home.childWithName("inbox")
+                    for item in (yield inbox.objectResourcesWithNames(oldItemNames)):
+                        yield item.remove()
+                else:
+                    seconds = config.InboxCleanup.RemovalStaggerSeconds
+                    for item in oldItemNames:
+                        yield InboxRemoveWork.reschedule(self.transaction, seconds=seconds, homeID=self.homeID, resourceName=item)
+                        seconds += config.InboxCleanup.RemovalStaggerSeconds
 
-        itemNamesToDelete = orphanNames | itemNamesForOldEvents | oldItemNames
-        if itemNamesToDelete:
+
+
+class InboxRemoveWork(WorkItem, fromTable(schema.INBOX_REMOVE_WORK)):
+
+    group = property(lambda self: (self.table.HOME_ID == self.homeID).And(self.table.RESOURCE_NAME == self.resourceName))
+
+    @inlineCallbacks
+    def doWork(self):
+
+        # Some of the resources may no longer exist by the time this work item runs
+        # so simply ignore that and let the work complete without doing anything
+        home = yield self.transaction.calendarHomeWithResourceID(self.homeID)
+        if home is not None:
             inbox = yield home.childWithName("inbox")
-            for item in (yield inbox.objectResourcesWithNames(itemNamesToDelete)):
-                yield item.remove()
+            if inbox is not None:
+                item = yield inbox.objectResourceWithName(self.resourceName)
+                if item is not None:
+                    yield item.remove()

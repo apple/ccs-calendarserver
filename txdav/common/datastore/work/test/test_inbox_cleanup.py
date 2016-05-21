@@ -155,36 +155,10 @@ END:VCALENDAR
 
 
     @inlineCallbacks
-    def test_orphans(self):
-        """
-        Verify that orphaned Inbox items are removed
-        """
-        self.patch(config.InboxCleanup, "ItemLifetimeDays", -1)
-        self.patch(config.InboxCleanup, "ItemLifeBeyondEventEndDays", -1)
-
-        # create orphans by deleting events
-        cal = yield self.calendarUnderTest(home="user01", name="calendar")
-        for item in (yield cal.objectResourcesWithNames(["cal1.ics", "cal3.ics"])):
-            yield item.purge()
-
-        # do cleanup
-        yield self.transactionUnderTest().enqueue(CleanupOneInboxWork, homeID=cal.ownerHome()._resourceID, notBefore=datetime.datetime.utcnow())
-        yield self.commit()
-        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
-
-        # check that orphans are deleted
-        inbox = yield self.calendarUnderTest(home="user01", name="inbox")
-        items = yield inbox.objectResources()
-        names = [item.name() for item in items]
-        self.assertEqual(set(names), set(["cal2.ics"]))
-
-
-    @inlineCallbacks
     def test_old(self):
         """
         Verify that old inbox items are removed
         """
-        self.patch(config.InboxCleanup, "ItemLifeBeyondEventEndDays", -1)
 
         # Predate some inbox items
         inbox = yield self.calendarUnderTest(home="user01", name="inbox")
@@ -211,21 +185,28 @@ END:VCALENDAR
 
 
     @inlineCallbacks
-    def test_referenceOldEvent(self):
+    def test_old_queued(self):
         """
-        Verify that inbox items references old events are removed
+        Verify that old inbox items are removed
         """
-        # events are already too old, so make one event end now
-        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
-        cal3Event = yield calendar.objectResourceWithName("cal3.ics")
 
-        tr = schema.TIME_RANGE
+        # Patch to force remove work items
+        self.patch(config.InboxCleanup, "InboxRemoveWorkThreshold", 0)
+
+        # Predate some inbox items
+        inbox = yield self.calendarUnderTest(home="user01", name="inbox")
+        oldDate = datetime.datetime.utcnow() - datetime.timedelta(days=float(config.InboxCleanup.ItemLifetimeDays), seconds=10)
+
+        itemsToPredate = ["cal2.ics", "cal3.ics"]
+        co = schema.CALENDAR_OBJECT
         yield Update(
-            {tr.END_DATE: datetime.datetime.utcnow()},
-            Where=tr.CALENDAR_OBJECT_RESOURCE_ID == cal3Event._resourceID
-        ).on(self.transactionUnderTest())
+            {co.CREATED: oldDate},
+            Where=co.RESOURCE_NAME.In(Parameter("itemsToPredate", len(itemsToPredate))).And(
+                co.CALENDAR_RESOURCE_ID == inbox._resourceID)
+        ).on(self.transactionUnderTest(), itemsToPredate=itemsToPredate)
+
         # do cleanup
-        yield self.transactionUnderTest().enqueue(CleanupOneInboxWork, homeID=calendar.ownerHome()._resourceID, notBefore=datetime.datetime.utcnow())
+        yield self.transactionUnderTest().enqueue(CleanupOneInboxWork, homeID=inbox.ownerHome()._resourceID, notBefore=datetime.datetime.utcnow())
         yield self.commit()
         yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
 
@@ -233,4 +214,4 @@ END:VCALENDAR
         inbox = yield self.calendarUnderTest(home="user01", name="inbox")
         items = yield inbox.objectResources()
         names = [item.name() for item in items]
-        self.assertEqual(set(names), set(["cal3.ics"]))
+        self.assertEqual(set(names), set(["cal1.ics"]))

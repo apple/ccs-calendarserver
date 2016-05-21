@@ -1053,6 +1053,18 @@ create table CLEANUP_ONE_INBOX_WORK (
 create index CLEANUP_ONE_INBOX_WORK_JOB_ID on
   CLEANUP_ONE_INBOX_WORK(JOB_ID);
 
+create table INBOX_REMOVE_WORK (
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  JOB_ID                        integer      references JOB not null,
+  HOME_ID                       integer      not null references CALENDAR_HOME on delete cascade,
+  RESOURCE_NAME                 varchar(255) not null,
+  
+  unique (HOME_ID, RESOURCE_NAME)    -- implicit index
+);
+
+create index INBOX_REMOVE_WORK_JOB_ID on
+  INBOX_REMOVE_WORK(JOB_ID);
+
 -------------------
 -- Schedule Work --
 -------------------

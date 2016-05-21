@@ -1069,14 +1069,27 @@
 		<key>ItemLifetimeDays</key>
 		<real>14.0</real>
 
-		<!-- Number of days to keep an inbox item past the time when its referenced
-		     event ends -->
-		<key>ItemLifeBeyondEventEndDays</key>
-		<real>14.0</real>
-
 		<!-- Number of days between inbox cleanups -->
 		<key>CleanupPeriodDays</key>
 		<real>2.0</real>
+
+		<!-- Number of seconds before CleanupOneInboxWork starts after
+		     InboxCleanupWork -->
+		<key>StartDelaySeconds</key>
+		<integer>300</integer>
+
+		<!-- Number of seconds between each CleanupOneInboxWork (fractional) -->
+		<key>StaggerSeconds</key>
+		<real>0.5</real>
+
+		<!-- Number of items above which inbox removals will be deferred to a work
+		     item -->
+		<key>InboxRemoveWorkThreshold</key>
+		<integer>5</integer>
+
+		<!-- Number of seconds between each InboxRemoveWork -->
+		<key>RemovalStaggerSeconds</key>
+		<real>0.5</real>
 	</dict>
 
 	<!-- CardDAV Features -->

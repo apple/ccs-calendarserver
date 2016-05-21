@@ -645,9 +645,12 @@ DEFAULT_CONFIG = {
 
     "InboxCleanup": {
         "Enabled": True,
-        "ItemLifetimeDays" : 14.0,             # Number of days before deleting a new inbox item
-        "ItemLifeBeyondEventEndDays" : 14.0, # Number of days to keep an inbox item past the time when its referenced event ends
-        "CleanupPeriodDays" : 2.0,             # Number of days between inbox cleanups
+        "ItemLifetimeDays" : 14.0,              # Number of days before deleting a new inbox item
+        "CleanupPeriodDays" : 2.0,              # Number of days between inbox cleanups
+        "StartDelaySeconds": 5 * 60,            # Number of seconds before CleanupOneInboxWork starts after InboxCleanupWork
+        "StaggerSeconds": 0.5,                  # Number of seconds between each CleanupOneInboxWork (fractional)
+        "InboxRemoveWorkThreshold": 5,          # Number of items above which inbox removals will be deferred to a work item
+        "RemovalStaggerSeconds": 0.5,           # Number of seconds between each InboxRemoveWork
     },
 
     # CardDAV Features
