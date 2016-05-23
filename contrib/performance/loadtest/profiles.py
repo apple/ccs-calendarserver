@@ -1210,7 +1210,7 @@ class OperationLogger(SummarizingMixin):
     _FAILED_REASON = "Greater than %(cutoff).0f%% %(operation)s failed"
     _PUSH_MISSING_REASON = "Push was configured but no pushes were received by clients"
     _REASON_1 = "Greater than %(cutoff)g%% %(method)s exceeded "
-    _REASON_2 = "%g second response time"
+    _REASON_2 = "%g second total time"
 
     def failures(self):
         reasons = []
