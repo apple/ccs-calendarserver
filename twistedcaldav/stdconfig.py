@@ -1839,6 +1839,7 @@ def _cleanup(configDict, defaultDict):
 config.setProvider(PListConfigProvider(DEFAULT_CONFIG))
 config.addPreUpdateHooks(PRE_UPDATE_HOOKS)
 config.addPostUpdateHooks(POST_UPDATE_HOOKS)
+config.update()
 
 
 def _preserveConfig(configDict):

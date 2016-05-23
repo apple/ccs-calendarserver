@@ -33,6 +33,9 @@ File.contentTypes = loadMimeTypes(("/etc/apache2/mime.types", "/etc/httpd/mime.t
 # Register additional WebDAV XML elements
 #
 
+from twistedcaldav.config import config
+config.update()
+
 import twistedcaldav.caldavxml
 import twistedcaldav.carddavxml
 import twistedcaldav.mkcolxml
