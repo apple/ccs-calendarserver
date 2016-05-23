@@ -192,7 +192,8 @@ def buildDirectory(
                 },
                 threadPoolMax=params.get("threadPoolMax", 10),
                 connectionMax=params.get("connectionMax", 10),
-                tries=params.tries
+                tries=params.get("tries", 3),
+                warningThresholdSeconds=params.get("warningThresholdSeconds", 5),
             )
             ldapService = directory
 

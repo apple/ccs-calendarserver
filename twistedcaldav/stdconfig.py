@@ -104,6 +104,7 @@ DEFAULT_SERVICE_PARAMS = {
         "threadPoolMax": 10,
         "connectionMax": 10,
         "tries": 3,
+        "warningThresholdSeconds": 5,
     },
 }
 
