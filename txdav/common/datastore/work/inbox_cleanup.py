@@ -104,7 +104,7 @@ class CleanupOneInboxWork(WorkItem, fromTable(schema.CLEANUP_ONE_INBOX_WORK)):
                 home = yield self.transaction.calendarHomeWithResourceID(self.homeID)
                 log.info(
                     "Inbox cleanup work in home: {homeUID}, deleting old items: {oldItemNames}",
-                    homeUID=home.uid(), newDeleters=oldItemNames,
+                    homeUID=home.uid(), oldItemNames=oldItemNames,
                 )
 
                 # If the number to delete is below our threshold then delete right away,
