@@ -411,11 +411,6 @@ create table TEST_WORK (
     "DELAY" integer
 );
 
-create table APN_PURGING_WORK (
-    "WORK_ID" integer primary key,
-    "JOB_ID" integer not null references JOB
-);
-
 create table IMIP_INVITATION_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB,
@@ -680,7 +675,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '62');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '61');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
@@ -863,10 +858,6 @@ create index IMIP_TOKENS_TOKEN_e94b918f on IMIP_TOKENS (
 );
 
 create index TEST_WORK_JOB_ID_228ede32 on TEST_WORK (
-    "JOB_ID"
-);
-
-create index APN_PURGING_WORK_JOB__328a2e62 on APN_PURGING_WORK (
     "JOB_ID"
 );
 

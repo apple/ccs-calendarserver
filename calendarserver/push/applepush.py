@@ -17,6 +17,9 @@
 
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.python.log import Logger
+from twext.enterprise.dal.record import fromTable
+from twext.enterprise.jobs.workitem import RegeneratingWorkItem
+from txdav.common.datastore.sql_tables import schema
 
 from txweb2 import responsecode
 from txdav.xml import element as davxml
@@ -28,7 +31,6 @@ from twisted.application import service
 from twisted.internet.protocol import Protocol
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.protocol import ClientFactory, ReconnectingClientFactory
-from twisted.internet.task import LoopingCall
 from twistedcaldav.extensions import DAVResource, DAVResourceWithoutChildrenMixin
 from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn
 import json
@@ -160,10 +162,11 @@ class ApplePushNotifierService(service.MultiService):
         In addition to starting the provider and feedback sub-services, start a
         LoopingCall whose job it is to purge old subscriptions
         """
-        service.MultiService.startService(self)
         self.log.debug("ApplePushNotifierService startService")
-        self.purgeCall = LoopingCall(self.purgeOldSubscriptions, self.purgeSeconds)
-        self.purgeCall.start(self.purgeIntervalSeconds, now=False)
+        APNPurgingWork.purgeSeconds = self.purgeSeconds
+        APNPurgingWork.purgeIntervalSeconds = self.purgeIntervalSeconds
+
+        service.MultiService.startService(self)
 
 
     def stopService(self):
@@ -171,25 +174,9 @@ class ApplePushNotifierService(service.MultiService):
         In addition to stopping the provider and feedback sub-services, stop the
         LoopingCall
         """
-        service.MultiService.stopService(self)
         self.log.debug("ApplePushNotifierService stopService")
-        if self.purgeCall is not None:
-            self.purgeCall.stop()
-            self.purgeCall = None
+        service.MultiService.stopService(self)
 
-
-    @inlineCallbacks
-    def purgeOldSubscriptions(self, purgeSeconds):
-        """
-        Remove any subscriptions that registered more than purgeSeconds ago
-
-        @param purgeSeconds: The cutoff given in seconds
-        @type purgeSeconds: C{int}
-        """
-        self.log.debug("ApplePushNotifierService purgeOldSubscriptions")
-        txn = self.store.newTransaction(label="ApplePushNotifierService.purgeOldSubscriptions")
-        yield txn.purgeOldAPNSubscriptions(int(time.time()) - purgeSeconds)
-        yield txn.commit()
 
 
     @inlineCallbacks
@@ -983,3 +970,31 @@ class APNSubscriptionResource(
         response = Response(code, {}, body)
         response.headers.setHeader("content-type", MimeType("text", "html"))
         return response
+
+
+
+class APNPurgingWork(RegeneratingWorkItem, fromTable(schema.APN_PURGING_WORK)):
+
+    group = "apn_purging"
+    purgeIntervalSeconds = 12 * 60 * 60 # 12 hours by default
+    purgeSeconds = 14 * 24 * 60 * 60 # 14 days by default
+
+    @classmethod
+    def initialSchedule(cls, store, seconds):
+        def _enqueue(txn):
+            return APNPurgingWork.reschedule(txn, seconds)
+
+        return store.inTransaction("APNPurgingWork.initialSchedule", _enqueue)
+
+
+    def regenerateInterval(self):
+        """
+        Return the interval in seconds between regenerating instances.
+        """
+        return self.purgeIntervalSeconds
+
+
+    def doWork(self):
+        return self.transaction.purgeOldAPNSubscriptions(
+            int(time.time()) - self.purgeSeconds
+        )

@@ -112,7 +112,7 @@ from calendarserver.controlsocket import ControlSocket
 from calendarserver.controlsocket import ControlSocketConnectingService
 from calendarserver.dashboard_service import DashboardServer
 from calendarserver.push.amppush import AMPPushMaster, AMPPushForwarder
-from calendarserver.push.applepush import ApplePushNotifierService
+from calendarserver.push.applepush import ApplePushNotifierService, APNPurgingWork
 from calendarserver.push.notifier import PushDistributor
 from calendarserver.tap.util import (
     ConnectionDispenser, Stepper,
@@ -638,6 +638,10 @@ class WorkSchedulingService(Service):
             int(config.LogID) if config.LogID else 5
         )
         yield InboxCleanupWork.initialSchedule(
+            self.store,
+            int(config.LogID) if config.LogID else 5
+        )
+        yield APNPurgingWork.initialSchedule(
             self.store,
             int(config.LogID) if config.LogID else 5
         )
