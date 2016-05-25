@@ -18,6 +18,11 @@
 -- Upgrade database schema from VERSION 61 to 62 --
 ---------------------------------------------------
 
+create index APN_SUBSCRIPTIONS_MOD_69027430 on APN_SUBSCRIPTIONS (
+    "MODIFIED"
+);
+
+
 create table APN_PURGING_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB

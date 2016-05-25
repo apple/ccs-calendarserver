@@ -18,6 +18,9 @@
 -- Upgrade database schema from VERSION 61 to 62 --
 ---------------------------------------------------
 
+create index APN_SUBSCRIPTIONS_MODIFIED
+  on APN_SUBSCRIPTIONS(MODIFIED);
+
 -------------------------------------
 -- Apple Push Notification Purging --
 -------------------------------------
