@@ -486,8 +486,11 @@ class CalendarServerLogAnalyzer(object):
                 self.clientByMethodAveragedTime[client][method] = totaltime / count if count else 0
 
         self.clientIDMap = {}
-        for ctr, client in enumerate(sorted(self.clientByMethodCount.keys())):
-            self.clientIDMap[client] = "ID-%02d" % (ctr + 1,)
+        for ctr, client in enumerate(sorted(self.clientByMethodCount.keys(), key=lambda x: x.lower())):
+            if ctr == 0:
+                self.clientIDMap[client] = "Total"
+            else:
+                self.clientIDMap[client] = "ID-%02d" % (ctr,)
         self.clientIDByMethodCount = {}
         for client, data in self.clientByMethodCount.iteritems():
             self.clientIDByMethodCount[self.clientIDMap[client]] = data
@@ -886,17 +889,19 @@ class CalendarServerLogAnalyzer(object):
 
         table.setDefaultColumnFormats((
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY),
+            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY),
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
         ))
 
-        table.addHeader(("Client", "Total", "Unique", "Unique"))
-        table.addHeader(("", "", "Users", "IP addrs"))
+        table.addHeader(("ID", "Client", "Total", "Unique", "Unique"))
+        table.addHeader(("", "", "", "Users", "IP addrs"))
         for title, clientData in sorted(self.clientTotals.iteritems(), key=lambda x: x[0].lower()):
             if title == " TOTAL":
                 continue
             table.addRow((
+                "%s" % (self.clientIDMap[title],),
                 title,
                 "%d (%2d%%)" % (clientData[0], safePercent(clientData[0], self.clientTotals[" TOTAL"][0]),),
                 "%d (%2d%%)" % (len(clientData[1]), safePercent(len(clientData[1]), len(self.clientTotals[" TOTAL"][1])),),
@@ -905,6 +910,7 @@ class CalendarServerLogAnalyzer(object):
 
         table.addFooter((
             "All",
+            "",
             "%d      " % (self.clientTotals[" TOTAL"][0],),
             "%d      " % (len(self.clientTotals[" TOTAL"][1]),),
             "%d      " % (len(self.clientTotals[" TOTAL"][2]),),
