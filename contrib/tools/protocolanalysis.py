@@ -377,7 +377,7 @@ class CalendarServerLogAnalyzer(object):
 
                 # Scheduling analysis
                 if adjustedMethod == METHOD_POST_FREEBUSY:
-                    recipients = int(self.currentLine.extended.get("recipients", 0)) + int(self.currentLine.extended.get("freebusy", 0))
+                    recipients = int(self.currentLine.extended.get("recipients", 0))
                     self.hourlyByRecipientCount["Freebusy One Offs" if recipients == 1 else "Freebusy Average"][timeBucketIndex][0] += 1
                     self.hourlyByRecipientCount["Freebusy One Offs" if recipients == 1 else "Freebusy Average"][timeBucketIndex][1] += recipients
                     self.hourlyByRecipientCount["Freebusy Max."][timeBucketIndex][0] = max(self.hourlyByRecipientCount["Freebusy Max."][timeBucketIndex][0], recipients)
@@ -392,7 +392,7 @@ class CalendarServerLogAnalyzer(object):
                     self.hourlyByRecipientCount["iTIP Average"][timeBucketIndex][1] += recipients
                     self.hourlyByRecipientCount["iTIP Max."][timeBucketIndex][0] = max(self.hourlyByRecipientCount["iTIP Max."][timeBucketIndex][0], recipients)
                 elif adjustedMethod == METHOD_POST_ISCHEDULE_FREEBUSY:
-                    recipients = int(self.currentLine.extended.get("recipients", 0)) + int(self.currentLine.extended.get("freebusy", 0))
+                    recipients = int(self.currentLine.extended.get("recipients", 0))
                     self.hourlyByRecipientCount["iFreebusy One Offs" if recipients == 1 else "iFreebusy Average"][timeBucketIndex][0] += 1
                     self.hourlyByRecipientCount["iFreebusy One Offs" if recipients == 1 else "iFreebusy Average"][timeBucketIndex][1] += recipients
                     self.hourlyByRecipientCount["iFreebusy Max."][timeBucketIndex][0] = max(self.hourlyByRecipientCount["iFreebusy Max."][timeBucketIndex][0], recipients)
