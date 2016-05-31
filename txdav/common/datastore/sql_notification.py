@@ -29,7 +29,7 @@ from txdav.base.propertystore.sql import PropertyStore
 from txdav.common.datastore.sql_tables import schema, _HOME_STATUS_NORMAL, \
     _HOME_STATUS_EXTERNAL, _HOME_STATUS_DISABLED, _HOME_STATUS_MIGRATING
 from txdav.common.datastore.sql_util import _SharedSyncLogic
-from txdav.common.icommondatastore import RecordNotAllowedError
+from txdav.common.icommondatastore import RecordNotAllowedError, ConcurrentModification
 from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
@@ -859,7 +859,11 @@ class NotificationObject(FancyEqMixin, object):
     @inlineCallbacks
     def notificationData(self):
         if self._notificationData is None:
-            self._notificationData = (yield self._notificationDataFromID.on(self._txn, resourceID=self._resourceID))[0][0]
+            self._notificationData = (yield self._notificationDataFromID.on(self._txn, resourceID=self._resourceID))
+            if self._notificationData:
+                self._notificationData = self._notificationData[0][0]
+            else:
+                raise ConcurrentModification()
             try:
                 self._notificationData = json.loads(self._notificationData)
             except ValueError:

@@ -75,7 +75,7 @@ from txdav.common.icommondatastore import (
     ObjectResourceNameAlreadyExistsError, UIDExistsError,
     UIDExistsElsewhereError, InvalidUIDError, InvalidResourceMove,
     InvalidComponentForStoreError, AlreadyInTrashError,
-    HomeChildNameAlreadyExistsError
+    HomeChildNameAlreadyExistsError, ConcurrentModification
 )
 from txdav.idav import PropertyChangeNotAllowedError
 from txdav.who.wiki import RecordType as WikiRecordType
@@ -4098,10 +4098,13 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
             log.debug("Resource not found: {s!r}", s=self)
             raise HTTPError(NOT_FOUND)
 
-        returnValue(
-            Response(OK, {"content-type": self.contentType()},
-                     MemoryStream((yield self.text())))
-        )
+        try:
+            returnValue(
+                Response(OK, {"content-type": self.contentType()},
+                         MemoryStream((yield self.text())))
+            )
+        except ConcurrentModification:
+            raise HTTPError(NOT_FOUND)
 
 
     @requiresPermissions(fromParent=[davxml.Unbind()])
