@@ -849,6 +849,58 @@ class BaseAppleClient(BaseClient):
         returnValue((calendars, notificationCollection, result,))
 
 
+
+    def timeRangeQuery(self, url, start, end):
+
+        requestBody = """<?xml version="1.0" encoding="utf-8" ?>
+        <C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+            <D:prop>
+                <D:getetag/>
+                <C:calendar-data>
+                    <C:expand start="{start}" end="{end}"/>
+                    <C:comp name="VCALENDAR">
+                        <C:prop name="VERSION"/>
+                        <C:comp name="VEVENT">
+                            <C:prop name="SUMMARY"/>
+                            <C:prop name="DTSTART"/>
+                            <C:prop name="DTEND"/>
+                            <C:prop name="LOCATION"/>
+                            <C:prop name="UID"/>
+                            <C:prop name="RECURRENCE-ID"/>
+                        </C:comp>
+                    </C:comp>
+                </C:calendar-data>
+            </D:prop>
+            <C:filter>
+                <C:comp-filter name="VCALENDAR">
+                    <C:comp-filter name="VEVENT">
+                        <C:time-range start="{start}" end="{end}"/>
+                    </C:comp-filter>
+                </C:comp-filter>
+            </C:filter>
+        </C:calendar-query>""".format(start=start, end=end)
+
+        return self._report(
+            url,
+            requestBody,
+            allowedStatus=(MULTI_STATUS,),
+            method_label="REPORT{calendar-query}"
+        )
+
+
+    @inlineCallbacks
+    def deepRefresh(self):
+        calendars, notificationCollection, results = yield self._calendarHomePropfind(self.calendarHomeHref)
+        for calendar in calendars:
+            yield self._propfind(
+                calendar.url,
+                self._POLL_CALENDAR_PROPFIND_D1,
+                depth='1',
+                method_label="PROPFIND{calendar}"
+            )
+
+
+
     @inlineCallbacks
     def _extractPrincipalDetails(self):
         # Using the actual principal URL, retrieve principal information
@@ -2269,7 +2321,7 @@ class OS_X_10_11(BaseAppleClient):
 
     _client_type = "OS X 10.11"
 
-    USER_AGENT = "Mac+OS+X/10.11 (15A283) CalendarAgent/361"
+    USER_AGENT = "Mac+OS+X/10.11 (15A283) CalendarAgent/361 Simulator"
 
     # The default interval, used if none is specified in external
     # configuration.  This is also the actual value used by El

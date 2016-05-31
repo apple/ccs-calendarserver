@@ -731,6 +731,45 @@
 					</dict>
 
 
+					<!-- A profile which periodically does calendar-query reports
+						on a random calendar. -->
+					<dict>
+						<key>class</key>
+						<string>contrib.performance.loadtest.profiles.TimeRanger</string>
+
+						<key>params</key>
+						<dict>
+							<key>enabled</key>
+							<false/>
+
+							<!-- Define the interval (in seconds) at which this profile will use
+								its client to run a report. -->
+							<key>interval</key>
+							<integer>10</integer>
+
+						</dict>
+					</dict>
+
+
+					<!-- A profile which periodically does a "deep refresh" of PROPFINDs
+					    on each calendar. -->
+					<dict>
+						<key>class</key>
+						<string>contrib.performance.loadtest.profiles.DeepRefresher</string>
+
+						<key>params</key>
+						<dict>
+							<key>enabled</key>
+							<true/>
+
+							<!-- Define the interval (in seconds) at which this profile will use
+								its client to refresh. -->
+							<key>interval</key>
+							<integer>600</integer>
+
+						</dict>
+					</dict>
+
 					<!-- A profile which will periodically reset itself, as if a user removed
 						and re-added their account. -->
 					<dict>
@@ -806,8 +845,9 @@
 				<!-- Determine the frequency at which this client configuration will
 					appear in the clients which are created by the load tester. -->
 				<key>weight</key>
-				<integer>1</integer>
+				<integer>2</integer>
 			</dict>
+
 		</array>
 	</dict>
 </plist>

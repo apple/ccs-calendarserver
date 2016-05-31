@@ -46,7 +46,8 @@ from contrib.performance.loadtest.ical import Calendar, IncorrectResponseCode
 from pycalendar.datetime import DateTime
 from pycalendar.duration import Duration
 
-from datetime import datetime
+from datetime import datetime, timedelta
+import dateutil
 
 class ProfileBase(object):
     """
@@ -1062,6 +1063,68 @@ END:VCALENDAR
             href = '%s%s.ics' % (calendar.url, uid)
             d = self._client.addEvent(href, vcalendar)
             return self._newOperation("create", d)
+
+
+class TimeRanger(ProfileBase):
+    """
+    A profile which does time queries
+    """
+
+    def setParameters(
+        self,
+        enabled=True,
+        interval=25,
+    ):
+        self.enabled = enabled
+        self._interval = interval
+
+
+    def run(self):
+        self._call = LoopingCall(self._runQuery)
+        self._call.clock = self._reactor
+        return self._call.start(self._interval)
+
+
+    def _runQuery(self):
+        # Don't perform any operations until the client is up and running
+        if not self._client.started:
+            return succeed(None)
+
+        now = datetime.now(dateutil.tz.tzutc())
+        start = now.strftime("%Y%m%dT%H%M%SZ")
+        end = (now + timedelta(seconds=24 * 60 * 60)).strftime("%Y%m%dT%H%M%SZ")
+
+        calendar = self._getRandomCalendarOfType('VEVENT')
+        return self._client.timeRangeQuery(calendar.url, start, end)
+
+
+
+class DeepRefresher(ProfileBase):
+    """
+    A profile which PROPFINDs all collection in a home
+    """
+
+    def setParameters(
+        self,
+        enabled=True,
+        interval=25,
+    ):
+        self.enabled = enabled
+        self._interval = interval
+
+
+    def run(self):
+        self._call = LoopingCall(self._deepRefresh)
+        self._call.clock = self._reactor
+        return self._call.start(self._interval)
+
+
+    def _deepRefresh(self):
+        # Don't perform any operations until the client is up and running
+        if not self._client.started:
+            return succeed(None)
+
+        return self._client.deepRefresh()
 
 
 
