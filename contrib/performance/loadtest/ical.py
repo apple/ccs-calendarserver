@@ -1423,7 +1423,8 @@ class BaseAppleClient(BaseClient):
                     oldToken = ""
                 self._notificationCollection = notificationCollection
                 newToken = notificationCollection.changeToken
-                yield self._updateNotifications(oldToken, newToken)
+                if oldToken != newToken:
+                    yield self._updateNotifications(oldToken, newToken)
             else:
                 # When there is no sync REPORT, clients have to do a full PROPFIND
                 # on the notification collection because there is no ctag
@@ -2650,6 +2651,7 @@ class RequestLogger(object):
         return []
 
 
+
 class ErrorLogger(object):
     """
     Requests which get an incorrect response code or take too long are logged
@@ -2716,6 +2718,7 @@ class ErrorLogger(object):
 
     def failures(self):
         return []
+
 
 
 def main():
