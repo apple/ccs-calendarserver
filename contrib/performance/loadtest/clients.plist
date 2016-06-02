@@ -38,7 +38,7 @@
 				<dict>
 					<!-- Name that appears in logs. -->
 					<key>title</key>
-					<string>10.11a</string>
+					<string>main</string>
 
 					<!-- OS_X_10_11 can poll the calendar home at some interval. This is
 						in seconds. -->
@@ -76,7 +76,7 @@
 							<!-- Define the interval (in seconds) at which this profile will use
 								its client to create a new event. -->
 							<key>interval</key>
-							<integer>120</integer>
+							<integer>180</integer>
 
 							<!-- Define how start times (DTSTART) for the randomly generated events
 								will be selected. This is an example of a "Distribution" parameter. The value
@@ -315,7 +315,7 @@
 							<!-- Define the interval (in seconds) at which this profile will use
 								its client to create a new event. -->
 							<key>interval</key>
-							<integer>120</integer>
+							<integer>60</integer>
 
 						</dict>
 					</dict>
@@ -333,7 +333,7 @@
 							<!-- Define the interval (in seconds) at which this profile will use
 								its client to create a new event. -->
 							<key>interval</key>
-							<integer>120</integer>
+							<integer>60</integer>
 
 							<!-- Define the description length distribution. -->
 							<key>descriptionLengthDistribution</key>
@@ -427,7 +427,7 @@
 
 							<!-- Define the interval (in seconds) at which this profile will share calendars. -->
 							<key>interval</key>
-							<integer>300</integer>
+							<integer>1800</integer>
 
 						</dict>
 					</dict>
@@ -451,7 +451,7 @@
 								<dict>
 									<!-- mu gives the mean of the normal distribution (in seconds). -->
 									<key>mu</key>
-									<integer>120</integer>
+									<integer>720</integer>
 
 									<!-- and sigma gives its standard deviation. -->
 									<key>sigma</key>
@@ -514,6 +514,10 @@
 									<real>60</real>
 								</dict>
 							</dict>
+
+							<!-- Percentage of time to do a lookup for invitee -->
+							<key>inviteeLookupPercentage</key>
+							<integer>50</integer>
 
 							<!-- Define how start times (DTSTART) for the randomly generated events
 								will be selected. This is an example of a "Distribution" parameter. The value
@@ -765,7 +769,7 @@
 							<!-- Define the interval (in seconds) at which this profile will use
 								its client to refresh. -->
 							<key>interval</key>
-							<integer>600</integer>
+							<integer>1800</integer>
 
 						</dict>
 					</dict>
@@ -807,7 +811,7 @@
 				<dict>
 					<!-- Name that appears in logs. -->
 					<key>title</key>
-					<string>10.11b</string>
+					<string>idle</string>
 
 					<!-- OS_X_10_11 can poll the calendar home at some interval. This is
 						in seconds. -->
@@ -845,7 +849,7 @@
 				<!-- Determine the frequency at which this client configuration will
 					appear in the clients which are created by the load tester. -->
 				<key>weight</key>
-				<integer>2</integer>
+				<integer>6</integer>
 			</dict>
 
 		</array>

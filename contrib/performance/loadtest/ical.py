@@ -509,6 +509,7 @@ class BaseAppleClient(BaseClient):
         serializePath,
         record,
         auth,
+        instanceNumber,
         title=None,
         calendarHomePollInterval=None,
         supportPush=True,
@@ -516,6 +517,7 @@ class BaseAppleClient(BaseClient):
     ):
 
         self._client_id = str(uuid4())
+        self._instanceNumber = instanceNumber
 
         self.reactor = reactor
 
@@ -580,6 +582,9 @@ class BaseAppleClient(BaseClient):
         self.xmpp = {}
 
         self.ampPushKeys = {}
+        self.subscribedAmpPushKeys = set()
+
+        self._busyWithPush = False
 
         # Keep track of push factories so we can unsubscribe at shutdown
         self._pushFactories = []
@@ -599,7 +604,11 @@ class BaseAppleClient(BaseClient):
         Default is to add User-Agent, sub-classes should override to add other
         client specific things, Accept etc.
         """
-        headers.setRawHeaders('User-Agent', [self.USER_AGENT])
+        headers.setRawHeaders(
+            'User-Agent', ["{} {} {}".format(
+                self.USER_AGENT, self.title, self._instanceNumber
+            )]
+        )
 
 
     @inlineCallbacks
@@ -1016,6 +1025,17 @@ class BaseAppleClient(BaseClient):
                     shared=isShared,
                     sharedByMe=isSharedByMe
                 ))
+
+                # Also monitor shared-to-me calendars
+                if isShared and not isSharedByMe:
+                    try:
+                        pushkey = textProps[csxml.pushkey]
+                    except KeyError:
+                        pass
+                    else:
+                        if pushkey:
+                            self.ampPushKeys[href] = pushkey
+
 
             elif isNotifications:
                 textProps = results[href].getTextProperties()
@@ -1436,6 +1456,9 @@ class BaseAppleClient(BaseClient):
         if firstTime:
             yield self._pollFirstTime2()
 
+        pushKeys = self.ampPushKeys.values()
+        self._monitorAmpPush(calendarHomeSet, pushKeys)
+
         returnValue(True)
 
 
@@ -1580,21 +1603,37 @@ class BaseAppleClient(BaseClient):
         connect(GAIEndpoint(self.reactor, host, port), factory)
 
 
+
+    @inlineCallbacks
     def _receivedPush(self, inboundID, dataChangedTimestamp, priority=5):
-        for href, myId in self.ampPushKeys.iteritems():
-            if inboundID == myId:
-                self._checkCalendarsForEvents(href, push=True)
-                break
-        else:
-            # somehow we are not subscribed to this id
-            pass
+        if not self._busyWithPush:
+            self._busyWithPush = True
+            try:
+                for href, myId in self.ampPushKeys.iteritems():
+                    if inboundID == myId:
+                        yield self._checkCalendarsForEvents(self.calendarHomeHref, push=True)
+                        break
+                else:
+                    # somehow we are not subscribed to this id
+                    pass
+            finally:
+                self._busyWithPush = False
 
 
     def _monitorAmpPush(self, home, pushKeys):
         """
         Start monitoring for AMP-based push notifications
         """
-        AMPHub.subscribeToIDs(pushKeys, self._receivedPush)
+
+        # Only subscribe to keys we haven't previously subscribed to
+        subscribeTo = []
+        for pushKey in pushKeys:
+            if pushKey not in self.subscribedAmpPushKeys:
+                subscribeTo.append(pushKey)
+                self.subscribedAmpPushKeys.add(pushKey)
+
+        if subscribeTo:
+            AMPHub.subscribeToIDs(subscribeTo, self._receivedPush)
 
 
     @inlineCallbacks
@@ -1950,7 +1989,7 @@ class BaseAppleClient(BaseClient):
 
 
     @inlineCallbacks
-    def addInvite(self, href, component, attachmentSize=0):
+    def addInvite(self, href, component, attachmentSize=0, lookupPercentage=100):
         """
         Add an event that is an invite - i.e., has attendees. We will do attendee lookups and freebusy
         checks on each attendee to simulate what happens when an organizer creates a new invite.
@@ -1961,7 +2000,9 @@ class BaseAppleClient(BaseClient):
         for attendee in attendees:
             if attendee.value() in (self.uuid, self.email):
                 continue
-            yield self._attendeeAutoComplete(component, attendee)
+            choice = random.randint(1, 100)
+            if choice <= lookupPercentage:
+                yield self._attendeeAutoComplete(component, attendee)
 
         # Now do a normal PUT
         yield self.addEvent(href, component, invite=True, attachmentSize=attachmentSize)

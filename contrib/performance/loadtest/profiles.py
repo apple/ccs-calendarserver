@@ -264,6 +264,7 @@ END:VCALENDAR
         recurrenceDistribution=RecurrenceDistribution(False),
         fileAttachPercentage=30,
         fileSizeDistribution=NormalDistribution(1024, 1),
+        inviteeLookupPercentage=50,
     ):
         self.enabled = enabled
         self._sendInvitationDistribution = sendInvitationDistribution
@@ -275,6 +276,7 @@ END:VCALENDAR
         self._recurrenceDistribution = recurrenceDistribution
         self._fileAttachPercentage = fileAttachPercentage
         self._fileSizeDistribution = fileSizeDistribution
+        self._inviteeLookupPercentage = inviteeLookupPercentage
 
 
     def run(self):
@@ -381,7 +383,10 @@ END:VCALENDAR
                 attachmentSize = 0 # no attachment
 
             href = '%s%s.ics' % (calendar.url, uid)
-            d = self._client.addInvite(href, vcalendar, attachmentSize=attachmentSize)
+            d = self._client.addInvite(
+                href, vcalendar, attachmentSize=attachmentSize,
+                lookupPercentage=self._inviteeLookupPercentage
+            )
             return self._newOperation("invite", d)
 
 
@@ -632,7 +637,12 @@ END:VCALENDAR
     def run(self):
         self._call = LoopingCall(self._addEvent)
         self._call.clock = self._reactor
-        return self._call.start(self._interval)
+        self._reactor.callLater(
+            self.random.randint(1, self._interval),
+            self._call.start,
+            self._interval
+        )
+        return Deferred()
 
 
     def _addEvent(self):
@@ -703,7 +713,13 @@ class EventUpdaterBase(ProfileBase):
     def run(self):
         self._call = LoopingCall(self.action)
         self._call.clock = self._reactor
-        return self._call.start(self._interval)
+        self._reactor.callLater(
+            self.random.randint(1, self._interval),
+            self._call.start,
+            self._interval
+        )
+        return Deferred()
+
 
 
     def modifyEvent(self, href, vevent):
@@ -820,7 +836,12 @@ class CalendarSharer(ProfileBase):
     def run(self):
         self._call = LoopingCall(self.action)
         self._call.clock = self._reactor
-        return self._call.start(self._interval)
+        self._reactor.callLater(
+            self.random.randint(1, self._interval),
+            self._call.start,
+            self._interval
+        )
+        return Deferred()
 
 
     @inlineCallbacks
@@ -920,7 +941,12 @@ END:VCALENDAR
     def run(self):
         self._call = LoopingCall(self._updateEvent)
         self._call.clock = self._reactor
-        return self._call.start(self._interval)
+        self._reactor.callLater(
+            self.random.randint(1, self._interval),
+            self._call.start,
+            self._interval
+        )
+        return Deferred()
 
 
     def _initEvent(self):
@@ -1035,7 +1061,12 @@ END:VCALENDAR
     def run(self):
         self._call = LoopingCall(self._addTask)
         self._call.clock = self._reactor
-        return self._call.start(self._interval)
+        self._reactor.callLater(
+            self.random.randint(1, self._interval),
+            self._call.start,
+            self._interval
+        )
+        return Deferred()
 
 
     def _addTask(self):
@@ -1082,7 +1113,12 @@ class TimeRanger(ProfileBase):
     def run(self):
         self._call = LoopingCall(self._runQuery)
         self._call.clock = self._reactor
-        return self._call.start(self._interval)
+        self._reactor.callLater(
+            self.random.randint(1, self._interval),
+            self._call.start,
+            self._interval
+        )
+        return Deferred()
 
 
     def _runQuery(self):
@@ -1116,7 +1152,12 @@ class DeepRefresher(ProfileBase):
     def run(self):
         self._call = LoopingCall(self._deepRefresh)
         self._call.clock = self._reactor
-        return self._call.start(self._interval)
+        self._reactor.callLater(
+            self.random.randint(1, self._interval),
+            self._call.start,
+            self._interval
+        )
+        return Deferred()
 
 
     def _deepRefresh(self):
@@ -1145,7 +1186,12 @@ class Resetter(ProfileBase):
     def run(self):
         self._call = LoopingCall(self._resetAccount)
         self._call.clock = self._reactor
-        return self._call.start(self._interval)
+        self._reactor.callLater(
+            self.random.randint(1, self._interval),
+            self._call.start,
+            self._interval
+        )
+        return Deferred()
 
 
     def _resetAccount(self):

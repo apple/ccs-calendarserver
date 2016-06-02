@@ -81,13 +81,13 @@ class ClientType(object, FancyEqMixin):
         self.profileTypes = profileTypes
 
 
-    def new(self, reactor, server, principalPathTemplate, serializationPath, userRecord, authInfo):
+    def new(self, reactor, server, principalPathTemplate, serializationPath, userRecord, authInfo, instanceNumber):
         """
         Create a new instance of this client type.
         """
         return self.clientType(
             reactor, server, principalPathTemplate,
-            serializationPath, userRecord, authInfo,
+            serializationPath, userRecord, authInfo, instanceNumber,
             **self.clientParams
         )
 
@@ -249,6 +249,7 @@ class CalendarClientSimulator(object):
 
 
     def add(self, numClients, clientsPerUser):
+        instanceNumber = 0
         for _ignore_n in range(numClients):
             number = self._nextUserNumber()
 
@@ -270,7 +271,9 @@ class CalendarClientSimulator(object):
                     self.serializationPath,
                     record,
                     auth,
+                    instanceNumber
                 )
+                instanceNumber += 1
                 self.clients.append(client)
                 d = client.run()
                 d.addErrback(self._clientFailure, reactor)
