@@ -200,7 +200,7 @@ def error(s):
 def main():
     try:
         (optargs, _ignore_args) = getopt(
-            sys.argv[1:], "d:hk:vx", [
+            sys.argv[1:], "d:hk:p:vx", [
                 "help",
                 "verbose",
             ],
