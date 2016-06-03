@@ -412,6 +412,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
     _fields_init = [
         ('request', -30, '%-30s'),
         ('count', 8, '%8s'),
+        ('%', 6, '%6.1f'),
         ('failed', 8, '%8s'),
     ]
 
@@ -542,8 +543,8 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         return ((value / test_mean) - 1.0) * weight + 1.0
 
 
-    def _summarizeData(self, operation, data):
-        data = SummarizingMixin._summarizeData(self, operation, data)
+    def _summarizeData(self, operation, data, total_count):
+        data = SummarizingMixin._summarizeData(self, operation, data, total_count)
         value = self.qos_value(operation, data[-4])
         if value is None:
             value = 0.0

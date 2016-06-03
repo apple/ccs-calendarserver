@@ -584,6 +584,7 @@ class AttachmentDownloader(ProfileBase):
                     0, self._client.getAttachment, attachmentHref, managedId
                 )
 
+
     def _normalizeHref(self, href):
         return urljoin(self._client._managed_attachments_server_url, urlparse(href).path)
 
@@ -719,7 +720,6 @@ class EventUpdaterBase(ProfileBase):
             self._interval
         )
         return Deferred()
-
 
 
     def modifyEvent(self, href, vevent):
@@ -1096,6 +1096,7 @@ END:VCALENDAR
             return self._newOperation("create", d)
 
 
+
 class TimeRanger(ProfileBase):
     """
     A profile which does time queries
@@ -1232,6 +1233,7 @@ class OperationLogger(SummarizingMixin):
     _fields_init = [
         ('operation', -30, '%-30s'),
         ('count', 8, '%8s'),
+        ('%', 6, '%6.1f'),
         ('failed', 8, '%8s'),
     ]
 
@@ -1297,9 +1299,9 @@ class OperationLogger(SummarizingMixin):
                 dataset.append(lag)
 
 
-    def _summarizeData(self, operation, data):
+    def _summarizeData(self, operation, data, total_count):
         avglag = mean(self._perOperationLags.get(operation, [0.0])) * 1000.0
-        data = SummarizingMixin._summarizeData(self, operation, data)
+        data = SummarizingMixin._summarizeData(self, operation, data, total_count)
         return data[:-1] + (avglag,) + data[-1:]
 
 

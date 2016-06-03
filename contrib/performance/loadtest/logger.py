@@ -38,7 +38,7 @@ class SummarizingMixin(object):
         output.write("%s\n" % ("-" * len(header),))
 
 
-    def _summarizeData(self, operation, data):
+    def _summarizeData(self, operation, data, total_count):
         failed = 0
         thresholds = [0] * len(self._thresholds)
         durations = []
@@ -64,7 +64,7 @@ class SummarizingMixin(object):
             if thresholds[ctr] * 100.0 / count > fail_at:
                 failure = True
 
-        return (operation, count, failed,) + \
+        return (operation, count, ((100.0 * count) / total_count) if total_count else 0.0, failed,) + \
             tuple(thresholds) + \
             (mean(durations), median(durations), stddev(durations), "FAIL" if failure else "")
 
@@ -85,5 +85,6 @@ class SummarizingMixin(object):
             Each element is a two-tuple of whether the operation succeeded
             (C{True} if so, C{False} if not) and how long the operation took.
         """
+        total_count = sum(map(lambda x: len(x[1]), perOperationTimes))
         for method, data in perOperationTimes:
-            self._printRow(output, formats, self._summarizeData(method, data))
+            self._printRow(output, formats, self._summarizeData(method, data, total_count))
