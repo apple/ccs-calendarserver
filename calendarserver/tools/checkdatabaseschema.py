@@ -16,13 +16,20 @@
 from __future__ import print_function
 
 from getopt import getopt, GetoptError
+
+from twext.enterprise.dal.model import Schema, Table, Column, Sequence, SQLType, \
+    Constraint, Function
+from twext.enterprise.dal.parseschema import addSQLToSchema, schemaFromPath
+
+from twisted.python.filepath import FilePath
+
+from txdav.common.datastore.sql_dump import DTYPE_MAP_POSTGRES, \
+    DEFAULTVALUE_MAP_POSTGRES
+
 import os
 import re
 import subprocess
 import sys
-from twext.enterprise.dal.model import Schema, Table, Column, Sequence
-from twext.enterprise.dal.parseschema import addSQLToSchema, schemaFromPath
-from twisted.python.filepath import FilePath
 
 USERNAME = "caldav"
 DATABASENAME = "caldav"
@@ -86,7 +93,7 @@ def execSQL(title, stmt, verbose=False):
             (PSQL, e.output, e.returncode)
         )
 
-    return [s.strip() for s in out.splitlines()[:-1]]
+    return [map(lambda x: x.strip(), s.split("|")) for s in out.splitlines()[:-1]]
 
 
 
@@ -103,7 +110,7 @@ def getSchemaVersion(verbose=False):
     )
 
     try:
-        version = int(out[0])
+        version = int(out[0][0])
     except ValueError, e:
         raise CheckSchemaError(
             "Failed to parse schema version: %s" % (e,)
@@ -114,51 +121,109 @@ def getSchemaVersion(verbose=False):
 
 def dumpCurrentSchema(verbose=False):
 
-    schema = Schema("Dumped schema")
-    tables = {}
+    schemaname = "public"
 
-    # Tables
+    schema = Schema("Dumped schema")
+
+    # Sequences
+    seqs = {}
     rows = execSQL(
-        "Schema tables...",
-        "select table_name from information_schema.tables where table_schema = 'public';",
+        "Schema sequences...",
+        "select sequence_name from information_schema.sequences where sequence_schema = '%s';" % (schemaname,),
         verbose
     )
     for row in rows:
-        name = row
-        table = Table(schema, name)
-        tables[name] = table
+        name = row[0]
+        seqs[name.upper()] = Sequence(schema, name.upper())
+
+    # Tables
+    tables = {}
+    rows = execSQL(
+        "Schema tables...",
+        "select table_name from information_schema.tables where table_schema = '%s';" % (schemaname,),
+        verbose
+    )
+    for row in rows:
+        name = row[0]
+        table = Table(schema, name.upper())
+        tables[name.upper()] = table
 
         # Columns
         rows = execSQL(
             "Reading table '{}' columns...".format(name),
-            "select column_name from information_schema.columns where table_schema = 'public' and table_name = '{}';".format(name),
-            verbose
+            "select column_name, data_type, is_nullable, character_maximum_length, column_default from information_schema.columns where table_schema = '%s' and table_name = '%s';" % (schemaname, name,),
+            verbose,
         )
-        for row in rows:
-            name = row
+        for name, datatype, is_nullable, charlen, default in rows:
             # TODO: figure out the type
-            column = Column(table, name, None)
+            column = Column(table, name.upper(), SQLType(DTYPE_MAP_POSTGRES.get(datatype, datatype), int(charlen) if charlen else 0))
             table.columns.append(column)
+            if default:
+                if default.startswith("nextval("):
+                    dname = default.split("'")[1].split(".")[-1]
+                    column.default = seqs[dname.upper()]
+                elif default in DEFAULTVALUE_MAP_POSTGRES:
+                    column.default = DEFAULTVALUE_MAP_POSTGRES[default]
+                else:
+                    try:
+                        column.default = int(default)
+                    except ValueError:
+                        column.default = default
+            if is_nullable == "NO":
+                table.tableConstraint(Constraint.NOT_NULL, [column.name, ])
+
+    # Key columns
+    keys = {}
+    rows = execSQL(
+        "Schema key columns...",
+        "select constraint_name, table_name, column_name from information_schema.key_column_usage where constraint_schema = '%s';" % (schemaname,),
+        verbose
+    )
+    for conname, tname, cname in rows:
+        keys[conname] = (tname, cname)
+
+    # Constraints
+    constraints = {}
+    rows = execSQL(
+        "SChema constraints...",
+        "select constraint_name, table_name, column_name from information_schema.constraint_column_usage where constraint_schema = '%s';" % (schemaname,),
+        verbose
+    )
+    for conname, tname, cname in rows:
+        constraints[conname] = (tname, cname)
+
+    # References - referential_constraints
+    rows = execSQL(
+        "Schema referential constraints...",
+        "select constraint_name, unique_constraint_name, delete_rule from information_schema.referential_constraints where constraint_schema = '%s';" % (schemaname,),
+        verbose
+    )
+    for conname, uconname, delete in rows:
+        table = tables[keys[conname][0].upper()]
+        column = table.columnNamed(keys[conname][1].upper())
+        column.doesReferenceName(constraints[uconname][0].upper())
+        if delete != "NO ACTION":
+            column.deleteAction = delete.lower()
 
     # Indexes
     # TODO: handle implicit indexes created via primary key() and unique() statements within CREATE TABLE
     rows = execSQL(
         "Schema indexes...",
-        "select indexdef from pg_indexes where schemaname = 'public';",
+        "select indexdef from pg_indexes where schemaname = '%s';" % (schemaname,),
         verbose
     )
     for indexdef in rows:
-        addSQLToSchema(schema, indexdef.replace("public.", ""))
+        addSQLToSchema(schema, indexdef[0].replace("%s." % (schemaname,), "").upper())
 
-    # Sequences
+    # Functions
     rows = execSQL(
-        "Schema sequences...",
-        "select sequence_name from information_schema.sequences where sequence_schema = 'public';",
+        "Schema functions",
+        "select routine_name from information_schema.routines where routine_schema = '%s';" % (schemaname,),
         verbose
     )
     for row in rows:
-        name = row
-        Sequence(schema, name)
+        name = row[0]
+        Function(schema, name)
 
     return schema
 
@@ -227,7 +292,7 @@ def main():
                 if skt.basename().startswith("ccs_postgres_"):
                     PGSOCKETDIR = skt.path
             PSQL = "/Applications/Server.app/Contents/ServerRoot/usr/bin/psql"
-            SCHEMADIR = "/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/lib/python/txdav/common/datastore/sql_schema/"
+            SCHEMADIR = "/Applications/Server.app/Contents/ServerRoot/Library/CalendarServer/lib/python2.7/site-packages/txdav/common/datastore/sql_schema/"
         elif opt in ("-v", "--verbose"):
             verbose = True
         else:

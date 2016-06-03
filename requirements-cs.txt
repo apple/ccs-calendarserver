@@ -7,7 +7,7 @@
     zope.interface==4.1.3
 	    setuptools==18.5
 
-    --editable svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@15633#egg=twextpy
+    --editable svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@15653#egg=twextpy
         cffi==1.3.0
             pycparser==2.14
         #twisted
