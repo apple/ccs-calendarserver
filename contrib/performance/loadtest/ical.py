@@ -1466,7 +1466,7 @@ class BaseAppleClient(BaseClient):
             returnValue(False)
         self._checking.add(calendarHomeSet)
 
-        if not self.calendarHomeToken:
+        if firstTime or not self.calendarHomeToken:
             calendars, notificationCollection, newCalendarHomeToken, results = yield self._calendarHomePropfind(calendarHomeSet)
         else:
             calendars, notificationCollection, newCalendarHomeToken = yield self._calendarHomeSync(calendarHomeSet)
