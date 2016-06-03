@@ -357,40 +357,6 @@
 						</dict>
 					</dict>
 
-					<!-- Picks a random event and attaches -->
-					<dict>
-						<key>class</key>
-						<string>contrib.performance.loadtest.profiles.Attacher</string>
-
-						<key>params</key>
-						<dict>
-							<key>enabled</key>
-							<false/>
-
-							<!-- Define the interval (in seconds) at which this profile will use
-								its client to create a new event. -->
-							<key>interval</key>
-							<integer>120</integer>
-
-							<!-- Define the attachment size distribution. -->
-							<key>fileSizeDistribution</key>
-							<dict>
-								<key>type</key>
-								<string>contrib.performance.stats.NormalDistribution</string>
-								<key>params</key>
-								<dict>
-									<!-- mu gives the mean of the normal distribution (in bytes). -->
-									<key>mu</key>
-									<integer>500000</integer>
-
-									<!-- and sigma gives its standard deviation. -->
-									<key>sigma</key>
-									<integer>100000</integer>
-								</dict>
-							</dict>
-
-						</dict>
-					</dict>
 
 					<!-- Removes events from calendars exceeding a threshold -->
 					<dict>
@@ -428,6 +394,10 @@
 							<!-- Define the interval (in seconds) at which this profile will share calendars. -->
 							<key>interval</key>
 							<integer>1800</integer>
+
+							<!-- Only share a collection with up to this many sharees -->
+							<key>maxSharees</key>
+							<integer>3</integer>
 
 						</dict>
 					</dict>
@@ -744,12 +714,12 @@
 						<key>params</key>
 						<dict>
 							<key>enabled</key>
-							<false/>
+							<true/>
 
 							<!-- Define the interval (in seconds) at which this profile will use
 								its client to run a report. -->
 							<key>interval</key>
-							<integer>10</integer>
+							<integer>300</integer>
 
 						</dict>
 					</dict>
@@ -769,7 +739,7 @@
 							<!-- Define the interval (in seconds) at which this profile will use
 								its client to refresh. -->
 							<key>interval</key>
-							<integer>1800</integer>
+							<integer>300</integer>
 
 						</dict>
 					</dict>

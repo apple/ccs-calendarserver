@@ -215,7 +215,7 @@ class Event(object):
 class Calendar(object):
     def __init__(
         self, resourceType, componentTypes, name, url, changeToken,
-        shared=False, sharedByMe=False
+        shared=False, sharedByMe=False, invitees=None
     ):
         self.resourceType = resourceType
         self.componentTypes = componentTypes
@@ -225,6 +225,7 @@ class Calendar(object):
         self.events = {}
         self.shared = shared
         self.sharedByMe = sharedByMe
+        self.invitees = invitees if invitees else []
 
         if self.name is None and self.url is not None:
             self.name = self.url.rstrip("/").split("/")[-1]
@@ -240,6 +241,7 @@ class Calendar(object):
             result[attr] = getattr(self, attr)
         result["componentTypes"] = list(sorted(self.componentTypes))
         result["events"] = sorted(self.events.keys())
+        result["invitees"] = sorted(self.invitees)
         return result
 
 
@@ -253,6 +255,7 @@ class Calendar(object):
         for attr in ("resourceType", "name", "url", "changeToken", "shared", "sharedByMe"):
             setattr(calendar, attr, u2str(data[attr]))
         calendar.componentTypes = set(map(u2str, data["componentTypes"]))
+        calendar.invitees = map(u2str, data["invitees"])
 
         for event in data["events"]:
             url = urljoin(calendar.url, event)
@@ -708,7 +711,6 @@ class BaseAppleClient(BaseClient):
             StringProducer(body),
             method_label=method_label,
         )
-
         result = self._parseMultiStatus(responseBody) if response.code == MULTI_STATUS else None
 
         returnValue((response, result,))
@@ -965,6 +967,17 @@ class BaseAppleClient(BaseClient):
             )
 
 
+    @inlineCallbacks
+    def unshareAll(self):
+        for calendar in self._calendars.values():
+            for invitee in calendar.invitees:
+                body = Calendar.removeInviteeXML(invitee)
+                yield self.postXML(
+                    calendar.url,
+                    body,
+                    label="POST{unshare-calendar}"
+                )
+
 
     @inlineCallbacks
     def _extractPrincipalDetails(self):
@@ -1082,6 +1095,17 @@ class BaseAppleClient(BaseClient):
                     for comp in nodes[caldavxml.supported_calendar_component_set]:
                         componentTypes.add(comp.get("name").upper())
 
+                # Keep track of sharing invitees
+                invitees = []
+                if isShared and isSharedByMe:
+                    try:
+                        invite = nodes[csxml.invite]
+                        for user in invite.findall(str(csxml.user)):
+                            invitee = user.find(str(davxml.href)).text
+                            invitees.append(invitee)
+                    except KeyError:
+                        pass
+
                 calendars.append(Calendar(
                     resourceType,
                     componentTypes,
@@ -1089,7 +1113,8 @@ class BaseAppleClient(BaseClient):
                     href,
                     textProps.get(changeTag, None),
                     shared=isShared,
-                    sharedByMe=isSharedByMe
+                    sharedByMe=isSharedByMe,
+                    invitees=invitees
                 ))
 
                 # Also monitor shared-to-me calendars
@@ -1496,6 +1521,7 @@ class BaseAppleClient(BaseClient):
             elif self._calendars[cal.url].changeToken != newToken:
                 # Calendar changed - reload it
                 yield self._updateCalendar(self._calendars[cal.url], newToken)
+                self._calendars[cal.url].invitees = cal.invitees
 
         # Clean out previously seen collections that are no longer on the server
         currentCalendarUris = [c.url for c in calendars]
@@ -1530,6 +1556,10 @@ class BaseAppleClient(BaseClient):
 
         pushKeys = self.ampPushKeys.values()
         self._monitorAmpPush(calendarHomeSet, pushKeys)
+
+        # if firstTime:
+        #     # clear out shared calendars
+        #     yield self.unshareAll()
 
         returnValue(True)
 

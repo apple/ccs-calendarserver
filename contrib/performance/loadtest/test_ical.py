@@ -1549,7 +1549,7 @@ END:VCALENDAR
         self.client._events.update(dict([[event.url, event] for event in events]))
 
         calendars = (
-            Calendar(str(caldavxml.calendar), set(('VEVENT',)), u'calendar', u'/home/calendar/', "123"),
+            Calendar(str(caldavxml.calendar), set(('VEVENT',)), u'calendar', u'/home/calendar/', "123", invitees=["a", "b", "c"]),
             Calendar(str(caldavxml.calendar), set(('VTODO',)), u'tasks', u'/home/tasks/', "456"),
             Calendar(str(caldavxml.schedule_inbox), set(('VEVENT', "VTODO",)), u'calendar', u'/home/inbox/', "789"),
         )
@@ -1596,6 +1596,11 @@ END:VCALENDAR
       "componentTypes": [
         "VEVENT"
       ],
+      "invitees": [
+        "a",
+        "b",
+        "c"
+      ],
       "url": "/home/calendar/",
       "events": [
         "1.ics"
@@ -1611,6 +1616,7 @@ END:VCALENDAR
         "VEVENT",
         "VTODO"
       ],
+      "invitees": [],
       "url": "/home/inbox/",
       "events": [
         "i1.ics"
@@ -1625,6 +1631,7 @@ END:VCALENDAR
       "componentTypes": [
         "VTODO"
       ],
+      "invitees": [],
       "url": "/home/tasks/",
       "events": []
     }
@@ -1705,7 +1712,6 @@ END:VCALENDAR
   "calendars": [
     {
       "changeToken": "321",
-      "homeToken": "321",
       "attachmentsUrl": "https://example.com/attachments/",
       "name": "calendar",
       "shared": false,
@@ -1713,6 +1719,11 @@ END:VCALENDAR
       "resourceType": "{urn:ietf:params:xml:ns:caldav}calendar",
       "componentTypes": [
         "VEVENT"
+      ],
+      "invitees": [
+        "a",
+        "b",
+        "c"
       ],
       "url": "/home/calendar/",
       "events": [
@@ -1729,6 +1740,11 @@ END:VCALENDAR
         "VEVENT",
         "VTODO"
       ],
+      "invitees": [
+        "a",
+        "b",
+        "c"
+      ],
       "url": "/home/inbox/",
       "events": [
         "i2.ics"
@@ -1742,6 +1758,11 @@ END:VCALENDAR
       "resourceType": "{urn:ietf:params:xml:ns:caldav}calendar",
       "componentTypes": [
         "VTODO"
+      ],
+      "invitees": [
+        "a",
+        "b",
+        "c"
       ],
       "url": "/home/tasks/",
       "events": []
@@ -1783,6 +1804,7 @@ END:VCALENDAR
         self.assertEqual(self.client._calendars["/home/calendar/"].name, "calendar")
         self.assertEqual(self.client._calendars["/home/calendar/"].resourceType, "{urn:ietf:params:xml:ns:caldav}calendar")
         self.assertEqual(self.client._calendars["/home/calendar/"].componentTypes, set(("VEVENT",)))
+        self.assertEqual(self.client._calendars["/home/calendar/"].invitees, ["a", "b", "c"])
         self.assertTrue("/home/tasks/" in self.client._calendars)
         self.assertTrue("/home/inbox/" in self.client._calendars)
         self.assertEqual(self.client._calendars["/home/inbox/"].componentTypes, set(("VEVENT", "VTODO",)))

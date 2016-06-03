@@ -827,10 +827,12 @@ class CalendarSharer(ProfileBase):
     def setParameters(
         self,
         enabled=True,
-        interval=60
+        interval=60,
+        maxSharees=3
     ):
         self.enabled = enabled
         self._interval = interval
+        self._maxSharees = maxSharees
 
 
     def run(self):
@@ -859,6 +861,10 @@ class CalendarSharer(ProfileBase):
         # pick a calendar
         calendar = self._getRandomCalendarOfType('VEVENT', justOwned=True)
         if not calendar:
+            returnValue(None)
+
+        # don't exceed maxSharees
+        if len(calendar.invitees) >= self._maxSharees:
             returnValue(None)
 
         # pick a random sharee
