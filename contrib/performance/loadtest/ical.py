@@ -493,6 +493,7 @@ class BaseAppleClient(BaseClient):
     _POLL_NOTIFICATION_PROPFIND_D1 = None
 
     _NOTIFICATION_SYNC_REPORT = None
+    _CALENDARHOME_SYNC_REPORT = None
 
     _USER_LIST_PRINCIPAL_PROPERTY_SEARCH = None
     _POST_AVAILABILITY = None
@@ -540,6 +541,7 @@ class BaseAppleClient(BaseClient):
         self.calendarHomePollInterval = calendarHomePollInterval
 
         self.calendarHomeHref = None
+        self.calendarHomeToken = ""
 
         self.supportPush = supportPush
 
@@ -554,6 +556,7 @@ class BaseAppleClient(BaseClient):
 
         self.supportSync = self._SYNC_REPORT
         self.supportNotificationSync = self._NOTIFICATION_SYNC_REPORT
+        self.supportCalendarHomeSync = self._CALENDARHOME_SYNC_REPORT
 
         self.supportEnhancedAttendeeAutoComplete = self._CALENDARSERVER_PRINCIPAL_SEARCH_REPORT
 
@@ -626,7 +629,7 @@ class BaseAppleClient(BaseClient):
             method=method_label if method_label else method,
             url=url,
             user=self.record.uid,
-            client_type=self.title,
+            client_type="({} {})".format(self.title, self._instanceNumber),
             client_id=self._client_id,
         )
 
@@ -648,7 +651,7 @@ class BaseAppleClient(BaseClient):
             responseBody=responseBody,
             code=response.code,
             user=self.record.uid,
-            client_type=self.title,
+            client_type="({} {})".format(self.title, self._instanceNumber),
             client_id=self._client_id,
             duration=(after - before),
             url=url,
@@ -852,10 +855,63 @@ class BaseAppleClient(BaseClient):
             depth='1',
             method_label="PROPFIND{home}",
         )
-        calendars, notificationCollection = self._extractCalendars(
+        calendars, notificationCollection, calendarHomeToken = self._extractCalendars(
             result, calendarHomeSet
         )
-        returnValue((calendars, notificationCollection, result,))
+        returnValue((calendars, notificationCollection, calendarHomeToken, result,))
+
+
+    @inlineCallbacks
+    def _calendarHomeSync(self, calendarHomeSet):
+        if not calendarHomeSet.endswith('/'):
+            calendarHomeSet = calendarHomeSet + '/'
+
+        result = yield self._report(
+            calendarHomeSet,
+            self._CALENDARHOME_SYNC_REPORT % {'sync-token': self.calendarHomeToken},
+            depth='1',
+            allowedStatus=(MULTI_STATUS, FORBIDDEN,),
+            otherTokens=True,
+            method_label="REPORT{sync-home}",
+        )
+        responseHrefs, others = result
+
+        calendars, notificationCollection, ignored = self._extractCalendars(
+            responseHrefs, calendarHomeSet
+        )
+
+        # if notificationCollection is None that means it hasn't changed, so
+        # we'll return the notificationCollection we already have
+        if not notificationCollection:
+            notificationCollection = self._notificationCollection
+
+        # by default we'll keep our old calendars...
+        newCalendars = {}
+        for href, oldCalendar in self._calendars.iteritems():
+            newCalendars[href] = oldCalendar
+
+        # ...but if a calendar shows up from _extractCalendars we know it's
+        # either new or modified, so replace our old copy with the new
+        for cal in calendars:
+            # print("SYNC DETECTED CHANGE IN", cal.url)
+            newCalendars[cal.url] = cal
+
+        # Now scan through the responses for 404s which let us know a collection
+        # has been removed
+        for responseHref in responseHrefs:
+            if responseHrefs[responseHref].getStatus() == 404:
+                if responseHref in newCalendars:
+                    del newCalendars[responseHref]
+                    # print("DELETED CALENDAR", responseHref)
+
+        # get the new token
+        newCalendarHomeToken = ""
+        for other in others:
+            if other.tag == davxml.sync_token:
+                newCalendarHomeToken = other.text
+                break
+
+        returnValue((newCalendars.values(), notificationCollection, newCalendarHomeToken))
 
 
 
@@ -899,7 +955,7 @@ class BaseAppleClient(BaseClient):
 
     @inlineCallbacks
     def deepRefresh(self):
-        calendars, notificationCollection, results = yield self._calendarHomePropfind(self.calendarHomeHref)
+        calendars, notificationCollection, calendarHomeToken, results = yield self._calendarHomePropfind(self.calendarHomeHref)
         for calendar in calendars:
             yield self._propfind(
                 calendar.url,
@@ -954,6 +1010,7 @@ class BaseAppleClient(BaseClient):
         """
         calendars = []
         notificationCollection = None
+        calendarHomeToken = ""
 
         changeTag = davxml.sync_token if self.supportSync else csxml.getctag
 
@@ -991,6 +1048,15 @@ class BaseAppleClient(BaseClient):
                 else:
                     if server and uri:
                         self.xmpp[href] = XMPPPush(server, uri, pushkey)
+
+                try:
+                    calendarHomeToken = text[davxml.sync_token]
+                except KeyError:
+                    pass
+
+
+            if results[href].getStatus() == 404:
+                continue
 
             nodes = results[href].getNodeProperties()
             isCalendar = False
@@ -1044,7 +1110,7 @@ class BaseAppleClient(BaseClient):
                     textProps.get(changeTag, None)
                 )
 
-        return calendars, notificationCollection
+        return calendars, notificationCollection, calendarHomeToken
 
 
     def _updateCalendar(self, calendar, newToken, fetchEvents=True):
@@ -1102,7 +1168,7 @@ class BaseAppleClient(BaseClient):
             depth='1',
             allowedStatus=(MULTI_STATUS, FORBIDDEN,),
             otherTokens=True,
-            method_label="REPORT{sync}" if calendar.changeToken else "REPORT{sync-init}",
+            method_label="REPORT{sync-coll}" if calendar.changeToken else "REPORT{sync-coll-init}",
         )
         if result is None:
             if not fullSync:
@@ -1112,7 +1178,7 @@ class BaseAppleClient(BaseClient):
                     self._POLL_CALENDAR_SYNC_REPORT % {'sync-token': ''},
                     depth='1',
                     otherTokens=True,
-                    method_label="REPORT{sync}" if calendar.changeToken else "REPORT{sync-init}",
+                    method_label="REPORT{sync-coll}" if calendar.changeToken else "REPORT{sync-coll-init}",
                 )
             else:
                 raise IncorrectResponseCode((MULTI_STATUS,), None, None)
@@ -1288,7 +1354,7 @@ class BaseAppleClient(BaseClient):
             depth='1',
             allowedStatus=(MULTI_STATUS, FORBIDDEN,),
             otherTokens=True,
-            method_label="REPORT{sync}" if oldToken else "REPORT{sync-init}",
+            method_label="REPORT{sync-notif}" if oldToken else "REPORT{sync-notif-init}",
         )
         if result is None:
             if not fullSync:
@@ -1298,7 +1364,7 @@ class BaseAppleClient(BaseClient):
                     self._NOTIFICATION_SYNC_REPORT % {'sync-token': ''},
                     depth='1',
                     otherTokens=True,
-                    method_label="REPORT{sync}" if oldToken else "REPORT{sync-init}",
+                    method_label="REPORT{sync-notif}" if oldToken else "REPORT{sync-notif-init}",
                 )
             else:
                 raise IncorrectResponseCode((MULTI_STATUS,), None, None)
@@ -1400,10 +1466,16 @@ class BaseAppleClient(BaseClient):
             returnValue(False)
         self._checking.add(calendarHomeSet)
 
-        calendars, notificationCollection, results = yield self._calendarHomePropfind(calendarHomeSet)
+        if not self.calendarHomeToken:
+            calendars, notificationCollection, newCalendarHomeToken, results = yield self._calendarHomePropfind(calendarHomeSet)
+        else:
+            calendars, notificationCollection, newCalendarHomeToken = yield self._calendarHomeSync(calendarHomeSet)
+            results = None
+
+        self.calendarHomeToken = newCalendarHomeToken
 
         # First time operations
-        if firstTime:
+        if firstTime and results:
             yield self._pollFirstTime1(results[calendarHomeSet], calendars)
 
         # Normal poll
@@ -1550,7 +1622,7 @@ class BaseAppleClient(BaseClient):
             type="operation",
             phase="start",
             user=self.record.uid,
-            client_type=self.title,
+            client_type="({} {})".format(self.title, self._instanceNumber),
             client_id=self._client_id,
             label=label,
         )
@@ -1573,7 +1645,7 @@ class BaseAppleClient(BaseClient):
             phase="end",
             duration=after - before,
             user=self.record.uid,
-            client_type=self.title,
+            client_type="({} {})".format(self.title, self._instanceNumber),
             client_id=self._client_id,
             label=label,
             success=success,
@@ -1717,6 +1789,8 @@ class BaseAppleClient(BaseClient):
 
         # Create dict for all the data we need to store
         data = {
+            "homeToken": self.calendarHomeToken,
+            "attachmentsUrl": self._managed_attachments_server_url,
             "principalURL": self.principalURL,
             "calendars": [calendar.serialize() for calendar in sorted(self._calendars.values(), key=lambda x:x.name)],
             "events": [event.serialize() for event in sorted(self._events.values(), key=lambda x:x.url)],
@@ -1749,6 +1823,8 @@ class BaseAppleClient(BaseClient):
             return
 
         self.principalURL = data["principalURL"]
+        self.calendarHomeToken = data["homeToken"].encode("utf-8")
+        self._managed_attachments_server_url = data["attachmentsUrl"].encode("utf-8")
 
         # Extract all the events first, then do the calendars (which reference the events)
         for event in data["events"]:
@@ -2404,6 +2480,7 @@ class OS_X_10_11(BaseAppleClient):
     _POLL_NOTIFICATION_PROPFIND_D1 = loadRequestBody(_LOAD_PATH, 'poll_notification_depth1_propfind')
 
     _NOTIFICATION_SYNC_REPORT = loadRequestBody(_LOAD_PATH, 'notification_sync')
+    _CALENDARHOME_SYNC_REPORT = loadRequestBody(_LOAD_PATH, 'poll_calendarhome_sync')
 
     _USER_LIST_PRINCIPAL_PROPERTY_SEARCH = loadRequestBody('OS_X_10_7', 'user_list_principal_property_search')
     _POST_AVAILABILITY = loadRequestBody('OS_X_10_7', 'post_availability')

@@ -175,7 +175,7 @@ class CalendarClientSimulatorTests(TestCase):
         profiles are not logged.
         """
         class BrokenClient(object):
-            def __init__(self, reactor, serverAddress, principalPathTemplate, serializationPath, userInfo, auth, runResult):
+            def __init__(self, reactor, serverAddress, principalPathTemplate, serializationPath, userInfo, auth, instanceNumber, runResult):
                 self._runResult = runResult
 
             def run(self):

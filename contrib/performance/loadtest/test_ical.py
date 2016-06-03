@@ -1177,6 +1177,7 @@ class OS_X_10_11Mixin:
             serializePath,
             self.record,
             None,
+            1
         )
 
 
@@ -1241,7 +1242,7 @@ class OS_X_10_11Tests(OS_X_10_11Mixin, TestCase):
         constructed from the data extracted from the response.
         """
         home = "/calendars/__uids__/user01/"
-        calendars, notificationCollection = self.client._extractCalendars(
+        calendars, notificationCollection, homeToken = self.client._extractCalendars(
             self.client._parseMultiStatus(CALENDAR_HOME_PROPFIND_RESPONSE), home)
         calendars.sort(key=lambda cal: cal.resourceType)
         calendar, inbox = calendars
@@ -1558,6 +1559,9 @@ END:VCALENDAR
 
         self.client._notificationCollection = NotificationCollection("/home/notification", "123")
 
+        self.client._managed_attachments_server_url = "attachmentsurl"
+        self.client.calendarHomeToken = "hometoken"
+
         self.client.serialize()
         self.assertTrue(os.path.exists(clientPath))
         self.assertTrue(os.path.exists(indexPath))
@@ -1626,6 +1630,8 @@ END:VCALENDAR
     }
   ],
   "principalURL": null,
+  "homeToken": "hometoken",
+  "attachmentsUrl": "attachmentsurl",
   "events": [
     {
       "url": "/home/calendar/1.ics",
@@ -1699,6 +1705,8 @@ END:VCALENDAR
   "calendars": [
     {
       "changeToken": "321",
+      "homeToken": "321",
+      "attachmentsUrl": "https://example.com/attachments/",
       "name": "calendar",
       "shared": false,
       "sharedByMe": false,
@@ -1740,6 +1748,8 @@ END:VCALENDAR
     }
   ],
   "principalURL": null,
+  "homeToken": "hometoken",
+  "attachmentsUrl": "attachmentsurl",
   "events": [
     {
       "url": "/home/calendar/2.ics",
@@ -1787,6 +1797,8 @@ END:VCALENDAR
         self.assertEqual(self.client._events["/home/inbox/i2.ics"].etag, "987.987")
         self.assertEqual(self.client._events["/home/inbox/i2.ics"].getUID(), "00a79cad-857b-418e-a54a-340b5686d747")
         self.assertEqual(str(self.client._events["/home/inbox/i2.ics"].component), cal2)
+        self.assertEqual(self.client.calendarHomeToken, "hometoken")
+        self.assertEqual(self.client._managed_attachments_server_url, "attachmentsurl")
 
 
 

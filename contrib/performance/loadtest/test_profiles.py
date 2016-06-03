@@ -263,7 +263,7 @@ class StubClient(BaseClient):
         return succeed(None)
 
 
-    def addInvite(self, href, vevent, attachmentSize=0):
+    def addInvite(self, href, vevent, attachmentSize=0, lookupPercentage=0):
         return self.addEvent(href, vevent, attachmentSize=attachmentSize)
 
 
