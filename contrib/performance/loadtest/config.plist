@@ -157,7 +157,7 @@
 				<!-- Number of clients each user is assigned to. -->
 				<!-- Set weight of clients to 1 if this is > 1. Number of clients must match this value if > 1. -->
 				<key>clientsPerUser</key>
-				<integer>7</integer>
+				<integer>3</integer>
 			</dict>
 
 		</dict>

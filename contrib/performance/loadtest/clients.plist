@@ -57,7 +57,7 @@
 					<true/>
 
 					<key>unauthenticatedPercentage</key>
-					<integer>27</integer>
+					<integer>40</integer>
 
 				</dict>
 
@@ -743,7 +743,7 @@
 							<!-- Define the interval (in seconds) at which this profile will use
 								its client to refresh. -->
 							<key>interval</key>
-							<integer>300</integer>
+							<integer>60</integer>
 
 						</dict>
 					</dict>
@@ -804,7 +804,7 @@
 					<true/>
 
 					<key>unauthenticatedPercentage</key>
-					<integer>27</integer>
+					<integer>40</integer>
 
 				</dict>
 
@@ -827,7 +827,7 @@
 				<!-- Determine the frequency at which this client configuration will
 					appear in the clients which are created by the load tester. -->
 				<key>weight</key>
-				<integer>6</integer>
+				<integer>2</integer>
 			</dict>
 
 		</array>
