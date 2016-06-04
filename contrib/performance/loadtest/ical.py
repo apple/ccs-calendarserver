@@ -494,6 +494,7 @@ class BaseAppleClient(BaseClient):
     _POLL_CALENDAR_SYNC_REPORT = None
     _POLL_NOTIFICATION_PROPFIND = None
     _POLL_NOTIFICATION_PROPFIND_D1 = None
+    _POLL_INBOX_PROPFIND = None
 
     _NOTIFICATION_SYNC_REPORT = None
     _CALENDARHOME_SYNC_REPORT = None
@@ -518,6 +519,7 @@ class BaseAppleClient(BaseClient):
         calendarHomePollInterval=None,
         supportPush=True,
         supportAmpPush=True,
+        unauthenticatedPercentage=30,
     ):
 
         self._client_id = str(uuid4())
@@ -530,8 +532,9 @@ class BaseAppleClient(BaseClient):
             self.reactor,
             contextFactory=_DeprecatedToCurrentPolicyForHTTPS(WebClientContextFactory()),
         )
-        agent = ContentDecoderAgent(agent, [("gzip", GzipDecoder)])
-        self.agent = AuthHandlerAgent(agent, auth)
+        self.noAuthAgent = ContentDecoderAgent(agent, [("gzip", GzipDecoder)])
+        self.agent = AuthHandlerAgent(self.noAuthAgent, auth)
+        self.unauthenticatedPercentage = unauthenticatedPercentage
 
         self.server = server
         self.principalPathTemplate = principalPathTemplate
@@ -635,6 +638,13 @@ class BaseAppleClient(BaseClient):
             client_type="({} {})".format(self.title, self._instanceNumber),
             client_id=self._client_id,
         )
+
+        choice = random.randint(1, 100)
+        if choice < self.unauthenticatedPercentage:
+            # First send an unauthenticated request
+            response = yield self.noAuthAgent.request(method, url, headers, body)
+            yield readBody(response)
+
 
         before = self.reactor.seconds()
         response = yield self.agent.request(method, url, headers, body)
@@ -1523,6 +1533,9 @@ class BaseAppleClient(BaseClient):
                 yield self._updateCalendar(self._calendars[cal.url], newToken)
                 self._calendars[cal.url].invitees = cal.invitees
 
+            if self._instanceNumber == 0 and cal.name == "inbox":
+                yield self._inboxPropfind()
+
         # Clean out previously seen collections that are no longer on the server
         currentCalendarUris = [c.url for c in calendars]
         for previouslySeenCalendarUri in self._calendars.keys():
@@ -1619,6 +1632,20 @@ class BaseAppleClient(BaseClient):
             method_label="PROPFIND{notification-items}",
         )
         returnValue(result)
+
+
+    @inlineCallbacks
+    def _inboxPropfind(self):
+        for cal in self._calendars.itervalues():
+            if cal.name == "inbox":
+                inboxURL = cal.url
+                yield self._propfind(
+                    inboxURL,
+                    self._POLL_INBOX_PROPFIND,
+                    depth='1',
+                    method_label="PROPFIND{inbox}",
+                )
+                break
 
 
     @inlineCallbacks
@@ -2508,6 +2535,7 @@ class OS_X_10_11(BaseAppleClient):
     _POLL_CALENDAR_SYNC_REPORT = loadRequestBody('OS_X_10_7', 'poll_calendar_sync')
     _POLL_NOTIFICATION_PROPFIND = loadRequestBody(_LOAD_PATH, 'poll_calendar_propfind')
     _POLL_NOTIFICATION_PROPFIND_D1 = loadRequestBody(_LOAD_PATH, 'poll_notification_depth1_propfind')
+    _POLL_INBOX_PROPFIND = loadRequestBody(_LOAD_PATH, 'poll_inbox_propfind')
 
     _NOTIFICATION_SYNC_REPORT = loadRequestBody(_LOAD_PATH, 'notification_sync')
     _CALENDARHOME_SYNC_REPORT = loadRequestBody(_LOAD_PATH, 'poll_calendarhome_sync')

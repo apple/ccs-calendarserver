@@ -55,6 +55,10 @@
 
 					<key>supportAmpPush</key>
 					<true/>
+
+					<key>unauthenticatedPercentage</key>
+					<integer>27</integer>
+
 				</dict>
 
 				<!-- The profiles define certain types of user behavior on top of the
@@ -798,6 +802,10 @@
 
 					<key>supportAmpPush</key>
 					<true/>
+
+					<key>unauthenticatedPercentage</key>
+					<integer>27</integer>
+
 				</dict>
 
 				<!-- The profiles define certain types of user behavior on top of the
