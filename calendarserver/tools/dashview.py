@@ -20,6 +20,8 @@ A curses (or plain text) based dashboard for viewing various aspects of the
 server as exposed by the L{DashboardProtocol} stats socket.
 """
 
+from collections import OrderedDict
+from operator import itemgetter
 import argparse
 import collections
 import curses.panel
@@ -35,7 +37,7 @@ import termios
 import time
 
 LOG_FILENAME = "db.log"
-logging.basicConfig(filename=LOG_FILENAME, level=logging.DEBUG)
+#logging.basicConfig(filename=LOG_FILENAME, level=logging.DEBUG)
 
 
 
@@ -64,6 +66,10 @@ def main():
         d = Dashboard(server, stdscrn)
         d.run()
     curses.wrapper(_wrapped)
+
+#    client = DashboardClient(self, server)
+#    client.getOneItem("podA", "localhost:8100", "jobcount")
+#    print(json.dumps(client.currentData["pods"]["podA"]["aggregate"], indent=1))
 
 
 
@@ -109,10 +115,11 @@ class Dashboard(object):
         self.seconds = 1.0
         self.sched = sched.scheduler(time.time, time.sleep)
 
+        self.aggregate = False
         self.selected_server = Point()
         self.server_window = None
 
-        self.client = DashboardClient(server)
+        self.client = DashboardClient(self, server)
         self.client_error = False
 
 
@@ -281,6 +288,11 @@ class Dashboard(object):
                 self.windows = []
                 self.displayWindow(self.registered_windows["h"])
 
+        elif c == "x":
+            self.aggregate = not self.aggregate
+            self.client.update()
+            self.displayWindow(None)
+
         elif c in self.registered_windows:
             self.displayWindow(self.registered_windows[c])
 
@@ -336,7 +348,8 @@ class DashboardClient(object):
     Client that connects to a server and fetches information.
     """
 
-    def __init__(self, sockname):
+    def __init__(self, dashboard, sockname):
+        self.dashboard = dashboard
         self.socket = None
         if isinstance(sockname, str):
             self.sockname = sockname[5:]
@@ -391,6 +404,8 @@ class DashboardClient(object):
 
         # Only read each item once
         self.currentData = self.readSock()
+        if self.dashboard.aggregate:
+            self.aggregateData()
 
 
     def getOneItem(self, pod, server, item):
@@ -407,6 +422,194 @@ class DashboardClient(object):
             server = self.currentData["pods"][pod].keys()[0]
 
         return self.currentData["pods"][pod][server].get(item)
+
+
+    def aggregateData(self):
+        """
+        Aggregate the data from all hosts into one for each pod.
+        """
+        results = OrderedDict()
+        results["timestamp"] = self.currentData["timestamp"]
+        results["pods"] = OrderedDict()
+        for pod in self.currentData["pods"].keys():
+            results["pods"][pod] = OrderedDict()
+            results["pods"][pod]["aggregate"] = self.aggregatePodData(self.currentData["pods"][pod])
+        self.currentData = results
+
+
+    def aggregatePodData(self, data):
+        """
+        Aggregate the data from a pod from all hosts into one.
+
+        @param data: host data to aggregate
+        @type data: L{dict}
+        """
+
+        results = OrderedDict()
+
+        # Get all items available in all servers first
+        items = collections.defaultdict(list)
+        for server in data.keys():
+            for item in data[server].keys():
+                items[item].append(data[server][item])
+
+        # Iterate each item to get the data sets and aggregate
+        for item, allHostData in items.items():
+            method_name = "aggregator_{}".format(item)
+            if not hasattr(Aggregator, method_name):
+                print("Missing aggregator for {}".format(item))
+                logging.error("Missing aggregator for {}".format(item))
+                results[item] = allHostData[0]
+            else:
+                results[item] = getattr(Aggregator, method_name)(allHostData)
+
+        return results
+
+
+
+class Aggregator(object):
+
+    @staticmethod
+    def aggregator_directory(serversdata):
+        results = OrderedDict()
+        for server_data in serversdata:
+            for operation_name, operation_details in server_data.items():
+                if operation_name not in results:
+                    results[operation_name] = operation_details
+                elif isinstance(results[operation_name], list):
+                    results[operation_name][0] += operation_details[0]
+                    results[operation_name][1] += operation_details[1]
+                else:
+                    results[operation_name] += operation_details
+
+        return results
+
+
+    @staticmethod
+    def aggregator_job_assignments(serversdata):
+
+        results = OrderedDict()
+        results["workers"] = [[0, 0, 0]] * len(serversdata[0]["workers"])
+        results["level"] = sum(map(itemgetter("level"), serversdata))
+
+        for server_data in serversdata:
+            for ctr, item in enumerate(server_data["workers"]):
+                for i in range(3):
+                    results["workers"][ctr][i] += item[i]
+        return results
+
+
+    @staticmethod
+    def aggregator_jobcount(serversdata):
+        return serversdata[0]
+
+
+    @staticmethod
+    def aggregator_jobs(serversdata):
+#        results = OrderedDict()
+#        for server_data in serversdata:
+#            for job_name, job_details in server_data.items():
+#                if job_name not in results:
+#                    results[job_name] = OrderedDict()
+#                for detail_name, detail_value in job_details.items():
+#                    if detail_name in results[job_name]:
+#                        results[job_name][detail_name] += detail_value
+#                    else:
+#                        results[job_name][detail_name] = detail_value
+#        return results
+        return serversdata[0]
+
+
+    @staticmethod
+    def aggregator_stats(serversdata):
+        results = OrderedDict()
+        for stat in ("current", "1m", "5m", "1h"):
+            results[stat] = Aggregator.serverStat(map(itemgetter(stat), serversdata))
+
+        # NB ignore the "system" key as it is not used
+
+        return results
+
+
+    @staticmethod
+    def serverStat(serversdata):
+        results = OrderedDict()
+
+        # Values that are summed
+        for key in ("requests", "t", "t-resp-wr", "401", "500", "cpu", "slots", "max-slots",):
+            results[key] = sum(map(itemgetter(key), serversdata))
+
+        # Averaged
+        for key in ("cpu", "max-slots",):
+            results[key] = safeDivision(results[key], len(serversdata))
+
+        # Values that are maxed
+        for key in ("T-MAX",):
+            results[key] = max(map(itemgetter(key), serversdata))
+
+        # Values that are summed dict values
+        for key in ("method", "method-t", "uid", "user-agent", "T", "T-RESP-WR",):
+            results[key] = Aggregator.dictValueSums(map(itemgetter(key), serversdata))
+
+        return results
+
+
+    @staticmethod
+    def aggregator_slots(serversdata):
+        results = OrderedDict()
+
+        # Sum all items in each dict
+        slot_count = len(serversdata[0]["slots"])
+        results["slots"] = []
+        for i in range(slot_count):
+            results["slots"].append(Aggregator.dictValueSums(map(
+                itemgetter(i),
+                map(itemgetter("slots"), serversdata)
+            )))
+            results["slots"][i]["slot"] = i
+
+        # Check for any one being overloaded
+        results["overloaded"] = any(map(itemgetter("overloaded"), serversdata))
+
+        return results
+
+
+    @staticmethod
+    def aggregator_stats_system(serversdata):
+        results = OrderedDict()
+        for server_data in serversdata:
+            for stat_name, stat_value in server_data.items():
+                if stat_name not in results:
+                    results[stat_name] = stat_value
+                else:
+                    results[stat_name] += stat_value
+
+        # Some values should be averaged
+        for stat_name in ("memory used", "cpu use", "memory percent"):
+            results[stat_name] = safeDivision(results[stat_name], len(serversdata))
+
+        # Want the earliest time
+        results["start time"] = min(map(itemgetter("start time"), serversdata))
+
+        return results
+
+
+    @staticmethod
+    def dictValueSums(listOfDicts):
+        """
+        Sum the values of a list of dicts.
+
+        @param listOfDicts: list of dicts to sum
+        @type listOfDicts: L{list} of L{dict}
+        """
+        results = OrderedDict()
+        for result in listOfDicts:
+            for key, value in result.items():
+                if key not in results:
+                    results[key] = value
+                else:
+                    results[key] += value
+        return results
 
 
 
@@ -632,7 +835,7 @@ class ServersMenu(BaseWindow):
                 if selected:
                     selected_server = server
 
-            self.window.addstr(pt.y, pt.x, " {}".format(selected_server))
+            self.window.addstr(pt.y, pt.x, " {}".format(selected_server if selected_server else ""))
             pt.yplus()
 
         self.window.refresh()
@@ -652,6 +855,7 @@ class HelpWindow(BaseWindow):
         "",
         "   - (space) Pause",
         " t - Toggle Update Speed",
+        " x - Toggle Aggregate Mode",
         "",
         " q - Quit",
     )
