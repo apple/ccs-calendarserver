@@ -3,13 +3,21 @@ LDAP Directory Service
 
 The LDAP directory service allows CalendarServer to query an LDAP
 server to retrieve principal information for users, groups,
-locations, and resources.
+locations, resources, and addresses. This service is implemented by
+`twext.who.ldap`_.
+
+  .. _twext.who.ldap: http://trac.calendarserver.org/browser/twext/trunk/twext/who/ldap
+
+When using this service, a separate process called the Directory Proxy Service
+is instantiated to handle interactions with the LDAP server. This process
+maintains an in-memory cache of directory services data. Worker processes
+communicate with the DPS over an AMP socket. Each worker process also maintains
+an in-memory cache of directory services data. Each cache TTL can be configured
+separately.
 
 **Configuring the Calendar Server**
 
-The full name of the service is
-``twistedcaldav.directory.ldapdirectory.LdapDirectoryService``, and a
-sample configuration is shown below. To use LDAP with CalendarServer,
+A sample caldavd.plist configuration is shown below. To use LDAP with CalendarServer,
 you will almost certainly have to customize at least some of the config
 options, due to the nature of LDAP's arbitrary and often site-specific
 nomenclature. Anyone familiar with LDAP in general should have no
@@ -96,6 +104,10 @@ Sample LDAP configuration:
            <string>icsAutoaccept:true:acceptIfFreeDeclineIfBusy</string>
            <string>icsAutoaccept:false:none</string>
          </array>
+         <key>autoAcceptGroup</key>
+         <array>
+           <string>autoAcceptGroup</string>
+         </array>
          <key>readWriteProxy</key>
          <array>
            <string>calRWProxy</string>
@@ -121,14 +133,15 @@ Sample LDAP configuration:
      </dict>
    </dict>
 
-Configuring Principals
-----------------------
+**Configuring Principals**
 
 The "mapping" section of the above configuration defines the mapping
 between record attributes used by CalendarServer and the LDAP
 attribute used to store this information in the configured LDAP
 server. The mapping 'key' is the CalendarServer name for the
 attribute, and the string value is the associated LDAP attribute name.
+extraFilters specifies, for each record type, an LDAP query predicate
+that will be applied to all queries on that record type.
 
 ``uid``
 
@@ -180,17 +193,77 @@ attribute, and the string value is the associated LDAP attribute name.
 
 http://trac.calendarserver.org/browser/CalendarServer/trunk/calendarserver/tools/principals.py#L47
 
+``autoAcceptGroup``
+
+  Specifies the uid of a group whose members will be excempt from any
+  AutoScheduleMode setting on the corresponding principal. For example,
+  if a location is configured with an AutoScheduleMode of 'none' with
+  the intention that a read-write delegate will manually accept or deny
+  invitations to that location, invitations from members of the autoAcceptGroup
+  will be automatically accepted if the requested time slot is free.
 
 ``readWriteProxy``
 
-  Specifies the attribute used to store the name of a group  
-  whose members are granted read-write proxy (delegate ) access to the
+  Specifies the attribute used to store the uid of a group  
+  whose members are granted read-write proxy (delegate) access to the
   corresponding principal.
-
 
 ``readOnlyProxy``
 
-  Specifies the attribute used to store the name of a group  
+  Specifies the attribute used to store the uid of a group  
   whose members are granted read-only proxy (delegate) access to the
   corresponding principal.
 
+**Other LDAP params**
+
+The following settings are available in the 'params' dictionary of the LDAP configuration.
+
+``threadPoolmax``
+``connectionMax``
+
+  These two settings are integers used to limit the concurrency of LDAP query handling in the DPS.
+  There is a subtle but important difference between these two options: threadPoolMax
+  applies to all LDAP interactions INCLUDING authentication, while connectionMax
+  applies to all LDAP interactions EXCEPT authentication. threadPoolMax should always be
+  set to a value greater than connectionMax to prevent LDAP authentications from becomming
+  starved if the LDAP connection pool is full (i.e. connectionMax has been reached).
+
+``tries``
+
+  Specifies the number of times an LDAP query should be retried if it fails for unexpected reasons.
+
+``warningThresholdSeconds``
+
+  Specifies the duration of an LDAP query in seconds above which a warning will be logged.
+
+``useTLS``
+
+  A boolean that instructs the DPS to connect to the LDAP service using TLS.
+
+**Related settings**
+
+The following settings are available *outside* the LDAP directory service configuration (i.e.
+the DirectoryProxy dict is a top-level dict in caldavd.plist):
+
+::
+
+    <key>DirectoryProxy</key>
+    <dict>
+        <key>SocketPath</key>
+        <string>directory-proxy.sock</string>
+
+        <key>InProcessCachingSeconds</key>
+        <integer>60</integer>
+
+        <key>InSidecarCachingSeconds</key>
+        <integer>120</integer>
+    </dict>
+
+``SocketPath``
+
+  The unix domain socket used by AMP for communication between the DPS and workers
+
+``InProcessCachingSeconds``
+``InSidecarCachingSeconds``
+
+  The TTL of directory services data in worker processes and the DPS, respectively.
