@@ -17,6 +17,7 @@ an in-memory cache of directory services data. Each cache TTL can be configured
 separately.
 
 
+
 Configuring the Calendar Server
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -137,6 +138,7 @@ Sample LDAP configuration:
    </dict>
 
 
+
 Configuring Principals
 ~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -219,6 +221,7 @@ that will be applied to all queries on that record type.
   corresponding principal.
 
 
+
 Other LDAP params
 ~~~~~~~~~~~~~~~~~~
 
@@ -245,6 +248,7 @@ The following settings are available in the 'params' dictionary of the LDAP conf
 ``useTLS``
 
   A boolean that instructs the DPS to connect to the LDAP service using TLS.
+
 
 
 Related settings
@@ -275,6 +279,7 @@ the DirectoryProxy dict is a top-level dict in caldavd.plist):
 ``InSidecarCachingSeconds``
 
   The TTL of directory services data in worker processes and the DPS, respectively.
+
 
 
 LDAP attribute indexing
