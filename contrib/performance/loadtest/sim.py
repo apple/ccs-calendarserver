@@ -491,6 +491,7 @@ class LoadSimulator(object):
         for svcclass in self.serviceClasses():
             svcclass(self, output).setServiceParent(self.ms)
         attachService(self.reactor, self, self.ms)
+        self.startAmpHub()
 
 
     def startAmpHub(self):
@@ -510,7 +511,6 @@ class LoadSimulator(object):
             self.reactor.callLater(self.runtime, self.stopAndReport)
         if self.webadminPort:
             self.reactor.listenTCP(self.webadminPort, Site(LoadSimAdminResource(self)))
-        self.startAmpHub()
         self.reactor.run()
 
         # Return code to indicate pass or fail
