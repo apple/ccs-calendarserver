@@ -1,3 +1,4 @@
+=======================
 LDAP Directory Service
 =======================
 
@@ -8,14 +9,16 @@ locations, resources, and addresses. This service is implemented by
 
   .. _twext.who.ldap: http://trac.calendarserver.org/browser/twext/trunk/twext/who/ldap
 
-When using this service, a separate process called the Directory Proxy Service
+When using this service, a separate process called the Directory Proxy Service (DPS)
 is instantiated to handle interactions with the LDAP server. This process
 maintains an in-memory cache of directory services data. Worker processes
 communicate with the DPS over an AMP socket. Each worker process also maintains
 an in-memory cache of directory services data. Each cache TTL can be configured
 separately.
 
-**Configuring the Calendar Server**
+
+Configuring the Calendar Server
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A sample caldavd.plist configuration is shown below. To use LDAP with CalendarServer,
 you will almost certainly have to customize at least some of the config
@@ -133,7 +136,9 @@ Sample LDAP configuration:
      </dict>
    </dict>
 
-**Configuring Principals**
+
+Configuring Principals
+~~~~~~~~~~~~~~~~~~~~~~~
 
 The "mapping" section of the above configuration defines the mapping
 between record attributes used by CalendarServer and the LDAP
@@ -189,9 +194,8 @@ that will be applied to all queries on that record type.
   scheduling message arrives, if it does not conflict with an existing
   meeting it can be automatically accepted into the principal's main
   calendar; if it does conflict it can be automatically declined. The
-  available modes are:
-
-http://trac.calendarserver.org/browser/CalendarServer/trunk/calendarserver/tools/principals.py#L47
+  available modes can be seen here:
+  http://trac.calendarserver.org/browser/CalendarServer/trunk/calendarserver/tools/principals.py#L47
 
 ``autoAcceptGroup``
 
@@ -214,7 +218,9 @@ http://trac.calendarserver.org/browser/CalendarServer/trunk/calendarserver/tools
   whose members are granted read-only proxy (delegate) access to the
   corresponding principal.
 
-**Other LDAP params**
+
+Other LDAP params
+~~~~~~~~~~~~~~~~~~
 
 The following settings are available in the 'params' dictionary of the LDAP configuration.
 
@@ -240,7 +246,9 @@ The following settings are available in the 'params' dictionary of the LDAP conf
 
   A boolean that instructs the DPS to connect to the LDAP service using TLS.
 
-**Related settings**
+
+Related settings
+~~~~~~~~~~~~~~~~~
 
 The following settings are available *outside* the LDAP directory service configuration (i.e.
 the DirectoryProxy dict is a top-level dict in caldavd.plist):
@@ -267,3 +275,21 @@ the DirectoryProxy dict is a top-level dict in caldavd.plist):
 ``InSidecarCachingSeconds``
 
   The TTL of directory services data in worker processes and the DPS, respectively.
+
+
+LDAP attribute indexing
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use the following guidance to properly configure attribute indexing on the LDAP server.
+
++------------+-----------------------+
+| Attribute  | Search type           | 
++============+=======================+ 
+| fullName   | substring (subany)    |
++------------+-----------------------+
+| guid       | exact                 |
++------------+-----------------------+
+| shortName  | exact                 |
++------------+-----------------------+
+| mail       | substring (subfinal)  |
++------------+-----------------------+
