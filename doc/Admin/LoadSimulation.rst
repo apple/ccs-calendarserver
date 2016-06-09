@@ -14,6 +14,8 @@ This document contains the following sections:
 
 * `Scalability`_: Through the use of an AMP harness, you may easily add additional sim instances on the local host and / or remote hosts
 
+* `Miscellany`_: Odds and ends that don't fall easily into the above categories
+
 ---------------------
 Quick Start
 ---------------------
@@ -353,3 +355,8 @@ When running the sim using multiple instances, the standard output of each child
  user01 - - - - - - - - - - -  startup BEGIN 
  ...
 
+---------------------
+Miscellany
+---------------------
+
+- Client sim data is persisted at /tmp/sim and re-used in subsequent runs, similar to what a well-behaved CalDAV client does. This avoids the 'zero day' problem where all clients have to download all the data in their respective calendar collections at the start of each run. Sometimes you might need to delete /tmp/sim, such as when resetting the Calendar Server database.
