@@ -1,5 +1,5 @@
 =======================
-LDAP Directory Service
+ LDAP Directory Service
 =======================
 
 The LDAP directory service allows CalendarServer to query an LDAP
