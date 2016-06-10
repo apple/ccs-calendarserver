@@ -179,7 +179,9 @@ class Manager(AMP):
         self.output.write("Initiating worker configuration\n")
         def completed(x):
             self.output.write("Worker configuration complete.\n")
-        self.callRemote(Configure, plist=plist).addCallback(completed)
+        def failed(reason):
+            self.output.write("Worker configuration failed. {}\n".format(reason))
+        self.callRemote(Configure, plist=plist).addCallback(completed).addErrback(failed)
 
 
     @LogMessage.responder
