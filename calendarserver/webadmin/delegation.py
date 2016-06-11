@@ -293,102 +293,99 @@ class DetailsElement(Element):
 
 
     @renderer
+    @inlineCallbacks
     def isAutoSchedule(self, request, tag):
         """
         Renderer which sets the 'selected' attribute on its tag if the resource
         is auto-schedule.
         """
-        if self.principalResource.getAutoScheduleMode() is not AutoScheduleMode.none:
+        if (yield self.principalResource.getAutoScheduleMode()) is not AutoScheduleMode.none:
             tag(selected='selected')
-        return tag
+        returnValue(tag)
 
 
     @renderer
+    @inlineCallbacks
     def isntAutoSchedule(self, request, tag):
         """
         Renderer which sets the 'selected' attribute on its tag if the resource
         is not auto-schedule.
         """
-        if self.principalResource.getAutoScheduleMode() is AutoScheduleMode.none:
+        if (yield self.principalResource.getAutoScheduleMode()) is AutoScheduleMode.none:
             tag(selected='selected')
-        return tag
-
-
-    # @renderer
-    # def autoScheduleModeDefault(self, request, tag):
-    #     """
-    #     Renderer which sets the 'selected' attribute on its tag based on the resource
-    #     auto-schedule-mode.
-    #     """
-    #     if self.principalResource.getAutoScheduleMode() is AutoScheduleMode.default:
-    #         tag(selected='selected')
-    #     return tag
+        returnValue(tag)
 
 
     @renderer
+    @inlineCallbacks
     def autoScheduleModeNone(self, request, tag):
         """
         Renderer which sets the 'selected' attribute on its tag based on the resource
         auto-schedule-mode.
         """
-        if self.principalResource.getAutoScheduleMode() is AutoScheduleMode.none:
+        if (yield self.principalResource.getAutoScheduleMode()) is AutoScheduleMode.none:
             tag(selected='selected')
-        return tag
+        returnValue(tag)
 
 
     @renderer
+    @inlineCallbacks
     def autoScheduleModeAcceptAlways(self, request, tag):
         """
         Renderer which sets the 'selected' attribute on its tag based on the resource
         auto-schedule-mode.
         """
-        if self.principalResource.getAutoScheduleMode() is AutoScheduleMode.accept:
+        if (yield self.principalResource.getAutoScheduleMode()) is AutoScheduleMode.accept:
             tag(selected='selected')
-        return tag
+        returnValue(tag)
 
 
     @renderer
+    @inlineCallbacks
     def autoScheduleModeDeclineAlways(self, request, tag):
         """
         Renderer which sets the 'selected' attribute on its tag based on the resource
         auto-schedule-mode.
         """
-        if self.principalResource.getAutoScheduleMode() is AutoScheduleMode.decline:
+        if (yield self.principalResource.getAutoScheduleMode()) is AutoScheduleMode.decline:
             tag(selected='selected')
-        return tag
+        returnValue(tag)
 
 
     @renderer
+    @inlineCallbacks
     def autoScheduleModeAcceptIfFree(self, request, tag):
         """
         Renderer which sets the 'selected' attribute on its tag based on the resource
         auto-schedule-mode.
         """
-        if self.principalResource.getAutoScheduleMode() is AutoScheduleMode.acceptIfFree:
+        if (yield self.principalResource.getAutoScheduleMode()) is AutoScheduleMode.acceptIfFree:
             tag(selected='selected')
-        return tag
+        returnValue(tag)
 
 
     @renderer
+    @inlineCallbacks
     def autoScheduleModeDeclineIfBusy(self, request, tag):
         """
         Renderer which sets the 'selected' attribute on its tag based on the resource
         auto-schedule-mode.
         """
-        if self.principalResource.getAutoScheduleMode() is AutoScheduleMode.declineIfBusy:
+        if (yield self.principalResource.getAutoScheduleMode()) is AutoScheduleMode.declineIfBusy:
             tag(selected='selected')
-        return tag
+        returnValue(tag)
 
 
     @renderer
+    @inlineCallbacks
     def autoScheduleModeAutomatic(self, request, tag):
         """
         Renderer which sets the 'selected' attribute on its tag based on the resource
         auto-schedule-mode.
         """
-        if self.principalResource.getAutoScheduleMode() is AutoScheduleMode.acceptIfFreeDeclineIfBusy:
+        if (yield self.principalResource.getAutoScheduleMode()) is AutoScheduleMode.acceptIfFreeDeclineIfBusy:
             tag(selected='selected')
-        return tag
+        returnValue(tag)
 
     _matrix = None
 
