@@ -60,7 +60,11 @@ def main():
 
 
     def _wrapped(stdscrn):
-        curses.curs_set(0)
+        if hasattr(curses, 'curs_set'):
+            try:
+                curses.curs_set(0)  # make the cursor invisible
+            except:
+                pass
         curses.use_default_colors()
         curses.init_pair(1, curses.COLOR_RED, curses.COLOR_WHITE)
         d = Dashboard(server, stdscrn)
