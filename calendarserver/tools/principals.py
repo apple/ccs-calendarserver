@@ -866,7 +866,7 @@ def action_setAutoScheduleMode(store, record, autoScheduleMode):
     else:
         print(
             "Setting auto-schedule-mode to {mode} for {record}".format(
-                mode=autoScheduleMode.description,
+                mode=("default" if autoScheduleMode is None else autoScheduleMode.description),
                 record=prettyRecord(record),
             )
         )
