@@ -62,6 +62,7 @@ from twisted.internet.reactor import addSystemEventTrigger
 from twisted.internet.protocol import Factory
 from twisted.internet.tcp import Connection
 from twisted.protocols import amp
+from twisted.python.procutils import which
 from twisted.python.usage import UsageError
 
 from twistedcaldav.bind import doBind
@@ -1384,6 +1385,10 @@ def verifyAPNSCertificate(config):
             if not protoConfig.Enabled:
                 continue
 
+            if not hasattr(OpenSSL, "__SecureTransport__"):
+                if not checkCertExpiration(protoConfig.CertificatePath):
+                    return False, "APNS certificate expired {}".format(protoConfig.CertificatePath)
+
             try:
                 getAPNTopicFromConfig(protocol, accountName, protoConfig)
             except ValueError as e:
@@ -1429,6 +1434,27 @@ def verifyAPNSCertificate(config):
 
     else:
         return True, "APNS disabled"
+
+
+def checkCertExpiration(certPath):
+    """
+    See if the given certificate is expired.
+
+    @param certPath: the path of the certificate
+    @type certPath: C{str}
+    @return: True if the cert has not expired (or we can't check because we
+        can't find the openssl command line utility); False otherwise
+    """
+
+    try:
+        opensslTool = which("openssl")[0]
+        args = [opensslTool, "x509", "-checkend", "0", "-noout", "-in", certPath]
+        child = Popen(args=args, stdout=PIPE, stderr=PIPE)
+        output, error = child.communicate()
+        return error == 0
+    except IndexError:
+        # We can't check
+        return True
 
 
 

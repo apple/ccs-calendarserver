@@ -476,7 +476,11 @@ class APNProviderFactory(ReconnectingClientFactory):
 
     def clientConnectionLost(self, connector, reason):
         if not self.shuttingDown:
-            self.log.info("Connection to APN server lost: {reason}", reason=reason)
+            self.log.error("Connection to APN server lost: {reason}", reason=reason)
+            if reason.type == OpenSSL.SSL.Error:
+                # If we're failing due to a certificate issue, stop retrying.
+                self.log.error("Ensure APNS certificate is not expired")
+                ReconnectingClientFactory.stopTrying(self)
         ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
 
 
