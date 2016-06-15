@@ -33,7 +33,7 @@ from twext.python.log import Logger
 from twext.who.directory import DirectoryRecord
 from twext.who.directory import DirectoryService as BaseDirectoryService
 from twext.who.idirectory import (
-    IDirectoryService, RecordType, FieldName as BaseFieldName
+    IDirectoryService, RecordType, FieldName as BaseFieldName, NotAllowedError
 )
 from twext.who.util import ConstantsContainer
 
@@ -334,7 +334,10 @@ class AugmentedDirectoryService(
 
         # Apply the base records
         if baseRecords:
-            yield self._directory.updateRecords(baseRecords, create=create)
+            try:
+                yield self._directory.updateRecords(baseRecords, create=create)
+            except NotAllowedError:
+                pass
 
 
     def _splitFields(self, record):
