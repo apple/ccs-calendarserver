@@ -230,7 +230,7 @@ def getPubSubAPSConfiguration(notifierID, config):
     if applePushSettings.Enabled:
         settings = {}
         settings["APSBundleID"] = applePushSettings[protocol]["Topic"]
-        if config.EnableSSL:
+        if config.EnableSSL or config.BehindTLSProxy:
             url = "https://%s:%s/%s" % (
                 config.ServerHostName, config.SSLPort,
                 applePushSettings.SubscriptionURL)

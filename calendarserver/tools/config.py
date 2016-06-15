@@ -51,6 +51,7 @@ WRITABLE_CONFIG_KEYS = [
     "Authentication.Kerberos.AllowedOverWireUnencrypted",
     "Authentication.Kerberos.Enabled",
     "Authentication.Wiki.Enabled",
+    "BehindTLSProxy",
     "DefaultLogLevel",
     "DirectoryAddressBook.params.queryPeopleRecords",
     "DirectoryAddressBook.params.queryUserRecords",

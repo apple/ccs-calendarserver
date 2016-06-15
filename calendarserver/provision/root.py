@@ -287,7 +287,7 @@ class RootResource(
                     "x-forwarded-host",
                     [config.ServerHostName]
                 )[-1].split(",")[-1].strip()
-                port = 443 if config.EnableSSL else 80
+                port = 443 if (config.EnableSSL or config.BehindTLSProxy) else 80
                 scheme = "https" if config.EnableSSL else "http"
 
                 response = RedirectResponse(

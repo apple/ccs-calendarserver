@@ -58,6 +58,38 @@ class PushDistributorTests(StoreTestCase):
     def test_getPubSubAPSConfiguration(self):
         config = ConfigDict({
             "EnableSSL" : True,
+            "BehindTLSProxy" : False,
+            "ServerHostName" : "calendars.example.com",
+            "SSLPort" : 8443,
+            "HTTPPort" : 8008,
+            "Notifications" : {
+                "Services" : {
+                    "APNS" : {
+                        "CalDAV" : {
+                            "Topic" : "test topic",
+                        },
+                        "SubscriptionRefreshIntervalSeconds" : 42,
+                        "SubscriptionURL" : "apns",
+                        "Environment" : "prod",
+                        "Enabled" : True,
+                    },
+                },
+            },
+        })
+
+        result = getPubSubAPSConfiguration(("CalDAV", "foo",), config)
+        self.assertEquals(
+            result,
+            {
+                "SubscriptionRefreshIntervalSeconds": 42,
+                "SubscriptionURL": "https://calendars.example.com:8443/apns",
+                "APSBundleID": "test topic",
+                "APSEnvironment": "prod"
+            }
+        )
+        config = ConfigDict({
+            "EnableSSL" : False,
+            "BehindTLSProxy" : True,
             "ServerHostName" : "calendars.example.com",
             "SSLPort" : 8443,
             "HTTPPort" : 8008,
@@ -85,6 +117,48 @@ class PushDistributorTests(StoreTestCase):
                 "APSEnvironment": "prod"
             }
         )
+        result = getPubSubAPSConfiguration(("CalDAV", "foo",), config)
+        self.assertEquals(
+            result,
+            {
+                "SubscriptionRefreshIntervalSeconds": 42,
+                "SubscriptionURL": "https://calendars.example.com:8443/apns",
+                "APSBundleID": "test topic",
+                "APSEnvironment": "prod"
+            }
+        )
+
+        config = ConfigDict({
+            "EnableSSL" : False,
+            "BehindTLSProxy" : False,
+            "ServerHostName" : "calendars.example.com",
+            "SSLPort" : 8443,
+            "HTTPPort" : 8008,
+            "Notifications" : {
+                "Services" : {
+                    "APNS" : {
+                        "CalDAV" : {
+                            "Topic" : "test topic",
+                        },
+                        "SubscriptionRefreshIntervalSeconds" : 42,
+                        "SubscriptionURL" : "apns",
+                        "Environment" : "prod",
+                        "Enabled" : True,
+                    },
+                },
+            },
+        })
+        result = getPubSubAPSConfiguration(("CalDAV", "foo",), config)
+        self.assertEquals(
+            result,
+            {
+                "SubscriptionRefreshIntervalSeconds": 42,
+                "SubscriptionURL": "http://calendars.example.com:8008/apns",
+                "APSBundleID": "test topic",
+                "APSEnvironment": "prod"
+            }
+        )
+
 
 
 

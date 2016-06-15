@@ -59,19 +59,21 @@
     <key>HTTPPort</key>
     <integer>80</integer>
 
-    <!-- SSL port -->
-    <!-- (Must also configure SSLCertificate and SSLPrivateKey below) -->
+    <!-- SSL port the front end proxy is listening on -->
     <key>SSLPort</key>
     <integer>443</integer>
 
-    <!-- Enable listening on SSL port(s) -->
+    <!-- Disable listening on SSL port(s), the proxy will handle it -->
     <key>EnableSSL</key>
+    <false/>
+
+    <!-- We're behind a proxy -->
+    <key>BehindTLSProxy</key>
     <true/>
 
     <!-- Redirect non-SSL ports to an SSL port (if configured for SSL) -->
     <key>RedirectHTTPToHTTPS</key>
     <true/>
-
 
     <!--
         Network address configuration information

@@ -165,6 +165,7 @@ DEFAULT_CONFIG = {
     "HTTPPort": 0, # HTTP port (0 to disable HTTP)
     "SSLPort": 0, # SSL port (0 to disable HTTPS)
     "EnableSSL": False, # Whether to listen on SSL port(s)
+    "BehindTLSProxy": False, # Whether the service is offloading TLS duty to a proxy
     "RedirectHTTPToHTTPS": False, # If True, all nonSSL requests redirected to an SSL Port
     "SSLMethod": "SSLv23_METHOD", # SSLv2_METHOD, SSLv3_METHOD, SSLv23_METHOD, TLSv1_METHOD
     "SSLCiphers": "RC4-SHA:HIGH:!ADH",

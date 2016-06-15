@@ -286,7 +286,7 @@ def storeFromConfig(config, txnFactory, directoryService):
     if quota == 0:
         quota = None
     if txnFactory is not None:
-        if config.EnableSSL:
+        if config.EnableSSL or config.BehindTLSProxy:
             uri = "https://{config.ServerHostName}:{config.SSLPort}".format(config=config)
         else:
             uri = "https://{config.ServerHostName}:{config.HTTPPort}".format(config=config)
@@ -586,7 +586,7 @@ def getRootResource(config, newStore, resources=None):
             (config.Scheduling.iSchedule.Enabled, "ischedule", "/ischedule"),
         ):
             if enabled:
-                if config.EnableSSL:
+                if config.EnableSSL or config.BehindTLSProxy:
                     scheme = "https"
                     port = config.SSLPort
                 else:

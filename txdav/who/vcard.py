@@ -141,7 +141,7 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
         uri = joinURL(parentURI, record.fields[FieldName.uid].encode("utf-8") + ".vcf")
 
         # seems like this should be in some standard place.
-        if config.EnableSSL and config.SSLPort:
+        if (config.EnableSSL or config.BehindTLSProxy) and config.SSLPort:
             if config.SSLPort == 443:
                 source = "https://{server}{uri}".format(server=config.ServerHostName, uri=uri)
             else:

@@ -1060,12 +1060,13 @@ class CalDAVServiceMaker (object):
         # Need to cache SSL port info here so we can access it in a Request to
         # deal with the possibility of being behind an SSL decoder
         underlyingSite.EnableSSL = config.EnableSSL
+        underlyingSite.BehindTLSProxy = config.BehindTLSProxy
         underlyingSite.SSLPort = config.SSLPort
         underlyingSite.BindSSLPorts = config.BindSSLPorts
 
         requestFactory = underlyingSite
 
-        if config.EnableSSL and config.RedirectHTTPToHTTPS:
+        if (config.EnableSSL or config.BehindTLSProxy) and config.RedirectHTTPToHTTPS:
             self.log.info(
                 "Redirecting to HTTPS port {port}", port=config.SSLPort
             )

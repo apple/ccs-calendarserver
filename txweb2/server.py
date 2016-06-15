@@ -347,8 +347,10 @@ class Request(http.Request):
         @rtype: C{bool}
         """
 
-        # from twistedcaldav.config import config
-        if hasattr(self.site, "EnableSSL") and self.site.EnableSSL:
+        if (
+            (hasattr(self.site, "EnableSSL") and self.site.EnableSSL) or
+            (hasattr(self.site, "BehindTLSProxy") and self.site.BehindTLSProxy)
+        ):
             if port == self.site.SSLPort:
                 return True
             elif port in self.site.BindSSLPorts:

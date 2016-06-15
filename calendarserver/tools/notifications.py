@@ -130,7 +130,7 @@ def main():
             print("Error in configuration: %s" % (e,))
             sys.exit(1)
 
-        useSSL = config.EnableSSL
+        useSSL = config.EnableSSL or config.BehindTLSProxy
         host = config.ServerHostName
         port = config.SSLPort if useSSL else config.HTTPPort
 

@@ -43,6 +43,10 @@
 	<key>EnableSSL</key>
 	<false/>
 
+	<!-- Whether the service is offloading TLS duty to a proxy -->
+	<key>BehindTLSProxy</key>
+	<false/>
+
 	<!-- If True, all nonSSL requests redirected to an SSL Port -->
 	<key>RedirectHTTPToHTTPS</key>
 	<false/>
