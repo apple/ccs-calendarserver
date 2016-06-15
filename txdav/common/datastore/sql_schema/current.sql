@@ -67,7 +67,7 @@ create table CALENDAR_HOME (
   OWNER_UID        varchar(255) not null,                		                -- implicit index
   STATUS           integer      default 0 not null,                             -- enum HOME_STATUS
   DATAVERSION      integer      default 0 not null,
-  
+
   unique (OWNER_UID, STATUS)	-- implicit index
 );
 
@@ -159,7 +159,7 @@ create table CALENDAR_MIGRATION (
   REMOTE_RESOURCE_ID			integer not null,
   LOCAL_RESOURCE_ID				integer	references CALENDAR on delete cascade,
   LAST_SYNC_TOKEN				varchar(255),
-   
+
   primary key (CALENDAR_HOME_RESOURCE_ID, REMOTE_RESOURCE_ID) -- implicit index
 );
 
@@ -176,7 +176,7 @@ create table NOTIFICATION_HOME (
   OWNER_UID   varchar(255) not null,	                                   -- implicit index
   STATUS      integer      default 0 not null,                             -- enum HOME_STATUS
   DATAVERSION integer      default 0 not null,
-    
+
   unique (OWNER_UID, STATUS)	-- implicit index
 );
 
@@ -316,6 +316,9 @@ create index CALENDAR_OBJECT_ICALENDAR_UID on
 create index CALENDAR_OBJECT_DROPBOX_ID on
   CALENDAR_OBJECT(DROPBOX_ID);
 
+create index CALENDAR_OBJECT_ORIGINAL_COLLECTION on
+  CALENDAR_OBJECT(ORIGINAL_COLLECTION);
+
 -- Enumeration of attachment modes
 
 create table CALENDAR_OBJ_ATTACHMENTS_MODE (
@@ -407,7 +410,7 @@ create table CALENDAR_OBJECT_MIGRATION (
   CALENDAR_HOME_RESOURCE_ID		integer references CALENDAR_HOME on delete cascade,
   REMOTE_RESOURCE_ID			integer not null,
   LOCAL_RESOURCE_ID				integer	references CALENDAR_OBJECT on delete cascade,
-   
+
   primary key (CALENDAR_HOME_RESOURCE_ID, REMOTE_RESOURCE_ID) -- implicit index
 );
 
@@ -462,7 +465,7 @@ create table ATTACHMENT_MIGRATION (
   CALENDAR_HOME_RESOURCE_ID		integer references CALENDAR_HOME on delete cascade,
   REMOTE_RESOURCE_ID			integer not null,
   LOCAL_RESOURCE_ID				integer	references ATTACHMENT on delete cascade,
-   
+
   primary key (CALENDAR_HOME_RESOURCE_ID, REMOTE_RESOURCE_ID) -- implicit index
 );
 
@@ -496,7 +499,7 @@ create table ADDRESSBOOK_HOME (
   OWNER_UID                     varchar(255)    not null,
   STATUS                        integer         default 0 not null,                             -- enum HOME_STATUS
   DATAVERSION                   integer         default 0 not null,
-    
+
   unique (OWNER_UID, STATUS)	-- implicit index
 );
 
@@ -1072,7 +1075,7 @@ create table INBOX_REMOVE_WORK (
   JOB_ID                        integer      references JOB not null,
   HOME_ID                       integer      not null references CALENDAR_HOME on delete cascade,
   RESOURCE_NAME                 varchar(255) not null,
-  
+
   unique (HOME_ID, RESOURCE_NAME)    -- implicit index
 );
 
@@ -1310,7 +1313,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '62');
+insert into CALENDARSERVER values ('VERSION', '63');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');
