@@ -5560,6 +5560,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         returnValue(name)
 
 
+class UnsupportedQuery(Exception):
+    """
+    Indicates the particular set of query parameters passed are not supported.
+    """
+
 
 class TrashCollection(Calendar):
 
@@ -5574,9 +5579,32 @@ class TrashCollection(Calendar):
         obj = cls._objectSchema
         return Select(
             [obj.RESOURCE_ID], From=obj,
+            Where=(obj.ORIGINAL_COLLECTION == Parameter("resourceID")),
+            OrderBy=obj.TRASHED,
+            Ascending=False
+        )
+
+
+    @classproperty
+    def _trashForCollectionStartingQuery(cls):
+        obj = cls._objectSchema
+        return Select(
+            [obj.RESOURCE_ID], From=obj,
             Where=(
                 obj.ORIGINAL_COLLECTION == Parameter("resourceID")).And(
-                obj.TRASHED >= Parameter("start")).And(
+                obj.TRASHED >= Parameter("start")),
+            OrderBy=obj.TRASHED,
+            Ascending=False
+        )
+
+
+    @classproperty
+    def _trashForCollectionEndingQuery(cls):
+        obj = cls._objectSchema
+        return Select(
+            [obj.RESOURCE_ID], From=obj,
+            Where=(
+                obj.ORIGINAL_COLLECTION == Parameter("resourceID")).And(
                 obj.TRASHED <= Parameter("end")),
             OrderBy=obj.TRASHED,
             Ascending=False
@@ -5586,15 +5614,21 @@ class TrashCollection(Calendar):
     @inlineCallbacks
     def trashForCollection(self, resourceID, start=None, end=None):
 
-        if start is None:
-            start = datetime.datetime(datetime.MINYEAR, 1, 1)
+        if start is None and end is None:
+            results = yield self._trashForCollectionQuery.on(
+                self._txn, resourceID=resourceID
+            )
+        elif start is None and end is not None:
+            results = yield self._trashForCollectionEndingQuery.on(
+                self._txn, resourceID=resourceID, end=end
+            )
+        elif start is not None and end is None:
+            results = yield self._trashForCollectionStartingQuery.on(
+                self._txn, resourceID=resourceID, start=start
+            )
+        else:
+            raise UnsupportedQuery()
 
-        if end is None:
-            end = datetime.datetime.utcnow()
-
-        results = yield self._trashForCollectionQuery.on(
-            self._txn, resourceID=resourceID, start=start, end=end
-        )
         resources = []
         for (objectResourceID,) in results:
             resource = yield self.objectResourceWithID(objectResourceID)

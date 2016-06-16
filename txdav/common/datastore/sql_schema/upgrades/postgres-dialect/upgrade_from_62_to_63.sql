@@ -18,8 +18,8 @@
 -- Upgrade database schema from VERSION 62 to 63 --
 ---------------------------------------------------
 
-create index CALENDAR_OBJECT_ORIGINAL_COLLECTION on
-  CALENDAR_OBJECT(ORIGINAL_COLLECTION);
+create index CALENDAR_OBJECT_ORIGINAL_COLLECTION_AND_TRASHED on
+  CALENDAR_OBJECT(ORIGINAL_COLLECTION, TRASHED);
 
 -- update the version
 update CALENDARSERVER set VALUE = '63' where NAME = 'VERSION';
