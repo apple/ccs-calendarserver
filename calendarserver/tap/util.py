@@ -1451,7 +1451,8 @@ def checkCertExpiration(certPath):
         args = [opensslTool, "x509", "-checkend", "0", "-noout", "-in", certPath]
         child = Popen(args=args, stdout=PIPE, stderr=PIPE)
         output, error = child.communicate()
-        return error == 0
+        exitStatus = child.returncode
+        return exitStatus == 0
     except IndexError:
         # We can't check
         return True
