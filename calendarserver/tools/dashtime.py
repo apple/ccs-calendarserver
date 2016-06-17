@@ -137,6 +137,29 @@ class CPUDataType(DataType):
 
 
 
+class MemoryDataType(DataType):
+    """
+    CPU use.
+    """
+
+    key = "mem"
+
+    @staticmethod
+    def title(item):
+        return "Memory Use %"
+
+
+    @staticmethod
+    def maxY(numHosts):
+        return 100 * numHosts
+
+
+    @staticmethod
+    def calculate(stats, item, hosts):
+        return sum([stats[onehost]["stats_system"]["memory percent"] for onehost in hosts])
+
+
+
 class RequestsDataType(DataType):
     """
     Number of requests.
@@ -184,6 +207,78 @@ class ResponseDataType(DataType):
         tsum = sum([stats[onehost]["stats"]["1m"]["t"] for onehost in hosts])
         rsum = sum([stats[onehost]["stats"]["1m"]["requests"] for onehost in hosts])
         return safeDivision(tsum, rsum)
+
+
+
+class Code500DataType(DataType):
+    """
+    Number of 500 requests.
+    """
+
+    key = "500"
+    skip60 = True
+
+    @staticmethod
+    def title(item):
+        return "Code 500/sec"
+
+
+    @staticmethod
+    def maxY(numHosts):
+        return None
+
+
+    @staticmethod
+    def calculate(stats, item, hosts):
+        return sum([stats[onehost]["stats"]["1m"]["500"] for onehost in hosts]) / 60.0
+
+
+
+class Code401DataType(DataType):
+    """
+    Number of 401 requests.
+    """
+
+    key = "401"
+    skip60 = True
+
+    @staticmethod
+    def title(item):
+        return "Code 401/sec"
+
+
+    @staticmethod
+    def maxY(numHosts):
+        return None
+
+
+    @staticmethod
+    def calculate(stats, item, hosts):
+        return sum([stats[onehost]["stats"]["1m"]["401"] for onehost in hosts]) / 60.0
+
+
+
+class MaxSlotsDataType(DataType):
+    """
+    Max slots.
+    """
+
+    key = "slots"
+    skip60 = True
+
+    @staticmethod
+    def title(item):
+        return "Max. Slots"
+
+
+    @staticmethod
+    def maxY(numHosts):
+        return None
+
+
+    @staticmethod
+    def calculate(stats, item, hosts):
+        return sum([stats[onehost]["stats"]["1m"]["max-slots"] for onehost in hosts])
 
 
 
