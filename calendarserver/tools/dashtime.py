@@ -475,18 +475,18 @@ def main():
         # Offset data that is averaged over the previous minute. Also determine
         # the highest max value of all the per-host measurements and scale each
         # per-host plot to the same range.
-        overall_ymax = 0
+        overall_ymax = defaultdict(int)
         for host in hosts:
             for measurement in perhostkeys:
                 ykey = "{}={}".format(measurement, host)
-                overall_ymax = max(overall_ymax, max(y[ykey]))
+                overall_ymax[measurement] = max(overall_ymax[measurement], max(y[ykey]))
                 if DataType.skip(measurement):
                     y[ykey] = y[ykey][60:]
                     y[ykey].extend([None] * 60)
         for host in hosts:
             for measurement in perhostkeys:
                 ykey = "{}={}".format(measurement, host)
-                ymaxes[ykey] = overall_ymax
+                ymaxes[ykey] = overall_ymax[measurement]
 
         for measurement in combinedkeys:
             if DataType.skip(measurement):
@@ -516,6 +516,15 @@ def main():
 #        JobQueueDataType.key,
 #    ))
 
+    # Generic aggregated data for all hosts
+    combinedHosts((
+        CPUDataType.key,
+        RequestsDataType.key,
+        ResponseDataType.key,
+        JobsCompletedDataType.key,
+        JobQueueDataType.key,
+    ))
+
 
     # Data aggregated for all hosts - method detail
 #    combinedHosts((
@@ -537,27 +546,23 @@ def main():
 #    ))
 
     # Per-host job completion, and total CPU, total jobs queued
-#    singleHost((
-#        CPUDataType.key,
+#    perHost((
 #        JobsCompletedDataType.key,
+#    ), (
+#        CPUDataType.key,
 #        JobQueueDataType.key,
 #    ))
-    perHost((
-        JobsCompletedDataType.key,
-    ), (
-        CPUDataType.key,
-        JobQueueDataType.key,
-    ))
 
     # Generate a single stacked plot of the data
+    plotmax = len(y.keys())
     for plotnum, measurement in enumerate(y.keys()):
         plt.subplot(len(y), 1, plotnum + 1)
-        plotSeries(titles[measurement], x, y[measurement], 0, ymaxes[measurement])
+        plotSeries(titles[measurement], x, y[measurement], 0, ymaxes[measurement], plotnum == plotmax - 1)
     plt.show()
 
 
 
-def plotSeries(title, x, y, ymin=None, ymax=None):
+def plotSeries(title, x, y, ymin=None, ymax=None, last_subplot=True):
     """
     Plot the chosen dataset key for each scanned data file.
 
@@ -571,8 +576,12 @@ def plotSeries(title, x, y, ymin=None, ymax=None):
 
     plt.plot(x, y)
 
-    plt.xlabel("Time")
-    plt.ylabel(title)
+    if last_subplot:
+        plt.xlabel("Time")
+    else:
+        frame = plt.gca()
+        frame.axes.xaxis.set_ticklabels([])
+    plt.ylabel(title, fontsize="small", horizontalalignment="right", rotation="horizontal")
     if ymin is not None:
         plt.ylim(ymin=ymin)
     if ymax is not None:
