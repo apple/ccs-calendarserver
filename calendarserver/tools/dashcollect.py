@@ -56,6 +56,7 @@ import sched
 import socket
 import sys
 import time
+import zlib
 
 verbose = False
 def _verbose(log):
@@ -78,6 +79,8 @@ def main():
     parser.add_argument("-l", help="Log file directory")
     parser.add_argument("-n", action="store_true", help="New log file")
     parser.add_argument("-s", default="localhost:8200", help="Run the dash_thread service on the specified host:port")
+    parser.add_argument("-t", action="store_true", help="Rotate log files every hour [default: once per day]")
+    parser.add_argument("-z", action="store_true", help="zlib compress json records in log files")
     parser.add_argument("-v", action="store_true", help="Verbose")
     args = parser.parse_args()
     if args.v:
@@ -93,12 +96,12 @@ def main():
 
     # Remove any existing logfile is asked
     if args.n:
-        logfile = DashboardCollector.logfile(args.l)
+        logfile = DashboardCollector.logfile(args.l, args.t)
         if os.path.exists(logfile):
             os.remove(logfile)
 
     print("Running DashboardCollector...")
-    dash = DashboardCollector(config, args.l)
+    dash = DashboardCollector(config, args.l, args.t, args.z)
     dash_thread = Thread(target=dash.run)
     dash_thread.start()
 
@@ -359,8 +362,10 @@ class DashboardCollector(object):
     updates.
     """
 
-    def __init__(self, config, logdir):
+    def __init__(self, config, logdir, loghourly, compress_log):
         self.logdir = logdir
+        self.loghourly = loghourly
+        self.compress_log = compress_log
         self.title = config.title
         self.pods = config.pods
         self.sched = sched.scheduler(time.time, time.sleep)
@@ -384,11 +389,16 @@ class DashboardCollector(object):
 
 
     @staticmethod
-    def logfile(logdir):
+    def logfile(logdir, loghourly):
         """
-        Log file name based on current date so it rotates once a day.
+        Log file name based on current date so it rotates once a day, or hourly.
         """
-        return os.path.join(logdir, "dashboard-{}.log".format(date.today().isoformat()))
+        today = date.today().isoformat()
+        if loghourly:
+            hour = datetime.now().hour
+            return os.path.join(logdir, "dashboard-{today}T{hour:02d}00.log".format(today=today, hour=hour))
+        else:
+            return os.path.join(logdir, "dashboard-{today}.log".format(today=today))
 
 
     def update(self):
@@ -407,9 +417,21 @@ class DashboardCollector(object):
         for pod in self.pods:
             pod.update(j["pods"])
 
+        # Filter out unwanted data
+        for jpod in j["pods"].values():
+            for jhost in jpod.values():
+                for stattype in ("current", "1m", "5m", "1h"):
+                    for statkey in ("uid", "user-agent"):
+                        try:
+                            del jhost["stats"][stattype][statkey]
+                        except KeyError:
+                            pass
+
         # Append to log file
-        with open(self.logfile(self.logdir), "a") as f:
-            f.write("\x1e{}\n".format(json.dumps(j)))
+        with open(self.logfile(self.logdir, self.loghourly), "a") as f:
+            jstr = json.dumps(j)
+            zstr = zlib.compress(jstr).encode("base64").replace("\n", "") if self.compress_log else jstr
+            f.write("\x1e{}\n".format(zstr))
 
         self.lastData = j
 
