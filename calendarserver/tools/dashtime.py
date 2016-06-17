@@ -20,6 +20,7 @@ Tool that extracts time series data from a dashcollect log.
 
 from bz2 import BZ2File
 from collections import OrderedDict, defaultdict
+from zlib import decompress
 import argparse
 import json
 import matplotlib.pyplot as plt
@@ -65,6 +66,13 @@ class DataType(object):
 
 
     @staticmethod
+    def getMaxY(measurement, numHosts):
+        if "-" in measurement:
+            measurement = measurement.split("-", 1)[0]
+        return DataType.allTypes[measurement].maxY(numHosts)
+
+
+    @staticmethod
     def skip(measurement):
         if "-" in measurement:
             measurement = measurement.split("-", 1)[0]
@@ -86,7 +94,7 @@ class DataType(object):
 
 
     @staticmethod
-    def maxY(stats, item):
+    def maxY(numHosts):
         raise NotImplementedError
 
 
@@ -119,14 +127,12 @@ class CPUDataType(DataType):
 
 
     @staticmethod
-    def maxY(stats, item, host):
-        return 100 * len(stats) if host is None else 100
+    def maxY(numHosts):
+        return 100 * numHosts
 
 
     @staticmethod
     def calculate(stats, item, hosts):
-        if hosts is None:
-            hosts = stats.keys()
         return sum([stats[onehost]["stats_system"]["cpu use"] for onehost in hosts])
 
 
@@ -145,14 +151,12 @@ class RequestsDataType(DataType):
 
 
     @staticmethod
-    def maxY(stats, item, host):
+    def maxY(numHosts):
         return None
 
 
     @staticmethod
     def calculate(stats, item, hosts):
-        if hosts is None:
-            hosts = stats.keys()
         return sum([stats[onehost]["stats"]["1m"]["requests"] for onehost in hosts]) / 60.0
 
 
@@ -171,14 +175,12 @@ class ResponseDataType(DataType):
 
 
     @staticmethod
-    def maxY(stats, item, host):
+    def maxY(numHosts):
         return None
 
 
     @staticmethod
     def calculate(stats, item, hosts):
-        if hosts is None:
-            hosts = stats.keys()
         tsum = sum([stats[onehost]["stats"]["1m"]["t"] for onehost in hosts])
         rsum = sum([stats[onehost]["stats"]["1m"]["requests"] for onehost in hosts])
         return safeDivision(tsum, rsum)
@@ -200,14 +202,12 @@ class JobsCompletedDataType(DataType):
 
 
     @staticmethod
-    def maxY(stats, item, host):
+    def maxY(numHosts):
         return None
 
 
     @staticmethod
     def calculate(stats, item, hosts):
-        if hosts is None:
-            hosts = stats.keys()
         result = 0
         for onehost in hosts:
             completed = sum(map(operator.itemgetter(2), stats[onehost]["job_assignments"]["workers"]))
@@ -232,14 +232,12 @@ class MethodCountDataType(DataType):
 
 
     @staticmethod
-    def maxY(stats, item, host):
+    def maxY(numHosts):
         return None
 
 
     @staticmethod
     def calculate(stats, item, hosts):
-        if hosts is None:
-            hosts = stats.keys()
         return sum([stats[onehost]["stats"]["1m"]["method"].get(item, 0) for onehost in hosts])
 
 
@@ -259,14 +257,12 @@ class MethodResponseDataType(DataType):
 
 
     @staticmethod
-    def maxY(stats, item, host):
+    def maxY(numHosts):
         return None
 
 
     @staticmethod
     def calculate(stats, item, hosts):
-        if hosts is None:
-            hosts = stats.keys()
         tsum = sum([stats[onehost]["stats"]["1m"]["method-t"].get(item, 0) for onehost in hosts])
         rsum = sum([stats[onehost]["stats"]["1m"]["method"].get(item, 0) for onehost in hosts])
         return safeDivision(tsum, rsum)
@@ -287,12 +283,13 @@ class JobQueueDataType(DataType):
 
 
     @staticmethod
-    def maxY(stats, item, host):
+    def maxY(numHosts):
         return None
 
 
     @staticmethod
     def calculate(stats, item, hosts):
+        # Job queue stat only read for first host
         onehost = sorted(stats.keys())[0]
 
         if item:
@@ -370,12 +367,6 @@ def main():
         @type hosts: L{list} or L{str}
         """
 
-        # Initialize the plot arrays
-        for measurement in valuekeys:
-            y[measurement] = []
-            titles[measurement] = DataType.getTitle(measurement)
-            ymaxes[measurement] = None
-
         # For each log file line, process the data for each required measurement
         with logfile:
             line = logfile.readline()
@@ -388,10 +379,22 @@ def main():
 
                 if line[0] == "\x1e":
                     line = line[1:]
+                if line[0] != "{":
+                    line = decompress(line.decode("base64"))
                 jline = json.loads(line)
 
                 x.append(ctr)
                 ctr += 1
+
+                # Initialize the plot arrays when we know how many hosts there are
+                if len(y) == 0:
+                    if hosts is None:
+                        hosts = sorted(jline["pods"][args.p].keys())
+                    for measurement in valuekeys:
+                        y[measurement] = []
+                        titles[measurement] = DataType.getTitle(measurement)
+                        ymaxes[measurement] = DataType.getMaxY(measurement, len(hosts))
+
 
                 for measurement in valuekeys:
                     stats = jline["pods"][args.p]
@@ -431,6 +434,8 @@ def main():
 
                 if line[0] == "\x1e":
                     line = line[1:]
+                if line[0] != "{":
+                    line = decompress(line.decode("base64"))
                 jline = json.loads(line)
 
                 x.append(ctr)
@@ -445,12 +450,12 @@ def main():
                             ykey = "{}={}".format(measurement, host)
                             y[ykey] = []
                             titles[ykey] = DataType.getTitle(measurement)
-                            ymaxes[ykey] = None
+                            ymaxes[ykey] = DataType.getMaxY(measurement, 1)
 
                     for measurement in combinedkeys:
                         y[measurement] = []
                         titles[measurement] = DataType.getTitle(measurement)
-                        ymaxes[measurement] = None
+                        ymaxes[measurement] = DataType.getMaxY(measurement, len(hosts))
 
                 # Get actual measurement data
                 for host in hosts:
@@ -467,19 +472,29 @@ def main():
                 if ctr > line_start + line_count:
                     break
 
-        # Offset data that is averaged over the previous minute
+        # Offset data that is averaged over the previous minute. Also determine
+        # the highest max value of all the per-host measurements and scale each
+        # per-host plot to the same range.
+        overall_ymax = 0
         for host in hosts:
             for measurement in perhostkeys:
+                ykey = "{}={}".format(measurement, host)
+                overall_ymax = max(overall_ymax, max(y[ykey]))
                 if DataType.skip(measurement):
-                    ykey = "{}={}".format(measurement, host)
                     y[ykey] = y[ykey][60:]
                     y[ykey].extend([None] * 60)
+        for host in hosts:
+            for measurement in perhostkeys:
+                ykey = "{}={}".format(measurement, host)
+                ymaxes[ykey] = overall_ymax
+
         for measurement in combinedkeys:
             if DataType.skip(measurement):
                 y[measurement] = y[measurement][60:]
                 y[measurement].extend([None] * 60)
 
 
+    # Data for a single host, with jobs queued detail for all hosts
 #    singleHost((
 #        CPUDataType.key,
 #        RequestsDataType.key,
@@ -489,6 +504,8 @@ def main():
 #        JobQueueDataType.key + "-PUSH",
 #        JobQueueDataType.key,
 #    ))
+
+    # Data aggregated for all hosts - job detail
 #    combinedHosts((
 #        CPUDataType.key,
 #        RequestsDataType.key,
@@ -498,22 +515,39 @@ def main():
 #        JobQueueDataType.key + "-PUSH",
 #        JobQueueDataType.key,
 #    ))
-    combinedHosts((
-        CPUDataType.key,
-        RequestsDataType.key,
-        ResponseDataType.key,
-        MethodCountDataType.key + "-PUT ics",
-        MethodCountDataType.key + "-REPORT cal-home-sync",
-        MethodCountDataType.key + "-PROPFIND Calendar Home",
-        MethodCountDataType.key + "-REPORT cal-sync",
-        MethodCountDataType.key + "-PROPFIND Calendar",
-    ))
+
+
+    # Data aggregated for all hosts - method detail
+#    combinedHosts((
+#        CPUDataType.key,
+#        RequestsDataType.key,
+#        ResponseDataType.key,
+#        MethodCountDataType.key + "-PUT ics",
+#        MethodCountDataType.key + "-REPORT cal-home-sync",
+#        MethodCountDataType.key + "-PROPFIND Calendar Home",
+#        MethodCountDataType.key + "-REPORT cal-sync",
+#        MethodCountDataType.key + "-PROPFIND Calendar",
+#    ))
+
+    # Per-host CPU, and total CPU
 #    perHost((
 #        RequestsDataType.key,
 #    ), (
 #        CPUDataType.key,
+#    ))
+
+    # Per-host job completion, and total CPU, total jobs queued
+#    singleHost((
+#        CPUDataType.key,
+#        JobsCompletedDataType.key,
 #        JobQueueDataType.key,
 #    ))
+    perHost((
+        JobsCompletedDataType.key,
+    ), (
+        CPUDataType.key,
+        JobQueueDataType.key,
+    ))
 
     # Generate a single stacked plot of the data
     for plotnum, measurement in enumerate(y.keys()):
