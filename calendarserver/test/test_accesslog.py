@@ -19,6 +19,7 @@ from calendarserver.accesslog import SystemMonitor, \
     RotatingFileAccessLoggingObserver
 from twistedcaldav.stdconfig import config as stdconfig
 from twistedcaldav.config import config
+import time
 
 hasattr(stdconfig, "Servers")   # Quell pyflakes
 
@@ -97,3 +98,42 @@ class AccessLog(TestCase):
 
         with open(logpath) as f:
             self.assertIn("log this", f.read())
+
+
+    def test_truncateStats(self):
+        """
+        Make sure L{RotatingFileAccessLoggingObserver.ensureSequentialStats}
+        properly truncates stats data.
+        """
+
+        logpath = self.mktemp()
+        observer = RotatingFileAccessLoggingObserver(logpath)
+        observer.systemStats = SystemMonitor()
+        observer.start()
+
+        # Fill stats with some old entries
+        t = int(time.time() / 60.0) * 60
+        t -= 100 * 60
+        for i in range(10):
+            observer.statsByMinute.append((t + i * 60, observer.initStats(),))
+
+        self.assertEqual(len(observer.statsByMinute), 10)
+        observer.ensureSequentialStats()
+        self.assertEqual(len(observer.statsByMinute), 65)
+        observer.stop()
+
+
+    def test_smallerStats(self):
+        """
+        Make sure "uid" and "user-agent" are not in the
+        L{RotatingFileAccessLoggingObserver} stats data.
+        """
+
+        logpath = self.mktemp()
+        observer = RotatingFileAccessLoggingObserver(logpath)
+        observer.systemStats = SystemMonitor()
+        observer.start()
+        stats = observer.initStats()
+        observer.stop()
+        self.assertTrue("uid" not in stats)
+        self.assertTrue("user-agent" not in stats)

@@ -36,11 +36,11 @@ except ImportError:
 from sys import platform
 import time
 
-from calendarserver.logAnalysis import getAdjustedMethodName, \
-    getAdjustedClientName
+from calendarserver.logAnalysis import getAdjustedMethodName
 
 from twext.python.log import Logger
 from twext.who.idirectory import RecordType
+
 from txweb2 import iweb
 from txweb2.log import BaseCommonAccessLoggingObserver
 from txweb2.log import LogWrapperResource
@@ -248,6 +248,9 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
 
         self.systemStats = None
         self.statsByMinute = []
+        self.stats1m = None
+        self.stats5m = None
+        self.stats1h = None
 
 
     def accessLog(self, message, allowrotate=True):
@@ -412,32 +415,35 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         currentStats = self.ensureSequentialStats()
 
         # Get previous minute details
-        index = min(2, len(self.statsByMinute))
-        if index > 0:
-            previousMinute = self.statsByMinute[-index][1]
-        else:
-            previousMinute = self.initStats()
+        if self.stats1m is None:
+            index = min(2, len(self.statsByMinute))
+            if index > 0:
+                self.stats1m = self.statsByMinute[-index][1]
+            else:
+                self.stats1m = self.initStats()
 
         # Do five minute aggregate
-        fiveMinutes = self.initStats()
-        index = min(6, len(self.statsByMinute))
-        for i in range(-index, -1):
-            stat = self.statsByMinute[i][1]
-            self.mergeStats(fiveMinutes, stat)
+        if self.stats5m is None:
+            self.stats5m = self.initStats()
+            index = min(6, len(self.statsByMinute))
+            for i in range(-index, -1):
+                stat = self.statsByMinute[i][1]
+                self.mergeStats(self.stats5m, stat)
 
         # Do one hour aggregate
-        oneHour = self.initStats()
-        index = min(61, len(self.statsByMinute))
-        for i in range(-index, -1):
-            stat = self.statsByMinute[i][1]
-            self.mergeStats(oneHour, stat)
+        if self.stats1h is None:
+            self.stats1h = self.initStats()
+            index = min(61, len(self.statsByMinute))
+            for i in range(-index, -1):
+                stat = self.statsByMinute[i][1]
+                self.mergeStats(self.stats1h, stat)
 
         printStats = {
             "system": self.systemStats.items,
             "current": currentStats,
-            "1m": previousMinute,
-            "5m": fiveMinutes,
-            "1h": oneHour,
+            "1m": self.stats1m,
+            "5m": self.stats5m,
+            "1h": self.stats1h,
         }
         return printStats
 
@@ -451,11 +457,30 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         if len(self.statsByMinute) > 0:
             if self.statsByMinute[-1][0] != dtindex:
                 oldindex = self.statsByMinute[-1][0]
+                if oldindex != dtindex:
+                    # Adding a new minutes worth of data - clear out any cached
+                    # historical data
+                    self.stats1m = None
+                    self.stats5m = None
+                    self.stats1h = None
+
+                # Add enough new stats to account for any idle minutes between
+                # the last recorded stat and the current one
                 while oldindex != dtindex:
                     oldindex += 60
                     self.statsByMinute.append((oldindex, self.initStats(),))
         else:
             self.statsByMinute.append((dtindex, self.initStats(),))
+            self.stats1m = None
+            self.stats5m = None
+            self.stats1h = None
+
+        # We only need up to 1 hour's worth of data, so truncate the cached data
+        # to avoid filling memory
+        threshold = 65
+        if len(self.statsByMinute) > threshold:
+            self.statsByMinute = self.statsByMinute[-threshold:]
+
         return self.statsByMinute[-1][1]
 
 
@@ -478,8 +503,6 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
             "requests"   : 0,
             "method"     : collections.defaultdict(int),
             "method-t"   : collections.defaultdict(float),
-            "uid"        : collections.defaultdict(int),
-            "user-agent" : collections.defaultdict(int),
             "500"        : 0,
             "401"        : 0,
             "t"          : 0.0,
@@ -496,15 +519,12 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
     def updateStats(self, current, stats):
         # Gather specific information and aggregate into our persistent stats
         adjustedMethod = getAdjustedMethodName(stats)
-        adjustedClient = getAdjustedClientName(stats)
 
         if current["requests"] == 0:
             current["cpu"] = 0.0
         current["requests"] += 1
         current["method"][adjustedMethod] += 1
         current["method-t"][adjustedMethod] += stats.get("t", 0.0)
-        current["uid"][stats["uid"]] += 1
-        current["user-agent"][adjustedClient] += 1
         if stats["statusCode"] >= 500:
             current["500"] += 1
         elif stats["statusCode"] == 401:
@@ -553,10 +573,6 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
             current["method"][method] += stats["method"][method]
         for method in stats["method-t"].keys():
             current["method-t"][method] += stats["method-t"][method]
-        for uid in stats["uid"].keys():
-            current["uid"][uid] += stats["uid"][uid]
-        for ua in stats["user-agent"].keys():
-            current["user-agent"][ua] += stats["user-agent"][ua]
         current["500"] += stats["500"]
         current["401"] += stats["401"]
         current["t"] += stats["t"]
