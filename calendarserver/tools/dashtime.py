@@ -493,7 +493,10 @@ def main():
 
                 for measurement in valuekeys:
                     stats = jline["pods"][args.p]
-                    y[measurement].append(DataType.process(measurement, stats, hosts))
+                    try:
+                        y[measurement].append(DataType.process(measurement, stats, hosts))
+                    except KeyError:
+                        y[measurement].append(None)
 
                 line = logfile.readline()
                 if ctr > line_start + line_count:
