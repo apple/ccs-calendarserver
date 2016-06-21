@@ -16,50 +16,27 @@
 
 -- Extra schema to add to current-oracle-dialect.sql
 
-create or replace function next_job_all(now timestamp)
+create or replace function next_job(now in timestamp, min_priority in integer)
   return integer is
-  cursor c1 is
-   select JOB_ID from JOB
-   where ASSIGNED is NULL and PAUSE = 0 and NOT_BEFORE <= now
-   order by PRIORITY desc
-   for update skip locked;
-  result integer;
-begin
-  open c1;
-  fetch c1 into result;
-  close c1;
-  return result;
-end;
-/
-
-create or replace function next_job_medium_high(now timestamp)
-  return integer is
-  cursor c1 is
+  cursor c (priority number) is
     select JOB_ID from JOB
-    where PRIORITY != 0 and ASSIGNED is NULL and PAUSE = 0 and NOT_BEFORE <= now
-    order by PRIORITY desc
-    for update skip locked;
+      where PRIORITY = priority AND ASSIGNED is NULL and PAUSE = 0 and NOT_BEFORE <= now
+      for update skip locked;
   result integer;
 begin
-  open c1;
-  fetch c1 into result;
-  close c1;
-  return result;
-end;
-/
-
-create or replace function next_job_high(now timestamp)
-  return integer is
-  cursor c1 is
-    select JOB_ID from JOB
-    where PRIORITY = 2 and ASSIGNED is NULL and PAUSE = 0 and NOT_BEFORE <= now
-    order by PRIORITY desc
-    for update skip locked;
-  result integer;
-begin
-  open c1;
-  fetch c1 into result;
-  close c1;
+  open c(2);
+  fetch c into result;
+  close c;
+  if result is null and min_priority != 2 then
+    open c(1);
+    fetch c into result;
+    close c;
+    if result is null and min_priority = 0 then
+      open c(0);
+      fetch c into result;
+      close c;
+    end if;
+  end if;
   return result;
 end;
 /
