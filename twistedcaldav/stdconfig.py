@@ -1767,6 +1767,10 @@ def _updateCompliance(configDict, reloading=False):
         configDict.ServerInfo,
         configDict.ServerInfoToken) = buildServerInfo(configDict)
 
+    # Make all the ServerInfo config feed into the config portion of the sync
+    # token as well:
+    config.addSyncTokenKey("ServerInfoToken")
+
 
 PRE_UPDATE_HOOKS = (
     _preUpdateDirectoryService,

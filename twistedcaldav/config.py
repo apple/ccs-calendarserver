@@ -344,7 +344,7 @@ class Config(object):
         Iterates the previously registered keys (sorted, so the order in which
         the keys were registered doesn't affect the hash) and generates an MD5
         hash of the combined values.  The hash is cached, and is invalidated
-        during a reload or if invalidateSyncToken is called.o
+        during a reload or if invalidateSyncToken is called.
 
         @return: the sync token
         @rtype: C{str}

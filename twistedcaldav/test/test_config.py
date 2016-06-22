@@ -718,6 +718,14 @@ class ConfigTests(TestCase):
     def testSyncToken(self):
         config.load(self.testConfig)
 
+        self.assertEquals(
+            sorted(config._syncTokenKeys),
+            ['Notifications.Services.APNS.CalDAV.Topic',
+             'Notifications.Services.APNS.CardDAV.Topic',
+             'Notifications.Services.APNS.Enabled',
+             'ServerInfoToken']
+        )
+
         # no sync token keys specified; need to empty this array here because
         # stdconfig is registering keys automatically
         config._syncTokenKeys = []
@@ -744,4 +752,4 @@ class ConfigTests(TestCase):
 
         # reload automatically invalidates
         config.reload()
-        self.assertEquals("a1c46c5aff1899658dac033ee8520b07", config.syncToken())
+        self.assertEquals(config._cachedSyncToken, None)
