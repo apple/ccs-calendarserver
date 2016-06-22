@@ -935,7 +935,7 @@ DEFAULT_CONFIG = {
     #
     "Localization" : {
         "TranslationsDirectory" : "/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/share/translations",
-        "LocalesDirectory" : "/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/share/locales",
+        "LocalesDirectory" : "locales", # will be relative to DataRoot
         "Language" : "",
     },
 
@@ -1243,6 +1243,7 @@ RELATIVE_PATHS = [
     ("DataRoot", "DatabaseRoot"),
     ("DataRoot", "AttachmentsRoot"),
     ("DataRoot", ("TimezoneService", "BasePath",)),
+    ("DataRoot", ("Localization", "LocalesDirectory",)),
     ("ConfigRoot", ("Scheduling", "iSchedule", "DNSDebug",)),
     ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PrivateKeyFile",)),
     ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PublicKeyFile",)),
