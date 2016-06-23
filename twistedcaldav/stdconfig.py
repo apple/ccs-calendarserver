@@ -278,15 +278,15 @@ DEFAULT_CONFIG = {
     #
     # Data store
     #
-    "ServerRoot": "/var/db/caldavd",
-    "DataRoot": "Data",
-    "DatabaseRoot": "Database",
-    "AttachmentsRoot": "Attachments",
-    "DocumentRoot": "Documents",
-    "ConfigRoot": "Config",
-    "LogRoot": "/var/log/caldavd",
-    "RunRoot": "/var/run/caldavd",
-    "WebCalendarRoot": "/Applications/Server.app/Contents/ServerRoot/usr/share/collabd/webcal/public",
+    "ServerRoot": "/var/db/caldavd", # The top level directory, contains (by default) ConfigRoot and DataRoot
+    "DataRoot": "Data", # Data directory, parent to DatabaseRoot, AttachmentsRoot, and others
+    "DatabaseRoot": "Database", # Database directory, contains PostgreSQL cluster
+    "AttachmentsRoot": "Attachments", # Attachments directory, where file attachments are stored
+    "DocumentRoot": "Documents", # Documents directory, contains files to be served as HTTP resources at the root level
+    "ConfigRoot": "Config", # Config directory, contains additional config files
+    "LogRoot": "/var/log/caldavd", # Log directory, contains access.log, error.log and others
+    "RunRoot": "/var/run/caldavd", # Run-time directory, contains PID files and UNIX socket files
+    "WebCalendarRoot": "/Applications/Server.app/Contents/ServerRoot/usr/share/collabd/webcal/public", # WebCal directory, contains HTML implementing the web calendar
 
     #
     # Quotas
@@ -413,9 +413,9 @@ DEFAULT_CONFIG = {
     # Logging
     #
     "AccessLogFile"  : "access.log", # Apache-style access log
-    "ErrorLogFile"   : "error.log", # Server activity log
-    "AgentLogFile"   : "agent.log", # Agent activity log
-    "UtilityLogFile" : "utility.log", # Utility log - name will be dynamically changed to executable name
+    "ErrorLogFile"   : "error.log", # Server activity log (the verbosity is controlled by DefaultLogLevel and LogLevels keys)
+    "AgentLogFile"   : "agent.log", # Agent activity log (only applies to Server.app edition)
+    "UtilityLogFile" : "utility.log", # Utility log (used for command line utilities; the name will be dynamically changed to that of the utility being run)
     "ErrorLogEnabled"   : True, # True = use log file, False = stdout
     "ErrorLogRotateMB"  : 10, # Rotate error log after so many megabytes
     "ErrorLogMaxRotatedFiles"  : 5, # Retain this many error log files
@@ -424,9 +424,9 @@ DEFAULT_CONFIG = {
     "RotateAccessLog"   : False,
     "EnableExtendedAccessLog": True,
     "EnableExtendedTimingAccessLog": False,
-    "DefaultLogLevel"   : "",
-    "LogLevels"         : {},
-    "LogID"             : "",
+    "DefaultLogLevel"   : "", # Controls the verbosity of ErrorLogFile (valid values are error, warn, info, debug; default is info)
+    "LogLevels"         : {}, # Allows overriding log levels on a per-package, per-module, or even per-class basis
+    "LogID"             : "", # Used internally to track which worker process is logging a message
 
     "AccountingCategories": {
         "HTTP": False, # Log regular HTTP requests
@@ -440,7 +440,7 @@ DEFAULT_CONFIG = {
         "migration": False, # Log cross-pod migration details
     },
     "AccountingPrincipals": [],
-    "AccountingLogRoot"   : "accounting",
+    "AccountingLogRoot"   : "accounting", # The parent directory for accounting log directories (by default, relative to LogRoot)
 
     "Stats" : {
         "EnableUnixStatsSocket"  : False,
@@ -496,7 +496,7 @@ DEFAULT_CONFIG = {
         "ResidentOnly" : True,  # True: only take into account resident memory; False: include virtual memory
     },
 
-    "EnableSACLs": False, # Service ACLs
+    "EnableSACLs": False, # If enabled, will honor macOS Server ACLs to control access
 
     "EnableReadOnlyServer": False, # Make all data read-only
 

@@ -271,30 +271,40 @@
 
 	<!-- Data store -->
 
+	<!-- The top level directory, contains (by default) ConfigRoot and DataRoot -->
 	<key>ServerRoot</key>
 	<string>/var/db/caldavd</string>
 
+	<!-- Data directory, parent to DatabaseRoot, AttachmentsRoot, and others -->
 	<key>DataRoot</key>
 	<string>Data</string>
 
+	<!-- Database directory, contains PostgreSQL cluster -->
 	<key>DatabaseRoot</key>
 	<string>Database</string>
 
+	<!-- Attachments directory, where file attachments are stored -->
 	<key>AttachmentsRoot</key>
 	<string>Attachments</string>
 
+	<!-- Documents directory, contains files to be served as HTTP resources at the
+	     root level -->
 	<key>DocumentRoot</key>
 	<string>Documents</string>
 
+	<!-- Config directory, contains additional config files -->
 	<key>ConfigRoot</key>
 	<string>Config</string>
 
+	<!-- Log directory, contains access.log, error.log and others -->
 	<key>LogRoot</key>
 	<string>/var/log/caldavd</string>
 
+	<!-- Run-time directory, contains PID files and UNIX socket files -->
 	<key>RunRoot</key>
 	<string>/var/run/caldavd</string>
 
+	<!-- WebCal directory, contains HTML implementing the web calendar -->
 	<key>WebCalendarRoot</key>
 	<string>/Applications/Server.app/Contents/ServerRoot/usr/share/collabd/webcal/public</string>
 
@@ -559,15 +569,17 @@
 	<key>AccessLogFile</key>
 	<string>access.log</string>
 
-	<!-- Server activity log -->
+	<!-- Server activity log (the verbosity is controlled by DefaultLogLevel and
+	     LogLevels keys) -->
 	<key>ErrorLogFile</key>
 	<string>error.log</string>
 
-	<!-- Agent activity log -->
+	<!-- Agent activity log (only applies to Server.app edition) -->
 	<key>AgentLogFile</key>
 	<string>agent.log</string>
 
-	<!-- Utility log - name will be dynamically changed to executable name -->
+	<!-- Utility log (used for command line utilities; the name will be dynamically
+	     changed to that of the utility being run) -->
 	<key>UtilityLogFile</key>
 	<string>utility.log</string>
 
@@ -599,13 +611,18 @@
 	<key>EnableExtendedTimingAccessLog</key>
 	<false/>
 
+	<!-- Controls the verbosity of ErrorLogFile (valid values are error, warn,
+	     info, debug; default is info) -->
 	<key>DefaultLogLevel</key>
 	<string></string>
 
+	<!-- Allows overriding log levels on a per-package, per-module, or even per-
+	     class basis -->
 	<key>LogLevels</key>
 	<dict>
 	</dict>
 
+	<!-- Used internally to track which worker process is logging a message -->
 	<key>LogID</key>
 	<string></string>
 
@@ -652,6 +669,8 @@
 	<array>
 	</array>
 
+	<!-- The parent directory for accounting log directories (by default, relative
+	     to LogRoot) -->
 	<key>AccountingLogRoot</key>
 	<string>accounting</string>
 
@@ -770,7 +789,7 @@
 		<true/>
 	</dict>
 
-	<!-- Service ACLs -->
+	<!-- If enabled, will honor macOS Server ACLs to control access -->
 	<key>EnableSACLs</key>
 	<false/>
 
