@@ -801,6 +801,11 @@ DEFAULT_CONFIG = {
                 "MaxTemporaryFailures"                : 10,         # Max number of temp failure retries before treating as a permanent failure
             },
 
+            #
+            # This controls automatic splitting of large recurring events by the
+            # server. The ability for clients to split events using POST
+            # ?action=split is always enabled
+            #
             "Splitting": {
                 "Enabled"                         : False,          # False for now whilst we experiment with this
                 "Size"                            : 100 * 1024,     # Consider splitting when greater than 100KB

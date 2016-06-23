@@ -1555,6 +1555,10 @@
 				<integer>10</integer>
 			</dict>
 
+			<!-- This controls automatic splitting of large recurring events by the
+			     server. The ability for clients to split events using POST ?action=split
+			     is always enabled -->
+
 			<key>Splitting</key>
 			<dict>
 				<!-- False for now whilst we experiment with this -->
@@ -1824,8 +1828,9 @@
 		<key>TranslationsDirectory</key>
 		<string>/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/share/translations</string>
 
+		<!-- will be relative to DataRoot -->
 		<key>LocalesDirectory</key>
-		<string>/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/share/locales</string>
+		<string>locales</string>
 
 		<key>Language</key>
 		<string></string>
