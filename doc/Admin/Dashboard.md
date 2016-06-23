@@ -154,7 +154,7 @@ The `dashtime` tool can produce plots of `dashcollect` logged data, to show how 
 	dashtime.py --help
 	usage: dashtime.py [-h] -l L [-p P] [-s S] [--save] [--noshow] [--start START]
 	                   [--count COUNT]
-	                   [--mode {basic,basicjob,basicmethod,basicschedule,hostcompleted,hostcpu,hostrequests}]
+	                   [--mode {basic,basicjob,basicmethod,basicschedule,hostcompleted,hostcpu,hostrequests,scatter}]
 	                   [-v]
 	
 	Dashboard time series processor.
@@ -169,7 +169,7 @@ The `dashtime` tool can produce plots of `dashcollect` logged data, to show how 
 	  --start START         Log line to start from (default: 0)
 	  --count COUNT         Number of log lines to process from start (default:
 	                        -1)
-	  --mode {basic,basicjob,basicmethod,basicschedule,hostcompleted,hostcpu,hostrequests}
+	  --mode {basic,basicjob,basicmethod,basicschedule,hostcompleted,hostcpu,hostrequests,scatter}
 	                        Type of plot to produce (default: basic)
 	  -v                    Verbose (default: False)
 	
@@ -188,13 +188,15 @@ The `dashtime` tool can produce plots of `dashcollect` logged data, to show how 
 	    response time, PUT-ics, REPORT cal-home-sync, PROPFIND Calendar Home, REPORT
 	    cal-sync, and PROPFIND Calendar.
 	
-	hostrequests = stacked plots of per-host request counts, total request count,
+	hostrequests - stacked plots of per-host request counts, total request count,
 	    and total CPU.
 	
-	hostcpu = stacked plots of per-host CPU, total request count, and total CPU.
+	hostcpu - stacked plots of per-host CPU, total request count, and total CPU.
 	
-	hostcompleted = stacked plots of per-host completed jobs, total CPU, and job
+	hostcompleted - stacked plots of per-host completed jobs, total CPU, and job
 	    queue size.
+	
+	scatter - scatter plot of request count and response time vs CPU.
 
 * The `-l` option must be present and point to a `dashcollect` log file.
 * The `-p` option defines the pod to view data for (if not present the first pod - alphabetically sorted - is used).

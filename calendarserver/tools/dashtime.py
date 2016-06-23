@@ -629,11 +629,27 @@ class Calculator(object):
 
     def plot(self):
         # Generate a single stacked plot of the data
-        plotmax = len(self.y.keys())
-        plt.figure(figsize=(18.5, min(5 + len(self.y.keys()), 18)))
-        for plotnum, measurement in enumerate(self.y.keys()):
-            plt.subplot(len(self.y), 1, plotnum + 1)
-            plotSeries(self.titles[measurement], self.x, self.y[measurement], 0, self.ymaxes[measurement], plotnum == plotmax - 1)
+        if self.mode.startswith("scatter"):
+            plt.figure(figsize=(10, 10))
+            keys = self.y.keys()
+            x_key = CPUDataType.key
+            keys.remove(x_key)
+            plotmax = len(keys)
+            for plotnum, y_key in enumerate(keys):
+                plt.subplot(len(keys), 1, plotnum + 1)
+                plotScatter(
+                    self.titles[y_key],
+                    self.y[x_key], self.y[y_key],
+                    (0, self.ymaxes[x_key],),
+                    (0, self.ymaxes[y_key]),
+                    plotnum == plotmax - 1,
+                )
+        else:
+            plt.figure(figsize=(18.5, min(5 + len(self.y.keys()), 18)))
+            plotmax = len(self.y.keys())
+            for plotnum, measurement in enumerate(self.y.keys()):
+                plt.subplot(len(self.y), 1, plotnum + 1)
+                plotSeries(self.titles[measurement], self.x, self.y[measurement], 0, self.ymaxes[measurement], plotnum == plotmax - 1)
         if self.save:
             plt.savefig(".".join((os.path.expanduser(self.logname), self.mode, "png",)), orientation="landscape", format="png")
         if not self.noshow:
@@ -732,6 +748,16 @@ def main():
                     JobQueueDataType.key,
                 ),
             ),
+        "scatter":
+            # Scatter plots of request count and response time vs CPU
+            (
+                "combinedHosts",
+                (
+                    CPUDataType.key,
+                    RequestsDataType.key,
+                    ResponseDataType.key,
+                )
+            ),
     }
 
     parser = ArgumentParser(
@@ -752,13 +778,15 @@ basicmethod - stacked plots of total CPU, total request count, total average
     response time, PUT-ics, REPORT cal-home-sync, PROPFIND Calendar Home, REPORT
     cal-sync, and PROPFIND Calendar.
 
-hostrequests = stacked plots of per-host request counts, total request count,
+hostrequests - stacked plots of per-host request counts, total request count,
     and total CPU.
 
-hostcpu = stacked plots of per-host CPU, total request count, and total CPU.
+hostcpu - stacked plots of per-host CPU, total request count, and total CPU.
 
-hostcompleted = stacked plots of per-host completed jobs, total CPU, and job
+hostcompleted - stacked plots of per-host completed jobs, total CPU, and job
     queue size.
+
+scatter - scatter plot of request count and response time vs CPU.
 """,
     )
     parser.add_argument("-l", default=SUPPRESS, required=True, help="Log file to process")
@@ -805,6 +833,32 @@ def plotSeries(title, x, y, ymin=None, ymax=None, last_subplot=True):
     plt.xlim(min(x), max(x))
     plt.xticks(range(min(x), max(x) + 1, 60))
     plt.grid(True, "major", "x", alpha=0.5, linewidth=0.5)
+
+
+
+def plotScatter(title, x, y, xlim=None, ylim=None, last_subplot=True):
+    """
+    Plot the chosen dataset key for each scanned data file.
+
+    @param key: data set key to use
+    @type key: L{str}
+    @param xlim: minimum, maximum value for x-axis or L{None} for default
+    @type xlim: L{tuple} of two L{int} or L{float}
+    @param ylim: minimum, maximum value for y-axis or L{None} for default
+    @type ylim: L{tuple} of two L{int} or L{float}
+    """
+
+    # Remove any None values
+    x, y = zip(*filter(lambda x: x[0] is not None and x[1] is not None, zip(x, y)))
+
+    plt.scatter(x, y, marker=".")
+
+    plt.xlabel("CPU")
+    plt.ylabel(title, fontsize="small", verticalalignment="center", rotation="vertical")
+    if xlim is not None:
+        plt.xlim(*xlim)
+    if ylim is not None:
+        plt.ylim(*ylim)
 
 if __name__ == "__main__":
     main()
