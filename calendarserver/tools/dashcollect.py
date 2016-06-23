@@ -44,11 +44,12 @@ sample is shown below:
 }
 """
 
+from argparse import HelpFormatter, SUPPRESS, OPTIONAL, ZERO_OR_MORE, \
+    ArgumentParser
 from collections import OrderedDict
 from datetime import datetime, date
 from threading import Thread
 import SocketServer
-import argparse
 import errno
 import json
 import os
@@ -65,6 +66,27 @@ def _verbose(log):
 
 
 
+class MyHelpFormatter(HelpFormatter):
+    """
+    Help message formatter which adds default values to argument help and
+    retains formatting of all help text.
+    """
+
+    def _fill_text(self, text, width, indent):
+        return ''.join([indent + line for line in text.splitlines(True)])
+
+
+    def _get_help_string(self, action):
+        help = action.help
+        if '%(default)' not in action.help:
+            if action.default is not SUPPRESS:
+                defaulting_nargs = [OPTIONAL, ZERO_OR_MORE]
+                if action.option_strings or action.nargs in defaulting_nargs:
+                    help += ' (default: %(default)s)'
+        return help
+
+
+
 def main():
     try:
         # to produce a docstring target
@@ -72,14 +94,16 @@ def main():
     except NameError:
         # unlikely but possible...
         thisFile = sys.argv[0]
-    parser = argparse.ArgumentParser(
+    parser = ArgumentParser(
+        formatter_class=MyHelpFormatter,
         description="Dashboard service for CalendarServer.",
-        epilog="To view the docstring, run: pydoc {}".format(thisFile))
-    parser.add_argument("-f", help="Server config file (see docstring for details)")
-    parser.add_argument("-l", help="Log file directory")
-    parser.add_argument("-n", action="store_true", help="New log file")
-    parser.add_argument("-s", default="localhost:8200", help="Run the dash_thread service on the specified host:port")
-    parser.add_argument("-t", action="store_true", help="Rotate log files every hour [default: once per day]")
+        epilog="To view the docstring, run: pydoc {}".format(thisFile),
+    )
+    parser.add_argument("-f", default=SUPPRESS, required=True, help="Server config file (see docstring for details)")
+    parser.add_argument("-l", default=SUPPRESS, required=True, help="Log file directory")
+    parser.add_argument("-n", action="store_true", help="Create a new log file when starting, existing log file is deleted")
+    parser.add_argument("-s", default="localhost:8200", help="Make JSON data available on the specified host:port")
+    parser.add_argument("-t", action="store_true", help="Rotate log files every hour, otherwise once per day")
     parser.add_argument("-z", action="store_true", help="zlib compress json records in log files")
     parser.add_argument("-v", action="store_true", help="Verbose")
     args = parser.parse_args()

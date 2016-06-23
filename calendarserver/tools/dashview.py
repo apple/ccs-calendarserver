@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from argparse import HelpFormatter, SUPPRESS, OPTIONAL, ZERO_OR_MORE, \
+    ArgumentParser
 
 """
 A curses (or plain text) based dashboard for viewing various aspects of the
@@ -22,7 +24,6 @@ server as exposed by the L{DashboardProtocol} stats socket.
 
 from collections import OrderedDict
 from operator import itemgetter
-import argparse
 import collections
 import curses.panel
 import errno
@@ -41,8 +42,32 @@ LOG_FILENAME = "db.log"
 
 
 
+class MyHelpFormatter(HelpFormatter):
+    """
+    Help message formatter which adds default values to argument help and
+    retains formatting of all help text.
+    """
+
+    def _fill_text(self, text, width, indent):
+        return ''.join([indent + line for line in text.splitlines(True)])
+
+
+    def _get_help_string(self, action):
+        help = action.help
+        if '%(default)' not in action.help:
+            if action.default is not SUPPRESS:
+                defaulting_nargs = [OPTIONAL, ZERO_OR_MORE]
+                if action.option_strings or action.nargs in defaulting_nargs:
+                    help += ' (default: %(default)s)'
+        return help
+
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Dashboard collector viewer service for CalendarServer.")
+    parser = ArgumentParser(
+        formatter_class=MyHelpFormatter,
+        description="Dashboard collector viewer service for CalendarServer.",
+    )
     parser.add_argument("-s", default="localhost:8200", help="Dashboard collector service host:port")
     args = parser.parse_args()
 
@@ -509,17 +534,6 @@ class Aggregator(object):
 
     @staticmethod
     def aggregator_jobs(serversdata):
-#        results = OrderedDict()
-#        for server_data in serversdata:
-#            for job_name, job_details in server_data.items():
-#                if job_name not in results:
-#                    results[job_name] = OrderedDict()
-#                for detail_name, detail_value in job_details.items():
-#                    if detail_name in results[job_name]:
-#                        results[job_name][detail_name] += detail_value
-#                    else:
-#                        results[job_name][detail_name] = detail_value
-#        return results
         return serversdata[0]
 
 

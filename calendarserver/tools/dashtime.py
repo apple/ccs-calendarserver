@@ -18,10 +18,11 @@
 Tool that extracts time series data from a dashcollect log.
 """
 
+from argparse import SUPPRESS, OPTIONAL, ZERO_OR_MORE, HelpFormatter, \
+    ArgumentParser
 from bz2 import BZ2File
 from collections import OrderedDict, defaultdict
 from zlib import decompress
-import argparse
 import json
 import matplotlib.pyplot as plt
 import operator
@@ -37,6 +38,27 @@ def _verbose(log):
 
 def safeDivision(value, total, factor=1):
     return value * factor / total if total else 0
+
+
+
+class MyHelpFormatter(HelpFormatter):
+    """
+    Help message formatter which adds default values to argument help and
+    retains formatting of all help text.
+    """
+
+    def _fill_text(self, text, width, indent):
+        return ''.join([indent + line for line in text.splitlines(True)])
+
+
+    def _get_help_string(self, action):
+        help = action.help
+        if '%(default)' not in action.help:
+            if action.default is not SUPPRESS:
+                defaulting_nargs = [OPTIONAL, ZERO_OR_MORE]
+                if action.option_strings or action.nargs in defaulting_nargs:
+                    help += ' (default: %(default)s)'
+        return help
 
 
 
@@ -306,7 +328,9 @@ class JobsCompletedDataType(DataType):
         result = 0
         for onehost in hosts:
             completed = sum(map(operator.itemgetter(2), stats[onehost]["job_assignments"]["workers"]))
-            result += completed - JobsCompletedDataType.lastCompleted[onehost] if JobsCompletedDataType.lastCompleted[onehost] else 0
+            delta = completed - JobsCompletedDataType.lastCompleted[onehost] if JobsCompletedDataType.lastCompleted[onehost] else 0
+            if delta >= 0:
+                result += delta
             JobsCompletedDataType.lastCompleted[onehost] = completed
         return result
 
@@ -399,60 +423,63 @@ for dtype in DataType.__subclasses__():
 
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Dashboard time series processor.",
-        epilog="cpu - CPU use\nreqs - requests per second\nrespt - average response time",
-    )
-    parser.add_argument("-l", help="Log file to process")
-    parser.add_argument("-p", help="Name of pod to analyze")
-    parser.add_argument("-s", help="Name of server to analyze")
-    parser.add_argument("-v", action="store_true", help="Verbose")
-    args = parser.parse_args()
-    if args.v:
-        global verbose
-        verbose = True
+class Calculator(object):
 
-    # Get the log file
-    try:
-        if args.l.endswith(".bz2"):
-            logfile = BZ2File(os.path.expanduser(args.l))
-        else:
-            logfile = open(os.path.expanduser(args.l))
-    except:
-        print("Failed to open logfile {}".format(args.l))
+    def __init__(self, args):
+        if args.v:
+            global verbose
+            verbose = True
 
-    # Start/end lines in log file to process
-    line_start = 0
-    line_count = 10000
+        # Get the log file
+        self.logname = args.l
+        try:
+            if args.l.endswith(".bz2"):
+                self.logfile = BZ2File(os.path.expanduser(args.l))
+            else:
+                self.logfile = open(os.path.expanduser(args.l))
+        except:
+            print("Failed to open logfile {}".format(args.l))
 
-    # Plot arrays that will be generated
-    x = []
-    y = OrderedDict()
-    titles = {}
-    ymaxes = {}
+        self.pod = getattr(args, "p", None)
+        self.single_server = getattr(args, "s", None)
 
-    def singleHost(valuekeys):
+        self.save = args.save
+        self.noshow = args.noshow
+
+        self.mode = args.mode
+
+        # Start/end lines in log file to process
+        self.line_start = args.start
+        self.line_count = args.count
+
+        # Plot arrays that will be generated
+        self.x = []
+        self.y = OrderedDict()
+        self.titles = {}
+        self.ymaxes = {}
+
+
+    def singleHost(self, valuekeys):
         """
         Generate data for a single host only.
 
         @param valuekeys: L{DataType} keys to process
         @type valuekeys: L{list} or L{str}
         """
-        _plotHosts(valuekeys, (args.s,))
+        self._plotHosts(valuekeys, (self.single_server,))
 
 
-    def combinedHosts(valuekeys):
+    def combinedHosts(self, valuekeys):
         """
         Generate data for all hosts.
 
         @param valuekeys: L{DataType} keys to process
         @type valuekeys: L{list} or L{str}
         """
-        _plotHosts(valuekeys, None)
+        self._plotHosts(valuekeys, None)
 
 
-    def _plotHosts(valuekeys, hosts):
+    def _plotHosts(self, valuekeys, hosts):
         """
         Generate data for a the specified list of hosts.
 
@@ -463,13 +490,13 @@ def main():
         """
 
         # For each log file line, process the data for each required measurement
-        with logfile:
-            line = logfile.readline()
+        with self.logfile:
+            line = self.logfile.readline()
             ctr = 0
             while line:
-                if ctr < line_start:
+                if ctr < self.line_start:
                     ctr += 1
-                    line = logfile.readline()
+                    line = self.logfile.readline()
                     continue
 
                 if line[0] == "\x1e":
@@ -478,38 +505,40 @@ def main():
                     line = decompress(line.decode("base64"))
                 jline = json.loads(line)
 
-                x.append(ctr)
+                self.x.append(ctr)
                 ctr += 1
 
                 # Initialize the plot arrays when we know how many hosts there are
-                if len(y) == 0:
+                if len(self.y) == 0:
+                    if self.pod is None:
+                        self.pod = sorted(jline["pods"].keys())[0]
                     if hosts is None:
-                        hosts = sorted(jline["pods"][args.p].keys())
+                        hosts = sorted(jline["pods"][self.pod].keys())
                     for measurement in valuekeys:
-                        y[measurement] = []
-                        titles[measurement] = DataType.getTitle(measurement)
-                        ymaxes[measurement] = DataType.getMaxY(measurement, len(hosts))
+                        self.y[measurement] = []
+                        self.titles[measurement] = DataType.getTitle(measurement)
+                        self.ymaxes[measurement] = DataType.getMaxY(measurement, len(hosts))
 
 
                 for measurement in valuekeys:
-                    stats = jline["pods"][args.p]
+                    stats = jline["pods"][self.pod]
                     try:
-                        y[measurement].append(DataType.process(measurement, stats, hosts))
+                        self.y[measurement].append(DataType.process(measurement, stats, hosts))
                     except KeyError:
-                        y[measurement].append(None)
+                        self.y[measurement].append(None)
 
-                line = logfile.readline()
-                if ctr > line_start + line_count:
+                line = self.logfile.readline()
+                if self.line_count != -1 and ctr > self.line_start + self.line_count:
                     break
 
         # Offset data that is averaged over the previous minute
         for measurement in valuekeys:
             if DataType.skip(measurement):
-                y[measurement] = y[measurement][60:]
-                y[measurement].extend([None] * 60)
+                self.y[measurement] = self.y[measurement][60:]
+                self.y[measurement].extend([None] * 60)
 
 
-    def perHost(perhostkeys, combinedkeys):
+    def perHost(self, perhostkeys, combinedkeys):
         """
         Generate a set of per-host plots, together we a set of plots for all-
         host data.
@@ -521,13 +550,13 @@ def main():
         """
 
         # For each log file line, process the data for each required measurement
-        with logfile:
-            line = logfile.readline()
+        with self.logfile:
+            line = self.logfile.readline()
             ctr = 0
             while line:
-                if ctr < line_start:
+                if ctr < self.line_start:
                     ctr += 1
-                    line = logfile.readline()
+                    line = self.logfile.readline()
                     continue
 
                 if line[0] == "\x1e":
@@ -536,38 +565,40 @@ def main():
                     line = decompress(line.decode("base64"))
                 jline = json.loads(line)
 
-                x.append(ctr)
+                self.x.append(ctr)
                 ctr += 1
 
                 # Initialize the plot arrays when we know how many hosts there are
-                if len(y) == 0:
-                    hosts = sorted(jline["pods"][args.p].keys())
+                if len(self.y) == 0:
+                    if self.pod is None:
+                        self.pod = sorted(jline["pods"].keys())[0]
+                    hosts = sorted(jline["pods"][self.pod].keys())
 
                     for host in hosts:
                         for measurement in perhostkeys:
                             ykey = "{}={}".format(measurement, host)
-                            y[ykey] = []
-                            titles[ykey] = DataType.getTitle(measurement)
-                            ymaxes[ykey] = DataType.getMaxY(measurement, 1)
+                            self.y[ykey] = []
+                            self.titles[ykey] = DataType.getTitle(measurement)
+                            self.ymaxes[ykey] = DataType.getMaxY(measurement, 1)
 
                     for measurement in combinedkeys:
-                        y[measurement] = []
-                        titles[measurement] = DataType.getTitle(measurement)
-                        ymaxes[measurement] = DataType.getMaxY(measurement, len(hosts))
+                        self.y[measurement] = []
+                        self.titles[measurement] = DataType.getTitle(measurement)
+                        self.ymaxes[measurement] = DataType.getMaxY(measurement, len(hosts))
 
                 # Get actual measurement data
                 for host in hosts:
                     for measurement in perhostkeys:
                         ykey = "{}={}".format(measurement, host)
-                        stats = jline["pods"][args.p]
-                        y[ykey].append(DataType.process(measurement, stats, (host,)))
+                        stats = jline["pods"][self.pod]
+                        self.y[ykey].append(DataType.process(measurement, stats, (host,)))
 
                 for measurement in combinedkeys:
-                    stats = jline["pods"][args.p]
-                    y[measurement].append(DataType.process(measurement, stats, hosts))
+                    stats = jline["pods"][self.pod]
+                    self.y[measurement].append(DataType.process(measurement, stats, hosts))
 
-                line = logfile.readline()
-                if ctr > line_start + line_count:
+                line = self.logfile.readline()
+                if self.line_count != -1 and ctr > self.line_start + self.line_count:
                     break
 
         # Offset data that is averaged over the previous minute. Also determine
@@ -577,86 +608,173 @@ def main():
         for host in hosts:
             for measurement in perhostkeys:
                 ykey = "{}={}".format(measurement, host)
-                overall_ymax[measurement] = max(overall_ymax[measurement], max(y[ykey]))
+                overall_ymax[measurement] = max(overall_ymax[measurement], max(self.y[ykey]))
                 if DataType.skip(measurement):
-                    y[ykey] = y[ykey][60:]
-                    y[ykey].extend([None] * 60)
+                    self.y[ykey] = self.y[ykey][60:]
+                    self.y[ykey].extend([None] * 60)
         for host in hosts:
             for measurement in perhostkeys:
                 ykey = "{}={}".format(measurement, host)
-                ymaxes[ykey] = overall_ymax[measurement]
+                self.ymaxes[ykey] = overall_ymax[measurement]
 
         for measurement in combinedkeys:
             if DataType.skip(measurement):
-                y[measurement] = y[measurement][60:]
-                y[measurement].extend([None] * 60)
+                self.y[measurement] = self.y[measurement][60:]
+                self.y[measurement].extend([None] * 60)
 
 
-    # Data for a single host, with jobs queued detail for all hosts
-#    singleHost((
-#        CPUDataType.key,
-#        RequestsDataType.key,
-#        ResponseDataType.key,
-#        JobsCompletedDataType.key,
-#        JobQueueDataType.key + "-SCHEDULE",
-#        JobQueueDataType.key + "-PUSH",
-#        JobQueueDataType.key,
-#    ))
-
-    # Data aggregated for all hosts - job detail
-#    combinedHosts((
-#        CPUDataType.key,
-#        RequestsDataType.key,
-#        ResponseDataType.key,
-#        JobsCompletedDataType.key,
-#        JobQueueDataType.key + "-SCHEDULE",
-#        JobQueueDataType.key + "-PUSH",
-#        JobQueueDataType.key,
-#    ))
-
-    # Generic aggregated data for all hosts
-    combinedHosts((
-        CPUDataType.key,
-        RequestsDataType.key,
-        ResponseDataType.key,
-        JobsCompletedDataType.key,
-        JobQueueDataType.key,
-    ))
+    def run(self, mode, *args):
+        getattr(self, mode)(*args)
 
 
-    # Data aggregated for all hosts - method detail
-#    combinedHosts((
-#        CPUDataType.key,
-#        RequestsDataType.key,
-#        ResponseDataType.key,
-#        MethodCountDataType.key + "-PUT ics",
-#        MethodCountDataType.key + "-REPORT cal-home-sync",
-#        MethodCountDataType.key + "-PROPFIND Calendar Home",
-#        MethodCountDataType.key + "-REPORT cal-sync",
-#        MethodCountDataType.key + "-PROPFIND Calendar",
-#    ))
+    def plot(self):
+        # Generate a single stacked plot of the data
+        plotmax = len(self.y.keys())
+        plt.figure(figsize=(18.5, min(5 + len(self.y.keys()), 18)))
+        for plotnum, measurement in enumerate(self.y.keys()):
+            plt.subplot(len(self.y), 1, plotnum + 1)
+            plotSeries(self.titles[measurement], self.x, self.y[measurement], 0, self.ymaxes[measurement], plotnum == plotmax - 1)
+        if self.save:
+            plt.savefig(".".join((os.path.expanduser(self.logname), self.mode, "png",)), orientation="landscape", format="png")
+        if not self.noshow:
+            plt.show()
 
-    # Per-host CPU, and total CPU
-#    perHost((
-#        RequestsDataType.key,
-#    ), (
-#        CPUDataType.key,
-#    ))
 
-    # Per-host job completion, and total CPU, total jobs queued
-#    perHost((
-#        JobsCompletedDataType.key,
-#    ), (
-#        CPUDataType.key,
-#        JobQueueDataType.key,
-#    ))
 
-    # Generate a single stacked plot of the data
-    plotmax = len(y.keys())
-    for plotnum, measurement in enumerate(y.keys()):
-        plt.subplot(len(y), 1, plotnum + 1)
-        plotSeries(titles[measurement], x, y[measurement], 0, ymaxes[measurement], plotnum == plotmax - 1)
-    plt.show()
+def main():
+
+    selectMode = {
+        "basic":
+            # Generic aggregated data for all hosts
+            (
+                "combinedHosts",
+                (
+                    CPUDataType.key,
+                    RequestsDataType.key,
+                    ResponseDataType.key,
+                    JobsCompletedDataType.key,
+                    JobQueueDataType.key,
+                )
+            ),
+        "basicjob":
+            # Data aggregated for all hosts - job detail
+            (
+                "combinedHosts",
+                (
+                    CPUDataType.key,
+                    RequestsDataType.key,
+                    ResponseDataType.key,
+                    JobsCompletedDataType.key,
+                    JobQueueDataType.key + "-SCHEDULE",
+                    JobQueueDataType.key + "-PUSH",
+                    JobQueueDataType.key,
+                ),
+            ),
+        "basicschedule":
+            # Data aggregated for all hosts - job detail
+            (
+                "combinedHosts",
+                (
+                    CPUDataType.key,
+                    JobsCompletedDataType.key,
+                    JobQueueDataType.key + "-SCHEDULE_ORGANIZER_WORK",
+                    JobQueueDataType.key + "-SCHEDULE_ORGANIZER_SEND_WORK",
+                    JobQueueDataType.key + "-SCHEDULE_REPLY_WORK",
+                    JobQueueDataType.key + "-SCHEDULE_AUTO_REPLY_WORK",
+                    JobQueueDataType.key + "-SCHEDULE_REFRESH_WORK",
+                    JobQueueDataType.key + "-PUSH",
+                    JobQueueDataType.key,
+                ),
+            ),
+        "basicmethod":
+            # Data aggregated for all hosts - method detail
+            (
+                "combinedHosts",
+                (
+                    CPUDataType.key,
+                    RequestsDataType.key,
+                    ResponseDataType.key,
+                    MethodCountDataType.key + "-PUT ics",
+                    MethodCountDataType.key + "-REPORT cal-home-sync",
+                    MethodCountDataType.key + "-PROPFIND Calendar Home",
+                    MethodCountDataType.key + "-REPORT cal-sync",
+                    MethodCountDataType.key + "-PROPFIND Calendar",
+                ),
+            ),
+
+        "hostrequests":
+            # Per-host requests, and total requests & CPU
+            (
+                "perHost",
+                (RequestsDataType.key,),
+                (
+                    RequestsDataType.key,
+                    CPUDataType.key,
+                ),
+            ),
+        "hostcpu":
+            # Per-host CPU, and total CPU
+            (
+                "perHost",
+                (CPUDataType.key,),
+                (
+                    RequestsDataType.key,
+                    CPUDataType.key,
+                ),
+            ),
+        "hostcompleted":
+            # Per-host job completion, and total CPU, total jobs queued
+            (
+                "perHost",
+                (JobsCompletedDataType.key,),
+                (
+                    CPUDataType.key,
+                    JobQueueDataType.key,
+                ),
+            ),
+    }
+
+    parser = ArgumentParser(
+        formatter_class=MyHelpFormatter,
+        description="Dashboard time series processor.",
+        epilog="""Available modes:
+
+basic - stacked plots of total CPU, total request count, total average response
+    time, completed jobs, and job queue size.
+
+basicjob - as per basic but with queued SCHEDULE_*_WORK and queued
+    PUSH_NOTIFICATION_WORK plots.
+
+basicschedule - stacked plots of total CPU, completed jobs, each queued
+    SCHEDULE_*_WORK, queued, PUSH_NOTIFICATION_WORK, and overall job queue size.
+
+basicmethod - stacked plots of total CPU, total request count, total average
+    response time, PUT-ics, REPORT cal-home-sync, PROPFIND Calendar Home, REPORT
+    cal-sync, and PROPFIND Calendar.
+
+hostrequests = stacked plots of per-host request counts, total request count,
+    and total CPU.
+
+hostcpu = stacked plots of per-host CPU, total request count, and total CPU.
+
+hostcompleted = stacked plots of per-host completed jobs, total CPU, and job
+    queue size.
+""",
+    )
+    parser.add_argument("-l", default=SUPPRESS, required=True, help="Log file to process")
+    parser.add_argument("-p", default=SUPPRESS, help="Name of pod to analyze")
+    parser.add_argument("-s", default=SUPPRESS, help="Name of server to analyze")
+    parser.add_argument("--save", action="store_true", help="Save plot PNG image")
+    parser.add_argument("--noshow", action="store_true", help="Don't show the plot on screen")
+    parser.add_argument("--start", type=int, default=0, help="Log line to start from")
+    parser.add_argument("--count", type=int, default=-1, help="Number of log lines to process from start")
+    parser.add_argument("--mode", default="basic", choices=sorted(selectMode.keys()), help="Type of plot to produce")
+    parser.add_argument("-v", action="store_true", help="Verbose")
+    args = parser.parse_args()
+
+    calculator = Calculator(args)
+    calculator.run(*selectMode[args.mode])
+    calculator.plot()
 
 
 
@@ -684,9 +802,9 @@ def plotSeries(title, x, y, ymin=None, ymax=None, last_subplot=True):
         plt.ylim(ymin=ymin)
     if ymax is not None:
         plt.ylim(ymax=ymax)
-    plt.minorticks_on()
+    plt.xlim(min(x), max(x))
+    plt.xticks(range(min(x), max(x) + 1, 60))
     plt.grid(True, "major", "x", alpha=0.5, linewidth=0.5)
-    plt.grid(True, "minor", "x", alpha=0.5, linewidth=0.5)
 
 if __name__ == "__main__":
     main()
