@@ -205,4 +205,9 @@ The `dashtime` tool can produce plots of `dashcollect` logged data, to show how 
 * The `--count` option specifies the maximum number of lines to read from the start (default is all lines after the start).
 * The `--mode` option determines the type of data produced in the plots. Each mode is described in the help text above.
 
-Note that the time scale on the plots is typically one second, as that is the polling period used by `dashcollect`. The HTTP-related data comes from one minute averages, so will look "blocky" compared to the once per-second values of the other stats. The one minute average data is shifted lower by 60 seconds to better match it to the time over which the data was actually collected. 
+Note that the time scale on the plots is typically one second, as that is the polling period used by `dashcollect`. The HTTP-related data comes from one minute averages, so will look "blocky" compared to the once per-second values of the other stats. The one minute average data is shifted lower by 60 seconds to better match it to the time over which the data was actually collected.
+
+Example of a "basic" mode image:
+
+![Image](image/dashboard.png)
+
