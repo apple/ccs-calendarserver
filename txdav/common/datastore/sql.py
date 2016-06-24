@@ -3763,7 +3763,11 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
                         summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
                         print("Recovering \"{}\"".format(summary.encode("utf-8")))
 
-                    yield child.fromTrash()
+                    try:
+                        yield child.fromTrash()
+                    except Exception as e:
+                        # Don't let one failed child stop the others, but alert the user
+                        print("Failed to restore \"{}\" due to {}".format(child.name(), str(e)))
 
 
     def isInTrash(self):

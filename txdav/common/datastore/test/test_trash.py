@@ -25,6 +25,7 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav.ical import Component
 from twistedcaldav.test.util import StoreTestCase
+from txdav.caldav.datastore.sql import CalendarObject
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
 
 
@@ -1810,6 +1811,130 @@ END:VCALENDAR
         self.assertFalse(trashedName in names)
         resourceNames = yield self._getResourceNames(txn, "user01", trashedName)
         self.assertEqual(len(resourceNames), 1)
+
+        yield txn.commit()
+
+    @inlineCallbacks
+    def test_trashCalendarRestoreWithFailures(self):
+
+        from twistedcaldav.stdconfig import config
+        self.patch(config, "EnableTrashCollection", True)
+
+        txn = self.store.newTransaction()
+
+        collection = yield self._collectionForUser(txn, "user01", "test", create=True)
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:{uid}
+DTSTART;TZID=America/Los_Angeles:20141108T093000
+DTEND;TZID=America/Los_Angeles:20141108T103000
+CREATED:20141106T192546Z
+DTSTAMP:20141106T192546Z
+RRULE:FREQ=DAILY
+SEQUENCE:0
+SUMMARY:repeating event
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:{uid}
+RECURRENCE-ID;TZID=America/Los_Angeles:20141111T093000
+DTSTART;TZID=America/Los_Angeles:20141111T110000
+DTEND;TZID=America/Los_Angeles:20141111T120000
+CREATED:20141106T192546Z
+DTSTAMP:20141106T192546Z
+SEQUENCE:0
+SUMMARY:repeating event
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+"""
+
+        # Create objects
+        yield collection.createObjectResourceWithName(
+            "test1.ics",
+            Component.allFromString(data1.format(uid="1CE3B280-DBC9-4E8E-B0B2-996754020E5F"))
+        )
+        yield collection.createObjectResourceWithName(
+            "test2.ics",
+            Component.allFromString(data1.format(uid="2CE3B280-DBC9-4E8E-B0B2-996754020E5F"))
+        )
+
+        # Two objects in collection
+        objects = yield collection.listObjectResources()
+        self.assertEquals(len(objects), 2)
+
+        # No objects in trash
+        home1 = yield self._homeForUser(txn, "user01")
+        trash1 = yield home1.getTrash(create=True)
+        trash = yield self._collectionForUser(txn, "user01", trash1.name())
+        objects = yield trash.listObjectResources()
+        self.assertEquals(len(objects), 0)
+
+        # # Verify it's not in the trash
+        # for resource in (resource1, resource2):
+        #     self.assertFalse(resource.isInTrash())
+        #     trashed = resource.whenTrashed()
+        #     self.assertTrue(trashed is None)
+
+        # collection = yield self._collectionForUser(txn, "user01", "test")
+        # resources = yield trash.trashForCollection(collection._resourceID)
+        # self.assertEquals(len(resources), 0)
+
+        yield txn.commit()
+
+        txn = self.store.newTransaction()
+        collection = yield self._collectionForUser(txn, "user01", "test")
+        yield collection.remove()
+        yield txn.commit()
+
+        txn = self.store.newTransaction()
+        # Two objects in trash
+        trash = yield self._collectionForUser(txn, "user01", trash1.name())
+        objects = yield trash.listObjectResources()
+        self.assertEquals(len(objects), 2)
+
+
+        resources = yield trash.trashForCollection(collection._resourceID)
+        self.assertEquals(len(resources), 2)
+
+        home = yield self._homeForUser(txn, "user01")
+        names = yield home.listChildren(onlyInTrash=True)
+        trashedName = names[0]
+        collection = yield self._collectionForUser(txn, "user01", trashedName, onlyInTrash=True)
+
+        # Patch CalendarObject.fromTrash to raise an exception for one specific resource
+        originalFromTrash = CalendarObject.fromTrash
+        def fakeFromTrash(self):
+            if self._uid == "2CE3B280-DBC9-4E8E-B0B2-996754020E5F":
+                raise 1 / 0
+            else:
+                return originalFromTrash(self)
+        self.patch(CalendarObject, "fromTrash", fakeFromTrash)
+
+        yield collection.fromTrash()
+
+        yield txn.commit()
+
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        # Now when we restore from trash, since one event failed to restore, we
+        # should still have gotten the other back
+        txn = self.store.newTransaction()
+        home = yield self._homeForUser(txn, "user01")
+        names = yield home.listChildren()
+        self.assertTrue(trashedName in names)
+        names = yield home.listChildren(onlyInTrash=True)
+        self.assertFalse(trashedName in names)
+        resourceNames = yield self._getResourceNames(txn, "user01", trashedName)
+        self.assertEqual(len(resourceNames), 1)
+
+        # Failed event still in the trash
+        trash = yield self._collectionForUser(txn, "user01", trash1.name())
+        objects = yield trash.listObjectResources()
+        self.assertEquals(len(objects), 1)
 
         yield txn.commit()
 
