@@ -27,6 +27,7 @@ import json
 import matplotlib.pyplot as plt
 import operator
 import os
+import sys
 
 
 verbose = False
@@ -431,19 +432,21 @@ class Calculator(object):
             verbose = True
 
         # Get the log file
-        self.logname = args.l
+        self.logname = os.path.expanduser(args.l)
         try:
-            if args.l.endswith(".bz2"):
-                self.logfile = BZ2File(os.path.expanduser(args.l))
+            if self.logname.endswith(".bz2"):
+                self.logfile = BZ2File(self.logname)
             else:
-                self.logfile = open(os.path.expanduser(args.l))
+                self.logfile = open(self.logname)
         except:
             print("Failed to open logfile {}".format(args.l))
+            sys.exit(1)
 
         self.pod = getattr(args, "p", None)
         self.single_server = getattr(args, "s", None)
 
         self.save = args.save
+        self.savedir = getattr(args, "i", None)
         self.noshow = args.noshow
 
         self.mode = args.mode
@@ -505,7 +508,8 @@ class Calculator(object):
                     line = decompress(line.decode("base64"))
                 jline = json.loads(line)
 
-                self.x.append(ctr)
+                timestamp = jline["timestamp"]
+                self.x.append(int(timestamp[14:16]) * 60 + int(timestamp[17:19]))
                 ctr += 1
 
                 # Initialize the plot arrays when we know how many hosts there are
@@ -565,7 +569,8 @@ class Calculator(object):
                     line = decompress(line.decode("base64"))
                 jline = json.loads(line)
 
-                self.x.append(ctr)
+                timestamp = jline["timestamp"]
+                self.x.append(int(timestamp[14:16]) * 60 + int(timestamp[17:19]))
                 ctr += 1
 
                 # Initialize the plot arrays when we know how many hosts there are
@@ -651,7 +656,14 @@ class Calculator(object):
                 plt.subplot(len(self.y), 1, plotnum + 1)
                 plotSeries(self.titles[measurement], self.x, self.y[measurement], 0, self.ymaxes[measurement], plotnum == plotmax - 1)
         if self.save:
-            plt.savefig(".".join((os.path.expanduser(self.logname), self.mode, "png",)), orientation="landscape", format="png")
+            if self.savedir:
+                dirpath = self.savedir
+                if not os.path.exists(dirpath):
+                    os.makedirs(dirpath)
+            else:
+                dirpath = os.path.dirname(self.logname)
+            fname = ".".join((os.path.basename(self.logname), self.mode, "png"),)
+            plt.savefig(os.path.join(dirpath, fname), orientation="landscape", format="png")
         if not self.noshow:
             plt.show()
 
@@ -790,6 +802,7 @@ scatter - scatter plot of request count and response time vs CPU.
 """,
     )
     parser.add_argument("-l", default=SUPPRESS, required=True, help="Log file to process")
+    parser.add_argument("-i", default=SUPPRESS, help="Directory to store image (default: log file directory)")
     parser.add_argument("-p", default=SUPPRESS, help="Name of pod to analyze")
     parser.add_argument("-s", default=SUPPRESS, help="Name of server to analyze")
     parser.add_argument("--save", action="store_true", help="Save plot PNG image")
@@ -820,19 +833,23 @@ def plotSeries(title, x, y, ymin=None, ymax=None, last_subplot=True):
 
     plt.plot(x, y)
 
-    if last_subplot:
-        plt.xlabel("Time")
-    else:
-        frame = plt.gca()
-        frame.axes.xaxis.set_ticklabels([])
-    plt.ylabel(title, fontsize="small", horizontalalignment="right", rotation="horizontal")
+
     if ymin is not None:
         plt.ylim(ymin=ymin)
     if ymax is not None:
         plt.ylim(ymax=ymax)
-    plt.xlim(min(x), max(x))
-    plt.xticks(range(min(x), max(x) + 1, 60))
-    plt.grid(True, "major", "x", alpha=0.5, linewidth=0.5)
+    plt.xlim(0, 3600)
+
+    frame = plt.gca()
+    if last_subplot:
+        plt.xlabel("Time (minutes)")
+    plt.ylabel(title, fontsize="small", horizontalalignment="right", rotation="horizontal")
+
+    # Setup axes - want 0 - 60 minute scale for x-axis
+    plt.tick_params(labelsize="small")
+    plt.xticks(range(0, 3601, 300), range(0, 61, 5) if last_subplot else [])
+    frame.set_xticks(range(0, 3601, 60), minor=True)
+    plt.grid(True, "minor", "x", alpha=0.5, linewidth=0.5)
 
 
 

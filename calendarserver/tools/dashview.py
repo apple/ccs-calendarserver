@@ -143,6 +143,9 @@ class Dashboard(object):
     updates.
     """
 
+    MODE_SERVER = 1
+    MODE_LOGREPLAY = 2
+
     screen = None
     registered_windows = OrderedDict()
     registered_window_sets = {
@@ -163,8 +166,10 @@ class Dashboard(object):
 
         if server:
             self.client = DashboardClient(self, server)
+            self.mode = self.MODE_SERVER
         else:
             self.client = DashboardLogfile(self, logfile)
+            self.mode = self.MODE_LOGREPLAY
         self.client_error = False
 
 
@@ -363,6 +368,12 @@ class Dashboard(object):
                 self.selected_server.x = len(self.serversForPod(self.pods()[self.selected_server.y])) - 1
             self.resetWindows()
 
+        elif c == "1" and self.mode == self.MODE_LOGREPLAY:
+            self.client.skipLines(60)
+
+        elif c == "5" and self.mode == self.MODE_LOGREPLAY:
+            self.client.skipLines(300)
+
 
     def dataForItem(self, item):
         return self.client.getOneItem(
@@ -559,6 +570,14 @@ class DashboardLogfile(BaseDashboardClient):
             data = {}
             logging.debug("readData: failed: {}".format(e))
         return data
+
+
+    def skipLines(self, count):
+        try:
+            for _ignore in range(count):
+                self.logfile.readline()
+        except ValueError as e:
+            logging.debug("skipLines: failed: {}".format(e))
 
 
 
@@ -943,10 +962,28 @@ class HelpWindow(BaseWindow):
         "",
         " q - Quit",
     )
+    helpItemsReplay = (
+        " a - All Panels",
+        " n - No Panels",
+        "",
+        "   - (space) Pause",
+        " 1 - ahead one minute",
+        " 5 - ahead five minutes",
+        " t - Toggle Update Speed",
+        " x - Toggle Aggregate Mode",
+        "",
+        " q - Quit",
+    )
 
     windowTitle = "Help"
     formatWidth = 28
     additionalRows = 3
+
+    def __init__(self, dashboard):
+        super(HelpWindow, self).__init__(dashboard)
+        if self.dashboard.mode == self.dashboard.MODE_LOGREPLAY:
+            self.helpItems = self.helpItemsReplay
+
 
     def makeWindow(self, top=0, left=0):
         term_w, _ignore_term_h = terminal_size()

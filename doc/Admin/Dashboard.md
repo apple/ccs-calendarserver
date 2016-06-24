@@ -141,6 +141,8 @@ The visibility of each panel can be controlled via a "hotkey". In addition there
 * `a` display all panels
 * `n` display no panels
 * ` ` (space) toggle pause
+* `1` skip ahead 1 minute (only when replaying a log file)
+* `5` skip ahead 5 minutes (only when replaying a log file)
 * `t` toggle Update Speed between 0.1 secs and 1 sec.
 * `x` toggle Aggregate Mode
 * `q` Quit
@@ -157,8 +159,8 @@ The `dashtime` tool can produce plots of `dashcollect` logged data, to show how 
 #### Help
 
 	dashtime.py --help
-	usage: dashtime.py [-h] -l L [-p P] [-s S] [--save] [--noshow] [--start START]
-	                   [--count COUNT]
+	usage: dashtime.py [-h] -l L [-i I] [-p P] [-s S] [--save] [--noshow]
+	                   [--start START] [--count COUNT]
 	                   [--mode {basic,basicjob,basicmethod,basicschedule,hostcompleted,hostcpu,hostrequests,scatter}]
 	                   [-v]
 	
@@ -167,6 +169,7 @@ The `dashtime` tool can produce plots of `dashcollect` logged data, to show how 
 	optional arguments:
 	  -h, --help            show this help message and exit
 	  -l L                  Log file to process
+	  -i I                  Directory to store image (default: log file directory)
 	  -p P                  Name of pod to analyze
 	  -s S                  Name of server to analyze
 	  --save                Save plot PNG image (default: False)
@@ -204,6 +207,7 @@ The `dashtime` tool can produce plots of `dashcollect` logged data, to show how 
 	scatter - scatter plot of request count and response time vs CPU.
 
 * The `-l` option must be present and point to a `dashcollect` log file.
+* The `-i` option defines the directory in which any images will be saved (if not present the directory of the log file is used).
 * The `-p` option defines the pod to view data for (if not present the first pod - alphabetically sorted - is used).
 * The `-s` option defines a specific server to view data for (there are currently no modes that use this).
 * The `--save` option, when present, will cause a PNG image of the plots to be saved to disk. The image file has the same name as the log file, but with the mode name and a `.png` suffix appended, and it will be created in the same directory as the log file.
