@@ -104,19 +104,24 @@ The config file (specified via `-f`) is used to define the set of CalendarServer
 
 ### `dashview` tool
 
-The `dashview` tool is a command line tool that periodically reads from a `dashcollect` socket and displays the data in a curses-based terminal using different table views for each class of data. The user can control which tables are visible at any time. The tool can show the data for any host in a multi-pod/multi-host CalendarServer service, and in addition can show the aggregated data for all hosts in a pod. This tool typically requires a large terminal window for viewing, and the terminal will need good curses support. This tool replaces the older `dashboard` tool which read stats directly from the CalendarServer hosts and is now considered deprecated since having multiple users using it causes service performance issues.
+The `dashview` tool is a command line tool that periodically reads from a `dashcollect` socket and displays the data in a curses-based terminal using different table views for each class of data. Alternatively, the tool can read and display data from a `dashcollect` log file so that data captured earlier can be replayed. The user can control which tables are visible at any time. The tool can show the data for any host in a multi-pod/multi-host CalendarServer service, and in addition can show the aggregated data for all hosts in a pod. This tool typically requires a large terminal window for viewing, and the terminal will need good curses support. This tool replaces the older `dashboard` tool which read stats directly from the CalendarServer hosts and is now considered deprecated since having multiple users using it causes service performance issues.
 
 #### Help
 
-	usage: dashview.py [-h] [-s S]
+	dashview.py --help
+	usage: dashview.py [-h] [-s S | -l L]
 	
 	Dashboard collector viewer service for CalendarServer.
 	
 	optional arguments:
 	  -h, --help  show this help message and exit
 	  -s S        Dashboard collector service host:port (default: localhost:8200)
+	  -l L        Dashboard collector log file to replay data from
+	
+	One of -s or -l should be specified
 
 * The `-s` option specifies the `dashcollect` service host and port where JSON data can be read from.
+* The `-l` option specifies the `dashcollect` log file to read previously captured data from. 
 
 #### Panels
 

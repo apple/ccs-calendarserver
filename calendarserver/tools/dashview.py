@@ -14,22 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from argparse import HelpFormatter, SUPPRESS, OPTIONAL, ZERO_OR_MORE, \
-    ArgumentParser
 
 """
 A curses (or plain text) based dashboard for viewing various aspects of the
 server as exposed by the L{DashboardProtocol} stats socket.
 """
 
-from collections import OrderedDict
+from argparse import HelpFormatter, SUPPRESS, OPTIONAL, ZERO_OR_MORE, \
+    ArgumentParser
+from collections import OrderedDict, defaultdict
 from operator import itemgetter
-import collections
+from zlib import decompress
 import curses.panel
 import errno
 import fcntl
 import json
 import logging
+import os
 import sched
 import socket
 import struct
@@ -67,21 +68,29 @@ def main():
     parser = ArgumentParser(
         formatter_class=MyHelpFormatter,
         description="Dashboard collector viewer service for CalendarServer.",
+        epilog="One of -s or -l should be specified",
     )
-    parser.add_argument("-s", default="localhost:8200", help="Dashboard collector service host:port")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-s", default="localhost:8200", help="Dashboard collector service host:port")
+    group.add_argument("-l", default=SUPPRESS, help="Dashboard collector log file to replay data from")
     args = parser.parse_args()
 
     #
     # Get configuration
     #
-    server = args.s
-    if not server.startswith("unix:"):
-        server = server.split(":")
-        if len(server) == 1:
-            server.append(8100)
-        else:
-            server[1] = int(server[1])
-        server = tuple(server)
+    if hasattr(args, "l"):
+        server = None
+        logfile = open(os.path.expanduser(args.l))
+    else:
+        server = args.s
+        if not server.startswith("unix:"):
+            server = server.split(":")
+            if len(server) == 1:
+                server.append(8100)
+            else:
+                server[1] = int(server[1])
+            server = tuple(server)
+        logfile = None
 
 
     def _wrapped(stdscrn):
@@ -91,13 +100,18 @@ def main():
             curses.init_pair(1, curses.COLOR_RED, curses.COLOR_WHITE)
         except:
             pass
-        d = Dashboard(server, stdscrn)
+        d = Dashboard(server, logfile, stdscrn)
         d.run()
     curses.wrapper(_wrapped)
 
 #    client = DashboardClient(self, server)
 #    client.getOneItem("podA", "localhost:8100", "jobcount")
 #    print(json.dumps(client.currentData["pods"]["podA"]["aggregate"], indent=1))
+
+#    dashboard = Dashboard(server, logfile, None)
+#    client = DashboardLogfile(dashboard, logfile)
+#    client.getOneItem("podA", "localhost:8100", "jobcount")
+#    print(json.dumps(client.currentData["pods"]["podA"]["cal-prod-01.pixar.com:8100"], indent=1))
 
 
 
@@ -130,14 +144,14 @@ class Dashboard(object):
     """
 
     screen = None
-    registered_windows = collections.OrderedDict()
+    registered_windows = OrderedDict()
     registered_window_sets = {
         "D": ("Directory Panels", [],),
         "H": ("HTTP Panels", [],),
         "J": ("Jobs Panels", [],),
     }
 
-    def __init__(self, server, screen):
+    def __init__(self, server, logfile, screen):
         self.screen = screen
         self.paused = False
         self.seconds = 1.0
@@ -147,7 +161,10 @@ class Dashboard(object):
         self.selected_server = Point()
         self.server_window = None
 
-        self.client = DashboardClient(self, server)
+        if server:
+            self.client = DashboardClient(self, server)
+        else:
+            self.client = DashboardLogfile(self, logfile)
         self.client_error = False
 
 
@@ -266,7 +283,8 @@ class Dashboard(object):
         """
         Periodic update of the current window and check for a key press.
         """
-        self.client.update()
+        if not self.paused:
+            self.client.update()
         client_error = len(self.client.currentData) == 0
         if client_error ^ self.client_error:
             self.client_error = client_error
@@ -354,8 +372,12 @@ class Dashboard(object):
         )
 
 
+    def timestamp(self):
+        return self.client.currentData["timestamp"]
+
+
     def pods(self):
-        return self.client.currentData.get("pods", {}).keys()
+        return sorted(self.client.currentData.get("pods", {}).keys())
 
 
     def selectedPod(self):
@@ -363,7 +385,7 @@ class Dashboard(object):
 
 
     def serversForPod(self, pod):
-        return self.client.currentData.get("pods", {pod: {}})[pod].keys()
+        return sorted(self.client.currentData.get("pods", {pod: {}})[pod].keys())
 
 
     def selectedServer(self):
@@ -371,58 +393,21 @@ class Dashboard(object):
 
 
 
-class DashboardClient(object):
+class BaseDashboardClient(object):
     """
-    Client that connects to a server and fetches information.
+    Base class for clients that get dashboard data.
     """
 
-    def __init__(self, dashboard, sockname):
+    def __init__(self, dashboard):
         self.dashboard = dashboard
-        self.socket = None
-        if isinstance(sockname, str):
-            self.sockname = sockname[5:]
-            self.useTCP = False
-        else:
-            self.sockname = sockname
-            self.useTCP = True
         self.currentData = {}
 
 
-    def readSock(self):
+    def readData(self):
         """
-        Open a socket, send the specified request, and retrieve the response. The socket closes.
+        Get the data
         """
-        try:
-            self.socket = socket.socket(socket.AF_INET if self.useTCP else socket.AF_UNIX, socket.SOCK_STREAM)
-            self.socket.connect(self.sockname)
-            self.socket.setblocking(0)
-            data = ""
-            t = time.time()
-            while not data.endswith("\n"):
-                try:
-                    d = self.socket.recv(1024)
-                except socket.error as se:
-                    if se.args[0] != errno.EWOULDBLOCK:
-                        raise
-                    if time.time() - t > 5:
-                        raise socket.error
-                    continue
-                if d:
-                    data += d
-                else:
-                    break
-            data = json.loads(data, object_pairs_hook=collections.OrderedDict)
-            logging.debug("data: {}".format(len(data)))
-            self.socket.close()
-            self.socket = None
-        except socket.error as e:
-            data = {}
-            self.socket = None
-            logging.debug("readSock: failed: {}".format(e))
-        except ValueError as e:
-            data = {}
-            logging.debug("readSock: failed: {}".format(e))
-        return data
+        raise NotImplementedError
 
 
     def update(self):
@@ -431,7 +416,7 @@ class DashboardClient(object):
         """
 
         # Only read each item once
-        self.currentData = self.readSock()
+        self.currentData = self.readData()
         if self.dashboard.aggregate:
             self.aggregateData()
 
@@ -447,7 +432,7 @@ class DashboardClient(object):
         # it would be too expensive to run the DB query for all servers. So when we
         # need the jobs data, always substitute the first server's data
         if item in ("jobs", "jobcount"):
-            server = self.currentData["pods"][pod].keys()[0]
+            server = sorted(self.currentData["pods"][pod].keys())[0]
 
         return self.currentData["pods"][pod][server].get(item)
 
@@ -476,7 +461,7 @@ class DashboardClient(object):
         results = OrderedDict()
 
         # Get all items available in all servers first
-        items = collections.defaultdict(list)
+        items = defaultdict(list)
         for server in data.keys():
             for item in data[server].keys():
                 items[item].append(data[server][item])
@@ -492,6 +477,88 @@ class DashboardClient(object):
                 results[item] = getattr(Aggregator, method_name)(allHostData)
 
         return results
+
+
+
+class DashboardClient(BaseDashboardClient):
+    """
+    Client that connects to a server and fetches information.
+    """
+
+    def __init__(self, dashboard, sockname):
+        super(DashboardClient, self).__init__(dashboard)
+        self.socket = None
+        if isinstance(sockname, str):
+            self.sockname = sockname[5:]
+            self.useTCP = False
+        else:
+            self.sockname = sockname
+            self.useTCP = True
+
+
+    def readData(self):
+        """
+        Open a socket, send the specified request, and retrieve the response. The socket closes.
+        """
+        try:
+            self.socket = socket.socket(socket.AF_INET if self.useTCP else socket.AF_UNIX, socket.SOCK_STREAM)
+            self.socket.connect(self.sockname)
+            self.socket.setblocking(0)
+            data = ""
+            t = time.time()
+            while not data.endswith("\n"):
+                try:
+                    d = self.socket.recv(1024)
+                except socket.error as se:
+                    if se.args[0] != errno.EWOULDBLOCK:
+                        raise
+                    if time.time() - t > 5:
+                        raise socket.error
+                    continue
+                if d:
+                    data += d
+                else:
+                    break
+            data = json.loads(data, object_pairs_hook=OrderedDict)
+            logging.debug("data: {}".format(len(data)))
+            self.socket.close()
+            self.socket = None
+        except socket.error as e:
+            data = {}
+            self.socket = None
+            logging.debug("readData: failed: {}".format(e))
+        except ValueError as e:
+            data = {}
+            logging.debug("readData: failed: {}".format(e))
+        return data
+
+
+
+class DashboardLogfile(BaseDashboardClient):
+    """
+    Client that gets data from a log file.
+    """
+
+    def __init__(self, dashboard, logfile):
+        super(DashboardLogfile, self).__init__(dashboard)
+        self.logfile = logfile
+
+
+    def readData(self):
+        """
+        Read one line of data from the logile
+        """
+        try:
+            line = self.logfile.readline()
+            if line[0] == "\x1e":
+                line = line[1:]
+            if line[0] != "{":
+                line = decompress(line.decode("base64"))
+            data = json.loads(line)
+        except ValueError as e:
+            data = {}
+            logging.debug("readData: failed: {}".format(e))
+        return data
 
 
 
@@ -924,11 +991,11 @@ class SystemWindow(BaseWindow):
     clientItem = "stats_system"
 
     windowTitle = "System"
-    formatWidth = 52
+    formatWidth = 54
     additionalRows = 3
 
     def updateRowCount(self):
-        self.rowCount = len(defaultIfNone(self.clientData(), (1, 2, 3, 4,)))
+        self.rowCount = len(defaultIfNone(self.clientData(), (1, 2, 3, 4,))) + 1
 
 
     def update(self):
@@ -938,12 +1005,14 @@ class SystemWindow(BaseWindow):
             "memory used": 0,
             "start time": time.time(),
         })
+        records["timestamp"] = self.dashboard.timestamp()
+
         if len(records) != self.rowCount:
             self.needsReset = True
             return
         self.iter += 1
 
-        s = " {:<30}{:>18} ".format("Item", "Value")
+        s = " {:<30}{:>20} ".format("Item", "Value")
         pt = self.tableHeader((s,), len(records))
 
         records["cpu use"] = "{:.2f}".format(records["cpu use"])
@@ -955,12 +1024,13 @@ class SystemWindow(BaseWindow):
         hours, mins = divmod(records["uptime"] / 60, 60)
         records["uptime"] = "{}:{:02d} hh:mm".format(hours, mins)
         del records["start time"]
+        records["timestamp"] = records["timestamp"].replace("T", " ")
 
         for item, value in sorted(records.items(), key=lambda x: x[0]):
             changed = (
                 item in self.lastResult and self.lastResult[item] != value
             )
-            s = " {:<30}{:>18} ".format(item, value)
+            s = " {:<30}{:>20} ".format(item, value)
             self.tableRow(
                 s, pt,
                 curses.A_REVERSE if changed else curses.A_NORMAL,
