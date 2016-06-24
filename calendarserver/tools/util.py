@@ -157,8 +157,8 @@ def checkDirectory(dirpath, description, access=None, create=None, wait=False):
             # If we're being told to wait, post an alert that we can't continue
             # until the volume is mounted
             if not os.path.exists(dirpath) or (diagnose.detectPhantomVolume(dirpath) == diagnose.EXIT_CODE_PHANTOM_DATA_VOLUME):
-                from calendarserver.tap.util import postAlert
-                postAlert("MissingDataVolumeAlert", 0, ["volumePath", dirpath])
+                from calendarserver.tap.util import AlertPoster
+                AlertPoster.postAlert("MissingDataVolumeAlert", 0, ["volumePath", dirpath])
 
             while not os.path.exists(dirpath) or (diagnose.detectPhantomVolume(dirpath) == diagnose.EXIT_CODE_PHANTOM_DATA_VOLUME):
                 if not os.path.exists(dirpath):
