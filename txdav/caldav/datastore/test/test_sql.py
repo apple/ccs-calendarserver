@@ -7400,6 +7400,7 @@ DTSTART:%(now_back30)s
 DURATION:PT2H
 ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
 ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 DTSTAMP:20051222T210507Z
 ORGANIZER:mailto:user01@example.com
 RRULE:FREQ=DAILY
@@ -7415,6 +7416,7 @@ DTSTART:%(now_back25)s
 DURATION:PT1H
 ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
 ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 DTSTAMP:20051222T210507Z
 ORGANIZER:mailto:user01@example.com
 END:VEVENT
@@ -7425,6 +7427,7 @@ DTSTART:%(now_back24)s
 DURATION:PT1H
 ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
 ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 DTSTAMP:20051222T210507Z
 ORGANIZER:mailto:user01@example.com
 END:VEVENT
@@ -7435,6 +7438,7 @@ DTSTART:%(now_fwd10)s
 DURATION:PT1H
 ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
 ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 DTSTAMP:20051222T210507Z
 ORGANIZER:mailto:user01@example.com
 END:VEVENT
@@ -7450,6 +7454,7 @@ DTSTART:%(now_back14)s
 DURATION:PT2H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user03
 DTSTAMP:20051222T210507Z
 ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
@@ -7467,6 +7472,7 @@ DTSTART:%(now_fwd10)s
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user03
 DTSTAMP:20051222T210507Z
 ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
@@ -7484,6 +7490,7 @@ DTSTART:%(now_back30)s
 DURATION:PT2H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user03
 DTSTAMP:20051222T210507Z
 ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
@@ -7501,6 +7508,7 @@ DTSTART:%(now_back25)s
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user03
 DTSTAMP:20051222T210507Z
 ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
@@ -7513,6 +7521,7 @@ DTSTART:%(now_back24)s
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user03
 DTSTAMP:20051222T210507Z
 ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
@@ -7530,6 +7539,7 @@ DTSTART:%(now_back14)s
 DURATION:PT2H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE:urn:x-uid:user03
 DTSTAMP:20051222T210507Z
 ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
@@ -7547,6 +7557,7 @@ DTSTART:%(now_fwd10)s
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE:urn:x-uid:user03
 DTSTAMP:20051222T210507Z
 ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
@@ -7571,6 +7582,7 @@ DTSTART:%(now_back30)s
 DURATION:PT2H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE:urn:x-uid:user03
 DTSTAMP:20051222T210507Z
 ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
@@ -7588,6 +7600,7 @@ DTSTART:%(now_back25)s
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE:urn:x-uid:user03
 DTSTAMP:20051222T210507Z
 ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
@@ -7600,6 +7613,7 @@ DTSTART:%(now_back24)s
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE:urn:x-uid:user03
 DTSTAMP:20051222T210507Z
 ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
@@ -7634,6 +7648,16 @@ END:VCALENDAR
             cal = yield self.calendarUnderTest(name="inbox", home="user02")
             cobjs = yield cal.calendarObjects()
             yield cobjs[0].remove()
+            yield newtxn.commit()
+
+            # Remove inbox item in another txn
+            newtxn = self.concurrentTransaction()
+            cal = yield self.calendarUnderTest(name="inbox", home="user03")
+            cobjs = yield cal.calendarObjects()
+            for ctr in range(len(results)):
+                if results[ctr]._resourceID == cobjs[0]._resourceID:
+                    results[ctr] = None
+                    break
             yield newtxn.commit()
 
             returnValue(results)

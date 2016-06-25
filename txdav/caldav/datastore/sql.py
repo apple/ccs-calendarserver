@@ -5396,7 +5396,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Split each one - but not this resource
         for resource in resources:
-            if resource._resourceID == self._resourceID:
+            if resource is None or resource._resourceID == self._resourceID:
                 continue
             yield resource.splitForAttendee(
                 rid,
