@@ -1242,7 +1242,7 @@ class OS_X_10_11Tests(OS_X_10_11Mixin, TestCase):
         constructed from the data extracted from the response.
         """
         home = "/calendars/__uids__/user01/"
-        calendars, notificationCollection, homeToken = self.client._extractCalendars(
+        calendars, notificationCollection, _ignore_homeToken = self.client._extractCalendars(
             self.client._parseMultiStatus(CALENDAR_HOME_PROPFIND_RESPONSE), home)
         calendars.sort(key=lambda cal: cal.resourceType)
         calendar, inbox = calendars

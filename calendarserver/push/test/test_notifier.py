@@ -161,7 +161,6 @@ class PushDistributorTests(StoreTestCase):
 
 
 
-
 class StubDistributor(object):
     def __init__(self):
         self.reset()

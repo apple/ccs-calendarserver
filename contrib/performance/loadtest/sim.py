@@ -504,7 +504,6 @@ class LoadSimulator(object):
             AMPHub.start(hostsAndPorts)
 
 
-
     def run(self, output=stdout):
         self.attachServices(output)
         if self.runtime is not None:

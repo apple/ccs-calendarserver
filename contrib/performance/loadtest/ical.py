@@ -926,7 +926,6 @@ class BaseAppleClient(BaseClient):
         returnValue((newCalendars.values(), notificationCollection, newCalendarHomeToken))
 
 
-
     def timeRangeQuery(self, url, start, end):
 
         requestBody = """<?xml version="1.0" encoding="utf-8" ?>
@@ -967,7 +966,7 @@ class BaseAppleClient(BaseClient):
 
     @inlineCallbacks
     def deepRefresh(self):
-        calendars, notificationCollection, calendarHomeToken, results = yield self._calendarHomePropfind(self.calendarHomeHref)
+        calendars, _ignore_notificationCollection, _ignore_calendarHomeToken, _ignore_results = yield self._calendarHomePropfind(self.calendarHomeHref)
         for calendar in calendars:
             yield self._propfind(
                 calendar.url,
@@ -1732,13 +1731,12 @@ class BaseAppleClient(BaseClient):
         connect(GAIEndpoint(self.reactor, host, port), factory)
 
 
-
     @inlineCallbacks
     def _receivedPush(self, inboundID, dataChangedTimestamp, priority=5):
         if not self._busyWithPush:
             self._busyWithPush = True
             try:
-                for href, myId in self.ampPushKeys.iteritems():
+                for _ignore_href, myId in self.ampPushKeys.iteritems():
                     if inboundID == myId:
                         yield self._checkCalendarsForEvents(self.calendarHomeHref, push=True)
                         break

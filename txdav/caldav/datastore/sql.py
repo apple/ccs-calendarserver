@@ -5560,10 +5560,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         returnValue(name)
 
 
+
 class UnsupportedQuery(Exception):
     """
     Indicates the particular set of query parameters passed are not supported.
     """
+
 
 
 class TrashCollection(Calendar):

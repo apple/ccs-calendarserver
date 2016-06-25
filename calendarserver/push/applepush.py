@@ -178,7 +178,6 @@ class ApplePushNotifierService(service.MultiService):
         service.MultiService.stopService(self)
 
 
-
     @inlineCallbacks
     def enqueue(
         self, transaction, pushKey, dataChangedTimestamp=None,

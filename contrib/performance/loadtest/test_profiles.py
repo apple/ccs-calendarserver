@@ -1037,6 +1037,7 @@ class EventerTests(TestCase):
         # XXX Vary the event period/interval and the uid
 
 
+
 class AttachmentDownloaderTests(TestCase):
     """
     Tests for L{AttachmentDownloader}.
@@ -1046,6 +1047,7 @@ class AttachmentDownloaderTests(TestCase):
         self.sim = CalendarClientSimulator(
             AnyUser(), Populator(None), None, None, None, None, None, None)
 
+
     def test_normalize(self):
         client = StubClient(1, self.mktemp())
         client._managed_attachments_server_url = "https://thisserver:8443"
@@ -1054,6 +1056,7 @@ class AttachmentDownloaderTests(TestCase):
             downloader._normalizeHref("http://otherserver/attachment/url"),
             "https://thisserver:8443/attachment/url"
         )
+
 
 
 class OperationLoggerTests(TestCase):
