@@ -1436,6 +1436,7 @@ def verifyAPNSCertificate(config):
         return True, "APNS disabled"
 
 
+
 def checkCertExpiration(certPath):
     """
     See if the given certificate is expired.
@@ -1450,7 +1451,7 @@ def checkCertExpiration(certPath):
         opensslTool = which("openssl")[0]
         args = [opensslTool, "x509", "-checkend", "0", "-noout", "-in", certPath]
         child = Popen(args=args, stdout=PIPE, stderr=PIPE)
-        output, error = child.communicate()
+        child.communicate()
         exitStatus = child.returncode
         return exitStatus == 0
     except IndexError:
