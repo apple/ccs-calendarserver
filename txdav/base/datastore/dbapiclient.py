@@ -199,7 +199,7 @@ class DBAPIParameters(object):
     are then used to create the actual parameters for each module.
     """
 
-    def __init__(self, endpoint=None, user=None, password=None, database=None, **kwargs):
+    def __init__(self, endpoint=None, user=None, password=None, database=None, ssl=False, **kwargs):
         """
         @param endpoint: endpoint string describing the connection
         @type endpoint: L{str}
@@ -228,6 +228,7 @@ class DBAPIParameters(object):
         self.user = user
         self.password = password
         self.database = database
+        self.ssl = ssl
 
 
 
@@ -305,6 +306,8 @@ class DBAPIConnector(object):
             "password": params.password,
             "database": params.database,
         }
+        if params.ssl:
+            dbkwargs["ssl"] = params.ssl
         if params.unixsocket:
             dbkwargs["unix_sock"] = params.unixsocket
 

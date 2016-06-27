@@ -169,6 +169,10 @@
 		<!-- Password to use -->
 		<key>password</key>
 		<string></string>
+
+		<!-- Set to True to connect using SSL (pg8000 only). -->
+		<key>ssl</key>
+		<false/>
 	</dict>
 
 	<!-- Internally used by database to tell slave processes to inherit a file
