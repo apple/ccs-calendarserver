@@ -339,10 +339,46 @@ class CalendarStoreFeatures(object):
 
 
     @inlineCallbacks
+    def calendarObjectDetailsWithUID(self, txn, uid):
+        """
+        Return details about all child object resources with the specified UID.
+        Only "owned" resources are returned, no shared resources.
+
+        @param txn: transaction to use
+        @type txn: L{CommonStoreTransaction}
+        @param uid: UID to query
+        @type uid: C{str}
+
+        @return: list of C{list} of home id, calendar id, and calendar object id
+        @rtype: C{list} of C{list}
+        """
+
+        # First find the resource-ids of the (home, parent, object) for each object matching the UID.
+        obj = CalendarHome._objectSchema
+        bind = CalendarHome._bindSchema
+        rows = (yield Select(
+            [bind.HOME_RESOURCE_ID, obj.PARENT_RESOURCE_ID, obj.RESOURCE_ID],
+            From=obj.join(bind, obj.PARENT_RESOURCE_ID == bind.RESOURCE_ID),
+            Where=(obj.UID == Parameter("uid")).And(bind.BIND_MODE == _BIND_MODE_OWN),
+        ).on(txn, uid=uid))
+
+        returnValue(rows)
+
+
+    @inlineCallbacks
     def calendarObjectsWithUID(self, txn, uid):
         """
         Return all child object resources with the specified UID. Only "owned" resources are returned,
         no shared resources.
+
+        WARNING: this method loads all the home, calendar, and calendar object
+        resources for the specified UID. This is potentially a memory hog for
+        the case of an event with a very large number of attendees. Please avoid
+        using this. Instead use L{calendarObjectDetailsWithUID}, which just
+        looks up the IDs, which can then be loaded one at a time when needed.
+        When doing that, make sure that all references to previously processed
+        objects are removed so that they don't hang around in memory and cause
+        problems.
 
         @param txn: transaction to use
         @type txn: L{CommonStoreTransaction}
@@ -5350,7 +5386,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         if onlyThis:
             resources = ()
         else:
-            resources = (yield CalendarStoreFeatures(self._txn._store).calendarObjectsWithUID(self._txn, self._uid))
+            resources = (yield CalendarStoreFeatures(self._txn._store).calendarObjectDetailsWithUID(self._txn, self._uid))
 
         if splitter is None:
             splitter = iCalSplitter(config.Scheduling.Options.Splitting.Size, config.Scheduling.Options.Splitting.PastDays)
@@ -5395,14 +5431,39 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             )
 
         # Split each one - but not this resource
-        for resource in resources:
-            if resource is None or resource._resourceID == self._resourceID:
+        lastHome = None
+        for homeID, parentID, resourceID in sorted(resources):
+
+            # Each time the home changes, wipe it from the txn cache so that
+            # we do not accumulate them in memory whilst we go through this loop
+            if lastHome is not None:
+                if lastHome.id() != homeID:
+                    self._txn.cleanHomeCache(lastHome)
+
+            if resourceID == self._resourceID:
+                continue
+            lastHome = home = (yield self._txn.calendarHomeWithResourceID(homeID))
+            if home is None:
+                continue
+            parent = (yield home.childWithID(parentID))
+            if parent is None:
+                continue
+            resource = (yield parent.objectResourceWithID(resourceID))
+            if resource is None:
                 continue
             yield resource.splitForAttendee(
                 rid,
                 olderUID,
                 coercePartstatsInExistingResource=coercePartstatsInExistingResource
             )
+            resource = None
+            parent = None
+            home = None
+
+        # Clean up the last one
+        if lastHome is not None:
+            self._txn.cleanHomeCache(lastHome)
+            lastHome = None
 
         returnValue(olderObject)
 

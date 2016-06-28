@@ -52,11 +52,12 @@ from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
 from txdav.caldav.datastore.scheduling.processing import ImplicitProcessor
 from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
-from txdav.caldav.datastore.sql import CalendarStoreFeatures, CalendarObject
+from txdav.caldav.datastore.sql import CalendarStoreFeatures, CalendarObject, \
+    CalendarHome
 from txdav.common.datastore.sql import ECALENDARTYPE, CommonObjectResource, \
     CommonStoreTransactionMonitor
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT, \
-    _BIND_STATUS_ACCEPTED, _TRANSP_OPAQUE, _BIND_MODE_WRITE
+    _BIND_STATUS_ACCEPTED, _TRANSP_OPAQUE, _BIND_MODE_WRITE, _HOME_STATUS_NORMAL
 from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests, \
     test_event_text, cal1Root, OTHER_HOME_UID
 from txdav.caldav.datastore.test.test_file import setUpCalendarStore
@@ -78,6 +79,7 @@ from twext.enterprise.jobs.jobitem import JobItem
 from twext.enterprise.util import parseSQLTimestamp
 
 import datetime
+import gc
 import os
 
 
@@ -3544,6 +3546,7 @@ class CalendarObjectSplitting(CommonCommonTests, DateTimeSubstitutionsMixin, uni
         for ctr in range(1, 5):
             home_uid = yield txn.homeWithUID(ECALENDARTYPE, "user%02d" % (ctr,), create=True)
             self.assertNotEqual(home_uid, None)
+        self.transactionUnderTest().resetHomeCache()
         yield self.commit()
 
         self.setupDateTimeValues()
@@ -7638,7 +7641,7 @@ END:VCALENDAR
         yield self.commit()
 
         # Patch resource lookup code so that it deletes the inbox resource after lookup is done
-        oldLookup = CalendarStoreFeatures.calendarObjectsWithUID
+        oldLookup = CalendarStoreFeatures.calendarObjectDetailsWithUID
         @inlineCallbacks
         def _lookup(csself, txn, uid):
             results = yield oldLookup(csself, txn, uid)
@@ -7650,19 +7653,19 @@ END:VCALENDAR
             yield cobjs[0].remove()
             yield newtxn.commit()
 
-            # Remove inbox item in another txn
+            # Remove inbox item in another txn by setting the resourceID to an invalid value
             newtxn = self.concurrentTransaction()
             cal = yield self.calendarUnderTest(name="inbox", home="user03")
             cobjs = yield cal.calendarObjects()
             for ctr in range(len(results)):
-                if results[ctr]._resourceID == cobjs[0]._resourceID:
-                    results[ctr] = None
+                if results[ctr][2] == cobjs[0]._resourceID:
+                    results[ctr][2] += 100000
                     break
             yield newtxn.commit()
 
             returnValue(results)
 
-        self.patch(CalendarStoreFeatures, "calendarObjectsWithUID", _lookup)
+        self.patch(CalendarStoreFeatures, "calendarObjectDetailsWithUID", _lookup)
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
         yield cobj.split()
@@ -7710,6 +7713,125 @@ END:VCALENDAR
         title = "user02"
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future2) % relsubs, "Failed future: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past2) % relsubs, "Failed past: %s" % (title,))
+
+
+    @inlineCallbacks
+    def test_calendarObjectSplit_clean_cache(self):
+        """
+        Test that (manual) splitting of calendar objects works and does not use excessive memory
+        by caching store objects for each attendee.
+        """
+
+        self.patch(config.Scheduling.Options.Splitting, "Enabled", False)
+        self.patch(config.Scheduling.Options.Splitting, "Size", 100)
+        self.patch(config.Scheduling.Options.Splitting, "PastDays", 14)
+        self.patch(config, "MaxResourceSize", 10 * 1024 * 1024)
+
+        # Create one event that will split
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+
+        attendees = "\n".join(["ATTENDEE:mailto:user{:02d}@example.com".format(i + 2) for i in range(3)])
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back30)s
+DURATION:PT2H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+{attendees}
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+RRULE:FREQ=DAILY
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+DESCRIPTION:{description}
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back25)s
+DTSTART:%(now_back25)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+{attendees}
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+DESCRIPTION:{description}
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+{attendees}
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+DESCRIPTION:{description}
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+{attendees}
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+DESCRIPTION:{description}
+END:VEVENT
+END:VCALENDAR
+""".format(description=" " * 1024 * 1024, attendees=attendees)
+
+        component = Component.fromString(data % self.dtsubs)
+        cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
+        self.assertFalse(hasattr(cobj, "_workItems"))
+        self.transactionUnderTest().resetHomeCache()
+        yield self.commit()
+        cobj = None
+        component = None
+        calendar = None
+
+        w = schema.CALENDAR_OBJECT_SPLITTER_WORK
+        rows = yield Select(
+            [w.RESOURCE_ID, ],
+            From=w
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(rows), 0)
+        self.transactionUnderTest().resetHomeCache()
+        yield self.abort()
+
+        # Do manual split
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        will = yield cobj.willSplit()
+        self.assertTrue(will)
+
+        yield cobj.split()
+
+        # Make sure caches are clean
+        txn = self.transactionUnderTest()
+        self.assertEqual(1, len(txn._cachedHomes[ECALENDARTYPE]["byUID"][_HOME_STATUS_NORMAL]))
+        self.assertEqual(1, len(txn._cachedHomes[ECALENDARTYPE]["byID"][None]))
+
+        # Make sure local objects are gone
+        cobj = None
+        txn = None
+        yield self.commit()
+
+        # Garbage collect then look for the number of home/resource objects and
+        # make sure only those for user01 still exist
+        gc.collect()
+        gcobjs = gc.get_objects()
+        hcount = 0
+        ocount = 0
+        for obj in gcobjs:
+            if isinstance(obj, CalendarHome):
+                hcount += 1
+            elif isinstance(obj, CalendarObject):
+                ocount += 1
+        self.assertTrue(hcount <= 2) # Just user01 home left (maybe user05 too)
+        self.assertTrue(ocount <= 4) # Old resource + new resource (and maybe user05 too)
 
 
     @inlineCallbacks

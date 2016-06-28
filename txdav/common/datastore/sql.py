@@ -754,11 +754,19 @@ class CommonStoreTransaction(
         if storeType not in (ECALENDARTYPE, EADDRESSBOOKTYPE):
             raise RuntimeError("Unknown home type.")
 
-        result = self._determineMemo(storeType, "byUID", status).get(uid)
+        if status is None:
+            # Look for any that match possible status and return the first one.
+            # The order of status here matches that in L{CommonHome.homeWith}.
+            for possible_status in (_HOME_STATUS_NORMAL, _HOME_STATUS_DISABLED, _HOME_STATUS_EXTERNAL,):
+                result = self._determineMemo(storeType, "byUID", possible_status).get(uid)
+                if result is not None:
+                    break
+        else:
+            result = self._determineMemo(storeType, "byUID", status).get(uid)
         if result is None:
             result = yield self._homeClass[storeType].homeWithUID(self, uid, status, create, authzUID)
             if result:
-                self._determineMemo(storeType, "byUID", status)[uid] = result
+                self._determineMemo(storeType, "byUID", result.status())[uid] = result
                 self._determineMemo(storeType, "byID", None)[result.id()] = result
         returnValue(result)
 
@@ -794,6 +802,42 @@ class CommonStoreTransaction(
 
     def addressbookHomeWithResourceID(self, rid):
         return self.homeWithResourceID(EADDRESSBOOKTYPE, rid)
+
+
+    def resetHomeCache(self):
+        """
+        Initialize the home caches, wiping any that existed before. This is only
+        used in testing when we want to be sure all cached objects have been
+        removed.
+        """
+        self._cachedHomes = {
+            ECALENDARTYPE: {
+                "byUID": defaultdict(dict),
+                "byID": defaultdict(dict),
+            },
+            EADDRESSBOOKTYPE: {
+                "byUID": defaultdict(dict),
+                "byID": defaultdict(dict),
+            },
+        }
+        self._notificationHomes = {
+            "byUID": defaultdict(dict),
+            "byID": defaultdict(dict),
+        }
+
+
+    def cleanHomeCache(self, home):
+        """
+        Remove the specified home from the home cache.
+        @param home: home to remove
+        @type home: L{CommonHome}
+        """
+        rid_memo = self._determineMemo(home._homeType, "byID", None)
+        if home.id() in rid_memo:
+            del rid_memo[home.id()]
+        uid_memo = self._determineMemo(home._homeType, "byUID", home.status())
+        if home.uid() in uid_memo:
+            del uid_memo[home.uid()]
 
 
     @inlineCallbacks
