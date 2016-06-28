@@ -1129,6 +1129,7 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
 
             def cleanup():
                 try:
+                    self.retrieveOldIndex()._db_close() # Must close sqlite file before it is deleted
                     trash.remove()
                     self.properties()._removeResource()
                 except Exception, e:

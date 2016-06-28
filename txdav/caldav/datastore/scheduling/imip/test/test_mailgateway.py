@@ -42,6 +42,7 @@ class MailGatewayTokenDBTests(unittest.TestCase):
         oldDB.createToken(
             "urn:uuid:user01", "mailto:attendee@example.com",
             "icaluid1", token="token1")
+        oldDB._db_close()
         yield migrateTokensToStore(self.path, self.store)
         txn = self.store.newTransaction()
         records = yield (txn.imipLookupByToken("token1"))
@@ -49,4 +50,3 @@ class MailGatewayTokenDBTests(unittest.TestCase):
         self.assertEquals(records[0].organizer, "urn:uuid:user01")
         self.assertEquals(records[0].attendee, "mailto:attendee@example.com")
         self.assertEquals(records[0].icaluid, "icaluid1")
-        oldDB._db_close()
