@@ -1482,6 +1482,7 @@ class UpgradeTests(StoreTestCase):
         sqliteProxyService = ProxySqliteDB("proxies.sqlite")
         proxyFile = os.path.join(config.DataRoot, "proxies.xml")
         yield loadDelegatesFromXMLintoProxyDB(proxyFile, sqliteProxyService)
+        sqliteProxyService.close()
 
         # Load delegates from sqlite into store
         yield migrateDelegatesToStore(store)
@@ -1505,7 +1506,6 @@ class UpgradeTests(StoreTestCase):
         )
 
         yield txn.commit()
-        sqliteProxyService.close()
 
 
     @inlineCallbacks
