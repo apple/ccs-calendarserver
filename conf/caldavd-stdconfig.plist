@@ -170,7 +170,7 @@
 		<key>password</key>
 		<string></string>
 
-		<!-- Set to True to connect using SSL (pg8000 only). -->
+		<!-- Set to True to require SSL (pg8000 only). -->
 		<key>ssl</key>
 		<false/>
 	</dict>

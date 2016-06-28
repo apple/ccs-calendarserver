@@ -220,7 +220,7 @@ DEFAULT_CONFIG = {
         "database": "",     # Name of database or Oracle SID
         "user": "",         # User name to connect as
         "password": "",     # Password to use
-        "ssl": False,       # Set to True to connect using SSL (pg8000 only).
+        "ssl": False,       # Set to True to require SSL (pg8000 only).
     },
 
     "DBAMPFD": 0, # Internally used by database to tell slave
