@@ -335,6 +335,8 @@ def _translateSchema(out, schema=schema):
     """
     for sequence in schema.model.sequences:
         out.write('create sequence %s;\n' % (sequence.name,))
+    out.write("\n\n")
+
     for table in schema:
         # The only table name which actually exceeds the length limit right now
         # is CALENDAR_OBJECT_ATTACHMENTS_MODE, which isn't actually _used_
@@ -421,6 +423,8 @@ def _translateSchema(out, schema=schema):
                         for (cmodel, val) in row.items()])
             out.write(_staticSQL(Insert(cmap)))
             out.write(";\n")
+        out.write("\n\n" if len(table.model.schemaRows) else "\n")
+
 
     for index in schema.model.indexes:
         # Index names combine and repeat multiple table names and column names,
