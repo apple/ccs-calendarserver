@@ -11,14 +11,13 @@ create table NAMED_LOCK (
 create table JOB (
     "JOB_ID" integer primary key,
     "WORK_TYPE" nvarchar2(255),
-    "PRIORITY" integer default 0 not null,
-    "WEIGHT" integer default 0 not null,
+    "PRIORITY" integer default 0,
+    "WEIGHT" integer default 0,
     "NOT_BEFORE" timestamp not null,
-    "IS_ASSIGNED" integer default 0 not null,
     "ASSIGNED" timestamp default null,
     "OVERDUE" timestamp default null,
-    "FAILED" integer default 0 not null,
-    "PAUSE" integer default 0 not null
+    "FAILED" integer default 0,
+    "PAUSE" integer default 0
 );
 
 create table CALENDAR_HOME (
@@ -681,17 +680,16 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '64');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '63');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
 insert into CALENDARSERVER (NAME, VALUE) values ('MIN-VALID-REVISION', '1');
-create index JOB_PRIORITY_IS_ASSIG_48985bfd on JOB (
+create index JOB_PRIORITY_ASSIGNED_6d49a082 on JOB (
     "PRIORITY",
-    "IS_ASSIGNED",
+    "ASSIGNED",
     "PAUSE",
-    "NOT_BEFORE",
-    "JOB_ID"
+    "NOT_BEFORE"
 );
 
 create index JOB_ASSIGNED_PAUSE_NO_b2540b3b on JOB (
@@ -700,10 +698,9 @@ create index JOB_ASSIGNED_PAUSE_NO_b2540b3b on JOB (
     "NOT_BEFORE"
 );
 
-create index JOB_IS_ASSIGNED_OVERD_4a40c3f3 on JOB (
-    "IS_ASSIGNED",
-    "OVERDUE",
-    "JOB_ID"
+create index JOB_ASSIGNED_OVERDUE_e88f7afc on JOB (
+    "ASSIGNED",
+    "OVERDUE"
 );
 
 create index CALENDAR_HOME_METADAT_475de898 on CALENDAR_HOME_METADATA (
@@ -1098,11 +1095,11 @@ create index MIGRATED_HOME_CLEANUP_4c714fd4 on MIGRATED_HOME_CLEANUP_WORK (
 
 -- Extra schema to add to current-oracle-dialect.sql
 
-create or replace function next_job(now in timestamp, min_priority in integer, row_limit in integer)
+create or replace function next_job(now in timestamp, min_priority in integer)
   return integer is
   cursor c (priority number) is
     select JOB_ID from JOB
-      where PRIORITY = priority AND IS_ASSIGNED = 0 and PAUSE = 0 and NOT_BEFORE <= now and ROWNUM <= row_limit
+      where PRIORITY = priority AND ASSIGNED is NULL and PAUSE = 0 and NOT_BEFORE <= now
       for update skip locked;
   result integer;
 begin
@@ -1123,17 +1120,17 @@ begin
 end;
 /
 
-create or replace function overdue_job(now timestamp, row_limit in integer)
+create or replace function overdue_job(now timestamp)
   return integer is
-  cursor c is
+  cursor c1 is
    select JOB_ID from JOB
-   where IS_ASSIGNED = 0 and OVERDUE <= now and ROWNUM <= row_limit
+   where ASSIGNED is not NULL and OVERDUE <= now
    for update skip locked;
   result integer;
 begin
-  open c;
-  fetch c into result;
-  close c;
+  open c1;
+  fetch c1 into result;
+  close c1;
   return result;
 end;
 /

@@ -242,6 +242,13 @@
 		<key>mediumPriorityLevel</key>
 		<integer>50</integer>
 
+		<!-- This is used to help with concurrency problems when the underlying DB
+		     does not support a proper "LIMIT" term with the query (Oracle). It should
+		     be set to no more than 1 plus the number of app-servers in use. For a
+		     single app-server, always use 1. -->
+		<key>rowLimit</key>
+		<integer>1</integer>
+
 		<!-- When a job fails, reschedule it this number of seconds in the future -->
 		<key>failureRescheduleInterval</key>
 		<integer>60</integer>
