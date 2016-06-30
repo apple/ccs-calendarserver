@@ -131,4 +131,14 @@ export PYTHONHASHSEED=random
 
 export PYTHONPATH
 
+if [ "${ORACLE_HOME-}" ]; then
+  case "$(uname -s)" in
+    Darwin)
+      echo "macOS Oracle init."
+      export   LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:${ORACLE_HOME}";
+      export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}:${ORACLE_HOME}";
+      ;;
+  esac;
+fi;
+
 exec "${python}" "${twistdpath}" ${twistd_profile} ${twistd_reactor} ${daemonize} ${username} ${groupname} "${plugin_name}" ${configfile} ${service_type} ${errorlogenabled} ${profile} ${child_reactor} ${extra};

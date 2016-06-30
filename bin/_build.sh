@@ -720,6 +720,19 @@ py_dependencies () {
 }
 
 
+macos_oracle () {
+  if [ "${ORACLE_HOME-}" ]; then
+    case "$(uname -s)" in
+      Darwin)
+        echo "macOS Oracle init."
+        export   LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:${ORACLE_HOME}";
+        export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}:${ORACLE_HOME}";
+        ;;
+    esac;
+  fi;
+}
+
+
 bootstrap_virtualenv () {
   mkdir -p "${py_ve_tools}";
   mkdir -p "${py_ve_tools}/lib";
@@ -801,6 +814,7 @@ develop () {
   init_build;
   c_dependencies;
   py_dependencies;
+  macos_oracle;
 }
 
 
