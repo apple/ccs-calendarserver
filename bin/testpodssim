@@ -33,8 +33,8 @@ sim="${wd}/contrib/performance/loadtest/sim.py";
 ##
 
    verbose="";
-    config="${wd}/contrib/performance/loadtest/config.plist";
-   clients="${wd}/contrib/performance/loadtest/clients.plist";
+    config="${wd}/contrib/performance/loadtest/standard-configs/accelerated-activity-config.plist";
+   clients="${wd}/contrib/performance/loadtest/standard-configs/accelerated-activity-clients.plist";
    runtime="--runtime 300";
    logfile="";
 
