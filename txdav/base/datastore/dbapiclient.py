@@ -23,6 +23,8 @@ from twext.python.filepath import CachingFilePath
 
 from txdav.common.icommondatastore import InternalDataStoreError
 
+import datetime
+
 import pg8000 as postgres
 
 try:
@@ -124,7 +126,7 @@ class OracleCursorWrapper(DiagnosticCursorWrapper):
         return self.realCursor.var(*args)
 
 
-    def execute(self, sql, args=()):
+    def mapArgs(self, args):
         realArgs = []
         for arg in args:
             if isinstance(arg, str):
@@ -133,6 +135,7 @@ class OracleCursorWrapper(DiagnosticCursorWrapper):
                 # application layer as they consume less memory, so do the
                 # conversion here.
                 arg = arg.decode('utf-8')
+
             if isinstance(arg, unicode) and len(arg) > 1024:
                 # This *may* cause a type mismatch, but none of the non-CLOB
                 # strings that we're passing would allow a value this large
@@ -143,18 +146,37 @@ class OracleCursorWrapper(DiagnosticCursorWrapper):
                 # it is:
                 v = self.var(cx_Oracle.NCLOB, len(arg) + 1)
                 v.setvalue(0, arg)
+
+            elif isinstance(arg, datetime.datetime):
+                # By default when cx_Oracle is passed a datetime object it maps it to a
+                # cx_Oracle.DATETIME variable which does not serialize fraction seconds
+                # into the query, or call, arguments. However, for high volume systems,
+                # we really want sub-second resolution for things like the job queue,
+                # so we want to serialize datetime as cx_Oracle.TIMESTAMP.
+                v = self.var(cx_Oracle.TIMESTAMP)
+                v.setvalue(0, arg)
+
             else:
                 v = arg
+
             realArgs.append(v)
+
+        return realArgs
+
+
+    def execute(self, sql, args=()):
+        realArgs = self.mapArgs(args)
         return super(OracleCursorWrapper, self).execute(sql, realArgs)
 
 
     def callproc(self, name, args=()):
-        return self.realCursor.callproc(name, args)
+        realArgs = self.mapArgs(args)
+        return self.realCursor.callproc(name, realArgs)
 
 
     def callfunc(self, name, returnType, args=()):
-        return self.realCursor.callfunc(name, returnType, args)
+        realArgs = self.mapArgs(args)
+        return self.realCursor.callfunc(name, returnType, realArgs)
 
 
 
