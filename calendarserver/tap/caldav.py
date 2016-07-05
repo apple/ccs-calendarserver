@@ -66,8 +66,7 @@ from twext.internet.fswatch import (
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twext.enterprise.adbapi2 import ConnectionPool
-from twext.enterprise.ienterprise import ORACLE_DIALECT
-from twext.enterprise.ienterprise import POSTGRES_DIALECT
+from twext.enterprise.ienterprise import POSTGRES_DIALECT, ORACLE_DIALECT, DatabaseType
 from twext.enterprise.jobs.queue import NonPerformingQueuer
 from twext.enterprise.jobs.queue import ControllerQueue
 from twext.enterprise.jobs.queue import WorkerFactory as QueueWorkerFactory
@@ -1565,7 +1564,7 @@ class CalDAVServiceMaker (object):
         @rtype: L{IService}
         """
 
-        def createSubServiceFactory(dbtype):
+        def createSubServiceFactory(dbtype, dbfeatures=()):
             if dbtype == "":
                 dialect = POSTGRES_DIALECT
                 paramstyle = "pyformat"
@@ -1579,8 +1578,8 @@ class CalDAVServiceMaker (object):
             def subServiceFactory(connectionFactory, storageService):
                 ms = MultiService()
                 cp = ConnectionPool(
-                    connectionFactory, dialect=dialect,
-                    paramstyle=paramstyle,
+                    connectionFactory,
+                    dbtype=DatabaseType(dialect, paramstyle, dbfeatures),
                     maxConnections=config.MaxDBConnectionsPerPool
                 )
                 cp.setServiceParent(ms)
@@ -1680,13 +1679,13 @@ class CalDAVServiceMaker (object):
                 # to it.
                 pgserv = pgServiceFromConfig(
                     config,
-                    createSubServiceFactory(""),
+                    createSubServiceFactory("", config.DBFeatures),
                     uid=overrideUID, gid=overrideGID
                 )
                 return pgserv
             else:
                 # Connect to a database that is already running.
-                return createSubServiceFactory(config.DBType)(
+                return createSubServiceFactory(config.DBType, config.DBFeatures)(
                     DBAPIConnector.connectorFor(config.DBType, **config.DatabaseConnection).connect, None
                 )
         else:

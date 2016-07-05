@@ -1814,6 +1814,7 @@ END:VCALENDAR
 
         yield txn.commit()
 
+
     @inlineCallbacks
     def test_trashCalendarRestoreWithFailures(self):
 

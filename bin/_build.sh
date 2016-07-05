@@ -602,7 +602,7 @@ c_dependencies () {
   if command -v postgres > /dev/null; then
     using_system "Postgres";
   else
-    local v="9.3.10";
+    local v="9.5.3";
     local n="postgresql";
     local p="${n}-${v}";
 
@@ -612,7 +612,7 @@ c_dependencies () {
       local enable_dtrace="";
     fi;
 
-    c_dependency -m "ec2365548d08f69c8023eddd4f2d1a28" \
+    c_dependency -m "3f0c388566c688c82b01a0edf1e6b7a0" \
       "PostgreSQL" "${p}" \
       "http://ftp.postgresql.org/pub/source/v${v}/${p}.tar.bz2" \
       --with-python ${enable_dtrace};
@@ -740,8 +740,8 @@ bootstrap_virtualenv () {
 
   for pkg in             \
       setuptools-18.5    \
-      pip-7.1.2          \
-      virtualenv-13.1.2  \
+      pip-8.1.2          \
+      virtualenv-15.0.2  \
   ; do
       local    name="${pkg%-*}";
       local version="${pkg#*-}";

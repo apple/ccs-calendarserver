@@ -171,7 +171,7 @@ class SchemaUpgradeTests(TestCase):
             in postgres that we can quickly wipe clean afterwards.
             """
             startTxn = store.newTransaction("test_dbUpgrades")
-            if startTxn.dialect == POSTGRES_DIALECT:
+            if startTxn.dbtype.dialect == POSTGRES_DIALECT:
                 yield startTxn.execSQL("create schema test_dbUpgrades")
                 yield startTxn.execSQL("set search_path to test_dbUpgrades")
             yield startTxn.execSQLBlock(path.getContent())
@@ -194,20 +194,20 @@ class SchemaUpgradeTests(TestCase):
         @inlineCallbacks
         def _unloadOldSchema():
             startTxn = store.newTransaction("test_dbUpgrades")
-            if startTxn.dialect == POSTGRES_DIALECT:
+            if startTxn.dbtype.dialect == POSTGRES_DIALECT:
                 yield startTxn.execSQL("set search_path to public")
                 yield startTxn.execSQL("drop schema test_dbUpgrades cascade")
-            elif startTxn.dialect == ORACLE_DIALECT:
+            elif startTxn.dbtype.dialect == ORACLE_DIALECT:
                 yield cleanDatabase(startTxn)
             yield startTxn.commit()
 
         @inlineCallbacks
         def _cleanupOldSchema():
             startTxn = store.newTransaction("test_dbUpgrades")
-            if startTxn.dialect == POSTGRES_DIALECT:
+            if startTxn.dbtype.dialect == POSTGRES_DIALECT:
                 yield startTxn.execSQL("set search_path to public")
                 yield startTxn.execSQL("drop schema if exists test_dbUpgrades cascade")
-            elif startTxn.dialect == ORACLE_DIALECT:
+            elif startTxn.dbtype.dialect == ORACLE_DIALECT:
                 yield cleanDatabase(startTxn)
             yield startTxn.commit()
 
@@ -286,7 +286,7 @@ class SchemaUpgradeTests(TestCase):
             in postgres that we can quickly wipe clean afterwards.
             """
             startTxn = store.newTransaction("test_dbUpgrades")
-            if startTxn.dialect == POSTGRES_DIALECT:
+            if startTxn.dbtype.dialect == POSTGRES_DIALECT:
                 yield startTxn.execSQL("create schema test_dbUpgrades")
                 yield startTxn.execSQL("set search_path to test_dbUpgrades")
             yield startTxn.execSQLBlock(path.getContent())
@@ -303,20 +303,20 @@ class SchemaUpgradeTests(TestCase):
         @inlineCallbacks
         def _unloadOldData():
             startTxn = store.newTransaction("test_dbUpgrades")
-            if startTxn.dialect == POSTGRES_DIALECT:
+            if startTxn.dbtype.dialect == POSTGRES_DIALECT:
                 yield startTxn.execSQL("set search_path to public")
                 yield startTxn.execSQL("drop schema test_dbUpgrades cascade")
-            elif startTxn.dialect == ORACLE_DIALECT:
+            elif startTxn.dbtype.dialect == ORACLE_DIALECT:
                 yield cleanDatabase(startTxn)
             yield startTxn.commit()
 
         @inlineCallbacks
         def _cleanupOldData():
             startTxn = store.newTransaction("test_dbUpgrades")
-            if startTxn.dialect == POSTGRES_DIALECT:
+            if startTxn.dbtype.dialect == POSTGRES_DIALECT:
                 yield startTxn.execSQL("set search_path to public")
                 yield startTxn.execSQL("drop schema if exists test_dbUpgrades cascade")
-            elif startTxn.dialect == ORACLE_DIALECT:
+            elif startTxn.dbtype.dialect == ORACLE_DIALECT:
                 yield cleanDatabase(startTxn)
             yield startTxn.commit()
 

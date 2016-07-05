@@ -23,6 +23,8 @@ import os
 import re
 import textwrap
 
+DEBUG = False
+
 COPYRIGHT = """
 <!--
     Copyright (c) 2006-2016 Apple Inc. All rights reserved.
@@ -313,12 +315,14 @@ def dumpConfig():
     }
 
     for item in maps.keys():
+        if DEBUG:
+            print(item)
         lines = parseConfigItem(item)
-        maps[item] = processConfig(lines, with_comments=True, verbose=False)
+        maps[item] = processConfig(lines, with_comments=True, verbose=DEBUG)
 
     # Generate the plist for the default config, substituting for the *_PARAMS items
     lines = parseConfigItem("DEFAULT_CONFIG")
-    j = processConfig(lines, with_comments=True, verbose=False, substitutions=maps)
+    j = processConfig(lines, with_comments=True, verbose=DEBUG, substitutions=maps)
     return writeOrderedPlistToString(j)
 
 

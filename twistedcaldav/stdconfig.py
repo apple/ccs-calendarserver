@@ -195,23 +195,35 @@ DEFAULT_CONFIG = {
     "BindSSLPorts": [], # List of port numbers to bind to for SSL [empty = same as "SSLPort"]
     "InheritFDs": [], # File descriptors to inherit for HTTP requests [empty = don't inherit]
     "InheritSSLFDs": [], # File descriptors to inherit for HTTPS requests [empty = don't inherit]
-    "MetaFD": 0, # Inherited file descriptor to call recvmsg() on to receive sockets (none = don't inherit)
 
     "UseMetaFD": True, # Use a 'meta' FD, i.e. an FD to transmit other FDs to slave processes.
+    "MetaFD": 0, # Inherited file descriptor to call recvmsg() on to receive sockets (none = don't inherit)
 
-    "UseDatabase": True, # True: database; False: files
+    #
+    # Database configuration information.
+    #
+    #    Defines what kind of database to use: file (deprecated) or SQL.
+    #    File-based DB is only supported for migration purposes - it
+    #    cannot be used for a real service.
+    #
+    #    For an SQL-based DB, configuration of connection parameters and various
+    #    timeouts is provided.
+    #
 
-    "TransactionTimeoutSeconds": 300,   # Timeout transactions that take longer than
-                                        # the specified number of seconds. Zero means
-                                        # no timeouts. 5 minute default.
-    "TransactionHTTPRetrySeconds": 300, # When a transactions times out tell HTTP clients
-                                        # clients to retry after this amount of time
+    "UseDatabase": True, # True: database; False: files (deprecated)
 
-    "DBType": "", # 2 possible values: empty, meaning 'spawn postgres
-                  # yourself', or 'postgres', meaning 'connect to a
-                  # postgres database as specified by the 'DSN'
-                  # configuration key.  Will support more values in
-                  # the future.
+    "DBType": "", # Possible values: empty, meaning 'spawn postgres
+                  # yourself', or 'postgres' or 'oracle', meaning
+                  # 'connect to a postgres or Oracle database as
+                  # specified by the 'DSN' configuration key.
+
+
+    "DBFeatures": [ # Features supported by the database
+                    #
+                    # 'skip-locked': SKIP LOCKED available with SELECT (remove if using postgres < v9.5)
+                    #
+        "skip-locked",
+    ],
 
     "SpawnedDBUser": "caldav", # The username to use when DBType is empty
 
@@ -223,16 +235,16 @@ DEFAULT_CONFIG = {
         "ssl": False,       # Set to True to require SSL (pg8000 only).
     },
 
+    "SharedConnectionPool": False, # Use a shared database connection pool in
+                                   # the master process, rather than having
+                                   # each client make its connections directly.
+
     "DBAMPFD": 0, # Internally used by database to tell slave
                   # processes to inherit a file descriptor and use it
                   # as an AMP connection over a UNIX socket; see
                   # twext.enterprise.adbapi2.ConnectionPoolConnection
 
-    "SharedConnectionPool": False, # Use a shared database connection pool in
-                                   # the master process, rather than having
-                                   # each client make its connections directly.
-
-    "FailIfUpgradeNeeded": True, # Set to True to prevent the server or utility
+    "FailIfUpgradeNeeded": True,   # Set to True to prevent the server or utility
                                    # tools from running if the database needs a schema
                                    # upgrade.
 
@@ -245,6 +257,12 @@ DEFAULT_CONFIG = {
                                 # apply to upgrade pieces that affect entire homes. The upgrade will
                                 # need to be run again without this prefix set to complete the overall
                                 # upgrade.
+
+    "TransactionTimeoutSeconds": 300,   # Timeout transactions that take longer than
+                                        # the specified number of seconds. Zero means
+                                        # no timeouts. 5 minute default.
+    "TransactionHTTPRetrySeconds": 300, # When a transactions times out tell HTTP clients
+                                        # clients to retry after this amount of time
 
     #
     # Work queue configuration information

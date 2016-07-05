@@ -25,7 +25,8 @@ from twext.enterprise.dal.model import NO_DEFAULT
 from twext.enterprise.dal.model import Sequence, ProcedureCall
 from twext.enterprise.dal.parseschema import schemaFromPath
 from twext.enterprise.dal.syntax import FixedPlaceholder
-from twext.enterprise.ienterprise import ORACLE_DIALECT, POSTGRES_DIALECT
+from twext.enterprise.ienterprise import ORACLE_DIALECT, POSTGRES_DIALECT, \
+    DatabaseType
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.ienterprise import ORACLE_TABLE_NAME_MAX
 import hashlib
@@ -314,7 +315,7 @@ def _staticSQL(sql, doquote=False):
     @return: the generated SQL string.
     @rtype: C{str}
     """
-    qgen = QueryGenerator(ORACLE_DIALECT, FixedPlaceholder('%s'))
+    qgen = QueryGenerator(DatabaseType(ORACLE_DIALECT, "pyformat"), FixedPlaceholder('%s'))
     if doquote:
         qgen.shouldQuote = lambda name: True
     if hasattr(sql, 'subSQL'):

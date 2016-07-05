@@ -643,8 +643,7 @@ class CommonStoreTransaction(
         directlyProvides(self, *extraInterfaces)
 
         self._sqlTxn = sqlTxn
-        self.paramstyle = sqlTxn.paramstyle
-        self.dialect = sqlTxn.dialect
+        self.dbtype = sqlTxn.dbtype
 
         self._stats = (
             TransactionStatsCollector(self._label, self._store.logStatsLogFile)
