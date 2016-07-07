@@ -607,6 +607,10 @@ class CalendarDirectoryRecordMixin(object):
         returnValue(autoScheduleMode)
 
 
+    def setAutoScheduleMode(self, autoScheduleMode):
+        return self.service.setAutoScheduleMode(self, autoScheduleMode)
+
+
     @inlineCallbacks
     def autoAcceptFromOrganizer(self, organizer):
         try:

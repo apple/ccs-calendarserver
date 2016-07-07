@@ -36,6 +36,7 @@ from txdav.who.groups import GroupCacher
 from txdav.who.test.support import (
     TestRecord, CalendarInMemoryDirectoryService
 )
+from txdav.who.idirectory import AutoScheduleMode
 
 
 testMode = "xml"  # "xml" or "od"
@@ -439,6 +440,22 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
         """
         super(DPSClientAugmentedAggregateDirectoryTest, self).configure()
         self.patch(config.Authentication.Wiki, "Enabled", True)
+
+
+    @inlineCallbacks
+    def test_setAutoScheduleMode(self):
+        """
+        Verify setAutoSchedule works across DPS
+        """
+        record = yield self.client.recordWithUID(u"75EA36BE-F71B-40F9-81F9-CF59BF40CA8F")
+        # Defaults to automatic
+        self.assertEquals(record.autoScheduleMode, AutoScheduleMode.acceptIfFreeDeclineIfBusy)
+        # Change it to accept-if-busy
+        yield record.setAutoScheduleMode(AutoScheduleMode.acceptIfFree)
+        # Refetch it
+        record = yield self.client.recordWithUID(u"75EA36BE-F71B-40F9-81F9-CF59BF40CA8F")
+        # Verify it's changed
+        self.assertEquals(record.autoScheduleMode, AutoScheduleMode.acceptIfFree)
 
 
     @inlineCallbacks

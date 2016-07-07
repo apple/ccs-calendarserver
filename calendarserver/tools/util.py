@@ -41,9 +41,6 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 
-from txdav.xml import element as davxml
-
-
 from twistedcaldav import memcachepool
 from txdav.base.propertystore.base import PropertyName
 from txdav.xml import element
@@ -51,6 +48,8 @@ from pycalendar.datetime import DateTime, Timezone
 
 from twext.who.idirectory import RecordType
 from txdav.who.idirectory import RecordType as CalRecordType
+
+from txdav.who.delegates import Delegates, RecordType as DelegateRecordType
 
 
 log = Logger()
@@ -343,126 +342,107 @@ def recordForPrincipalID(directory, principalID, checkOnly=False):
     raise ValueError("Invalid principal identifier: %s" % (principalID,))
 
 
-
-def proxySubprincipal(principal, proxyType):
-    return principal.getChild("calendar-proxy-" + proxyType)
-
-
-
 @inlineCallbacks
-def action_addProxyPrincipal(rootResource, directory, store, principal, proxyType, proxyPrincipal):
-    try:
-        (yield addProxy(rootResource, directory, store, principal, proxyType, proxyPrincipal))
-        print("Added %s as a %s proxy for %s" % (
-            prettyPrincipal(proxyPrincipal), proxyType,
-            prettyPrincipal(principal)))
-    except ProxyError, e:
-        print("Error:", e)
-    except ProxyWarning, e:
-        print(e)
-
-
-
-@inlineCallbacks
-def action_removeProxyPrincipal(rootResource, directory, store, principal, proxyPrincipal, **kwargs):
-    try:
-        removed = (yield removeProxy(
-            rootResource, directory, store,
-            principal, proxyPrincipal, **kwargs
-        ))
-        if removed:
-            print("Removed %s as a proxy for %s" % (
-                prettyPrincipal(proxyPrincipal),
-                prettyPrincipal(principal)))
-    except ProxyError, e:
-        print("Error:", e)
-    except ProxyWarning, e:
-        print(e)
-
-
-
-@inlineCallbacks
-def addProxy(rootResource, directory, store, principal, proxyType, proxyPrincipal):
-    proxyURL = proxyPrincipal.url()
-
-    subPrincipal = yield proxySubprincipal(principal, proxyType)
-    if subPrincipal is None:
-        raise ProxyError(
-            "Unable to edit %s proxies for %s\n" % (
-                proxyType,
-                prettyPrincipal(principal)
-            )
-        )
-
-    membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
-
-    for memberURL in membersProperty.children:
-        if str(memberURL) == proxyURL:
-            raise ProxyWarning("%s is already a %s proxy for %s" % (
-                prettyPrincipal(proxyPrincipal), proxyType,
-                prettyPrincipal(principal)))
-
-    else:
-        memberURLs = list(membersProperty.children)
-        memberURLs.append(davxml.HRef(proxyURL))
-        membersProperty = davxml.GroupMemberSet(*memberURLs)
-        (yield subPrincipal.writeProperty(membersProperty, None))
-
-    proxyTypes = ["read", "write"]
-    proxyTypes.remove(proxyType)
-
-    yield action_removeProxyPrincipal(
-        rootResource, directory, store,
-        principal, proxyPrincipal, proxyTypes=proxyTypes
-    )
-
-    # Schedule work the PeerConnectionPool will pick up as overdue
-    def groupPollNow(txn):
-        from txdav.who.groups import GroupCacherPollingWork
-        return GroupCacherPollingWork.reschedule(txn, 0, force=True)
-    yield store.inTransaction("addProxy groupPollNow", groupPollNow)
-
-
-
-@inlineCallbacks
-def removeProxy(rootResource, directory, store, principal, proxyPrincipal, **kwargs):
-    removed = False
-    proxyTypes = kwargs.get("proxyTypes", ("read", "write"))
-    for proxyType in proxyTypes:
-        proxyURL = proxyPrincipal.url()
-
-        subPrincipal = yield proxySubprincipal(principal, proxyType)
-        if subPrincipal is None:
-            raise ProxyError(
-                "Unable to edit %s proxies for %s\n" % (
-                    proxyType,
-                    prettyPrincipal(principal)
+def _addRemoveProxy(msg, fn, store, record, proxyType, *proxyIDs):
+    directory = store.directoryService()
+    readWrite = (proxyType == "write")
+    for proxyID in proxyIDs:
+        proxyRecord = yield recordForPrincipalID(directory, proxyID)
+        if proxyRecord is None:
+            print("Invalid principal ID: %s" % (proxyID,))
+        else:
+            txn = store.newTransaction()
+            yield fn(txn, record, proxyRecord, readWrite)
+            yield txn.commit()
+            print(
+                "{msg} {proxy} as a {proxyType} proxy for {record}".format(
+                    msg=msg, proxy=prettyRecord(proxyRecord),
+                    proxyType=proxyType, record=prettyRecord(record)
                 )
             )
 
-        membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
 
-        memberURLs = [
-            m for m in membersProperty.children
-            if str(m) != proxyURL
-        ]
 
-        if len(memberURLs) == len(membersProperty.children):
-            # No change
+@inlineCallbacks
+def action_addProxy(store, record, proxyType, *proxyIDs):
+    if config.GroupCaching.Enabled and config.GroupCaching.UseDirectoryBasedDelegates:
+        if record.recordType in (
+            record.service.recordType.location,
+            record.service.recordType.resource,
+        ):
+            print("You are not allowed to add proxies for locations or resources via command line when their proxy assignments come from the directory service.")
+            returnValue(None)
+
+    yield _addRemoveProxy("Added", Delegates.addDelegate, store, record, proxyType, *proxyIDs)
+
+
+
+@inlineCallbacks
+def action_removeProxy(store, record, *proxyIDs):
+    if config.GroupCaching.Enabled and config.GroupCaching.UseDirectoryBasedDelegates:
+        if record.recordType in (
+            record.service.recordType.location,
+            record.service.recordType.resource,
+        ):
+            print("You are not allowed to remove proxies for locations or resources via command line when their proxy assignments come from the directory service.")
+            returnValue(None)
+
+    # Write
+    yield _addRemoveProxy("Removed", Delegates.removeDelegate, store, record, "write", *proxyIDs)
+    # Read
+    yield _addRemoveProxy("Removed", Delegates.removeDelegate, store, record, "read", *proxyIDs)
+
+
+@inlineCallbacks
+def setProxies(record, readProxyRecords, writeProxyRecords):
+    """
+    Set read/write proxies en masse for a record
+    @param record: L{IDirectoryRecord}
+    @param readProxyRecords: a list of records
+    @param writeProxyRecords: a list of records
+    """
+
+    proxyTypes = [
+        (DelegateRecordType.readDelegateGroup, readProxyRecords),
+        (DelegateRecordType.writeDelegateGroup, writeProxyRecords),
+    ]
+    for recordType, proxyRecords in proxyTypes:
+        if proxyRecords is None:
             continue
-        else:
-            removed = True
+        proxyGroup = yield record.service.recordWithShortName(
+            recordType, record.uid
+        )
+        yield proxyGroup.setMembers(proxyRecords)
 
-        membersProperty = davxml.GroupMemberSet(*memberURLs)
-        (yield subPrincipal.writeProperty(membersProperty, None))
 
-    if removed:
-        # Schedule work the PeerConnectionPool will pick up as overdue
-        def groupPollNow(txn):
-            from txdav.who.groups import GroupCacherPollingWork
-            return GroupCacherPollingWork.reschedule(txn, 0, force=True)
-        yield store.inTransaction("removeProxy groupPollNow", groupPollNow)
-    returnValue(removed)
+
+@inlineCallbacks
+def getProxies(record):
+    """
+    Returns a tuple containing the records for read proxies and write proxies
+    of the given record
+    """
+
+    allProxies = {
+        DelegateRecordType.readDelegateGroup: [],
+        DelegateRecordType.writeDelegateGroup: [],
+    }
+    for recordType in allProxies.iterkeys():
+        proxyGroup = yield record.service.recordWithShortName(
+            recordType, record.uid
+        )
+        allProxies[recordType] = yield proxyGroup.members()
+
+    returnValue(
+        (
+            allProxies[DelegateRecordType.readDelegateGroup],
+            allProxies[DelegateRecordType.writeDelegateGroup]
+        )
+    )
+
+
+def proxySubprincipal(principal, proxyType):
+    return principal.getChild("calendar-proxy-" + proxyType)
 
 
 

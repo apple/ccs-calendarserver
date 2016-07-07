@@ -35,16 +35,14 @@ from calendarserver.tools.config import (
     WRITABLE_CONFIG_KEYS, setKeyPath, getKeyPath, flattenDictionary,
     WritableConfig
 )
-from calendarserver.tools.principals import (
-    getProxies, setProxies
-)
 from calendarserver.tools.purge import (
     WorkerService, PurgeOldEventsService,
     DEFAULT_BATCH_SIZE, DEFAULT_RETAIN_DAYS,
     PrincipalPurgeWork
 )
 from calendarserver.tools.util import (
-    recordForPrincipalID, autoDisableMemcached
+    recordForPrincipalID, autoDisableMemcached,
+    getProxies, setProxies
 )
 from pycalendar.datetime import DateTime
 from twext.who.directory import DirectoryRecord

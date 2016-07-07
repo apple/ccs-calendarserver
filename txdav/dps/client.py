@@ -44,7 +44,8 @@ from txdav.dps.commands import (
     WikiAccessForUIDCommand, ContinuationCommand,
     StatsCommand, ExternalDelegatesCommand, ExpandedMemberUIDsCommand,
     AddMembersCommand, RemoveMembersCommand,
-    UpdateRecordsCommand, ExpandedMembersCommand, FlushCommand
+    UpdateRecordsCommand, ExpandedMembersCommand, FlushCommand,
+    SetAutoScheduleModeCommand
 )
 from txdav.who.delegates import RecordType as DelegatesRecordType
 from txdav.who.directory import (
@@ -419,6 +420,14 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             UpdateRecordsCommand,
             uids=recordUIDs,
             create=False,
+        )
+
+
+    def setAutoScheduleMode(self, record, autoScheduleMode):
+        return self._sendCommand(
+            SetAutoScheduleModeCommand,
+            uid=record.uid.encode("utf-8"),
+            autoScheduleMode=autoScheduleMode.name,
         )
 
 
