@@ -168,6 +168,13 @@ init_build () {
         use_openssl="false"
         ;;
     esac;
+  else
+    case "$(uname -s)" in
+      Darwin)
+        # Needed to build OpenSSL 64-bit on OS X
+        export KERNEL_BITS=64
+        ;;
+    esac
   fi;  
   conditional_set requirements "${default_requirements}"
   
@@ -490,7 +497,7 @@ c_dependencies () {
   if [ ${use_openssl} == "true" ]; then
     ruler;
 
-    local min_ssl_version="9470095";  # OpenSSL 0.9.8zf
+    local min_ssl_version="268443791";  # OpenSSL 1.0.2h
 
     local ssl_version="$(c_macro openssl/ssl.h OPENSSL_VERSION_NUMBER)";
     if [ -z "${ssl_version}" ]; then ssl_version="0x0"; fi;
@@ -499,13 +506,13 @@ c_dependencies () {
     if [ "${ssl_version}" -ge "${min_ssl_version}" ]; then
       using_system "OpenSSL";
     else
-      local v="0.9.8zh";
+      local v="1.0.2h";
       local n="openssl";
       local p="${n}-${v}";
 
       # use 'config' instead of 'configure'; 'make' instead of 'jmake'.
       # also pass 'shared' to config to build shared libs.
-      c_dependency -c "config" -s "3ff71636bea85a99f4d76a10d119c09bda0421e3" \
+      c_dependency -c "config" -s "577585f5f5d299c44dd3c993d3c0ac7a219e4949" \
         -p "make depend" -b "make" \
         "openssl" "${p}" \
         "http://www.openssl.org/source/${p}.tar.gz" "shared";
