@@ -30,7 +30,6 @@ from time import sleep
 import socket
 from pwd import getpwnam
 from grp import getgrnam
-from uuid import UUID
 
 from calendarserver.tools import diagnose
 
@@ -271,8 +270,6 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
         returnValue((yield directory.principalCollection.principalForShortName(recordType, shortName)))
 
     try:
-        UUID(principalID)
-
         if checkOnly:
             returnValue(None)
 
