@@ -615,7 +615,7 @@ c_dependencies () {
     c_dependency -m "3f0c388566c688c82b01a0edf1e6b7a0" \
       "PostgreSQL" "${p}" \
       "http://ftp.postgresql.org/pub/source/v${v}/${p}.tar.bz2" \
-      --with-python ${enable_dtrace};
+      ${enable_dtrace};
   fi;
 
 }
@@ -678,6 +678,12 @@ py_dependencies () {
       --no-setuptools                    \
       ${virtualenv_opts}                 \
       "${py_virtualenv}";
+    case "$(uname -s)" in
+      Darwin)
+        echo "macOS virtualenv codesign fix."
+        cp "/usr/bin/python" "${py_bindir}/python";
+        ;;
+    esac;
   fi;
 
   cd "${wd}";
@@ -735,37 +741,15 @@ macos_oracle () {
 
 bootstrap_virtualenv () {
   mkdir -p "${py_ve_tools}";
-  mkdir -p "${py_ve_tools}/lib";
-  mkdir -p "${py_ve_tools}/junk";
+  export PYTHONUSERBASE="${py_ve_tools}"
 
   for pkg in             \
-      setuptools-18.5    \
-      pip-8.1.2          \
-      virtualenv-15.0.2  \
+      setuptools==18.5    \
+      pip==8.1.2          \
+      virtualenv==15.0.2  \
   ; do
-      local    name="${pkg%-*}";
-      local version="${pkg#*-}";
-      local  first="$(echo "${name}" | sed 's|^\(.\).*$|\1|')";
-      local    url="https://pypi.python.org/packages/source/${first}/${name}/${pkg}.tar.gz";
-
-      ruler "Downloading ${pkg}";
-
-      local tmp="$(mktemp -d -t ccsXXXXX)";
-
-      curl -L "${url}" | tar -C "${tmp}" -xvzf -;
-
-      cd "${tmp}/$(basename "${pkg}")";
-      PYTHONPATH="${py_ve_tools}/lib"                \
-        "${bootstrap_python}" setup.py install       \
-            --install-base="${py_ve_tools}"          \
-            --install-lib="${py_ve_tools}/lib"       \
-            --install-headers="${py_ve_tools}/junk"  \
-            --install-scripts="${py_ve_tools}/junk"  \
-            --install-data="${py_ve_tools}/junk"     \
-            ;                                        \
-      cd "${wd}";
-
-      rm -rf "${tmp}";
+      ruler "Installing ${pkg}";
+      "${bootstrap_python}" -m pip install -I --user "${pkg}";
   done;
 }
 

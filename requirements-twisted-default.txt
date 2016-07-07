@@ -3,27 +3,27 @@
 ##
 
 
-Twisted==15.4.0
+Twisted==16.3.0
     #zope.interface
 
     # NOTE: Twisted also uses pyOpenSSL, pycrypto and service_identity,
     #   but doesn't specify them as dependencies, so that are explicitly
     #   added to calendarserver.
     #pyOpenSSL
-    service_identity==14.0.0
+    service_identity==16.0.0
         characteristic==14.3.0
         pyasn1==0.1.9
         pyasn1-modules==0.0.8
         #pyOpenSSL
     pycrypto==2.6.1
 
-    pyOpenSSL==0.15.1
+    pyOpenSSL==16.0.0
         cryptography==1.1
         	idna
             #pyasn1
             #cffi
-            enum34==1.0.4
+            enum34==1.1.6
             ipaddress
-            #setuptools==17.0
+            #setuptools
             #six
         six==1.10.0
