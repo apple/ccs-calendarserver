@@ -3,8 +3,8 @@ Index: twisted/internet/_sslverify.py
 --- twisted/internet/_sslverify.py	(revision 45115)
 +++ twisted/internet/_sslverify.py	(working copy)
 @@ -174,7 +174,9 @@
-        "rejected."
-    )
+         "rejected."
+     )
  
 -    if _usablePyOpenSSL(lib.__version__):
 +    if hasattr(lib, "__SecureTransport__"):
