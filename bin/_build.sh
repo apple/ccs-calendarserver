@@ -602,7 +602,7 @@ c_dependencies () {
   if command -v postgres > /dev/null; then
     using_system "Postgres";
   else
-    local v="9.3.10";
+    local v="9.5.3";
     local n="postgresql";
     local p="${n}-${v}";
 
@@ -612,10 +612,10 @@ c_dependencies () {
       local enable_dtrace="";
     fi;
 
-    c_dependency -m "ec2365548d08f69c8023eddd4f2d1a28" \
+    c_dependency -m "3f0c388566c688c82b01a0edf1e6b7a0" \
       "PostgreSQL" "${p}" \
       "http://ftp.postgresql.org/pub/source/v${v}/${p}.tar.bz2" \
-      --with-python ${enable_dtrace};
+      ${enable_dtrace};
   fi;
 
 }
@@ -678,6 +678,12 @@ py_dependencies () {
       --no-setuptools                    \
       ${virtualenv_opts}                 \
       "${py_virtualenv}";
+    case "$(uname -s)" in
+      Darwin)
+        echo "macOS virtualenv codesign fix."
+        cp "/usr/bin/python" "${py_bindir}/python";
+        ;;
+    esac;
   fi;
 
   cd "${wd}";
@@ -711,9 +717,11 @@ py_dependencies () {
 
   ruler "Patching Python requirements";
   echo "";
-  if [ ! -e "${py_virtualenv}/lib/python2.7/site-packages/twisted/.patch_applied" ]; then
+  twisted_version=$("${python}" -c 'from twisted._version import version; print version.base()');
+  if [ ! -e "${py_virtualenv}/lib/python2.7/site-packages/twisted/.patch_applied.${twisted_version}" ]; then
     apply_patches "Twisted" "${py_virtualenv}/lib/python2.7/site-packages"
-    touch "${py_virtualenv}/lib/python2.7/site-packages/twisted/.patch_applied";
+    find "${py_virtualenv}/lib/python2.7/site-packages/twisted" -type f -name '.patch_applied*' -print0 | xargs -0 rm -f;
+    touch "${py_virtualenv}/lib/python2.7/site-packages/twisted/.patch_applied.${twisted_version}";
   fi;
 
   echo "";
@@ -735,37 +743,15 @@ macos_oracle () {
 
 bootstrap_virtualenv () {
   mkdir -p "${py_ve_tools}";
-  mkdir -p "${py_ve_tools}/lib";
-  mkdir -p "${py_ve_tools}/junk";
+  export PYTHONUSERBASE="${py_ve_tools}"
 
   for pkg in             \
-      setuptools-18.5    \
-      pip-7.1.2          \
-      virtualenv-13.1.2  \
+      setuptools==18.5    \
+      pip==8.1.2          \
+      virtualenv==15.0.2  \
   ; do
-      local    name="${pkg%-*}";
-      local version="${pkg#*-}";
-      local  first="$(echo "${name}" | sed 's|^\(.\).*$|\1|')";
-      local    url="https://pypi.python.org/packages/source/${first}/${name}/${pkg}.tar.gz";
-
-      ruler "Downloading ${pkg}";
-
-      local tmp="$(mktemp -d -t ccsXXXXX)";
-
-      curl -L "${url}" | tar -C "${tmp}" -xvzf -;
-
-      cd "${tmp}/$(basename "${pkg}")";
-      PYTHONPATH="${py_ve_tools}/lib"                \
-        "${bootstrap_python}" setup.py install       \
-            --install-base="${py_ve_tools}"          \
-            --install-lib="${py_ve_tools}/lib"       \
-            --install-headers="${py_ve_tools}/junk"  \
-            --install-scripts="${py_ve_tools}/junk"  \
-            --install-data="${py_ve_tools}/junk"     \
-            ;                                        \
-      cd "${wd}";
-
-      rm -rf "${tmp}";
+      ruler "Installing ${pkg}";
+      "${bootstrap_python}" -m pip install -I --user "${pkg}";
   done;
 }
 
@@ -776,7 +762,7 @@ pip_download () {
   "${python}" -m pip install               \
     --disable-pip-version-check            \
     --download="${dev_home}/pip_downloads" \
-    --pre --allow-all-external             \
+    --pre                                  \
     --no-cache-dir                         \
     --log-file="${dev_home}/pip.log"       \
     "$@";
@@ -786,7 +772,7 @@ pip_download () {
 pip_install_from_cache () {
   "${python}" -m pip install                 \
     --disable-pip-version-check              \
-    --pre --allow-all-external               \
+    --pre                                    \
     --no-index                               \
     --no-cache-dir                           \
     --find-links="${dev_patches}"            \
@@ -799,7 +785,7 @@ pip_install_from_cache () {
 pip_download_and_install () {
   "${python}" -m pip install                 \
     --disable-pip-version-check              \
-    --pre --allow-all-external               \
+    --pre                                    \
     --no-cache-dir                           \
     --find-links="${dev_patches}"            \
     --log-file="${dev_home}/pip.log"         \

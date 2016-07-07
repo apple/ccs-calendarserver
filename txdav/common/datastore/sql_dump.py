@@ -54,9 +54,9 @@ def dumpSchema(txn, title, schemaname="public"):
     Generate the L{Schema}.
     """
 
-    if txn.dialect == POSTGRES_DIALECT:
+    if txn.dbtype.dialect == POSTGRES_DIALECT:
         return dumpSchema_postgres(txn, title, schemaname)
-    elif txn.dialect == ORACLE_DIALECT:
+    elif txn.dbtype.dialect == ORACLE_DIALECT:
         return dumpSchema_oracle(txn, title, schemaname)
 
 

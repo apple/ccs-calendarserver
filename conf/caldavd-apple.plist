@@ -108,6 +108,11 @@
     <!-- Database connection -->
     <key>DBType</key>
     <string></string>
+    
+    <!-- No features - when macOS supports postgres 9.5 and up change
+    	 this to include 'skip-locked'. -->
+	<key>DBFeatures</key>
+	<array></array>
 
     <key>Postgres</key>
     <dict>

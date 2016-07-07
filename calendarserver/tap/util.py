@@ -44,8 +44,7 @@ from subprocess import Popen, PIPE
 
 from twext.enterprise.adbapi2 import ConnectionPool, ConnectionPoolConnection
 from twext.enterprise.adbapi2 import ConnectionPoolClient
-from twext.enterprise.ienterprise import ORACLE_DIALECT
-from twext.enterprise.ienterprise import POSTGRES_DIALECT
+from twext.enterprise.ienterprise import POSTGRES_DIALECT, ORACLE_DIALECT, DatabaseType
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.python.filepath import CachingFilePath
 from twext.python.filepath import CachingFilePath as FilePath
@@ -179,14 +178,14 @@ class ConnectionWithPeer(Connection):
 
 
 
-def transactionFactoryFromFD(dbampfd, dialect, paramstyle):
+def transactionFactoryFromFD(dbampfd, dbtype):
     """
     Create a transaction factory from an inherited file descriptor, such as one
     created by L{ConnectionDispenser}.
     """
     skt = fromfd(dbampfd, AF_UNIX, SOCK_STREAM)
     os.close(dbampfd)
-    protocol = ConnectionPoolClient(dialect=dialect, paramstyle=paramstyle)
+    protocol = ConnectionPoolClient(dbtype=dbtype)
     transport = ConnectionWithPeer(skt, protocol)
     protocol.makeConnection(transport)
     transport.startReading()
@@ -830,7 +829,7 @@ def getDBPool(config):
     pool = None
     if config.DBAMPFD:
         txnFactory = transactionFactoryFromFD(
-            int(config.DBAMPFD), dialect, paramstyle
+            int(config.DBAMPFD), DatabaseType(dialect, paramstyle, config.DBFeatures)
         )
     elif not config.UseDatabase:
         txnFactory = None
@@ -843,8 +842,7 @@ def getDBPool(config):
         else:
             connectionFactory = DBAPIConnector.connectorFor(config.DBType, **config.DatabaseConnection).connect
 
-        pool = ConnectionPool(connectionFactory, dialect=dialect,
-                              paramstyle=paramstyle,
+        pool = ConnectionPool(connectionFactory, dbtype=DatabaseType(dialect, paramstyle, config.DBFeatures),
                               maxConnections=config.MaxDBConnectionsPerPool)
         txnFactory = pool.connection
     else:

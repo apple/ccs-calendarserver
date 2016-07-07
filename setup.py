@@ -328,7 +328,7 @@ setup_requirements = []
 install_requirements = [
     # Core frameworks
     "zope.interface",
-    "Twisted==15.4.0",
+    "Twisted==16.3.0",
     "twextpy",
 
     # Security frameworks

@@ -36,7 +36,7 @@ from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.ienterprise import AlreadyFinishedError, POSTGRES_DIALECT, \
-    ORACLE_DIALECT
+    ORACLE_DIALECT, DatabaseType
 from twext.enterprise.jobs.jobitem import JobItem
 from twext.enterprise.jobs.queue import ControllerQueue
 from twext.who.directory import DirectoryRecord
@@ -162,8 +162,7 @@ class SQLStoreBuilder(object):
         cp = ConnectionPool(
             stubsvc.produceConnection,
             maxConnections=1,
-            dialect=DB_TYPE[0],
-            paramstyle=DB_TYPE[1],
+            dbtype=DatabaseType(DB_TYPE[0], DB_TYPE[1]),
         )
         # Attach the service to the running reactor.
         cp.startService()
@@ -251,8 +250,7 @@ class SQLStoreBuilder(object):
         cp = ConnectionPool(
             self.sharedService.produceConnection,
             maxConnections=4,
-            dialect=DB_TYPE[0],
-            paramstyle=DB_TYPE[1],
+            dbtype=DatabaseType(DB_TYPE[0], DB_TYPE[1]),
         )
         quota = deriveQuota(testCase)
         store = CommonDataStore(
@@ -340,10 +338,10 @@ class SQLStoreBuilder(object):
         # Change the starting values of sequences to random values
         for sequence in schema.model.sequences: #@UndefinedVariable
             try:
-                if cleanupTxn.dialect == POSTGRES_DIALECT:
+                if cleanupTxn.dbtype.dialect == POSTGRES_DIALECT:
                     curval = (yield cleanupTxn.execSQL("select nextval('{}')".format(sequence.name), []))[0][0]
                     yield cleanupTxn.execSQL("select setval('{}', {})".format(sequence.name, curval + randint(1, 10000)), [])
-                elif cleanupTxn.dialect == ORACLE_DIALECT:
+                elif cleanupTxn.dbtype.dialect == ORACLE_DIALECT:
                     yield cleanupTxn.execSQL("alter sequence {} increment by {}".format(sequence.name, randint(1, 10000)), [])
                     yield cleanupTxn.execSQL("select {}.nextval from dual".format(sequence.name), [])
                     yield cleanupTxn.execSQL("alter sequence {} increment by {}".format(sequence.name, 1), [])

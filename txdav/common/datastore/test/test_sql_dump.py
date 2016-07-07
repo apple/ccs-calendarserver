@@ -53,7 +53,7 @@ class SQLDump(TestCase):
     @inlineCallbacks
     def cleanUp(self):
         startTxn = self.store.newTransaction("test_dbUpgrades")
-        if startTxn.dialect == POSTGRES_DIALECT:
+        if startTxn.dbtype.dialect == POSTGRES_DIALECT:
             yield startTxn.execSQL("set search_path to public")
             yield startTxn.execSQL("drop schema test_dbUpgrades cascade")
         else:
@@ -69,7 +69,7 @@ class SQLDump(TestCase):
         in postgres that we can quickly wipe clean afterwards.
         """
         startTxn = self.store.newTransaction("test_dbUpgrades")
-        if startTxn.dialect == POSTGRES_DIALECT:
+        if startTxn.dbtype.dialect == POSTGRES_DIALECT:
             yield startTxn.execSQL("create schema test_dbUpgrades")
             yield startTxn.execSQL("set search_path to test_dbUpgrades")
         yield startTxn.execSQLBlock(schema)

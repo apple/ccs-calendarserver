@@ -190,7 +190,7 @@ class UpgradeDatabaseCoreStep(object):
 
         # Get the schema version in the current database
         sqlTxn = self.sqlStore.newTransaction(label="UpgradeDatabaseCoreStep.getVersions")
-        dialect = sqlTxn.dialect
+        dialect = sqlTxn.dbtype.dialect
         try:
             actual_version = yield sqlTxn.calendarserverValue(self.versionKey)
             actual_version = int(actual_version)

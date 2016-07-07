@@ -118,34 +118,42 @@
 	<array>
 	</array>
 
+	<!-- Use a 'meta' FD, i.e. an FD to transmit other FDs to slave processes. -->
+	<key>UseMetaFD</key>
+	<true/>
+
 	<!-- Inherited file descriptor to call recvmsg() on to receive sockets (none =
 	     don't inherit) -->
 	<key>MetaFD</key>
 	<integer>0</integer>
 
-	<!-- Use a 'meta' FD, i.e. an FD to transmit other FDs to slave processes. -->
-	<key>UseMetaFD</key>
-	<true/>
+	<!-- Database configuration information.
 
-	<!-- True: database; False: files -->
+	     Defines what kind of database to use: file (deprecated) or SQL. File-based
+	     DB is only supported for migration purposes - it cannot be used for a real
+	     service.
+
+	     For an SQL-based DB, configuration of connection parameters and various
+	     timeouts is provided. -->
+
+	<!-- True: database; False: files (deprecated) -->
 	<key>UseDatabase</key>
 	<true/>
 
-	<!-- Timeout transactions that take longer than the specified number of
-	     seconds. Zero means no timeouts. 5 minute default. -->
-	<key>TransactionTimeoutSeconds</key>
-	<integer>300</integer>
-
-	<!-- When a transactions times out tell HTTP clients clients to retry after
-	     this amount of time -->
-	<key>TransactionHTTPRetrySeconds</key>
-	<integer>300</integer>
-
-	<!-- 2 possible values: empty, meaning 'spawn postgres yourself', or
-	     'postgres', meaning 'connect to a postgres database as specified by the
-	     'DSN' configuration key.  Will support more values in the future. -->
+	<!-- Possible values: empty, meaning 'spawn postgres yourself', or 'postgres'
+	     or 'oracle', meaning 'connect to a postgres or Oracle database as
+	     specified by the 'DSN' configuration key. -->
 	<key>DBType</key>
 	<string></string>
+
+	<!-- Features supported by the database
+
+	     'skip-locked': SKIP LOCKED available with SELECT (remove if using postgres
+	     &lt; v9.5) -->
+	<key>DBFeatures</key>
+	<array>
+		<string>skip-locked</string>
+	</array>
 
 	<!-- The username to use when DBType is empty -->
 	<key>SpawnedDBUser</key>
@@ -175,16 +183,16 @@
 		<false/>
 	</dict>
 
+	<!-- Use a shared database connection pool in the master process, rather than
+	     having each client make its connections directly. -->
+	<key>SharedConnectionPool</key>
+	<false/>
+
 	<!-- Internally used by database to tell slave processes to inherit a file
 	     descriptor and use it as an AMP connection over a UNIX socket; see
 	     twext.enterprise.adbapi2.ConnectionPoolConnection -->
 	<key>DBAMPFD</key>
 	<integer>0</integer>
-
-	<!-- Use a shared database connection pool in the master process, rather than
-	     having each client make its connections directly. -->
-	<key>SharedConnectionPool</key>
-	<false/>
 
 	<!-- Set to True to prevent the server or utility tools from running if the
 	     database needs a schema upgrade. -->
@@ -202,6 +210,16 @@
 	     again without this prefix set to complete the overall upgrade. -->
 	<key>UpgradeHomePrefix</key>
 	<string></string>
+
+	<!-- Timeout transactions that take longer than the specified number of
+	     seconds. Zero means no timeouts. 5 minute default. -->
+	<key>TransactionTimeoutSeconds</key>
+	<integer>300</integer>
+
+	<!-- When a transactions times out tell HTTP clients clients to retry after
+	     this amount of time -->
+	<key>TransactionHTTPRetrySeconds</key>
+	<integer>300</integer>
 
 	<!-- Work queue configuration information -->
 
