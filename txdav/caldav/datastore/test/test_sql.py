@@ -52,8 +52,7 @@ from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
 from txdav.caldav.datastore.scheduling.processing import ImplicitProcessor
 from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
-from txdav.caldav.datastore.sql import CalendarStoreFeatures, CalendarObject, \
-    CalendarHome
+from txdav.caldav.datastore.sql import CalendarStoreFeatures, CalendarObject
 from txdav.common.datastore.sql import ECALENDARTYPE, CommonObjectResource, \
     CommonStoreTransactionMonitor
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT, \
@@ -79,7 +78,6 @@ from twext.enterprise.jobs.jobitem import JobItem
 from twext.enterprise.util import parseSQLTimestamp
 
 import datetime
-import gc
 import os
 
 
@@ -7819,19 +7817,24 @@ END:VCALENDAR
         txn = None
         yield self.commit()
 
+        # This does not work reliably as a way to check whether the objects are
+        # gone as other things can hold on to a few (e.g. inlineCallbacks,
+        # tracebacks in deferred etc). For now this is commented out until a
+        # better solution can be used.
+
         # Garbage collect then look for the number of home/resource objects and
         # make sure only those for user01 still exist
-        gc.collect()
-        gcobjs = gc.get_objects()
-        hcount = 0
-        ocount = 0
-        for obj in gcobjs:
-            if isinstance(obj, CalendarHome):
-                hcount += 1
-            elif isinstance(obj, CalendarObject):
-                ocount += 1
-        self.assertTrue(hcount <= 2) # Just user01 home left (maybe user05 too)
-        self.assertTrue(ocount <= 4) # Old resource + new resource (and maybe user05 too)
+#        gc.collect()
+#        gcobjs = gc.get_objects()
+#        hcount = 0
+#        ocount = 0
+#        for obj in gcobjs:
+#            if isinstance(obj, CalendarHome):
+#                hcount += 1
+#            elif isinstance(obj, CalendarObject):
+#                ocount += 1
+#        self.assertTrue(hcount <= 2) # Just user01 home left (maybe user05 too)
+#        self.assertTrue(ocount <= 4) # Old resource + new resource (and maybe user05 too)
 
 
     @inlineCallbacks
