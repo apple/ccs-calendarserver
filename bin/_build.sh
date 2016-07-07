@@ -717,9 +717,11 @@ py_dependencies () {
 
   ruler "Patching Python requirements";
   echo "";
-  if [ ! -e "${py_virtualenv}/lib/python2.7/site-packages/twisted/.patch_applied" ]; then
+  twisted_version=$("${python}" -c 'from twisted._version import version; print version.base()');
+  if [ ! -e "${py_virtualenv}/lib/python2.7/site-packages/twisted/.patch_applied.${twisted_version}" ]; then
     apply_patches "Twisted" "${py_virtualenv}/lib/python2.7/site-packages"
-    touch "${py_virtualenv}/lib/python2.7/site-packages/twisted/.patch_applied";
+    find "${py_virtualenv}/lib/python2.7/site-packages/twisted" -type f -name '.patch_applied*' -print0 | xargs -0 rm -f;
+    touch "${py_virtualenv}/lib/python2.7/site-packages/twisted/.patch_applied.${twisted_version}";
   fi;
 
   echo "";
@@ -760,7 +762,7 @@ pip_download () {
   "${python}" -m pip install               \
     --disable-pip-version-check            \
     --download="${dev_home}/pip_downloads" \
-    --pre --allow-all-external             \
+    --pre                                  \
     --no-cache-dir                         \
     --log-file="${dev_home}/pip.log"       \
     "$@";
@@ -770,7 +772,7 @@ pip_download () {
 pip_install_from_cache () {
   "${python}" -m pip install                 \
     --disable-pip-version-check              \
-    --pre --allow-all-external               \
+    --pre                                    \
     --no-index                               \
     --no-cache-dir                           \
     --find-links="${dev_patches}"            \
@@ -783,7 +785,7 @@ pip_install_from_cache () {
 pip_download_and_install () {
   "${python}" -m pip install                 \
     --disable-pip-version-check              \
-    --pre --allow-all-external               \
+    --pre                                    \
     --no-cache-dir                           \
     --find-links="${dev_patches}"            \
     --log-file="${dev_home}/pip.log"         \
