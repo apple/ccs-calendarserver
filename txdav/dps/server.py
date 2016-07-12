@@ -868,8 +868,12 @@ class DirectoryProxyServiceMaker(object):
                     config.Manhole.DPSPortNumber
                 )
                 manholeService = manholeMakeService({
-                    "sshPort": None,
-                    "telnetPort": portString,
+                    "sshPort": portString if config.Manhole.UseSSH is True else None,
+                    "telnetPort": portString if config.Manhole.UseSSH is False else None,
+                    "sshKeyDir": config.DataRoot,
+                    "sshKeyName": "manhole.key",
+                    "sshKeySize": 4096,
+                    "passwd": config.Manhole.PasswordFilePath,
                     "namespace": {
                         "config": config,
                         "service": dpsService,

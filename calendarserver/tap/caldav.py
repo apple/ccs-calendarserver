@@ -245,6 +245,7 @@ class ErrorLoggingMultiService(MultiService, object):
         self.logRotateLength = logRotateLength
         self.logMaxFiles = logMaxFiles
         self.logRotateOnStart = logRotateOnStart
+        self.name = "elms"
 
 
     def setServiceParent(self, app):
@@ -280,7 +281,7 @@ class CalDAVService (ErrorLoggingMultiService):
     # The ConnectionService is a MultiService which bundles all the connection
     # services together for the purposes of being able to stop them and wait
     # for all of their connections to close before shutting down.
-    connectionServiceName = "ConnectionService"
+    connectionServiceName = "cs"
 
     def __init__(self, logObserver):
         self.logObserver = logObserver  # accesslog observer
@@ -292,6 +293,7 @@ class CalDAVService (ErrorLoggingMultiService):
             config.ErrorLogMaxRotatedFiles,
             config.ErrorLogRotateOnStart,
         )
+        self.name = "cds"
 
 
     def privilegedStartService(self):
@@ -862,6 +864,11 @@ class CalDAVServiceMaker (object):
                         frame=frame
                     )
 
+            if config.Manhole.Enabled:
+                namespace= dict({service.name: service})
+                for n, s in service.namedServices.iteritems():
+                    namespace[n] = s
+                self._makeManhole(namespace=namespace, parent=service)
             return service
 
 
@@ -898,6 +905,7 @@ class CalDAVServiceMaker (object):
         result = self.requestProcessingService(options, store, logObserver)
 
         if pool is not None:
+            pool.setName("db")
             pool.setServiceParent(result)
 
         if config.ControlSocket:
@@ -937,6 +945,7 @@ class CalDAVServiceMaker (object):
         controlClient = ControlSocketConnectingService(
             endpointFactory, controlSocketClient
         )
+        controlClient.setName("control")
         controlClient.setServiceParent(result)
 
         # Optionally set up push notifications
@@ -947,6 +956,7 @@ class CalDAVServiceMaker (object):
                 pushSubService = ApplePushNotifierService.makeService(
                     config.Notifications.Services.APNS, store)
                 observers.append(pushSubService)
+                pushSubService.setName("APNS")
                 pushSubService.setServiceParent(result)
             if config.Notifications.Services.AMP.Enabled:
                 pushSubService = AMPPushForwarder(controlSocketClient)
@@ -959,6 +969,7 @@ class CalDAVServiceMaker (object):
             mailRetriever = MailRetriever(
                 store, directory, config.Scheduling.iMIP.Receiving
             )
+            mailRetriever.setName("MailRetriever")
             mailRetriever.setServiceParent(result)
         else:
             mailRetriever = None
@@ -988,37 +999,6 @@ class CalDAVServiceMaker (object):
             txn._groupCacher = groupCacher
 
         store.callWithNewTransactions(decorateTransaction)
-
-        # Optionally enable Manhole access
-        if config.Manhole.Enabled:
-            try:
-                from twisted.conch.manhole_tap import (
-                    makeService as manholeMakeService
-                )
-                portString = "tcp:{:d}:interface=127.0.0.1".format(
-                    config.Manhole.StartingPortNumber + int(config.LogID) + 1
-                )
-                manholeService = manholeMakeService({
-                    "sshPort": None,
-                    "telnetPort": portString,
-                    "namespace": {
-                        "config": config,
-                        "service": result,
-                        "store": store,
-                        "directory": directory,
-                    },
-                    "passwd": config.Manhole.PasswordFilePath,
-                })
-                manholeService.setServiceParent(result)
-                # Using print(because logging isn't ready at this point)
-                print("Manhole access enabled:", portString)
-
-            except ImportError:
-                print(
-                    "Manhole access could not enabled because "
-                    "manhole_tap could not be imported"
-                )
-
         return result
 
 
@@ -1181,10 +1161,12 @@ class CalDAVServiceMaker (object):
                     # 'SSL' tag on it, since that's the only time it's used.
                     contextFactory = None
 
-            ReportingHTTPService(
+            reportingService = ReportingHTTPService(
                 requestFactory, int(config.MetaFD), contextFactory,
-                usingSocketFile=config.SocketFiles.Enabled
-            ).setServiceParent(connectionService)
+                usingSocketFile=config.SocketFiles.Enabled,
+            )
+            reportingService.setName("http-{}".format(int(config.MetaFD)))
+            reportingService.setServiceParent(connectionService)
 
         else:  # Not inheriting, therefore we open our own:
             for bindAddress in self._allBindAddresses():
@@ -1211,6 +1193,8 @@ class CalDAVServiceMaker (object):
                                 backlog=config.ListenBacklog,
                                 inherit=False
                             )
+                            httpsService.setName(
+                                "https-{}:{}".format(bindAddress,int(port)))
                             httpsService.setServiceParent(connectionService)
 
                 for port in config.BindHTTPPorts:
@@ -1311,6 +1295,59 @@ class CalDAVServiceMaker (object):
                     Popen(memcachedArgv)
 
 
+    def _makeManhole(self, namespace=None, parent=None):
+        try:
+            import inspect
+            import objgraph
+        except ImportError:
+            pass
+        try:
+            if 'inspect' in locals():
+                namespace['ins'] = inspect
+            if 'objgraph' in locals():
+                namespace['og'] = objgraph
+            from pprint import pprint
+            namespace.update({
+                'pp': pprint,
+                'cfg': config,
+            })
+            from twisted.conch.manhole_tap import (
+                makeService as manholeMakeService
+            )
+            portOffset = 0 if config.LogID == '' else int(config.LogID) + 1
+            portString = "tcp:{:d}:interface=127.0.0.1".format(
+                config.Manhole.StartingPortNumber + portOffset
+            )
+            manholeService = manholeMakeService({
+                "passwd": config.Manhole.PasswordFilePath,
+                "telnetPort":
+                    portString if config.Manhole.UseSSH is False else None,
+                "sshPort":
+                    portString if config.Manhole.UseSSH is True else None,
+                "sshKeyDir": config.DataRoot,
+                "sshKeyName": config.Manhole.sshKeyName,
+                "sshKeySize": config.Manhole.sshKeySize,
+                "namespace": namespace,
+            })
+            manholeService.setName("manhole")
+            if parent is not None:
+                manholeService.setServiceParent(parent)
+            # Using print(because logging isn't ready at this point)
+            print("Manhole access enabled:", portString)
+        except ImportError:
+            print(
+                "Manhole access could not enabled because "
+                "manhole_tap could not be imported."
+            )
+            import platform
+            if platform.system() == "Darwin":
+                if config.Manhole.UseSSH:
+                    print(
+                        "Set Manhole.UseSSH to false or rebuild CS with the "
+                        "USE_OPENSSL environment variable set."
+                    )
+            
+
     def makeService_Single(self, options):
         """
         Create a service to be used in a single-process, stand-alone
@@ -1332,6 +1369,7 @@ class CalDAVServiceMaker (object):
                         config.Notifications.Services.APNS, store
                     )
                     observers.append(pushSubService)
+                    pushSubService.setName("APNS")
                     pushSubService.setServiceParent(result)
                 if config.Notifications.Services.AMP.Enabled:
                     pushSubService = AMPPushMaster(
@@ -1362,6 +1400,7 @@ class CalDAVServiceMaker (object):
                 mailRetriever = MailRetriever(
                     store, directory, config.Scheduling.iMIP.Receiving
                 )
+                mailRetriever.setName("mailRetriever")
                 mailRetriever.setServiceParent(result)
             else:
                 mailRetriever = None
@@ -1400,35 +1439,6 @@ class CalDAVServiceMaker (object):
                 )
             else:
                 groupCacher = None
-
-            # Optionally enable Manhole access
-            if config.Manhole.Enabled:
-                try:
-                    from twisted.conch.manhole_tap import (
-                        makeService as manholeMakeService
-                    )
-                    portString = "tcp:{:d}:interface=127.0.0.1".format(
-                        config.Manhole.StartingPortNumber
-                    )
-                    manholeService = manholeMakeService({
-                        "sshPort": None,
-                        "telnetPort": portString,
-                        "namespace": {
-                            "config": config,
-                            "service": result,
-                            "store": store,
-                            "directory": directory,
-                        },
-                        "passwd": config.Manhole.PasswordFilePath,
-                    })
-                    manholeService.setServiceParent(result)
-                    # Using print(because logging isn't ready at this point)
-                    print("Manhole access enabled:", portString)
-                except ImportError:
-                    print(
-                        "Manhole access could not enabled because "
-                        "manhole_tap could not be imported"
-                    )
 
             def decorateTransaction(txn):
                 txn._pushDistributor = pushDistributor
@@ -1526,6 +1536,7 @@ class CalDAVServiceMaker (object):
             config.ErrorLogMaxRotatedFiles,
             config.ErrorLogRotateOnStart,
         )
+        svc.setName("agent")
         svc.setServiceParent(agentLoggingService)
         return agentLoggingService
 
@@ -1582,6 +1593,7 @@ class CalDAVServiceMaker (object):
                     dbtype=DatabaseType(dialect, paramstyle, dbfeatures),
                     maxConnections=config.MaxDBConnectionsPerPool
                 )
+                cp.setName("db")
                 cp.setServiceParent(ms)
                 store = storeFromConfigWithoutDPS(config, cp.connection)
 
@@ -1655,6 +1667,7 @@ class CalDAVServiceMaker (object):
                     UpgradeReleaseLockStep(store)
                 )
 
+                pps.setName("pre")
                 pps.setServiceParent(ms)
                 return ms
 
@@ -1784,6 +1797,7 @@ class CalDAVServiceMaker (object):
 
         monitor = DelayedStartupProcessMonitor()
         s.processMonitor = monitor
+        monitor.setName("pm")
         monitor.setServiceParent(s)
 
         if config.MemoryLimiter.Enabled:
@@ -1791,6 +1805,7 @@ class CalDAVServiceMaker (object):
                 monitor, config.MemoryLimiter.Seconds,
                 config.MemoryLimiter.Bytes, config.MemoryLimiter.ResidentOnly
             )
+            memoryLimiter.setName("ml")
             memoryLimiter.setServiceParent(s)
 
         # Maybe spawn memcached through a ProcessMonitor
@@ -1877,32 +1892,6 @@ class CalDAVServiceMaker (object):
             statsService.setName("tcp-stats")
             statsService.setServiceParent(s)
 
-        # Optionally enable Manhole access
-        if config.Manhole.Enabled:
-            try:
-                from twisted.conch.manhole_tap import (
-                    makeService as manholeMakeService
-                )
-                portString = "tcp:{:d}:interface=127.0.0.1".format(
-                    config.Manhole.StartingPortNumber
-                )
-                manholeService = manholeMakeService({
-                    "sshPort": None,
-                    "telnetPort": portString,
-                    "namespace": {
-                        "config": config,
-                        "service": s,
-                    },
-                    "passwd": config.Manhole.PasswordFilePath,
-                })
-                manholeService.setServiceParent(s)
-                # Using print(because logging isn't ready at this point)
-                print("Manhole access enabled:", portString)
-            except ImportError:
-                print(
-                    "Manhole access could not enabled because "
-                    "manhole_tap could not be imported"
-                )
 
 
         # Finally, let's get the real show on the road.  Create a service that
@@ -1944,11 +1933,13 @@ class CalDAVServiceMaker (object):
             else:
                 dispenser = None
             multi = MultiService()
+            multi.setName("multi")
             pool.setServiceParent(multi)
             spawner = SlaveSpawnerService(
                 self, monitor, dispenser, dispatcher, stats, options["config"],
                 inheritFDs=inheritFDs, inheritSSLFDs=inheritSSLFDs
             )
+            spawner.setName("spawner")
             spawner.setServiceParent(multi)
             if config.UseMetaFD:
                 cl.setServiceParent(multi)
@@ -1961,6 +1952,7 @@ class CalDAVServiceMaker (object):
                 mailRetriever = MailRetriever(
                     store, directory, config.Scheduling.iMIP.Receiving
                 )
+                mailRetriever.setName("MailRetriever")
                 mailRetriever.setServiceParent(multi)
             else:
                 mailRetriever = None
@@ -1993,6 +1985,7 @@ class CalDAVServiceMaker (object):
         ssvc = self.storageService(
             spawnerSvcCreator, None, uid, gid
         )
+        ssvc.setName("ssvc")
         ssvc.setServiceParent(s)
         return s
 

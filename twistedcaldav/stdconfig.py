@@ -1103,9 +1103,12 @@ DEFAULT_CONFIG = {
 
     "Manhole": {
         "Enabled": False,
-        "StartingPortNumber": 5000,
-        "DPSPortNumber": 4999,
-        "PasswordFilePath": "",
+        "UseSSH": True, # Set to False for telnet
+        "StartingPortNumber": 5000, # Master listens here, children increment
+        "DPSPortNumber": 4999, # Directory Proxy listens here
+        "PasswordFilePath": "", # Path to password file with lines of user:pass
+        "sshKeyName": "manhole.key", # Relative to DataRoot
+        "sshKeySize": 4096,
     },
 
     "EnableKeepAlive": False,
