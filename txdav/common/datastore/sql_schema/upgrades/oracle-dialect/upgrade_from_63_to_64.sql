@@ -1,5 +1,5 @@
 ----
--- Copyright (c) 2010-2016 Apple Inc. All rights reserved.
+-- Copyright (c) 2012-2016 Apple Inc. All rights reserved.
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -14,13 +14,31 @@
 -- limitations under the License.
 ----
 
--- Extra schema to add to current-oracle-dialect.sql
+---------------------------------------------------
+-- Upgrade database schema from VERSION 63 to 64 --
+---------------------------------------------------
 
+-- JOB table changes
+alter table JOB add ("IS_ASSIGNED" integer default 0 not null);
+alter table JOB modify ("PRIORITY" not null);
+alter table JOB modify ("WEIGHT" not null);
+alter table JOB modify ("FAILED" not null);
+alter table JOB modify ("PAUSE" not null);
+
+drop index JOB_PRIORITY_ASSIGNED_6d49a082;
+create index JOB_PRIORITY_IS_ASSIG_48985bfd on
+  JOB(PRIORITY, IS_ASSIGNED, PAUSE, NOT_BEFORE, JOB_ID);
+
+drop index JOB_ASSIGNED_OVERDUE_e88f7afc;
+create index JOB_IS_ASSIGNED_OVERD_4a40c3f3 on
+  JOB(IS_ASSIGNED, OVERDUE, JOB_ID);
+
+-- Updated stored procedures
 create or replace function next_job(now in timestamp, min_priority in integer, row_limit in integer)
   return integer is
-  cursor c (test_priority number) is
+  cursor c (priority number) is
     select JOB_ID from JOB
-      where PRIORITY = test_priority and IS_ASSIGNED = 0 and PAUSE = 0 and NOT_BEFORE <= now and ROWNUM <= row_limit
+      where PRIORITY = priority AND IS_ASSIGNED = 0 and PAUSE = 0 and NOT_BEFORE <= now and ROWNUM <= row_limit
       for update skip locked;
   result integer;
 begin
@@ -41,12 +59,12 @@ begin
 end;
 /
 
-create or replace function overdue_job(now in timestamp, row_limit in integer)
+create or replace function overdue_job(now timestamp, row_limit in integer)
   return integer is
   cursor c is
    select JOB_ID from JOB
-     where IS_ASSIGNED = 1 and OVERDUE <= now and ROWNUM <= row_limit
-     for update skip locked;
+   where IS_ASSIGNED = 0 and OVERDUE <= now and ROWNUM <= row_limit
+   for update skip locked;
   result integer;
 begin
   open c;
@@ -55,3 +73,6 @@ begin
   return result;
 end;
 /
+
+-- update the version
+update CALENDARSERVER set VALUE = '64' where NAME = 'VERSION';

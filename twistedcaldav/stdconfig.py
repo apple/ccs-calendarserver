@@ -280,6 +280,11 @@ DEFAULT_CONFIG = {
         "highPriorityLevel": 80,    # Queue capacity (percentage) at which only high priority items are run
         "mediumPriorityLevel": 50,  # Queue capacity (percentage) at which only high/medium priority items are run
 
+        "rowLimit": 1,              # This is used to help with concurrency problems when the underlying DB does
+                                    # not support a proper "LIMIT" term with the query (Oracle). It should be set to no more than
+                                    # 1 plus the number of app-servers in use. For a single app-server, always use 1.
+
+
         "failureRescheduleInterval": 60,    # When a job fails, reschedule it this number of seconds in the future
         "lockRescheduleInterval": 60,       # When a job can't run because of a lock, reschedule it this number of seconds in the future
 
@@ -1377,6 +1382,7 @@ def _updateWorkQueue(configDict, reloading=False):
             "overloadLevel",
             "highPriorityLevel",
             "mediumPriorityLevel",
+            "rowLimit",
         ):
             setattr(ControllerQueue, attr, getattr(config.WorkQueue, attr))
 

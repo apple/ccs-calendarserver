@@ -368,6 +368,7 @@ extras_requirements = {
 }
 
 if "ORACLE_HOME" in os.environ:
+    # We need a specific version here because we have to patch it
     extras_requirements["Oracle"] = ["twextpy[Oracle]", "cx_Oracle==5.2"]
 
 

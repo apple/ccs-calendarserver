@@ -40,24 +40,23 @@ create sequence JOB_SEQ;
 create table JOB (
   JOB_ID      integer primary key default nextval('JOB_SEQ'), --implicit index
   WORK_TYPE   varchar(255) not null,
-  PRIORITY    integer default 0 not null,
-  WEIGHT      integer default 0 not null,
+  PRIORITY    integer default 0,
+  WEIGHT      integer default 0,
   NOT_BEFORE  timestamp not null,
-  IS_ASSIGNED integer default 0 not null,
   ASSIGNED    timestamp default null,
   OVERDUE     timestamp default null,
-  FAILED      integer default 0 not null,
-  PAUSE       integer default 0 not null
+  FAILED      integer default 0,
+  PAUSE       integer default 0
 );
 
-create index JOB_PRIORITY_IS_ASSIGNED_PAUSE_NOT_BEFORE_JOB_ID on
-  JOB(PRIORITY, IS_ASSIGNED, PAUSE, NOT_BEFORE, JOB_ID);
+create index JOB_PRIORITY_ASSIGNED_PAUSE_NOT_BEFORE on
+  JOB(PRIORITY, ASSIGNED, PAUSE, NOT_BEFORE);
 
-create index JOB_IS_ASSIGNED_PAUSE_NOT_BEFORE on
-  JOB(IS_ASSIGNED, PAUSE, NOT_BEFORE, JOB_ID);
+create index JOB_ASSIGNED_PAUSE_NOT_BEFORE on
+  JOB(ASSIGNED, PAUSE, NOT_BEFORE);
 
-create index JOB_IS_ASSIGNED_OVERDUE_JOB_ID on
-  JOB(IS_ASSIGNED, OVERDUE, JOB_ID);
+create index JOB_ASSIGNED_OVERDUE on
+  JOB(ASSIGNED, OVERDUE);
 
 -------------------
 -- Calendar Home --
@@ -1314,7 +1313,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '65');
+insert into CALENDARSERVER values ('VERSION', '63');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

@@ -4,26 +4,21 @@ create sequence INSTANCE_ID_SEQ;
 create sequence ATTACHMENT_ID_SEQ;
 create sequence REVISION_SEQ;
 create sequence WORKITEM_SEQ;
-
-
 create table NAMED_LOCK (
     "LOCK_NAME" nvarchar2(255) primary key
 );
 
-
 create table JOB (
     "JOB_ID" integer primary key,
     "WORK_TYPE" nvarchar2(255),
-    "PRIORITY" integer default 0 not null,
-    "WEIGHT" integer default 0 not null,
+    "PRIORITY" integer default 0,
+    "WEIGHT" integer default 0,
     "NOT_BEFORE" timestamp not null,
-    "IS_ASSIGNED" integer default 0 not null,
     "ASSIGNED" timestamp default null,
     "OVERDUE" timestamp default null,
-    "FAILED" integer default 0 not null,
-    "PAUSE" integer default 0 not null
+    "FAILED" integer default 0,
+    "PAUSE" integer default 0
 );
-
 
 create table CALENDAR_HOME (
     "RESOURCE_ID" integer primary key,
@@ -32,7 +27,6 @@ create table CALENDAR_HOME (
     "DATAVERSION" integer default 0 not null, 
     unique ("OWNER_UID", "STATUS")
 );
-
 
 create table HOME_STATUS (
     "ID" integer primary key,
@@ -44,12 +38,9 @@ insert into HOME_STATUS (DESCRIPTION, ID) values ('external', 1);
 insert into HOME_STATUS (DESCRIPTION, ID) values ('purging', 2);
 insert into HOME_STATUS (DESCRIPTION, ID) values ('migrating', 3);
 insert into HOME_STATUS (DESCRIPTION, ID) values ('disabled', 4);
-
-
 create table CALENDAR (
     "RESOURCE_ID" integer primary key
 );
-
 
 create table CALENDAR_HOME_METADATA (
     "RESOURCE_ID" integer primary key references CALENDAR_HOME on delete cascade,
@@ -67,7 +58,6 @@ create table CALENDAR_HOME_METADATA (
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 
-
 create table CALENDAR_METADATA (
     "RESOURCE_ID" integer primary key references CALENDAR on delete cascade,
     "SUPPORTED_COMPONENTS" nvarchar2(255) default null,
@@ -78,7 +68,6 @@ create table CALENDAR_METADATA (
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 
-
 create table CHILD_TYPE (
     "ID" integer primary key,
     "DESCRIPTION" nvarchar2(16) unique
@@ -87,8 +76,6 @@ create table CHILD_TYPE (
 insert into CHILD_TYPE (DESCRIPTION, ID) values ('normal', 0);
 insert into CHILD_TYPE (DESCRIPTION, ID) values ('inbox', 1);
 insert into CHILD_TYPE (DESCRIPTION, ID) values ('trash', 2);
-
-
 create table CALENDAR_MIGRATION (
     "CALENDAR_HOME_RESOURCE_ID" integer references CALENDAR_HOME on delete cascade,
     "REMOTE_RESOURCE_ID" integer not null,
@@ -97,7 +84,6 @@ create table CALENDAR_MIGRATION (
     primary key ("CALENDAR_HOME_RESOURCE_ID", "REMOTE_RESOURCE_ID")
 );
 
-
 create table NOTIFICATION_HOME (
     "RESOURCE_ID" integer primary key,
     "OWNER_UID" nvarchar2(255),
@@ -105,7 +91,6 @@ create table NOTIFICATION_HOME (
     "DATAVERSION" integer default 0 not null, 
     unique ("OWNER_UID", "STATUS")
 );
-
 
 create table NOTIFICATION (
     "RESOURCE_ID" integer primary key,
@@ -118,7 +103,6 @@ create table NOTIFICATION (
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
     unique ("NOTIFICATION_UID", "NOTIFICATION_HOME_RESOURCE_ID")
 );
-
 
 create table CALENDAR_BIND (
     "CALENDAR_HOME_RESOURCE_ID" integer not null references CALENDAR_HOME,
@@ -139,7 +123,6 @@ create table CALENDAR_BIND (
     unique ("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_NAME")
 );
 
-
 create table CALENDAR_BIND_MODE (
     "ID" integer primary key,
     "DESCRIPTION" nvarchar2(16) unique
@@ -153,8 +136,6 @@ insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('indirect', 4);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('group', 5);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('group_read', 6);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('group_write', 7);
-
-
 create table CALENDAR_BIND_STATUS (
     "ID" integer primary key,
     "DESCRIPTION" nvarchar2(16) unique
@@ -165,8 +146,6 @@ insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('accepted', 1);
 insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('declined', 2);
 insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('invalid', 3);
 insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('deleted', 4);
-
-
 create table CALENDAR_TRANSP (
     "ID" integer primary key,
     "DESCRIPTION" nvarchar2(16) unique
@@ -174,8 +153,6 @@ create table CALENDAR_TRANSP (
 
 insert into CALENDAR_TRANSP (DESCRIPTION, ID) values ('opaque', 0);
 insert into CALENDAR_TRANSP (DESCRIPTION, ID) values ('transparent', 1);
-
-
 create table CALENDAR_OBJECT (
     "RESOURCE_ID" integer primary key,
     "CALENDAR_RESOURCE_ID" integer not null references CALENDAR on delete cascade,
@@ -202,7 +179,6 @@ create table CALENDAR_OBJECT (
     unique ("CALENDAR_RESOURCE_ID", "RESOURCE_NAME")
 );
 
-
 create table CALENDAR_OBJ_ATTACHMENTS_MODE (
     "ID" integer primary key,
     "DESCRIPTION" nvarchar2(16) unique
@@ -211,8 +187,6 @@ create table CALENDAR_OBJ_ATTACHMENTS_MODE (
 insert into CALENDAR_OBJ_ATTACHMENTS_MODE (DESCRIPTION, ID) values ('none', 0);
 insert into CALENDAR_OBJ_ATTACHMENTS_MODE (DESCRIPTION, ID) values ('read', 1);
 insert into CALENDAR_OBJ_ATTACHMENTS_MODE (DESCRIPTION, ID) values ('write', 2);
-
-
 create table CALENDAR_ACCESS_TYPE (
     "ID" integer primary key,
     "DESCRIPTION" nvarchar2(32) unique
@@ -223,8 +197,6 @@ insert into CALENDAR_ACCESS_TYPE (DESCRIPTION, ID) values ('public', 1);
 insert into CALENDAR_ACCESS_TYPE (DESCRIPTION, ID) values ('private', 2);
 insert into CALENDAR_ACCESS_TYPE (DESCRIPTION, ID) values ('confidential', 3);
 insert into CALENDAR_ACCESS_TYPE (DESCRIPTION, ID) values ('restricted', 4);
-
-
 create table TIME_RANGE (
     "INSTANCE_ID" integer primary key,
     "CALENDAR_RESOURCE_ID" integer not null references CALENDAR on delete cascade,
@@ -236,7 +208,6 @@ create table TIME_RANGE (
     "TRANSPARENT" integer not null
 );
 
-
 create table FREE_BUSY_TYPE (
     "ID" integer primary key,
     "DESCRIPTION" nvarchar2(16) unique
@@ -247,8 +218,6 @@ insert into FREE_BUSY_TYPE (DESCRIPTION, ID) values ('free', 1);
 insert into FREE_BUSY_TYPE (DESCRIPTION, ID) values ('busy', 2);
 insert into FREE_BUSY_TYPE (DESCRIPTION, ID) values ('busy-unavailable', 3);
 insert into FREE_BUSY_TYPE (DESCRIPTION, ID) values ('busy-tentative', 4);
-
-
 create table PERUSER (
     "TIME_RANGE_INSTANCE_ID" integer not null references TIME_RANGE on delete cascade,
     "USER_ID" nvarchar2(255),
@@ -258,14 +227,12 @@ create table PERUSER (
     primary key ("TIME_RANGE_INSTANCE_ID", "USER_ID")
 );
 
-
 create table CALENDAR_OBJECT_MIGRATION (
     "CALENDAR_HOME_RESOURCE_ID" integer references CALENDAR_HOME on delete cascade,
     "REMOTE_RESOURCE_ID" integer not null,
     "LOCAL_RESOURCE_ID" integer references CALENDAR_OBJECT on delete cascade, 
     primary key ("CALENDAR_HOME_RESOURCE_ID", "REMOTE_RESOURCE_ID")
 );
-
 
 create table ATTACHMENT (
     "ATTACHMENT_ID" integer primary key,
@@ -279,7 +246,6 @@ create table ATTACHMENT (
     "PATH" nvarchar2(1024)
 );
 
-
 create table ATTACHMENT_CALENDAR_OBJECT (
     "ATTACHMENT_ID" integer not null references ATTACHMENT on delete cascade,
     "MANAGED_ID" nvarchar2(255),
@@ -288,14 +254,12 @@ create table ATTACHMENT_CALENDAR_OBJECT (
     unique ("MANAGED_ID", "CALENDAR_OBJECT_RESOURCE_ID")
 );
 
-
 create table ATTACHMENT_MIGRATION (
     "CALENDAR_HOME_RESOURCE_ID" integer references CALENDAR_HOME on delete cascade,
     "REMOTE_RESOURCE_ID" integer not null,
     "LOCAL_RESOURCE_ID" integer references ATTACHMENT on delete cascade, 
     primary key ("CALENDAR_HOME_RESOURCE_ID", "REMOTE_RESOURCE_ID")
 );
-
 
 create table RESOURCE_PROPERTY (
     "RESOURCE_ID" integer not null,
@@ -304,7 +268,6 @@ create table RESOURCE_PROPERTY (
     "VIEWER_UID" nvarchar2(255), 
     primary key ("RESOURCE_ID", "NAME", "VIEWER_UID")
 );
-
 
 create table ADDRESSBOOK_HOME (
     "RESOURCE_ID" integer primary key,
@@ -315,14 +278,12 @@ create table ADDRESSBOOK_HOME (
     unique ("OWNER_UID", "STATUS")
 );
 
-
 create table ADDRESSBOOK_HOME_METADATA (
     "RESOURCE_ID" integer primary key references ADDRESSBOOK_HOME on delete cascade,
     "QUOTA_USED_BYTES" integer default 0 not null,
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
-
 
 create table SHARED_ADDRESSBOOK_BIND (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
@@ -336,7 +297,6 @@ create table SHARED_ADDRESSBOOK_BIND (
     primary key ("ADDRESSBOOK_HOME_RESOURCE_ID", "OWNER_HOME_RESOURCE_ID"), 
     unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_NAME")
 );
-
 
 create table ADDRESSBOOK_OBJECT (
     "RESOURCE_ID" integer primary key,
@@ -355,7 +315,6 @@ create table ADDRESSBOOK_OBJECT (
     unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "VCARD_UID")
 );
 
-
 create table ADDRESSBOOK_OBJECT_KIND (
     "ID" integer primary key,
     "DESCRIPTION" nvarchar2(16) unique
@@ -365,8 +324,6 @@ insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('person', 0);
 insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('group', 1);
 insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('resource', 2);
 insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('location', 3);
-
-
 create table ABO_MEMBERS (
     "GROUP_ID" integer not null,
     "ADDRESSBOOK_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
@@ -377,14 +334,12 @@ create table ABO_MEMBERS (
     primary key ("GROUP_ID", "MEMBER_ID", "REVISION")
 );
 
-
 create table ABO_FOREIGN_MEMBERS (
     "GROUP_ID" integer not null references ADDRESSBOOK_OBJECT on delete cascade,
     "ADDRESSBOOK_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
     "MEMBER_ADDRESS" nvarchar2(255), 
     primary key ("GROUP_ID", "MEMBER_ADDRESS")
 );
-
 
 create table SHARED_GROUP_BIND (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
@@ -399,7 +354,6 @@ create table SHARED_GROUP_BIND (
     unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "GROUP_ADDRESSBOOK_NAME")
 );
 
-
 create table CALENDAR_OBJECT_REVISIONS (
     "CALENDAR_HOME_RESOURCE_ID" integer not null references CALENDAR_HOME,
     "CALENDAR_RESOURCE_ID" integer references CALENDAR,
@@ -410,7 +364,6 @@ create table CALENDAR_OBJECT_REVISIONS (
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC' not null, 
     unique ("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_ID", "CALENDAR_NAME", "RESOURCE_NAME")
 );
-
 
 create table ADDRESSBOOK_OBJECT_REVISIONS (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
@@ -424,7 +377,6 @@ create table ADDRESSBOOK_OBJECT_REVISIONS (
     unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "OWNER_HOME_RESOURCE_ID", "ADDRESSBOOK_NAME", "RESOURCE_NAME")
 );
 
-
 create table NOTIFICATION_OBJECT_REVISIONS (
     "NOTIFICATION_HOME_RESOURCE_ID" integer not null references NOTIFICATION_HOME on delete cascade,
     "RESOURCE_NAME" nvarchar2(255),
@@ -433,7 +385,6 @@ create table NOTIFICATION_OBJECT_REVISIONS (
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC' not null, 
     unique ("NOTIFICATION_HOME_RESOURCE_ID", "RESOURCE_NAME")
 );
-
 
 create table APN_SUBSCRIPTIONS (
     "TOKEN" nvarchar2(255),
@@ -445,7 +396,6 @@ create table APN_SUBSCRIPTIONS (
     primary key ("TOKEN", "RESOURCE_KEY")
 );
 
-
 create table IMIP_TOKENS (
     "TOKEN" nvarchar2(255),
     "ORGANIZER" nvarchar2(255),
@@ -455,19 +405,16 @@ create table IMIP_TOKENS (
     primary key ("ORGANIZER", "ATTENDEE", "ICALUID")
 );
 
-
 create table TEST_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB,
     "DELAY" integer
 );
 
-
 create table APN_PURGING_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB
 );
-
 
 create table IMIP_INVITATION_WORK (
     "WORK_ID" integer primary key,
@@ -477,12 +424,10 @@ create table IMIP_INVITATION_WORK (
     "ICALENDAR_TEXT" nclob
 );
 
-
 create table IMIP_POLLING_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB
 );
-
 
 create table IMIP_REPLY_WORK (
     "WORK_ID" integer primary key,
@@ -492,7 +437,6 @@ create table IMIP_REPLY_WORK (
     "ICALENDAR_TEXT" nclob
 );
 
-
 create table PUSH_NOTIFICATION_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB,
@@ -500,19 +444,16 @@ create table PUSH_NOTIFICATION_WORK (
     "PUSH_PRIORITY" integer not null
 );
 
-
 create table GROUP_CACHER_POLLING_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB
 );
-
 
 create table GROUP_REFRESH_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB,
     "GROUP_UID" nvarchar2(255)
 );
-
 
 create table GROUP_DELEGATE_CHANGES_WORK (
     "WORK_ID" integer primary key,
@@ -521,7 +462,6 @@ create table GROUP_DELEGATE_CHANGES_WORK (
     "READ_DELEGATE_UID" nvarchar2(255),
     "WRITE_DELEGATE_UID" nvarchar2(255)
 );
-
 
 create table GROUPS (
     "GROUP_ID" integer primary key,
@@ -533,13 +473,11 @@ create table GROUPS (
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 
-
 create table GROUP_MEMBERSHIP (
     "GROUP_ID" integer not null references GROUPS on delete cascade,
     "MEMBER_UID" nvarchar2(255), 
     primary key ("GROUP_ID", "MEMBER_UID")
 );
-
 
 create table GROUP_ATTENDEE_RECONCILE_WORK (
     "WORK_ID" integer primary key,
@@ -548,7 +486,6 @@ create table GROUP_ATTENDEE_RECONCILE_WORK (
     "GROUP_ID" integer not null references GROUPS on delete cascade
 );
 
-
 create table GROUP_ATTENDEE (
     "GROUP_ID" integer not null references GROUPS on delete cascade,
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
@@ -556,14 +493,12 @@ create table GROUP_ATTENDEE (
     primary key ("GROUP_ID", "RESOURCE_ID")
 );
 
-
 create table GROUP_SHAREE_RECONCILE_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB,
     "CALENDAR_ID" integer not null references CALENDAR on delete cascade,
     "GROUP_ID" integer not null references GROUPS on delete cascade
 );
-
 
 create table GROUP_SHAREE (
     "GROUP_ID" integer not null references GROUPS on delete cascade,
@@ -573,14 +508,12 @@ create table GROUP_SHAREE (
     primary key ("GROUP_ID", "CALENDAR_ID")
 );
 
-
 create table DELEGATES (
     "DELEGATOR" nvarchar2(255),
     "DELEGATE" nvarchar2(255),
     "READ_WRITE" integer not null, 
     primary key ("DELEGATOR", "READ_WRITE", "DELEGATE")
 );
-
 
 create table DELEGATE_GROUPS (
     "DELEGATOR" nvarchar2(255),
@@ -590,13 +523,11 @@ create table DELEGATE_GROUPS (
     primary key ("DELEGATOR", "READ_WRITE", "GROUP_ID")
 );
 
-
 create table EXTERNAL_DELEGATE_GROUPS (
     "DELEGATOR" nvarchar2(255) primary key,
     "GROUP_UID_READ" nvarchar2(255),
     "GROUP_UID_WRITE" nvarchar2(255)
 );
-
 
 create table CALENDAR_OBJECT_SPLITTER_WORK (
     "WORK_ID" integer primary key,
@@ -604,38 +535,32 @@ create table CALENDAR_OBJECT_SPLITTER_WORK (
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade
 );
 
-
 create table CALENDAR_OBJECT_UPGRADE_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB,
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade
 );
 
-
 create table FIND_MIN_VALID_REVISION_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB
 );
-
 
 create table REVISION_CLEANUP_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB
 );
 
-
 create table INBOX_CLEANUP_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB
 );
-
 
 create table CLEANUP_ONE_INBOX_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB,
     "HOME_ID" integer not null unique references CALENDAR_HOME on delete cascade
 );
-
 
 create table INBOX_REMOVE_WORK (
     "WORK_ID" integer primary key,
@@ -645,14 +570,12 @@ create table INBOX_REMOVE_WORK (
     unique ("HOME_ID", "RESOURCE_NAME")
 );
 
-
 create table SCHEDULE_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB,
     "ICALENDAR_UID" nvarchar2(255),
     "WORK_TYPE" nvarchar2(255)
 );
-
 
 create table SCHEDULE_REFRESH_WORK (
     "WORK_ID" integer primary key references SCHEDULE_WORK on delete cascade,
@@ -661,13 +584,11 @@ create table SCHEDULE_REFRESH_WORK (
     "ATTENDEE_COUNT" integer
 );
 
-
 create table SCHEDULE_REFRESH_ATTENDEES (
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
     "ATTENDEE" nvarchar2(255), 
     primary key ("RESOURCE_ID", "ATTENDEE")
 );
-
 
 create table SCHEDULE_AUTO_REPLY_WORK (
     "WORK_ID" integer primary key references SCHEDULE_WORK on delete cascade,
@@ -675,7 +596,6 @@ create table SCHEDULE_AUTO_REPLY_WORK (
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
     "PARTSTAT" nvarchar2(255)
 );
-
 
 create table SCHEDULE_ORGANIZER_WORK (
     "WORK_ID" integer primary key references SCHEDULE_WORK on delete cascade,
@@ -688,7 +608,6 @@ create table SCHEDULE_ORGANIZER_WORK (
     "SMART_MERGE" integer
 );
 
-
 create table SCHEDULE_ACTION (
     "ID" integer primary key,
     "DESCRIPTION" nvarchar2(16) unique
@@ -698,8 +617,6 @@ insert into SCHEDULE_ACTION (DESCRIPTION, ID) values ('create', 0);
 insert into SCHEDULE_ACTION (DESCRIPTION, ID) values ('modify', 1);
 insert into SCHEDULE_ACTION (DESCRIPTION, ID) values ('modify-cancelled', 2);
 insert into SCHEDULE_ACTION (DESCRIPTION, ID) values ('remove', 3);
-
-
 create table SCHEDULE_ORGANIZER_SEND_WORK (
     "WORK_ID" integer primary key references SCHEDULE_WORK on delete cascade,
     "SCHEDULE_ACTION" integer not null,
@@ -710,7 +627,6 @@ create table SCHEDULE_ORGANIZER_SEND_WORK (
     "NO_REFRESH" integer
 );
 
-
 create table SCHEDULE_REPLY_WORK (
     "WORK_ID" integer primary key references SCHEDULE_WORK on delete cascade,
     "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
@@ -718,12 +634,10 @@ create table SCHEDULE_REPLY_WORK (
     "ITIP_MSG" nclob
 );
 
-
 create table PRINCIPAL_PURGE_POLLING_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB
 );
-
 
 create table PRINCIPAL_PURGE_CHECK_WORK (
     "WORK_ID" integer primary key,
@@ -731,13 +645,11 @@ create table PRINCIPAL_PURGE_CHECK_WORK (
     "UID" nvarchar2(255)
 );
 
-
 create table PRINCIPAL_PURGE_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB,
     "UID" nvarchar2(255)
 );
-
 
 create table PRINCIPAL_PURGE_HOME_WORK (
     "WORK_ID" integer primary key,
@@ -745,13 +657,11 @@ create table PRINCIPAL_PURGE_HOME_WORK (
     "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade
 );
 
-
 create table MIGRATION_CLEANUP_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB,
     "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade
 );
-
 
 create table HOME_CLEANUP_WORK (
     "WORK_ID" integer primary key,
@@ -759,45 +669,38 @@ create table HOME_CLEANUP_WORK (
     "OWNER_UID" nvarchar2(255)
 );
 
-
 create table MIGRATED_HOME_CLEANUP_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB,
     "OWNER_UID" nvarchar2(255)
 );
 
-
 create table CALENDARSERVER (
     "NAME" nvarchar2(255) primary key,
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '65');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '63');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
 insert into CALENDARSERVER (NAME, VALUE) values ('MIN-VALID-REVISION', '1');
-
-
-create index JOB_PRIORITY_IS_ASSIG_48985bfd on JOB (
+create index JOB_PRIORITY_ASSIGNED_6d49a082 on JOB (
     "PRIORITY",
-    "IS_ASSIGNED",
+    "ASSIGNED",
     "PAUSE",
-    "NOT_BEFORE",
-    "JOB_ID"
+    "NOT_BEFORE"
 );
 
-create index JOB_IS_ASSIGNED_PAUSE_1769af63 on JOB (
-    "IS_ASSIGNED",
+create index JOB_ASSIGNED_PAUSE_NO_b2540b3b on JOB (
+    "ASSIGNED",
     "PAUSE",
-    "NOT_BEFORE",
-    "JOB_ID"
+    "NOT_BEFORE"
 );
 
-create index JOB_IS_ASSIGNED_OVERD_4a40c3f3 on JOB (
-    "IS_ASSIGNED",
-    "OVERDUE",
-    "JOB_ID"
+create index JOB_ASSIGNED_OVERDUE_e88f7afc on JOB (
+    "ASSIGNED",
+    "OVERDUE"
 );
 
 create index CALENDAR_HOME_METADAT_475de898 on CALENDAR_HOME_METADATA (
@@ -1192,11 +1095,11 @@ create index MIGRATED_HOME_CLEANUP_4c714fd4 on MIGRATED_HOME_CLEANUP_WORK (
 
 -- Extra schema to add to current-oracle-dialect.sql
 
-create or replace function next_job(now in timestamp, min_priority in integer, row_limit in integer)
+create or replace function next_job(now in timestamp, min_priority in integer)
   return integer is
-  cursor c (test_priority number) is
+  cursor c (priority number) is
     select JOB_ID from JOB
-      where PRIORITY = test_priority and IS_ASSIGNED = 0 and PAUSE = 0 and NOT_BEFORE <= now and ROWNUM <= row_limit
+      where PRIORITY = priority AND ASSIGNED is NULL and PAUSE = 0 and NOT_BEFORE <= now
       for update skip locked;
   result integer;
 begin
@@ -1217,17 +1120,17 @@ begin
 end;
 /
 
-create or replace function overdue_job(now in timestamp, row_limit in integer)
+create or replace function overdue_job(now timestamp)
   return integer is
-  cursor c is
+  cursor c1 is
    select JOB_ID from JOB
-     where IS_ASSIGNED = 1 and OVERDUE <= now and ROWNUM <= row_limit
-     for update skip locked;
+   where ASSIGNED is not NULL and OVERDUE <= now
+   for update skip locked;
   result integer;
 begin
-  open c;
-  fetch c into result;
-  close c;
+  open c1;
+  fetch c1 into result;
+  close c1;
   return result;
 end;
 /

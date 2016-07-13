@@ -772,7 +772,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '65');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '64');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
@@ -787,11 +787,10 @@ create index JOB_PRIORITY_IS_ASSIG_48985bfd on JOB (
     "JOB_ID"
 );
 
-create index JOB_IS_ASSIGNED_PAUSE_1769af63 on JOB (
-    "IS_ASSIGNED",
+create index JOB_ASSIGNED_PAUSE_NO_b2540b3b on JOB (
+    "ASSIGNED",
     "PAUSE",
-    "NOT_BEFORE",
-    "JOB_ID"
+    "NOT_BEFORE"
 );
 
 create index JOB_IS_ASSIGNED_OVERD_4a40c3f3 on JOB (
@@ -1194,9 +1193,9 @@ create index MIGRATED_HOME_CLEANUP_4c714fd4 on MIGRATED_HOME_CLEANUP_WORK (
 
 create or replace function next_job(now in timestamp, min_priority in integer, row_limit in integer)
   return integer is
-  cursor c (test_priority number) is
+  cursor c (priority number) is
     select JOB_ID from JOB
-      where PRIORITY = test_priority and IS_ASSIGNED = 0 and PAUSE = 0 and NOT_BEFORE <= now and ROWNUM <= row_limit
+      where PRIORITY = priority AND IS_ASSIGNED = 0 and PAUSE = 0 and NOT_BEFORE <= now and ROWNUM <= row_limit
       for update skip locked;
   result integer;
 begin
@@ -1217,12 +1216,12 @@ begin
 end;
 /
 
-create or replace function overdue_job(now in timestamp, row_limit in integer)
+create or replace function overdue_job(now timestamp, row_limit in integer)
   return integer is
   cursor c is
    select JOB_ID from JOB
-     where IS_ASSIGNED = 1 and OVERDUE <= now and ROWNUM <= row_limit
-     for update skip locked;
+   where IS_ASSIGNED = 0 and OVERDUE <= now and ROWNUM <= row_limit
+   for update skip locked;
   result integer;
 begin
   open c;
