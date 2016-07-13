@@ -362,14 +362,14 @@ else:
     ])
 
 extras_requirements = {
-    "LDAP": ["twextpy[LDAP]"],
-    "OpenDirectory": ["twextpy[OpenDirectory]"],
-    "Postgres": ["twextpy[Postgres]", "pg8000"],
+    "ldap": ["twextpy[ldap]"],
+    "opendirectory": ["twextpy[opendirectory]"],
+    "postgres": ["twextpy[postgres]", "pg8000"],
 }
 
 if "ORACLE_HOME" in os.environ:
     # We need a specific version here because we have to patch it
-    extras_requirements["Oracle"] = ["twextpy[Oracle]", "cx_Oracle==5.2"]
+    extras_requirements["oracle"] = ["twextpy[oracle]", "cx_Oracle==5.2"]
 
 
 #
