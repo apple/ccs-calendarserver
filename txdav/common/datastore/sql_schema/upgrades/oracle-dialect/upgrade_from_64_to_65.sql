@@ -1,5 +1,5 @@
 ----
--- Copyright (c) 2010-2016 Apple Inc. All rights reserved.
+-- Copyright (c) 2012-2016 Apple Inc. All rights reserved.
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -14,8 +14,20 @@
 -- limitations under the License.
 ----
 
--- Extra schema to add to current-oracle-dialect.sql
+---------------------------------------------------
+-- Upgrade database schema from VERSION 64 to 65 --
+---------------------------------------------------
 
+-- JOB table changes
+drop index JOB_ASSIGNED_PAUSE_NO_b2540b3b;
+create index JOB_IS_ASSIGNED_PAUSE_1769af63 on JOB (
+    "IS_ASSIGNED",
+    "PAUSE",
+    "NOT_BEFORE",
+    "JOB_ID"
+);
+
+-- Updated stored procedures
 create or replace function next_job(now in timestamp, min_priority in integer, row_limit in integer)
   return integer is
   cursor c (test_priority number) is
@@ -55,3 +67,6 @@ begin
   return result;
 end;
 /
+
+-- update the version
+update CALENDARSERVER set VALUE = '65' where NAME = 'VERSION';

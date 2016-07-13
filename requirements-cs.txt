@@ -7,7 +7,7 @@
     zope.interface==4.1.3
 	    setuptools==18.5
 
-    --editable svn+http://svn.calendarserver.org/repository/calendarserver/twext/branches/users/cdaboo/better-next-job@15748#egg=twextpy
+    --editable svn+http://svn.calendarserver.org/repository/calendarserver/twext/branches/users/cdaboo/better-next-job@15758#egg=twextpy
         cffi==1.7.0
             pycparser==2.14
         #twisted
