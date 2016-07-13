@@ -45,8 +45,10 @@ from txdav.dps.commands import (
     WikiAccessForUIDCommand, ContinuationCommand,
     ExternalDelegatesCommand, StatsCommand, ExpandedMemberUIDsCommand,
     AddMembersCommand, RemoveMembersCommand,
-    UpdateRecordsCommand, FlushCommand,  # RemoveRecordsCommand,
+    UpdateRecordsCommand, FlushCommand, SetAutoScheduleModeCommand,
+    # RemoveRecordsCommand,
 )
+from txdav.who.idirectory import AutoScheduleMode
 from txdav.who.wiki import WikiAccessLevel
 
 from zope.interface import implementer
@@ -540,6 +542,21 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         returnValue(response)
 
 
+    @SetAutoScheduleModeCommand.responder
+    @inlineCallbacks
+    def setAutoScheduleMode(self, uid, autoScheduleMode):
+        uid = uid.decode("utf-8")
+        record = yield self._directory.recordWithUID(uid)
+        autoScheduleMode = autoScheduleMode.decode("utf-8")
+        autoScheduleMode = AutoScheduleMode.lookupByName(autoScheduleMode)
+        yield self._directory.setAutoScheduleMode(record, autoScheduleMode)
+        response = {
+            "success": True
+        }
+        returnValue(response)
+
+
+
     @GroupsCommand.responder
     @inlineCallbacks
     def groups(self, uid):
@@ -851,8 +868,12 @@ class DirectoryProxyServiceMaker(object):
                     config.Manhole.DPSPortNumber
                 )
                 manholeService = manholeMakeService({
-                    "sshPort": None,
-                    "telnetPort": portString,
+                    "sshPort": portString if config.Manhole.UseSSH is True else None,
+                    "telnetPort": portString if config.Manhole.UseSSH is False else None,
+                    "sshKeyDir": config.DataRoot,
+                    "sshKeyName": "manhole.key",
+                    "sshKeySize": 4096,
+                    "passwd": config.Manhole.PasswordFilePath,
                     "namespace": {
                         "config": config,
                         "service": dpsService,

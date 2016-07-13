@@ -27,8 +27,8 @@ __all__ = [
 import urlparse
 
 from calendarserver.tools.util import (
-    principalForPrincipalID, proxySubprincipal, action_addProxyPrincipal,
-    action_removeProxyPrincipal
+    recordForPrincipalID, proxySubprincipal, action_addProxy,
+    action_removeProxy, principalForPrincipalID
 )
 
 from twistedcaldav.config import config
@@ -49,6 +49,15 @@ from twisted.web.template import (
 from twext.who.idirectory import RecordType
 from txdav.who.idirectory import RecordType as CalRecordType, AutoScheduleMode
 
+allowedAutoScheduleModes = {
+    "default": None,
+    "none": AutoScheduleMode.none,
+    "accept-always": AutoScheduleMode.accept,
+    "decline-always": AutoScheduleMode.decline,
+    "accept-if-free": AutoScheduleMode.acceptIfFree,
+    "decline-if-busy": AutoScheduleMode.declineIfBusy,
+    "automatic": AutoScheduleMode.acceptIfFreeDeclineIfBusy,
+}
 
 class WebAdminPage(Element):
     """
@@ -221,8 +230,8 @@ class DetailsElement(Element):
         self.principalResource = principalResource
         self.adminResource = adminResource
         self.proxySearch = proxySearch
-        record = principalResource.record
-        tag.fillSlots(resourceTitle=recordTitle(record),
+        self.record = principalResource.record
+        tag.fillSlots(resourceTitle=recordTitle(self.record),
                       resourceId=resourceId,
                       davPropertyName=davPropertyName,
                       proxySearch=proxySearch)
@@ -283,9 +292,9 @@ class DetailsElement(Element):
         Renderer which elides its tag for non-resource-type principals.
         """
         if (
-            self.principalResource.record.recordType.description != "user" and
-            self.principalResource.record.recordType.description != "group" or
-            self.principalResource.record.recordType.description == "user" and
+            self.record.recordType.description != "user" and
+            self.record.recordType.description != "group" or
+            self.record.recordType.description == "user" and
             config.Scheduling.Options.AutoSchedule.AllowUsers
         ):
             return tag
@@ -293,99 +302,91 @@ class DetailsElement(Element):
 
 
     @renderer
-    @inlineCallbacks
     def isAutoSchedule(self, request, tag):
         """
         Renderer which sets the 'selected' attribute on its tag if the resource
         is auto-schedule.
         """
-        if (yield self.principalResource.getAutoScheduleMode()) is not AutoScheduleMode.none:
+        if self.record.autoScheduleMode is not AutoScheduleMode.none:
             tag(selected='selected')
-        returnValue(tag)
+        return tag
 
 
     @renderer
-    @inlineCallbacks
     def isntAutoSchedule(self, request, tag):
         """
         Renderer which sets the 'selected' attribute on its tag if the resource
         is not auto-schedule.
         """
-        if (yield self.principalResource.getAutoScheduleMode()) is AutoScheduleMode.none:
+        if self.record.autoScheduleMode is AutoScheduleMode.none:
             tag(selected='selected')
-        returnValue(tag)
+        return tag
 
 
     @renderer
-    @inlineCallbacks
     def autoScheduleModeNone(self, request, tag):
         """
         Renderer which sets the 'selected' attribute on its tag based on the resource
         auto-schedule-mode.
         """
-        if (yield self.principalResource.getAutoScheduleMode()) is AutoScheduleMode.none:
+        if self.record.autoScheduleMode is AutoScheduleMode.none:
             tag(selected='selected')
-        returnValue(tag)
+        return tag
 
 
     @renderer
-    @inlineCallbacks
     def autoScheduleModeAcceptAlways(self, request, tag):
         """
         Renderer which sets the 'selected' attribute on its tag based on the resource
         auto-schedule-mode.
         """
-        if (yield self.principalResource.getAutoScheduleMode()) is AutoScheduleMode.accept:
+        if self.record.autoScheduleMode is AutoScheduleMode.accept:
             tag(selected='selected')
-        returnValue(tag)
+        return tag
 
 
     @renderer
-    @inlineCallbacks
     def autoScheduleModeDeclineAlways(self, request, tag):
         """
         Renderer which sets the 'selected' attribute on its tag based on the resource
         auto-schedule-mode.
         """
-        if (yield self.principalResource.getAutoScheduleMode()) is AutoScheduleMode.decline:
+        if self.record.autoScheduleMode is AutoScheduleMode.decline:
             tag(selected='selected')
-        returnValue(tag)
+        return tag
 
 
     @renderer
-    @inlineCallbacks
     def autoScheduleModeAcceptIfFree(self, request, tag):
         """
         Renderer which sets the 'selected' attribute on its tag based on the resource
         auto-schedule-mode.
         """
-        if (yield self.principalResource.getAutoScheduleMode()) is AutoScheduleMode.acceptIfFree:
+        if self.record.autoScheduleMode is AutoScheduleMode.acceptIfFree:
             tag(selected='selected')
-        returnValue(tag)
+        return tag
 
 
     @renderer
-    @inlineCallbacks
     def autoScheduleModeDeclineIfBusy(self, request, tag):
         """
         Renderer which sets the 'selected' attribute on its tag based on the resource
         auto-schedule-mode.
         """
-        if (yield self.principalResource.getAutoScheduleMode()) is AutoScheduleMode.declineIfBusy:
+        if self.record.autoScheduleMode is AutoScheduleMode.declineIfBusy:
             tag(selected='selected')
-        returnValue(tag)
+        return tag
 
 
     @renderer
-    @inlineCallbacks
     def autoScheduleModeAutomatic(self, request, tag):
         """
         Renderer which sets the 'selected' attribute on its tag based on the resource
         auto-schedule-mode.
         """
-        if (yield self.principalResource.getAutoScheduleMode()) is AutoScheduleMode.acceptIfFreeDeclineIfBusy:
+        if self.record.autoScheduleMode is AutoScheduleMode.acceptIfFreeDeclineIfBusy:
             tag(selected='selected')
-        returnValue(tag)
+        return tag
 
     _matrix = None
 
@@ -634,9 +635,9 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
 
 
     @inlineCallbacks
-    def resourceActions(self, request, principal):
+    def resourceActions(self, request, record):
         """
-        Take all actions on the given principal based on the given request.
+        Take all actions on the given record based on the given request.
         """
 
         def queryValue(arg):
@@ -651,45 +652,32 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
                     matches.append(key[len(arg):])
             return matches
 
-        autoSchedule = queryValue("autoSchedule")
         autoScheduleMode = queryValue("autoScheduleMode")
         makeReadProxies = queryValues("mkReadProxy|")
         makeWriteProxies = queryValues("mkWriteProxy|")
         removeProxies = queryValues("rmProxy|")
 
-        # Update the auto-schedule value if specified.
-        if autoSchedule is not None and (autoSchedule == "true" or
-                                         autoSchedule == "false"):
+        # Update the auto-schedule-mode value if specified.
+        if autoScheduleMode:
             if (
-                principal.record.recordType != RecordType.user and
-                principal.record.recordType != RecordType.group or
-                principal.record.recordType == RecordType.user and
+                record.recordType != RecordType.user and
+                record.recordType != RecordType.group or
+                record.recordType == RecordType.user and
                 config.Scheduling.Options.AutoSchedule.AllowUsers
             ):
-                (yield principal.setAutoSchedule(autoSchedule == "true"))
-                (yield principal.setAutoScheduleMode(autoScheduleMode))
+                autoScheduleMode = allowedAutoScheduleModes[autoScheduleMode]
+                yield record.setAutoScheduleMode(autoScheduleMode)
+                record.autoScheduleMode = autoScheduleMode
 
         # Update the proxies if specified.
-        for proxyId in removeProxies:
-            proxy = yield self.getResourceById(request, proxyId)
-            yield action_removeProxyPrincipal(
-                self.root, self.directory, self.store,
-                principal, proxy, proxyTypes=["read", "write"]
-            )
+        if removeProxies:
+            yield action_removeProxy(self.store, record, *removeProxies)
 
-        for proxyId in makeReadProxies:
-            proxy = yield self.getResourceById(request, proxyId)
-            yield action_addProxyPrincipal(
-                self.root, self.directory, self.store,
-                principal, "read", proxy
-            )
+        if makeReadProxies:
+            yield action_addProxy(self.store, record, "read", *makeReadProxies)
 
-        for proxyId in makeWriteProxies:
-            proxy = yield self.getResourceById(request, proxyId)
-            yield action_addProxyPrincipal(
-                self.root, self.directory, self.store,
-                principal, "write", proxy
-            )
+        if makeWriteProxies:
+            yield action_addProxy(self.store, record, "write", *makeWriteProxies)
 
 
     @inlineCallbacks
@@ -700,8 +688,8 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         """
         resourceId = request.args.get('resourceId', [''])[0]
         if resourceId:
-            principal = yield self.getResourceById(request, resourceId)
-            yield self.resourceActions(request, principal)
+            record = yield recordForPrincipalID(self.directory, resourceId)
+            yield self.resourceActions(request, record)
         htmlContent = yield flattenString(request, WebAdminPage(self))
         response = Response()
         response.stream = MemoryStream(htmlContent)

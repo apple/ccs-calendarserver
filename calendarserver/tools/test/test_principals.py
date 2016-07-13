@@ -19,7 +19,10 @@ import os
 from twistedcaldav.stdconfig import config
 from calendarserver.tools.principals import (
     parseCreationArgs, matchStrings,
-    recordForPrincipalID, getProxies, setProxies
+    recordForPrincipalID
+)
+from calendarserver.tools.util import (
+    getProxies, setProxies
 )
 from twext.python.filepath import CachingFilePath as FilePath
 from twisted.internet import reactor

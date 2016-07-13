@@ -358,6 +358,21 @@ class DirectoryTestCase(StoreTestCase):
             )
 
 
+    @inlineCallbacks
+    def test_setAutoScheduleMode(self):
+        """
+        Verify the record.setAutoScheduleMode( ) method
+        """
+        orion = yield self.directory.recordWithUID(u"orion")
+        # Defaults to automatic
+        self.assertEquals(orion.autoScheduleMode, AutoScheduleMode.acceptIfFreeDeclineIfBusy)
+        # Change it to decline-if-busy
+        yield orion.setAutoScheduleMode(AutoScheduleMode.declineIfBusy)
+        # Refetch it
+        orion = yield self.directory.recordWithUID(u"orion")
+        # Verify it's changed
+        self.assertEquals(orion.autoScheduleMode, AutoScheduleMode.declineIfBusy)
+
 
 class DirectoryTestCaseFakeEmail(StoreTestCase):
 

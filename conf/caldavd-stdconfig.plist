@@ -2123,14 +2123,28 @@
 		<key>Enabled</key>
 		<false/>
 
+		<!-- Set to False for telnet -->
+		<key>UseSSH</key>
+		<true/>
+
+		<!-- Master listens here, children increment -->
 		<key>StartingPortNumber</key>
 		<integer>5000</integer>
 
+		<!-- Directory Proxy listens here -->
 		<key>DPSPortNumber</key>
 		<integer>4999</integer>
 
+		<!-- Path to password file with lines of user:pass -->
 		<key>PasswordFilePath</key>
 		<string></string>
+
+		<!-- Relative to DataRoot -->
+		<key>sshKeyName</key>
+		<string>manhole.key</string>
+
+		<key>sshKeySize</key>
+		<integer>4096</integer>
 	</dict>
 
 	<key>EnableKeepAlive</key>

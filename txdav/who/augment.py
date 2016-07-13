@@ -471,6 +471,26 @@ class AugmentedDirectoryService(
         returnValue(augmentedRecord)
 
 
+    @inlineCallbacks
+    def setAutoScheduleMode(self, record, autoScheduleMode):
+        augmentRecord = yield self._augmentDB.getAugmentRecord(
+            record.uid,
+            self.recordTypeToOldName(record.recordType)
+        )
+        if augmentRecord is not None:
+            autoScheduleMode = {
+                AutoScheduleMode.none: "none",
+                AutoScheduleMode.accept: "accept-always",
+                AutoScheduleMode.decline: "decline-always",
+                AutoScheduleMode.acceptIfFree: "accept-if-free",
+                AutoScheduleMode.declineIfBusy: "decline-if-busy",
+                AutoScheduleMode.acceptIfFreeDeclineIfBusy: "automatic",
+            }.get(autoScheduleMode)
+
+            augmentRecord.autoScheduleMode = autoScheduleMode
+            yield self._augmentDB.addAugmentRecords([augmentRecord])
+
+
 
 class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
     """

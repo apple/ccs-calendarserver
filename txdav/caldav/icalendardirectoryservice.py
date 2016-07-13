@@ -106,6 +106,15 @@ class ICalendarStoreDirectoryRecord(IStoreDirectoryRecord):
         @rtype: C{bool}
         """
 
+    def setAutoScheduleMode(autoScheduleMode): #@NoSelf
+        """
+        Sets the mode of automatic scheduling used for this record.
+
+        @param autoScheduleMode: the new mode
+        @type autoScheduleMode: L{AutoScheduleMode}
+        """
+
+
     def isProxyFor(other): #@NoSelf
         """
         Test whether the record is a calendar user proxy for the specified record.

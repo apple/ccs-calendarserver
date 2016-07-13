@@ -32,7 +32,7 @@ import uuid
 
 from calendarserver.tools.cmdline import utilityMain, WorkerService
 from calendarserver.tools.util import (
-    recordForPrincipalID, prettyRecord
+    recordForPrincipalID, prettyRecord, action_addProxy, action_removeProxy
 )
 from twext.who.directory import DirectoryRecord
 from twext.who.idirectory import RecordType, InvalidDirectoryRecordError
@@ -40,8 +40,7 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav.config import config
 from twistedcaldav.cache import MemcacheChangeNotifier
-from txdav.who.delegates import Delegates, RecordType as DelegateRecordType, \
-    CachingDelegates
+from txdav.who.delegates import CachingDelegates
 from txdav.who.idirectory import AutoScheduleMode
 from txdav.who.groups import GroupCacherPollingWork
 
@@ -604,104 +603,7 @@ def action_listProxyFor(store, record, *proxyTypes):
 
 
 
-@inlineCallbacks
-def _addRemoveProxy(msg, fn, store, record, proxyType, *proxyIDs):
-    directory = store.directoryService()
-    readWrite = (proxyType == "write")
-    for proxyID in proxyIDs:
-        proxyRecord = yield recordForPrincipalID(directory, proxyID)
-        if proxyRecord is None:
-            print("Invalid principal ID: %s" % (proxyID,))
-        else:
-            txn = store.newTransaction()
-            yield fn(txn, record, proxyRecord, readWrite)
-            yield txn.commit()
-            print(
-                "{msg} {proxy} as a {proxyType} proxy for {record}".format(
-                    msg=msg, proxy=prettyRecord(proxyRecord),
-                    proxyType=proxyType, record=prettyRecord(record)
-                )
-            )
 
-
-
-@inlineCallbacks
-def action_addProxy(store, record, proxyType, *proxyIDs):
-    if config.GroupCaching.Enabled and config.GroupCaching.UseDirectoryBasedDelegates:
-        if record.recordType in (
-            record.service.recordType.location,
-            record.service.recordType.resource,
-        ):
-            print("You are not allowed to add proxies for locations or resources via command line when their proxy assignments come from the directory service.")
-            returnValue(None)
-
-    yield _addRemoveProxy("Added", Delegates.addDelegate, store, record, proxyType, *proxyIDs)
-
-
-
-@inlineCallbacks
-def action_removeProxy(store, record, *proxyIDs):
-    if config.GroupCaching.Enabled and config.GroupCaching.UseDirectoryBasedDelegates:
-        if record.recordType in (
-            record.service.recordType.location,
-            record.service.recordType.resource,
-        ):
-            print("You are not allowed to remove proxies for locations or resources via command line when their proxy assignments come from the directory service.")
-            returnValue(None)
-
-    # Write
-    yield _addRemoveProxy("Removed", Delegates.removeDelegate, store, record, "write", *proxyIDs)
-    # Read
-    yield _addRemoveProxy("Removed", Delegates.removeDelegate, store, record, "read", *proxyIDs)
-
-
-
-@inlineCallbacks
-def setProxies(record, readProxyRecords, writeProxyRecords):
-    """
-    Set read/write proxies en masse for a record
-    @param record: L{IDirectoryRecord}
-    @param readProxyRecords: a list of records
-    @param writeProxyRecords: a list of records
-    """
-
-    proxyTypes = [
-        (DelegateRecordType.readDelegateGroup, readProxyRecords),
-        (DelegateRecordType.writeDelegateGroup, writeProxyRecords),
-    ]
-    for recordType, proxyRecords in proxyTypes:
-        if proxyRecords is None:
-            continue
-        proxyGroup = yield record.service.recordWithShortName(
-            recordType, record.uid
-        )
-        yield proxyGroup.setMembers(proxyRecords)
-
-
-
-@inlineCallbacks
-def getProxies(record):
-    """
-    Returns a tuple containing the records for read proxies and write proxies
-    of the given record
-    """
-
-    allProxies = {
-        DelegateRecordType.readDelegateGroup: [],
-        DelegateRecordType.writeDelegateGroup: [],
-    }
-    for recordType in allProxies.iterkeys():
-        proxyGroup = yield record.service.recordWithShortName(
-            recordType, record.uid
-        )
-        allProxies[recordType] = yield proxyGroup.members()
-
-    returnValue(
-        (
-            allProxies[DelegateRecordType.readDelegateGroup],
-            allProxies[DelegateRecordType.writeDelegateGroup]
-        )
-    )
 
 
 
@@ -871,14 +773,7 @@ def action_setAutoScheduleMode(store, record, autoScheduleMode):
             )
         )
 
-        # Get original fields
-        newFields = record.fields.copy()
-
-        # Set new values
-        newFields[record.service.fieldName.autoScheduleMode] = autoScheduleMode
-
-        updatedRecord = DirectoryRecord(record.service, newFields)
-        yield record.service.updateRecords([updatedRecord], create=False)
+        yield record.setAutoScheduleMode(autoScheduleMode)
 
 
 
