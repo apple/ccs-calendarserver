@@ -156,7 +156,7 @@ class CPUDataType(DataType):
 
     @staticmethod
     def calculate(stats, item, hosts):
-        return sum([stats[onehost]["stats_system"]["cpu use"] for onehost in hosts])
+        return sum([stats[onehost]["stats_system"]["cpu use"] if stats[onehost] else 0 for onehost in hosts])
 
 
 
@@ -179,7 +179,7 @@ class MemoryDataType(DataType):
 
     @staticmethod
     def calculate(stats, item, hosts):
-        return sum([stats[onehost]["stats_system"]["memory percent"] for onehost in hosts])
+        return sum([stats[onehost]["stats_system"]["memory percent"] if stats[onehost] else 0 for onehost in hosts])
 
 
 
@@ -203,7 +203,7 @@ class RequestsDataType(DataType):
 
     @staticmethod
     def calculate(stats, item, hosts):
-        return sum([stats[onehost]["stats"]["1m"]["requests"] for onehost in hosts]) / 60.0
+        return sum([stats[onehost]["stats"]["1m"]["requests"] if stats[onehost] else 0 for onehost in hosts]) / 60.0
 
 
 
@@ -227,8 +227,8 @@ class ResponseDataType(DataType):
 
     @staticmethod
     def calculate(stats, item, hosts):
-        tsum = sum([stats[onehost]["stats"]["1m"]["t"] for onehost in hosts])
-        rsum = sum([stats[onehost]["stats"]["1m"]["requests"] for onehost in hosts])
+        tsum = sum([stats[onehost]["stats"]["1m"]["t"] if stats[onehost] else 0 for onehost in hosts])
+        rsum = sum([stats[onehost]["stats"]["1m"]["requests"] if stats[onehost] else 0 for onehost in hosts])
         return safeDivision(tsum, rsum)
 
 
@@ -253,7 +253,7 @@ class Code500DataType(DataType):
 
     @staticmethod
     def calculate(stats, item, hosts):
-        return sum([stats[onehost]["stats"]["1m"]["500"] for onehost in hosts]) / 60.0
+        return sum([stats[onehost]["stats"]["1m"]["500"] if stats[onehost] else 0 for onehost in hosts]) / 60.0
 
 
 
@@ -277,7 +277,7 @@ class Code401DataType(DataType):
 
     @staticmethod
     def calculate(stats, item, hosts):
-        return sum([stats[onehost]["stats"]["1m"]["401"] for onehost in hosts]) / 60.0
+        return sum([stats[onehost]["stats"]["1m"]["401"] if stats[onehost] else 0 for onehost in hosts]) / 60.0
 
 
 
@@ -301,7 +301,7 @@ class MaxSlotsDataType(DataType):
 
     @staticmethod
     def calculate(stats, item, hosts):
-        return sum([stats[onehost]["stats"]["1m"]["max-slots"] for onehost in hosts])
+        return sum([stats[onehost]["stats"]["1m"]["max-slots"] if stats[onehost] else 0 for onehost in hosts])
 
 
 
@@ -328,7 +328,7 @@ class JobsCompletedDataType(DataType):
     def calculate(stats, item, hosts):
         result = 0
         for onehost in hosts:
-            completed = sum(map(operator.itemgetter(2), stats[onehost]["job_assignments"]["workers"]))
+            completed = sum(map(operator.itemgetter(2), stats[onehost]["job_assignments"]["workers"])) if stats[onehost] else 0
             delta = completed - JobsCompletedDataType.lastCompleted[onehost] if JobsCompletedDataType.lastCompleted[onehost] else 0
             if delta >= 0:
                 result += delta
@@ -358,7 +358,7 @@ class MethodCountDataType(DataType):
 
     @staticmethod
     def calculate(stats, item, hosts):
-        return sum([stats[onehost]["stats"]["1m"]["method"].get(item, 0) for onehost in hosts])
+        return sum([stats[onehost]["stats"]["1m"]["method"].get(item, 0) if stats[onehost] else 0 for onehost in hosts])
 
 
 
@@ -383,8 +383,8 @@ class MethodResponseDataType(DataType):
 
     @staticmethod
     def calculate(stats, item, hosts):
-        tsum = sum([stats[onehost]["stats"]["1m"]["method-t"].get(item, 0) for onehost in hosts])
-        rsum = sum([stats[onehost]["stats"]["1m"]["method"].get(item, 0) for onehost in hosts])
+        tsum = sum([stats[onehost]["stats"]["1m"]["method-t"].get(item, 0) if stats[onehost] else 0 for onehost in hosts])
+        rsum = sum([stats[onehost]["stats"]["1m"]["method"].get(item, 0) if stats[onehost] else 0 for onehost in hosts])
         return safeDivision(tsum, rsum)
 
 
@@ -411,7 +411,8 @@ class JobQueueDataType(DataType):
     def calculate(stats, item, hosts):
         # Job queue stat only read for first host
         onehost = sorted(stats.keys())[0]
-
+        if len(stats[onehost]) == 0:
+            return 0
         if item:
             return sum(map(operator.itemgetter("queued"), {k: v for k, v in stats[onehost]["jobs"].items() if k.startswith(item)}.values()))
         else:
