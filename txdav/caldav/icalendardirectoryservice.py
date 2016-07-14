@@ -114,7 +114,6 @@ class ICalendarStoreDirectoryRecord(IStoreDirectoryRecord):
         @type autoScheduleMode: L{AutoScheduleMode}
         """
 
-
     def isProxyFor(other): #@NoSelf
         """
         Test whether the record is a calendar user proxy for the specified record.

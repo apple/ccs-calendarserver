@@ -865,7 +865,7 @@ class CalDAVServiceMaker (object):
                     )
 
             if config.Manhole.Enabled:
-                namespace= dict({service.name: service})
+                namespace = dict({service.name: service})
                 for n, s in service.namedServices.iteritems():
                     namespace[n] = s
                 self._makeManhole(namespace=namespace, parent=service)
@@ -1194,7 +1194,7 @@ class CalDAVServiceMaker (object):
                                 inherit=False
                             )
                             httpsService.setName(
-                                "https-{}:{}".format(bindAddress,int(port)))
+                                "https-{}:{}".format(bindAddress, int(port)))
                             httpsService.setServiceParent(connectionService)
 
                 for port in config.BindHTTPPorts:
@@ -1346,7 +1346,7 @@ class CalDAVServiceMaker (object):
                         "Set Manhole.UseSSH to false or rebuild CS with the "
                         "USE_OPENSSL environment variable set."
                     )
-            
+
 
     def makeService_Single(self, options):
         """
@@ -1891,7 +1891,6 @@ class CalDAVServiceMaker (object):
             )
             statsService.setName("tcp-stats")
             statsService.setServiceParent(s)
-
 
 
         # Finally, let's get the real show on the road.  Create a service that

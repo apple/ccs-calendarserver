@@ -374,6 +374,7 @@ class DirectoryTestCase(StoreTestCase):
         self.assertEquals(orion.autoScheduleMode, AutoScheduleMode.declineIfBusy)
 
 
+
 class DirectoryTestCaseFakeEmail(StoreTestCase):
 
 

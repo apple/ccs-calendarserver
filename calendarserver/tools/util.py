@@ -339,6 +339,7 @@ def recordForPrincipalID(directory, principalID, checkOnly=False):
     raise ValueError("Invalid principal identifier: %s" % (principalID,))
 
 
+
 @inlineCallbacks
 def _addRemoveProxy(msg, fn, store, record, proxyType, *proxyIDs):
     directory = store.directoryService()
@@ -390,6 +391,7 @@ def action_removeProxy(store, record, *proxyIDs):
     yield _addRemoveProxy("Removed", Delegates.removeDelegate, store, record, "read", *proxyIDs)
 
 
+
 @inlineCallbacks
 def setProxies(record, readProxyRecords, writeProxyRecords):
     """
@@ -436,6 +438,7 @@ def getProxies(record):
             allProxies[DelegateRecordType.writeDelegateGroup]
         )
     )
+
 
 
 def proxySubprincipal(principal, proxyType):

@@ -603,10 +603,6 @@ def action_listProxyFor(store, record, *proxyTypes):
 
 
 
-
-
-
-
 @inlineCallbacks
 def action_listGroupMembers(store, record):
     members = yield record.members()

@@ -265,6 +265,7 @@ class ExternalDelegatesCommand(amp.Command):
     ]
 
 
+
 class SetAutoScheduleModeCommand(amp.Command):
     arguments = [
         ('uid', amp.String()),
@@ -273,6 +274,7 @@ class SetAutoScheduleModeCommand(amp.Command):
     response = [
         ('success', amp.Boolean()),
     ]
+
 
 
 class FlushCommand(amp.Command):

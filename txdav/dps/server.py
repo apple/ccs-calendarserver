@@ -556,7 +556,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         returnValue(response)
 
 
-
     @GroupsCommand.responder
     @inlineCallbacks
     def groups(self, uid):
