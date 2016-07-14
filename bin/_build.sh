@@ -713,7 +713,7 @@ py_dependencies () {
     ruler "Preparing Python requirements for optional feature: ${extra}";
     echo "";
 
-    if [ "${extra}" = "Oracle" ]; then
+    if [ "${extra}" = "oracle" ]; then
       cx_Oracle_patch;
     fi;
 
