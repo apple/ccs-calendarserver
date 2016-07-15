@@ -298,6 +298,7 @@ DEFAULT_CONFIG = {
     "EnableCalDAV": True, # Enable CalDAV service
     "EnableCardDAV": True, # Enable CardDAV service
     "MigrationOnly": False, # When True override all other services and set the server into podding-only mode
+    "DisableWorkProcessing" : False, # When true, this server instance will not poll the JOB table and do the asyn work
 
     #
     # Data store

@@ -1390,7 +1390,8 @@ class CalDAVServiceMaker (object):
             pool = ControllerQueue(
                 reactor, store.newTransaction,
                 useWorkerPool=False,
-                disableWorkProcessing=config.MigrationOnly,
+                migrationOnly=config.MigrationOnly,
+                disableWorkProcessing=config.DisableWorkProcessing,
             )
             store.queuer = store.pool = pool
             pool.setServiceParent(result)
@@ -1912,7 +1913,8 @@ class CalDAVServiceMaker (object):
 
             pool = ControllerQueue(
                 reactor, store.newTransaction,
-                disableWorkProcessing=config.MigrationOnly,
+                migrationOnly=config.MigrationOnly,
+                disableWorkProcessing=config.DisableWorkProcessing,
             )
 
             # The master should not perform queued work
