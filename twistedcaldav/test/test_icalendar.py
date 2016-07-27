@@ -12187,3 +12187,31 @@ END:VCALENDAR
         cal = Component.fromString(data)
         self.assertTrue(cal is not None)
         self.assertTrue(cal.mainComponent().hasProperty("GEO"))
+
+
+    def test_missingCommentDatestamp(self):
+
+        """
+        Verify attendee comments missing date stamps are repaired
+        """
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+SUMMARY:Test
+X-CALENDARSERVER-ATTENDEE-COMMENT;X-CALENDARSERVER-ATTENDEE-REF="urn:uuid:user01":Message1
+X-CALENDARSERVER-ATTENDEE-COMMENT;X-CALENDARSERVER-ATTENDEE-REF="urn:uuid:user02":Message2
+END:VEVENT
+END:VCALENDAR
+"""
+
+        cal = Component.fromString(data)
+        cal.repairMissingDatestampsFromComments()
+        for prop in list(cal.mainComponent().properties("X-CALENDARSERVER-ATTENDEE-COMMENT")):
+            self.assertTrue(prop.hasParameter("X-CALENDARSERVER-DTSTAMP"))

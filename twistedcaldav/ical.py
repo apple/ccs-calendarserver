@@ -3812,6 +3812,23 @@ END:VCALENDAR
         return False
 
 
+    def repairMissingDatestampsFromComments(self):
+        """
+        Some clients are leaving out the datestamp from comments; this method
+        adds this parameter where it's missing (using a value of now in UTC)
+        """
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() in ("VTIMEZONE",):
+                    continue
+                component.repairMissingDatestampsFromComments()
+
+        else:
+            for prop in tuple(self.properties(ATTENDEE_COMMENT)):
+                if not prop.hasParameter(DTSTAMP_PARAM):
+                    prop.setParameter(DTSTAMP_PARAM, DateTime.getNowUTC().getText())
+
+
 
 # #
 # Timezones
