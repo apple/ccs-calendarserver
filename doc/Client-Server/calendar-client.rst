@@ -44,7 +44,7 @@ Calendar supports two options for push notifications: `Apple Push Notification S
 Troubleshooting
 -----------------
 
-Additional debug logging is available by setting some preferenecs keys in the com.apple.CalendarAgent domain. The logs are sent to the standard system logging facility, `ASL <https://developer.apple.com/library/mac/#documentation/Darwin/Reference/ManPages/man3/asl.3.html>`_, and may be viewed with the Console utility, or the "syslog" command line tool. The "Sender" for these log messages is either CalendarAgent or Calendar.
+Additional debug logging is available by setting some preference keys in the com.apple.CalendarAgent domain. The logs are sent to the standard system logging facility, `ASL <https://developer.apple.com/library/mac/#documentation/Darwin/Reference/ManPages/man3/asl.3.html>`_, and may be viewed with the Console utility, or the "syslog" command line tool. The "Sender" for these log messages is either CalendarAgent or Calendar.
 
 To enable complete protocol logging, open Terminal and run the following two commands:
 
