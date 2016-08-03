@@ -191,7 +191,8 @@ def buildDirectory(
                     CalRecordType.address: extraFilters.get("addresses", ""),
                 },
                 threadPoolMax=params.get("threadPoolMax", 10),
-                connectionMax=params.get("connectionMax", 10),
+                authConnectionMax=params.get("authConnectionMax", 5),
+                queryConnectionMax=params.get("queryConnectionMax", 5),
                 tries=params.get("tries", 3),
                 warningThresholdSeconds=params.get("warningThresholdSeconds", 5),
             )
