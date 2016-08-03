@@ -1495,6 +1495,56 @@ class ManagedAttachmentTests(AttachmentTests):
         self.assertEquals(data, "new attachment text")
 
 
+    @inlineCallbacks
+    def test_validFilename(self):
+        """
+        L{CalendarObject.addAttachment} will remove any invalid characters from the supplied file name.
+        """
+
+        # Create attachment
+        obj = yield self.calendarObjectUnderTest()
+        attachment, _ignore_location = yield obj.addAttachment(None, MimeType("text", "x-fixture"), "new\x1F.attachment", MemoryStream("new attachment text"))
+        self.assertEqual(attachment.name(), "new.attachment")
+        yield self.commit()
+
+        # Verify parameters exist
+        obj = yield self.calendarObjectUnderTest()
+        component = yield obj.componentForUser()
+        attachments = component.getAllPropertiesInAnyComponent("ATTACH", depth=1,)
+        self.assertEqual(len(attachments), 1)
+        attach = attachments[0]
+        managed_id = attach.parameterValue("MANAGED-ID")
+        fmttype = attach.parameterValue("FMTTYPE")
+        filename = attach.parameterValue("FILENAME")
+        size = attach.parameterValue("SIZE")
+
+        self.assertEqual(fmttype, "text/x-fixture")
+        self.assertEqual(filename, "new.attachment")
+        self.assertEqual(int(size), 19)
+        yield self.commit()
+
+        # Update attachment
+        obj = yield self.calendarObjectUnderTest()
+        attachment, _ignore_location = yield obj.updateAttachment(managed_id, MimeType("text", "x-fixture"), "updated\x1F.attachment", MemoryStream("updated attachment text"))
+        self.assertEqual(attachment.name(), "updated.attachment")
+        yield self.commit()
+
+        # Verify parameters exist
+        obj = yield self.calendarObjectUnderTest()
+        component = yield obj.componentForUser()
+        attachments = component.getAllPropertiesInAnyComponent("ATTACH", depth=1,)
+        self.assertEqual(len(attachments), 1)
+        attach = attachments[0]
+        managed_id = attach.parameterValue("MANAGED-ID")
+        fmttype = attach.parameterValue("FMTTYPE")
+        filename = attach.parameterValue("FILENAME")
+        size = attach.parameterValue("SIZE")
+
+        self.assertEqual(fmttype, "text/x-fixture")
+        self.assertEqual(filename, "updated.attachment")
+        self.assertEqual(int(size), 23)
+        yield self.commit()
+
 
 now = DateTime.getToday().getYear()
 

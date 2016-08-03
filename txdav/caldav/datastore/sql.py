@@ -4895,6 +4895,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # Check validity of request
         yield self._checkValidManagedAttachmentChange()
 
+        # Protect against invalid file names
+        if isinstance(filename, unicode):
+            filename = filename.encode("utf-8")
+        filename = filename.translate(None, "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x0B\x0C\x0E\x0F\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F")
+
         # First write the data stream
 
         # We need to know the resource_ID of the home collection of the owner
@@ -4948,6 +4953,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Check validity of request
         yield self._checkValidManagedAttachmentChange()
+
+        # Protect against invalid file names
+        if isinstance(filename, unicode):
+            filename = filename.encode("utf-8")
+        filename = filename.translate(None, "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x0B\x0C\x0E\x0F\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F")
 
         # First check the supplied managed-id is associated with this resource
         cobjs = (yield ManagedAttachment.referencesTo(self._txn, managed_id))
