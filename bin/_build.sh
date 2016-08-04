@@ -722,6 +722,10 @@ py_dependencies () {
     fi;
   done;
 
+  ruler "Preparing Python requirements for patching";
+  echo "";
+  "${pip_install}" --ignore-installed --no-deps --requirement="${wd}/requirements-ignore-installed.txt";
+
   ruler "Patching Python requirements";
   echo "";
   twisted_version=$("${python}" -c 'from twisted._version import version; print version.base()');
