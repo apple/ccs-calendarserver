@@ -32,6 +32,8 @@ Next, check out the source code from the GIT repository. To check out the latest
 
  git clone https://github.com/apple/ccs-calendarserver.git
 
+Note: if you have two-factor authentication activated on GitHub, you'll need to use a personal access token instead of your password.  You can generate personal access tokens at https://github.com/settings/tokens
+
 The server requires various external libraries in order to operate. The bin/develop script in the sources will retrieve these dependencies and install them to the .develop directory. Note that this behavior is currently also a side-effect of bin/run, but that is likely to change in the future::
 
     cd ccs-calendarserver
