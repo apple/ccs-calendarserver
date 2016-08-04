@@ -23,12 +23,14 @@
 set -e
 set -u
 
-version="23";
 
  wd="$(cd "$(dirname "$0")" && pwd)";
 src="$(cd "${wd}/.." && pwd)";
 
 unset CALENDARSERVER_BUILD_DEPS;
+
+project="CalendarServer";
+uri="https://github.com/apple/ccs-calendarserver.git";
 
 ##
 # Command line
@@ -38,9 +40,9 @@ unset CALENDARSERVER_BUILD_DEPS;
 install=false;
 package=false;
 
-        submission_enabled=true;
-ignore_uncommitted_changes=false;
     build_no_verify_source=false;
+              tag_to_build="";
+           project_version="";
 
 usage ()
 {
@@ -55,34 +57,45 @@ usage ()
   echo "	-b Run buildit";
   echo "	-i Install resulting build on this system";
   echo "	-p Create a package with the resulting build";
-  echo "	-f Ignore uncommitted changes";
   echo "	-n skip buildit source verification";
+  echo "  -t which tag to submit";
+  echo "  -v project version (defaults to -t value)";
 
   if [ "${1-}" == "-" ]; then return 0; fi;
   exit 64;
 }
 
-while getopts 'hbipfn' option; do
+while getopts 'hbipnt:v:' option; do
   case "$option" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
     'b')                      build=true; ;;
     'i')                    install=true; ;;
     'p')                    package=true; ;;
-    'f') ignore_uncommitted_changes=true; ;;
     'n') 	   build_no_verify_source=true; ;;
+    't')        tag_to_build="${OPTARG}"; ;;
+    'v')     project_version="${OPTARG}"; ;;
   esac;
 done;
 shift $((${OPTIND} - 1));
 
+if [ "${tag_to_build}" != "" ]; then
+  if [ "${project_version}" == "" ]; then
+    project_version="${tag_to_build}";
+  fi;
+fi;
+
+
 if ! "${build}"; then
+  # Submitting, not just building
   if "${install}"; then usage "-i flag requires -b"; fi;
   if "${package}"; then usage "-p flag requires -b"; fi;
   if "${build_no_verify_source}"; then usage "-n flag requires -b"; fi;
-
-  if ! "${submission_enabled}"; then
-    echo "Submissions from this branch are not enabled.";
-    exit 1;
+  if [ "${project_version}" == "" ]; then usage "project_version required if submitting"; fi;
+else
+  # Not submitting, just building
+  if [ "${project_version}" == "" ]; then
+    project_version="${project}-untagged";
   fi;
 fi;
 
@@ -91,37 +104,10 @@ releases="$@"; shift $#;
 
 if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
 
- project="CalendarServer";
-     uri="$(svn info "${src}" --xml | sed -n 's|^.*<url>\(.*\)</url>.*$|\1|p')";
-revision="$(svnversion "${src}")";
-
 ##
 # Do the Right Thing
 ##
 
-if "${build}"; then
-  project_version="${project}-$(echo ${revision} | sed -e 's/:/_/g')";
-else
-  #
-  # We need a single revision number
-  #
-  if [ -n "$(echo "${revision}" | sed 's|[0-9M]||g')" ]; then
-    echo "Working copy has multiple versions of files: ${revision}.  Aborting.";
-    exit 1;
-  else
-    revision="$(echo "${revision}" | sed 's|M$||g')";
-  fi;
-
-  project_version="${project}-$((${version} + ${revision} / 10000 % 100)).$((${revision} / 100 % 100)).$((${revision} % 100))";
-
-  #
-  # Make sure changes are checked in.
-  #
-  if [ ! "${ignore_uncommitted_changes}" ] && [ "$(svn st "${src}" | grep -v support/submit)" != "" ]; then
-    echo "Working copy has uncommitted changes.  Aborting.";
-    exit 1;
-  fi;
-fi;
 #
 # Do submission
 #
@@ -129,22 +115,29 @@ fi;
 tmp="$(mktemp -d -t CalendarServer_build)";
 wc="${tmp}/${project_version}";
 
-if "${build}"; then
+echo "${tag_to_build}";
+
+if [ "${tag_to_build}" != "" ]; then
+  # Clone and checkout tag
+  git clone "${uri}" "${wc}";
+  cd "${wc}";
+  git checkout "${tag_to_build}";
+else
+  # Copy from local directory
   echo "";
   echo "Copying ${src}...";
   # Only copy files that are under revision control
-  svn_files="$(mktemp -t svn_files_XXXX)";
-  svn info -R . | sed -n "s|^Path: ||p" > "${svn_files}";
+  git_files="$(mktemp -t git_files_XXXX)";
+  cd "${src}";
+  git ls-tree --name-only -r HEAD > "${git_files}";
   rsync -av                      \
-    --files-from="${svn_files}"  \
+    --files-from="${git_files}"  \
     "${src}/" "${wc}"            \
     ;
-  rm "${svn_files}";
-else
-  echo "";
-  echo "Exporting ${uri}@${revision}..."
-  svn export -r "${revision}" "${uri}@${revision}" "${wc}";
+  rm "${git_files}";
 fi;
+
+cd "${wc}";
 
 echo ""
 echo "Tweaking for B&I...";
@@ -154,18 +147,18 @@ cat - >> "${wc}/SubmissionInfo.xml" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <submission>
  <project>${project}</project>
- <version>${version}</version>
+ <version>${project_version}</version>
  <source>
-  <svn>
-   <uri>${uri}</uri>
-   <revision>${revision}</revision>
+  <git>
+   <repository>${uri}</repository>
+   <tag>${tag_to_build}</tag>
    <date>$(date -u)</date>
-  </svn>
+  </git>
  </source>
 </submission>
 EOF
 
-echo "${revision}" > "${wc}/svnversion.txt";
+echo "${tag_to_build}" > "${wc}/gitversion.txt";
 
 echo "";
 echo "Preparing sources for ${project_version}...";
@@ -197,19 +190,19 @@ if "${build}"; then
   for release in "${releases}"; do
     release_flags="${release_flags} -update Prevailing${release}";
   done;
-  
+
   if "${build_no_verify_source}"; then
     verify_flags=" -noverifysource";
   else
     verify_flags="";
-  fi;  
+  fi;
 
   sudo ~rc/bin/buildit "${wc}" \
     $(file /System/Library/Frameworks/Python.framework/Versions/Current/Python | sed -n -e 's|^.*(for architecture \([^)][^)]*\).*$|-arch \1|p' | sed 's|ppc7400|ppc|') \
     ${merge_flags}${release_flags}${verify_flags};
 
   if "${package}"; then
-    package_file="${project_version}.tgz";
+    package_file="${src}/${project_version}.tgz";
     echo "Creating package: ${package_file}...";
     tar -C "${package_tmp}" -cvzf "${package_file}" .;
     sudo rm -rf "${package_tmp}";

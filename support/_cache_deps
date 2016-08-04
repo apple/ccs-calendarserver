@@ -100,10 +100,12 @@ rm -rf "${ve_tmp}";
 # Check out CalDAVTester
 #
 
-url="$(grep egg=CalDAVTester "${wd}/requirements-dev.txt" | sed 's|^.*svn+\([^@#]*\).*$|\1|')";
-rev="$(grep egg=CalDAVTester "${wd}/requirements-dev.txt" | sed 's|^.*svn+[^@#]*@\([0-9]*\).*$|\1|')";
+url="$(grep egg=CalDAVTester "${wd}/requirements-dev.txt" | sed 's|^.*git+\([^@#]*\).*$|\1|')";
+rev="$(grep egg=CalDAVTester "${wd}/requirements-dev.txt" | sed 's|^.*git+[^@#]*@\([0-9a-z]*\).*$|\1|')";
 
-svn export -r "${rev}" "${url}@${rev}" "${wd}/CalDAVTester";
+git clone "${url}" "${wd}/CalDAVTester";
+rm -rf "${wd}/CalDAVTester/.git";
+# FIXME: checkout rev
 tar -C "${wd}" -cvzf "${wd}/CalDAVTester.tgz" CalDAVTester;
 rm -r CalDAVTester;
 
