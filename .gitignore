@@ -1,0 +1,13 @@
+*.egg-info/
+*.o
+*.py[co]
+*.so
+_trial_temp*/
+build/
+dropin.cache
+*~
+*.lock
+.develop/
+data/
+subprojects/
+_run/
