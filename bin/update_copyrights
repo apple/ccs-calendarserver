@@ -27,7 +27,7 @@ find_files () {
     ! \(                        \
       -type d                   \
       \(                        \
-        -name .svn -o           \
+        -name .git -o           \
         -name build -o          \
         -name data -o          \
         -name '_trial_temp*'    \

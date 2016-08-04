@@ -65,7 +65,7 @@ Before getting started with CCS, you need:
 * python virtualenv
 * pip
 * C compiler
-* subversion client
+* git client
 * curl
 * OpenSSL libraries and development files
 * Readline libraries and development files
@@ -79,7 +79,7 @@ Ubuntu 13.10 server:
 
 ::
 
- sudo apt-get install build-essential subversion python-setuptools curl \
+ sudo apt-get install build-essential git python-setuptools curl \
  libssl-dev libreadline6-dev python-dev libkrb5-dev
 
 Next, run ``bin/develop`` to get the remaining dependencies

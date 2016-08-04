@@ -38,7 +38,7 @@ Regardless of which setup mode is used, Calendar will attempt an https connectio
 Push Notifications
 ----------------------
 
-Calendar supports two options for push notifications: `Apple Push Notification Service <http://developer.apple.com/library/mac/#documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/ApplePushService/ApplePushService.html>`_ (APNS), or `XMPP+pubsub <http://svn.calendarserver.org/repository/calendarserver/CalendarServer/trunk/doc/Extensions/caldav-pubsubdiscovery.txt>`_. Calendar will look for both of these at setup time, and will prefer APNS. Calendar Server officially supports only the XMPP+pubsub method, hosted by an external service. This configuration was commonly used in older versions of OS X Server, which includes an XMPP service.
+Calendar supports two options for push notifications: `Apple Push Notification Service <http://developer.apple.com/library/mac/#documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/ApplePushService/ApplePushService.html>`_ (APNS), or `XMPP+pubsub <https://github.com/apple/ccs-calendarserver/blob/master/doc/Extensions/caldav-pubsubdiscovery.txt>`_. Calendar will look for both of these at setup time, and will prefer APNS. Calendar Server officially supports only the XMPP+pubsub method, hosted by an external service. This configuration was commonly used in older versions of OS X Server, which includes an XMPP service.
 
 -----------------
 Troubleshooting

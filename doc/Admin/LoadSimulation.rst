@@ -2,11 +2,11 @@
 Load Simulation
 ==========================
 
-Calendar Server includes a flexible, scalable, and easy to use `client simulator <http://trac.calendarserver.org/browser/CalendarServer/trunk/contrib/performance/loadtest>`_ that provides behaviors modeled after Apple's iCal client in Mac OS X 10.6. This sim has a highly modular architecture with the goal of making it as easy as possible to add new behaviors, or entirely new clients. The sim can be used to validate server correctness, and also for performance and scalability testing.
+Calendar Server includes a flexible, scalable, and easy to use `client simulator <https://github.com/apple/ccs-calendarserver/tree/master/contrib/performance/loadtest>`_ that provides behaviors modeled after Apple's iCal client in Mac OS X 10.6. This sim has a highly modular architecture with the goal of making it as easy as possible to add new behaviors, or entirely new clients. The sim can be used to validate server correctness, and also for performance and scalability testing.
 
 This document contains the following sections:
 
-* `Quick Start`_: Instructions to get the sim up and running from an SVN checkout of Calendar Server
+* `Quick Start`_: Instructions to get the sim up and running from an GIT checkout of Calendar Server
 
 * `Reporting`_: The sim emits both real-time logging during runtime, and also a summary at the end that includes quality of service evaluations
 
@@ -23,7 +23,7 @@ Quick Start
 The sim's default config is pre-configured to work against the Calendar Server's default config (caldavd-test.plist), so we'll use that for this quick start.
 
 - Start Calendar Server using the -test configuration. For further detail on this, see: http://trac.calendarserver.org/wiki/QuickStart
-- Open another shell and cd into the Calendar Server SVN root
+- Open another shell and cd into the Calendar Server GIT root
 - Start the sim:
 
 ::
@@ -150,7 +150,7 @@ When the sim stops or is killed, it emits a summary report that displays the tot
  
 
 
-The pass / fail criteria are defined in `contrib/performance/loadtest/thresholds.json <http://trac.calendarserver.org/browser/CalendarServer/trunk/contrib/performance/loadtest/thresholds.json>`_. This json data describes the maximum percentage ("thresholds") of each request and operation type that are allowed in each time bucket ("limits"), which if exceeded will cause that type to be failed. For example, the configuration for requests uses the following buckets, which correspond to the time buckets in the report: (values in seconds)
+The pass / fail criteria are defined in `contrib/performance/loadtest/thresholds.json <https://github.com/apple/ccs-calendarserver/blob/master/contrib/performance/loadtest/thresholds.json>`_. This json data describes the maximum percentage ("thresholds") of each request and operation type that are allowed in each time bucket ("limits"), which if exceeded will cause that type to be failed. For example, the configuration for requests uses the following buckets, which correspond to the time buckets in the report: (values in seconds)
 
 ``[   0.1,   0.5,   1.0,   3.0,   5.0,  10.0,  30.0]``
 
@@ -180,7 +180,7 @@ Server Specification
 
 The client sim supports testing of 'podded' environments. If you aren't using pods, not to worry, the default configuration still works. For each pod, define the uri and other server-specific attributes such as the amp push host and port (used for client notifications in lieu of APNS), and the stats socket port (if enabled in the server config).
 
-Use of AMP push is recommended if your production service uses APNS push, and is the only push mechanism supported by the client sim. The shape of the load produced by the client sim when using push is vastly different than when not using push. Enable AMP in the server in caldavd.plist under `Notifications --> Services --> AMP <http://trac.calendarserver.org/browser/CalendarServer/trunk/conf/caldavd-stdconfig.plist#L1684>`_. Note that ampPushHosts is an array - if you are testing a service behind a load balancer, the client sim needs an AMP connection to each individual server, so ensure the network allows that and specify all the Calendar Server hosts in ampPushHosts.
+Use of AMP push is recommended if your production service uses APNS push, and is the only push mechanism supported by the client sim. The shape of the load produced by the client sim when using push is vastly different than when not using push. Enable AMP in the server in caldavd.plist under `Notifications --> Services --> AMP <https://github.com/apple/ccs-calendarserver/blob/master/twistedcaldav/stdconfig.py>`_. Note that ampPushHosts is an array - if you are testing a service behind a load balancer, the client sim needs an AMP connection to each individual server, so ensure the network allows that and specify all the Calendar Server hosts in ampPushHosts.
 
 ::
 
@@ -303,13 +303,13 @@ To increase the rate at which clients are initialized, reduce 'interval'.
 Client Behaviors
 ----------------
 
-Client behaviors are defined in `contrib/performance/loadtest/clients.plist <http://trac.calendarserver.org/browser/CalendarServer/trunk/contrib/performance/loadtest/clients.plist>`_.  The 'clients' plist key is an array of dictionaries describing the client. The clients.plist is well commented, so no need to repeat those details here.
+Client behaviors are defined in `contrib/performance/loadtest/clients.plist <https://github.com/apple/ccs-calendarserver/blob/master/contrib/performance/loadtest/clients.plist>`_.  The 'clients' plist key is an array of dictionaries describing the client. The clients.plist is well commented, so no need to repeat those details here.
 
 'profiles' is an array of dictionaries specifying individual behaviors of each client. Each dict has a 'class' key which specifies the implementation class for this behavior, and a 'params' dict with options specific to that behavior. See the plist for more information.
 
 Some parameters may be safely modified to suit your purposes, for example you might choose to disable certain profiles (by setting 'enabled' to false) in order to simulate only specific types of activity. Also, you can edit the params for the various distributions to configure how often things happen.
 
-This sim is designed to facilitate easy integration of new behaviors for existing clients, or even entirely new clients. An example of adding a new behavior to an existing client can be found here: http://trac.calendarserver.org/changeset/8428.
+This sim is designed to facilitate easy integration of new behaviors for existing clients, or even entirely new clients.
 
 ---------------------
 Scalability
@@ -337,7 +337,7 @@ To use two instances each on two different remote hosts, use something like::
      <string>exec ssh blade3 'cd ~/ccs/CalendarServer ; exec ./bin/python contrib/performance/loadtest/ampsim.py'</string>
  </array>
 
-**When using remote hosts, the ssh commands must work in an unattended fashion, so configure SSH keys as needed**. Also, each remote host needs to have a Calendar Server SVN checkout. In this example, the hosts blade2 and blade3 need to have an SVN checkout of Calendar Server at ~/ccs/CalendarServer.
+**When using remote hosts, the ssh commands must work in an unattended fashion, so configure SSH keys as needed**. Also, each remote host needs to have a Calendar Server GIT checkout. In this example, the hosts blade2 and blade3 need to have an GIT checkout of Calendar Server at ~/ccs/CalendarServer.
 
 Configuration of the additional workers is handled by the master, so you need not distribute the sim's config file to the other hosts. Each instance gets an identical copy of the config. The amount of work attempted by the sim is not changed by adding workers; instead, the master distributes work (i.e. user accounts) across the workers. To do more work, add user accounts.
 
