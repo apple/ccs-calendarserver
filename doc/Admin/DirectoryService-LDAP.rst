@@ -7,7 +7,7 @@ server to retrieve principal information for users, groups,
 locations, resources, and addresses. This service is implemented by
 `twext.who.ldap`_.
 
-  .. _twext.who.ldap: http://trac.calendarserver.org/browser/twext/trunk/twext/who/ldap
+  .. _twext.who.ldap: https://github.com/apple/ccs-twistedextensions/tree/master/twext/who/ldap
 
 When using this service, a separate process called the Directory Proxy Service (DPS)
 is instantiated to handle interactions with the LDAP server. This process
@@ -197,7 +197,7 @@ that will be applied to all queries on that record type.
   meeting it can be automatically accepted into the principal's main
   calendar; if it does conflict it can be automatically declined. The
   available modes can be seen here:
-  http://trac.calendarserver.org/browser/CalendarServer/trunk/calendarserver/tools/principals.py#L47
+  https://github.com/apple/ccs-calendarserver/blob/master/calendarserver/tools/principals.py#L48
 
 ``autoAcceptGroup``
 

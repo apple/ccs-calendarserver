@@ -26,7 +26,7 @@ Database Connectivity
 
 First, make sure your Postgres service is connectable over the network ; by default it may use only unix domain sockets. Accepting connections over TCP typically involves changes to `listen_address <http://www.postgresql.org/docs/current/static/runtime-config-connection.html#GUC-LISTEN-ADDRESSES>`_ in the main server config file to bind the network socket, and also edits to `pg_hga.conf <http://www.postgresql.org/docs/current/static/auth-pg-hba-conf.html>`_ to allow connections by IP or netmask. Additional discussion of database server setup and tuning is beyond the scope of this document.
 
-There are a few configuration parameters in caldavd.plist that control Calendar Server's behavior with respect to database use. The relevant caldavd.plist entries and their default values are shown and described below (as defined in `stdconfig.py <https://trac.calendarserver.org/browser/CalendarServer/trunk/twistedcaldav/stdconfig.py>`_)
+There are a few configuration parameters in caldavd.plist that control Calendar Server's behavior with respect to database use. The relevant caldavd.plist entries and their default values are shown and described below (as defined in `stdconfig.py <https://github.com/apple/ccs-calendarserver/blob/master/twistedcaldav/stdconfig.py>`_)
 
 ::
 
@@ -71,7 +71,7 @@ Example of a 'remote postgres via TCP' configuration:
 Database Setup and Schema Management
 ------------------------------------
 
-Whenever DBType is set, Calendar Server is not responsible for the lifecycle of the database, nor is it responsible for the setup and schema population - these tasks are now the responsibility of the administrator. Once caldavd.plist is configured for your database, use the `calendarserver_bootstrap_database <https://trac.calendarserver.org/browser/CalendarServer/trunk/bin/calendarserver_bootstrap_database>`_ `tool <https://trac.calendarserver.org/browser/CalendarServer/trunk/calendarserver/tools/bootstrapdatabase.py>`_ to populate calendar server `schema <https://trac.calendarserver.org/browser/CalendarServer/trunk/txdav/common/datastore/sql_schema>`_ in your database. Starting and stopping the database should be accomplished using native tools (e.g. pg_ctl). The database should be started before Calendar Server, and stopped after Calendar Server.
+Whenever DBType is set, Calendar Server is not responsible for the lifecycle of the database, nor is it responsible for the setup and schema population - these tasks are now the responsibility of the administrator. Starting and stopping the database should be accomplished using native tools (e.g. pg_ctl). The database should be started before Calendar Server, and stopped after Calendar Server.
 
 It is critically important that your database server keeps updated statistics about your database, which allows the database query planner to select appropriate performance optimizations. Refer to your database server documentation for details.
 
@@ -79,7 +79,7 @@ It is critically important that your database server keeps updated statistics ab
 Memcached
 --------------
 
-The default memcached settings are found in `stdconfig.py <https://trac.calendarserver.org/browser/CalendarServer/trunk/twistedcaldav/stdconfig.py>`_. By default there is one memcached 'pool' that is automatically managed by Calendar Server, and memcache is started and stopped along with Calendar Server. For a multi-server deployment, you should manage the memcached lifecycle externally, to make it independent of your Calendar Server hosts. Also, all Calendar Server hosts must be configured to share this memcached instance. A sample configuration is shown below, which instructs Calendar Server to connect to the 'Default' pool at example.com port 11211.
+The default memcached settings are found in `stdconfig.py <https://github.com/apple/ccs-calendarserver/blob/master/twistedcaldav/stdconfig.py>`_. By default there is one memcached 'pool' that is automatically managed by Calendar Server, and memcache is started and stopped along with Calendar Server. For a multi-server deployment, you should manage the memcached lifecycle externally, to make it independent of your Calendar Server hosts. Also, all Calendar Server hosts must be configured to share this memcached instance. A sample configuration is shown below, which instructs Calendar Server to connect to the 'Default' pool at example.com port 11211.
 
 ::
 
@@ -155,7 +155,7 @@ Directory Services
 
 It is critical that all servers use the same directory services data that defines users (and their passwords), groups, resources, and locations used by Calendar Server. By default, this data is stored in local XML files, which is not ideally suited for a multi-server deployment, although would still work fine if the administrator is willing to manage the workflow around updating and distributing those files to all servers.
 
-In addition, Calendar Server provides a very configurable LDAP client interface for accessing external directory services data. Administrators familiar with LDAP should need little more than to look at `twistedcaldav/stdconfig.py <https://trac.calendarserver.org/browser/CalendarServer/trunk/twistedcaldav/stdconfig.py>`_ for the available options to get started. Calendar Server will perform standard LDAP bind authentication to authenticate clients.
+In addition, Calendar Server provides a very configurable LDAP client interface for accessing external directory services data. Administrators familiar with LDAP should need little more than to look at `twistedcaldav/stdconfig.py <https://github.com/apple/ccs-calendarserver/blob/master/twistedcaldav/stdconfig.py>`_ for the available options to get started. Calendar Server will perform standard LDAP bind authentication to authenticate clients.
 
 Open Directory is also available when running on Mac OS X or Mac OS X Server.
 
@@ -177,7 +177,7 @@ General Advice
 
 * Ensure caldavd.plist is identical on all Calendar Server hosts. This is not strictly required, but recommended to keep things as predictable as possible. Since you already have shared storage for AttachmentsRoot, use that to host the 'conf' directory for all servers as well; this way you don't need to push config changes out to the servers.
 
-* Use the various `tools and utilities <https://trac.calendarserver.org/browser/CalendarServer/trunk/contrib/tools>`_ to monitor activity in real time, and also for post-processing access logs.
+* Use the various `tools and utilities <https://github.com/apple/ccs-calendarserver/tree/master/calendarserver/tools>`_ to monitor activity in real time, and also for post-processing access logs.
 
 * Be sure you are getting the most from an individual server before you decide you need additional hosts (other than for redundancy). To optimize the single-server configuration, play with the caldavd.plist keys MultiProcessCount (# of daemons spawned), and MaxRequests (# of requests a daemon will process concurrently). If your Calendar Server isn't above 80% CPU use for sustained periods, you most likely don't need more Calendar Server hosts.
 
