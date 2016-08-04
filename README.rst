@@ -4,7 +4,7 @@ Getting Started
 
 This is the core code base for the Calendar and Contacts Server, which is a CalDAV, CardDAV, WebDAV, and HTTP server.
 
-For general information about the server, see http://www.calendarserver.org/
+For general information about the server, see https://github.com/apple/ccs-calendarserver
 
 
 ==========================
@@ -28,13 +28,13 @@ Begin by creating a directory to contain Calendar and Contacts Server and all it
  mkdir ~/CalendarServer
  cd CalendarServer
 
-Next, check out the source code from the SVN repository. To check out the latest trunk code::
+Next, check out the source code from the GIT repository. To check out the latest code::
 
- svn co http://svn.calendarserver.org/repository/calendarserver/CalendarServer/trunk/ trunk
+ git clone https://github.com/apple/ccs-calendarserver.git
 
 The server requires various external libraries in order to operate. The bin/develop script in the sources will retrieve these dependencies and install them to the .develop directory. Note that this behavior is currently also a side-effect of bin/run, but that is likely to change in the future::
 
-    cd trunk
+    cd ccs-calendarserver
     ./bin/develop
     ____________________________________________________________
 
@@ -59,7 +59,7 @@ You will need to choose a directory service to use to populate your server's pri
 
 - XMLDirectoryService: this service is configurable via an XML file that contains principal information. The file conf/auth/accounts.xml provides an example principals configuration.
 - OpenDirectoryService: this service uses Apple's OpenDirectory client, the bulk of the configuration for which is handled external to Calendar and Contacts Server (e.g. System Preferences --> Users & Groups --> Login Options --> Network Account Server).
-- LdapDirectoryService: a highly flexible LDAP client that can leverage existing LDAP servers. See `twistedcaldav/stdconfig.py <https://trac.calendarserver.org/browser/CalendarServer/trunk/twistedcaldav/stdconfig.py>`_ for the available LdapDirectoryService options and their defaults. 
+- LdapDirectoryService: a highly flexible LDAP client that can leverage existing LDAP servers. See `twistedcaldav/stdconfig.py <https://github.com/apple/ccs-calendarserver/blob/master/twistedcaldav/stdconfig.py>`_ for the available LdapDirectoryService options and their defaults. 
 
 The caldavd-test.plist configuration uses XMLDirectoryService by default, set up to use conf/auth/accounts-test.xml. This is a generally useful configuration for development and testing.
 
@@ -68,9 +68,9 @@ This file contains a user principal, named admin, with password admin, which is 
 Start the server using the bin/run script, and use the -n option to bypass dependency setup::
 
     bin/run -n 
-    Using /Users/andre/CalendarServer/trunk/.develop/roots/py_modules/bin/python as Python
+    Using /Users/andre/CalendarServer/ccs-calendarserver/.develop/roots/py_modules/bin/python as Python
 
-    Missing config file: /Users/andre/CalendarServer/trunk/conf/caldavd-dev.plist
+    Missing config file: /Users/andre/CalendarServer/ccs-calendarserver/conf/caldavd-dev.plist
     You might want to start by copying the test configuration:
 
       cp conf/caldavd-test.plist conf/caldavd-dev.plist
