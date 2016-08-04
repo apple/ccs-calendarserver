@@ -8,6 +8,8 @@ dropin.cache
 *~
 *.lock
 .develop/
+bin/calendarserver_*
+calendarserver/version.py
 data/
 subprojects/
 _run/
