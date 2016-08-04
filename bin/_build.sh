@@ -709,6 +709,10 @@ py_dependencies () {
     fi;
   done;
 
+  ruler "Preparing Python requirements for patching";
+  echo "";
+  "${pip_install}" --ignore-installed --no-deps --requirement="${wd}/requirements-ignore-installed.txt";
+
   ruler "Patching Python requirements";
   echo "";
   if [ ! -e "${py_virtualenv}/lib/python2.7/site-packages/twisted/.patch_applied" ]; then
