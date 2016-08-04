@@ -3,15 +3,12 @@
 	<name>CalendarServer</name>
 	<comment></comment>
 	<projects>
-		<project>CalDAVClientLibrary</project>
-		<project>cffi</project>
+		<project>caldavclientlibrary</project>
 		<project>cx_Oracle</project>
-		<project>pg8000</project>
-		<project>psutil</project>
+		<project>kerberos</project>
+		<project>osxframeworks</project>
 		<project>pycalendar</project>
-		<project>pycparser</project>
-		<project>pycrypto</project>
-		<project>PyKerberos</project>
+		<project>pysecuretransport</project>
 		<project>twextpy</project>
 	</projects>
 	<buildSpec>
@@ -26,7 +23,7 @@
 	</natures>
 	<filteredResources>
 		<filter>
-			<id>1396668930421</id>
+			<id>0</id>
 			<name></name>
 			<type>10</type>
 			<matcher>
@@ -35,7 +32,7 @@
 			</matcher>
 		</filter>
 		<filter>
-			<id>1396668930422</id>
+			<id>0</id>
 			<name></name>
 			<type>10</type>
 			<matcher>
