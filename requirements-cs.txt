@@ -7,7 +7,7 @@
     zope.interface==4.1.3
 	    setuptools==18.5
 
-    --editable svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@15784#egg=twextpy
+    --editable git+https://github.com/apple/ccs-twistedextensions.git@c85058e6462449d042fbe011e8c6fdbb8257a2c2#egg=twextpy
         cffi==1.7.0
             pycparser==2.14
         #twisted
@@ -28,9 +28,9 @@
         # [Oracle] extra
             #cx_Oracle==5.2  # Needs manual patch
 
-    --editable svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk@15423#egg=kerberos
+    --editable git+https://github.com/apple/ccs-pykerberos.git@a6b889e9b703594770a7d09b0571e15fac00c69e#egg=kerberos
 
-    --editable svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk@15423#egg=pycalendar
+    --editable git+https://github.com/apple/ccs-pycalendar.git@b0699e97b2c6e40843aad9f5c8afac72e39bb847#egg=pycalendar
     python-dateutil==2.5.3
     pytz==2016.4
 

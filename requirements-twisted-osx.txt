@@ -6,9 +6,9 @@ Twisted==16.3.0
     #zope.interface
     pycrypto==2.6.1
 
-    --editable svn+http://svn.calendarserver.org/repository/calendarserver/OSXFrameworks/trunk@15423#egg=osxframeworks
+    --editable git+https://github.com/apple/ccs-pyosxframeworks.git@be21bab6bd87b933e9b47bae7bf28404bd3511f1#egg=osxframeworks
         #cffi
         #    pycparser
 
-    --editable svn+http://svn.calendarserver.org/repository/calendarserver/PySecureTransport/trunk@15554#egg=pysecuretransport
+    --editable git+https://github.com/apple/ccs-pysecuretransport.git@9c484745e27d24b749ee61fd56de4280a33638c8#egg=pysecuretransport
 
