@@ -4,5 +4,5 @@ docutils
 mockldap
 q
 tl.eggdeps
---editable svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVClientLibrary/trunk@15578#egg=CalDAVClientLibrary
---editable svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVTester/trunk@15551#egg=CalDAVTester
+--editable git+https://github.com/apple/ccs-caldavclientlibrary.git@ae7e028712896b71c9a9d39c756eebf1bf259233#egg=CalDAVClientLibrary
+--editable git+https://github.com/apple/ccs-caldavtester.git@39a4a0e98a4575a87b2444ace4ace29c9a13067a#egg=CalDAVTester
