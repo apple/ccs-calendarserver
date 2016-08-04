@@ -10,6 +10,7 @@ dropin.cache
 .develop/
 bin/calendarserver_*
 calendarserver/version.py
+conf/caldavd-dev.plist
 data/
 subprojects/
 _run/
