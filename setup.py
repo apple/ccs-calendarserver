@@ -20,13 +20,14 @@ from __future__ import print_function
 
 from os.path import dirname, basename, abspath, join as joinpath, normpath
 from setuptools import setup, find_packages as setuptools_find_packages
-from xml.etree import ElementTree
 import errno
 import os
 import subprocess
 import sys
 
 base_version = "9.0"
+base_version = "9.1"
+base_project = "ccs-calendarserver"
 
 
 #
@@ -52,13 +53,13 @@ def find_packages():
 
 
 
-def svn_info(wc_path):
+def git_info(wc_path):
     """
-    Look up info on a Subversion working copy.
+    Look up info on a GIT working copy.
     """
     try:
-        info_xml = subprocess.check_output(
-            ["svn", "info", "--xml", wc_path],
+        branch = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
             stderr=subprocess.STDOUT,
         )
     except OSError as e:
@@ -68,64 +69,42 @@ def svn_info(wc_path):
     except subprocess.CalledProcessError:
         return None
 
-    info = ElementTree.fromstring(info_xml)
-    assert info.tag == "info"
+    branch = branch.strip()
 
-    entry = info.find("entry")
-    url = entry.find("url")
-    root = entry.find("repository").find("root")
-    if url.text.startswith(root.text):
-        location = url.text[len(root.text):]
-    else:
-        location = url.text
-    project, branch = location.strip("/").split("/", 1)
-
-    return dict(
-        root=root.text,
-        project=project, branch=branch,
-        revision=info.find("entry").attrib["revision"],
-    )
-
-
-
-def svn_status(wc_path):
-    """
-    Look up status on a Subversion working copy.
-    Complies with PEP 440: https://www.python.org/dev/peps/pep-0440/
-
-    Examples:
-        C{6.0} (release tag)
-        C{6.1.b2.dev14564} (release branch)
-        C{7.0.b1.dev14564} (trunk)
-        C{6.0.a1.dev14441+branches.pg8000} (other branch)
-    """
     try:
-        status_xml = subprocess.check_output(
-            ["svn", "status", "--xml", wc_path]
+        revision = subprocess.check_output(
+            ["git", "rev-parse", "--verify", "HEAD"],
+            stderr=subprocess.STDOUT,
         )
     except OSError as e:
         if e.errno == errno.ENOENT:
-            return
+            return None
         raise
     except subprocess.CalledProcessError:
-        return
+        return None
 
-    status = ElementTree.fromstring(status_xml)
-    assert status.tag == "status"
+    revision = revision.strip()
 
-    target = status.find("target")
+    try:
+        tag = subprocess.check_output(
+            ["git", "describe", "--candidates=0", "HEAD"],
+            stderr=subprocess.STDOUT,
+        )
+    except OSError as e:
+        if e.errno == errno.ENOENT:
+            return None
+        raise
+    except subprocess.CalledProcessError:
+        tag = None
+    else:
+        tag = tag.strip()
 
-    for entry in target.findall("entry"):
-        entry_status = entry.find("wc-status")
-        if entry_status is not None:
-            item = entry_status.attrib["item"]
-            if item == "unversioned":
-                continue
-        path = entry.attrib["path"]
-        if wc_path != ".":
-            if path.startswith(wc_path):
-                path = path[len(wc_path):]
-        yield dict(path=path)
+    return dict(
+        project=base_project,
+        branch=branch,
+        revision=revision,
+        tag=tag,
+    )
 
 
 
@@ -135,19 +114,19 @@ def version():
     """
     source_root = dirname(abspath(__file__))
 
-    info = svn_info(source_root)
+    info = git_info(source_root)
 
     if info is None:
-        # We don't have Subversion info...
-        return "{}.a1+unknown".format(base_version)
+        # We don't have GIT info...
+        return "{}a1+unknown".format(base_version)
 
-    assert info["project"] == project_name, (
-        "Subversion project {!r} != {!r}"
-        .format(info["project"], project_name)
+    assert info["project"] == base_project, (
+        "GIT project {!r} != {!r}"
+        .format(info["project"], base_project)
     )
 
-    if info["branch"].startswith("tags/release/"):
-        project_version = info["branch"][len("tags/release/"):]
+    if info["tag"]:
+        project_version = info["tag"]
         project, version = project_version.split("-")
         assert project == project_name, (
             "Tagged project {!r} != {!r}".format(project, project_name)
@@ -158,8 +137,8 @@ def version():
         # This is a correctly tagged release of this project.
         return base_version
 
-    if info["branch"].startswith("branches/release/"):
-        project_version = info["branch"][len("branches/release/"):]
+    if info["branch"].startswith("release/"):
+        project_version = info["branch"][len("release/"):]
         project, version, dev = project_version.split("-")
         assert project == project_name, (
             "Branched project {!r} != {!r}".format(project, project_name)
@@ -171,16 +150,16 @@ def version():
             "Branch name doesn't end in -dev: {!r}".format(info["branch"])
         )
         # This is a release branch of this project.
-        # Designate this as beta2, dev version based on svn revision.
-        return "{}.b2.dev{}".format(base_version, info["revision"])
+        # Designate this as beta2, dev version based on git revision.
+        return "{}b2.dev-{}".format(base_version, info["revision"])
 
-    if info["branch"].startswith("trunk"):
-        # This is trunk.
-        # Designate this as beta1, dev version based on svn revision.
-        return "{}.b1.dev{}".format(base_version, info["revision"])
+    if info["branch"] == "master":
+        # This is master.
+        # Designate this as beta1, dev version based on git revision.
+        return "{}b1.dev-{}".format(base_version, info["revision"])
 
     # This is some unknown branch or tag...
-    return "{}a1.dev{}+{}".format(
+    return "{}a1.dev-{}+{}".format(
         base_version,
         info["revision"],
         info["branch"].replace("/", ".").replace("-", "."),
@@ -516,4 +495,5 @@ def doSetup():
 #
 
 if __name__ == "__main__":
-    doSetup()
+    #doSetup()
+    print(version())
