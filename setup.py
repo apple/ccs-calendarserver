@@ -495,5 +495,4 @@ def doSetup():
 #
 
 if __name__ == "__main__":
-    #doSetup()
-    print(version())
+    doSetup()
