@@ -293,26 +293,10 @@ www_get () {
 
         echo "Downloading ${name}...";
 
-        local pkg_host="static.calendarserver.org";
-        local pkg_path="/pkg";
-
         #
-        # Try getting a copy from calendarserver.org.
+        # Try getting a copy from the upstream source.
         #
         local tmp="$(mktemp "/tmp/${cache_basename}.XXXXXX")";
-        curl -L "http://${pkg_host}${pkg_path}/${cache_basename}" -o "${tmp}" || true;
-        echo "";
-        if [ ! -s "${tmp}" ] || grep '<title>404 Not Found</title>' "${tmp}" > /dev/null; then
-          rm -f "${tmp}";
-          echo "${name} is not available from calendarserver.org; trying upstream source.";
-        elif ! check_hash "${tmp}"; then
-          rm -f "${tmp}";
-          echo "${name} from calendarserver.org is invalid; trying upstream source.";
-        fi;
-
-        #
-        # That didn't work. Try getting a copy from the upstream source.
-        #
         if [ ! -f "${tmp}" ]; then
           curl -L "${url}" -o "${tmp}";
           echo "";
@@ -325,14 +309,6 @@ www_get () {
             rm -f "${tmp}";
             echo "${name} from upstream source is invalid: ${url}";
             exit 1;
-          fi;
-
-          if egrep "^${pkg_host}" "${HOME}/.ssh/known_hosts" > /dev/null 2>&1; then
-            echo "Copying cache file up to ${pkg_host}.";
-            if ! scp "${tmp}" "${pkg_host}:/var/www/static${pkg_path}/${cache_basename}"; then
-              echo "Failed to copy cache file up to ${pkg_host}.";
-            fi;
-            echo ""
           fi;
         fi;
 
