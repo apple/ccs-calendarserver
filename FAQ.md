@@ -18,6 +18,7 @@ What is required to set up iMIP:
 * An email account dedicated to the calendar server -- it is important that you not use your own email account for this because the server will delete any messages that appear in this account
 
 Steps:
+
 1. Create an IMAP or POP account on your mail server solely for use by the calendar server (used to send a receive email)
 2. Create a user account on the calendar server (used to do authentication between calendar server and mail gateway process)
 3. Edit caldavd.plist:

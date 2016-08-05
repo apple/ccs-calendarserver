@@ -34,7 +34,7 @@ The following sub-projects are hosted with CalendarServer:
 
 * [FAQ](FAQ.html)
 * [CalendarServer Documentation Explained](Documentation.html)
-* [CalendaringnDevelopers's Guide](http://devguide.calconnect.org/)
+* [Calendaring Developers's Guide](http://devguide.calconnect.org/)
 * [Other CalDAV Client/Server/Library Implementations](http://caldav.calconnect.org/implementations.html)
 
 ## Getting Involved
