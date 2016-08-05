@@ -297,19 +297,17 @@ www_get () {
         # Try getting a copy from the upstream source.
         #
         local tmp="$(mktemp "/tmp/${cache_basename}.XXXXXX")";
-        if [ ! -f "${tmp}" ]; then
-          curl -L "${url}" -o "${tmp}";
-          echo "";
+        curl -L "${url}" -o "${tmp}";
+        echo "";
 
-          if [ ! -s "${tmp}" ] || grep '<title>404 Not Found</title>' "${tmp}" > /dev/null; then
-            rm -f "${tmp}";
-            echo "${name} is not available from upstream source: ${url}";
-            exit 1;
-          elif ! check_hash "${tmp}"; then
-            rm -f "${tmp}";
-            echo "${name} from upstream source is invalid: ${url}";
-            exit 1;
-          fi;
+        if [ ! -s "${tmp}" ] || grep '<title>404 Not Found</title>' "${tmp}" > /dev/null; then
+          rm -f "${tmp}";
+          echo "${name} is not available from upstream source: ${url}";
+          exit 1;
+        elif ! check_hash "${tmp}"; then
+          rm -f "${tmp}";
+          echo "${name} from upstream source is invalid: ${url}";
+          exit 1;
         fi;
 
         #
@@ -560,7 +558,7 @@ c_dependencies () {
 
     c_dependency -m "b2405cc9ebf264aa47ff615d9de527a2" \
       "libevent" "${p}" \
-      "http://github.com/downloads/libevent/libevent/${p}.tar.gz" \
+      "https://github.com/downloads/libevent/libevent/${p}.tar.gz" \
       ${configure_openssl};
 
     local v="1.4.24";
