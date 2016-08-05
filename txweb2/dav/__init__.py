@@ -35,7 +35,7 @@ See RFC 3744: http://www.ietf.org/rfc/rfc3744.txt (WebDAV Access Control Protoco
 See also: http://skrb.org/ietf/http_errata.html (Errata to RFC 2616)
 """
 
-__version__ = 'SVN-Trunk'
+__version__ = 'GIT-master'
 version = __version__
 
 __all__ = [
