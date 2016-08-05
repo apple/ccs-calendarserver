@@ -74,7 +74,7 @@ ve_tmp="$(mktemp -d -t CalendarServer_ve_tools)";
 
 # Bootstrap virtualenv and friends so we can use them in this script (not sent to B&I).
 py_ve_tools="${ve_tmp}/ve_tools";
-export PYTHONPATH="${py_ve_tools}/lib:${wd}:${PYTHONPATH:-}";
+export PYTHONPATH="${py_ve_tools}/lib/python/site-packages:${wd}:${PYTHONPATH:-}";
 bootstrap_virtualenv;
 
 reqs_to_use="${ve_tmp}/requirements-osx.txt";
