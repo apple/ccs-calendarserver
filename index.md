@@ -18,7 +18,7 @@ Sub-projects
 
 The following sub-projects are hosted with CalendarServer:
 
--   [CalDAVClientLibrary](https://trac.calendarserver.org/wiki/CalDAVClientLibrary)
+-   [CalDAVClientLibrary](CalDAVClientLibrary.md)
 -   [CalDAVTester](https://trac.calendarserver.org/wiki/CalDAVTester)
 -   [PyCalendar](https://trac.calendarserver.org/wiki/PyCalendar)
 -   [PyKerberos](https://trac.calendarserver.org/wiki/PyKerberos)
@@ -28,11 +28,9 @@ What To Download
 ================
 
 -   If you would like to get involved with Calendar and Contacts Server development, see the [QuickStart](https://trac.calendarserver.org/wiki/QuickStart) page for how to check out trunk. All submitted diffs should be against current trunk.
--   If you would like to download a version of Calendar and Contacts Server to run on a server, look at this list of [release branches](https://svn.calendarserver.org/repository/calendarserver/CalendarServer/tags/release/). Find the most recent branch in the list, and then download it by running:
+-   If you would like to download a version of Calendar and Contacts Server to run on a server, look at this list of [release branches](https://svn.calendarserver.org/repository/calendarserver/CalendarServer/tags/release/). Find the most recent branch in the list, and then download it by running in a shell:
 
-        $ svn checkout https://svn.calendarserver.org/repository/calendarserver/CalendarServer/tags/release/CalendarServer-X.Y
-
-    in a shell.
+        git clone -b CalendarServer-X.Y https://github.com/apple/ccs-calendarserver.git
 
 Documentation
 =============
