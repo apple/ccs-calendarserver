@@ -143,7 +143,7 @@ done;
 #
 # Remove src
 #
-ruler "Removing eggs from ${archive}";
+ruler "Removing source";
 rm -rf "${wd}/src"
 
 ruler "";
