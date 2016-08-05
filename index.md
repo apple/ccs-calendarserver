@@ -18,7 +18,7 @@ Sub-projects
 
 The following sub-projects are hosted with CalendarServer:
 
--   [CalDAVClientLibrary](CalDAVClientLibrary.md)
+-   [CalDAVClientLibrary](CalDAVClientLibrary.html)
 -   [CalDAVTester](https://trac.calendarserver.org/wiki/CalDAVTester)
 -   [PyCalendar](https://trac.calendarserver.org/wiki/PyCalendar)
 -   [PyKerberos](https://trac.calendarserver.org/wiki/PyKerberos)
