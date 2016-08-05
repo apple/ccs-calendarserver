@@ -9,7 +9,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <pwd.h>
-#include <Python.h>
+#include <Python/Python.h>
 
 const char * const allowedUsernames[] = {
     "_calendar",
