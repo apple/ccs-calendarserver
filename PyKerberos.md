@@ -1,5 +1,5 @@
 ---
-title: Calendar and Contacts Server
+title: PyKerberos Library
 ---
 
 PyKerberos Library

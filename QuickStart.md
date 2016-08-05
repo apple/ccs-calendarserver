@@ -1,5 +1,5 @@
 ---
-title: Calendar and Contacts Server
+title: QuickStart
 ---
 
 QuickStart
