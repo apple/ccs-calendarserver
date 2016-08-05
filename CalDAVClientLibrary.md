@@ -23,8 +23,6 @@ The `runshell.py` script will launch the command line browser shell. The `runadm
 
 ## GETTING IT
 
-Checking out the sources with GIT
-
 Use GIT to obtain a working copy of the source code. The following command will check out the latest version of CalDAVClientLibrary:
 
     git clone https://github.com/apple/ccs-caldavclientlibrary.git

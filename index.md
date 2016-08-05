@@ -13,27 +13,24 @@ The open source Calendar and Contacts Server project is a standards-compliant se
 
 The sources are available under the terms of the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0.html).
 
-Sub-projects
-============
+## Sub-projects
 
 The following sub-projects are hosted with CalendarServer:
 
 -   [CalDAVClientLibrary](CalDAVClientLibrary.html)
--   [CalDAVTester](https://trac.calendarserver.org/wiki/CalDAVTester)
--   [PyCalendar](https://trac.calendarserver.org/wiki/PyCalendar)
--   [PyKerberos](https://trac.calendarserver.org/wiki/PyKerberos)
--   [twext](https://trac.calendarserver.org/wiki/twext)
+-   [CalDAVTester](CalDAVTester.html)
+-   [PyCalendar](PyCalendar.html)
+-   [PyKerberos](PyKerberos.html)
+-   [twext](twext.html)
 
-What To Download
-================
+## What To Download
 
--   If you would like to get involved with Calendar and Contacts Server development, see the [QuickStart](https://trac.calendarserver.org/wiki/QuickStart) page for how to check out trunk. All submitted diffs should be against current trunk.
--   If you would like to download a version of Calendar and Contacts Server to run on a server, look at this list of [release branches](https://svn.calendarserver.org/repository/calendarserver/CalendarServer/tags/release/). Find the most recent branch in the list, and then download it by running in a shell:
+-   If you would like to get involved with Calendar and Contacts Server development, see the [QuickStart](QuickStart.html) page for how to check out trunk. All submitted diffs should be against current trunk.
+-   If you would like to download a version of Calendar and Contacts Server to run on a server, look at this list of [release branches](https://github.com/apple/ccs-calendarserver/releases). Find the most recent branch in the list, and then download it by running in a shell:
 
         git clone -b CalendarServer-X.Y https://github.com/apple/ccs-calendarserver.git
 
-Documentation
-=============
+## Documentation
 
 -   [FAQ](https://trac.calendarserver.org/wiki/FAQ)
 
@@ -51,15 +48,13 @@ Documentation
 -   [Other CalDAV Server Implementations](https://trac.calendarserver.org/wiki/CalDAVServers)
 -   [CalDAV Server Test & Performance Suite](https://trac.calendarserver.org/wiki/CalDAVTester)
 
-Getting Involved
-================
+## Getting Involved
 
 -   [Mailing lists](https://trac.calendarserver.org/wiki/MailLists)
 -   [IRC channels](https://trac.calendarserver.org/wiki/IRC)
 -   [Twitter](http://twitter.com/calendarserver/)
 
-External Links
-==============
+## External Links
 
 -   [The CalDAV Home Page](http://caldav.calconnect.org)
 -   [The CardDAV Home Page](http://carddav.calconnect.org)
