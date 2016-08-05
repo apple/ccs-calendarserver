@@ -19,20 +19,8 @@ Next, check out the source code from GIT. To check out the latest master code:
 The server requires various external libraries in order to operate. The bin/develop script in the sources will retrieve these dependencies and install them to the .develop directory. Note that this behavior is currently also a side-effect of bin/run, but that is likely to change in the future:
 
 	cd master
-	./bin/develop
-	____________________________________________________________
-	
-	Using system version of libffi.
-	
-	____________________________________________________________
-	
-	Using system version of OpenLDAP.
-	
-	____________________________________________________________
-	
-	Using system version of SASL.
-
-	____________________________________________________________
+	bin/develop
+		<<build will take place>>
 	...
 
 Pip is used to retrieve the python dependencies and stage them for use by virtualenv, however if your system does not have pip (and virtualenv), you can use bin/install_pip (or your installation / upgrade method of choice).

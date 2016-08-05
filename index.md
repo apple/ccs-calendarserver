@@ -17,47 +17,36 @@ The sources are available under the terms of the [Apache License, Version 2.0](h
 
 The following sub-projects are hosted with CalendarServer:
 
--   [CalDAVClientLibrary](CalDAVClientLibrary.html)
--   [CalDAVTester](CalDAVTester.html)
--   [PyCalendar](PyCalendar.html)
--   [PyKerberos](PyKerberos.html)
--   [twext](twext.html)
+* [CalDAVClientLibrary](CalDAVClientLibrary.html)
+* [CalDAVTester](CalDAVTester.html)
+* [PyCalendar](PyCalendar.html)
+* [PyKerberos](PyKerberos.html)
+* [twext](twext.html)
 
 ## What To Download
 
--   If you would like to get involved with Calendar and Contacts Server development, see the [QuickStart](QuickStart.html) page for how to check out trunk. All submitted diffs should be against current trunk.
--   If you would like to download a version of Calendar and Contacts Server to run on a server, look at this list of [release branches](https://github.com/apple/ccs-calendarserver/releases). Find the most recent branch in the list, and then download it by running in a shell:
+* If you would like to get involved with Calendar and Contacts Server development, see the [QuickStart](QuickStart.html) page for how to check out trunk. All submitted diffs should be against current trunk.
+* If you would like to download a version of Calendar and Contacts Server to run on a server, look at this list of [release branches](https://github.com/apple/ccs-calendarserver/releases). Find the most recent branch in the list, and then download it by running in a shell:
 
         git clone -b CalendarServer-X.Y https://github.com/apple/ccs-calendarserver.git
 
 ## Documentation
 
--   [FAQ](https://trac.calendarserver.org/wiki/FAQ)
-
-<!-- -->
-
--   [CalendarServer trunk (current development branch)](https://trac.calendarserver.org/wiki/docs-trunk)
-
-<!-- -->
-
--   [Client and Admin tool Library](https://trac.calendarserver.org/wiki/CalDAVClientLibrary)
-
-<!-- -->
-
--   [Configuring clients for use with the Calendar Server](https://trac.calendarserver.org/wiki/CalendarClients)
--   [Other CalDAV Server Implementations](https://trac.calendarserver.org/wiki/CalDAVServers)
--   [CalDAV Server Test & Performance Suite](https://trac.calendarserver.org/wiki/CalDAVTester)
+* [FAQ](FAQ.html)
+* [CalendarServer Documentation Explained](Documentation.html)
+* [CalendaringnDevelopers's Guide](http://devguide.calconnect.org/)
+* [Other CalDAV Client/Server/Library Implementations](http://caldav.calconnect.org/implementations.html)
 
 ## Getting Involved
 
--   [Mailing lists](https://trac.calendarserver.org/wiki/MailLists)
--   [IRC channels](https://trac.calendarserver.org/wiki/IRC)
--   [Twitter](http://twitter.com/calendarserver/)
+* [Mailing lists](https://trac.calendarserver.org/wiki/MailLists)
+* [IRC channels](https://trac.calendarserver.org/wiki/IRC)
+* [Twitter](http://twitter.com/calendarserver/)
 
 ## External Links
 
--   [The CalDAV Home Page](http://caldav.calconnect.org)
--   [The CardDAV Home Page](http://carddav.calconnect.org)
--   [The Calendaring and Scheduling Consortium](http://calconnect.org)
--   [IETF Calendaring and Scheduling Standards Simplification Working Group](http://tools.ietf.org/wg/calsify/)
--   [IETF vCard and CardDAV Working Group](http://tools.ietf.org/wg/vcarddav/)
+* [The CalDAV Home Page](http://caldav.calconnect.org)
+* [The CardDAV Home Page](http://carddav.calconnect.org)
+* [The Calendaring and Scheduling Consortium](http://calconnect.org)
+* [IETF Calendaring and Scheduling Standards Simplification Working Group](http://tools.ietf.org/wg/calsify/)
+* [IETF vCard and CardDAV Working Group](http://tools.ietf.org/wg/vcarddav/)
