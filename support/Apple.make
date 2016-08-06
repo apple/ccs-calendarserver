@@ -70,25 +70,16 @@ install:: install-python
 install-python:: build
 	@#
 	@# We need the virtualenv + pip + setuptools toolchain.
-	@# Install virtualenv someplace and put it in PYTHONPATH so we have it.
+	@# Do a pip --user install of each saved .whl distribution we need
+	@# into out build directory and ensure that PYTHONPATH points to those. 
 	@# This way, the host system we're building on doesn't need to have these
 	@# tools and we can ensure that we're using known versions.
 	@#
 	@echo "Installing virtualenv and friends...";
 	$(_v) mkdir -p "$(BuildDirectory)/pytools";
-	$(_v) mkdir -p "$(BuildDirectory)/pytools/lib";
-	$(_v) mkdir -p "$(BuildDirectory)/pytools/junk";
-	$(_v) for pkg in $$(find "$(Sources)/.develop/tools" -type f -name "*.tgz"); do \
-	          tar -C "$(BuildDirectory)" -xvzf "$${pkg}";                           \
-	          cd "$(BuildDirectory)/$$(basename "$${pkg}" .tgz)" &&                 \
-	              PYTHONPATH="$(BuildDirectory)/pytools/lib"                        \
-	              "$(PYTHON)" setup.py install                                      \
-	                  --install-base="$(BuildDirectory)/pytools"                    \
-	                  --install-lib="$(BuildDirectory)/pytools/lib"                 \
-	                  --install-headers="$(BuildDirectory)/pytools/junk"            \
-	                  --install-scripts="$(BuildDirectory)/pytools/junk"            \
-	                  --install-data="$(BuildDirectory)/pytools/junk"               \
-	                  ;                                                             \
+	$(_v) for pkg in $$(find "$(Sources)/.develop/tools" -type f -name "*.whl"); do \
+			  PYTHONUSERBASE="$(BuildDirectory)/pytools" \
+			  pip install -I --user "$${pkg}"; \
 	      done;
 	@#
 	@# Set up a virtual environment in Server.app; we'll install into that.
@@ -99,7 +90,7 @@ install-python:: build
 	@#
 	@echo "Creating virtual environment...";
 	$(_v) $(RMDIR) "$(DSTROOT)$(CS_VIRTUALENV)";
-	$(_v) PYTHONPATH="$(BuildDirectory)/pytools/lib" \
+	$(_v) PYTHONPATH="$(BuildDirectory)/pytools/lib/python/site-packages" \
 	          "$(PYTHON)" -m virtualenv              \
 		          --system-site-packages             \
 		          "$(DSTROOT)$(CS_VIRTUALENV)";
@@ -162,7 +153,7 @@ install-python:: build
 	@# Make the virtualenv relocatable
 	@#
 	@echo "Making virtual environment relocatable...";
-	PYTHONPATH="$(BuildDirectory)/pytools/lib" \
+	PYTHONPATH="$(BuildDirectory)/pytools/lib/python/site-packages" \
 	    $(PYTHON) -m virtualenv --relocatable "$(DSTROOT)$(CS_VIRTUALENV)";
 	@#
 	@# Clean up

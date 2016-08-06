@@ -37,20 +37,15 @@ extra_features="OpenDirectory,Postgres";
 #
 
 mkdir -p "${wd}/.develop/tools";
+export PYTHONUSERBASE="${wd}/.develop/tools";
 
 for pkg in             \
-    setuptools-18.5    \
-    pip-7.1.2          \
-    virtualenv-13.1.2  \
+    setuptools==18.5    \
+    pip==8.1.2          \
+    virtualenv==15.0.2  \
 ; do
-       name="${pkg%-*}";
-    version="${pkg#*-}";
-     first="$(echo "${name}" | sed 's|^\(.\).*$|\1|')";
-       url="https://pypi.python.org/packages/source/${first}/${name}/${pkg}.tar.gz";
-
-    ruler "Downloading ${pkg}";
-
-    curl -L -o "${wd}/.develop/tools/${pkg}.tgz" "${url}";
+    ruler "Installing ${pkg}";
+    pip download --download="${wd}/.develop/tools" "${pkg}";
 done;
 
 
