@@ -39,8 +39,8 @@ The following sub-projects are hosted with CalendarServer:
 
 ## Getting Involved
 
-* [Mailing lists](https://trac.calendarserver.org/wiki/MailLists)
-* [IRC channels](https://trac.calendarserver.org/wiki/IRC)
+* [Mailing lists](MailLists.html)
+* [IRC channels](IRC.html)
 * [Twitter](http://twitter.com/calendarserver/)
 
 ## External Links
