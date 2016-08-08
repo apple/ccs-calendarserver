@@ -37,20 +37,15 @@ extra_features="OpenDirectory,Postgres";
 #
 
 mkdir -p "${wd}/.develop/tools";
+export PYTHONUSERBASE="${wd}/.develop/tools";
 
 for pkg in             \
-    setuptools-18.5    \
-    pip-7.1.2          \
-    virtualenv-13.1.2  \
+    setuptools==18.5    \
+    pip==8.1.2          \
+    virtualenv==15.0.2  \
 ; do
-       name="${pkg%-*}";
-    version="${pkg#*-}";
-     first="$(echo "${name}" | sed 's|^\(.\).*$|\1|')";
-       url="https://pypi.python.org/packages/source/${first}/${name}/${pkg}.tar.gz";
-
-    ruler "Downloading ${pkg}";
-
-    curl -L -o "${wd}/.develop/tools/${pkg}.tgz" "${url}";
+    ruler "Installing ${pkg}";
+    pip download -d="${wd}/.develop/tools" "${pkg}";
 done;
 
 
@@ -74,7 +69,7 @@ ve_tmp="$(mktemp -d -t CalendarServer_ve_tools)";
 
 # Bootstrap virtualenv and friends so we can use them in this script (not sent to B&I).
 py_ve_tools="${ve_tmp}/ve_tools";
-export PYTHONPATH="${py_ve_tools}/lib:${wd}:${PYTHONPATH:-}";
+export PYTHONPATH="${py_ve_tools}/lib/python/site-packages:${wd}:${PYTHONPATH:-}";
 bootstrap_virtualenv;
 
 reqs_to_use="${ve_tmp}/requirements-osx.txt";

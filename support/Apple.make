@@ -70,25 +70,16 @@ install:: install-python
 install-python:: build
 	@#
 	@# We need the virtualenv + pip + setuptools toolchain.
-	@# Install virtualenv someplace and put it in PYTHONPATH so we have it.
+	@# Do a pip --user install of each saved .whl distribution we need
+	@# into out build directory and ensure that PYTHONPATH points to those. 
 	@# This way, the host system we're building on doesn't need to have these
 	@# tools and we can ensure that we're using known versions.
 	@#
 	@echo "Installing virtualenv and friends...";
 	$(_v) mkdir -p "$(BuildDirectory)/pytools";
-	$(_v) mkdir -p "$(BuildDirectory)/pytools/lib";
-	$(_v) mkdir -p "$(BuildDirectory)/pytools/junk";
-	$(_v) for pkg in $$(find "$(Sources)/.develop/tools" -type f -name "*.tgz"); do \
-	          tar -C "$(BuildDirectory)" -xvzf "$${pkg}";                           \
-	          cd "$(BuildDirectory)/$$(basename "$${pkg}" .tgz)" &&                 \
-	              PYTHONPATH="$(BuildDirectory)/pytools/lib"                        \
-	              "$(PYTHON)" setup.py install                                      \
-	                  --install-base="$(BuildDirectory)/pytools"                    \
-	                  --install-lib="$(BuildDirectory)/pytools/lib"                 \
-	                  --install-headers="$(BuildDirectory)/pytools/junk"            \
-	                  --install-scripts="$(BuildDirectory)/pytools/junk"            \
-	                  --install-data="$(BuildDirectory)/pytools/junk"               \
-	                  ;                                                             \
+	$(_v) for pkg in $$(find "$(Sources)/.develop/tools" -type f -name "*.whl"); do \
+			  PYTHONUSERBASE="$(BuildDirectory)/pytools" \
+			  pip install -I --user "$${pkg}"; \
 	      done;
 	@#
 	@# Set up a virtual environment in Server.app; we'll install into that.
@@ -99,17 +90,17 @@ install-python:: build
 	@#
 	@echo "Creating virtual environment...";
 	$(_v) $(RMDIR) "$(DSTROOT)$(CS_VIRTUALENV)";
-	$(_v) PYTHONPATH="$(BuildDirectory)/pytools/lib" \
+	$(_v) PYTHONPATH="$(BuildDirectory)/pytools/lib/python/site-packages" \
 	          "$(PYTHON)" -m virtualenv              \
 		          --system-site-packages             \
 		          "$(DSTROOT)$(CS_VIRTUALENV)";
 
 	@#
-	@# Because B&I builds for 10.10 on a 10.11 machine sometimes, work around
+	@# Because B&I builds for 10.11 on a 10.12 machine sometimes, work around
 	@# distutils' insistence that deployment target matches the system's version.
 	@#
-	@echo "Patch so distutils will build for 10.10...";
-	sed "s/'MACOSX_DEPLOYMENT_TARGET': '10.11'/'MACOSX_DEPLOYMENT_TARGET': '10.10'/g" /System/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/_sysconfigdata.py > "$(DSTROOT)$(CS_VIRTUALENV)/lib/python2.7/_sysconfigdata.py";
+	@echo "Patch so distutils will build for 10.11...";
+	sed "s/'MACOSX_DEPLOYMENT_TARGET': '10.12'/'MACOSX_DEPLOYMENT_TARGET': '10.11'/g" /System/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/_sysconfigdata.py > "$(DSTROOT)$(CS_VIRTUALENV)/lib/python2.7/_sysconfigdata.py";
 
 	@#
 	@# Use the pip in the virtual environment (as opposed to pip in the OS) to
@@ -162,7 +153,7 @@ install-python:: build
 	@# Make the virtualenv relocatable
 	@#
 	@echo "Making virtual environment relocatable...";
-	PYTHONPATH="$(BuildDirectory)/pytools/lib" \
+	PYTHONPATH="$(BuildDirectory)/pytools/lib/python/site-packages" \
 	    $(PYTHON) -m virtualenv --relocatable "$(DSTROOT)$(CS_VIRTUALENV)";
 	@#
 	@# Clean up
