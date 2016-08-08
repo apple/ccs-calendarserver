@@ -39,7 +39,7 @@ The following sub-projects are hosted with CalendarServer:
 
 ## Getting Involved
 
-* [Mailing lists](MailLists.html)
+* [Mailing lists](MailingLists.html)
 * [IRC channels](IRC.html)
 * [Twitter](http://twitter.com/calendarserver/)
 
