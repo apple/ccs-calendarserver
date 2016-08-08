@@ -105,11 +105,11 @@ install-python:: build
 		          "$(DSTROOT)$(CS_VIRTUALENV)";
 
 	@#
-	@# Because B&I builds for 10.10 on a 10.11 machine sometimes, work around
+	@# Because B&I builds for 10.11 on a 10.12 machine sometimes, work around
 	@# distutils' insistence that deployment target matches the system's version.
 	@#
-	@echo "Patch so distutils will build for 10.10...";
-	sed "s/'MACOSX_DEPLOYMENT_TARGET': '10.11'/'MACOSX_DEPLOYMENT_TARGET': '10.10'/g" /System/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/_sysconfigdata.py > "$(DSTROOT)$(CS_VIRTUALENV)/lib/python2.7/_sysconfigdata.py";
+	@echo "Patch so distutils will build for 10.11...";
+	sed "s/'MACOSX_DEPLOYMENT_TARGET': '10.12'/'MACOSX_DEPLOYMENT_TARGET': '10.11'/g" /System/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/_sysconfigdata.py > "$(DSTROOT)$(CS_VIRTUALENV)/lib/python2.7/_sysconfigdata.py";
 
 	@#
 	@# Use the pip in the virtual environment (as opposed to pip in the OS) to
