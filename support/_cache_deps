@@ -45,7 +45,7 @@ for pkg in             \
     virtualenv==15.0.2  \
 ; do
     ruler "Installing ${pkg}";
-    pip download --download="${wd}/.develop/tools" "${pkg}";
+    pip download -d="${wd}/.develop/tools" "${pkg}";
 done;
 
 
