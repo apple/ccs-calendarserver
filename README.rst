@@ -4,7 +4,7 @@ Getting Started
 
 This is the core code base for the Calendar and Contacts Server, which is a CalDAV, CardDAV, WebDAV, and HTTP server.
 
-For general information about the server, see https://github.com/apple/ccs-calendarserver
+For general information about the server, see https://apple.github.io/ccs-calendarserver.
 
 
 ==========================

@@ -7,7 +7,7 @@
     zope.interface==4.1.3
 	    setuptools==18.5
 
-    --editable git+https://github.com/apple/ccs-twistedextensions.git@26fd741b549c51c723699b19efa504f0aff6159b#egg=twextpy
+    --editable git+https://github.com/apple/ccs-twistedextensions.git@38462b69049d690ffaa946330b64fdd6c7b25a80#egg=twextpy
         cffi==1.7.0
             pycparser==2.14
         #twisted
