@@ -694,6 +694,24 @@
 						</dict>
 					</dict>
 
+					<!-- A profile which periodically subscribes to APNS. -->
+					<dict>
+						<key>class</key>
+						<string>contrib.performance.loadtest.profiles.APNSSubscriber</string>
+
+						<key>params</key>
+						<dict>
+							<key>enabled</key>
+							<true/>
+
+							<!-- Define the interval (in seconds) at which this profile will use
+								its client to subscribe. -->
+							<key>interval</key>
+							<integer>600</integer>
+
+						</dict>
+					</dict>
+
 
 					<!-- A profile which will periodically reset itself, as if a user removed
 						and re-added their account. -->
