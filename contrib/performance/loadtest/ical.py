@@ -522,7 +522,9 @@ class BaseAppleClient(BaseClient):
         unauthenticatedPercentage=30,
     ):
 
-        self._client_id = str(uuid4())
+        uuid = uuid4()
+        self._client_id = str(uuid)
+        self._deviceToken = uuid.hex + uuid.hex # 64 character hex for fake APNS token
         self._instanceNumber = instanceNumber
 
         self.reactor = reactor
@@ -974,6 +976,23 @@ class BaseAppleClient(BaseClient):
                 depth='1',
                 method_label="PROPFIND{calendar}"
             )
+
+    @inlineCallbacks
+    def apnsSubscribe(self):
+        url = "{}/apns/".format(self.server["uri"])
+        headers = Headers({
+            'Content-Type': ['application/x-www-form-urlencoded']
+        })
+        content = "token={}&key=/CalDAV/example".format(self._deviceToken)
+        response, responseBody = yield self._request(
+            OK,
+            'POST',
+            url,
+            headers=headers,
+            body=StringProducer(content),
+            method_label="POST{apns}"
+        )
+
 
 
     @inlineCallbacks

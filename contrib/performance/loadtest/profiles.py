@@ -1175,6 +1175,37 @@ class DeepRefresher(ProfileBase):
         return self._client.deepRefresh()
 
 
+class APNSSubscriber(ProfileBase):
+    """
+    A profile which POSTs to /apns
+    """
+    def setParameters(
+        self,
+        enabled=True,
+        interval=60,
+    ):
+        self.enabled = enabled
+        self._interval = interval
+
+
+    def run(self):
+        self._call = LoopingCall(self._apnsSubscribe)
+        self._call.clock = self._reactor
+        self._reactor.callLater(
+            self.random.randint(1, self._interval),
+            self._call.start,
+            self._interval
+        )
+        return Deferred()
+
+
+    def _apnsSubscribe(self):
+        # Don't perform any operations until the client is up and running
+        if not self._client.started:
+            return succeed(None)
+
+        return self._client.apnsSubscribe()
+
 
 class Resetter(ProfileBase):
     """
