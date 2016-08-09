@@ -228,7 +228,7 @@ create table APN_SUBSCRIPTIONS (
 );
 ```
 
-This table tracks client subscriptions to APNS push notifications, so that when a change on the server occurs, the server can determine which clients need to be sent push notifications.
+This table tracks client subscriptions to APNS push notifications, so that when a change on the server occurs, the server can determine which clients need to be sent push notifications. We store MODIFIED (seconds since the Epoch) because we purge subscriptions older than config.SubscriptionPurgeSeconds.  Clients are expected to re-subscribe at least every config.SubscriptionRefreshIntervalSeconds.  SUBSCRIBER_GUID, USER_AGENT, and IP_ADDR are used purely for diagnosing problems via the push command utility.
 
 # IMIP\_TOKENS
 
