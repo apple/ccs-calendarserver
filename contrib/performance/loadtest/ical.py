@@ -1802,7 +1802,12 @@ class BaseAppleClient(BaseClient):
                 raise MissingCalendarHome
             else:
                 self.calendarHomeHref = calendarHome
-            yield self._checkCalendarsForEvents(calendarHome, firstTime=True)
+            yield self._checkCalendarsForEvents(
+                calendarHome,
+                # If we already have calendarHomeToken from deserialize,
+                # it's not our first time
+                firstTime=(not self.calendarHomeToken)
+            )
             returnValue(calendarHome)
         calendarHome = yield self._newOperation("startup", startup())
 
