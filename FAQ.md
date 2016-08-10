@@ -54,4 +54,4 @@ iMIP injection principal not found: com.apple.calendarserver -- By default, Cale
 
 Q: _How do I configure Calendar Server to use LDAP for users, groups, locations, and resources?_
 
-See [LDAP directory service}(https://github.com/apple/ccs-calendarserver/blob/master/doc/Admin/DirectoryService-LDAP.rst)
+See [LDAP directory service](https://github.com/apple/ccs-calendarserver/blob/master/doc/Admin/DirectoryService-LDAP.rst)
