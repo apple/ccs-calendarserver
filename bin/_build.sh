@@ -744,9 +744,9 @@ bootstrap_virtualenv () {
 pip_download () {
   mkdir -p "${dev_home}/pip_downloads";
 
-  "${python}" -m pip install               \
+  "${python}" -m pip download               \
     --disable-pip-version-check            \
-    --download="${dev_home}/pip_downloads" \
+    -d "${dev_home}/pip_downloads" \
     --pre                                  \
     --no-cache-dir                         \
     --log-file="${dev_home}/pip.log"       \

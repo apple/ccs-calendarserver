@@ -117,7 +117,7 @@ install-python:: build
 	          "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install                \
 	              --disable-pip-version-check                             \
 	              --no-cache-dir                                          \
-	              --pre --allow-all-external --no-index                   \
+	              --pre --no-index                                        \
 	              --find-links="file://$(Sources)/.develop/pip_downloads" \
 	              --log=$(OBJROOT)/pip.log                                \
 	              cffi;
@@ -129,7 +129,7 @@ install-python:: build
 	          "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install                \
 	              --disable-pip-version-check                             \
 	              --no-cache-dir                                          \
-	              --pre --allow-all-external --no-index                   \
+	              --pre --no-index                                        \
 	              --find-links="file://$(Sources)/.develop/pip_downloads" \
 	              --log=$(OBJROOT)/pip.log                                \
 	              --ignore-installed                                      \
@@ -145,7 +145,7 @@ install-python:: build
 	          "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install                \
 	              --disable-pip-version-check                             \
 	              --no-cache-dir                                          \
-	              --pre --allow-all-external --no-index                   \
+	              --pre --no-index                                        \
 	              --find-links="file://$(Sources)/.develop/pip_downloads" \
 	              --log=$(OBJROOT)/pip.log                                \
 	              CalendarServer[OpenDirectory,Postgres];
