@@ -1,0 +1,24 @@
+Index: run
+===================================================================
+--- run	(revision 2652)
++++ run	(working copy)
+@@ -553,7 +553,7 @@
+   echo "Building libevent...";
+   cd "${libevent}";
+   ./configure --prefix="${libevent}/_root";
+-  make CFLAGS=-m64;
++  make;
+   make install;
+ fi;
+ 
+@@ -572,8 +572,8 @@
+   cd "${memcached}";
+   ./configure --prefix="${memcached}/_root" \
+               --with-libevent="${libevent}/_root" \
+-              --enable-threads CFLAGS=-m64;
+-  make CFLAGS=-m64;
++              --enable-threads;
++  make;
+   make install;
+ fi;
+ 

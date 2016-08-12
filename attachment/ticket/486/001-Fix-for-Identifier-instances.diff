@@ -1,0 +1,13 @@
+Index: twext/enterprise/dal/parseschema.py
+===================================================================
+--- twext/enterprise/dal/parseschema.py	(revision 9749)
++++ twext/enterprise/dal/parseschema.py	(working copy)
+@@ -359,7 +359,7 @@
+                 # something else
+                 typeLength = None
+                 self.pushback(maybeTypeArgs)
+-        theType = SQLType(typeName.value.encode("utf-8"), typeLength)
++        theType = SQLType(typeName.to_unicode().encode("utf-8"), typeLength)
+         theColumn = self.table.addColumn(
+             name=name.encode("utf-8"), type=theType
+         )

@@ -1,0 +1,54 @@
+Traceback (most recent call last):
+  File "/usr/lib/python2.5/site-packages/twisted/application/app.py", line 374, in run
+    config.parseOptions()
+  File "/usr/lib/python2.5/site-packages/twisted/application/app.py", line 354, in parseOptions
+    usage.Options.parseOptions(self, options)
+  File "/usr/lib/python2.5/site-packages/twisted/python/usage.py", line 184, in parseOptions
+    for (cmd, short, parser, doc) in self.subCommands:
+  File "/usr/lib/python2.5/site-packages/twisted/application/app.py", line 364, in subCommands
+    for plug in plugins:
+--- <exception caught here> ---
+  File "/usr/lib/python2.5/site-packages/twisted/plugin.py", line 231, in getPlugins
+    adapted = interface(plugin, None)
+  File "/usr/lib/python2.5/site-packages/zope/interface/interface.py", line 635, in _call_conform
+    return conform(self)
+  File "/usr/lib/python2.5/site-packages/twisted/plugin.py", line 79, in __conform__
+    return self.load()
+  File "/usr/lib/python2.5/site-packages/twisted/plugin.py", line 74, in load
+    return namedAny(self.dropin.moduleName + '.' + self.name)
+  File "/usr/lib/python2.5/site-packages/twisted/python/reflect.py", line 357, in namedAny
+    topLevelPackage = __import__(trialname)
+  File "/opt/caldavd/CalendarServer/twisted/plugins/caldav.py", line 1, in <module>
+    from twistedcaldav.tap import CalDAVServiceMaker
+  File "/usr/lib/python2.5/site-packages/twistedcaldav/tap.py", line 33, in <module>
+    from twisted.web2.dav import auth
+exceptions.ImportError: cannot import name auth
+Traceback (most recent call last):
+  File "/usr/lib/python2.5/site-packages/twisted/application/app.py", line 376, in run
+    print config
+  File "/usr/lib/python2.5/site-packages/twisted/python/usage.py", line 373, in __str__
+    return self.getSynopsis() + '\n' + self.getUsage(width=None)
+  File "/usr/lib/python2.5/site-packages/twisted/python/usage.py", line 407, in getUsage
+    for (cmd, short, parser, desc) in self.subCommands:
+  File "/usr/lib/python2.5/site-packages/twisted/application/app.py", line 364, in subCommands
+    for plug in plugins:
+--- <exception caught here> ---
+  File "/usr/lib/python2.5/site-packages/twisted/plugin.py", line 231, in getPlugins
+    adapted = interface(plugin, None)
+  File "/usr/lib/python2.5/site-packages/zope/interface/interface.py", line 635, in _call_conform
+    return conform(self)
+  File "/usr/lib/python2.5/site-packages/twisted/plugin.py", line 79, in __conform__
+    return self.load()
+  File "/usr/lib/python2.5/site-packages/twisted/plugin.py", line 74, in load
+    return namedAny(self.dropin.moduleName + '.' + self.name)
+  File "/usr/lib/python2.5/site-packages/twisted/python/reflect.py", line 357, in namedAny
+    topLevelPackage = __import__(trialname)
+  File "/opt/caldavd/CalendarServer/twisted/plugins/caldav.py", line 1, in <module>
+    from twistedcaldav.tap import CalDAVServiceMaker
+  File "/usr/lib/python2.5/site-packages/twistedcaldav/tap.py", line 33, in <module>
+    from twisted.web2.dav import auth
+exceptions.ImportError: cannot import name auth
+.
+. [Usage information on twistd]
+.
+/usr/bin/twistd: Unknown command: caldav

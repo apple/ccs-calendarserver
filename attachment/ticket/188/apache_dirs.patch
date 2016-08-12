@@ -1,0 +1,21 @@
+Index: twistedcaldav/config.py
+===================================================================
+--- twistedcaldav/config.py	(revision 1693)
++++ twistedcaldav/config.py	(working copy)
+@@ -33,6 +33,16 @@
+         "node": "/Search",
+         "requireComputerRecord": True,
+     },
++    "twistedcaldav.directory.apache.DigestDirectoryService": {
++    	"realmName": "MyRealm",
++    	"userFile": "conf/digest",
++	"groupFile": "conf/group",
++    },
++    "twistedcaldav.directory.apache.BasicDirectoryService": {
++    	"realmName": "MyRealm",
++    	"userFile": "conf/basic",
++	"groupFile": "conf/group",
++    },
+ }
+ 
+ defaultConfig = {

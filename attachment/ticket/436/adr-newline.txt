@@ -1,0 +1,66 @@
+Here's what is sent to the server:
+
+-----------------------------------
+PUT /addressbooks/__uids__/user01/addressbook/pas-id-43C15DFB000001AB.vcf HTTP/1.1
+Connection: TE
+TE: trailers
+Host: 127.0.0.1:8008
+Content-Length: 622
+If-None-Match: *
+Content-Type: text/vcard; charset=utf-8
+Authorization: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+Sending request-line and headers:
+req: Connecting to 127.0.0.1:8008
+Sending request body:
+Body block (622 bytes):
+[BEGIN:VCARD
+VERSION:3.0
+URL:
+TITLE:
+ROLE:
+X-EVOLUTION-MANAGER:
+X-EVOLUTION-ASSISTANT:
+NICKNAME:user7
+X-EVOLUTION-SPOUSE:
+NOTE:This test case uses line breaks. This is line 1.\nLine 2.\n\nLine brea
+ ks in vcard 2.1 are encoded as =0D=0A.\nThat means the = has to be encod
+ ed itself...
+FN:line breaks
+N:breaks;line;;;
+X-EVOLUTION-FILE-AS:breaks\, line
+X-EVOLUTION-BLOG-URL:
+CALURI:
+FBURL:
+X-EVOLUTION-VIDEO-URL:
+X-MOZILLA-HTML:FALSE
+ADR;TYPE=HOME:;Address Line 2\nAddress Line 3;Address Line 1;;;;
+LABEL;TYPE=HOME:Address Line 1\nAddress Line 2\nAddress Line 3
+UID:pas-id-43C15DFB000001AB
+END:VCARD
+]
+--------------------------------
+
+Here's the error output from "run -n":
+
+-------------------------------------------
+2011-04-12 17:11:04+0200 [-] [caldav-0]  [-] [twistedcaldav.method.put_addressbook_common#error] At line 21: error: illegal escape sequence: '\
+2011-04-12 17:11:04+0200 [-] [caldav-0] 	'
+2011-04-12 17:11:04+0200 [-] [caldav-0]  [-] Traceback (most recent call last):
+2011-04-12 17:11:04+0200 [-] [caldav-0]  [-]   File "/usr/lib/python2.6/dist-packages/twisted/internet/defer.py", line 441, in _runCallbacks
+2011-04-12 17:11:04+0200 [-] [caldav-0]  [-]     self.result = callback(self.result, *args, **kw)
+2011-04-12 17:11:04+0200 [-] [caldav-0]  [-]   File "/usr/lib/python2.6/dist-packages/twisted/internet/defer.py", line 949, in gotResult
+2011-04-12 17:11:04+0200 [-] [caldav-0]  [-]     _inlineCallbacks(r, g, deferred)
+2011-04-12 17:11:04+0200 [-] [caldav-0]  [-]   File "/usr/lib/python2.6/dist-packages/twisted/internet/defer.py", line 891, in _inlineCallbacks
+2011-04-12 17:11:04+0200 [-] [caldav-0]  [-]     result = result.throwExceptionIntoGenerator(g)
+2011-04-12 17:11:04+0200 [-] [caldav-0]  [-]   File "/usr/lib/python2.6/dist-packages/twisted/python/failure.py", line 338, in throwExceptionIntoGenerator
+2011-04-12 17:11:04+0200 [-] [caldav-0]  [-]     return g.throw(self.type, self.value, self.tb)
+2011-04-12 17:11:04+0200 [-] [caldav-0]  [-] --- <exception caught here> ---
+2011-04-12 17:11:04+0200 [-] [caldav-0]  [-]   File "/home/pohly/src/CalendarServer/CalendarServer/twistedcaldav/method/put_addressbook_common.py", line 410, in run
+2011-04-12 17:11:04+0200 [-] [caldav-0]  [-]     yield self.fullValidation()
+2011-04-12 17:11:04+0200 [-] [caldav-0]  [-]   File "/usr/lib/python2.6/dist-packages/twisted/internet/defer.py", line 893, in _inlineCallbacks
+2011-04-12 17:11:04+0200 [-] [caldav-0]  [-]     result = g.send(result)
+2011-04-12 17:11:04+0200 [-] [caldav-0]  [-]   File "/home/pohly/src/CalendarServer/CalendarServer/twistedcaldav/method/put_addressbook_common.py", line 195, in fullValidation
+2011-04-12 17:11:04+0200 [-] [caldav-0]  [-]     (carddav_namespace, "valid-address-data")
+2011-04-12 17:11:04+0200 [-] [caldav-0]  [-] twext.web2.http.HTTPError: <ErrorResponse 403 {urn:ietf:params:xml:ns:carddav}valid-address-data>
+----------------------------------

@@ -1,0 +1,43 @@
+--- ldapdirectory.py.orig	2009-07-16 22:29:44.000000000 +0200
++++ ldapdirectory.py	2009-07-16 22:30:42.000000000 +0200
+@@ -146,11 +146,12 @@
+         uid = None
+ 
+         # Find or build email
+-        emailAddresses = self._getMultipleLdapAttributes(attrs, 'mail')
++        emailAddresses = set(map(lambda v: 'mailto:' + v, self._getMultipleLdapAttributes(attrs, 'mail')))
++
+         emailSuffix = self._rdnSchema[recordType]['emailSuffix']
+         if len(emailAddresses) == 0 and emailSuffix is not None:
+             emailPrefix = self._getUniqueLdapAttribute(attrs, self._rdnSchema[recordType]['attr'])
+-            emailAddresses.add(emailPrefix + emailSuffix)
++            emailAddresses.add('mailto:' + emailPrefix + emailSuffix)
+ 
+         # LDAP attribute -> principal matchings
+         if recordType == DirectoryService.recordType_users:
+@@ -165,6 +166,12 @@
+             fullName = self._getUniqueLdapAttribute(attrs, 'cn')
+             calendarUserAddresses   = emailAddresses
+             enabledForCalendaring   = True
++        elif recordType in (DirectoryService.recordType_resources, DirectoryService.recordType_locations):
++            shortName = self._getUniqueLdapAttribute(attrs, 'cn')
++            fullName = self._getUniqueLdapAttribute(attrs, 'cn')
++            calendarUserAddresses   = emailAddresses
++            enabledForCalendaring   = True
++            autoSchedule = True
+ 
+         return LdapDirectoryRecord(
+             service     = self,
+@@ -352,6 +359,12 @@
+ 
+     def readOnlyProxyFor(self, read_write=True):
+         return ()
++    
++    # Returns true regardless of the type. We want to be able to add delegation to
++    # locations and resources, due to the complete lack of a directory-based
++    # mechanism to create proxies
++    def hasEditableProxyMembership(self):
++        return True
+ 
+     # Credentials are checked against the LDAP server
+     # Thus, the password is needed in clear-text and digest authentication

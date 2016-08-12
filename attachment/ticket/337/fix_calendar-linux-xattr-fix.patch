@@ -1,0 +1,44 @@
+--- fix_calendar.orig	2009-05-16 19:46:49.000000000 +0200
++++ fix_calendar	2009-05-16 19:57:45.000000000 +0200
+@@ -42,16 +42,23 @@
+ 
+ def fixCalendar(path):
+     
++    # Use "user." prefix on Linux platforms
++    if sys.platform == "linux2":
++        xattrPrefix = "user."
++    else:
++        xattrPrefix = "WebDAV:"
++
++    
+     # First fix the resourcetype & getctag on the calendar
+     x = xattr.xattr(path)
+-    x["WebDAV:{DAV:}resourcetype"] = """<?xml version='1.0' encoding='UTF-8'?>
++    x[xattrPrefix+"{DAV:}resourcetype"] = """<?xml version='1.0' encoding='UTF-8'?>
+ <resourcetype xmlns='DAV:'>
+   <collection/>
+   <calendar xmlns='urn:ietf:params:xml:ns:caldav'/>
+ </resourcetype>
+ """
+ 
+-    x["WebDAV:{http:%2F%2Fcalendarserver.org%2Fns%2F}getctag"] = """<?xml version='1.0' encoding='UTF-8'?>
++    x[xattrPrefix+"{http:%2F%2Fcalendarserver.org%2Fns%2F}getctag"] = """<?xml version='1.0' encoding='UTF-8'?>
+ <getctag xmlns='http://calendarserver.org/ns/'>Dummy Value</getctag>
+ """
+ 
+@@ -63,13 +70,13 @@
+         
+         # getcontenttype
+         x = xattr.xattr(fullpath)
+-        x["WebDAV:{DAV:}getcontenttype"] = """<?xml version='1.0' encoding='UTF-8'?>
++        x[xattrPrefix+"{DAV:}getcontenttype"] = """<?xml version='1.0' encoding='UTF-8'?>
+ <getcontenttype xmlns='DAV:'>text/calendar</getcontenttype>
+ """
+ 
+         # md5
+         data = open(fullpath).read()
+-        x["WebDAV:{http:%2F%2Ftwistedmatrix.com%2Fxml_namespace%2Fdav%2F}getcontentmd5"] = """<?xml version='1.0' encoding='UTF-8'?>
++        x[xattrPrefix+"{http:%2F%2Ftwistedmatrix.com%2Fxml_namespace%2Fdav%2F}getcontentmd5"] = """<?xml version='1.0' encoding='UTF-8'?>
+ <getcontentmd5 xmlns='http://twistedmatrix.com/xml_namespace/dav/'>%s</getcontentmd5>
+ """ % (hashlib.md5(data).hexdigest(),)
+ 

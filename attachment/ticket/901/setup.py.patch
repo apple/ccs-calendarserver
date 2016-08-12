@@ -1,0 +1,15 @@
+Index: setup.py
+===================================================================
+--- setup.py	(revision 14500)
++++ setup.py	(working copy)
+@@ -43,6 +43,10 @@
+             extra_link_args = commands.getoutput("krb5-config --libs gssapi").split(),
+             extra_compile_args = commands.getoutput("krb5-config --cflags gssapi").split(),
+             sources = [
++		"src/base64.h",
++		"src/kerberosbasic.h",
++		"src/kerberosgss.h",
++		"src/kerberospw.h",
+                 "src/kerberos.c",
+                 "src/kerberosbasic.c",
+                 "src/kerberosgss.c",

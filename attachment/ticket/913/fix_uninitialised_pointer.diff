@@ -1,0 +1,27 @@
+Index: src/kerberos.c
+===================================================================
+--- src/kerberos.c	(revision 15128)
++++ src/kerberos.c	(working copy)
+@@ -129,10 +129,10 @@
+ {
+     const char *service = NULL;
+     const char *principal = NULL;
+-    gss_client_state *state;
+-    PyObject *pystate;
++    gss_client_state *state = NULL;
++    PyObject *pystate = NULL;
+     gss_server_state *delegatestate = NULL;
+-    PyObject *pydelegatestate;
++    PyObject *pydelegatestate = NULL;
+     static char *kwlist[] = {
+         "service", "principal", "gssflags", "delegated", NULL
+     };
+@@ -149,7 +149,7 @@
+     state = (gss_client_state *) malloc(sizeof(gss_client_state));
+     pystate = PyCObject_FromVoidPtr(state, NULL);
+ 
+-    if (PyCObject_Check(pydelegatestate)) {
++    if (pydelegatestate != NULL && PyCObject_Check(pydelegatestate)) {
+         delegatestate = PyCObject_AsVoidPtr(pydelegatestate);
+     }
+ 

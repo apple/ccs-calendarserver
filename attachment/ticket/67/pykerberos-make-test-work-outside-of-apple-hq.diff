@@ -1,0 +1,43 @@
+diff --git a/test.py b/test.py
+index 311593e..eba0d35 100644
+--- a/test.py
++++ b/test.py
+@@ -28,10 +28,11 @@ def main():
+     pswd = ""
+     service = "http@caldav.apple.com"
+     host = "localhost"
++    realm ="APPLECONNECT.APPLE.COM"
+     port = 8008
+     ssl = False
+     
+-    options, args = getopt.getopt(sys.argv[1:], "u:p:s:h:i:")
++    options, args = getopt.getopt(sys.argv[1:], "u:p:s:h:i:r:")
+ 
+     for option, value in options:
+         if option == "-u":
+@@ -44,11 +45,13 @@ def main():
+             host = value
+         elif option == "-i":
+             port = value
++        elif option == "-r":
++            realm = value
+     
+     # Run tests
+     if (len(user) != 0) and (len(pswd) != 0):
+         print "\n*** Running basic test"
+-        testCheckpassword(user, pswd)
++        testCheckpassword(user, pswd, service, realm)
+     else:
+         print "\n*** Skipping basic test: no user or password specified"
+ 
+@@ -60,8 +63,8 @@ def main():
+ 
+     print "\n*** Done\n"
+ 
+-def testCheckpassword(user, pswd):
+-    result = kerberos.checkPassword(user, pswd, "http/web.apple.com", "APPLECONNECT.APPLE.COM")
++def testCheckpassword(user, pswd, service, realm):
++    result = kerberos.checkPassword(user, pswd, service, realm)
+     if result:
+         print "Kerberos authentication for %s succeeded" % user
+     else:

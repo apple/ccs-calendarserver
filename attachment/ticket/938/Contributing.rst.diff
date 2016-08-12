@@ -1,0 +1,68 @@
+Index: Contributing.rst
+===================================================================
+--- Contributing.rst	(revision 15510)
++++ Contributing.rst	(working copy)
+@@ -11,7 +11,7 @@
+ The Calendar and Contacts Server began in 1996 -- an open source
+ project sponsored and hosted by Apple Inc. (http://www.apple.com/).
+ The project is now hosted at GitHub, and although it lives within
+-the "apple" namespace it's stil a true open-source project under
++the "apple" namespace it's still a true open-source project under
+ an Apache license.  Contributions from other developers are welcome,
+ and, as with all open development projects, may lead to "commit
+ access" and a voice in the future of the project.
+@@ -19,12 +19,12 @@
+ The community exists mainly through mailing lists and a GitHub
+ repository. To participate, go to:
+ 
+-  http://trac.calendarserver.org/projects/calendarserver/wiki/MailLists
++  https://trac.calendarserver.org/wiki/MailLists
+ 
+ and join the appropriate mailing lists.  We also use IRC, as described
+ here:
+ 
+-  http://trac.calendarserver.org/projects/calendarserver/wiki/IRC
++  https://trac.calendarserver.org/wiki/IRC
+ 
+ There are many ways to join the project.  One may write code, test the
+ software and file bugs, write documentation, etc.
+@@ -109,7 +109,7 @@
+ 
+ Read PEP-8:
+ 
+-  http://www.python.org/dev/peps/pep-0008/
++  https://www.python.org/dev/peps/pep-0008/
+ 
+ For the most part, our code should follow PEP-8, with a few exceptions
+ and a few additions.  It is also useful to review the Twisted Coding
+@@ -116,7 +116,7 @@
+ Standard, from which we borrow some standards, though we don't
+ strictly follow it:
+ 
+-   http://twistedmatrix.com/trac/browser/trunk/doc/development/policy/coding-standard.xhtml?format=raw
++   https://twistedmatrix.com/documents/current/core/development/policy/coding-standard.html
+ 
+ Key items to follow, and specifics:
+ 
+@@ -408,15 +408,14 @@
+ module names should start with ``test_``.  Twisted has some tips on
+ writing tests here:
+ 
+-  http://twistedmatrix.com/projects/core/documentation/howto/testing.html
++  https://twistedmatrix.com/documents/current/core/howto/testing.html
+ 
+-  http://twistedmatrix.com/trac/browser/trunk/doc/development/policy/test-standard.xhtml?format=raw
++  https://twistedmatrix.com/documents/current/core/development/policy/test-standard.html
+ 
+ We also use CalDAVTester (which is a companion to the Calendar and
+-Contacts Server in the same Mac OS Forge project), which performs more
+-"black box"-type testing against the server to ensure compliance with
+-the CalDAV protocol.  That requires running the server with a test
+-configuration and then running CalDAVTester against it.  For
+-information about CalDAVTester is available here:
++Contacts Server), which performs more "black box"-type testing against
++the server to ensure compliance with the CalDAV protocol.  That requires
++running the server with a test configuration and then running
++CalDAVTester against it.  Information about CalDAVTester is available here:
+ 
+   https://github.com/apple/ccs-caldavtester

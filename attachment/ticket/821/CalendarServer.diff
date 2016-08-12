@@ -1,0 +1,36 @@
+Index: support/build.sh
+===================================================================
+--- support/build.sh	(revision 11737)
++++ support/build.sh	(working copy)
+@@ -841,7 +841,7 @@
+   local n="pycrypto";
+   local p="${n}-${v}";
+   py_dependency -o -v "${v}" -m "783e45d4a1a309e03ab378b00f97b291" \
+-    "PyCrypto" "${n}" "${p}" \
++    "PyCrypto" "Crypto" "${p}" \
+     "http://ftp.dlitz.net/pub/dlitz/crypto/${n}/${p}.tar.gz";
+ 
+   local v="0.1.2";
+@@ -886,7 +886,7 @@
+   local n="Nevow";
+   local p="${n}-${v}";
+   py_dependency -o -m "66dda2ad88f42dea05911add15f4d1b2" \
+-    "${n}" "${n}" "${p}" \
++    "${n}" "nevow" "${p}" \
+     "https://pypi.python.org/packages/source/N/${n}/${p}.tar.gz";
+ 
+   local v="0.4";
+Index: support/py.sh
+===================================================================
+--- support/py.sh	(revision 11737)
++++ support/py.sh	(working copy)
+@@ -107,6 +107,9 @@
+     done;
+ 
+     if [ -z "${module_version}" ]; then
++        module_version=$("${python}" -c 'import pkg_resources; print pkg_resources.get_distribution("'"${module}"'").version;');
++    fi
++    if [ -z "${module_version}" ]; then
+       if ! "${print_path}"; then
+         echo "Unable to determine version for ${module}.";
+       fi;

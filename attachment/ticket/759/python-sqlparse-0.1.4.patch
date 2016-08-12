@@ -1,0 +1,132 @@
+Index: txdav/common/datastore/sql_schema/current.sql
+===================================================================
+--- txdav/common/datastore/sql_schema/current.sql	(revision 10029)
++++ txdav/common/datastore/sql_schema/current.sql	(working copy)
+@@ -35,7 +35,7 @@
+   PORT      integer not null,
+   TIME      timestamp not null default timezone('UTC', CURRENT_TIMESTAMP),
+ 
+-  primary key(HOSTNAME, PORT)
++  primary key (HOSTNAME, PORT)
+ );
+ 
+ 
+@@ -201,7 +201,7 @@
+   CREATED              timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+   MODIFIED             timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+ 
+-  unique(CALENDAR_RESOURCE_ID, RESOURCE_NAME) -- implicit index
++  unique (CALENDAR_RESOURCE_ID, RESOURCE_NAME) -- implicit index
+ 
+   -- since the 'inbox' is a 'calendar resource' for the purpose of storing
+   -- calendar objects, this constraint has to be selectively enforced by the
+@@ -316,7 +316,7 @@
+   MODIFIED                    timestamp default timezone('UTC', CURRENT_TIMESTAMP),
+   PATH                        varchar(1024) not null,
+ 
+-  primary key(DROPBOX_ID, PATH) --implicit index
++  primary key (DROPBOX_ID, PATH) --implicit index
+ );
+ 
+ create index ATTACHMENT_CALENDAR_HOME_RESOURCE_ID on
+@@ -332,7 +332,7 @@
+   VALUE       text         not null, -- FIXME: xml?
+   VIEWER_UID  varchar(255),
+ 
+-  primary key(RESOURCE_ID, NAME, VIEWER_UID) -- implicit index
++  primary key (RESOURCE_ID, NAME, VIEWER_UID) -- implicit index
+ );
+ 
+ 
+@@ -397,8 +397,8 @@
+   SEEN_BY_SHAREE               boolean      not null,
+   MESSAGE                      text,                  -- FIXME: xml?
+ 
+-  primary key(ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_ID), -- implicit index
+-  unique(ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
++  primary key (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_ID), -- implicit index
++  unique (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
+ );
+ 
+ create index ADDRESSBOOK_BIND_RESOURCE_ID on
+@@ -414,8 +414,8 @@
+   CREATED                 timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+   MODIFIED                timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+ 
+-  unique(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME), -- implicit index
+-  unique(ADDRESSBOOK_RESOURCE_ID, VCARD_UID)      -- implicit index
++  unique (ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME), -- implicit index
++  unique (ADDRESSBOOK_RESOURCE_ID, VCARD_UID)      -- implicit index
+ );
+ 
+ ---------------
+@@ -497,7 +497,7 @@
+   USER_AGENT                    varchar(255) default null,
+   IP_ADDR                       varchar(255) default null,
+ 
+-  primary key(TOKEN, RESOURCE_KEY) -- implicit index
++  primary key (TOKEN, RESOURCE_KEY) -- implicit index
+ );
+ 
+ create index APN_SUBSCRIPTIONS_RESOURCE_KEY
+Index: twext/enterprise/dal/test/test_parseschema.py
+===================================================================
+--- twext/enterprise/dal/test/test_parseschema.py	(revision 10029)
++++ twext/enterprise/dal/test/test_parseschema.py	(working copy)
+@@ -216,9 +216,9 @@
+         """
+         for identicalSchema in [
+                 "create table sample (example integer unique);",
+-                "create table sample (example integer, unique(example));",
++                "create table sample (example integer, unique (example));",
+                 "create table sample "
+-                "(example integer, constraint unique_example unique(example))"]:
++                "(example integer, constraint unique_example unique (example))"]:
+             s = self.schemaFromString(identicalSchema)
+             table = s.tableNamed('sample')
+             column = table.columnNamed('example')
+@@ -242,14 +242,14 @@
+             self.assertEqual(expr.op, '>')
+             self.assertEqual(constraint.name, checkName)
+         checkOneConstraint(
+-            "create table sample (example integer check(example >  5));"
++            "create table sample (example integer check (example >  5));"
+         )
+         checkOneConstraint(
+-            "create table sample (example integer, check(example  > 5));"
++            "create table sample (example integer, check (example  > 5));"
+         )
+         checkOneConstraint(
+             "create table sample "
+-            "(example integer, constraint gt_5 check(example>5))", "gt_5"
++            "(example integer, constraint gt_5 check (example>5))", "gt_5"
+         )
+ 
+ 
+@@ -273,7 +273,7 @@
+             )
+         checkOneConstraint(
+             "create table sample "
+-            "(example integer check(example = lower(example)));"
++            "(example integer check (example = lower (example)));"
+         )
+ 
+ 
+@@ -283,7 +283,7 @@
+         listing that column as a unique set.
+         """
+         s = self.schemaFromString(
+-            "create table a (b integer, c integer, unique(b, c), unique(c));"
++            "create table a (b integer, c integer, unique (b, c), unique (c));"
+         )
+         a = s.tableNamed('a')
+         b = a.columnNamed('b')
+@@ -310,7 +310,7 @@
+         C{primaryKey} attribute on the Table object.
+         """
+         s = self.schemaFromString(
+-            "create table a (b integer, c integer, primary key(b, c))"
++            "create table a (b integer, c integer, primary key (b, c))"
+         )
+         a = s.tableNamed("a")
+         self.assertEquals(

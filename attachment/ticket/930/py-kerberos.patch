@@ -1,0 +1,189 @@
+Index: pysrc/kerberos.py
+===================================================================
+--- pysrc/kerberos.py	(revision 15409)
++++ pysrc/kerberos.py	(working copy)
+@@ -158,6 +158,8 @@
+ 
+     @param delegated: Optional server context containing delegated credentials
+ 
++    @param mech_oid: Optional GGS mech OID
++
+     @return: A tuple of (result, context) where result is the result code (see
+         above) and context is an opaque value that will need to be passed to
+         subsequent functions.
+Index: src/kerberos.c
+===================================================================
+--- src/kerberos.c	(revision 15409)
++++ src/kerberos.c	(working copy)
+@@ -57,7 +57,12 @@
+           ob = Py_InitModule3(name, methods, doc);
+ #endif
+ 
++static char krb5_mech_oid_bytes [] = "\x2a\x86\x48\x86\xf7\x12\x01\x02\x02";
++gss_OID_desc krb5_mech_oid = { 9, &krb5_mech_oid_bytes };
+ 
++static char spnego_mech_oid_bytes[] = "\x2b\x06\x01\x05\x05\x02";
++gss_OID_desc spnego_mech_oid = { 6, &spnego_mech_oid_bytes };
++
+ PyObject *KrbException_class;
+ PyObject *BasicAuthException_class;
+ PyObject *PwdChangeException_class;
+@@ -133,15 +138,17 @@
+     PyObject *pystate = NULL;
+     gss_server_state *delegatestate = NULL;
+     PyObject *pydelegatestate = NULL;
++    gss_OID mech_oid = GSS_C_NO_OID;
++    PyObject *pymech_oid = NULL;
+     static char *kwlist[] = {
+-        "service", "principal", "gssflags", "delegated", NULL
++        "service", "principal", "gssflags", "delegated", "mech_oid", NULL
+     };
+     long int gss_flags = GSS_C_MUTUAL_FLAG | GSS_C_SEQUENCE_FLAG;
+     int result = 0;
+ 
+     if (! PyArg_ParseTupleAndKeywords(
+-        args, keywds, "s|slO", kwlist,
+-        &service, &principal, &gss_flags, &pydelegatestate
++        args, keywds, "s|slOO", kwlist,
++        &service, &principal, &gss_flags, &pydelegatestate, &pymech_oid
+     )) {
+         return NULL;
+     }
+@@ -158,8 +165,13 @@
+         delegatestate = PyCObject_AsVoidPtr(pydelegatestate);
+     }
+ 
++    if (pymech_oid != NULL && PyCapsule_CheckExact(pymech_oid)) {
++        const char * mech_oid_name = PyCapsule_GetName(pymech_oid);
++        mech_oid = PyCapsule_GetPointer(pymech_oid, mech_oid_name);
++    }
++
+     result = authenticate_gss_client_init(
+-        service, principal, gss_flags, delegatestate, state
++        service, principal, gss_flags, delegatestate, mech_oid, state
+     );
+ 
+     if (result == AUTH_GSS_ERROR) {
+@@ -818,6 +830,12 @@
+     PyDict_SetItemString(
+         d, "GSS_C_TRANS_FLAG", PyInt_FromLong(GSS_C_TRANS_FLAG)
+     );
++    PyDict_SetItemString(
++        d, "GSS_MECH_OID_KRB5", PyCapsule_New(&krb5_mech_oid, "kerberos.GSS_MECH_OID_KRB5", NULL)
++    );
++    PyDict_SetItemString(
++        d, "GSS_MECH_OID_SPNEGO", PyCapsule_New(&spnego_mech_oid, "kerberos.GSS_MECH_OID_SPNEGO", NULL)
++    );
+ 
+ error:
+     if (PyErr_Occurred()) {
+Index: src/kerberosgss.c
+===================================================================
+--- src/kerberosgss.c	(revision 15409)
++++ src/kerberosgss.c	(working copy)
+@@ -129,7 +129,7 @@
+ 
+ int authenticate_gss_client_init(
+     const char* service, const char* principal, long int gss_flags,
+-    gss_server_state* delegatestate, gss_client_state* state
++    gss_server_state* delegatestate, gss_OID mech_oid, gss_client_state* state
+ )
+ {
+     OM_uint32 maj_stat;
+@@ -139,6 +139,7 @@
+     int ret = AUTH_GSS_COMPLETE;
+     
+     state->server_name = GSS_C_NO_NAME;
++    state->mech_oid = mech_oid;
+     state->context = GSS_C_NO_CONTEXT;
+     state->gss_flags = gss_flags;
+     state->client_creds = GSS_C_NO_CREDENTIAL;
+@@ -266,7 +267,7 @@
+         state->client_creds,
+         &state->context,
+         state->server_name,
+-        GSS_C_NO_OID,
++        state->mech_oid,
+         (OM_uint32)state->gss_flags,
+         0,
+         GSS_C_NO_CHANNEL_BINDINGS,
+Index: src/kerberosgss.h
+===================================================================
+--- src/kerberosgss.h	(revision 15409)
++++ src/kerberosgss.h	(working copy)
+@@ -31,6 +31,7 @@
+ typedef struct {
+     gss_ctx_id_t     context;
+     gss_name_t       server_name;
++    gss_OID          mech_oid;
+     long int         gss_flags;
+     gss_cred_id_t    client_creds;
+     char*            username;
+@@ -54,7 +55,7 @@
+ 
+ int authenticate_gss_client_init(
+     const char* service, const char* principal, long int gss_flags,
+-    gss_server_state* delegatestate, gss_client_state* state
++    gss_server_state* delegatestate, gss_OID mech_oid, gss_client_state* state
+ );
+ int authenticate_gss_client_clean(
+     gss_client_state *state
+Index: test.py
+===================================================================
+--- test.py	(revision 15409)
++++ test.py	(working copy)
+@@ -54,10 +54,11 @@
+     host = "host.example.com"
+     realm = "HOST.EXAMPLE.COM"
+     port = 8008
++    mech = None
+     use_ssl = False
+     allowedActions = ("service", "basic", "gssapi", "server",)
+ 
+-    options, args = getopt.getopt(sys.argv[1:], "u:p:s:h:i:r:x")
++    options, args = getopt.getopt(sys.argv[1:], "u:p:s:h:i:r:m:x")
+ 
+     for option, value in options:
+         if option == "-u":
+@@ -72,6 +73,8 @@
+             port = value
+         elif option == "-r":
+             realm = value
++        elif option == "-m":
++            mech = value
+         elif option == "-x":
+             use_ssl = True
+ 
+@@ -104,7 +107,7 @@
+ 
+     if "server" in actions:
+         print("\n*** Running HTTP test")
+-        testHTTP(host, port, use_ssl, service)
++        testHTTP(host, port, use_ssl, service, mech)
+ 
+     print("\n*** Done\n")
+ 
+@@ -182,7 +185,7 @@
+ 
+ 
+ 
+-def testHTTP(host, port, use_ssl, service):
++def testHTTP(host, port, use_ssl, service, mech):
+ 
+     class HTTPSConnectionSSLv3(HTTPSConnection):
+         "This class allows communication via SSL."
+@@ -243,7 +246,13 @@
+         return
+ 
+     try:
+-        rc, vc = kerberos.authGSSClientInit(service=service)
++        mech_oid = None
++        if mech and mech.lower() == "krb5":
++            mech_oid = kerberos.GSS_MECH_OID_KRB5
++        elif mech and mech.lower() == "spnego":
++            mech_oid = kerberos.GSS_MECH_OID_SPNEGO
++
++        rc, vc = kerberos.authGSSClientInit(service=service, mech_oid=mech_oid)
+     except kerberos.GSSError, e:
+         print("Could not initialize GSSAPI: %s/%s" % (e[0][0], e[1][0]))
+         return

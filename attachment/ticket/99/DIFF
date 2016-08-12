@@ -1,0 +1,57 @@
+Index: twistedcaldav/admin/options.py
+===================================================================
+--- twistedcaldav/admin/options.py	(revision 807)
++++ twistedcaldav/admin/options.py	(working copy)
+@@ -156,6 +156,10 @@
+         PARAM_GIGA,
+         ]
+ 
++    def __init__(self):
++        SubCommand.__init__(self)
++        self['quota'] = config.UserQuotaBytes
++
+     def postOptions(self):
+         report = reflect.namedAny(self.action)(self, self.name).run()
+         self.parent.formatter.printReport(report)
+Index: twistedcaldav/admin/principals.py
+===================================================================
+--- twistedcaldav/admin/principals.py	(revision 807)
++++ twistedcaldav/admin/principals.py	(working copy)
+@@ -29,6 +29,7 @@
+     def __init__(self, config, type):
+         self.config = config
+         self.type = type
++        self.quota = self.config['quota']
+ 
+         self.formatter = self.config.parent.formatter
+         self.root = self.config.parent.root
+@@ -73,7 +74,7 @@
+                     util.getQuotaStatsForPrincipal(
+                         self.config,
+                         pcal,
+-                        self.config.parent.config['UserQuotaBytes']))
++                        self.quota))
+ 
+                 precord.update(
+                     util.getCalendarDataCounts(pcal))
+Index: twistedcaldav/admin/script.py
+===================================================================
+--- twistedcaldav/admin/script.py	(revision 807)
++++ twistedcaldav/admin/script.py	(working copy)
+@@ -36,14 +36,14 @@
+ from twistedcaldav.admin import options
+ from twistedcaldav.admin import formatters
+ 
+-from twistedcaldav.config import config, parseConfig
++from twistedcaldav.config import defaultConfigFile, config, parseConfig
+ 
+ class AdminOptions(usage.Options):
+     recursing = 0
+     params = ()
+ 
+     optParameters = [
+-        ['config', 'c', config.defaultConfigFile, "Path to the caldavd.plist"],
++        ['config', 'c', defaultConfigFile, "Path to the caldavd.plist"],
+         ['format', 'f', 'plain', ("Select an appropriate output formatter: "
+                                   "%s" % (formatters.listFormatters(),))]
+     ]

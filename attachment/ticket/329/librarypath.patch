@@ -1,0 +1,25 @@
+Index: calendarserver/tap/caldav.py
+===================================================================
+--- calendarserver/tap/caldav.py	(revision 3913)
++++ calendarserver/tap/caldav.py	(working copy)
+@@ -809,6 +809,7 @@
+         parentEnv = {
+             "PATH": os.environ.get("PATH", ""),
+             "PYTHONPATH": os.environ.get("PYTHONPATH", ""),
++            "LD_LIBRARY_PATH": os.environ.get("LD_LIBRARY_PATH", ""),
+         }
+         if "KRB5_KTNAME" in os.environ:
+             parentEnv["KRB5_KTNAME"] = os.environ["KRB5_KTNAME"]
+Index: run
+===================================================================
+--- run	(revision 3913)
++++ run	(working copy)
+@@ -603,6 +603,8 @@
+     make;
+     make install;
+   fi;
++  
++  export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:${libevent}/_root/lib";
+ 
+   #
+   # memcached

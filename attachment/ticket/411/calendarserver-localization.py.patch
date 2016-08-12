@@ -1,0 +1,26 @@
+Have a look at issue http://trac.calendarserver.org/ticket/411
+
+Index: twistedcaldav/localization.py
+===================================================================
+--- twistedcaldav/localization.py	(Revision 6892)
++++ twistedcaldav/localization.py	(Arbeitskopie)
+@@ -247,7 +247,7 @@
+                 'hour24Number' : val.hour, # 0-23
+                 'hour12Number' : hour12, # 1-12
+                 'minuteNumber' : val.minute, # 0-59
+-                'ampm'         : _(ampm),
++                'ampm'         : ampm,
+             }
+         )
+ 
+@@ -266,8 +266,8 @@
+         if val.days == 1:
+             parts.append(_("1 day"))
+         elif val.days > 1:
+-            parts.append(_("%(dayCount)d days" %
+-                { 'dayCount' : val.days }))
++            parts.append(_("%(dayCount)d days") %
++                { 'dayCount' : val.days })
+ 
+         hours = val.seconds / 3600
+         minutes = divmod(val.seconds / 60, 60)[1]

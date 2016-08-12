@@ -1,0 +1,240 @@
+Index: src/base64.c
+===================================================================
+--- src/base64.c	(revision 15136)
++++ src/base64.c	(working copy)
+@@ -43,6 +43,9 @@
+ char *base64_encode(const unsigned char *value, size_t vlen)
+ {
+     char *result = (char *)malloc((vlen * 4) / 3 + 5);
++    if (result == NULL) {
++        return NULL;
++    }
+     char *out = result;
+     while (vlen >= 3)
+     {
+@@ -79,6 +82,9 @@
+ 
+     size_t vlen = strlen(value);
+     unsigned char *result =(unsigned char *)malloc((vlen * 3) / 4 + 1);
++    if (result == NULL) {
++        return NULL;
++    }
+     unsigned char *out = result;
+ 
+     while (1) {
+Index: src/kerberos.c
+===================================================================
+--- src/kerberos.c	(revision 15136)
++++ src/kerberos.c	(working copy)
+@@ -108,7 +108,7 @@
+ {
+     const char *service = NULL;
+     const char *hostname = NULL;
+-    char* result;
++    char* result = NULL;
+ 
+     if (! PyArg_ParseTuple(args, "ss", &service, &hostname)) {
+         return NULL;
+@@ -147,6 +147,10 @@
+     }
+ 
+     state = (gss_client_state *) malloc(sizeof(gss_client_state));
++    if (state == NULL) {
++        PyErr_NoMemory();
++        return NULL;
++    }
+     pystate = PyCObject_FromVoidPtr(state, NULL);
+ 
+     if (pydelegatestate != NULL && PyCObject_Check(pydelegatestate)) {
+@@ -419,6 +423,10 @@
+     }
+ 
+     state = (gss_server_state *) malloc(sizeof(gss_server_state));
++    if (state == NULL) {
++        PyErr_NoMemory();
++        return NULL;
++    }
+     pystate = PyCObject_FromVoidPtr(state, NULL);
+ 
+     result = authenticate_gss_server_init(service, state);
+Index: src/kerberosbasic.c
+===================================================================
+--- src/kerberosbasic.c	(revision 15136)
++++ src/kerberosbasic.c	(working copy)
+@@ -76,6 +76,11 @@
+     name = NULL;
+ 
+     name = (char *)malloc(256);
++    if (name == NULL) {
++        PyErr_NoMemory();
++        ret = 0;
++        goto end;
++    }
+     p = strchr(user, '@');
+     if (p == NULL) {
+         snprintf(name, 256, "%s@%s", user, default_realm);
+Index: src/kerberosgss.c
+===================================================================
+--- src/kerberosgss.c	(revision 15136)
++++ src/kerberosgss.c	(working copy)
+@@ -93,6 +93,10 @@
+         
+         if (strncmp(pname, match, match_len) == 0) {
+             result = malloc(strlen(pname) + 1);
++            if (result == NULL) {
++                PyErr_NoMemory();
++                goto end;
++            }
+             strcpy(result, pname);
+             krb5_free_unparsed_name(kcontext, pname);
+             krb5_free_keytab_entry_contents(kcontext, &entry);
+@@ -245,6 +249,10 @@
+     if (challenge && *challenge) {
+         size_t len;
+         input_token.value = base64_decode(challenge, &len);
++        if (input_token.value == NULL) {
++            ret = AUTH_GSS_ERROR;
++            goto end;
++        }
+         input_token.length = len;
+     }
+     
+@@ -276,7 +284,13 @@
+     ret = (maj_stat == GSS_S_COMPLETE) ? AUTH_GSS_COMPLETE : AUTH_GSS_CONTINUE;
+     // Grab the client response to send back to the server
+     if (output_token.length) {
+-        state->response = base64_encode((const unsigned char *)output_token.value, output_token.length);;
++        state->response = base64_encode(
++            (const unsigned char *)output_token.value, output_token.length
++        );
++        if (state->response == NULL) {
++            ret = AUTH_GSS_ERROR;
++            goto end;
++        }
+         maj_stat = gss_release_buffer(&min_stat, &output_token);
+     }
+     
+@@ -303,6 +317,11 @@
+             goto end;
+         } else {
+             state->username = (char *)malloc(name_token.length + 1);
++            if (state->username == NULL) {
++                PyErr_NoMemory();
++                ret = AUTH_GSS_ERROR;
++                goto end;
++            }
+             strncpy(state->username, (char*) name_token.value, name_token.length);
+             state->username[name_token.length] = 0;
+             gss_release_buffer(&min_stat, &name_token);
+@@ -630,6 +649,11 @@
+     if (challenge && *challenge) {
+         size_t len;
+         input_token.value = base64_decode(challenge, &len);
++        if (input_token.value == NULL) {
++            PyErr_NoMemory();
++            ret = AUTH_GSS_ERROR;
++            goto end;
++        }
+         input_token.length = len;
+     } else {
+         PyErr_SetString(
+@@ -666,6 +690,11 @@
+         state->response = base64_encode(
+             (const unsigned char *)output_token.value, output_token.length
+         );;
++        if (state->response == NULL) {
++            PyErr_NoMemory();
++            ret = AUTH_GSS_ERROR;
++            goto end;
++        }
+         maj_stat = gss_release_buffer(&min_stat, &output_token);
+     }
+     
+@@ -679,6 +708,11 @@
+         goto end;
+     }
+     state->username = (char *)malloc(output_token.length + 1);
++    if (state->username == NULL) {
++        PyErr_NoMemory();
++        ret = AUTH_GSS_ERROR;
++        goto end;
++    }
+     strncpy(state->username, (char*) output_token.value, output_token.length);
+     state->username[output_token.length] = 0;
+     
+@@ -703,6 +737,11 @@
+             goto end;
+         }
+         state->targetname = (char *)malloc(output_token.length + 1);
++        if (state->targetname == NULL) {
++            PyErr_NoMemory();
++            ret = AUTH_GSS_ERROR;
++            goto end;
++        }
+         strncpy(
+             state->targetname, (char*) output_token.value, output_token.length
+         );
+@@ -906,6 +945,10 @@
+     }
+ 
+     state->ccname = (char *)malloc(32*sizeof(char));
++    if (state->ccname == NULL) {
++        PyErr_NoMemory();
++        return 1;
++    }
+     strcpy(state->ccname, ccname);
+ 
+     return ret;
+Index: src/kerberospw.c
+===================================================================
+--- src/kerberospw.c	(revision 15136)
++++ src/kerberospw.c	(working copy)
+@@ -86,6 +86,7 @@
+     krb5_principal  client = NULL;
+     krb5_creds      creds;
+     int             ret = 0;
++    int             bytes = 0;
+     char            *name = NULL;
+ 
+     const char* service = "kadmin/changepw";
+@@ -104,6 +105,10 @@
+     }
+ 
+     name = (char *)malloc(256);
++    if (name == NULL) {
++        PyErr_NoMemory();
++        goto end;
++    }
+     snprintf(name, 256, "%s", user);
+         
+     code = krb5_parse_name(kcontext, name, &client);
+@@ -125,7 +130,7 @@
+     }
+     if (result_code) {
+         char *message = NULL;
+-        asprintf(
++        bytes = asprintf(
+             &message, "%.*s: %.*s",
+             (int) result_code_string.length,
+             (char *) result_code_string.data,
+@@ -132,11 +137,15 @@
+             (int) result_string.length,
+             (char *) result_string.data
+         );
+-        PyErr_SetObject(
+-            PwdChangeException_class,
+-            Py_BuildValue("((s:i))", message, result_code)
+-        );
+-        free(message);
++        if (bytes == -1) {
++            PyErr_NoMemory();
++        } else {
++            PyErr_SetObject(
++                PwdChangeException_class,
++                Py_BuildValue("((s:i))", message, result_code)
++            );
++            free(message);
++        }
+         goto end;
+     }
+ 

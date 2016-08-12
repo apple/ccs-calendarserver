@@ -1,0 +1,13 @@
+Index: twistedcaldav/stdconfig.py
+===================================================================
+--- twistedcaldav/stdconfig.py	(revision 6084)
++++ twistedcaldav/stdconfig.py	(working copy)
+@@ -549,7 +549,7 @@
+         "Pools": {
+             "Default": {
+                 "ClientEnabled": True,
+-                "ServerEnabled": True,
++                "ServerEnabled": False,
+                 "BindAddress": "127.0.0.1",
+                 "Port": 11211,
+                 "HandleCacheTypes": [

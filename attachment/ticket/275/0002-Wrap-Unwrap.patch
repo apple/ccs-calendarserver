@@ -1,0 +1,330 @@
+From 6ab1953a5a6a05bc11444017801ac50ac9428d0a Mon Sep 17 00:00:00 2001
+From: Guido Guenther <agx@sigxcpu.org>
+Date: Fri, 23 May 2008 09:11:10 +0200
+Subject: [PATCH] Wrap/Unwrap patch from ticket #214. Plus some minor code clean-up.
+
+git-svn-id: http://svn.macosforge.org/repository/calendarserver/PyKerberos/branches/more-kerberos@2146 e27351fd-9f3e-4f54-a53b-843176b1656c
+
+Conflicts:
+
+	src/kerberos.c
+	src/kerberosgss.c
+	src/kerberosgss.h
+---
+ pysrc/kerberos.py |   17 +++++++
+ src/kerberos.c    |   50 +++++++++++++++++++-
+ src/kerberosgss.c |  136 +++++++++++++++++++++++++++++++++++++++++++++++++++-
+ src/kerberosgss.h |   10 +++-
+ 4 files changed, 206 insertions(+), 7 deletions(-)
+
+diff --git a/pysrc/kerberos.py b/pysrc/kerberos.py
+index 0f593df..88a0e4b 100644
+--- a/pysrc/kerberos.py
++++ b/pysrc/kerberos.py
+@@ -139,6 +139,23 @@ def authGSSClientUserName(context):
+     @return:          a string containing the user name.
+     """
+ 
++def authGSSClientUnwrap(context, challenge): 
++    """ 
++    Perform the client side GSSAPI unwrap step 
++    
++    @param challenge: a string containing the base64-encoded server data. 
++    @return: a result code (see above) 
++    """ 
++
++def authGSSClientWrap(context, data, user): 
++    """ 
++    Perform the client side GSSAPI wrap step.  
++    
++    @param data:the result of the authGSSClientResponse after the authGSSClientUnwrap 
++    @param user: the user to authorize 
++    @return: a result code (see above) 
++    """ 
++
+ def authGSSServerInit(service):
+     """
+     Initializes a context for GSSAPI server-side authentication with the given service principal.
+diff --git a/src/kerberos.c b/src/kerberos.c
+index f015ee9..590bfb5 100644
+--- a/src/kerberos.c
++++ b/src/kerberos.c
+@@ -84,7 +84,7 @@ static PyObject *getServerPrincipalDetails(PyObject *self, PyObject *args)
+         return NULL;
+ }
+ 
+-static PyObject *authGSSClientInit(PyObject *self, PyObject *args)
++static PyObject* authGSSClientInit(PyObject* self, PyObject* args)
+ {
+     const char *service;
+     gss_client_state *state;
+@@ -176,6 +176,48 @@ static PyObject *authGSSClientUserName(PyObject *self, PyObject *args)
+     return Py_BuildValue("s", state->username);
+ }
+ 
++static PyObject *authGSSClientUnwrap(PyObject *self, PyObject *args)
++{
++	gss_client_state *state;
++	PyObject *pystate;
++	char *challenge;
++	int result = 0;
++
++	if (!PyArg_ParseTuple(args, "Os", &pystate, &challenge) || !PyCObject_Check(pystate))
++		return NULL;
++
++	state = (gss_client_state *)PyCObject_AsVoidPtr(pystate);
++	if (state == NULL)
++		return NULL;
++
++	result = authenticate_gss_client_unwrap(state, challenge);
++	if (result == AUTH_GSS_ERROR)
++		return NULL;
++
++	return Py_BuildValue("i", result);
++}
++
++static PyObject *authGSSClientWrap(PyObject *self, PyObject *args)
++{
++	gss_client_state *state;
++	PyObject *pystate;
++	char *challenge, *user;
++	int result = 0;
++
++	if (!PyArg_ParseTuple(args, "Oss", &pystate, &challenge, &user) || !PyCObject_Check(pystate))
++		return NULL;
++
++	state = (gss_client_state *)PyCObject_AsVoidPtr(pystate);
++	if (state == NULL)
++		return NULL;
++
++	result = authenticate_gss_client_wrap(state, challenge, user);
++	if (result == AUTH_GSS_ERROR)
++		return NULL;
++
++	return Py_BuildValue("i", result);
++}
++
+ static PyObject *authGSSServerInit(PyObject *self, PyObject *args)
+ {
+     const char *service;
+@@ -287,6 +329,10 @@ static PyMethodDef KerberosMethods[] = {
+      "Get the user name from the last client-side GSSAPI step."},
+     {"authGSSServerInit",  authGSSServerInit, METH_VARARGS,
+      "Initialize server-side GSSAPI operations."},
++    {"authGSSClientWrap",  authGSSClientWrap, METH_VARARGS,
++     "Do a GSSAPI wrap."},
++    {"authGSSClientUnwrap",  authGSSClientUnwrap, METH_VARARGS,
++     "Do a GSSAPI unwrap."},
+     {"authGSSServerClean",  authGSSServerClean, METH_VARARGS,
+      "Terminate server-side GSSAPI operations."},
+     {"authGSSServerStep",  authGSSServerStep, METH_VARARGS,
+@@ -329,7 +375,7 @@ PyMODINIT_FUNC initkerberos(void)
+     PyDict_SetItemString(d, "GSSError", GssException_class);
+ 
+     PyDict_SetItemString(d, "AUTH_GSS_COMPLETE", PyInt_FromLong(AUTH_GSS_COMPLETE)); 
+- 	PyDict_SetItemString(d, "AUTH_GSS_CONTINUE", PyInt_FromLong(AUTH_GSS_CONTINUE)); 
++    PyDict_SetItemString(d, "AUTH_GSS_CONTINUE", PyInt_FromLong(AUTH_GSS_CONTINUE)); 
+ 
+ error:
+     if (PyErr_Occurred())
+diff --git a/src/kerberosgss.c b/src/kerberosgss.c
+index 7a54751..e0b15b5 100644
+--- a/src/kerberosgss.c
++++ b/src/kerberosgss.c
+@@ -24,6 +24,7 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
++#include <arpa/inet.h> 
+ 
+ static void set_gss_error(OM_uint32 err_maj, OM_uint32 err_min);
+ 
+@@ -106,7 +107,7 @@ end:
+     return result;
+ }
+ 
+-int authenticate_gss_client_init(const char* service, gss_client_state *state)
++int authenticate_gss_client_init(const char* service, gss_client_state* state)
+ {
+     OM_uint32 maj_stat;
+     OM_uint32 min_stat;
+@@ -159,7 +160,7 @@ int authenticate_gss_client_clean(gss_client_state *state)
+     return ret;
+ }
+ 
+-int authenticate_gss_client_step(gss_client_state *state, const char* challenge)
++int authenticate_gss_client_step(gss_client_state* state, const char* challenge)
+ {
+     OM_uint32 maj_stat;
+     OM_uint32 min_stat;
+@@ -254,7 +255,136 @@ end:
+     return ret;
+ }
+ 
+-int authenticate_gss_server_init(const char* service, gss_server_state *state)
++int authenticate_gss_client_unwrap(gss_client_state *state, const char *challenge)
++{
++	OM_uint32 maj_stat;
++	OM_uint32 min_stat;
++	gss_buffer_desc input_token = GSS_C_EMPTY_BUFFER;
++	gss_buffer_desc output_token = GSS_C_EMPTY_BUFFER;
++	int ret = AUTH_GSS_CONTINUE;
++
++	// Always clear out the old response
++	if (state->response != NULL)
++	{
++		free(state->response);
++		state->response = NULL;
++	}
++
++	// If there is a challenge (data from the server) we need to give it to GSS
++	if (challenge && *challenge)
++	{
++		int len;
++		input_token.value = base64_decode(challenge, &len);
++		input_token.length = len;
++	}
++
++	// Do GSSAPI step
++	maj_stat = gss_unwrap(&min_stat,
++							state->context,
++							&input_token,
++							&output_token,
++							NULL,
++							NULL);
++
++	if (maj_stat != GSS_S_COMPLETE)
++	{
++		set_gss_error(maj_stat, min_stat);
++		ret = AUTH_GSS_ERROR;
++		goto end;
++	}
++	else
++		ret = AUTH_GSS_COMPLETE;
++
++	// Grab the client response
++	if (output_token.length)
++	{
++		state->response = base64_encode((const unsigned char *)output_token.value, output_token.length);
++		maj_stat = gss_release_buffer(&min_stat, &output_token);
++	}
++end:
++	if (output_token.value)
++		gss_release_buffer(&min_stat, &output_token);
++	if (input_token.value)
++		free(input_token.value);
++	return ret;
++}
++
++int authenticate_gss_client_wrap(gss_client_state* state, const char* challenge, const char* user)
++{
++	OM_uint32 maj_stat;
++	OM_uint32 min_stat;
++	gss_buffer_desc input_token = GSS_C_EMPTY_BUFFER;
++	gss_buffer_desc output_token = GSS_C_EMPTY_BUFFER;
++	int ret = AUTH_GSS_CONTINUE;
++	char buf[4096], server_conf_flags;
++	unsigned long buf_size;
++
++	// Always clear out the old response
++	if (state->response != NULL)
++	{
++		free(state->response);
++		state->response = NULL;
++	}
++
++	if (challenge && *challenge)
++	{
++		int len;
++		input_token.value = base64_decode(challenge, &len);
++		input_token.length = len;
++	}
++
++	// get bufsize
++	server_conf_flags = ((char*) input_token.value)[0];
++	((char*) input_token.value)[0] = 0;
++	buf_size = ntohl(*((long *) input_token.value));
++	free(input_token.value);
++#ifdef PRINTFS
++	printf("User: %s, %c%c%c\n", user,
++		server_conf_flags & GSS_AUTH_P_NONE      ? 'N' : '-',
++		server_conf_flags & GSS_AUTH_P_INTEGRITY ? 'I' : '-',
++		server_conf_flags & GSS_AUTH_P_PRIVACY   ? 'P' : '-');
++	printf("Maximum GSS token size is %ld\n", buf_size);
++#endif
++
++	// agree to terms (hack!)
++	buf_size = htonl(buf_size); // not relevant without integrity/privacy
++	memcpy(buf, &buf_size, 4);
++	buf[0] = GSS_AUTH_P_NONE;
++	// server decides if principal can log in as user
++	strncpy(buf + 4, user, sizeof(buf) - 4);
++	input_token.value = buf;
++	input_token.length = 4 + strlen(user) + 1;
++
++	// Do GSSAPI wrap
++	maj_stat = gss_wrap(&min_stat,
++						state->context,
++						0,
++						GSS_C_QOP_DEFAULT,
++						&input_token,
++						NULL,
++						&output_token);
++
++	if (maj_stat != GSS_S_COMPLETE)
++	{
++		set_gss_error(maj_stat, min_stat);
++		ret = AUTH_GSS_ERROR;
++		goto end;
++	}
++	else
++		ret = AUTH_GSS_COMPLETE;
++	// Grab the client response to send back to the server
++	if (output_token.length)
++	{
++		state->response = base64_encode((const unsigned char *)output_token.value, output_token.length);;
++		maj_stat = gss_release_buffer(&min_stat, &output_token);
++	}
++end:
++	if (output_token.value)
++		gss_release_buffer(&min_stat, &output_token);
++	return ret;
++}
++
++int authenticate_gss_server_init(const char *service, gss_server_state *state)
+ {
+     OM_uint32 maj_stat;
+     OM_uint32 min_stat;
+diff --git a/src/kerberosgss.h b/src/kerberosgss.h
+index 2604716..90cb919 100644
+--- a/src/kerberosgss.h
++++ b/src/kerberosgss.h
+@@ -26,6 +26,10 @@
+ #define AUTH_GSS_COMPLETE    1
+ #define AUTH_GSS_CONTINUE    0
+ 
++#define GSS_AUTH_P_NONE         1 
++#define GSS_AUTH_P_INTEGRITY    2 
++#define GSS_AUTH_P_PRIVACY      4 
++ 	
+ typedef struct {
+     gss_ctx_id_t     context;
+     gss_name_t       server_name;
+@@ -45,10 +49,12 @@ typedef struct {
+ 
+ char* server_principal_details(const char* service, const char* hostname);
+ 
+-int authenticate_gss_client_init(const char* service, gss_client_state *state);
++int authenticate_gss_client_init(const char* service, gss_client_state* state);
+ int authenticate_gss_client_clean(gss_client_state *state);
+ int authenticate_gss_client_step(gss_client_state *state, const char *challenge);
++int authenticate_gss_client_unwrap(gss_client_state* state, const char* challenge); 
++int authenticate_gss_client_wrap(gss_client_state* state, const char* challenge, const char* user);
+ 
+-int authenticate_gss_server_init(const char* service, gss_server_state *state);
++int authenticate_gss_server_init(const char* service, gss_server_state* state);
+ int authenticate_gss_server_clean(gss_server_state *state);
+ int authenticate_gss_server_step(gss_server_state *state, const char *challenge);
+-- 
+1.5.5.1
+

@@ -1,0 +1,11 @@
+--- /home/hxie/kerberos-1.2.2/setup.py	2015-03-26 21:15:10.000000000 -0400
++++ /home/hxie/kerberos-1.2.2-new/setup.py	2015-12-07 16:52:37.020472000 -0500
+@@ -29,7 +29,7 @@
+ 
+ project_name = "kerberos"
+ 
+-version_string = "1.2.2"
++version_string = "1.2.3"
+ 
+ description = "Kerberos high-level interface"
+ 

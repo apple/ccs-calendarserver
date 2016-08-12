@@ -1,0 +1,50 @@
+--- twistedcaldav/upgrade.py.orig	2010-04-09 13:24:49.000000000 +1000
++++ twistedcaldav/upgrade.py	2010-04-09 13:38:30.000000000 +1000
+@@ -27,7 +27,7 @@
+ from twistedcaldav.ical import Component
+ from twistedcaldav import caldavxml
+ from calendarserver.tools.util import getDirectory
+-import xattr, os, zlib, hashlib, datetime, pwd, grp, shutil
++import xattr, os, zlib, hashlib, datetime, pwd, grp, shutil, sys
+ from zlib import compress
+ from cPickle import loads as unpickle, UnpicklingError
+ 
+@@ -111,6 +111,11 @@
+ 
+         errorOccurred = False
+         collectionUpdated = False
++        # Use "user." prefix on Linux platforms
++        if sys.platform == "linux2":
++            xattrPrefix = "user."
++        else:
++            xattrPrefix = "WebDAV:"
+ 
+         for resource in os.listdir(calPath):
+ 
+@@ -156,7 +161,7 @@
+ 
+                 md5value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<getcontentmd5 xmlns='http://twistedmatrix.com/xml_namespace/dav/'>%s</getcontentmd5>\r\n" % (hashlib.md5(data).hexdigest(),)
+                 md5value = zlib.compress(md5value)
+-                xattr.setxattr(resPath, "WebDAV:{http:%2F%2Ftwistedmatrix.com%2Fxml_namespace%2Fdav%2F}getcontentmd5", md5value)
++                xattr.setxattr(resPath, xattrPrefix+"{http:%2F%2Ftwistedmatrix.com%2Fxml_namespace%2Fdav%2F}getcontentmd5", md5value)
+ 
+                 collectionUpdated = True
+ 
+@@ -164,7 +169,7 @@
+         if collectionUpdated:
+             ctagValue = "<?xml version='1.0' encoding='UTF-8'?>\r\n<getctag xmlns='http://calendarserver.org/ns/'>%s</getctag>\r\n" % (str(datetime.datetime.now()),)
+             ctagValue = zlib.compress(ctagValue)
+-            xattr.setxattr(calPath, "WebDAV:{http:%2F%2Fcalendarserver.org%2Fns%2F}getctag", ctagValue)
++            xattr.setxattr(calPath, xattrPrefix+"{http:%2F%2Fcalendarserver.org%2Fns%2F}getctag", ctagValue)
+ 
+         return errorOccurred
+ 
+@@ -194,7 +199,7 @@
+                 # __uids__/<guid> form
+                 if cal == "inbox":
+                     for attr, value in xattr.xattr(calPath).iteritems():
+-                        if attr == "WebDAV:{urn:ietf:params:xml:ns:caldav}calendar-free-busy-set":
++                        if attr == xattrPrefix+"{urn:ietf:params:xml:ns:caldav}calendar-free-busy-set":
+                             value = updateFreeBusySet(value, directory)
+                             if value is not None:
+                                 # Need to write the xattr back to disk

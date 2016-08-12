@@ -1,0 +1,252 @@
+From 4d4b0465c28ed5b5d5cffb749e5bad1466aa60c8 Mon Sep 17 00:00:00 2001
+From: Guido Guenther <agx@sigxcpu.org>
+Date: Sat, 26 Apr 2008 21:03:31 +0200
+Subject: [PATCH] add name service switch directory backend
+
+---
+ twistedcaldav/directory/nss.py |  233 ++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 233 insertions(+), 0 deletions(-)
+ create mode 100644 twistedcaldav/directory/nss.py
+
+diff --git a/twistedcaldav/directory/nss.py b/twistedcaldav/directory/nss.py
+new file mode 100644
+index 0000000..4fb4cfc
+--- /dev/null
++++ b/twistedcaldav/directory/nss.py
+@@ -0,0 +1,233 @@
++##
++# vim: set fileencoding=utf-8 :
++# Copyright (c) 2008 Guido Guenther <agx@sigxcpu.org>
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++# http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++#
++##
++
++"""
++NSS Directory service interfaces.
++
++Uses libc's Name Service Switch for user and groups (/etc/nsswitch.conf).
++Example caldavd.plist configuration:
++
++  <key>DirectoryService</key>
++  <dict>
++    <key>type</key>
++    <string>twistedcaldav.directory.nss.NssDirectoryService</string>
++
++    <key>params</key>
++    <dict>
++      <key>realmName</key>
++      <string>Test Realm</string>
++      <!-- Groups starting with this prefix are considered calendarserver
++           groups -->
++      <key>groupPrefix</key>
++      <string>caldavd-</string>
++      <!-- Don't treat user id's smaller than firstValidUid as calendarserver users -->
++      <key>firstValidUid</key>
++      <integer>1000</integer>
++      <key>lastValidUid</key>
++      <integer>65533</integer>
++      <!-- Don't treat group id's smaller than firstValidGid as calendarserver groups -->
++      <key>firstValidGid</key>
++      <integer>1000</integer>
++      <key>lastValidGid</key>
++      <integer>65533</integer>
++      <!-- use shortUid@mailDomain as calender user mail addresses -->
++      <key>mailDomain</key>
++      <string>example.com</string>
++    </dict>
++  </dict>
++
++TODO: add enableCalendaring via a special group
++"""
++
++__all__ = [
++    "NssDirectoryService",
++]
++
++from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
++from twisted.cred.credentials import UsernamePassword
++from twisted.python import log
++import pwd, grp, socket
++
++class NsSwitch(object):
++    """Simple interface to the nsswitch calls"""
++
++    def get_user(self, username):
++        try:
++            return pwd.getpwnam(username)
++        except KeyError:
++            return None
++
++    def get_group(self, groupname):
++        try:
++            return grp.getgrnam(groupname)
++        except KeyError:
++            return None
++
++    def get_users(self):
++        return pwd.getpwall()
++
++    def get_groups(self):
++        return grp.getgrall()
++
++
++class NssDirectoryService(DirectoryService):
++    """
++    Nss based Directory Service of L{IDirectoryService}
++    """
++
++    baseGUID = "8EFFFAF-5221-4813-B971-58506B963573"
++
++    def __repr__(self):
++        return "<%s %r>" % (self.__class__.__name__, self.realmName)
++
++    # Defaults are in twistedcaldav.config:
++    def __init__(self, realmName, groupPrefix, mailDomain, firstValidUid, lastValidUid,
++                 firstValidGid, lastValidGid):
++        super(NssDirectoryService, self).__init__()
++        self.nsswitch = NsSwitch()
++        self.groupPrefix = groupPrefix
++        self.realmName = realmName
++        self.first_valid_uid = firstValidUid
++        self.first_valid_gid = firstValidGid
++        self.last_valid_uid = lastValidUid
++        self.last_valid_gid = lastValidGid
++        self.mailDomain = mailDomain
++
++    def recordTypes(self):
++        recordTypes = (
++            DirectoryService.recordType_users,
++            DirectoryService.recordType_groups,
++        )
++        return recordTypes
++
++    def _isValidUid(self, uid):
++        if uid >= self.first_valid_uid and uid <= self.last_valid_uid:
++            return True
++
++    def _isValidGid(self, gid):
++        if gid >= self.first_valid_gid and gid <= self.last_valid_gid:
++            return True
++
++    def listRecords(self, recordType):
++        """
++        @param type: the type of records to retrieve.
++        @return: an iterable of records of the given type.
++        """
++        if recordType == DirectoryService.recordType_users:
++            for result in self.nsswitch.get_users():
++                if self._isValidUid(result[2]):
++                    yield NssUserRecord(
++                        service       = self,
++                        recordType    = recordType,
++                        shortName     = result[0],
++                        gecos         = result[4],
++                    )
++        elif recordType == DirectoryService.recordType_groups:
++            for result in self.nsswitch.get_groups():
++                if self._isValidGid(result[2]):
++                    if result[0].startswith(self.groupPrefix):
++                        yield NssGroupRecord(
++                            service    = self,
++                            recordType = recordType,
++                            groupName  = result[0],
++                            members    = result[3],
++                        )
++        else:
++            raise AssertionError("Unknown record type: %r" % (recordType,))
++
++    def recordWithShortName(self, recordType, shortName):
++        if recordType == DirectoryService.recordType_users:
++            result = self.nsswitch.get_user(shortName)
++            if result and self._isValidUid(result[2]):
++                return NssUserRecord(
++                    service = self,
++                    recordType = recordType,
++                    shortName = result[0],
++                    gecos = result[4],
++                    )
++            else:
++                return None
++        elif recordType == DirectoryService.recordType_groups:
++            result = self.nsswitch.get_group(self.groupPrefix + shortName)
++            if result and self._isValidGid(result[2]):
++                return NssGroupRecord(
++                    service = self,
++                    recordType = recordType,
++                    groupName = result[0],
++                    members = result[3]
++                    )
++            else:
++                return None
++        else:
++            raise AssertionError("Unknown record type: %r" % (recordType,))
++
++
++class NssDirectoryRecord(DirectoryRecord):
++    """
++    Nss Directory Record
++    """
++    def __init__(self, service, recordType, shortName, fullName = None, calendarUserAddresses = set()):
++        super(NssDirectoryRecord, self).__init__(
++            service               = service,
++            recordType            = recordType,
++            guid                  = None,
++            shortName             = shortName,
++            fullName              = fullName,
++            calendarUserAddresses = calendarUserAddresses,
++            autoSchedule          = False,
++        )
++
++
++class NssUserRecord(NssDirectoryRecord):
++    """
++    NSS Users implementation of L{IDirectoryRecord}.
++    """
++    def __init__(self, service, recordType, shortName, gecos):
++        fullName = gecos.split(",",1)[0]
++        calendarUserAddresses = set()
++        if service.mailDomain:
++            calendarUserAddresses.add("mailto:%s@%s" % (shortName, service.mailDomain))
++        super(NssUserRecord, self).__init__(service, recordType, shortName, fullName, calendarUserAddresses)
++
++    def verifyCredentials(self, credentials):
++        # FIXME: plugin in PAM authentication here if you want too - kerberos works
++        #return super(NssUserRecord, self).verifyCredentials(credentials)
++        return False
++
++    def groups(self):
++        for group in self.service.listRecords(DirectoryService.recordType_groups):
++            for member in group.members():
++                if member == self:
++                    yield group
++                    continue
++
++
++class NssGroupRecord(NssDirectoryRecord):
++    """
++    NSS Groups implementation of L{IDirectoryRecord}.
++    """
++    def __init__(self, service, recordType, groupName, members=()):
++        shortName  = groupName.replace(service.groupPrefix,'',1)
++        super(NssGroupRecord, self).__init__(service, recordType, shortName)
++        self._members = members
++
++    def members(self):
++        for shortName in self._members:
++            yield self.service.recordWithShortName(DirectoryService.recordType_users, shortName)
++
++# vim:et:ts=4:sw=4:et:sts=4:ai:set list listchars=tab\:»·,trail\:·:
+-- 
+1.5.5.1
+

@@ -1,0 +1,29 @@
+Index: calendarserver-0.0.svn59/upstream-patches/Twisted/twisted.web2.dav.linux.patch
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ calendarserver-0.0.svn59/upstream-patches/Twisted/twisted.web2.dav.linux.patch	2006-09-05 23:59:50.000000000 +0200
+@@ -0,0 +1,24 @@
++--- twisted/web2/dav/xattrprops.py.orig	2006-09-05 22:09:03.000000000 +0200
+++++ twisted/web2/dav/xattrprops.py	2006-09-05 23:12:17.000000000 +0200
++@@ -32,6 +32,7 @@
++ __all__ = ["xattrPropertyStore"]
++ 
++ import urllib
+++import sys
++ 
++ import xattr
++ 
++@@ -58,8 +59,11 @@
++     #
++     # Dead properties are stored as extended attributes on disk.  In order to
++     # avoid conflicts with other attributes, prefix dead property names.
++-    #
++-    deadPropertyXattrPrefix = "WebDAV:"
+++    # Linux additionally needs everything in the user namespace
+++    if sys.platform == 'linux2':
+++        deadPropertyXattrPrefix = "user.WebDav:"
+++    else:
+++        deadPropertyXattrPrefix = "WebDAV:"
++ 
++     def _encode(clazz, name):
++         #

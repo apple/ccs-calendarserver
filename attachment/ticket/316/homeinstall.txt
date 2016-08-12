@@ -1,0 +1,1557 @@
+# Let's prepare some directories.
+
+$ mkdir /Volumes/ALMbpData/CALDAV
+$ mkdir /Volumes/ALMbpData/CALDAVCOMP
+
+# Let's fetch the server's trunk.
+
+$ cd /Volumes/ALMbpData/CALDAV
+$ svn checkout http://svn.calendarserver.org/repository/calendarserver/CalendarServer/trunk SERVER
+A    SERVER/test
+A    SERVER/python
+[...]
+A    SERVER/support/pull-up
+ U   SERVER
+Checked out revision 3592.
+
+# Let's perform a home install.
+
+$ cd SERVER
+$ ./run -v -I /Volumes/ALMbpData/CALDAVCOMP
+
+Downloading PyXML...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  717k  100  717k    0     0   127k      0  0:00:05  0:00:05 --:--:--  321k
+Unpacking PyXML from cache...
+[...]
+Writing /Volumes/ALMbpData/CALDAV/SERVER/build/dst/Library/Python/2.5/site-packages/twistedcaldav-trunk._r3592_-py2.5.egg-info
+rewriting /Volumes/ALMbpData/CALDAV/SERVER/build/dst/usr/local/bin/caldavd
+rewriting /Volumes/ALMbpData/CALDAV/SERVER/build/dst/usr/local/bin/caladmin
+rewriting /Volumes/ALMbpData/CALDAV/SERVER/build/dst/usr/local/bin/caldav_export
+building file list ... rsync: link_stat "/Volumes/ALMbpData/CALDAV/SERVER/build/dst/System/Library/Frameworks/Python.framework/Versions/2.5/bin/." failed: No such file or directory (2)
+done
+
+sent 29 bytes  received 20 bytes  98.00 bytes/sec
+total size is 0  speedup is 0.00
+rsync error: some files could not be transferred (code 23) at /SourceCache/rsync/rsync-35.2/rsync/main.c(992) [sender=2.6.9]
+
+# So, the first rsync command encountered failed and thus halted the script because
+# of the -e option.
+# Perhaps is this just a matter of a typo, resulting in a bad source definition for
+# the rsync command.
+# But the problem may be deeper as well, since I would have expected the rewriting
+# of the caladmin, caldav_export and caldavd binaries to refer to locations under
+# /usr/local only:
+
+$ grep 'PATH=' build/dst/usr/local/bin/cal*
+build/dst/usr/local/bin/caladmin:PYTHONPATH="/Library/Python/2.5/site-packages/"
+build/dst/usr/local/bin/caldav_export:PYTHONPATH="/Library/Python/2.5/site-packages/"
+build/dst/usr/local/bin/caldavd:PATH="/System/Library/Frameworks/Python.framework/Versions/2.5/bin:$PATH"
+build/dst/usr/local/bin/caldavd:PYTHONPATH="/Library/Python/2.5/site-packages/:$PYTHONPATH"
+
+# Since the failure occured immediately, nothing has been moved to the destination
+# directory:
+
+$ ls -R /Volumes/ALMbpData/CALDAVCOMP
+bin	conf	lib
+
+/Volumes/ALMbpData/CALDAVCOMP/bin:
+
+/Volumes/ALMbpData/CALDAVCOMP/conf:
+
+/Volumes/ALMbpData/CALDAVCOMP/lib:
+python
+
+/Volumes/ALMbpData/CALDAVCOMP/lib/python:
+
+# Since the build/dst directory hasn't been deleted yet, let's have a look at its
+# contents:
+
+$ ls -R build/dst
+Library	System	usr
+
+build/dst/Library:
+Python
+
+build/dst/Library/Python:
+2.5
+
+build/dst/Library/Python/2.5:
+site-packages
+
+build/dst/Library/Python/2.5/site-packages:
+Conch-0.8.0-py2.5.egg-info
+PyXML-0.8.4-py2.5.egg-info
+Twisted-2.5.0_rUnknown-py2.5.egg-info
+Twisted_Lore-0.3.0-py2.5.egg-info
+Twisted_Mail-0.4.0-py2.5.egg-info
+Twisted_Names-0.4.0-py2.5.egg-info
+Twisted_News-0.3.0-py2.5.egg-info
+Twisted_Runner-0.2.0-py2.5.egg-info
+Twisted_Web-0.7.0-py2.5.egg-info
+Twisted_Web2-0.2.0-py2.5.egg-info
+Twisted_Words-0.5.0-py2.5.egg-info
+_xmlplus
+calendarserver
+dsattributes.py
+dsattributes.pyc
+dsquery.py
+dsquery.pyc
+kerberos-1.0-py2.5.egg-info
+kerberos.so
+kqreactor.py
+kqreactor.pyc
+opendirectory-1.0-py2.5.egg-info
+opendirectory.so
+pydirector
+pydirector-1.0.0-py2.5.egg-info
+select26-0.1a3-py2.5.egg-info
+select26.so
+tests
+twext
+twisted
+twistedcaldav
+twistedcaldav-trunk._r3592_-py2.5.egg-info
+vobject
+vobject-0.7.1-py2.5.egg-info
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus:
+FtCore.py	__init__.pyc	ns.py		sax		utils
+FtCore.pyc	dom		ns.pyc		schema		xpath
+__init__.py	marshal		parsers		unicode
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus/dom:
+Attr.py				NodeList.pyc
+Attr.pyc			Notation.py
+CDATASection.py			Notation.pyc
+CDATASection.pyc		ProcessingInstruction.py
+CharacterData.py		ProcessingInstruction.pyc
+CharacterData.pyc		Range.py
+Comment.py			Range.pyc
+Comment.pyc			Text.py
+DOMImplementation.py		Text.pyc
+DOMImplementation.pyc		TreeWalker.py
+Document.py			TreeWalker.pyc
+Document.pyc			__init__.py
+DocumentFragment.py		__init__.pyc
+DocumentFragment.pyc		de
+DocumentType.py			domreg.py
+DocumentType.pyc		domreg.pyc
+Element.py			en_US
+Element.pyc			expatbuilder.py
+Entity.py			expatbuilder.pyc
+Entity.pyc			ext
+EntityReference.py		fr
+EntityReference.pyc		html
+Event.py			javadom.py
+Event.pyc			javadom.pyc
+FtNode.py			minicompat.py
+FtNode.pyc			minicompat.pyc
+MessageSource.py		minidom.py
+MessageSource.pyc		minidom.pyc
+NamedNodeMap.py			minitraversal.py
+NamedNodeMap.pyc		minitraversal.pyc
+NodeFilter.py			pulldom.py
+NodeFilter.pyc			pulldom.pyc
+NodeIterator.py			xmlbuilder.py
+NodeIterator.pyc		xmlbuilder.pyc
+NodeList.py
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus/dom/de:
+LC_MESSAGES
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus/dom/de/LC_MESSAGES:
+4Suite.mo
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus/dom/en_US:
+LC_MESSAGES
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus/dom/en_US/LC_MESSAGES:
+4Suite.mo
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus/dom/ext:
+Dom2Sax.py		Visitor.pyc		__init__.py
+Dom2Sax.pyc		XHtml2HtmlPrinter.py	__init__.pyc
+Printer.py		XHtml2HtmlPrinter.pyc	c14n.py
+Printer.pyc		XHtmlPrinter.py		c14n.pyc
+Visitor.py		XHtmlPrinter.pyc	reader
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus/dom/ext/reader:
+HtmlLib.py	PyExpat.py	Sax2.py		Sgmlop.py
+HtmlLib.pyc	PyExpat.pyc	Sax2.pyc	Sgmlop.pyc
+HtmlSax.py	Sax.py		Sax2Lib.py	__init__.py
+HtmlSax.pyc	Sax.pyc		Sax2Lib.pyc	__init__.pyc
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus/dom/fr:
+LC_MESSAGES
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus/dom/fr/LC_MESSAGES:
+4Suite.mo
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus/dom/html:
+GenerateHtml.py			HTMLLIElement.py
+GenerateHtml.pyc		HTMLLIElement.pyc
+HTMLAnchorElement.py		HTMLLabelElement.py
+HTMLAnchorElement.pyc		HTMLLabelElement.pyc
+HTMLAppletElement.py		HTMLLegendElement.py
+HTMLAppletElement.pyc		HTMLLegendElement.pyc
+HTMLAreaElement.py		HTMLLinkElement.py
+HTMLAreaElement.pyc		HTMLLinkElement.pyc
+HTMLBRElement.py		HTMLMapElement.py
+HTMLBRElement.pyc		HTMLMapElement.pyc
+HTMLBaseElement.py		HTMLMenuElement.py
+HTMLBaseElement.pyc		HTMLMenuElement.pyc
+HTMLBaseFontElement.py		HTMLMetaElement.py
+HTMLBaseFontElement.pyc		HTMLMetaElement.pyc
+HTMLBodyElement.py		HTMLModElement.py
+HTMLBodyElement.pyc		HTMLModElement.pyc
+HTMLButtonElement.py		HTMLOListElement.py
+HTMLButtonElement.pyc		HTMLOListElement.pyc
+HTMLCollection.py		HTMLObjectElement.py
+HTMLCollection.pyc		HTMLObjectElement.pyc
+HTMLDListElement.py		HTMLOptGroupElement.py
+HTMLDListElement.pyc		HTMLOptGroupElement.pyc
+HTMLDOMImplementation.py	HTMLOptionElement.py
+HTMLDOMImplementation.pyc	HTMLOptionElement.pyc
+HTMLDirectoryElement.py		HTMLParagraphElement.py
+HTMLDirectoryElement.pyc	HTMLParagraphElement.pyc
+HTMLDivElement.py		HTMLParamElement.py
+HTMLDivElement.pyc		HTMLParamElement.pyc
+HTMLDocument.py			HTMLPreElement.py
+HTMLDocument.pyc		HTMLPreElement.pyc
+HTMLElement.py			HTMLQuoteElement.py
+HTMLElement.pyc			HTMLQuoteElement.pyc
+HTMLFieldSetElement.py		HTMLScriptElement.py
+HTMLFieldSetElement.pyc		HTMLScriptElement.pyc
+HTMLFontElement.py		HTMLSelectElement.py
+HTMLFontElement.pyc		HTMLSelectElement.pyc
+HTMLFormElement.py		HTMLStyleElement.py
+HTMLFormElement.pyc		HTMLStyleElement.pyc
+HTMLFrameElement.py		HTMLTableCaptionElement.py
+HTMLFrameElement.pyc		HTMLTableCaptionElement.pyc
+HTMLFrameSetElement.py		HTMLTableCellElement.py
+HTMLFrameSetElement.pyc		HTMLTableCellElement.pyc
+HTMLHRElement.py		HTMLTableColElement.py
+HTMLHRElement.pyc		HTMLTableColElement.pyc
+HTMLHeadElement.py		HTMLTableElement.py
+HTMLHeadElement.pyc		HTMLTableElement.pyc
+HTMLHeadingElement.py		HTMLTableRowElement.py
+HTMLHeadingElement.pyc		HTMLTableRowElement.pyc
+HTMLHtmlElement.py		HTMLTableSectionElement.py
+HTMLHtmlElement.pyc		HTMLTableSectionElement.pyc
+HTMLIFrameElement.py		HTMLTextAreaElement.py
+HTMLIFrameElement.pyc		HTMLTextAreaElement.pyc
+HTMLImageElement.py		HTMLTitleElement.py
+HTMLImageElement.pyc		HTMLTitleElement.pyc
+HTMLInputElement.py		HTMLUListElement.py
+HTMLInputElement.pyc		HTMLUListElement.pyc
+HTMLIsIndexElement.py		__init__.py
+HTMLIsIndexElement.pyc		__init__.pyc
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus/marshal:
+__init__.py	generic.py	wddx.py
+__init__.pyc	generic.pyc	wddx.pyc
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus/parsers:
+__init__.py	expat.py	pyexpat.so	sgmllib.pyc	xmlproc
+__init__.pyc	expat.pyc	sgmllib.py	sgmlop.so
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus/parsers/xmlproc:
+__init__.py	charconv.py	namespace.py	xmlapp.py	xmlutils.py
+__init__.pyc	charconv.pyc	namespace.pyc	xmlapp.pyc	xmlutils.pyc
+_outputters.py	dtdparser.py	utils.py	xmldtd.py	xmlval.py
+_outputters.pyc	dtdparser.pyc	utils.pyc	xmldtd.pyc	xmlval.pyc
+catalog.py	errors.py	xcatalog.py	xmlproc.py
+catalog.pyc	errors.pyc	xcatalog.pyc	xmlproc.pyc
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus/sax:
+__init__.py	drivers2	sax2exts.py	saxlib.pyc	xmlreader.py
+__init__.pyc	expatreader.py	sax2exts.pyc	saxutils.py	xmlreader.pyc
+_exceptions.py	expatreader.pyc	saxexts.py	saxutils.pyc
+_exceptions.pyc	handler.py	saxexts.pyc	writer.py
+drivers		handler.pyc	saxlib.py	writer.pyc
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus/sax/drivers:
+__init__.py		drv_pyexpat.pyc		drv_xmlproc.py
+__init__.pyc		drv_sgmllib.py		drv_xmlproc.pyc
+drv_htmllib.py		drv_sgmllib.pyc		drv_xmlproc_val.py
+drv_htmllib.pyc		drv_sgmlop.py		drv_xmlproc_val.pyc
+drv_ltdriver.py		drv_sgmlop.pyc		drv_xmltoolkit.py
+drv_ltdriver.pyc	drv_xmldc.py		drv_xmltoolkit.pyc
+drv_ltdriver_val.py	drv_xmldc.pyc		pylibs.py
+drv_ltdriver_val.pyc	drv_xmllib.py		pylibs.pyc
+drv_pyexpat.py		drv_xmllib.pyc
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus/sax/drivers2:
+__init__.py		drv_pyexpat.py		drv_sgmlop_html.py
+__init__.pyc		drv_pyexpat.pyc		drv_sgmlop_html.pyc
+drv_htmllib.py		drv_sgmllib.py		drv_xmlproc.py
+drv_htmllib.pyc		drv_sgmllib.pyc		drv_xmlproc.pyc
+drv_javasax.py		drv_sgmlop.py
+drv_javasax.pyc		drv_sgmlop.pyc
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus/schema:
+__init__.py	__init__.pyc	trex.py		trex.pyc
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus/unicode:
+__init__.py	iso8859.py	utf8_iso.py
+__init__.pyc	iso8859.pyc	utf8_iso.pyc
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus/utils:
+__init__.py	boolean.so	characters.pyc	iso8601.pyc	qp_xml.pyc
+__init__.pyc	characters.py	iso8601.py	qp_xml.py
+
+build/dst/Library/Python/2.5/site-packages/_xmlplus/xpath:
+BuiltInExtFunctions.py
+BuiltInExtFunctions.pyc
+Context.py
+Context.pyc
+Conversions.py
+Conversions.pyc
+CoreFunctions.py
+CoreFunctions.pyc
+ExpandedNameWrapper.py
+ExpandedNameWrapper.pyc
+MessageSource.py
+MessageSource.pyc
+NamespaceNode.py
+NamespaceNode.pyc
+ParsedAbbreviatedAbsoluteLocationPath.py
+ParsedAbbreviatedAbsoluteLocationPath.pyc
+ParsedAbbreviatedRelativeLocationPath.py
+ParsedAbbreviatedRelativeLocationPath.pyc
+ParsedAbsoluteLocationPath.py
+ParsedAbsoluteLocationPath.pyc
+ParsedAxisSpecifier.py
+ParsedAxisSpecifier.pyc
+ParsedExpr.py
+ParsedExpr.pyc
+ParsedNodeTest.py
+ParsedNodeTest.pyc
+ParsedPredicateList.py
+ParsedPredicateList.pyc
+ParsedRelativeLocationPath.py
+ParsedRelativeLocationPath.pyc
+ParsedStep.py
+ParsedStep.pyc
+Set.py
+Set.pyc
+Util.py
+Util.pyc
+XPathGrammar.py
+XPathGrammar.pyc
+XPathParser.py
+XPathParser.pyc
+XPathParserBase.py
+XPathParserBase.pyc
+__init__.py
+__init__.pyc
+pyxpath.py
+pyxpath.pyc
+yappsrt.py
+yappsrt.pyc
+
+build/dst/Library/Python/2.5/site-packages/calendarserver:
+__init__.py	__init__.pyc	tap		test		tools
+
+build/dst/Library/Python/2.5/site-packages/calendarserver/tap:
+__init__.py	__init__.pyc	caldav.py	caldav.pyc	test
+
+build/dst/Library/Python/2.5/site-packages/calendarserver/tap/test:
+__init__.py	__init__.pyc	test_caldav.py	test_caldav.pyc
+
+build/dst/Library/Python/2.5/site-packages/calendarserver/test:
+__init__.py	__init__.pyc
+
+build/dst/Library/Python/2.5/site-packages/calendarserver/tools:
+__init__.py		doublequotefix.pyc	fixcalendardata.py
+__init__.pyc		export.py		fixcalendardata.pyc
+doublequotefix.py	export.pyc
+
+build/dst/Library/Python/2.5/site-packages/pydirector:
+__init__.py		pdamp.pyc		pdnetwork.py
+__init__.pyc		pdconf.py		pdnetwork.pyc
+compareconf.py		pdconf.pyc		pdnetworkasyncore.py
+compareconf.pyc		pdlogging.py		pdnetworkasyncore.pyc
+micropubl.py		pdlogging.pyc		pdnetworktwisted.py
+micropubl.pyc		pdmain.py		pdnetworktwisted.pyc
+pdadmin.py		pdmain.pyc		pdschedulers.py
+pdadmin.pyc		pdmanager.py		pdschedulers.pyc
+pdamp.py		pdmanager.pyc
+
+build/dst/Library/Python/2.5/site-packages/select26-0.1a3-py2.5.egg-info:
+PKG-INFO		dependency_links.txt	top_level.txt
+SOURCES.txt		native_libs.txt
+
+build/dst/Library/Python/2.5/site-packages/tests:
+__init__.py		test_epoll.pyc		test_select26.py
+__init__.pyc		test_kqueue.py		test_select26.pyc
+test_epoll.py		test_kqueue.pyc
+
+build/dst/Library/Python/2.5/site-packages/twext:
+__init__.py	__init__.pyc	internet	python
+
+build/dst/Library/Python/2.5/site-packages/twext/internet:
+__init__.py	__init__.pyc	ssl.py		ssl.pyc
+
+build/dst/Library/Python/2.5/site-packages/twext/python:
+__init__.py	_plistlib.py	plistlib.py
+__init__.pyc	_plistlib.pyc	plistlib.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted:
+__init__.py	copyright.pyc	mail		plugins		test
+__init__.pyc	cred		manhole		protocols	topfiles
+_version.py	enterprise	names		python		trial
+_version.pyc	im.py		news		runner		web
+application	im.pyc		persisted	scripts		web2
+conch		internet	plugin.py	spread		words
+copyright.py	lore		plugin.pyc	tap
+
+build/dst/Library/Python/2.5/site-packages/twisted/application:
+__init__.py	app.pyc		reactors.py	service.pyc
+__init__.pyc	internet.py	reactors.pyc	strports.py
+app.py		internet.pyc	service.py	strports.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/conch:
+__init__.py	error.py	manhole_ssh.py	scripts		topfiles
+__init__.pyc	error.pyc	manhole_ssh.pyc	ssh		ttymodes.py
+_version.py	insults		manhole_tap.py	stdio.py	ttymodes.pyc
+_version.pyc	interfaces.py	manhole_tap.pyc	stdio.pyc	ui
+avatar.py	interfaces.pyc	mixin.py	tap.py		unix.py
+avatar.pyc	ls.py		mixin.pyc	tap.pyc		unix.pyc
+checkers.py	ls.pyc		openssh_compat	telnet.py
+checkers.pyc	manhole.py	recvline.py	telnet.pyc
+client		manhole.pyc	recvline.pyc	test
+
+build/dst/Library/Python/2.5/site-packages/twisted/conch/client:
+__init__.py	agent.pyc	default.py	direct.pyc	unix.py
+__init__.pyc	connect.py	default.pyc	options.py	unix.pyc
+agent.py	connect.pyc	direct.py	options.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/conch/insults:
+__init__.py	client.pyc	helper.py	insults.pyc	window.py
+__init__.pyc	colors.py	helper.pyc	text.py		window.pyc
+client.py	colors.pyc	insults.py	text.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/conch/openssh_compat:
+__init__.py	factory.py	primes.py
+__init__.pyc	factory.pyc	primes.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/conch/scripts:
+__init__.py	cftp.py		ckeygen.py	conch.py	tkconch.py
+__init__.pyc	cftp.pyc	ckeygen.pyc	conch.pyc	tkconch.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/conch/ssh:
+__init__.py		connection.py		service.py
+__init__.pyc		connection.pyc		service.pyc
+agent.py		factory.py		session.py
+agent.pyc		factory.pyc		session.pyc
+asn1.py			filetransfer.py		sexpy.py
+asn1.pyc		filetransfer.pyc	sexpy.pyc
+channel.py		forwarding.py		transport.py
+channel.pyc		forwarding.pyc		transport.pyc
+common.py		keys.py			userauth.py
+common.pyc		keys.pyc		userauth.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/conch/test:
+__init__.py		test_insults.py		test_ssh.py
+__init__.pyc		test_insults.pyc	test_ssh.pyc
+test_cftp.py		test_keys.py		test_telnet.py
+test_cftp.pyc		test_keys.pyc		test_telnet.pyc
+test_conch.py		test_manhole.py		test_text.py
+test_conch.pyc		test_manhole.pyc	test_text.pyc
+test_filetransfer.py	test_mixin.py		test_window.py
+test_filetransfer.pyc	test_mixin.pyc		test_window.pyc
+test_helper.py		test_recvline.py
+test_helper.pyc		test_recvline.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/conch/topfiles:
+NEWS	README
+
+build/dst/Library/Python/2.5/site-packages/twisted/conch/ui:
+__init__.py	ansi.py		tkvt100.py
+__init__.pyc	ansi.pyc	tkvt100.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/cred:
+__init__.py	checkers.pyc	error.py	pamauth.pyc	util.py
+__init__.pyc	credentials.py	error.pyc	portal.py	util.pyc
+checkers.py	credentials.pyc	pamauth.py	portal.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/enterprise:
+__init__.py		reflector.py		sqlreflector.py
+__init__.pyc		reflector.pyc		sqlreflector.pyc
+adbapi.py		row.py			util.py
+adbapi.pyc		row.pyc			util.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/internet:
+__init__.py		defer.py		qtreactor.pyc
+__init__.pyc		defer.pyc		reactor.py
+_dumbwin32proc.py	epollreactor.py		reactor.pyc
+_dumbwin32proc.pyc	epollreactor.pyc	selectreactor.py
+_javaserialport.py	error.py		selectreactor.pyc
+_javaserialport.pyc	error.pyc		serialport.py
+_pollingfile.py		fdesc.py		serialport.pyc
+_pollingfile.pyc	fdesc.pyc		ssl.py
+_posixserialport.py	glib2reactor.py		ssl.pyc
+_posixserialport.pyc	glib2reactor.pyc	stdio.py
+_posixstdio.py		gtk2reactor.py		stdio.pyc
+_posixstdio.pyc		gtk2reactor.pyc		task.py
+_sslverify.py		gtkreactor.py		task.pyc
+_sslverify.pyc		gtkreactor.pyc		tcp.py
+_threadedselect.py	interfaces.py		tcp.pyc
+_threadedselect.pyc	interfaces.pyc		threads.py
+_win32serialport.py	iocpreactor		threads.pyc
+_win32serialport.pyc	kqreactor.py		tksupport.py
+_win32stdio.py		kqreactor.pyc		tksupport.pyc
+_win32stdio.pyc		main.py			udp.py
+abstract.py		main.pyc		udp.pyc
+abstract.pyc		pollreactor.py		unix.py
+address.py		pollreactor.pyc		unix.pyc
+address.pyc		posixbase.py		utils.py
+base.py			posixbase.pyc		utils.pyc
+base.pyc		process.py		win32eventreactor.py
+cfreactor.py		process.pyc		win32eventreactor.pyc
+cfreactor.pyc		protocol.py		wxreactor.py
+cfsupport		protocol.pyc		wxreactor.pyc
+cfsupport.so		pyuisupport.py		wxsupport.py
+default.py		pyuisupport.pyc		wxsupport.pyc
+default.pyc		qtreactor.py
+
+build/dst/Library/Python/2.5/site-packages/twisted/internet/cfsupport:
+cfdate.pxi	cfrunloop.pxi	cfsupport.c	python.pxi
+cfdecl.pxi	cfsocket.pxi	cfsupport.pyx
+
+build/dst/Library/Python/2.5/site-packages/twisted/internet/iocpreactor:
+__init__.py		ops.py			server.pyc
+__init__.pyc		ops.pyc			tcp.py
+_iocp.c			proactor.py		tcp.pyc
+abstract.py		proactor.pyc		udp.py
+abstract.pyc		process.py		udp.pyc
+client.py		process.pyc		util.py
+client.pyc		process_waiter.py	util.pyc
+iocpdebug.py		process_waiter.pyc
+iocpdebug.pyc		server.py
+
+build/dst/Library/Python/2.5/site-packages/twisted/lore:
+__init__.py	htmlbook.py	lmath.py	process.py	texi.pyc
+__init__.pyc	htmlbook.pyc	lmath.pyc	process.pyc	topfiles
+_version.py	indexer.py	man2lore.py	scripts		tree.py
+_version.pyc	indexer.pyc	man2lore.pyc	slides.py	tree.pyc
+default.py	latex.py	nevowlore.py	slides.pyc
+default.pyc	latex.pyc	nevowlore.pyc	template.mgp
+docbook.py	lint.py		numberer.py	test
+docbook.pyc	lint.pyc	numberer.pyc	texi.py
+
+build/dst/Library/Python/2.5/site-packages/twisted/lore/scripts:
+__init__.py	__init__.pyc	lore.py		lore.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/lore/test:
+__init__.py
+__init__.pyc
+good_internal.xhtml
+good_simple.xhtml
+lore_index_file_out.html
+lore_index_file_out_multiple.html
+lore_index_file_unnumbered_multiple_out.html
+lore_index_file_unnumbered_out.html
+lore_index_test.xhtml
+lore_index_test2.xhtml
+lore_index_test3.xhtml
+lore_index_test_out.html
+lore_index_test_out2.html
+lore_numbering_test.xhtml
+lore_numbering_test_out.html
+lore_numbering_test_out2.html
+simple.html
+simple.xhtml
+simple1.xhtml
+simple2.xhtml
+simple3.html
+simple3.xhtml
+simple4.html
+simple4.xhtml
+simple4foo.xhtml
+template.tpl
+test_lore.py
+test_lore.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/lore/topfiles:
+NEWS	README
+
+build/dst/Library/Python/2.5/site-packages/twisted/mail:
+__init__.py		mail.pyc		relay.py
+__init__.pyc		maildir.py		relay.pyc
+_version.py		maildir.pyc		relaymanager.py
+_version.pyc		pb.py			relaymanager.pyc
+alias.py		pb.pyc			scripts
+alias.pyc		pop3.py			smtp.py
+bounce.py		pop3.pyc		smtp.pyc
+bounce.pyc		pop3client.py		tap.py
+imap4.py		pop3client.pyc		tap.pyc
+imap4.pyc		protocols.py		test
+mail.py			protocols.pyc		topfiles
+
+build/dst/Library/Python/2.5/site-packages/twisted/mail/scripts:
+__init__.py	__init__.pyc	mailmail.py	mailmail.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/mail/test:
+__init__.py		test_bounce.pyc		test_pop3.py
+__init__.pyc		test_imap.py		test_pop3.pyc
+pop3testserver.py	test_imap.pyc		test_pop3client.py
+pop3testserver.pyc	test_mail.py		test_pop3client.pyc
+process.alias.sh	test_mail.pyc		test_smtp.py
+rfc822.message		test_options.py		test_smtp.pyc
+test_bounce.py		test_options.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/mail/topfiles:
+NEWS	README
+
+build/dst/Library/Python/2.5/site-packages/twisted/manhole:
+__init__.py		gladereactor.glade	service.pyc
+__init__.pyc		gladereactor.py		telnet.py
+_inspectro.py		gladereactor.pyc	telnet.pyc
+_inspectro.pyc		inspectro.glade		ui
+explorer.py		logview.glade
+explorer.pyc		service.py
+
+build/dst/Library/Python/2.5/site-packages/twisted/manhole/ui:
+__init__.py		gtk2manhole.pyc		pywidgets.py
+__init__.pyc		gtkmanhole.py		pywidgets.pyc
+gtk2manhole.glade	gtkmanhole.pyc		spelunk_gnome.py
+gtk2manhole.py		gtkrc			spelunk_gnome.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/names:
+__init__.py	cache.pyc	error.py	root.pyc	tap.py
+__init__.pyc	client.py	error.pyc	secondary.py	tap.pyc
+_version.py	client.pyc	hosts.py	secondary.pyc	test
+_version.pyc	common.py	hosts.pyc	server.py	topfiles
+authority.py	common.pyc	resolve.py	server.pyc
+authority.pyc	dns.py		resolve.pyc	srvconnect.py
+cache.py	dns.pyc		root.py		srvconnect.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/names/test:
+__init__.py		test_client.py		test_names.py
+__init__.pyc		test_client.pyc		test_names.pyc
+test_cache.py		test_dns.py		test_rootresolve.py
+test_cache.pyc		test_dns.pyc		test_rootresolve.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/names/topfiles:
+NEWS	README
+
+build/dst/Library/Python/2.5/site-packages/twisted/news:
+__init__.py	_version.pyc	news.py		nntp.pyc	test
+__init__.pyc	database.py	news.pyc	tap.py		topfiles
+_version.py	database.pyc	nntp.py		tap.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/news/test:
+__init__.py	test_news.py	test_nntp.py
+__init__.pyc	test_news.pyc	test_nntp.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/news/topfiles:
+NEWS	README
+
+build/dst/Library/Python/2.5/site-packages/twisted/persisted:
+__init__.py	aot.pyc		dirdbm.py	marmalade.py	sob.pyc
+__init__.pyc	crefutil.py	dirdbm.pyc	marmalade.pyc	styles.py
+aot.py		crefutil.pyc	journal		sob.py		styles.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/persisted/journal:
+__init__.py	base.py		picklelog.py	rowjournal.py
+__init__.pyc	base.pyc	picklelog.pyc	rowjournal.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/plugins:
+__init__.py		twisted_inet.py		twisted_reactors.py
+__init__.pyc		twisted_inet.pyc	twisted_reactors.pyc
+caldav.py		twisted_lore.py		twisted_socks.py
+caldav.pyc		twisted_lore.pyc	twisted_socks.pyc
+kqueuereactor.py	twisted_mail.py		twisted_telnet.py
+kqueuereactor.pyc	twisted_mail.pyc	twisted_telnet.pyc
+notestplugin.py		twisted_manhole.py	twisted_trial.py
+notestplugin.pyc	twisted_manhole.pyc	twisted_trial.pyc
+testplugin.py		twisted_names.py	twisted_web.py
+testplugin.pyc		twisted_names.pyc	twisted_web.pyc
+twisted_conch.py	twisted_news.py		twisted_web2.py
+twisted_conch.pyc	twisted_news.pyc	twisted_web2.pyc
+twisted_ftp.py		twisted_portforward.py	twisted_words.py
+twisted_ftp.pyc		twisted_portforward.pyc	twisted_words.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/protocols:
+__init__.py	ftp.py		jabber.pyc	portforward.py	stateful.py
+__init__.pyc	ftp.pyc		loopback.py	portforward.pyc	stateful.pyc
+_c_urlarg.c	gps		loopback.pyc	postfix.py	sux.py
+_c_urlarg.so	htb.py		mice		postfix.pyc	sux.pyc
+amp.py		htb.pyc		msn.py		raw.py		telnet.py
+amp.pyc		http.py		msn.pyc		raw.pyc		telnet.pyc
+basic.py	http.pyc	nntp.py		rawudp.py	toc.py
+basic.pyc	ident.py	nntp.pyc	rawudp.pyc	toc.pyc
+dict.py		ident.pyc	oscar.py	shoutcast.py	wire.py
+dict.pyc	imap4.py	oscar.pyc	shoutcast.pyc	wire.pyc
+dns.py		imap4.pyc	pcp.py		sip.py		xmlstream.py
+dns.pyc		ip.py		pcp.pyc		sip.pyc		xmlstream.pyc
+ethernet.py	ip.pyc		policies.py	smtp.py
+ethernet.pyc	irc.py		policies.pyc	smtp.pyc
+finger.py	irc.pyc		pop3.py		socks.py
+finger.pyc	jabber.py	pop3.pyc	socks.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/protocols/gps:
+__init__.py	nmea.py		rockwell.py
+__init__.pyc	nmea.pyc	rockwell.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/protocols/mice:
+__init__.py	__init__.pyc	mouseman.py	mouseman.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/python:
+__init__.py		htmlizer.pyc		syslog.pyc
+__init__.pyc		lockfile.py		text.py
+_epoll.c		lockfile.pyc		text.pyc
+_epoll.pyx		log.py			threadable.py
+_twisted_zsh_stub	log.pyc			threadable.pyc
+compat.py		logfile.py		threadpool.py
+compat.pyc		logfile.pyc		threadpool.pyc
+components.py		modules.py		timeoutqueue.py
+components.pyc		modules.pyc		timeoutqueue.pyc
+context.py		otp.py			urlpath.py
+context.pyc		otp.pyc			urlpath.pyc
+dispatch.py		plugin.py		usage.py
+dispatch.pyc		plugin.pyc		usage.pyc
+dist.py			procutils.py		util.py
+dist.pyc		procutils.pyc		util.pyc
+dxprofile.py		rebuild.py		versions.py
+dxprofile.pyc		rebuild.pyc		versions.pyc
+failure.py		reflect.py		win32.py
+failure.pyc		reflect.pyc		win32.pyc
+filepath.py		release.py		zippath.py
+filepath.pyc		release.pyc		zippath.pyc
+finalize.py		roots.py		zipstream.py
+finalize.pyc		roots.pyc		zipstream.pyc
+formmethod.py		runtime.py		zsh
+formmethod.pyc		runtime.pyc		zshcomp.py
+hook.py			shortcut.py		zshcomp.pyc
+hook.pyc		shortcut.pyc
+htmlizer.py		syslog.py
+
+build/dst/Library/Python/2.5/site-packages/twisted/python/zsh:
+README		_lore		_tap2deb	_tkmktap
+_cftp		_manhole	_tap2rpm	_trial
+_ckeygen	_mktap		_tapconvert	_twistd
+_conch		_pyhtmlizer	_tkconch	_websetroot
+
+build/dst/Library/Python/2.5/site-packages/twisted/runner:
+__init__.py	inetd.py	inetdtap.py	procmon.py	topfiles
+__init__.pyc	inetd.pyc	inetdtap.pyc	procmon.pyc
+_version.py	inetdconf.py	portmap.c	procutils.py
+_version.pyc	inetdconf.pyc	portmap.so	procutils.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/runner/topfiles:
+NEWS	README
+
+build/dst/Library/Python/2.5/site-packages/twisted/scripts:
+__init__.py		manhole.py		tapconvert.py
+__init__.pyc		manhole.pyc		tapconvert.pyc
+_twistd_unix.py		mktap.py		tkunzip.py
+_twistd_unix.pyc	mktap.pyc		tkunzip.pyc
+_twistw.py		tap2deb.py		trial.py
+_twistw.pyc		tap2deb.pyc		trial.pyc
+htmlizer.py		tap2rpm.py		twistd.py
+htmlizer.pyc		tap2rpm.pyc		twistd.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/spread:
+__init__.py	flavors.py	jelly.py	publish.py	ui
+__init__.pyc	flavors.pyc	jelly.pyc	publish.pyc	util.py
+banana.py	interfaces.py	pb.py		refpath.py	util.pyc
+banana.pyc	interfaces.pyc	pb.pyc		refpath.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/spread/ui:
+__init__.py	gtk2util.pyc	login2.glade	tkutil.py
+__init__.pyc	gtkutil.py	tktree.py	tkutil.pyc
+gtk2util.py	gtkutil.pyc	tktree.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/tap:
+__init__.py	ftp.pyc		portforward.py	socks.pyc
+__init__.pyc	manhole.py	portforward.pyc	telnet.py
+ftp.py		manhole.pyc	socks.py	telnet.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/test:
+__init__.py			test_iutils.py
+__init__.pyc			test_iutils.pyc
+app_qtstub.py			test_jelly.py
+app_qtstub.pyc			test_jelly.pyc
+crash_test_dummy.py		test_journal.py
+crash_test_dummy.pyc		test_journal.pyc
+iosim.py			test_lockfile.py
+iosim.pyc			test_lockfile.pyc
+myrebuilder1.py			test_log.py
+myrebuilder1.pyc		test_log.pyc
+myrebuilder2.py			test_logfile.py
+myrebuilder2.pyc		test_logfile.pyc
+process_cmdline.py		test_loopback.py
+process_cmdline.pyc		test_loopback.pyc
+process_echoer.py		test_manhole.py
+process_echoer.pyc		test_manhole.pyc
+process_fds.py			test_modules.py
+process_fds.pyc			test_modules.pyc
+process_linger.py		test_newcred.py
+process_linger.pyc		test_newcred.pyc
+process_reader.py		test_nmea.py
+process_reader.pyc		test_nmea.pyc
+process_signal.py		test_paths.py
+process_signal.pyc		test_paths.pyc
+process_stdinreader.py		test_pb.py
+process_stdinreader.pyc		test_pb.pyc
+process_tester.py		test_pbfailure.py
+process_tester.pyc		test_pbfailure.pyc
+process_tty.py			test_pcp.py
+process_tty.pyc			test_pcp.pyc
+process_twisted.py		test_persisted.py
+process_twisted.pyc		test_persisted.pyc
+proto_helpers.py		test_plugin.py
+proto_helpers.pyc		test_plugin.pyc
+reflect_helper_VE.py		test_policies.py
+reflect_helper_VE.pyc		test_policies.pyc
+reflect_helper_ZDE.py		test_postfix.py
+reflect_helper_ZDE.pyc		test_postfix.pyc
+server.pem			test_process.py
+ssl_helpers.py			test_process.pyc
+ssl_helpers.pyc			test_protocols.py
+stdio_test_consumer.py		test_protocols.pyc
+stdio_test_consumer.pyc		test_rebuild.py
+stdio_test_hostpeer.py		test_rebuild.pyc
+stdio_test_hostpeer.pyc		test_reflect.py
+stdio_test_lastwrite.py		test_reflect.pyc
+stdio_test_lastwrite.pyc	test_reflector.py
+stdio_test_loseconn.py		test_reflector.pyc
+stdio_test_loseconn.pyc		test_release.py
+stdio_test_producer.py		test_release.pyc
+stdio_test_producer.pyc		test_roots.py
+stdio_test_write.py		test_roots.pyc
+stdio_test_write.pyc		test_shortcut.py
+stdio_test_writeseq.py		test_shortcut.pyc
+stdio_test_writeseq.pyc		test_sip.py
+test_adbapi.py			test_sip.pyc
+test_adbapi.pyc			test_sob.py
+test_amp.py			test_sob.pyc
+test_amp.pyc			test_socks.py
+test_application.py		test_socks.pyc
+test_application.pyc		test_split_compat.py
+test_assertions.py		test_split_compat.pyc
+test_assertions.pyc		test_spread.py
+test_banana.py			test_spread.pyc
+test_banana.pyc			test_ssl.py
+test_compat.py			test_ssl.pyc
+test_compat.pyc			test_sslverify.py
+test_components.py		test_sslverify.pyc
+test_components.pyc		test_stateful.py
+test_context.py			test_stateful.pyc
+test_context.pyc		test_stdio.py
+test_cooperator.py		test_stdio.pyc
+test_cooperator.pyc		test_strports.py
+test_defer.py			test_strports.pyc
+test_defer.pyc			test_task.py
+test_defgen.py			test_task.pyc
+test_defgen.pyc			test_tcp.py
+test_dict.py			test_tcp.pyc
+test_dict.pyc			test_tcp_internals.py
+test_dirdbm.py			test_tcp_internals.pyc
+test_dirdbm.pyc			test_text.py
+test_dist.py			test_text.pyc
+test_dist.pyc			test_threadable.py
+test_doc.py			test_threadable.pyc
+test_doc.pyc			test_threadpool.py
+test_enterprise.py		test_threadpool.pyc
+test_enterprise.pyc		test_threads.py
+test_epoll.py			test_threads.pyc
+test_epoll.pyc			test_timeoutqueue.py
+test_error.py			test_timeoutqueue.pyc
+test_error.pyc			test_tpfile.py
+test_explorer.py		test_tpfile.pyc
+test_explorer.pyc		test_twistd.py
+test_extensions.py		test_twistd.pyc
+test_extensions.pyc		test_udp.py
+test_factories.py		test_udp.pyc
+test_factories.pyc		test_unix.py
+test_failure.py			test_unix.pyc
+test_failure.pyc		test_usage.py
+test_finger.py			test_usage.pyc
+test_finger.pyc			test_util.py
+test_formmethod.py		test_util.pyc
+test_formmethod.pyc		test_versions.py
+test_ftp.py			test_versions.pyc
+test_ftp.pyc			test_zipstream.py
+test_hook.py			test_zipstream.pyc
+test_hook.pyc			test_zshcomp.py
+test_htb.py			test_zshcomp.pyc
+test_htb.pyc			testutils.py
+test_ident.py			testutils.pyc
+test_ident.pyc			threading_latency.py
+test_import.py			threading_latency.pyc
+test_import.pyc			time_helpers.py
+test_internet.py		time_helpers.pyc
+test_internet.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/topfiles:
+CREDITS		ChangeLog.Old	INSTALL		NEWS		README
+
+build/dst/Library/Python/2.5/site-packages/twisted/trial:
+__init__.py	itrial.pyc	runner.py	unittest.py	util.pyc
+__init__.pyc	reporter.py	runner.pyc	unittest.pyc
+itrial.py	reporter.pyc	test		util.py
+
+build/dst/Library/Python/2.5/site-packages/twisted/trial/test:
+__init__.py		packages.py		test_log.pyc
+__init__.pyc		packages.pyc		test_output.py
+detests.py		sample.py		test_output.pyc
+detests.pyc		sample.pyc		test_pyunitcompat.py
+erroneous.py		scripttest.py		test_pyunitcompat.pyc
+erroneous.pyc		scripttest.pyc		test_reporter.py
+mockcustomsuite.py	suppression.py		test_reporter.pyc
+mockcustomsuite.pyc	suppression.pyc		test_runner.py
+mockcustomsuite2.py	test_assertions.py	test_runner.pyc
+mockcustomsuite2.pyc	test_assertions.pyc	test_script.py
+mockcustomsuite3.py	test_class.py		test_script.pyc
+mockcustomsuite3.pyc	test_class.pyc		test_test_visitor.py
+mockdoctest.py		test_deferred.py	test_test_visitor.pyc
+mockdoctest.pyc		test_deferred.pyc	test_tests.py
+moduleself.py		test_doctest.py		test_tests.pyc
+moduleself.pyc		test_doctest.pyc	test_util.py
+moduletest.py		test_keyboard.py	test_util.pyc
+moduletest.pyc		test_keyboard.pyc	weird.py
+notpython		test_loader.py		weird.pyc
+novars.py		test_loader.pyc
+novars.pyc		test_log.py
+
+build/dst/Library/Python/2.5/site-packages/twisted/web:
+__init__.py	error.py	monitor.py	soap.py		twcgi.py
+__init__.pyc	error.pyc	monitor.pyc	soap.pyc	twcgi.pyc
+_version.py	google.py	proxy.py	static.py	util.py
+_version.pyc	google.pyc	proxy.pyc	static.pyc	util.pyc
+client.py	guard.py	resource.py	sux.py		vhost.py
+client.pyc	guard.pyc	resource.pyc	sux.pyc		vhost.pyc
+demo.py		html.py		rewrite.py	tap.py		widgets.py
+demo.pyc	html.pyc	rewrite.pyc	tap.pyc		widgets.pyc
+distrib.py	http.py		script.py	test		woven
+distrib.pyc	http.pyc	script.pyc	topfiles	xmlrpc.py
+domhelpers.py	microdom.py	server.py	trp.py		xmlrpc.pyc
+domhelpers.pyc	microdom.pyc	server.pyc	trp.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/web/test:
+__init__.py		test_http.pyc		test_webclient.py
+__init__.pyc		test_mvc.py		test_webclient.pyc
+test_cgi.py		test_mvc.pyc		test_woven.py
+test_cgi.pyc		test_soap.py		test_woven.pyc
+test_distrib.py		test_soap.pyc		test_xml.py
+test_distrib.pyc	test_static.py		test_xml.pyc
+test_domhelpers.py	test_static.pyc		test_xmlrpc.py
+test_domhelpers.pyc	test_web.py		test_xmlrpc.pyc
+test_http.py		test_web.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/web/topfiles:
+NEWS	README
+
+build/dst/Library/Python/2.5/site-packages/twisted/web/woven:
+FlashConduit.fla	flashconduit.pyc	simpleguard.py
+FlashConduit.swf	form.py			simpleguard.pyc
+FlashConduitGlue.html	form.pyc		tapestry.py
+WebConduit2_mozilla.js	guard.py		tapestry.pyc
+WebConduit2_msie.js	guard.pyc		template.py
+WebConduitGlue.html	input.py		template.pyc
+__init__.py		input.pyc		utils.py
+__init__.pyc		interfaces.py		utils.pyc
+controller.py		interfaces.pyc		view.py
+controller.pyc		model.py		view.pyc
+dirlist.py		model.pyc		widgets.py
+dirlist.pyc		page.py			widgets.pyc
+flashconduit.py		page.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/web2:
+TODO			http.py			static.py
+__init__.py		http.pyc		static.pyc
+__init__.pyc		http_headers.py		stream.py
+_version.py		http_headers.pyc	stream.pyc
+_version.pyc		iweb.py			tap.py
+auth			iweb.pyc		tap.pyc
+channel			log.py			test
+client			log.pyc			topfiles
+compat.py		plugin.py		twcgi.py
+compat.pyc		plugin.pyc		twcgi.pyc
+dav			proxy.py		twscgi.py
+dirlist.py		proxy.pyc		twscgi.pyc
+dirlist.pyc		resource.py		vhost.py
+error.py		resource.pyc		vhost.pyc
+error.pyc		responsecode.py		wsgi.py
+fileupload.py		responsecode.pyc	wsgi.pyc
+fileupload.pyc		server.py		xmlrpc.py
+filter			server.pyc		xmlrpc.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/web2/auth:
+__init__.py	basic.py	digest.py	interfaces.py	wrapper.py
+__init__.pyc	basic.pyc	digest.pyc	interfaces.pyc	wrapper.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/web2/channel:
+__init__.py	cgi.py		fastcgi.py	http.py		scgi.py
+__init__.pyc	cgi.pyc		fastcgi.pyc	http.pyc	scgi.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/web2/client:
+__init__.py	http.py		interfaces.py
+__init__.pyc	http.pyc	interfaces.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/web2/dav:
+__init__.py	element		idav.pyc	static.py	util.pyc
+__init__.pyc	fileop.py	method		static.pyc	xattrprops.py
+auth.py		fileop.pyc	noneprops.py	stream.py	xattrprops.pyc
+auth.pyc	http.py		noneprops.pyc	stream.pyc
+davxml.py	http.pyc	resource.py	test
+davxml.pyc	idav.py		resource.pyc	util.py
+
+build/dst/Library/Python/2.5/site-packages/twisted/web2/dav/element:
+__init__.py	extensions.py	rfc2518.py	rfc3744.py	util.py
+__init__.pyc	extensions.pyc	rfc2518.pyc	rfc3744.pyc	util.pyc
+base.py		parser.py	rfc3253.py	rfc4331.py	xmlext.py
+base.pyc	parser.pyc	rfc3253.pyc	rfc4331.pyc	xmlext.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/web2/dav/method:
+__init__.py
+__init__.pyc
+acl.py
+acl.pyc
+copymove.py
+copymove.pyc
+delete.py
+delete.pyc
+get.py
+get.pyc
+lock.py
+lock.pyc
+mkcol.py
+mkcol.pyc
+prop_common.py
+prop_common.pyc
+propfind.py
+propfind.pyc
+proppatch.py
+proppatch.pyc
+put.py
+put.pyc
+put_common.py
+put_common.pyc
+report.py
+report.pyc
+report_acl_principal_prop_set.py
+report_acl_principal_prop_set.pyc
+report_expand.py
+report_expand.pyc
+report_principal_match.py
+report_principal_match.pyc
+report_principal_property_search.py
+report_principal_property_search.pyc
+report_principal_search_property_set.py
+report_principal_search_property_set.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/web2/dav/test:
+__init__.py		test_move.py		test_resource.pyc
+__init__.pyc		test_move.pyc		test_static.py
+data			test_options.py		test_static.pyc
+test_acl.py		test_options.pyc	test_stream.py
+test_acl.pyc		test_pipeline.py	test_stream.pyc
+test_copy.py		test_pipeline.pyc	test_util.py
+test_copy.pyc		test_prop.py		test_util.pyc
+test_delete.py		test_prop.pyc		test_xml.py
+test_delete.pyc		test_put.py		test_xml.pyc
+test_http.py		test_put.pyc		test_xml_rfc3744.py
+test_http.pyc		test_report.py		test_xml_rfc3744.pyc
+test_lock.py		test_report.pyc		tworequest_client.py
+test_lock.pyc		test_report_expand.py	tworequest_client.pyc
+test_mkcol.py		test_report_expand.pyc	util.py
+test_mkcol.pyc		test_resource.py	util.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/web2/dav/test/data:
+xml
+
+build/dst/Library/Python/2.5/site-packages/twisted/web2/dav/test/data/xml:
+PROPFIND_bad.xml		PROPPATCH_request.xml
+PROPFIND_nonamespace.xml	REPORT_request.xml
+PROPFIND_request.xml		REPORT_response.xml
+PROPFIND_response.xml
+
+build/dst/Library/Python/2.5/site-packages/twisted/web2/filter:
+__init__.py	gzip.py		location.py	range.py
+__init__.pyc	gzip.pyc	location.pyc	range.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/web2/test:
+__init__.py		test_fileupload.py	test_server.py
+__init__.pyc		test_fileupload.pyc	test_server.pyc
+server.pem		test_http.py		test_static.py
+simple_client.py	test_http.pyc		test_static.pyc
+simple_client.pyc	test_http_headers.py	test_stream.py
+stream_data.txt		test_http_headers.pyc	test_stream.pyc
+test_cgi.py		test_httpauth.py	test_vhost.py
+test_cgi.pyc		test_httpauth.pyc	test_vhost.pyc
+test_client.py		test_log.py		test_wsgi.py
+test_client.pyc		test_log.pyc		test_wsgi.pyc
+test_compat.py		test_plugin.py		test_xmlrpc.py
+test_compat.pyc		test_plugin.pyc		test_xmlrpc.pyc
+test_fastcgi.py		test_scgi.py
+test_fastcgi.pyc	test_scgi.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/web2/topfiles:
+NEWS	README
+
+build/dst/Library/Python/2.5/site-packages/twisted/words:
+__init__.py	ewords.py	iwords.pyc	service.pyc	toctap.py
+__init__.pyc	ewords.pyc	protocols	tap.py		toctap.pyc
+_version.py	im		scripts		tap.pyc		topfiles
+_version.pyc	iwords.py	service.py	test		xish
+
+build/dst/Library/Python/2.5/site-packages/twisted/words/im:
+__init__.py		gtkchat.pyc		jychat.pyc
+__init__.pyc		gtkcommon.py		locals.py
+baseaccount.py		gtkcommon.pyc		locals.pyc
+baseaccount.pyc		instancemessenger.glade	pbsupport.py
+basechat.py		interfaces.py		pbsupport.pyc
+basechat.pyc		interfaces.pyc		proxyui.py
+basesupport.py		ircsupport.py		proxyui.pyc
+basesupport.pyc		ircsupport.pyc		tap.py
+gtkaccount.py		jyaccount.py		tap.pyc
+gtkaccount.pyc		jyaccount.pyc		tocsupport.py
+gtkchat.py		jychat.py		tocsupport.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/words/protocols:
+__init__.py	irc.pyc		msn.pyc		toc.py
+__init__.pyc	jabber		oscar.py	toc.pyc
+irc.py		msn.py		oscar.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/words/protocols/jabber:
+__init__.py		ijabber.py		sasl_mechanisms.py
+__init__.pyc		ijabber.pyc		sasl_mechanisms.pyc
+client.py		jid.py			xmlstream.py
+client.pyc		jid.pyc			xmlstream.pyc
+component.py		jstrports.py		xmpp_stringprep.py
+component.pyc		jstrports.pyc		xmpp_stringprep.pyc
+error.py		sasl.py
+error.pyc		sasl.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/words/scripts:
+__init__.py	__init__.pyc	im.py		im.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/words/test:
+__init__.py			test_jabbersaslmechanisms.py
+__init__.pyc			test_jabbersaslmechanisms.pyc
+test_basesupport.py		test_jabberxmlstream.py
+test_basesupport.pyc		test_jabberxmlstream.pyc
+test_domish.py			test_jabberxmppstringprep.py
+test_domish.pyc			test_jabberxmppstringprep.pyc
+test_irc.py			test_msn.py
+test_irc.pyc			test_msn.pyc
+test_jabberclient.py		test_service.py
+test_jabberclient.pyc		test_service.pyc
+test_jabbercomponent.py		test_toc.py
+test_jabbercomponent.pyc	test_toc.pyc
+test_jabbererror.py		test_xishutil.py
+test_jabbererror.pyc		test_xishutil.pyc
+test_jabberjid.py		test_xmlstream.py
+test_jabberjid.pyc		test_xmlstream.pyc
+test_jabbersasl.py		test_xpath.py
+test_jabbersasl.pyc		test_xpath.pyc
+
+build/dst/Library/Python/2.5/site-packages/twisted/words/topfiles:
+NEWS	README
+
+build/dst/Library/Python/2.5/site-packages/twisted/words/xish:
+__init__.py	domish.pyc	xmlstream.py	xpath.pyc	xpathparser.pyc
+__init__.pyc	utility.py	xmlstream.pyc	xpathparser.g
+domish.py	utility.pyc	xpath.py	xpathparser.py
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav:
+__init__.py		freebusyurl.py		notify.pyc
+__init__.pyc		freebusyurl.pyc		pdmonster.py
+_sacl.so		httpfactory.py		pdmonster.pyc
+accesslog.py		httpfactory.pyc		query
+accesslog.pyc		ical.py			resource.py
+accounting.py		ical.pyc		resource.pyc
+accounting.pyc		icaldav.py		root.py
+admin			icaldav.pyc		root.pyc
+authkerb.py		images			schedule.py
+authkerb.pyc		index.py		schedule.pyc
+backup.py		index.pyc		scheduling
+backup.pyc		instance.py		sql.py
+cache.py		instance.pyc		sql.pyc
+cache.pyc		localization.py		static.py
+caldavxml.py		localization.pyc	static.pyc
+caldavxml.pyc		log.py			test
+config.py		log.pyc			timezones.py
+config.pyc		mail.py			timezones.pyc
+customxml.py		mail.pyc		timezoneservice.py
+customxml.pyc		memcache.py		timezoneservice.pyc
+dateops.py		memcache.pyc		upgrade.py
+dateops.pyc		memcachelock.py		upgrade.pyc
+directory		memcachelock.pyc	util.py
+dropbox.py		memcachepool.py		util.pyc
+dropbox.pyc		memcachepool.pyc	version.py
+extensions.py		memcacher.py		version.pyc
+extensions.pyc		memcacher.pyc		zoneinfo
+fileops.py		method
+fileops.pyc		notify.py
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/admin:
+__init__.py	logs.py		principals.py	script.py	util.py
+__init__.pyc	logs.pyc	principals.pyc	script.pyc	util.pyc
+formatters.py	options.py	purge.py	stats.py
+formatters.pyc	options.pyc	purge.pyc	stats.pyc
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/directory:
+__init__.py		digest.py		sudo.py
+__init__.pyc		digest.pyc		sudo.pyc
+aggregate.py		directory.py		test
+aggregate.pyc		directory.pyc		util.py
+apache.py		idirectory.py		util.pyc
+apache.pyc		idirectory.pyc		wiki.py
+appleopendirectory.py	principal.py		wiki.pyc
+appleopendirectory.pyc	principal.pyc		xmlaccountsparser.py
+calendar.py		resource.py		xmlaccountsparser.pyc
+calendar.pyc		resource.pyc		xmlfile.py
+calendaruserproxy.py	sqldb.py		xmlfile.pyc
+calendaruserproxy.pyc	sqldb.pyc
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/directory/test:
+__init__.py			test_opendirectoryschema.pyc
+__init__.pyc			test_principal.py
+test_aggregate.py		test_principal.pyc
+test_aggregate.pyc		test_proxyprincipaldb.py
+test_apache.py			test_proxyprincipaldb.pyc
+test_apache.pyc			test_proxyprincipalmembers.py
+test_calendar.py		test_proxyprincipalmembers.pyc
+test_calendar.pyc		test_sqldb.py
+test_digest.py			test_sqldb.pyc
+test_digest.pyc			test_sudo.py
+test_guidchange.py		test_sudo.pyc
+test_guidchange.pyc		test_util.py
+test_opendirectory.py		test_util.pyc
+test_opendirectory.pyc		test_xmlfile.py
+test_opendirectoryrecords.py	test_xmlfile.pyc
+test_opendirectoryrecords.pyc	util.py
+test_opendirectoryschema.py	util.pyc
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/images:
+mail
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/images/mail:
+ical.jpg
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/method:
+__init__.py		mkcalendar.py		report.py
+__init__.pyc		mkcalendar.pyc		report.pyc
+copymove.py		mkcol.py		report_calquery.py
+copymove.pyc		mkcol.pyc		report_calquery.pyc
+delete.py		propfind.py		report_common.py
+delete.pyc		propfind.pyc		report_common.pyc
+delete_common.py	put.py			report_freebusy.py
+delete_common.pyc	put.pyc			report_freebusy.pyc
+get.py			put_common.py		report_multiget.py
+get.pyc			put_common.pyc		report_multiget.pyc
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/query:
+__init__.py		calendarquery.pyc	sqlgenerator.py
+__init__.pyc		expression.py		sqlgenerator.pyc
+calendarquery.py	expression.pyc
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/scheduling:
+__init__.py		delivery.pyc		ischeduleservers.py
+__init__.pyc		icaldiff.py		ischeduleservers.pyc
+addressmapping.py	icaldiff.pyc		itip.py
+addressmapping.pyc	imip.py			itip.pyc
+caldav.py		imip.pyc		processing.py
+caldav.pyc		implicit.py		processing.pyc
+cuaddress.py		implicit.pyc		scheduler.py
+cuaddress.pyc		ischedule.py		scheduler.pyc
+delivery.py		ischedule.pyc		test
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/scheduling/test:
+__init__.py		test_icaldiff.pyc	test_itip.py
+__init__.pyc		test_implicit.py	test_itip.pyc
+test_icaldiff.py	test_implicit.pyc
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/test:
+__init__.py			test_memcachelock.pyc
+__init__.pyc			test_memcachepool.py
+test_DAV.py			test_memcachepool.pyc
+test_DAV.pyc			test_memcacher.py
+test_accounting.py		test_memcacher.pyc
+test_accounting.pyc		test_mkcalendar.py
+test_cache.py			test_mkcalendar.pyc
+test_cache.pyc			test_multiget.py
+test_calendarquery.py		test_multiget.pyc
+test_calendarquery.pyc		test_notify.py
+test_collectioncontents.py	test_notify.pyc
+test_collectioncontents.pyc	test_options.py
+test_config.py			test_options.pyc
+test_config.pyc			test_props.py
+test_dateops.py			test_props.pyc
+test_dateops.pyc		test_resource.py
+test_freebusyquery.py		test_resource.pyc
+test_freebusyquery.pyc		test_root.py
+test_icalendar.py		test_root.pyc
+test_icalendar.pyc		test_schedule.py
+test_index.py			test_schedule.pyc
+test_index.pyc			test_sql.py
+test_kerberos.py		test_sql.pyc
+test_kerberos.pyc		test_static.py
+test_localization.py		test_static.pyc
+test_localization.pyc		test_timezones.py
+test_log.py			test_timezones.pyc
+test_log.pyc			test_upgrade.py
+test_mail.py			test_upgrade.pyc
+test_mail.pyc			test_xml.py
+test_memcache.py		test_xml.pyc
+test_memcache.pyc		util.py
+test_memcachelock.py		util.pyc
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo:
+Africa		Canada		Hongkong.ics	Libya.ics	Portugal.ics
+America		Chile		Iceland.ics	Mexico		ROC.ics
+Antarctica	Cuba.ics	Indian		NZ-CHAT.ics	ROK.ics
+Arctic		Egypt.ics	Iran.ics	NZ.ics		Singapore.ics
+Asia		Eire.ics	Israel.ics	Navajo.ics	Turkey.ics
+Atlantic	Europe		Jamaica.ics	PRC.ics		US
+Australia	GB-Eire.ics	Japan.ics	Pacific		W-SU.ics
+Brazil		GB.ics		Kwajalein.ics	Poland.ics
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Africa:
+Abidjan.ics		Dar_es_Salaam.ics	Malabo.ics
+Accra.ics		Djibouti.ics		Maputo.ics
+Addis_Ababa.ics		Douala.ics		Maseru.ics
+Algiers.ics		El_Aaiun.ics		Mbabane.ics
+Asmara.ics		Freetown.ics		Mogadishu.ics
+Asmera.ics		Gaborone.ics		Monrovia.ics
+Bamako.ics		Harare.ics		Nairobi.ics
+Bangui.ics		Johannesburg.ics	Ndjamena.ics
+Banjul.ics		Kampala.ics		Niamey.ics
+Bissau.ics		Khartoum.ics		Nouakchott.ics
+Blantyre.ics		Kigali.ics		Ouagadougou.ics
+Brazzaville.ics		Kinshasa.ics		Porto-Novo.ics
+Bujumbura.ics		Lagos.ics		Sao_Tome.ics
+Cairo.ics		Libreville.ics		Timbuktu.ics
+Casablanca.ics		Lome.ics		Tripoli.ics
+Ceuta.ics		Luanda.ics		Tunis.ics
+Conakry.ics		Lubumbashi.ics		Windhoek.ics
+Dakar.ics		Lusaka.ics
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/America:
+Adak.ics		Glace_Bay.ics		Noronha.ics
+Anchorage.ics		Godthab.ics		North_Dakota
+Anguilla.ics		Goose_Bay.ics		Panama.ics
+Antigua.ics		Grand_Turk.ics		Pangnirtung.ics
+Araguaina.ics		Grenada.ics		Paramaribo.ics
+Argentina		Guadeloupe.ics		Phoenix.ics
+Aruba.ics		Guatemala.ics		Port-au-Prince.ics
+Asuncion.ics		Guayaquil.ics		Port_of_Spain.ics
+Atikokan.ics		Guyana.ics		Porto_Acre.ics
+Atka.ics		Halifax.ics		Porto_Velho.ics
+Bahia.ics		Havana.ics		Puerto_Rico.ics
+Barbados.ics		Hermosillo.ics		Rainy_River.ics
+Belem.ics		Indiana			Rankin_Inlet.ics
+Belize.ics		Indianapolis.ics	Recife.ics
+Blanc-Sablon.ics	Inuvik.ics		Regina.ics
+Boa_Vista.ics		Iqaluit.ics		Resolute.ics
+Bogota.ics		Jamaica.ics		Rio_Branco.ics
+Boise.ics		Jujuy.ics		Rosario.ics
+Buenos_Aires.ics	Juneau.ics		Santarem.ics
+Cambridge_Bay.ics	Kentucky		Santiago.ics
+Campo_Grande.ics	Knox_IN.ics		Santo_Domingo.ics
+Cancun.ics		La_Paz.ics		Sao_Paulo.ics
+Caracas.ics		Lima.ics		Scoresbysund.ics
+Catamarca.ics		Los_Angeles.ics		Shiprock.ics
+Cayenne.ics		Louisville.ics		St_Barthelemy.ics
+Cayman.ics		Maceio.ics		St_Johns.ics
+Chicago.ics		Managua.ics		St_Kitts.ics
+Chihuahua.ics		Manaus.ics		St_Lucia.ics
+Coral_Harbour.ics	Marigot.ics		St_Thomas.ics
+Cordoba.ics		Martinique.ics		St_Vincent.ics
+Costa_Rica.ics		Mazatlan.ics		Swift_Current.ics
+Cuiaba.ics		Mendoza.ics		Tegucigalpa.ics
+Curacao.ics		Menominee.ics		Thule.ics
+Danmarkshavn.ics	Merida.ics		Thunder_Bay.ics
+Dawson.ics		Mexico_City.ics		Tijuana.ics
+Dawson_Creek.ics	Miquelon.ics		Toronto.ics
+Denver.ics		Moncton.ics		Tortola.ics
+Detroit.ics		Monterrey.ics		Vancouver.ics
+Dominica.ics		Montevideo.ics		Virgin.ics
+Edmonton.ics		Montreal.ics		Whitehorse.ics
+Eirunepe.ics		Montserrat.ics		Winnipeg.ics
+El_Salvador.ics		Nassau.ics		Yakutat.ics
+Ensenada.ics		New_York.ics		Yellowknife.ics
+Fort_Wayne.ics		Nipigon.ics
+Fortaleza.ics		Nome.ics
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/America/Argentina:
+Buenos_Aires.ics	La_Rioja.ics		San_Luis.ics
+Catamarca.ics		Mendoza.ics		Tucuman.ics
+ComodRivadavia.ics	Rio_Gallegos.ics	Ushuaia.ics
+Cordoba.ics		Salta.ics
+Jujuy.ics		San_Juan.ics
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/America/Indiana:
+Indianapolis.ics	Petersburg.ics		Vincennes.ics
+Knox.ics		Tell_City.ics		Winamac.ics
+Marengo.ics		Vevay.ics
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/America/Kentucky:
+Louisville.ics	Monticello.ics
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/America/North_Dakota:
+Center.ics	New_Salem.ics
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Antarctica:
+Casey.ics		McMurdo.ics		Syowa.ics
+Davis.ics		Palmer.ics		Vostok.ics
+DumontDUrville.ics	Rothera.ics
+Mawson.ics		South_Pole.ics
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Arctic:
+Longyearbyen.ics
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Asia:
+Aden.ics		Hong_Kong.ics		Pyongyang.ics
+Almaty.ics		Hovd.ics		Qatar.ics
+Amman.ics		Irkutsk.ics		Qyzylorda.ics
+Anadyr.ics		Istanbul.ics		Rangoon.ics
+Aqtau.ics		Jakarta.ics		Riyadh.ics
+Aqtobe.ics		Jayapura.ics		Saigon.ics
+Ashgabat.ics		Jerusalem.ics		Sakhalin.ics
+Ashkhabad.ics		Kabul.ics		Samarkand.ics
+Baghdad.ics		Kamchatka.ics		Seoul.ics
+Bahrain.ics		Karachi.ics		Shanghai.ics
+Baku.ics		Kashgar.ics		Singapore.ics
+Bangkok.ics		Katmandu.ics		Taipei.ics
+Beirut.ics		Kolkata.ics		Tashkent.ics
+Bishkek.ics		Krasnoyarsk.ics		Tbilisi.ics
+Brunei.ics		Kuala_Lumpur.ics	Tehran.ics
+Calcutta.ics		Kuching.ics		Tel_Aviv.ics
+Choibalsan.ics		Kuwait.ics		Thimbu.ics
+Chongqing.ics		Macao.ics		Thimphu.ics
+Chungking.ics		Macau.ics		Tokyo.ics
+Colombo.ics		Magadan.ics		Ujung_Pandang.ics
+Dacca.ics		Makassar.ics		Ulaanbaatar.ics
+Damascus.ics		Manila.ics		Ulan_Bator.ics
+Dhaka.ics		Muscat.ics		Urumqi.ics
+Dili.ics		Nicosia.ics		Vientiane.ics
+Dubai.ics		Novosibirsk.ics		Vladivostok.ics
+Dushanbe.ics		Omsk.ics		Yakutsk.ics
+Gaza.ics		Oral.ics		Yekaterinburg.ics
+Harbin.ics		Phnom_Penh.ics		Yerevan.ics
+Ho_Chi_Minh.ics		Pontianak.ics
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Atlantic:
+Azores.ics		Faeroe.ics		Reykjavik.ics
+Bermuda.ics		Faroe.ics		South_Georgia.ics
+Canary.ics		Jan_Mayen.ics		St_Helena.ics
+Cape_Verde.ics		Madeira.ics		Stanley.ics
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Australia:
+ACT.ics		Currie.ics	Lindeman.ics	Perth.ics	Victoria.ics
+Adelaide.ics	Darwin.ics	Lord_Howe.ics	Queensland.ics	West.ics
+Brisbane.ics	Eucla.ics	Melbourne.ics	South.ics	Yancowinna.ics
+Broken_Hill.ics	Hobart.ics	NSW.ics		Sydney.ics
+Canberra.ics	LHI.ics		North.ics	Tasmania.ics
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Brazil:
+Acre.ics	DeNoronha.ics	East.ics	West.ics
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Canada:
+Atlantic.ics		Eastern.ics		Pacific.ics
+Central.ics		Mountain.ics		Saskatchewan.ics
+East-Saskatchewan.ics	Newfoundland.ics	Yukon.ics
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Chile:
+Continental.ics		EasterIsland.ics
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Europe:
+Amsterdam.ics	Dublin.ics	Luxembourg.ics	Riga.ics	Uzhgorod.ics
+Andorra.ics	Gibraltar.ics	Madrid.ics	Rome.ics	Vaduz.ics
+Athens.ics	Guernsey.ics	Malta.ics	Samara.ics	Vatican.ics
+Belfast.ics	Helsinki.ics	Mariehamn.ics	San_Marino.ics	Vienna.ics
+Belgrade.ics	Isle_of_Man.ics	Minsk.ics	Sarajevo.ics	Vilnius.ics
+Berlin.ics	Istanbul.ics	Monaco.ics	Simferopol.ics	Volgograd.ics
+Bratislava.ics	Jersey.ics	Moscow.ics	Skopje.ics	Warsaw.ics
+Brussels.ics	Kaliningrad.ics	Nicosia.ics	Sofia.ics	Zagreb.ics
+Bucharest.ics	Kiev.ics	Oslo.ics	Stockholm.ics	Zaporozhye.ics
+Budapest.ics	Lisbon.ics	Paris.ics	Tallinn.ics	Zurich.ics
+Chisinau.ics	Ljubljana.ics	Podgorica.ics	Tirane.ics
+Copenhagen.ics	London.ics	Prague.ics	Tiraspol.ics
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Indian:
+Antananarivo.ics	Comoro.ics		Mauritius.ics
+Chagos.ics		Kerguelen.ics		Mayotte.ics
+Christmas.ics		Mahe.ics		Reunion.ics
+Cocos.ics		Maldives.ics
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Mexico:
+BajaNorte.ics	BajaSur.ics	General.ics
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Pacific:
+Apia.ics		Johnston.ics		Ponape.ics
+Auckland.ics		Kiritimati.ics		Port_Moresby.ics
+Chatham.ics		Kosrae.ics		Rarotonga.ics
+Easter.ics		Kwajalein.ics		Saipan.ics
+Efate.ics		Majuro.ics		Samoa.ics
+Enderbury.ics		Marquesas.ics		Tahiti.ics
+Fakaofo.ics		Midway.ics		Tarawa.ics
+Fiji.ics		Nauru.ics		Tongatapu.ics
+Funafuti.ics		Niue.ics		Truk.ics
+Galapagos.ics		Norfolk.ics		Wake.ics
+Gambier.ics		Noumea.ics		Wallis.ics
+Guadalcanal.ics		Pago_Pago.ics		Yap.ics
+Guam.ics		Palau.ics
+Honolulu.ics		Pitcairn.ics
+
+build/dst/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/US:
+Alaska.ics		East-Indiana.ics	Michigan.ics
+Aleutian.ics		Eastern.ics		Mountain.ics
+Arizona.ics		Hawaii.ics		Pacific.ics
+Central.ics		Indiana-Starke.ics	Samoa.ics
+
+build/dst/Library/Python/2.5/site-packages/vobject:
+__init__.py	behavior.py	hcalendar.py	ics_diff.py	win32tz.py
+__init__.pyc	behavior.pyc	hcalendar.pyc	ics_diff.pyc	win32tz.pyc
+base.py		change_tz.py	icalendar.py	vcard.py
+base.pyc	change_tz.pyc	icalendar.pyc	vcard.pyc
+
+build/dst/Library/Python/2.5/site-packages/vobject-0.7.1-py2.5.egg-info:
+PKG-INFO		entry_points.txt	zip-safe
+SOURCES.txt		requires.txt
+dependency_links.txt	top_level.txt
+
+build/dst/System:
+Library
+
+build/dst/System/Library:
+Frameworks
+
+build/dst/System/Library/Frameworks:
+Python.framework
+
+build/dst/System/Library/Frameworks/Python.framework:
+Versions
+
+build/dst/System/Library/Frameworks/Python.framework/Versions:
+2.5
+
+build/dst/System/Library/Frameworks/Python.framework/Versions/2.5:
+caldavd
+
+build/dst/System/Library/Frameworks/Python.framework/Versions/2.5/caldavd:
+caldavd.plist
+
+build/dst/usr:
+local
+
+build/dst/usr/local:
+bin
+
+build/dst/usr/local/bin:
+bookify		ckeygen		manhole		tap2deb		xmlproc_parse
+caladmin	conch		mktap		tap2rpm		xmlproc_val
+caldav_export	ics_diff	pydir++.py	tapconvert
+caldavd		im		pydir.py	tkconch
+cftp		lore		pyhtmlizer	trial
+change_tz	mailmail	t-im		twistd
+

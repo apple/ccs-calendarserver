@@ -1,0 +1,16 @@
+2015-11-11 14:25:59+0100 [-] [caldav-0]  [-] [twext.enterprise.jobs.jobitem#error] JobItem: 72, WorkItem: 72 failed: [Failure instance: Traceback: <type 'exceptions.TypeError'>: Unicode value for key 'id' not allowed: u'/CalDAV/localhost/10000000-0000-0000-0000-000000000001/calendar/'
+2015-11-11 14:25:59+0100 [-] [caldav-0] 	/home/kmo/data/bugreport_external_pg/CalendarServer-7.0/.develop/virtualenv/local/lib/python2.7/site-packages/twisted/internet/defer.py:1274:unwindGenerator
+2015-11-11 14:25:59+0100 [-] [caldav-0] 	/home/kmo/data/bugreport_external_pg/CalendarServer-7.0/.develop/virtualenv/local/lib/python2.7/site-packages/twisted/internet/defer.py:1128:_inlineCallbacks
+2015-11-11 14:25:59+0100 [-] [caldav-0] 	/home/kmo/sda1/data/bugreport_external_pg/CalendarServer-7.0/calendarserver/push/notifier.py:279:enqueue
+2015-11-11 14:25:59+0100 [-] [caldav-0] 	/home/kmo/data/bugreport_external_pg/CalendarServer-7.0/.develop/virtualenv/local/lib/python2.7/site-packages/twisted/internet/defer.py:1274:unwindGenerator
+2015-11-11 14:25:59+0100 [-] [caldav-0] 	--- <exception caught here> ---
+2015-11-11 14:25:59+0100 [-] [caldav-0] 	/home/kmo/data/bugreport_external_pg/CalendarServer-7.0/.develop/virtualenv/local/lib/python2.7/site-packages/twisted/internet/defer.py:1128:_inlineCallbacks
+2015-11-11 14:25:59+0100 [-] [caldav-0] 	/home/kmo/sda1/data/bugreport_external_pg/CalendarServer-7.0/calendarserver/push/amppush.py:98:enqueue
+2015-11-11 14:25:59+0100 [-] [caldav-0] 	/home/kmo/data/bugreport_external_pg/CalendarServer-7.0/.develop/virtualenv/local/lib/python2.7/site-packages/twisted/protocols/amp.py:886:callRemote
+2015-11-11 14:25:59+0100 [-] [caldav-0] 	/home/kmo/data/bugreport_external_pg/CalendarServer-7.0/.develop/virtualenv/local/lib/python2.7/site-packages/twisted/protocols/amp.py:1843:_doCommand
+2015-11-11 14:25:59+0100 [-] [caldav-0] 	/home/kmo/data/bugreport_external_pg/CalendarServer-7.0/.develop/virtualenv/local/lib/python2.7/site-packages/twisted/protocols/amp.py:817:_sendBoxCommand
+2015-11-11 14:25:59+0100 [-] [caldav-0] 	/home/kmo/data/bugreport_external_pg/CalendarServer-7.0/.develop/virtualenv/local/lib/python2.7/site-packages/twisted/protocols/amp.py:642:_sendTo
+2015-11-11 14:25:59+0100 [-] [caldav-0] 	/home/kmo/sda1/data/bugreport_external_pg/CalendarServer-7.0/calendarserver/controlsocket.py:38:sendBox
+2015-11-11 14:25:59+0100 [-] [caldav-0] 	/home/kmo/data/bugreport_external_pg/CalendarServer-7.0/.develop/virtualenv/local/lib/python2.7/site-packages/twisted/protocols/amp.py:2218:sendBox
+2015-11-11 14:25:59+0100 [-] [caldav-0] 	/home/kmo/data/bugreport_external_pg/CalendarServer-7.0/.develop/virtualenv/local/lib/python2.7/site-packages/twisted/protocols/amp.py:616:serialize
+2015-11-11 14:25:59+0100 [-] [caldav-0] 	]

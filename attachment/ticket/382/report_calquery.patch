@@ -1,0 +1,13 @@
+diff --git a/twistedcaldav/method/report_calquery.py b/twistedcaldav/method/report_calquery.py
+index da7378d..3e6ad05 100644
+--- a/twistedcaldav/method/report_calquery.py
++++ b/twistedcaldav/method/report_calquery.py
+@@ -181,7 +181,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
+                     index_query_ok = False
+ 
+                 if not names:
+-                    return
++                    returnValue(True)
+                   
+                 # Now determine which valid resources are readable and which are not
+                 ok_resources = []

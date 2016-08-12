@@ -1,0 +1,61 @@
+Index: twisted/web2/dav/element/parser.py
+===================================================================
+--- twisted/web2/dav/element/parser.py	(revision 18545)
++++ twisted/web2/dav/element/parser.py	(working copy)
+@@ -106,6 +106,26 @@
+             "children"   : [],
+         }]
+ 
++        # Keep a cache of the subclasses we create for unknown XML
++        # elements, so that we don't create multiple classes for the
++        # same element; it's fairly typical for elements to appear
++        # multiple times in a document.
++        self.unknownElementClasses = {}
++
++        # New-style classes keep weak references to all subclasses.
++        # As a result, the subclasses we create continue to effect the
++        # footprint of WebDAVUnknownElement even after they are
++        # deallocated, up to the maximum number of subclasses that exist
++        # simultaneously.  The number of such weak references doesn't appear
++        # to decrease.  In order to avoid growing it unneccessarily, create a
++        # subclass for use by this document, subclass the new class instead,
++        # and then delete it when we're done, thereby adding only one weak
++        # reference to WebDAVUnknownElement's list.
++        # http://trac.macosforge.org/projects/calendarserver/ticket/101
++        class UnknownElement (WebDAVUnknownElement):
++            pass
++        self.unknownElementClass = UnknownElement
++
+     def endDocument(self):
+         top = self.stack[-1]
+ 
+@@ -115,6 +135,8 @@
+         assert len(top["children"]) is 1, "Must have exactly one root element, got %d" % len(top["children"])
+ 
+         self.dom = WebDAVDocument(top["children"][0])
++        del(self.unknownElementClasses)
++        del(self.unknownElementClass)
+ 
+     def startElementNS(self, name, qname, attributes):
+         attributes_dict = {}
+@@ -125,13 +147,16 @@
+ 
+         tag_namespace, tag_name = name
+ 
+-        if (name not in elements_by_tag_name):
+-            class UnknownElement (WebDAVUnknownElement):
++        if name in elements_by_tag_name:
++            element_class = elements_by_tag_name[name]
++        elif name in self.unknownElementClasses:
++            element_class = self.unknownElementClasses[name]
++        else:
++            class UnknownElement (self.unknownElementClass):
+                 namespace = tag_namespace
+                 name      = tag_name
+             element_class = UnknownElement
+-        else:
+-            element_class = elements_by_tag_name[name]
++            self.unknownElementClasses[name] = UnknownElement
+ 
+         self.stack.append({
+             "name"       : name,

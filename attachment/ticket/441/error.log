@@ -1,0 +1,21 @@
+2011-04-28 03:50:29+0000 [-] Log opened.
+2011-04-28 03:50:29+0000 [-] twistd 10.1.0 (/usr/bin/python2.6 2.6.6) starting up.
+2011-04-28 03:50:29+0000 [-] reactor class: twisted.internet.selectreactor.SelectReactor.
+2011-04-28 03:50:29+0000 [-] calendarserver.accesslog.AMPLoggingFactory starting on "'/var/run/caldavd.sock'"
+2011-04-28 03:50:29+0000 [-] calendarserver.tap.caldav.CalDAVStatisticsServer starting on "'/var/run/caldavd-stats.sock'"
+2011-04-28 03:51:30+0000 [-] [txdav.base.datastore.subpostgres#error] [Failure instance: Traceback: <class 'pg.InternalError'>: could not connect to server: No such file or directory
+		Is the server running locally and accepting
+		connections on Unix domain socket "/var/run/ccs_postgres_b1cb00a038ef9046d3f1e03c2a0723a1/.s.PGSQL.5432"?
+	
+	/usr/lib64/python2.6/site-packages/twisted/internet/_baseprocess.py:60:maybeCallProcessEnded
+	/usr/lib64/python2.6/site-packages/txdav/base/datastore/subpostgres.py:91:processEnded
+	/usr/lib64/python2.6/site-packages/twisted/internet/defer.py:318:callback
+	/usr/lib64/python2.6/site-packages/twisted/internet/defer.py:424:_startRunCallbacks
+	--- <exception caught here> ---
+	/usr/lib64/python2.6/site-packages/twisted/internet/defer.py:441:_runCallbacks
+	/usr/lib64/python2.6/site-packages/txdav/base/datastore/subpostgres.py:365:gotReady
+	/usr/lib64/python2.6/site-packages/txdav/base/datastore/subpostgres.py:268:ready
+	/usr/lib64/python2.6/site-packages/txdav/base/datastore/subpostgres.py:260:produceConnection
+	/usr/lib64/python2.6/site-packages/txdav/base/datastore/dbapiclient.py:176:connect
+	/usr/lib64/python2.6/site-packages/pgdb.py:482:connect
+	]

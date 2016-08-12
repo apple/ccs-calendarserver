@@ -1,0 +1,66 @@
+diff -ru web2/http_headers.py web2-CardDavMATE/http_headers.py
+--- web2/http_headers.py	2011-10-31 00:34:14.000000000 +0100
++++ web2-CardDavMATE/http_headers.py	2011-10-31 00:31:07.000000000 +0100
+@@ -1531,7 +1531,14 @@
+     'Set-Cookie2':(tokenize, parseSetCookie2),
+     'Vary':(tokenize, filterTokens),
+     'WWW-Authenticate': (lambda h: tokenize(h, foldCase=False),
+-                         parseWWWAuthenticate,)
++                         parseWWWAuthenticate,),
++
++    # begin CardDavMATE section
++    'Access-Control-Allow-Origin':(last,),
++    'Access-Control-Allow-Methods':(last,),
++    'Access-Control-Allow-Headers':(last,),
++    'Access-Control-Allow-Credentials':(last,)
++    # end CardDavMATE section
+ }
+ 
+ generator_response_headers = {
+@@ -1545,7 +1552,14 @@
+     'Set-Cookie':(generateSetCookie,),
+     'Set-Cookie2':(generateSetCookie2,),
+     'Vary':(generateList, singleHeader),
+-    'WWW-Authenticate':(generateWWWAuthenticate,)
++    'WWW-Authenticate':(generateWWWAuthenticate,),
++
++    # begin CardDavMATE section
++    'Access-Control-Allow-Origin':(str, singleHeader),
++    'Access-Control-Allow-Methods':(str, singleHeader),
++    'Access-Control-Allow-Headers':(str, singleHeader),
++    'Access-Control-Allow-Credentials':(str, singleHeader)
++    # end CardDavMATE section
+ }
+ 
+ parser_entity_headers = {
+diff -ru web2/server.py web2-CardDavMATE/server.py
+--- web2/server.py	2011-10-31 00:34:21.000000000 +0100
++++ web2-CardDavMATE/server.py	2011-10-31 00:31:07.000000000 +0100
+@@ -58,6 +58,18 @@
+         response.headers.setHeader('server', VERSION)
+     if not response.headers.hasHeader('date'):
+         response.headers.setHeader('date', time.time())
++
++    # begin CardDavMATE section
++    if not response.headers.hasHeader('Access-Control-Allow-Origin'):
++        response.headers.setHeader('Access-Control-Allow-Origin', '*')
++    if not response.headers.hasHeader('Access-Control-Allow-Methods'):
++        response.headers.setHeader('Access-Control-Allow-Methods','GET,POST,OPTIONS,PROPFIND,REPORT,PUT,DELETE')
++    if not response.headers.hasHeader('Access-Control-Allow-Headers'):
++        response.headers.setHeader('Access-Control-Allow-Headers','User-Agent,Authorization,Content-type,Depth,If-match,If-None-Match,X-client')
++    if not response.headers.hasHeader('Access-Control-Allow-Credentials'):
++        response.headers.setHeader('Access-Control-Allow-Credentials','true')
++    # end CardDavMATE section
++
+     return response
+ defaultHeadersFilter.handleErrors = True
+ 
+@@ -354,7 +366,7 @@
+         example. This would also be the place to do any CONNECT
+         processing."""
+ 
+-        if self.method == "OPTIONS" and self.uri == "*":
++        if self.method == "OPTIONS":
+             response = http.Response(responsecode.OK)
+             response.headers.setHeader('allow', ('GET', 'HEAD', 'OPTIONS', 'TRACE'))
+             return response

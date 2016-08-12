@@ -1,0 +1,40 @@
+From 265839b7a44cd3119ff7b2c457603ad84a42e5cf Mon Sep 17 00:00:00 2001
+From: Guido Guenther <agx@sigxcpu.org>
+Date: Mon, 14 Jan 2008 22:00:21 +0100
+Subject: [PATCH] add the wrap/unwrap stubs
+
+---
+ pysrc/kerberos.py |   17 +++++++++++++++++
+ 1 files changed, 17 insertions(+), 0 deletions(-)
+
+diff --git a/pysrc/kerberos.py b/pysrc/kerberos.py
+index 1c56c0e..0812946 100644
+--- a/pysrc/kerberos.py
++++ b/pysrc/kerberos.py
+@@ -124,6 +124,23 @@ def authGSSClientUserName(context):
+     @return:          a string containing the user name.
+     """
+ 
++def authGSSClientUnwrap(context, challenge):
++    """
++    Perform the client side GSSAPI unwrap step
++
++    @param challenge: a string containing the base64-encoded server data.
++    @return: a result code (see above)
++    """
++
++def authGSSClientWrap(context, data, user):
++    """
++    Perform the client side GSSAPI wrap step. 
++    
++    @param data:the result of the authGSSClientResponse after the authGSSClientUnwrap
++    @param user: the user to authorize
++    @return: a result code (see above)
++    """
++
+ def authGSSServerInit(service):
+     """
+     Initializes a context for GSSAPI server-side authentication with the given service principal.
+-- 
+1.5.3.7
+

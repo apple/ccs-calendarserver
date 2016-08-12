@@ -1,0 +1,40 @@
+--- /home/hxie/kerberos-1.2.2/src/kerberosgss.c	2015-03-26 21:07:57.000000000 -0400
++++ /home/hxie/kerberos-1.2.2-new/src/kerberosgss.c	2015-12-07 16:50:57.169936000 -0500
+@@ -537,23 +537,25 @@
+     size_t service_len = strlen(service);
+     if (service_len != 0) {
+         // Import server name first
+-        name_token.length = strlen(service);
+-        name_token.value = (char *)service;
++	if (strcmp(service, "DELEGATE") != 0) { 
++            name_token.length = strlen(service);
++            name_token.value = (char *)service;
+         
+-        maj_stat = gss_import_name(
+-            &min_stat, &name_token, GSS_C_NT_HOSTBASED_SERVICE,
+-            &state->server_name
+-        );
++            maj_stat = gss_import_name(
++                &min_stat, &name_token, GSS_C_NT_HOSTBASED_SERVICE,
++                &state->server_name
++            );
+         
+-        if (GSS_ERROR(maj_stat)) {
+-            set_gss_error(maj_stat, min_stat);
+-            ret = AUTH_GSS_ERROR;
+-            goto end;
+-        }
++            if (GSS_ERROR(maj_stat)) {
++                set_gss_error(maj_stat, min_stat);
++                ret = AUTH_GSS_ERROR;
++                goto end;
++            }
++	}
+ 
+         // Get credentials
+         maj_stat = gss_acquire_cred(
+-            &min_stat, GSS_C_NO_NAME, GSS_C_INDEFINITE, GSS_C_NO_OID_SET,
++            &min_stat, state->server_name, GSS_C_INDEFINITE, GSS_C_NO_OID_SET,
+             GSS_C_BOTH, &state->server_creds, NULL, NULL
+         );
+ 

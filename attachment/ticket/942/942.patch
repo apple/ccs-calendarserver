@@ -1,0 +1,13 @@
+Index: src/kerberos.c
+===================================================================
+--- src/kerberos.c	(revision 15729)
++++ src/kerberos.c	(working copy)
+@@ -150,7 +150,7 @@
+     int result = 0;
+ 
+     if (! PyArg_ParseTupleAndKeywords(
+-        args, keywds, "s|slOO", kwlist,
++        args, keywds, "s|zlOO", kwlist,
+         &service, &principal, &gss_flags, &pydelegatestate, &pymech_oid
+     )) {
+         return NULL;

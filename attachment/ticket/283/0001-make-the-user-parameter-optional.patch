@@ -1,0 +1,80 @@
+[PATCH] make the user parameter optional
+
+this allows for much wider usage of gsswrap
+---
+ src/kerberos.c    |    4 ++--
+ src/kerberosgss.c |   38 ++++++++++++++++++++------------------
+ 2 files changed, 22 insertions(+), 20 deletions(-)
+
+diff --git a/src/kerberos.c b/src/kerberos.c
+index 590bfb5..9c5ed49 100644
+--- a/src/kerberos.c
++++ b/src/kerberos.c
+@@ -201,10 +201,10 @@ static PyObject *authGSSClientWrap(PyObject *self, PyObject *args)
+ {
+ 	gss_client_state *state;
+ 	PyObject *pystate;
+-	char *challenge, *user;
++	char *challenge, *user = NULL;
+ 	int result = 0;
+ 
+-	if (!PyArg_ParseTuple(args, "Oss", &pystate, &challenge, &user) || !PyCObject_Check(pystate))
++	if (!PyArg_ParseTuple(args, "Os|z", &pystate, &challenge, &user) || !PyCObject_Check(pystate))
+ 		return NULL;
+ 
+ 	state = (gss_client_state *)PyCObject_AsVoidPtr(pystate);
+diff --git a/src/kerberosgss.c b/src/kerberosgss.c
+index e0b15b5..086cc78 100644
+--- a/src/kerberosgss.c
++++ b/src/kerberosgss.c
+@@ -333,27 +333,29 @@ int authenticate_gss_client_wrap(gss_client_state* state, const char* challenge,
+ 		input_token.length = len;
+ 	}
+ 
+-	// get bufsize
+-	server_conf_flags = ((char*) input_token.value)[0];
+-	((char*) input_token.value)[0] = 0;
+-	buf_size = ntohl(*((long *) input_token.value));
+-	free(input_token.value);
++	if (user) {
++		// get bufsize
++		server_conf_flags = ((char*) input_token.value)[0];
++		((char*) input_token.value)[0] = 0;
++		buf_size = ntohl(*((long *) input_token.value));
++		free(input_token.value);
+ #ifdef PRINTFS
+-	printf("User: %s, %c%c%c\n", user,
+-		server_conf_flags & GSS_AUTH_P_NONE      ? 'N' : '-',
+-		server_conf_flags & GSS_AUTH_P_INTEGRITY ? 'I' : '-',
+-		server_conf_flags & GSS_AUTH_P_PRIVACY   ? 'P' : '-');
+-	printf("Maximum GSS token size is %ld\n", buf_size);
++		printf("User: %s, %c%c%c\n", user,
++			server_conf_flags & GSS_AUTH_P_NONE      ? 'N' : '-',
++			server_conf_flags & GSS_AUTH_P_INTEGRITY ? 'I' : '-',
++			server_conf_flags & GSS_AUTH_P_PRIVACY   ? 'P' : '-');
++		printf("Maximum GSS token size is %ld\n", buf_size);
+ #endif
+ 
+-	// agree to terms (hack!)
+-	buf_size = htonl(buf_size); // not relevant without integrity/privacy
+-	memcpy(buf, &buf_size, 4);
+-	buf[0] = GSS_AUTH_P_NONE;
+-	// server decides if principal can log in as user
+-	strncpy(buf + 4, user, sizeof(buf) - 4);
+-	input_token.value = buf;
+-	input_token.length = 4 + strlen(user) + 1;
++		// agree to terms (hack!)
++		buf_size = htonl(buf_size); // not relevant without integrity/privacy
++		memcpy(buf, &buf_size, 4);
++		buf[0] = GSS_AUTH_P_NONE;
++		// server decides if principal can log in as user
++		strncpy(buf + 4, user, sizeof(buf) - 4);
++		input_token.value = buf;
++		input_token.length = 4 + strlen(user) + 1;
++	}
+ 
+ 	// Do GSSAPI wrap
+ 	maj_stat = gss_wrap(&min_stat,
+-- 
+1.5.5.3
+

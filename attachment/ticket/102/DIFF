@@ -1,0 +1,50 @@
+Index: twistedcaldav/config.py
+===================================================================
+--- twistedcaldav/config.py	(revision 827)
++++ twistedcaldav/config.py	(working copy)
+@@ -23,7 +23,6 @@
+ defaultConfigFile = '/etc/caldavd/caldavd.plist'
+ 
+ defaultConfig = {
+-    'CreateAccounts': False,
+     'DirectoryService': {
+         'params': {'node': '/Search'},
+         'type': 'twistedcaldav.directory.appleopendirectory.OpenDirectoryService'
+@@ -36,7 +35,6 @@
+     'NotificationsEnabled': False,
+     'PIDFile': '/var/run/caldavd.pid',
+     'Port': 8008,
+-    'ResetAccountACLs': False,
+     'RunStandalone': True,
+     'SSLCertificate': '/etc/certificates/Default.crt',
+     'SSLEnable': True,
+@@ -50,7 +48,7 @@
+     'twistdLocation': '/usr/share/caldavd/bin/twistd',
+     'SACLEnable': False,
+     'AuthSchemes': ['Basic'],
+-    'AdminPrincipals': ['/principal/users/admin']
++    'AdminPrincipals': ['/principal/user/admin']
+ }
+ 
+ class Config (object):
+Index: twistedcaldav/tap.py
+===================================================================
+--- twistedcaldav/tap.py	(revision 827)
++++ twistedcaldav/tap.py	(working copy)
+@@ -182,11 +182,12 @@
+         
+         service = Web2Service(logObserver)
+ 
+-        httpService = internet.TCPServer(
+-            int(config.Port),
+-            channel)
++        if not config.SSLOnly:
++            httpService = internet.TCPServer(
++                int(config.Port),
++                channel)
+ 
+-        httpService.setServiceParent(service)
++            httpService.setServiceParent(service)
+ 
+         if config.SSLEnable:
+             from twisted.internet.ssl import DefaultOpenSSLContextFactory

@@ -1,0 +1,103 @@
+Index: pysrc/kerberos.py
+===================================================================
+--- pysrc/kerberos.py	(revision 15142)
++++ pysrc/kerberos.py	(working copy)
+@@ -177,6 +177,20 @@
+ 
+ 
+ 
++def authGSSClientInquireCred(context):
++    """
++    Get the current user name, if any, without a client-side GSSAPI step.
++    If the principal has already been authenticated via completed client-side
++    GSSAPI steps then the user name of the authenticated principal is kept. The
++    user name will be available via authGSSClientUserName.
++
++    @param context: The context object returned from L{authGSSClientInit}.
++
++    @return: A result code (see above).
++    """
++
++
++
+ def authGSSClientStep(context, challenge):
+     """
+     Processes a single GSSAPI client-side step using the supplied server data.
+@@ -219,9 +233,10 @@
+ def authGSSClientUserName(context):
+     """
+     Get the user name of the principal authenticated via the now complete
+-    GSSAPI client-side operations.
+-    This method must only be called after authGSSClientStep returns a complete
+-    response code.
++    GSSAPI client-side operations, or the current user name obtained via
++    authGSSClientInquireCred. This method must only be called after
++    authGSSClientStep or authGSSClientInquireCred return a complete response
++    code.
+ 
+     @param context: The context object returned from L{authGSSClientInit}.
+ 
+Index: src/kerberosgss.c
+===================================================================
+--- src/kerberosgss.c	(revision 15142)
++++ src/kerberosgss.c	(working copy)
+@@ -319,9 +319,12 @@
+             ret = AUTH_GSS_ERROR;
+             goto end;
+         } else {
++            if (state->username != NULL) {
++                free(state->username);
++                state->username = NULL;
++            }
+             state->username = (char *)malloc(name_token.length + 1);
+-            if (state->username == NULL)
+-            {
++            if (state->username == NULL) {
+                 PyErr_NoMemory();
+                 ret = AUTH_GSS_ERROR;
+                 goto end;
+@@ -516,6 +519,11 @@
+     gss_name_t name = GSS_C_NO_NAME;
+     int ret = AUTH_GSS_COMPLETE;
+ 
++    // Check whether credentials have already been obtained.
++    if (state->username != NULL) {
++        goto end;
++    }
++
+     // Get credentials
+     maj_stat = gss_acquire_cred(
+         &min_stat, GSS_C_NO_NAME, GSS_C_INDEFINITE,
+@@ -547,17 +555,25 @@
+         goto end;
+     }
+ 
+-    state->username = strndup(name_token.value, name_token.length);
+-    if (!state->username) {
+-        set_gss_error(GSS_S_FAILURE, ENOMEM);
++    state->username = (char *)malloc(name_token.length + 1);
++    if (state->username == NULL) {
++        PyErr_NoMemory();
+         ret = AUTH_GSS_ERROR;
++        goto end;
+     }
++    strncpy(state->username, (char*) name_token.value, name_token.length);
++    state->username[name_token.length] = 0;
+ 
+ end:
+-    (void)gss_release_cred(&min_stat, &client_creds);
+-    (void)gss_release_buffer(&min_stat, &name_token);
+-    (void)gss_release_name(&min_stat, &name);
+-
++    if (client_creds != GSS_C_NO_CREDENTIAL) {
++        gss_release_cred(&min_stat, &client_creds);
++    }
++    if (name_token.length) {
++        gss_release_buffer(&min_stat, &name_token);
++    }
++    if (name != GSS_C_NO_NAME) {
++        gss_release_name(&min_stat, &name);
++    }
+     return ret;
+ }
+ 

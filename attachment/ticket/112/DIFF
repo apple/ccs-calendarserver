@@ -1,0 +1,17 @@
+Index: twistedcaldav/directory/principal.py
+===================================================================
+--- twistedcaldav/directory/principal.py	(revision 879)
++++ twistedcaldav/directory/principal.py	(working copy)
+@@ -336,7 +336,11 @@
+         return relatives
+ 
+     def groupMembers(self):
+-        return self._getRelatives("members")
++        principals = self._getRelatives("members")
++        m = set()
++        for p in principals:
++            m.add(p.principalURL());
++        return m
+ 
+     def groupMemberships(self):
+         return self._getRelatives("groups")

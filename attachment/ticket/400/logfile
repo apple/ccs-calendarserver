@@ -1,0 +1,150 @@
+
+Using system version of Zope Interface.
+
+Building PyXML...
+
+A system version of OpenSSL exists, but version is 0.7 (< 0.9).
+Building PyOpenSSL...
+
+Building PyKerberos...
+
+Building PyOpenDirectory...
+
+Using system version of xattr.
+
+Building PyGreSQL...
+
+A system version of twisted exists, but version is 8.2.0 (< 10).
+Building Twisted...
+
+Using system version of dateutil.
+
+Updating CalDAVTester...
+At revision 6338.
+
+Removing build directory /Users/oliviertremblay/Programs/CalendarServer/CalDAVTester/build...
+Removing pyc files from /Users/oliviertremblay/Programs/CalendarServer/CalDAVTester...
+Updating Pyflakes...
+At revision 18024.
+
+Removing build directory /Users/oliviertremblay/Programs/CalendarServer/Pyflakes/build...
+Removing pyc files from /Users/oliviertremblay/Programs/CalendarServer/Pyflakes...
+
+Building pydoctor...
+Building our own extension modules...
+running build_ext
+
+Using python as Python
+
+Starting server...
+Reading configuration from file: /Users/oliviertremblay/Programs/CalendarServer/CalendarServer/conf/caldavd-dev.plist
+2010-09-22 16:38:35-0400 [-] Log opened.
+2010-09-22 16:38:35-0400 [-] twistd 10.0.0 (/usr/bin/python 2.6.1) starting up.
+2010-09-22 16:38:35-0400 [-] reactor class: twisted.internet.selectreactor.SelectReactor.
+2010-09-22 16:38:35-0400 [-] /Users/oliviertremblay/Programs/CalendarServer/Twisted/build/lib.macosx-10.6-universal-2.6/twisted/application/internet.py:116: exceptions.DeprecationWarning: The mode parameter of IReactorUNIX.listenUNIX will be removed.  Do not pass a value for it.  Set permissions on the containing directory before calling IReactorUNIX.listenUNIX, instead.
+2010-09-22 16:38:35-0400 [-] calendarserver.accesslog.AMPLoggingFactory starting on "'./data/Logs/caldavd.sock'"
+2010-09-22 16:38:35-0400 [-] <class 'twext.web2.metafd.LimitingInheritingProtocolFactory'> starting on 8008
+2010-09-22 16:38:35-0400 [-] <class 'twext.web2.metafd.LimitingInheritingProtocolFactory'> starting on 8800
+2010-09-22 16:38:35-0400 [-] <class 'twext.web2.metafd.LimitingInheritingProtocolFactory'> starting on 8443
+2010-09-22 16:38:35-0400 [-] <class 'twext.web2.metafd.LimitingInheritingProtocolFactory'> starting on 8843
+2010-09-22 16:38:35-0400 [-] calendarserver.tap.caldav.CalDAVStatisticsServer starting on "'./data/Logs/caldavd-stats.sock'"
+2010-09-22 16:38:42-0400 [-] received postgres stdout 'waiting for server to start...'
+2010-09-22 16:38:42-0400 [-] received postgres stdout '.'
+2010-09-22 16:38:43-0400 [-] received postgres stdout '.'
+2010-09-22 16:38:44-0400 [-] received postgres stdout '.'
+2010-09-22 16:38:45-0400 [-] received postgres stdout '.'
+2010-09-22 16:38:46-0400 [-] received postgres stdout '.'
+2010-09-22 16:38:47-0400 [-] received postgres stdout '.'
+2010-09-22 16:38:48-0400 [-] received postgres stdout '.'
+2010-09-22 16:38:49-0400 [-] received postgres stdout '.'
+2010-09-22 16:38:50-0400 [-] received postgres stdout '.'
+2010-09-22 16:38:51-0400 [-] received postgres stdout '.'
+2010-09-22 16:38:52-0400 [-] received postgres stdout '.'
+2010-09-22 16:38:53-0400 [-] received postgres stdout '.'
+2010-09-22 16:38:54-0400 [-] received postgres stdout '.'
+2010-09-22 16:38:55-0400 [-] received postgres stdout '.'
+2010-09-22 16:38:56-0400 [-] received postgres stdout '.'
+2010-09-22 16:38:57-0400 [-] received postgres stdout '.'
+2010-09-22 16:38:58-0400 [-] received postgres stdout '.'
+2010-09-22 16:38:59-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:00-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:01-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:02-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:03-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:04-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:05-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:06-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:07-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:08-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:09-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:10-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:11-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:12-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:13-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:14-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:15-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:16-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:17-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:18-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:19-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:20-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:21-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:22-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:23-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:24-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:25-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:26-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:27-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:28-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:29-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:30-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:31-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:32-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:33-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:34-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:35-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:36-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:37-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:38-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:39-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:40-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:41-0400 [-] received postgres stdout '.'
+2010-09-22 16:39:42-0400 [-] received postgres stdout 'could not start server\n'
+2010-09-22 16:39:42-0400 [-] postgres process ended <twisted.python.failure.Failure <class 'twisted.internet.error.ProcessTerminated'>>
+2010-09-22 16:39:42-0400 [-] Unhandled Error
+	Traceback (most recent call last):
+	  File "/Users/oliviertremblay/Programs/CalendarServer/Twisted/build/lib.macosx-10.6-universal-2.6/twisted/internet/_baseprocess.py", line 60, in maybeCallProcessEnded
+	    proto.processEnded(Failure(reason))
+	  File "/Users/oliviertremblay/Programs/CalendarServer/CalendarServer/txdav/base/datastore/subpostgres.py", line 154, in processEnded
+	    self.completionDeferred.callback(None)
+	  File "/Users/oliviertremblay/Programs/CalendarServer/Twisted/build/lib.macosx-10.6-universal-2.6/twisted/internet/defer.py", line 280, in callback
+	    self._startRunCallbacks(result)
+	  File "/Users/oliviertremblay/Programs/CalendarServer/Twisted/build/lib.macosx-10.6-universal-2.6/twisted/internet/defer.py", line 354, in _startRunCallbacks
+	    self._runCallbacks()
+	--- <exception caught here> ---
+	  File "/Users/oliviertremblay/Programs/CalendarServer/Twisted/build/lib.macosx-10.6-universal-2.6/twisted/internet/defer.py", line 371, in _runCallbacks
+	    self.result = callback(self.result, *args, **kw)
+	  File "/Users/oliviertremblay/Programs/CalendarServer/CalendarServer/txdav/base/datastore/subpostgres.py", line 407, in gotReady
+	    self.ready()
+	  File "/Users/oliviertremblay/Programs/CalendarServer/CalendarServer/txdav/base/datastore/subpostgres.py", line 314, in ready
+	    'schema creation', 'postgres'
+	  File "/Users/oliviertremblay/Programs/CalendarServer/CalendarServer/txdav/base/datastore/subpostgres.py", line 286, in produceConnection
+	    connection = pgdb.connect(dsn)
+	  File "/Users/oliviertremblay/Programs/CalendarServer/PyGreSQL-4.0/build/lib.macosx-10.6-universal-2.6/pgdb.py", line 482, in connect
+	    dbtty, dbuser, dbpasswd)
+	pg.InternalError: could not connect to server: No such file or directory
+		Is the server running locally and accepting
+		connections on Unix domain socket "/tmp/ccs_postgres_62b8dd2f13f69fe2e38228cbd521095a/.s.PGSQL.5432"?
+	
+	
+2010-09-22 16:40:14-0400 [-] Received SIGINT, shutting down.
+2010-09-22 16:40:14-0400 [-] (Port None Closed)
+2010-09-22 16:40:14-0400 [-] (Port 8843 Closed)
+2010-09-22 16:40:14-0400 [-] (Port 8443 Closed)
+2010-09-22 16:40:14-0400 [-] (Port 8800 Closed)
+2010-09-22 16:40:14-0400 [-] (Port 8008 Closed)
+2010-09-22 16:40:14-0400 [-] (Port None Closed)
+2010-09-22 16:40:14-0400 [-] received postgres stderr 'pg_ctl: PID file "/Users/oliviertremblay/Programs/CalendarServer/CalendarServer/data/Data/Database/cluster/postmaster.pid" does not exist\nIs server running?\n'
+2010-09-22 16:40:14-0400 [-] postgres process ended <twisted.python.failure.Failure <class 'twisted.internet.error.ProcessTerminated'>>
+2010-09-22 16:40:14-0400 [-] Main loop terminated.
+2010-09-22 16:40:14-0400 [-] Server Shut Down.

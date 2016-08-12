@@ -1,0 +1,41 @@
+Index: support/py.sh
+===================================================================
+--- support/py.sh	(revision 12254)
++++ support/py.sh	(working copy)
+@@ -110,6 +110,9 @@
+     done;
+ 
+     if [ -z "${module_version}" ]; then
++        module_version=$("${python}" -c 'import pkg_resources; print pkg_resources.get_distribution("'"${module}"'").version;');
++    fi
++    if [ -z "${module_version}" ]; then
+       if ! "${print_path}"; then
+         echo "Unable to determine version for ${module}.";
+       fi;
+Index: support/build.sh
+===================================================================
+--- support/build.sh	(revision 12254)
++++ support/build.sh	(working copy)
+@@ -847,7 +847,7 @@
+   local n="pycrypto";
+   local p="${n}-${v}";
+   py_dependency -v "${v}" -m "55a61a054aa66812daf5161a0d5d7eda" \
+-    "PyCrypto" "${n}" "${p}" \
++    "PyCrypto" "Crypto" "${p}" \
+     "http://ftp.dlitz.net/pub/dlitz/crypto/${n}/${p}.tar.gz";
+ 
+   local v="0.1.7";
+@@ -947,13 +947,6 @@
+     "Epydoc" "${n}" "${p}" \
+     "${pypi}/e/${n}/${p}.tar.gz";
+ 
+-  local v="0.10.0";
+-  local n="Nevow";
+-  local p="${n}-${v}";
+-  py_dependency -o -m "66dda2ad88f42dea05911add15f4d1b2" \
+-    "${n}" "${n}" "${p}" \
+-    "${pypi}/N/${n}/${p}.tar.gz";
+-
+   local v="0.5b1";
+   local n="pydoctor";
+   local p="${n}-${v}";

@@ -1,0 +1,13 @@
+diff --git a/txdav/base/propertystore/xattr.py b/txdav/base/propertystore/xattr.py
+index aa574ae..5f0b653 100644
+--- a/txdav/base/propertystore/xattr.py
++++ b/txdav/base/propertystore/xattr.py
+@@ -47,7 +47,7 @@ from txdav.idav import PropertyStoreError
+ # expose.  Its value is 93.
+ #
+ 
+-if sys.platform in ("darwin", "freebsd8", "freebsd9"):
++if sys.platform[:6] == 'darwin' or sys.platform[:7] == 'freebsd':
+     _ERRNO_NO_ATTR = getattr(errno, "ENOATTR", 93)
+ else:
+     _ERRNO_NO_ATTR = errno.ENODATA

@@ -1,0 +1,261 @@
+diff --git a/pysrc/kerberos.py b/pysrc/kerberos.py
+index eb8839f..046faa8 100644
+--- a/pysrc/kerberos.py
++++ b/pysrc/kerberos.py
+@@ -223,3 +223,20 @@ def authGSSServerTargetName(context):
+     @return: a string containing the target name.
+     """
+ 
++def authGSSServerStoreDelegate(context):
++    """
++    Save the ticket sent to the server in the file /tmp/krb5_pyserv_XXXXXX
++    his method must only be called after authGSSServerStep returns a complete or continue response code.
++
++    @param context: the context object returned from authGSSServerInit.
++    @return: a result code (see above).
++    """
++
++def authGSSServerCacheName(context):
++    """
++    Get the name of the credential cache created with authGSSServerStoreDelegate.
++    This method must only be called after authGSSServerStoreDelegate.
++
++    @param context: the context object returned from authGSSServerInit.
++    @return: a string containing the cache name.
++    """
+diff --git a/src/kerberos.c b/src/kerberos.c
+index e0d8938..c0d2fe6 100644
+--- a/src/kerberos.c
++++ b/src/kerberos.c
+@@ -320,6 +320,31 @@ static PyObject *authGSSServerStep(PyObject *self, PyObject *args)
+     return Py_BuildValue("i", result);
+ }
+ 
++static PyObject *authGSSServerStoreDelegate(PyObject *self, PyObject *args)
++{
++    gss_server_state *state;
++    PyObject *pystate;
++    int result = 0;
++
++    if (!PyArg_ParseTuple(args, "O", &pystate))
++        return NULL;
++
++    if (!PyCObject_Check(pystate)) {
++        PyErr_SetString(PyExc_TypeError, "Expected a context object");
++        return NULL;
++    }
++
++    state = (gss_server_state *)PyCObject_AsVoidPtr(pystate);
++    if (state == NULL)
++        return NULL;
++
++    result = authenticate_gss_server_store_delegate(state);
++    if (result == AUTH_GSS_ERROR)
++        return NULL;
++    
++    return Py_BuildValue("i", result);
++}
++
+ static PyObject *authGSSServerResponse(PyObject *self, PyObject *args)
+ {
+     gss_server_state *state;
+@@ -360,6 +385,26 @@ static PyObject *authGSSServerUserName(PyObject *self, PyObject *args)
+     return Py_BuildValue("s", state->username);
+ }
+ 
++static PyObject *authGSSServerCacheName(PyObject *self, PyObject *args)
++{
++    gss_server_state *state;
++    PyObject *pystate;
++    
++    if (!PyArg_ParseTuple(args, "O", &pystate))
++        return NULL;
++    
++    if (!PyCObject_Check(pystate)) {
++        PyErr_SetString(PyExc_TypeError, "Expected a context object");
++        return NULL;
++    }
++    
++    state = (gss_server_state *)PyCObject_AsVoidPtr(pystate);
++    if (state == NULL)
++        return NULL;
++    
++    return Py_BuildValue("s", state->ccname);
++}
++
+ static PyObject *authGSSServerTargetName(PyObject *self, PyObject *args)
+ {
+     gss_server_state *state;
+@@ -407,10 +452,14 @@ static PyMethodDef KerberosMethods[] = {
+      "Terminate server-side GSSAPI operations."},
+     {"authGSSServerStep",  authGSSServerStep, METH_VARARGS,
+      "Do a server-side GSSAPI step."},
++     {"authGSSServerStoreDelegate",  authGSSServerStoreDelegate, METH_VARARGS,
++     "Store the delegated Credentials."},
+     {"authGSSServerResponse",  authGSSServerResponse, METH_VARARGS,
+      "Get the response from the last server-side GSSAPI step."},
+     {"authGSSServerUserName",  authGSSServerUserName, METH_VARARGS,
+         "Get the user name from the last server-side GSSAPI step."},
++    {"authGSSServerCacheName",  authGSSServerCacheName, METH_VARARGS,
++        "Get the location of the cache where delegated credentials are stored."},
+     {"authGSSServerTargetName",  authGSSServerTargetName, METH_VARARGS,
+         "Get the target name from the last server-side GSSAPI step."},
+     {NULL, NULL, 0, NULL}        /* Sentinel */
+diff --git a/src/kerberosgss.c b/src/kerberosgss.c
+index 42127fb..d9200ab 100644
+--- a/src/kerberosgss.c
++++ b/src/kerberosgss.c
+@@ -26,6 +26,8 @@
+ 
+ static void set_gss_error(OM_uint32 err_maj, OM_uint32 err_min);
+ 
++int create_krb5_ccache(gss_server_state *state, krb5_context kcontext, krb5_principal princ, krb5_ccache *ccache);
++
+ extern PyObject *GssException_class;
+ extern PyObject *KrbException_class;
+ 
+@@ -401,6 +403,7 @@ int authenticate_gss_server_init(const char *service, gss_server_state *state)
+     state->username = NULL;
+     state->targetname = NULL;
+     state->response = NULL;
++    state->ccname = NULL;
+     
+     // Server name may be empty which means we aren't going to create our own creds
+     size_t service_len = strlen(service);
+@@ -466,6 +469,12 @@ int authenticate_gss_server_clean(gss_server_state *state)
+         free(state->response);
+         state->response = NULL;
+     }
++
++    if (state->ccname != NULL)
++    {
++        free(state->ccname);
++        state->ccname = NULL;
++    }
+     
+     return ret;
+ }
+@@ -607,3 +616,106 @@ static void set_gss_error(OM_uint32 err_maj, OM_uint32 err_min)
+     
+     PyErr_SetObject(GssException_class, Py_BuildValue("((s:i)(s:i))", buf_maj, err_maj, buf_min, err_min));
+ }
++
++int
++authenticate_gss_server_store_delegate(gss_server_state *state)
++{
++   gss_cred_id_t delegated_cred = state->client_creds;
++   char *princ_name = state->username;
++   OM_uint32 maj_stat, min_stat;
++   krb5_principal princ = NULL;
++   krb5_ccache ccache = NULL;
++   krb5_error_code problem;
++   krb5_context context;
++   int ret = 500;
++
++   problem = krb5_init_context(&context);
++   if (problem) {
++    PyErr_SetObject(KrbException_class, Py_BuildValue("(s)", "Cannot initialize krb5 context"));
++    return AUTH_GSS_ERROR;
++   }
++
++   problem = krb5_parse_name(context, princ_name, &princ);
++   if (problem) {
++    PyErr_SetObject(KrbException_class, Py_BuildValue("(s:s)", "Cannot parse delegated username", krb5_get_err_text(context, problem)));
++    ret = AUTH_GSS_ERROR;
++    goto end;
++   }
++
++   problem = create_krb5_ccache(state, context, princ, &ccache);
++   if (problem) {
++    PyErr_SetObject(KrbException_class, Py_BuildValue("(s:s)", "Error in creating krb5 cache", krb5_get_err_text(context, problem)));
++    ret = AUTH_GSS_ERROR;
++    goto end;
++   }
++
++   maj_stat = gss_krb5_copy_ccache(&min_stat, delegated_cred, ccache);
++   if (GSS_ERROR(maj_stat)) {
++    set_gss_error(maj_stat, min_stat);
++    ret = AUTH_GSS_ERROR;
++    goto end;
++   }
++
++   krb5_cc_close(context, ccache);
++   ccache = NULL;
++   ret = 0;
++
++end:
++   if (princ)
++      krb5_free_principal(context, princ);
++   if (ccache)
++      krb5_cc_destroy(context, ccache);
++   krb5_free_context(context);
++   return ret;
++}
++
++int
++create_krb5_ccache(gss_server_state *state,
++           krb5_context kcontext,
++           krb5_principal princ,
++           krb5_ccache *ccache)
++{
++   int fd;
++   char ccname[32];
++   krb5_error_code problem;
++   int ret;
++   krb5_ccache tmp_ccache = NULL;
++
++   snprintf(ccname, sizeof(ccname), "/tmp/krb5cc_pyserv_XXXXXX");
++   fd = mkstemp(ccname);
++   if (fd < 0) {
++      PyErr_SetObject(KrbException_class, Py_BuildValue("(s:s)", "Error in mkstemp", strerror(errno)));
++      ret = 1;
++      goto end;
++   }
++   close(fd);
++
++   problem = krb5_cc_resolve(kcontext, ccname, &tmp_ccache);
++   if (problem) {
++      PyErr_SetObject(KrbException_class, Py_BuildValue("(s:s)", "Error resolving the credential cache", krb5_get_err_text(kcontext, problem)));
++      ret = 1;
++      unlink(ccname);
++      goto end;
++   }
++
++   problem = krb5_cc_initialize(kcontext, tmp_ccache, princ);
++   if (problem) {
++    PyErr_SetObject(KrbException_class, Py_BuildValue("(s:s)", "Error initialising the credential cache", krb5_get_err_text(kcontext, problem)));
++      ret = 1;
++      goto end;
++   }
++
++   *ccache = tmp_ccache;
++   tmp_ccache = NULL;
++
++   ret = 0;
++
++end:
++   if (tmp_ccache)
++      krb5_cc_destroy(kcontext, tmp_ccache);
++
++   state->ccname = (char *)malloc(32*sizeof(char));
++   strcpy(state->ccname, ccname);
++
++   return ret;
++}
+diff --git a/src/kerberosgss.h b/src/kerberosgss.h
+index 0e034aa..aa3b55a 100644
+--- a/src/kerberosgss.h
++++ b/src/kerberosgss.h
+@@ -45,6 +45,7 @@ typedef struct {
+     char*            username;
+     char*            targetname;
+     char*            response;
++    char*            ccname;
+ } gss_server_state;
+ 
+ char* server_principal_details(const char* service, const char* hostname);
+@@ -58,3 +59,4 @@ int authenticate_gss_client_wrap(gss_client_state* state, const char* challenge,
+ int authenticate_gss_server_init(const char* service, gss_server_state* state);
+ int authenticate_gss_server_clean(gss_server_state *state);
+ int authenticate_gss_server_step(gss_server_state *state, const char *challenge);
++int authenticate_gss_server_store_delegate(gss_server_state *state);

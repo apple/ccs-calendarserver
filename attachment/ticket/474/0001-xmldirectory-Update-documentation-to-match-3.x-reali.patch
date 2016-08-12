@@ -1,0 +1,81 @@
+From beb36a415899532defcc120a6183f8c14c93cdca Mon Sep 17 00:00:00 2001
+From: Holger Hans Peter Freyther <zecke@selfish.org>
+Date: Sat, 21 Jan 2012 10:22:04 +0100
+Subject: [PATCH] xmldirectory: Update documentation to match 3.x reality
+
+cuaddr and proxies are gone from the config file. auto-schedule,
+disable-calendar have moved to the augment system that is not
+documented right now.
+---
+ doc/Admin/DirectoryService-XML.txt |   42 +-----------------------------------
+ 1 files changed, 1 insertions(+), 41 deletions(-)
+
+diff --git a/doc/Admin/DirectoryService-XML.txt b/doc/Admin/DirectoryService-XML.txt
+index eee3fb1..133be89 100644
+--- a/doc/Admin/DirectoryService-XML.txt
++++ b/doc/Admin/DirectoryService-XML.txt
+@@ -85,42 +85,6 @@ information about the principal:
+   other groups. One should avoid creating "loops" by having two groups
+   include each other.
+ 
+-``cuaddr``
+-
+-  A "calendar user address" for the principal. Principals may have
+-  multiple calendar user addresses, but a calendar user addresses must
+-  be unique to one principal. A calendar user address must be a URI_.
+-
+-  .. _URI: http://tools.ietf.org/html/rfc2396
+-
+-  Note that calendar user addresses here supplement any calendar user
+-  addresses that are assigned by the server based on other principal
+-  information.
+-  
+-``disable-calendar``
+-
+-  When present, this element indicates that the principal is able to
+-  login to the calendar server, but is not provided a calendar home
+-  and therefore cannot do scheduling. This type of principal is
+-  typically used to allow access to the calendars of other principals
+-  or other data on the server. This element may only pecified for user
+-  principals.
+-
+-``auto-schedule``
+-
+-  Indicates that the server will automatically process scheduling
+-  messages for the corresponding principal. For example, when a
+-  scheduling message arrives, if it does not conflict with an existing
+-  meeting it will be automatically accepted into the principal's main
+-  calendar; if it does conflict it will be automatically
+-  declined. This element can only be defined on location and resource
+-  principals.
+-
+-``proxies``
+-
+-  Contains a list of ``member`` elements that define which other
+-  principals have read-write proxy access to the corresponding
+-  principal's calendar data.
+ 
+ An example:
+ 
+@@ -137,7 +101,7 @@ An example:
+       <uid>test</uid>
+       <password>test</password>
+       <name>Test User</name>
+-      <cuaddr>mailto:testuser@example.com</cuaddr>
++      <email-address>testuser@example.com</email-address>
+     </user>
+     <group>
+       <uid>users</uid>
+@@ -151,9 +115,5 @@ An example:
+       <uid>mercury</uid>
+       <password>mercury</password>
+       <name>Mecury Conference Room, Building 1, 2nd Floor</name>
+-      <auto-schedule/>
+-      <proxies>
+-        <member type="users">test</member>
+-      </proxies>
+     </location>
+   </accounts>
+-- 
+1.7.8.3
+

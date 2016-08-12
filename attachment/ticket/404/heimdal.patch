@@ -1,0 +1,85 @@
+Make PyKerberos build against Heimdal.
+
+2010-12-21 Martin von Gagern
+
+https://trac.calendarserver.org/ticket/404
+
+Index: PyKerberos-1.1/src/kerberosbasic.h
+===================================================================
+--- PyKerberos-1.1.orig/src/kerberosbasic.h
++++ PyKerberos-1.1/src/kerberosbasic.h
+@@ -17,7 +17,7 @@
+  **/
+ 
+ #include <gssapi/gssapi.h>
+-#include <gssapi/gssapi_generic.h>
++#include <krb5.h>
+ #include <gssapi/gssapi_krb5.h>
+ 
+ #define krb5_get_err_text(context,code) error_message(code)
+Index: PyKerberos-1.1/src/kerberosgss.c
+===================================================================
+--- PyKerberos-1.1.orig/src/kerberosgss.c
++++ PyKerberos-1.1/src/kerberosgss.c
+@@ -40,7 +40,8 @@ char* server_principal_details(const cha
+     int code;
+     krb5_context kcontext;
+     krb5_keytab kt = NULL;
+-    krb5_kt_cursor cursor = NULL;
++    krb5_kt_cursor cursor;
++    int seq_get_started = 0;
+     krb5_keytab_entry entry;
+     char* pname = NULL;
+ 
+@@ -69,6 +70,7 @@ char* server_principal_details(const cha
+ 							  "Cannot get sequence cursor from keytab", code));
+ 	goto end;
+     }
++    seq_get_started = 1;
+ 
+     while ((code = krb5_kt_next_entry(kcontext, kt, &entry, &cursor)) == 0)
+     {
+@@ -99,7 +101,7 @@ char* server_principal_details(const cha
+     }
+ 
+ end:
+-    if (cursor)
++    if (seq_get_started)
+ 	krb5_kt_end_seq_get(kcontext, kt, &cursor);
+     if (kt)
+ 	krb5_kt_close(kcontext, kt);
+@@ -124,7 +126,7 @@ int authenticate_gss_client_init(const c
+     name_token.length = strlen(service);
+     name_token.value = (char *)service;
+     
+-    maj_stat = gss_import_name(&min_stat, &name_token, gss_krb5_nt_service_name, &state->server_name);
++    maj_stat = gss_import_name(&min_stat, &name_token, GSS_KRB5_NT_PRINCIPAL_NAME, &state->server_name);
+     
+     if (GSS_ERROR(maj_stat))
+     {
+Index: PyKerberos-1.1/src/kerberosgss.h
+===================================================================
+--- PyKerberos-1.1.orig/src/kerberosgss.h
++++ PyKerberos-1.1/src/kerberosgss.h
+@@ -17,7 +17,7 @@
+  **/
+ 
+ #include <gssapi/gssapi.h>
+-#include <gssapi/gssapi_generic.h>
++#include <krb5.h>
+ #include <gssapi/gssapi_krb5.h>
+ 
+ #define krb5_get_err_text(context,code) error_message(code)
+Index: PyKerberos-1.1/src/kerberospw.h
+===================================================================
+--- PyKerberos-1.1.orig/src/kerberospw.h
++++ PyKerberos-1.1/src/kerberospw.h
+@@ -16,7 +16,7 @@
+  **/
+ 
+ #include <gssapi/gssapi.h>
+-#include <gssapi/gssapi_generic.h>
++#include <krb5.h>
+ #include <gssapi/gssapi_krb5.h>
+ 
+ #define krb5_get_err_text(context,code) error_message(code)

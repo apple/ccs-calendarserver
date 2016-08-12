@@ -1,0 +1,45 @@
+From b7d44a0cd44dccecbd9efa3f8818ed10ca25de9c Mon Sep 17 00:00:00 2001
+From: cdaboo@apple.com <cdaboo@apple.com@e27351fd-9f3e-4f54-a53b-843176b1656c>
+Date: Mon, 18 Feb 2008 16:23:48 +0000
+Subject: [PATCH] Remove some OS X specific descriptions.
+
+git-svn-id: http://svn.macosforge.org/repository/calendarserver/PyKerberos/branches/more-kerberos@2147 e27351fd-9f3e-4f54-a53b-843176b1656c
+---
+ README.txt        |    4 ++--
+ pysrc/kerberos.py |    3 +--
+ 2 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/README.txt b/README.txt
+index 5fad7aa..3e62985 100644
+--- a/README.txt
++++ b/README.txt
+@@ -48,10 +48,10 @@ TESTING
+ =======
+ 
+ You must have a valid Kerberos setup on the test machine and you should ensure that you have valid
+-Kerberos tickets for any client authentication being done (run /System/Library/CoreServices/Kerberos.app).
++Kerberos tickets for any client authentication being done (run 'klist' on the command line).
+ Additionally, for the server: it must have been configured as a valid Kerberos service with the Kerbersos server
+ for its realm - this usually requires running kadmin on the server machine to add the principal and generate a keytab
+-entry for it.
++entry for it (run 'sudo klist -k' to see the currently available keytab entries).
+ 
+ Make sure that PYTHONPATH includes the appropriate build/lib.xxxx directory.
+ Then run test.py with suitable command line arguments:
+diff --git a/pysrc/kerberos.py b/pysrc/kerberos.py
+index 88a0e4b..6fb8a2c 100644
+--- a/pysrc/kerberos.py
++++ b/pysrc/kerberos.py
+@@ -38,8 +38,7 @@ def checkPassword(user, pswd, service, default_realm):
+     
+     NB For this to work properly the Kerberos must be configured properly on this machine.
+     That will likely mean ensuring that the edu.mit.Kerberos preference file has the correct
+-    realms and KDCs listed. This can be done via the /System/Library/CoreServices/Kerberos.app
+-    tool's 'Edit Realms' command.
++    realms and KDCs listed.
+     
+     @param user:          a string containing the Kerberos user name. A realm may be
+         included by appending an '@' followed by the realm string to the actual user id.
+-- 
+1.5.5.1
+

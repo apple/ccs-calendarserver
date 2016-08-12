@@ -1,0 +1,194 @@
+Index: src/kerberos.c
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/kerberos.c	(revision 13238)
++++ src/kerberos.c	(revision )
+@@ -89,17 +89,22 @@
+     const char *principal = NULL;
+     gss_client_state *state;
+     PyObject *pystate;
+-    static char *kwlist[] = {"service", "principal", "gssflags", NULL};
++    gss_server_state *delegatestate = NULL;
++    PyObject *pydelegatestate;
++    static char *kwlist[] = {"service", "principal", "gssflags", "delegated", NULL};
+     long int gss_flags = GSS_C_MUTUAL_FLAG | GSS_C_SEQUENCE_FLAG;
+     int result = 0;
+ 
+-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|zl", kwlist, &service, &principal, &gss_flags))
++    if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|slO", kwlist, &service, &principal, &gss_flags, &pydelegatestate))
+         return NULL;
+ 
+     state = (gss_client_state *) malloc(sizeof(gss_client_state));
+     pystate = PyCObject_FromVoidPtr(state, NULL);
+ 
+-    result = authenticate_gss_client_init(service, principal, gss_flags, state);
++    if (PyCObject_Check(pydelegatestate))
++        delegatestate = PyCObject_AsVoidPtr(pydelegatestate);
++
++    result = authenticate_gss_client_init(service, principal, gss_flags, delegatestate, state);
+     if (result == AUTH_GSS_ERROR)
+         return NULL;
+ 
+@@ -178,6 +183,26 @@
+     return Py_BuildValue("i", state->responseConf);
+ }
+ 
++static PyObject *authGSSServerHasDelegated(PyObject *self, PyObject *args)
++{
++    gss_server_state *state;
++    PyObject *pystate;
++
++    if (!PyArg_ParseTuple(args, "O", &pystate))
++        return NULL;
++
++    if (!PyCObject_Check(pystate)) {
++        PyErr_SetString(PyExc_TypeError, "Expected a context object");
++        return NULL;
++    }
++
++    state = (gss_server_state *)PyCObject_AsVoidPtr(pystate);
++    if (state == NULL)
++        return NULL;
++
++    return PyBool_FromLong(authenticate_gss_server_has_delegated(state));
++}
++
+ static PyObject *authGSSClientResponse(PyObject *self, PyObject *args)
+ {
+     gss_client_state *state;
+@@ -478,6 +503,8 @@
+      "Terminate server-side GSSAPI operations."},
+     {"authGSSServerStep",  authGSSServerStep, METH_VARARGS,
+      "Do a server-side GSSAPI step."},
++    {"authGSSServerHasDelegated",  authGSSServerHasDelegated, METH_VARARGS,
++     "Check whether the client delegated credentials to us."},
+      {"authGSSServerStoreDelegate",  authGSSServerStoreDelegate, METH_VARARGS,
+      "Store the delegated Credentials."},
+     {"authGSSServerResponse",  authGSSServerResponse, METH_VARARGS,
+Index: pysrc/kerberos.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- pysrc/kerberos.py	(revision 13238)
++++ pysrc/kerberos.py	(revision )
+@@ -99,7 +99,7 @@
+ GSS_C_PROT_READY_FLAG = 128 
+ GSS_C_TRANS_FLAG      = 256 
+      
+-def authGSSClientInit(service, principal=None, gssflags=GSS_C_MUTUAL_FLAG|GSS_C_SEQUENCE_FLAG):
++def authGSSClientInit(service, **kwargs):
+     """
+     Initializes a context for GSSAPI client-side authentication with the given service principal.
+     authGSSClientClean must be called after this function returns an OK result to dispose of
+@@ -112,6 +112,7 @@
+     @param gssflags: optional integer used to set GSS flags.
+         (e.g.  GSS_C_DELEG_FLAG|GSS_C_MUTUAL_FLAG|GSS_C_SEQUENCE_FLAG will allow 
+         for forwarding credentials to the remote host)
++    @param delegated: optional server context containing delegated credentials
+     @return: a tuple of (result, context) where result is the result code (see above) and
+         context is an opaque value that will need to be passed to subsequent functions.
+     """
+@@ -214,6 +215,14 @@
+ 
+     @param context: the context object returned from authGSSServerInit.
+     @return: a string containing the base64-encoded server data to be sent to the client.
++    """
++
++def authGSSServerHasDelegated(context):
++    """
++    Checks whether a server context has delegated credentials.
++
++    @param context: the context object returned from authGSSServerInit.
++    @return: a bool saying whether delegated credentials are available.
+     """
+ 
+ def authGSSServerUserName(context):
+Index: src/kerberosgss.h
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/kerberosgss.h	(revision 13238)
++++ src/kerberosgss.h	(revision )
+@@ -52,7 +52,7 @@
+ 
+ char* server_principal_details(const char* service, const char* hostname);
+ 
+-int authenticate_gss_client_init(const char* service, const char* principal, long int gss_flags, gss_client_state* state);
++int authenticate_gss_client_init(const char* service, const char* principal, long int gss_flags, gss_server_state* delegatestate, gss_client_state* state);
+ int authenticate_gss_client_clean(gss_client_state *state);
+ int authenticate_gss_client_step(gss_client_state *state, const char *challenge);
+ int authenticate_gss_client_unwrap(gss_client_state* state, const char* challenge);
+@@ -62,3 +62,4 @@
+ int authenticate_gss_server_clean(gss_server_state *state);
+ int authenticate_gss_server_step(gss_server_state *state, const char *challenge);
+ int authenticate_gss_server_store_delegate(gss_server_state *state);
++int authenticate_gss_server_has_delegated(gss_server_state *state);
+Index: src/kerberosgss.c
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/kerberosgss.c	(revision 13238)
++++ src/kerberosgss.c	(revision )
+@@ -108,7 +108,7 @@
+     return result;
+ }
+ 
+-int authenticate_gss_client_init(const char* service, const char* principal, long int gss_flags, gss_client_state* state)
++int authenticate_gss_client_init(const char* service, const char* principal, long int gss_flags, gss_server_state* delegatestate, gss_client_state* state)
+ {
+     OM_uint32 maj_stat;
+     OM_uint32 min_stat;
+@@ -135,10 +135,14 @@
+         ret = AUTH_GSS_ERROR;
+         goto end;
+     }
+-    
+-    // Get credential for principal
+-    if (principal && *principal)
++    // use the delegate credentials if they exist
++    if (delegatestate && delegatestate->client_creds != GSS_C_NO_CREDENTIAL)
+     {
++        state->client_creds = delegatestate->client_creds;
++    }
++    // if available use the principal to extract its associated credentials
++    else if (principal && *principal)
++    {
+         gss_name_t name;
+         principal_token.length = strlen(principal);
+         principal_token.value = (char *)principal;
+@@ -624,6 +628,10 @@
+     return ret;
+ }
+ 
++int authenticate_gss_server_has_delegated(gss_server_state *state)
++{
++    return (state->client_creds != GSS_C_NO_CREDENTIAL);
++}
+ 
+ static void set_gss_error(OM_uint32 err_maj, OM_uint32 err_min)
+ {
+@@ -662,8 +670,7 @@
+     PyErr_SetObject(GssException_class, Py_BuildValue("((s:i)(s:i))", buf_maj, err_maj, buf_min, err_min));
+ }
+ 
+-int
+-authenticate_gss_server_store_delegate(gss_server_state *state)
++int authenticate_gss_server_store_delegate(gss_server_state *state)
+ {
+    gss_cred_id_t delegated_cred = state->client_creds;
+    char *princ_name = state->username;
+@@ -714,8 +721,7 @@
+    return ret;
+ }
+ 
+-int
+-create_krb5_ccache(gss_server_state *state,
++int create_krb5_ccache(gss_server_state *state,
+            krb5_context kcontext,
+            krb5_principal princ,
+            krb5_ccache *ccache)

@@ -1,0 +1,35 @@
+From 56032ff57d7a5ea3cfcf06fdcabe383fcd921df2 Mon Sep 17 00:00:00 2001
+From: Guido Guenther <agx@sigxcpu.org>
+Date: Sun, 27 Apr 2008 02:53:02 +0200
+Subject: [PATCH] add default values for the NSS backend
+
+---
+ twistedcaldav/config.py |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
+
+diff --git a/twistedcaldav/config.py b/twistedcaldav/config.py
+index ccaa605..2be8daa 100644
+--- a/twistedcaldav/config.py
++++ b/twistedcaldav/config.py
+@@ -33,6 +33,18 @@ serviceDefaultParams = {
+         "node": "/Search",
+         "requireComputerRecord": True,
+     },
++    "twistedcaldav.directory.nss.NssDirectoryService": {
++        "realmName": "Test Realm",
++        # we only consider groups starting with: 
++        "groupPrefix": "caldavd-",
++        # dont set calendarUserAdresses by default
++	"mailDomain": None,
++        # exclude system users and nobody by "default":
++        "firstValidUid": 1000,
++        "lastValidUid": 65533,
++        "firstValidGid": 1000,
++        "lastValidGid": 65533,
++    },
+ }
+ 
+ defaultConfig = {
+-- 
+1.5.5.1
+

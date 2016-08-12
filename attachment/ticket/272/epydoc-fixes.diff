@@ -1,0 +1,144 @@
+fix epydoc errors
+
+diff --git a/twistedcaldav/admin/logs.py b/twistedcaldav/admin/logs.py
+index f9bdb95..117bfbb 100644
+--- a/twistedcaldav/admin/logs.py
++++ b/twistedcaldav/admin/logs.py
+@@ -16,12 +16,11 @@
+ # DRI: David Reid, dreid@apple.com
+ ##
+ """
+- Log Stats:
+-  # Invitations sent per day/week/month
+-  # bytes out (bytes in not provided in the current log format.)/
+-  # requests
+-  user agents
+-
++Logging Statistics:
++  - # Invitations sent per day/week/month
++  - # bytes out (bytes in not provided in the current log format)
++  - # requests
++  - user agents
+ """
+ 
+ import plistlib
+diff --git a/twistedcaldav/admin/principals.py b/twistedcaldav/admin/principals.py
+index 07e80ee..64c018b 100644
+--- a/twistedcaldav/admin/principals.py
++++ b/twistedcaldav/admin/principals.py
+@@ -16,11 +16,11 @@
+ # DRI: David Reid, dreid@apple.com
+ ##
+ """
+- Account Stats: 
+-  # of calendars
+-  # of events
+-  # storage used (including things that don't count against quota?)
+-  Last login?
++Account Stats: 
++  - # of calendars
++  - # of events
++  - # storage used (including things that don't count against quota?)
++  - Last login?
+ """
+ 
+ from twistedcaldav.admin import util
+diff --git a/twistedcaldav/admin/purge.py b/twistedcaldav/admin/purge.py
+index d83bc8b..0085aa8 100644
+--- a/twistedcaldav/admin/purge.py
++++ b/twistedcaldav/admin/purge.py
+@@ -25,12 +25,12 @@ def purgeEvents(collection, purgeDate):
+     Recursively purge all events older than purgeDate.
+ 
+     for VTODO: 
+-     * if completed
+-       * purge if it's dueDate is older than purgeDate.
++     - if completed
++       - purge if it's dueDate is older than purgeDate.
+ 
+     for V*:
+-     * purge if endDate is older than purgeDate
+-     """
++     - purge if endDate is older than purgeDate
++    """
+ 
+     from twistedcaldav import ical
+ 
+diff --git a/twistedcaldav/admin/script.py b/twistedcaldav/admin/script.py
+index 4c22afc..d326ab6 100644
+--- a/twistedcaldav/admin/script.py
++++ b/twistedcaldav/admin/script.py
+@@ -18,14 +18,10 @@
+ 
+ """
+ Examples:
+-
+-  caladmin users
+-
+-  caladmin purge
+-
+-  caladmin backup
+-
+-  caladmin restore
++ - caladmin users
++ - caladmin purge
++ - caladmin backup
++ - caladmin restore
+ """
+ 
+ import sys, os
+diff --git a/twistedcaldav/admin/stats.py b/twistedcaldav/admin/stats.py
+index f2dfb75..ed7aa83 100644
+--- a/twistedcaldav/admin/stats.py
++++ b/twistedcaldav/admin/stats.py
+@@ -19,10 +19,10 @@
+ """
+ Statisitcs Types:
+ 
+-    Overall Stats:
+-        # of accounts
+-        # of calendars
+-        # of events
++   - Overall Stats:
++       - # of accounts
++       - # of calendars
++       - # of events
+ 
+ """
+ 
+diff --git a/twistedcaldav/py/plistlib.py b/twistedcaldav/py/plistlib.py
+index 0084960..43fc69f 100644
+--- a/twistedcaldav/py/plistlib.py
++++ b/twistedcaldav/py/plistlib.py
+@@ -23,7 +23,7 @@ UTF-8.
+ The <data> plist type is supported through the Data class. This is a
+ thin wrapper around a Python string.
+ 
+-Generate Plist example:
++Generate Plist example::
+ 
+     pl = dict(
+         aString="Doodah",
+@@ -44,7 +44,7 @@ Generate Plist example:
+     pl[u'\xc5benraa'] = "That was a unicode key."
+     writePlist(pl, fileName)
+ 
+-Parse Plist example:
++Parse Plist example::
+ 
+     pl = readPlist(pathOrFile)
+     print pl["aKey"]
+diff --git a/twistedcaldav/static.py b/twistedcaldav/static.py
+index 7d6edf0..8ec02bc 100644
+--- a/twistedcaldav/static.py
++++ b/twistedcaldav/static.py
+@@ -296,8 +296,7 @@ class CalDAVFile (CalDAVResource, DAVFile):
+     def quotaSize(self, request):
+         """
+         Get the size of this resource.
+-        TODO: Take into account size of dead-properties. Does stat
+-            include xattrs size?
++        TODO: Take into account size of dead-properties. Does stat include xattrs size?
+ 
+         @return: an L{Deferred} with a C{int} result containing the size of the resource.
+         """

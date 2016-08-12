@@ -1,0 +1,77 @@
+diff --git a/bin/caldavd b/bin/caldavd
+index f943f79..35768b8 100755
+--- a/bin/caldavd
++++ b/bin/caldavd
+@@ -56,6 +56,9 @@ class caldavd(object):
+         self.keyfile = "/etc/certificates/Default.key"
+         self.certfile = "/etc/certificates/Default.crt"
+ 
++	self.authtype = "basic"
++	self.principal = "http@www.example.com"
++
+         self.logfile = "/var/log/caldavd/server.log"
+         self.pidfile = "/var/run/caldavd.pid"
+         
+@@ -85,6 +88,8 @@ class caldavd(object):
+         print "SSL Certificate File:             %s" % (self.certfile,)
+         print "Log File:                         %s" % (self.logfile,)
+         print "PID File:                         %s" % (self.pidfile,)
++        print "Auth Type:                        %s" % (self.authtype,)
++        print "Kerberos Principal:               %s" % (self.principal,)
+         print "twistd Location:                  %s" % (self.twistd,)
+ 
+     def run(self):
+@@ -262,6 +267,8 @@ class caldavd(object):
+                    "CreateAccounts":      "doacct",
+                    "ResetAccountACLs":    "doacl",
+                    "twistdLocation":      "twistd",
++		   "AuthType":            "authtype",
++		   "KerberosPrincipal":   "principal",
+                   }
+         
+         for k,v in root.items():
+@@ -327,6 +334,8 @@ certfile = "%(certfile)s"
+ onlyssl  =  %(onlyssl)s
+ port     =  %(port)d
+ sslport  =  %(sslport)d
++authtype = "%(authtype)s"
++principal= "%(principal)s"
+ 
+ if not dossl and onlyssl:
+     dossl = True
+@@ -359,6 +368,8 @@ from twisted.web2.auth			  import basic
+ from twisted.web2.dav             import davxml, auth
+ from twisted.web2.server          import Site
+ from twisted.web2.channel.http    import HTTPFactory
++from twistedcaldav.authkerb       import BasicKerberosCredentialFactory, BasicKerberosCredentialsChecker
++from twistedcaldav.authkerb       import NegotiateCredentialFactory, NegotiateCredentialsChecker
+ 
+ if dossl:
+     from twisted.application.internet import SSLServer
+@@ -374,9 +385,13 @@ application = Application("CalDAVServer"
+ parent      = IServiceCollection(application)
+ 
+ portal = Portal(auth.DavRealm())
+-portal.registerChecker(auth.TwistedPropertyChecker())
+ 
+-credentialFactories = (basic.BasicCredentialFactory(""),)
++if authtype.lower() == "kerberos":
++   portal.registerChecker(NegotiateCredentialsChecker())
++   credentialFactories = (NegotiateCredentialFactory(principal),)
++else:
++   portal.registerChecker(auth.TwistedPropertyChecker())
++   credentialFactories = (basic.BasicCredentialFactory(""),)
+ 
+ loginInterfaces = (auth.IPrincipal,)
+ 
+@@ -404,7 +419,9 @@ if dossl:
+        "certfile":    self.certfile,
+        "onlyssl":     self.onlyssl,
+        "port":        self.port,
+-       "sslport":     self.sslport}
++       "sslport":     self.sslport,
++       "authtype":    self.authtype,
++       "principal":   self.principal}
+ 
+ if __name__ == "__main__":
+ 

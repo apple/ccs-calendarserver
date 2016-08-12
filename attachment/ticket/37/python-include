@@ -1,0 +1,17 @@
+Index: pykerberos/src/kerberos.c
+===================================================================
+--- pykerberos.orig/src/kerberos.c	2006-08-24 14:26:10.000000000 +0200
++++ pykerberos/src/kerberos.c	2006-08-24 14:27:44.000000000 +0200
+@@ -16,7 +16,11 @@
+  * DRI: Cyrus Daboo, cdaboo@apple.com
+  **/
+ 
+-#include <Python/Python.h>
++#ifdef __linux__
++# include "Python.h"
++#else
++# include <Python/Python.h>
++#endif
+ 
+ #include "kerberosbasic.h"
+ #include "kerberosgss.h"

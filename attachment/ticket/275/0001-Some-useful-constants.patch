@@ -1,0 +1,43 @@
+From 14627ea0a7b1d9fe90cb8033995cda429b9dc004 Mon Sep 17 00:00:00 2001
+From: cdaboo@apple.com <cdaboo@apple.com@e27351fd-9f3e-4f54-a53b-843176b1656c>
+Date: Fri, 15 Feb 2008 15:11:14 +0000
+Subject: [PATCH] Some useful constants (contributed patch from ticket #213).
+
+git-svn-id: http://svn.macosforge.org/repository/calendarserver/PyKerberos/branches/more-kerberos@2145 e27351fd-9f3e-4f54-a53b-843176b1656c
+---
+ pysrc/kerberos.py |    4 ++++
+ src/kerberos.c    |    3 +++
+ 2 files changed, 7 insertions(+), 0 deletions(-)
+
+diff --git a/pysrc/kerberos.py b/pysrc/kerberos.py
+index 9218e41..0f593df 100644
+--- a/pysrc/kerberos.py
++++ b/pysrc/kerberos.py
+@@ -87,6 +87,10 @@ GSSAPI Function Result Codes:
+ 
+ """
+ 
++# Some useful result codes
++AUTH_GSS_CONTINUE=0 
++AUTH_GSS_COMPLETE=1 
++     
+ def authGSSClientInit(service):
+     """
+     Initializes a context for GSSAPI client-side authentication with the given service principal.
+diff --git a/src/kerberos.c b/src/kerberos.c
+index 34c2141..f015ee9 100644
+--- a/src/kerberos.c
++++ b/src/kerberos.c
+@@ -328,6 +328,9 @@ PyMODINIT_FUNC initkerberos(void)
+     Py_INCREF(GssException_class);
+     PyDict_SetItemString(d, "GSSError", GssException_class);
+ 
++    PyDict_SetItemString(d, "AUTH_GSS_COMPLETE", PyInt_FromLong(AUTH_GSS_COMPLETE)); 
++ 	PyDict_SetItemString(d, "AUTH_GSS_CONTINUE", PyInt_FromLong(AUTH_GSS_CONTINUE)); 
++
+ error:
+     if (PyErr_Occurred())
+         PyErr_SetString(PyExc_ImportError, "kerberos: init failed");
+-- 
+1.5.5.1
+

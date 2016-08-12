@@ -1,0 +1,13 @@
+Index: twistedcaldav/tap.py
+===================================================================
+--- twistedcaldav/tap.py	(revision 835)
++++ twistedcaldav/tap.py	(working copy)
+@@ -185,7 +185,7 @@
+         if not config.SSLOnly:
+             httpService = internet.TCPServer(int(config.Port), channel)
+ 
+-        httpService.setServiceParent(service)
++            httpService.setServiceParent(service)
+ 
+         if config.SSLEnable:
+             from twisted.internet.ssl import DefaultOpenSSLContextFactory

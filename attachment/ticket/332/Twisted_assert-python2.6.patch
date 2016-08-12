@@ -1,0 +1,13 @@
+--- Twisted/twisted/web/microdom.py	2009-04-17 22:03:18.000000000 -0700
++++ Twisted/twisted/web/microdom.py	2009-04-18 12:31:18.000000000 -0700
+@@ -154,9 +154,7 @@ class Node(object):
+         assert isinstance(newChild, Node)
+         #if newChild.parentNode:
+         #    newChild.parentNode.removeChild(newChild)
+-        assert (oldChild.parentNode is self,
+-                ('oldChild (%s): oldChild.parentNode (%s) != self (%s)'
+-                 % (oldChild, oldChild.parentNode, self)))
++        assert oldChild.parentNode is self, 'oldChild (%s): oldChild.parentNode (%s) != self (%s)' % (oldChild, oldChild.parentNode, self)
+         self.childNodes[self.childNodes.index(oldChild)] = newChild
+         oldChild.parentNode = None
+         newChild.parentNode = self

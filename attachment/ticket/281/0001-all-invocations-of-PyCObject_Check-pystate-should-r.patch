@@ -1,0 +1,170 @@
+From 10394adcb1bce5e981974ba46f82a4bb49a8f6e9 Mon Sep 17 00:00:00 2001
+From: Guido Guenther <agx@sigxcpu.org>
+Date: Fri, 13 Jun 2008 10:17:58 +0200
+Subject: [PATCH] all invocations of PyCObject_Check(pystate) should return a meaningful exception
+
+without this we see:
+ SystemError: error return without exception set
+which is not very helpful
+---
+ src/kerberos.c |   70 ++++++++++++++++++++++++++++++++++++++++++++++++--------
+ 1 files changed, 60 insertions(+), 10 deletions(-)
+
+diff --git a/src/kerberos.c b/src/kerberos.c
+index 9c5ed49..ed77d2b 100644
+--- a/src/kerberos.c
++++ b/src/kerberos.c
+@@ -110,8 +110,13 @@ static PyObject *authGSSClientClean(PyObject *self, PyObject *args)
+     PyObject *pystate;
+     int result = 0;
+     
+-    if (!PyArg_ParseTuple(args, "O", &pystate) || !PyCObject_Check(pystate))
++    if (!PyArg_ParseTuple(args, "O", &pystate))
+         return NULL;
++
++    if (!PyCObject_Check(pystate)) {
++        PyErr_SetString(PyExc_TypeError, "Expected a context object");
++        return NULL;
++    }
+     
+     state = (gss_client_state *)PyCObject_AsVoidPtr(pystate);
+     if (state != NULL)
+@@ -132,8 +137,13 @@ static PyObject *authGSSClientStep(PyObject *self, PyObject *args)
+     char *challenge;
+     int result = 0;
+     
+-    if (!PyArg_ParseTuple(args, "Os", &pystate, &challenge) || !PyCObject_Check(pystate))
++    if (!PyArg_ParseTuple(args, "Os", &pystate, &challenge))
+         return NULL;
++
++    if (!PyCObject_Check(pystate)) {
++        PyErr_SetString(PyExc_TypeError, "Expected a context object");
++        return NULL;
++    }
+     
+     state = (gss_client_state *)PyCObject_AsVoidPtr(pystate);
+     if (state == NULL)
+@@ -151,8 +161,13 @@ static PyObject *authGSSClientResponse(PyObject *self, PyObject *args)
+     gss_client_state *state;
+     PyObject *pystate;
+     
+-    if (!PyArg_ParseTuple(args, "O", &pystate) || !PyCObject_Check(pystate))
++    if (!PyArg_ParseTuple(args, "O", &pystate))
++        return NULL;
++
++    if (!PyCObject_Check(pystate)) {
++        PyErr_SetString(PyExc_TypeError, "Expected a context object");
+         return NULL;
++    }
+     
+     state = (gss_client_state *)PyCObject_AsVoidPtr(pystate);
+     if (state == NULL)
+@@ -166,8 +181,13 @@ static PyObject *authGSSClientUserName(PyObject *self, PyObject *args)
+     gss_client_state *state;
+     PyObject *pystate;
+     
+-    if (!PyArg_ParseTuple(args, "O", &pystate) || !PyCObject_Check(pystate))
++    if (!PyArg_ParseTuple(args, "O", &pystate))
++        return NULL;
++
++    if (!PyCObject_Check(pystate)) {
++        PyErr_SetString(PyExc_TypeError, "Expected a context object");
+         return NULL;
++    }
+     
+     state = (gss_client_state *)PyCObject_AsVoidPtr(pystate);
+     if (state == NULL)
+@@ -183,8 +203,13 @@ static PyObject *authGSSClientUnwrap(PyObject *self, PyObject *args)
+ 	char *challenge;
+ 	int result = 0;
+ 
+-	if (!PyArg_ParseTuple(args, "Os", &pystate, &challenge) || !PyCObject_Check(pystate))
++	if (!PyArg_ParseTuple(args, "Os", &pystate, &challenge))
++		return NULL;
++
++	if (!PyCObject_Check(pystate)) {
++		PyErr_SetString(PyExc_TypeError, "Expected a context object");
+ 		return NULL;
++	}
+ 
+ 	state = (gss_client_state *)PyCObject_AsVoidPtr(pystate);
+ 	if (state == NULL)
+@@ -204,9 +229,14 @@ static PyObject *authGSSClientWrap(PyObject *self, PyObject *args)
+ 	char *challenge, *user = NULL;
+ 	int result = 0;
+ 
+-	if (!PyArg_ParseTuple(args, "Os|z", &pystate, &challenge, &user) || !PyCObject_Check(pystate))
++	if (!PyArg_ParseTuple(args, "Os|z", &pystate, &challenge, &user))
+ 		return NULL;
+ 
++	if (!PyCObject_Check(pystate)) {
++		PyErr_SetString(PyExc_TypeError, "Expected a context object");
++		return NULL;
++  	}
++
+ 	state = (gss_client_state *)PyCObject_AsVoidPtr(pystate);
+ 	if (state == NULL)
+ 		return NULL;
+@@ -244,8 +274,13 @@ static PyObject *authGSSServerClean(PyObject *self, PyObject *args)
+     PyObject *pystate;
+     int result = 0;
+     
+-    if (!PyArg_ParseTuple(args, "O", &pystate) || !PyCObject_Check(pystate))
++    if (!PyArg_ParseTuple(args, "O", &pystate))
++        return NULL;
++
++    if (!PyCObject_Check(pystate)) {
++        PyErr_SetString(PyExc_TypeError, "Expected a context object");
+         return NULL;
++    }
+     
+     state = (gss_server_state *)PyCObject_AsVoidPtr(pystate);
+     if (state != NULL)
+@@ -266,8 +301,13 @@ static PyObject *authGSSServerStep(PyObject *self, PyObject *args)
+     char *challenge;
+     int result = 0;
+     
+-    if (!PyArg_ParseTuple(args, "Os", &pystate, &challenge) || !PyCObject_Check(pystate))
++    if (!PyArg_ParseTuple(args, "Os", &pystate, &challenge))
++        return NULL;
++
++    if (!PyCObject_Check(pystate)) {
++        PyErr_SetString(PyExc_TypeError, "Expected a context object");
+         return NULL;
++    }
+     
+     state = (gss_server_state *)PyCObject_AsVoidPtr(pystate);
+     if (state == NULL)
+@@ -285,8 +325,13 @@ static PyObject *authGSSServerResponse(PyObject *self, PyObject *args)
+     gss_server_state *state;
+     PyObject *pystate;
+     
+-    if (!PyArg_ParseTuple(args, "O", &pystate) || !PyCObject_Check(pystate))
++    if (!PyArg_ParseTuple(args, "O", &pystate))
++        return NULL;
++
++    if (!PyCObject_Check(pystate)) {
++        PyErr_SetString(PyExc_TypeError, "Expected a context object");
+         return NULL;
++    }
+     
+     state = (gss_server_state *)PyCObject_AsVoidPtr(pystate);
+     if (state == NULL)
+@@ -300,8 +345,13 @@ static PyObject *authGSSServerUserName(PyObject *self, PyObject *args)
+     gss_server_state *state;
+     PyObject *pystate;
+     
+-    if (!PyArg_ParseTuple(args, "O", &pystate) || !PyCObject_Check(pystate))
++    if (!PyArg_ParseTuple(args, "O", &pystate))
+         return NULL;
++
++    if (!PyCObject_Check(pystate)) {
++        PyErr_SetString(PyExc_TypeError, "Expected a context object");
++        return NULL;
++    }
+     
+     state = (gss_server_state *)PyCObject_AsVoidPtr(pystate);
+     if (state == NULL)
+-- 
+1.5.5.3
+

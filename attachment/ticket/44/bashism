@@ -1,0 +1,10 @@
+Index: calendarserver-0.0.svn59/run
+===================================================================
+--- calendarserver-0.0.svn59.orig/run	2006-09-05 23:58:44.000000000 +0200
++++ calendarserver-0.0.svn59/run	2006-09-05 23:58:45.000000000 +0200
+@@ -1,4 +1,4 @@
+-#!/bin/sh
++#!/bin/bash
+ 
+ ##
+ # Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.

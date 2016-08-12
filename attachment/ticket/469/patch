@@ -1,0 +1,13 @@
+diff --git a/CalendarServer/twext/enterprise/dal/parseschema.py b/CalendarServer/twext/enterprise/dal/parseschema.py
+index 0978b5f..4e3fcb1 100644
+--- a/CalendarServer/twext/enterprise/dal/parseschema.py
++++ b/CalendarServer/twext/enterprise/dal/parseschema.py
+@@ -304,7 +304,7 @@ class _ColumnParser(object):
+                 # something else
+                 typeLength = None
+                 self.pushback(maybeTypeArgs)
+-        theType = SQLType(typeName.value.encode("utf-8"), typeLength)
++        theType = SQLType((typeName.value or str(typeName)).encode("utf-8"), typeLength)
+         theColumn = self.table.addColumn(
+             name=name.encode("utf-8"), type=theType
+         )

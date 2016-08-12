@@ -1,0 +1,17 @@
+diff --git a/src/kerberosgss.c b/src/kerberosgss.c
+index 165e089..bb61223 100644
+--- a/src/kerberosgss.c
++++ b/src/kerberosgss.c
+@@ -682,6 +682,11 @@ int authenticate_gss_server_store_delegate(gss_server_state
+    krb5_context context;
+    int ret = 500;
+ 
++    if (delegated_cred == GSS_C_NO_CREDENTIAL){
++        PyErr_SetObject(KrbException_class, Py_BuildValue("(s)", "Ticket is not
++        return AUTH_GSS_ERROR;
++    }
++
+    problem = krb5_init_context(&context);
+    if (problem) {
+     PyErr_SetObject(KrbException_class, Py_BuildValue("(s)", "Cannot initialize
+

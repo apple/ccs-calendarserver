@@ -1,0 +1,1121 @@
+# Let's prepare some directories.
+
+$ mkdir /Volumes/ALMbpData/CALDAV
+$ mkdir /Volumes/ALMbpData/CALDAVCOMP
+
+# Let's fetch the server's trunk.
+
+$ cd /Volumes/ALMbpData/CALDAV
+$ svn checkout http://svn.calendarserver.org/repository/calendarserver/CalendarServer/trunk SERVER
+A    SERVER/test
+A    SERVER/python
+[...]
+A    SERVER/support/pull-up
+ U   SERVER
+Checked out revision 3592.
+
+# Let's perform a system install.
+
+$ cd SERVER
+$ ./run -v -i /Volumes/ALMbpData/CALDAVCOMP
+
+Downloading PyXML...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  717k  100  717k    0     0   287k      0  0:00:02  0:00:02 --:--:-- 8541k
+Unpacking PyXML from cache...
+[...]
+Writing /Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav-trunk._r3592_-py2.5.egg-info
+rewriting /Volumes/ALMbpData/CALDAVCOMP/usr/local/bin/caldavd
+rewriting /Volumes/ALMbpData/CALDAVCOMP/usr/local/bin/caladmin
+rewriting /Volumes/ALMbpData/CALDAVCOMP/usr/local/bin/caldav_export
+Using python as Python
+
+# Let's have a look at the way the paths have been defined; the PYTHONPATHs seem
+# to be consistent with the items installed in CALDAVCOMP, things are less clear
+# with regards to the PATH variable:
+
+$ grep 'PATH=' /Volumes/ALMbpData/CALDAVCOMP/usr/local/bin/cal*
+/Volumes/ALMbpData/CALDAVCOMP/usr/local/bin/caladmin:PYTHONPATH="/Library/Python/2.5/site-packages/"
+/Volumes/ALMbpData/CALDAVCOMP/usr/local/bin/caldav_export:PYTHONPATH="/Library/Python/2.5/site-packages/"
+/Volumes/ALMbpData/CALDAVCOMP/usr/local/bin/caldavd:PATH="/System/Library/Frameworks/Python.framework/Versions/2.5/bin:$PATH"
+/Volumes/ALMbpData/CALDAVCOMP/usr/local/bin/caldavd:PYTHONPATH="/Library/Python/2.5/site-packages/:$PYTHONPATH"
+
+# Let's have a look at the items installed in CALDAVCOMP.
+# Note the System/Library, Library and usr/local subdirectories.
+# Also note the surprising unique item installed under System/Library.
+
+$ ls -R /Volumes/ALMbpData/CALDAVCOMP
+Library	System	usr
+
+/Volumes/ALMbpData/CALDAVCOMP/Library:
+Python
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python:
+2.5
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5:
+site-packages
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages:
+Conch-0.8.0-py2.5.egg-info			kerberos-1.0-py2.5.egg-info
+PyXML-0.8.4-py2.5.egg-info			kerberos.so
+Twisted-2.5.0_rUnknown-py2.5.egg-info		kqreactor.py
+Twisted_Lore-0.3.0-py2.5.egg-info		kqreactor.pyc
+Twisted_Mail-0.4.0-py2.5.egg-info		opendirectory-1.0-py2.5.egg-info
+Twisted_Names-0.4.0-py2.5.egg-info		opendirectory.so
+Twisted_News-0.3.0-py2.5.egg-info		pydirector
+Twisted_Runner-0.2.0-py2.5.egg-info		pydirector-1.0.0-py2.5.egg-info
+Twisted_Web-0.7.0-py2.5.egg-info		select26-0.1a3-py2.5.egg-info
+Twisted_Web2-0.2.0-py2.5.egg-info		select26.so
+Twisted_Words-0.5.0-py2.5.egg-info		tests
+_xmlplus					twext
+calendarserver					twisted
+dsattributes.py					twistedcaldav
+dsattributes.pyc				twistedcaldav-trunk._r3592_-py2.5.egg-info
+dsquery.py					vobject
+dsquery.pyc					vobject-0.7.1-py2.5.egg-info
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus:
+FtCore.py	__init__.py	dom		ns.py		parsers		schema		utils
+FtCore.pyc	__init__.pyc	marshal		ns.pyc		sax		unicode		xpath
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus/dom:
+Attr.py				Event.pyc			__init__.py
+Attr.pyc			FtNode.py			__init__.pyc
+CDATASection.py			FtNode.pyc			de
+CDATASection.pyc		MessageSource.py		domreg.py
+CharacterData.py		MessageSource.pyc		domreg.pyc
+CharacterData.pyc		NamedNodeMap.py			en_US
+Comment.py			NamedNodeMap.pyc		expatbuilder.py
+Comment.pyc			NodeFilter.py			expatbuilder.pyc
+DOMImplementation.py		NodeFilter.pyc			ext
+DOMImplementation.pyc		NodeIterator.py			fr
+Document.py			NodeIterator.pyc		html
+Document.pyc			NodeList.py			javadom.py
+DocumentFragment.py		NodeList.pyc			javadom.pyc
+DocumentFragment.pyc		Notation.py			minicompat.py
+DocumentType.py			Notation.pyc			minicompat.pyc
+DocumentType.pyc		ProcessingInstruction.py	minidom.py
+Element.py			ProcessingInstruction.pyc	minidom.pyc
+Element.pyc			Range.py			minitraversal.py
+Entity.py			Range.pyc			minitraversal.pyc
+Entity.pyc			Text.py				pulldom.py
+EntityReference.py		Text.pyc			pulldom.pyc
+EntityReference.pyc		TreeWalker.py			xmlbuilder.py
+Event.py			TreeWalker.pyc			xmlbuilder.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus/dom/de:
+LC_MESSAGES
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus/dom/de/LC_MESSAGES:
+4Suite.mo
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus/dom/en_US:
+LC_MESSAGES
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus/dom/en_US/LC_MESSAGES:
+4Suite.mo
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus/dom/ext:
+Dom2Sax.py		Printer.pyc		XHtml2HtmlPrinter.py	XHtmlPrinter.pyc	c14n.py
+Dom2Sax.pyc		Visitor.py		XHtml2HtmlPrinter.pyc	__init__.py		c14n.pyc
+Printer.py		Visitor.pyc		XHtmlPrinter.py		__init__.pyc		reader
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus/dom/ext/reader:
+HtmlLib.py	HtmlSax.pyc	Sax.py		Sax2.pyc	Sgmlop.py	__init__.pyc
+HtmlLib.pyc	PyExpat.py	Sax.pyc		Sax2Lib.py	Sgmlop.pyc
+HtmlSax.py	PyExpat.pyc	Sax2.py		Sax2Lib.pyc	__init__.py
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus/dom/fr:
+LC_MESSAGES
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus/dom/fr/LC_MESSAGES:
+4Suite.mo
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus/dom/html:
+GenerateHtml.py			HTMLFrameElement.pyc		HTMLOptGroupElement.py
+GenerateHtml.pyc		HTMLFrameSetElement.py		HTMLOptGroupElement.pyc
+HTMLAnchorElement.py		HTMLFrameSetElement.pyc		HTMLOptionElement.py
+HTMLAnchorElement.pyc		HTMLHRElement.py		HTMLOptionElement.pyc
+HTMLAppletElement.py		HTMLHRElement.pyc		HTMLParagraphElement.py
+HTMLAppletElement.pyc		HTMLHeadElement.py		HTMLParagraphElement.pyc
+HTMLAreaElement.py		HTMLHeadElement.pyc		HTMLParamElement.py
+HTMLAreaElement.pyc		HTMLHeadingElement.py		HTMLParamElement.pyc
+HTMLBRElement.py		HTMLHeadingElement.pyc		HTMLPreElement.py
+HTMLBRElement.pyc		HTMLHtmlElement.py		HTMLPreElement.pyc
+HTMLBaseElement.py		HTMLHtmlElement.pyc		HTMLQuoteElement.py
+HTMLBaseElement.pyc		HTMLIFrameElement.py		HTMLQuoteElement.pyc
+HTMLBaseFontElement.py		HTMLIFrameElement.pyc		HTMLScriptElement.py
+HTMLBaseFontElement.pyc		HTMLImageElement.py		HTMLScriptElement.pyc
+HTMLBodyElement.py		HTMLImageElement.pyc		HTMLSelectElement.py
+HTMLBodyElement.pyc		HTMLInputElement.py		HTMLSelectElement.pyc
+HTMLButtonElement.py		HTMLInputElement.pyc		HTMLStyleElement.py
+HTMLButtonElement.pyc		HTMLIsIndexElement.py		HTMLStyleElement.pyc
+HTMLCollection.py		HTMLIsIndexElement.pyc		HTMLTableCaptionElement.py
+HTMLCollection.pyc		HTMLLIElement.py		HTMLTableCaptionElement.pyc
+HTMLDListElement.py		HTMLLIElement.pyc		HTMLTableCellElement.py
+HTMLDListElement.pyc		HTMLLabelElement.py		HTMLTableCellElement.pyc
+HTMLDOMImplementation.py	HTMLLabelElement.pyc		HTMLTableColElement.py
+HTMLDOMImplementation.pyc	HTMLLegendElement.py		HTMLTableColElement.pyc
+HTMLDirectoryElement.py		HTMLLegendElement.pyc		HTMLTableElement.py
+HTMLDirectoryElement.pyc	HTMLLinkElement.py		HTMLTableElement.pyc
+HTMLDivElement.py		HTMLLinkElement.pyc		HTMLTableRowElement.py
+HTMLDivElement.pyc		HTMLMapElement.py		HTMLTableRowElement.pyc
+HTMLDocument.py			HTMLMapElement.pyc		HTMLTableSectionElement.py
+HTMLDocument.pyc		HTMLMenuElement.py		HTMLTableSectionElement.pyc
+HTMLElement.py			HTMLMenuElement.pyc		HTMLTextAreaElement.py
+HTMLElement.pyc			HTMLMetaElement.py		HTMLTextAreaElement.pyc
+HTMLFieldSetElement.py		HTMLMetaElement.pyc		HTMLTitleElement.py
+HTMLFieldSetElement.pyc		HTMLModElement.py		HTMLTitleElement.pyc
+HTMLFontElement.py		HTMLModElement.pyc		HTMLUListElement.py
+HTMLFontElement.pyc		HTMLOListElement.py		HTMLUListElement.pyc
+HTMLFormElement.py		HTMLOListElement.pyc		__init__.py
+HTMLFormElement.pyc		HTMLObjectElement.py		__init__.pyc
+HTMLFrameElement.py		HTMLObjectElement.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus/marshal:
+__init__.py	__init__.pyc	generic.py	generic.pyc	wddx.py		wddx.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus/parsers:
+__init__.py	expat.py	pyexpat.so	sgmllib.pyc	xmlproc
+__init__.pyc	expat.pyc	sgmllib.py	sgmlop.so
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus/parsers/xmlproc:
+__init__.py	catalog.py	dtdparser.py	namespace.py	xcatalog.py	xmldtd.py	xmlutils.py
+__init__.pyc	catalog.pyc	dtdparser.pyc	namespace.pyc	xcatalog.pyc	xmldtd.pyc	xmlutils.pyc
+_outputters.py	charconv.py	errors.py	utils.py	xmlapp.py	xmlproc.py	xmlval.py
+_outputters.pyc	charconv.pyc	errors.pyc	utils.pyc	xmlapp.pyc	xmlproc.pyc	xmlval.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus/sax:
+__init__.py	drivers		handler.py	saxexts.py	saxutils.py	xmlreader.py
+__init__.pyc	drivers2	handler.pyc	saxexts.pyc	saxutils.pyc	xmlreader.pyc
+_exceptions.py	expatreader.py	sax2exts.py	saxlib.py	writer.py
+_exceptions.pyc	expatreader.pyc	sax2exts.pyc	saxlib.pyc	writer.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus/sax/drivers:
+__init__.py		drv_ltdriver_val.py	drv_sgmlop.py		drv_xmlproc.py		pylibs.py
+__init__.pyc		drv_ltdriver_val.pyc	drv_sgmlop.pyc		drv_xmlproc.pyc		pylibs.pyc
+drv_htmllib.py		drv_pyexpat.py		drv_xmldc.py		drv_xmlproc_val.py
+drv_htmllib.pyc		drv_pyexpat.pyc		drv_xmldc.pyc		drv_xmlproc_val.pyc
+drv_ltdriver.py		drv_sgmllib.py		drv_xmllib.py		drv_xmltoolkit.py
+drv_ltdriver.pyc	drv_sgmllib.pyc		drv_xmllib.pyc		drv_xmltoolkit.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus/sax/drivers2:
+__init__.py		drv_javasax.py		drv_sgmllib.py		drv_sgmlop_html.py
+__init__.pyc		drv_javasax.pyc		drv_sgmllib.pyc		drv_sgmlop_html.pyc
+drv_htmllib.py		drv_pyexpat.py		drv_sgmlop.py		drv_xmlproc.py
+drv_htmllib.pyc		drv_pyexpat.pyc		drv_sgmlop.pyc		drv_xmlproc.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus/schema:
+__init__.py	__init__.pyc	trex.py		trex.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus/unicode:
+__init__.py	__init__.pyc	iso8859.py	iso8859.pyc	utf8_iso.py	utf8_iso.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus/utils:
+__init__.py	boolean.so	characters.pyc	iso8601.pyc	qp_xml.pyc
+__init__.pyc	characters.py	iso8601.py	qp_xml.py
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/_xmlplus/xpath:
+BuiltInExtFunctions.py				ParsedNodeTest.py
+BuiltInExtFunctions.pyc				ParsedNodeTest.pyc
+Context.py					ParsedPredicateList.py
+Context.pyc					ParsedPredicateList.pyc
+Conversions.py					ParsedRelativeLocationPath.py
+Conversions.pyc					ParsedRelativeLocationPath.pyc
+CoreFunctions.py				ParsedStep.py
+CoreFunctions.pyc				ParsedStep.pyc
+ExpandedNameWrapper.py				Set.py
+ExpandedNameWrapper.pyc				Set.pyc
+MessageSource.py				Util.py
+MessageSource.pyc				Util.pyc
+NamespaceNode.py				XPathGrammar.py
+NamespaceNode.pyc				XPathGrammar.pyc
+ParsedAbbreviatedAbsoluteLocationPath.py	XPathParser.py
+ParsedAbbreviatedAbsoluteLocationPath.pyc	XPathParser.pyc
+ParsedAbbreviatedRelativeLocationPath.py	XPathParserBase.py
+ParsedAbbreviatedRelativeLocationPath.pyc	XPathParserBase.pyc
+ParsedAbsoluteLocationPath.py			__init__.py
+ParsedAbsoluteLocationPath.pyc			__init__.pyc
+ParsedAxisSpecifier.py				pyxpath.py
+ParsedAxisSpecifier.pyc				pyxpath.pyc
+ParsedExpr.py					yappsrt.py
+ParsedExpr.pyc					yappsrt.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/calendarserver:
+__init__.py	__init__.pyc	tap		test		tools
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/calendarserver/tap:
+__init__.py	__init__.pyc	caldav.py	caldav.pyc	test
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/calendarserver/tap/test:
+__init__.py	__init__.pyc	test_caldav.py	test_caldav.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/calendarserver/test:
+__init__.py	__init__.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/calendarserver/tools:
+__init__.py		doublequotefix.py	export.py		fixcalendardata.py
+__init__.pyc		doublequotefix.pyc	export.pyc		fixcalendardata.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/pydirector:
+__init__.py		pdadmin.py		pdlogging.py		pdnetwork.py		pdschedulers.py
+__init__.pyc		pdadmin.pyc		pdlogging.pyc		pdnetwork.pyc		pdschedulers.pyc
+compareconf.py		pdamp.py		pdmain.py		pdnetworkasyncore.py
+compareconf.pyc		pdamp.pyc		pdmain.pyc		pdnetworkasyncore.pyc
+micropubl.py		pdconf.py		pdmanager.py		pdnetworktwisted.py
+micropubl.pyc		pdconf.pyc		pdmanager.pyc		pdnetworktwisted.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/select26-0.1a3-py2.5.egg-info:
+PKG-INFO		SOURCES.txt		dependency_links.txt	native_libs.txt		top_level.txt
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/tests:
+__init__.py		test_epoll.py		test_kqueue.py		test_select26.py
+__init__.pyc		test_epoll.pyc		test_kqueue.pyc		test_select26.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twext:
+__init__.py	__init__.pyc	internet	python
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twext/internet:
+__init__.py	__init__.pyc	ssl.py		ssl.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twext/python:
+__init__.py	__init__.pyc	_plistlib.py	_plistlib.pyc	plistlib.py	plistlib.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted:
+__init__.py	conch		im.py		manhole		plugin.pyc	scripts		trial
+__init__.pyc	copyright.py	im.pyc		names		plugins		spread		web
+_version.py	copyright.pyc	internet	news		protocols	tap		web2
+_version.pyc	cred		lore		persisted	python		test		words
+application	enterprise	mail		plugin.py	runner		topfiles
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/application:
+__init__.py	app.py		internet.py	reactors.py	service.py	strports.py
+__init__.pyc	app.pyc		internet.pyc	reactors.pyc	service.pyc	strports.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/conch:
+__init__.py	checkers.py	interfaces.py	manhole_ssh.py	openssh_compat	stdio.pyc	topfiles
+__init__.pyc	checkers.pyc	interfaces.pyc	manhole_ssh.pyc	recvline.py	tap.py		ttymodes.py
+_version.py	client		ls.py		manhole_tap.py	recvline.pyc	tap.pyc		ttymodes.pyc
+_version.pyc	error.py	ls.pyc		manhole_tap.pyc	scripts		telnet.py	ui
+avatar.py	error.pyc	manhole.py	mixin.py	ssh		telnet.pyc	unix.py
+avatar.pyc	insults		manhole.pyc	mixin.pyc	stdio.py	test		unix.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/conch/client:
+__init__.py	agent.py	connect.py	default.py	direct.py	options.py	unix.py
+__init__.pyc	agent.pyc	connect.pyc	default.pyc	direct.pyc	options.pyc	unix.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/conch/insults:
+__init__.py	client.py	colors.py	helper.py	insults.py	text.py		window.py
+__init__.pyc	client.pyc	colors.pyc	helper.pyc	insults.pyc	text.pyc	window.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/conch/openssh_compat:
+__init__.py	__init__.pyc	factory.py	factory.pyc	primes.py	primes.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/conch/scripts:
+__init__.py	cftp.py		ckeygen.py	conch.py	tkconch.py
+__init__.pyc	cftp.pyc	ckeygen.pyc	conch.pyc	tkconch.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/conch/ssh:
+__init__.py		channel.py		factory.py		keys.py			sexpy.py
+__init__.pyc		channel.pyc		factory.pyc		keys.pyc		sexpy.pyc
+agent.py		common.py		filetransfer.py		service.py		transport.py
+agent.pyc		common.pyc		filetransfer.pyc	service.pyc		transport.pyc
+asn1.py			connection.py		forwarding.py		session.py		userauth.py
+asn1.pyc		connection.pyc		forwarding.pyc		session.pyc		userauth.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/conch/test:
+__init__.py		test_filetransfer.py	test_keys.py		test_recvline.py	test_text.py
+__init__.pyc		test_filetransfer.pyc	test_keys.pyc		test_recvline.pyc	test_text.pyc
+test_cftp.py		test_helper.py		test_manhole.py		test_ssh.py		test_window.py
+test_cftp.pyc		test_helper.pyc		test_manhole.pyc	test_ssh.pyc		test_window.pyc
+test_conch.py		test_insults.py		test_mixin.py		test_telnet.py
+test_conch.pyc		test_insults.pyc	test_mixin.pyc		test_telnet.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/conch/topfiles:
+NEWS	README
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/conch/ui:
+__init__.py	__init__.pyc	ansi.py		ansi.pyc	tkvt100.py	tkvt100.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/cred:
+__init__.py	checkers.py	credentials.py	error.py	pamauth.py	portal.py	util.py
+__init__.pyc	checkers.pyc	credentials.pyc	error.pyc	pamauth.pyc	portal.pyc	util.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/enterprise:
+__init__.py		adbapi.pyc		row.py			sqlreflector.pyc
+__init__.pyc		reflector.py		row.pyc			util.py
+adbapi.py		reflector.pyc		sqlreflector.py		util.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/internet:
+__init__.py		_win32stdio.pyc		fdesc.py		process.py		task.pyc
+__init__.pyc		abstract.py		fdesc.pyc		process.pyc		tcp.py
+_dumbwin32proc.py	abstract.pyc		glib2reactor.py		protocol.py		tcp.pyc
+_dumbwin32proc.pyc	address.py		glib2reactor.pyc	protocol.pyc		threads.py
+_javaserialport.py	address.pyc		gtk2reactor.py		pyuisupport.py		threads.pyc
+_javaserialport.pyc	base.py			gtk2reactor.pyc		pyuisupport.pyc		tksupport.py
+_pollingfile.py		base.pyc		gtkreactor.py		qtreactor.py		tksupport.pyc
+_pollingfile.pyc	cfreactor.py		gtkreactor.pyc		qtreactor.pyc		udp.py
+_posixserialport.py	cfreactor.pyc		interfaces.py		reactor.py		udp.pyc
+_posixserialport.pyc	cfsupport		interfaces.pyc		reactor.pyc		unix.py
+_posixstdio.py		cfsupport.so		iocpreactor		selectreactor.py	unix.pyc
+_posixstdio.pyc		default.py		kqreactor.py		selectreactor.pyc	utils.py
+_sslverify.py		default.pyc		kqreactor.pyc		serialport.py		utils.pyc
+_sslverify.pyc		defer.py		main.py			serialport.pyc		win32eventreactor.py
+_threadedselect.py	defer.pyc		main.pyc		ssl.py			win32eventreactor.pyc
+_threadedselect.pyc	epollreactor.py		pollreactor.py		ssl.pyc			wxreactor.py
+_win32serialport.py	epollreactor.pyc	pollreactor.pyc		stdio.py		wxreactor.pyc
+_win32serialport.pyc	error.py		posixbase.py		stdio.pyc		wxsupport.py
+_win32stdio.py		error.pyc		posixbase.pyc		task.py			wxsupport.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/internet/cfsupport:
+cfdate.pxi	cfdecl.pxi	cfrunloop.pxi	cfsocket.pxi	cfsupport.c	cfsupport.pyx	python.pxi
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/internet/iocpreactor:
+__init__.py		client.py		ops.pyc			process_waiter.py	tcp.pyc
+__init__.pyc		client.pyc		proactor.py		process_waiter.pyc	udp.py
+_iocp.c			iocpdebug.py		proactor.pyc		server.py		udp.pyc
+abstract.py		iocpdebug.pyc		process.py		server.pyc		util.py
+abstract.pyc		ops.py			process.pyc		tcp.py			util.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/lore:
+__init__.py	docbook.py	latex.py	man2lore.py	process.py	test
+__init__.pyc	docbook.pyc	latex.pyc	man2lore.pyc	process.pyc	texi.py
+_version.py	htmlbook.py	lint.py		nevowlore.py	scripts		texi.pyc
+_version.pyc	htmlbook.pyc	lint.pyc	nevowlore.pyc	slides.py	topfiles
+default.py	indexer.py	lmath.py	numberer.py	slides.pyc	tree.py
+default.pyc	indexer.pyc	lmath.pyc	numberer.pyc	template.mgp	tree.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/lore/scripts:
+__init__.py	__init__.pyc	lore.py		lore.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/lore/test:
+__init__.py					lore_numbering_test_out.html
+__init__.pyc					lore_numbering_test_out2.html
+good_internal.xhtml				simple.html
+good_simple.xhtml				simple.xhtml
+lore_index_file_out.html			simple1.xhtml
+lore_index_file_out_multiple.html		simple2.xhtml
+lore_index_file_unnumbered_multiple_out.html	simple3.html
+lore_index_file_unnumbered_out.html		simple3.xhtml
+lore_index_test.xhtml				simple4.html
+lore_index_test2.xhtml				simple4.xhtml
+lore_index_test3.xhtml				simple4foo.xhtml
+lore_index_test_out.html			template.tpl
+lore_index_test_out2.html			test_lore.py
+lore_numbering_test.xhtml			test_lore.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/lore/topfiles:
+NEWS	README
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/mail:
+__init__.py		bounce.pyc		pb.py			protocols.pyc		smtp.pyc
+__init__.pyc		imap4.py		pb.pyc			relay.py		tap.py
+_version.py		imap4.pyc		pop3.py			relay.pyc		tap.pyc
+_version.pyc		mail.py			pop3.pyc		relaymanager.py		test
+alias.py		mail.pyc		pop3client.py		relaymanager.pyc	topfiles
+alias.pyc		maildir.py		pop3client.pyc		scripts
+bounce.py		maildir.pyc		protocols.py		smtp.py
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/mail/scripts:
+__init__.py	__init__.pyc	mailmail.py	mailmail.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/mail/test:
+__init__.py		process.alias.sh	test_imap.py		test_options.py		test_pop3client.py
+__init__.pyc		rfc822.message		test_imap.pyc		test_options.pyc	test_pop3client.pyc
+pop3testserver.py	test_bounce.py		test_mail.py		test_pop3.py		test_smtp.py
+pop3testserver.pyc	test_bounce.pyc		test_mail.pyc		test_pop3.pyc		test_smtp.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/mail/topfiles:
+NEWS	README
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/manhole:
+__init__.py		explorer.py		gladereactor.pyc	service.pyc
+__init__.pyc		explorer.pyc		inspectro.glade		telnet.py
+_inspectro.py		gladereactor.glade	logview.glade		telnet.pyc
+_inspectro.pyc		gladereactor.py		service.py		ui
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/manhole/ui:
+__init__.py		gtk2manhole.py		gtkmanhole.pyc		pywidgets.pyc
+__init__.pyc		gtk2manhole.pyc		gtkrc			spelunk_gnome.py
+gtk2manhole.glade	gtkmanhole.py		pywidgets.py		spelunk_gnome.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/names:
+__init__.py	authority.pyc	common.py	error.pyc	root.py		server.pyc	test
+__init__.pyc	cache.py	common.pyc	hosts.py	root.pyc	srvconnect.py	topfiles
+_version.py	cache.pyc	dns.py		hosts.pyc	secondary.py	srvconnect.pyc
+_version.pyc	client.py	dns.pyc		resolve.py	secondary.pyc	tap.py
+authority.py	client.pyc	error.py	resolve.pyc	server.py	tap.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/names/test:
+__init__.py		test_cache.pyc		test_dns.py		test_names.pyc
+__init__.pyc		test_client.py		test_dns.pyc		test_rootresolve.py
+test_cache.py		test_client.pyc		test_names.py		test_rootresolve.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/names/topfiles:
+NEWS	README
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/news:
+__init__.py	_version.py	database.py	news.py		nntp.py		tap.py		test
+__init__.pyc	_version.pyc	database.pyc	news.pyc	nntp.pyc	tap.pyc		topfiles
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/news/test:
+__init__.py	__init__.pyc	test_news.py	test_news.pyc	test_nntp.py	test_nntp.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/news/topfiles:
+NEWS	README
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/persisted:
+__init__.py	aot.pyc		dirdbm.py	marmalade.py	sob.pyc
+__init__.pyc	crefutil.py	dirdbm.pyc	marmalade.pyc	styles.py
+aot.py		crefutil.pyc	journal		sob.py		styles.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/persisted/journal:
+__init__.py	base.py		picklelog.py	rowjournal.py
+__init__.pyc	base.pyc	picklelog.pyc	rowjournal.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/plugins:
+__init__.py		testplugin.pyc		twisted_mail.py		twisted_portforward.pyc	twisted_web.py
+__init__.pyc		twisted_conch.py	twisted_mail.pyc	twisted_reactors.py	twisted_web.pyc
+caldav.py		twisted_conch.pyc	twisted_manhole.py	twisted_reactors.pyc	twisted_web2.py
+caldav.pyc		twisted_ftp.py		twisted_manhole.pyc	twisted_socks.py	twisted_web2.pyc
+kqueuereactor.py	twisted_ftp.pyc		twisted_names.py	twisted_socks.pyc	twisted_words.py
+kqueuereactor.pyc	twisted_inet.py		twisted_names.pyc	twisted_telnet.py	twisted_words.pyc
+notestplugin.py		twisted_inet.pyc	twisted_news.py		twisted_telnet.pyc
+notestplugin.pyc	twisted_lore.py		twisted_news.pyc	twisted_trial.py
+testplugin.py		twisted_lore.pyc	twisted_portforward.py	twisted_trial.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/protocols:
+__init__.py	dns.pyc		http.pyc	loopback.py	policies.py	rawudp.pyc	sux.py
+__init__.pyc	ethernet.py	ident.py	loopback.pyc	policies.pyc	shoutcast.py	sux.pyc
+_c_urlarg.c	ethernet.pyc	ident.pyc	mice		pop3.py		shoutcast.pyc	telnet.py
+_c_urlarg.so	finger.py	imap4.py	msn.py		pop3.pyc	sip.py		telnet.pyc
+amp.py		finger.pyc	imap4.pyc	msn.pyc		portforward.py	sip.pyc		toc.py
+amp.pyc		ftp.py		ip.py		nntp.py		portforward.pyc	smtp.py		toc.pyc
+basic.py	ftp.pyc		ip.pyc		nntp.pyc	postfix.py	smtp.pyc	wire.py
+basic.pyc	gps		irc.py		oscar.py	postfix.pyc	socks.py	wire.pyc
+dict.py		htb.py		irc.pyc		oscar.pyc	raw.py		socks.pyc	xmlstream.py
+dict.pyc	htb.pyc		jabber.py	pcp.py		raw.pyc		stateful.py	xmlstream.pyc
+dns.py		http.py		jabber.pyc	pcp.pyc		rawudp.py	stateful.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/protocols/gps:
+__init__.py	__init__.pyc	nmea.py		nmea.pyc	rockwell.py	rockwell.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/protocols/mice:
+__init__.py	__init__.pyc	mouseman.py	mouseman.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/python:
+__init__.py		failure.py		logfile.pyc		runtime.py		usage.pyc
+__init__.pyc		failure.pyc		modules.py		runtime.pyc		util.py
+_epoll.c		filepath.py		modules.pyc		shortcut.py		util.pyc
+_epoll.pyx		filepath.pyc		otp.py			shortcut.pyc		versions.py
+_twisted_zsh_stub	finalize.py		otp.pyc			syslog.py		versions.pyc
+compat.py		finalize.pyc		plugin.py		syslog.pyc		win32.py
+compat.pyc		formmethod.py		plugin.pyc		text.py			win32.pyc
+components.py		formmethod.pyc		procutils.py		text.pyc		zippath.py
+components.pyc		hook.py			procutils.pyc		threadable.py		zippath.pyc
+context.py		hook.pyc		rebuild.py		threadable.pyc		zipstream.py
+context.pyc		htmlizer.py		rebuild.pyc		threadpool.py		zipstream.pyc
+dispatch.py		htmlizer.pyc		reflect.py		threadpool.pyc		zsh
+dispatch.pyc		lockfile.py		reflect.pyc		timeoutqueue.py		zshcomp.py
+dist.py			lockfile.pyc		release.py		timeoutqueue.pyc	zshcomp.pyc
+dist.pyc		log.py			release.pyc		urlpath.py
+dxprofile.py		log.pyc			roots.py		urlpath.pyc
+dxprofile.pyc		logfile.py		roots.pyc		usage.py
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/python/zsh:
+README		_conch		_mktap		_tap2rpm	_tkmktap	_websetroot
+_cftp		_lore		_pyhtmlizer	_tapconvert	_trial
+_ckeygen	_manhole	_tap2deb	_tkconch	_twistd
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/runner:
+__init__.py	_version.pyc	inetdconf.py	inetdtap.pyc	procmon.py	procutils.pyc
+__init__.pyc	inetd.py	inetdconf.pyc	portmap.c	procmon.pyc	topfiles
+_version.py	inetd.pyc	inetdtap.py	portmap.so	procutils.py
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/runner/topfiles:
+NEWS	README
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/scripts:
+__init__.py		_twistw.pyc		mktap.py		tap2rpm.pyc		trial.py
+__init__.pyc		htmlizer.py		mktap.pyc		tapconvert.py		trial.pyc
+_twistd_unix.py		htmlizer.pyc		tap2deb.py		tapconvert.pyc		twistd.py
+_twistd_unix.pyc	manhole.py		tap2deb.pyc		tkunzip.py		twistd.pyc
+_twistw.py		manhole.pyc		tap2rpm.py		tkunzip.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/spread:
+__init__.py	banana.pyc	interfaces.py	jelly.pyc	publish.py	refpath.pyc	util.pyc
+__init__.pyc	flavors.py	interfaces.pyc	pb.py		publish.pyc	ui
+banana.py	flavors.pyc	jelly.py	pb.pyc		refpath.py	util.py
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/spread/ui:
+__init__.py	gtk2util.py	gtkutil.py	login2.glade	tktree.pyc	tkutil.pyc
+__init__.pyc	gtk2util.pyc	gtkutil.pyc	tktree.py	tkutil.py
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/tap:
+__init__.py	ftp.py		manhole.py	portforward.py	socks.py	telnet.py
+__init__.pyc	ftp.pyc		manhole.pyc	portforward.pyc	socks.pyc	telnet.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/test:
+__init__.py			test_dict.py			test_process.pyc
+__init__.pyc			test_dict.pyc			test_protocols.py
+app_qtstub.py			test_dirdbm.py			test_protocols.pyc
+app_qtstub.pyc			test_dirdbm.pyc			test_rebuild.py
+crash_test_dummy.py		test_dist.py			test_rebuild.pyc
+crash_test_dummy.pyc		test_dist.pyc			test_reflect.py
+iosim.py			test_doc.py			test_reflect.pyc
+iosim.pyc			test_doc.pyc			test_reflector.py
+myrebuilder1.py			test_enterprise.py		test_reflector.pyc
+myrebuilder1.pyc		test_enterprise.pyc		test_release.py
+myrebuilder2.py			test_epoll.py			test_release.pyc
+myrebuilder2.pyc		test_epoll.pyc			test_roots.py
+process_cmdline.py		test_error.py			test_roots.pyc
+process_cmdline.pyc		test_error.pyc			test_shortcut.py
+process_echoer.py		test_explorer.py		test_shortcut.pyc
+process_echoer.pyc		test_explorer.pyc		test_sip.py
+process_fds.py			test_extensions.py		test_sip.pyc
+process_fds.pyc			test_extensions.pyc		test_sob.py
+process_linger.py		test_factories.py		test_sob.pyc
+process_linger.pyc		test_factories.pyc		test_socks.py
+process_reader.py		test_failure.py			test_socks.pyc
+process_reader.pyc		test_failure.pyc		test_split_compat.py
+process_signal.py		test_finger.py			test_split_compat.pyc
+process_signal.pyc		test_finger.pyc			test_spread.py
+process_stdinreader.py		test_formmethod.py		test_spread.pyc
+process_stdinreader.pyc		test_formmethod.pyc		test_ssl.py
+process_tester.py		test_ftp.py			test_ssl.pyc
+process_tester.pyc		test_ftp.pyc			test_sslverify.py
+process_tty.py			test_hook.py			test_sslverify.pyc
+process_tty.pyc			test_hook.pyc			test_stateful.py
+process_twisted.py		test_htb.py			test_stateful.pyc
+process_twisted.pyc		test_htb.pyc			test_stdio.py
+proto_helpers.py		test_ident.py			test_stdio.pyc
+proto_helpers.pyc		test_ident.pyc			test_strports.py
+reflect_helper_VE.py		test_import.py			test_strports.pyc
+reflect_helper_VE.pyc		test_import.pyc			test_task.py
+reflect_helper_ZDE.py		test_internet.py		test_task.pyc
+reflect_helper_ZDE.pyc		test_internet.pyc		test_tcp.py
+server.pem			test_iutils.py			test_tcp.pyc
+ssl_helpers.py			test_iutils.pyc			test_tcp_internals.py
+ssl_helpers.pyc			test_jelly.py			test_tcp_internals.pyc
+stdio_test_consumer.py		test_jelly.pyc			test_text.py
+stdio_test_consumer.pyc		test_journal.py			test_text.pyc
+stdio_test_hostpeer.py		test_journal.pyc		test_threadable.py
+stdio_test_hostpeer.pyc		test_lockfile.py		test_threadable.pyc
+stdio_test_lastwrite.py		test_lockfile.pyc		test_threadpool.py
+stdio_test_lastwrite.pyc	test_log.py			test_threadpool.pyc
+stdio_test_loseconn.py		test_log.pyc			test_threads.py
+stdio_test_loseconn.pyc		test_logfile.py			test_threads.pyc
+stdio_test_producer.py		test_logfile.pyc		test_timeoutqueue.py
+stdio_test_producer.pyc		test_loopback.py		test_timeoutqueue.pyc
+stdio_test_write.py		test_loopback.pyc		test_tpfile.py
+stdio_test_write.pyc		test_manhole.py			test_tpfile.pyc
+stdio_test_writeseq.py		test_manhole.pyc		test_twistd.py
+stdio_test_writeseq.pyc		test_modules.py			test_twistd.pyc
+test_adbapi.py			test_modules.pyc		test_udp.py
+test_adbapi.pyc			test_newcred.py			test_udp.pyc
+test_amp.py			test_newcred.pyc		test_unix.py
+test_amp.pyc			test_nmea.py			test_unix.pyc
+test_application.py		test_nmea.pyc			test_usage.py
+test_application.pyc		test_paths.py			test_usage.pyc
+test_assertions.py		test_paths.pyc			test_util.py
+test_assertions.pyc		test_pb.py			test_util.pyc
+test_banana.py			test_pb.pyc			test_versions.py
+test_banana.pyc			test_pbfailure.py		test_versions.pyc
+test_compat.py			test_pbfailure.pyc		test_zipstream.py
+test_compat.pyc			test_pcp.py			test_zipstream.pyc
+test_components.py		test_pcp.pyc			test_zshcomp.py
+test_components.pyc		test_persisted.py		test_zshcomp.pyc
+test_context.py			test_persisted.pyc		testutils.py
+test_context.pyc		test_plugin.py			testutils.pyc
+test_cooperator.py		test_plugin.pyc			threading_latency.py
+test_cooperator.pyc		test_policies.py		threading_latency.pyc
+test_defer.py			test_policies.pyc		time_helpers.py
+test_defer.pyc			test_postfix.py			time_helpers.pyc
+test_defgen.py			test_postfix.pyc
+test_defgen.pyc			test_process.py
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/topfiles:
+CREDITS		ChangeLog.Old	INSTALL		NEWS		README
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/trial:
+__init__.py	itrial.py	reporter.py	runner.py	test		unittest.pyc	util.pyc
+__init__.pyc	itrial.pyc	reporter.pyc	runner.pyc	unittest.py	util.py
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/trial/test:
+__init__.py		mockdoctest.pyc		scripttest.pyc		test_loader.py		test_script.pyc
+__init__.pyc		moduleself.py		suppression.py		test_loader.pyc		test_test_visitor.py
+detests.py		moduleself.pyc		suppression.pyc		test_log.py		test_test_visitor.pyc
+detests.pyc		moduletest.py		test_assertions.py	test_log.pyc		test_tests.py
+erroneous.py		moduletest.pyc		test_assertions.pyc	test_output.py		test_tests.pyc
+erroneous.pyc		notpython		test_class.py		test_output.pyc		test_util.py
+mockcustomsuite.py	novars.py		test_class.pyc		test_pyunitcompat.py	test_util.pyc
+mockcustomsuite.pyc	novars.pyc		test_deferred.py	test_pyunitcompat.pyc	weird.py
+mockcustomsuite2.py	packages.py		test_deferred.pyc	test_reporter.py	weird.pyc
+mockcustomsuite2.pyc	packages.pyc		test_doctest.py		test_reporter.pyc
+mockcustomsuite3.py	sample.py		test_doctest.pyc	test_runner.py
+mockcustomsuite3.pyc	sample.pyc		test_keyboard.py	test_runner.pyc
+mockdoctest.py		scripttest.py		test_keyboard.pyc	test_script.py
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/web:
+__init__.py	distrib.pyc	html.py		proxy.pyc	soap.py		topfiles	widgets.py
+__init__.pyc	domhelpers.py	html.pyc	resource.py	soap.pyc	trp.py		widgets.pyc
+_version.py	domhelpers.pyc	http.py		resource.pyc	static.py	trp.pyc		woven
+_version.pyc	error.py	http.pyc	rewrite.py	static.pyc	twcgi.py	xmlrpc.py
+client.py	error.pyc	microdom.py	rewrite.pyc	sux.py		twcgi.pyc	xmlrpc.pyc
+client.pyc	google.py	microdom.pyc	script.py	sux.pyc		util.py
+demo.py		google.pyc	monitor.py	script.pyc	tap.py		util.pyc
+demo.pyc	guard.py	monitor.pyc	server.py	tap.pyc		vhost.py
+distrib.py	guard.pyc	proxy.py	server.pyc	test		vhost.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/web/test:
+__init__.py		test_domhelpers.py	test_soap.py		test_webclient.py	test_xmlrpc.py
+__init__.pyc		test_domhelpers.pyc	test_soap.pyc		test_webclient.pyc	test_xmlrpc.pyc
+test_cgi.py		test_http.py		test_static.py		test_woven.py
+test_cgi.pyc		test_http.pyc		test_static.pyc		test_woven.pyc
+test_distrib.py		test_mvc.py		test_web.py		test_xml.py
+test_distrib.pyc	test_mvc.pyc		test_web.pyc		test_xml.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/web/topfiles:
+NEWS	README
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/web/woven:
+FlashConduit.fla	controller.py		guard.py		page.py			utils.py
+FlashConduit.swf	controller.pyc		guard.pyc		page.pyc		utils.pyc
+FlashConduitGlue.html	dirlist.py		input.py		simpleguard.py		view.py
+WebConduit2_mozilla.js	dirlist.pyc		input.pyc		simpleguard.pyc		view.pyc
+WebConduit2_msie.js	flashconduit.py		interfaces.py		tapestry.py		widgets.py
+WebConduitGlue.html	flashconduit.pyc	interfaces.pyc		tapestry.pyc		widgets.pyc
+__init__.py		form.py			model.py		template.py
+__init__.pyc		form.pyc		model.pyc		template.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/web2:
+TODO			dirlist.py		iweb.py			responsecode.pyc	twcgi.py
+__init__.py		dirlist.pyc		iweb.pyc		server.py		twcgi.pyc
+__init__.pyc		error.py		log.py			server.pyc		twscgi.py
+_version.py		error.pyc		log.pyc			static.py		twscgi.pyc
+_version.pyc		fileupload.py		plugin.py		static.pyc		vhost.py
+auth			fileupload.pyc		plugin.pyc		stream.py		vhost.pyc
+channel			filter			proxy.py		stream.pyc		wsgi.py
+client			http.py			proxy.pyc		tap.py			wsgi.pyc
+compat.py		http.pyc		resource.py		tap.pyc			xmlrpc.py
+compat.pyc		http_headers.py		resource.pyc		test			xmlrpc.pyc
+dav			http_headers.pyc	responsecode.py		topfiles
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/web2/auth:
+__init__.py	basic.py	digest.py	interfaces.py	wrapper.py
+__init__.pyc	basic.pyc	digest.pyc	interfaces.pyc	wrapper.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/web2/channel:
+__init__.py	cgi.py		fastcgi.py	http.py		scgi.py
+__init__.pyc	cgi.pyc		fastcgi.pyc	http.pyc	scgi.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/web2/client:
+__init__.py	__init__.pyc	http.py		http.pyc	interfaces.py	interfaces.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/web2/dav:
+__init__.py	davxml.py	fileop.pyc	idav.pyc	resource.py	stream.py	util.pyc
+__init__.pyc	davxml.pyc	http.py		method		resource.pyc	stream.pyc	xattrprops.py
+auth.py		element		http.pyc	noneprops.py	static.py	test		xattrprops.pyc
+auth.pyc	fileop.py	idav.py		noneprops.pyc	static.pyc	util.py
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/web2/dav/element:
+__init__.py	base.pyc	parser.py	rfc2518.pyc	rfc3744.py	rfc4331.pyc	xmlext.py
+__init__.pyc	extensions.py	parser.pyc	rfc3253.py	rfc3744.pyc	util.py		xmlext.pyc
+base.py		extensions.pyc	rfc2518.py	rfc3253.pyc	rfc4331.py	util.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/web2/dav/method:
+__init__.py					proppatch.py
+__init__.pyc					proppatch.pyc
+acl.py						put.py
+acl.pyc						put.pyc
+copymove.py					put_common.py
+copymove.pyc					put_common.pyc
+delete.py					report.py
+delete.pyc					report.pyc
+get.py						report_acl_principal_prop_set.py
+get.pyc						report_acl_principal_prop_set.pyc
+lock.py						report_expand.py
+lock.pyc					report_expand.pyc
+mkcol.py					report_principal_match.py
+mkcol.pyc					report_principal_match.pyc
+prop_common.py					report_principal_property_search.py
+prop_common.pyc					report_principal_property_search.pyc
+propfind.py					report_principal_search_property_set.py
+propfind.pyc					report_principal_search_property_set.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/web2/dav/test:
+__init__.py		test_http.py		test_options.pyc	test_report_expand.py	test_util.pyc
+__init__.pyc		test_http.pyc		test_pipeline.py	test_report_expand.pyc	test_xml.py
+data			test_lock.py		test_pipeline.pyc	test_resource.py	test_xml.pyc
+test_acl.py		test_lock.pyc		test_prop.py		test_resource.pyc	test_xml_rfc3744.py
+test_acl.pyc		test_mkcol.py		test_prop.pyc		test_static.py		test_xml_rfc3744.pyc
+test_copy.py		test_mkcol.pyc		test_put.py		test_static.pyc		tworequest_client.py
+test_copy.pyc		test_move.py		test_put.pyc		test_stream.py		tworequest_client.pyc
+test_delete.py		test_move.pyc		test_report.py		test_stream.pyc		util.py
+test_delete.pyc		test_options.py		test_report.pyc		test_util.py		util.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/web2/dav/test/data:
+xml
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/web2/dav/test/data/xml:
+PROPFIND_bad.xml		PROPFIND_response.xml		REPORT_response.xml
+PROPFIND_nonamespace.xml	PROPPATCH_request.xml
+PROPFIND_request.xml		REPORT_request.xml
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/web2/filter:
+__init__.py	gzip.py		location.py	range.py
+__init__.pyc	gzip.pyc	location.pyc	range.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/web2/test:
+__init__.py		test_client.py		test_http.py		test_plugin.py		test_stream.py
+__init__.pyc		test_client.pyc		test_http.pyc		test_plugin.pyc		test_stream.pyc
+server.pem		test_compat.py		test_http_headers.py	test_scgi.py		test_vhost.py
+simple_client.py	test_compat.pyc		test_http_headers.pyc	test_scgi.pyc		test_vhost.pyc
+simple_client.pyc	test_fastcgi.py		test_httpauth.py	test_server.py		test_wsgi.py
+stream_data.txt		test_fastcgi.pyc	test_httpauth.pyc	test_server.pyc		test_wsgi.pyc
+test_cgi.py		test_fileupload.py	test_log.py		test_static.py		test_xmlrpc.py
+test_cgi.pyc		test_fileupload.pyc	test_log.pyc		test_static.pyc		test_xmlrpc.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/web2/topfiles:
+NEWS	README
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/words:
+__init__.py	_version.pyc	im		protocols	service.pyc	test		topfiles
+__init__.pyc	ewords.py	iwords.py	scripts		tap.py		toctap.py	xish
+_version.py	ewords.pyc	iwords.pyc	service.py	tap.pyc		toctap.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/words/im:
+__init__.py		basesupport.pyc		instancemessenger.glade	jychat.py		proxyui.pyc
+__init__.pyc		gtkaccount.py		interfaces.py		jychat.pyc		tap.py
+baseaccount.py		gtkaccount.pyc		interfaces.pyc		locals.py		tap.pyc
+baseaccount.pyc		gtkchat.py		ircsupport.py		locals.pyc		tocsupport.py
+basechat.py		gtkchat.pyc		ircsupport.pyc		pbsupport.py		tocsupport.pyc
+basechat.pyc		gtkcommon.py		jyaccount.py		pbsupport.pyc
+basesupport.py		gtkcommon.pyc		jyaccount.pyc		proxyui.py
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/words/protocols:
+__init__.py	irc.py		jabber		msn.pyc		oscar.pyc	toc.pyc
+__init__.pyc	irc.pyc		msn.py		oscar.py	toc.py
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/words/protocols/jabber:
+__init__.py		component.pyc		jid.py			sasl.pyc		xmpp_stringprep.py
+__init__.pyc		error.py		jid.pyc			sasl_mechanisms.py	xmpp_stringprep.pyc
+client.py		error.pyc		jstrports.py		sasl_mechanisms.pyc
+client.pyc		ijabber.py		jstrports.pyc		xmlstream.py
+component.py		ijabber.pyc		sasl.py			xmlstream.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/words/scripts:
+__init__.py	__init__.pyc	im.py		im.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/words/test:
+__init__.py			test_jabbererror.py		test_msn.py
+__init__.pyc			test_jabbererror.pyc		test_msn.pyc
+test_basesupport.py		test_jabberjid.py		test_service.py
+test_basesupport.pyc		test_jabberjid.pyc		test_service.pyc
+test_domish.py			test_jabbersasl.py		test_toc.py
+test_domish.pyc			test_jabbersasl.pyc		test_toc.pyc
+test_irc.py			test_jabbersaslmechanisms.py	test_xishutil.py
+test_irc.pyc			test_jabbersaslmechanisms.pyc	test_xishutil.pyc
+test_jabberclient.py		test_jabberxmlstream.py		test_xmlstream.py
+test_jabberclient.pyc		test_jabberxmlstream.pyc	test_xmlstream.pyc
+test_jabbercomponent.py		test_jabberxmppstringprep.py	test_xpath.py
+test_jabbercomponent.pyc	test_jabberxmppstringprep.pyc	test_xpath.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/words/topfiles:
+NEWS	README
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twisted/words/xish:
+__init__.py	domish.py	utility.py	xmlstream.py	xpath.py	xpathparser.g	xpathparser.pyc
+__init__.pyc	domish.pyc	utility.pyc	xmlstream.pyc	xpath.pyc	xpathparser.py
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav:
+__init__.py		config.pyc		ical.pyc		memcachelock.pyc	scheduling
+__init__.pyc		customxml.py		icaldav.py		memcachepool.py		sql.py
+_sacl.so		customxml.pyc		icaldav.pyc		memcachepool.pyc	sql.pyc
+accesslog.py		dateops.py		images			memcacher.py		static.py
+accesslog.pyc		dateops.pyc		index.py		memcacher.pyc		static.pyc
+accounting.py		directory		index.pyc		method			test
+accounting.pyc		dropbox.py		instance.py		notify.py		timezones.py
+admin			dropbox.pyc		instance.pyc		notify.pyc		timezones.pyc
+authkerb.py		extensions.py		localization.py		pdmonster.py		timezoneservice.py
+authkerb.pyc		extensions.pyc		localization.pyc	pdmonster.pyc		timezoneservice.pyc
+backup.py		fileops.py		log.py			query			upgrade.py
+backup.pyc		fileops.pyc		log.pyc			resource.py		upgrade.pyc
+cache.py		freebusyurl.py		mail.py			resource.pyc		util.py
+cache.pyc		freebusyurl.pyc		mail.pyc		root.py			util.pyc
+caldavxml.py		httpfactory.py		memcache.py		root.pyc		version.py
+caldavxml.pyc		httpfactory.pyc		memcache.pyc		schedule.py		version.pyc
+config.py		ical.py			memcachelock.py		schedule.pyc		zoneinfo
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/admin:
+__init__.py	formatters.pyc	options.py	principals.pyc	script.py	stats.pyc
+__init__.pyc	logs.py		options.pyc	purge.py	script.pyc	util.py
+formatters.py	logs.pyc	principals.py	purge.pyc	stats.py	util.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/directory:
+__init__.py		appleopendirectory.pyc	directory.py		resource.pyc		util.pyc
+__init__.pyc		calendar.py		directory.pyc		sqldb.py		wiki.py
+aggregate.py		calendar.pyc		idirectory.py		sqldb.pyc		wiki.pyc
+aggregate.pyc		calendaruserproxy.py	idirectory.pyc		sudo.py			xmlaccountsparser.py
+apache.py		calendaruserproxy.pyc	principal.py		sudo.pyc		xmlaccountsparser.pyc
+apache.pyc		digest.py		principal.pyc		test			xmlfile.py
+appleopendirectory.py	digest.pyc		resource.py		util.py			xmlfile.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/directory/test:
+__init__.py			test_opendirectory.py		test_sqldb.py
+__init__.pyc			test_opendirectory.pyc		test_sqldb.pyc
+test_aggregate.py		test_opendirectoryrecords.py	test_sudo.py
+test_aggregate.pyc		test_opendirectoryrecords.pyc	test_sudo.pyc
+test_apache.py			test_opendirectoryschema.py	test_util.py
+test_apache.pyc			test_opendirectoryschema.pyc	test_util.pyc
+test_calendar.py		test_principal.py		test_xmlfile.py
+test_calendar.pyc		test_principal.pyc		test_xmlfile.pyc
+test_digest.py			test_proxyprincipaldb.py	util.py
+test_digest.pyc			test_proxyprincipaldb.pyc	util.pyc
+test_guidchange.py		test_proxyprincipalmembers.py
+test_guidchange.pyc		test_proxyprincipalmembers.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/images:
+mail
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/images/mail:
+ical.jpg
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/method:
+__init__.py		delete_common.py	mkcol.py		put_common.py		report_common.py
+__init__.pyc		delete_common.pyc	mkcol.pyc		put_common.pyc		report_common.pyc
+copymove.py		get.py			propfind.py		report.py		report_freebusy.py
+copymove.pyc		get.pyc			propfind.pyc		report.pyc		report_freebusy.pyc
+delete.py		mkcalendar.py		put.py			report_calquery.py	report_multiget.py
+delete.pyc		mkcalendar.pyc		put.pyc			report_calquery.pyc	report_multiget.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/query:
+__init__.py		calendarquery.py	expression.py		sqlgenerator.py
+__init__.pyc		calendarquery.pyc	expression.pyc		sqlgenerator.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/scheduling:
+__init__.py		cuaddress.py		imip.py			ischeduleservers.py	scheduler.py
+__init__.pyc		cuaddress.pyc		imip.pyc		ischeduleservers.pyc	scheduler.pyc
+addressmapping.py	delivery.py		implicit.py		itip.py			test
+addressmapping.pyc	delivery.pyc		implicit.pyc		itip.pyc
+caldav.py		icaldiff.py		ischedule.py		processing.py
+caldav.pyc		icaldiff.pyc		ischedule.pyc		processing.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/scheduling/test:
+__init__.py		test_icaldiff.py	test_implicit.py	test_itip.py
+__init__.pyc		test_icaldiff.pyc	test_implicit.pyc	test_itip.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/test:
+__init__.py			test_kerberos.py		test_options.py
+__init__.pyc			test_kerberos.pyc		test_options.pyc
+test_DAV.py			test_localization.py		test_props.py
+test_DAV.pyc			test_localization.pyc		test_props.pyc
+test_accounting.py		test_log.py			test_resource.py
+test_accounting.pyc		test_log.pyc			test_resource.pyc
+test_cache.py			test_mail.py			test_root.py
+test_cache.pyc			test_mail.pyc			test_root.pyc
+test_calendarquery.py		test_memcache.py		test_schedule.py
+test_calendarquery.pyc		test_memcache.pyc		test_schedule.pyc
+test_collectioncontents.py	test_memcachelock.py		test_sql.py
+test_collectioncontents.pyc	test_memcachelock.pyc		test_sql.pyc
+test_config.py			test_memcachepool.py		test_static.py
+test_config.pyc			test_memcachepool.pyc		test_static.pyc
+test_dateops.py			test_memcacher.py		test_timezones.py
+test_dateops.pyc		test_memcacher.pyc		test_timezones.pyc
+test_freebusyquery.py		test_mkcalendar.py		test_upgrade.py
+test_freebusyquery.pyc		test_mkcalendar.pyc		test_upgrade.pyc
+test_icalendar.py		test_multiget.py		test_xml.py
+test_icalendar.pyc		test_multiget.pyc		test_xml.pyc
+test_index.py			test_notify.py			util.py
+test_index.pyc			test_notify.pyc			util.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo:
+Africa		Australia	Eire.ics	Indian		Libya.ics	Pacific		Turkey.ics
+America		Brazil		Europe		Iran.ics	Mexico		Poland.ics	US
+Antarctica	Canada		GB-Eire.ics	Israel.ics	NZ-CHAT.ics	Portugal.ics	W-SU.ics
+Arctic		Chile		GB.ics		Jamaica.ics	NZ.ics		ROC.ics
+Asia			Cuba.ics	Hongkong.ics	Japan.ics	Navajo.ics	ROK.ics
+Atlantic	Egypt.ics	Iceland.ics	Kwajalein.ics	PRC.ics		Singapore.ics
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Africa:
+Abidjan.ics		Brazzaville.ics		Freetown.ics		Luanda.ics		Niamey.ics
+Accra.ics		Bujumbura.ics		Gaborone.ics		Lubumbashi.ics		Nouakchott.ics
+Addis_Ababa.ics		Cairo.ics		Harare.ics		Lusaka.ics		Ouagadougou.ics
+Algiers.ics		Casablanca.ics		Johannesburg.ics	Malabo.ics		Porto-Novo.ics
+Asmara.ics		Ceuta.ics		Kampala.ics		Maputo.ics		Sao_Tome.ics
+Asmera.ics		Conakry.ics		Khartoum.ics		Maseru.ics		Timbuktu.ics
+Bamako.ics		Dakar.ics		Kigali.ics		Mbabane.ics		Tripoli.ics
+Bangui.ics		Dar_es_Salaam.ics	Kinshasa.ics		Mogadishu.ics		Tunis.ics
+Banjul.ics		Djibouti.ics		Lagos.ics		Monrovia.ics		Windhoek.ics
+Bissau.ics		Douala.ics		Libreville.ics		Nairobi.ics
+Blantyre.ics		El_Aaiun.ics		Lome.ics		Ndjamena.ics
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/America:
+Adak.ics		Chihuahua.ics		Halifax.ics		Moncton.ics		Santarem.ics
+Anchorage.ics		Coral_Harbour.ics	Havana.ics		Monterrey.ics		Santiago.ics
+Anguilla.ics		Cordoba.ics		Hermosillo.ics		Montevideo.ics		Santo_Domingo.ics
+Antigua.ics		Costa_Rica.ics		Indiana			Montreal.ics		Sao_Paulo.ics
+Araguaina.ics		Cuiaba.ics		Indianapolis.ics	Montserrat.ics		Scoresbysund.ics
+Argentina		Curacao.ics		Inuvik.ics		Nassau.ics		Shiprock.ics
+Aruba.ics		Danmarkshavn.ics	Iqaluit.ics		New_York.ics		St_Barthelemy.ics
+Asuncion.ics		Dawson.ics		Jamaica.ics		Nipigon.ics		St_Johns.ics
+Atikokan.ics		Dawson_Creek.ics	Jujuy.ics		Nome.ics		St_Kitts.ics
+Atka.ics		Denver.ics		Juneau.ics		Noronha.ics		St_Lucia.ics
+Bahia.ics		Detroit.ics		Kentucky		North_Dakota		St_Thomas.ics
+Barbados.ics		Dominica.ics		Knox_IN.ics		Panama.ics		St_Vincent.ics
+Belem.ics		Edmonton.ics		La_Paz.ics		Pangnirtung.ics		Swift_Current.ics
+Belize.ics		Eirunepe.ics		Lima.ics		Paramaribo.ics		Tegucigalpa.ics
+Blanc-Sablon.ics	El_Salvador.ics		Los_Angeles.ics		Phoenix.ics		Thule.ics
+Boa_Vista.ics		Ensenada.ics		Louisville.ics		Port-au-Prince.ics	Thunder_Bay.ics
+Bogota.ics		Fort_Wayne.ics		Maceio.ics		Port_of_Spain.ics	Tijuana.ics
+Boise.ics		Fortaleza.ics		Managua.ics		Porto_Acre.ics		Toronto.ics
+Buenos_Aires.ics	Glace_Bay.ics		Manaus.ics		Porto_Velho.ics		Tortola.ics
+Cambridge_Bay.ics	Godthab.ics		Marigot.ics		Puerto_Rico.ics		Vancouver.ics
+Campo_Grande.ics	Goose_Bay.ics		Martinique.ics		Rainy_River.ics		Virgin.ics
+Cancun.ics		Grand_Turk.ics		Mazatlan.ics		Rankin_Inlet.ics	Whitehorse.ics
+Caracas.ics		Grenada.ics		Mendoza.ics		Recife.ics		Winnipeg.ics
+Catamarca.ics		Guadeloupe.ics		Menominee.ics		Regina.ics		Yakutat.ics
+Cayenne.ics		Guatemala.ics		Merida.ics		Resolute.ics		Yellowknife.ics
+Cayman.ics		Guayaquil.ics		Mexico_City.ics		Rio_Branco.ics
+Chicago.ics		Guyana.ics		Miquelon.ics		Rosario.ics
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/America/Argentina:
+Buenos_Aires.ics	Cordoba.ics		Mendoza.ics		San_Juan.ics		Ushuaia.ics
+Catamarca.ics		Jujuy.ics		Rio_Gallegos.ics	San_Luis.ics
+ComodRivadavia.ics	La_Rioja.ics		Salta.ics		Tucuman.ics
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/America/Indiana:
+Indianapolis.ics	Marengo.ics		Tell_City.ics		Vincennes.ics
+Knox.ics		Petersburg.ics		Vevay.ics		Winamac.ics
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/America/Kentucky:
+Louisville.ics	Monticello.ics
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/America/North_Dakota:
+Center.ics	New_Salem.ics
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Antarctica:
+Casey.ics		DumontDUrville.ics	McMurdo.ics		Rothera.ics		Syowa.ics
+Davis.ics		Mawson.ics		Palmer.ics		South_Pole.ics		Vostok.ics
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Arctic:
+Longyearbyen.ics
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Asia:
+Aden.ics		Chungking.ics		Kabul.ics		Omsk.ics		Tehran.ics
+Almaty.ics		Colombo.ics		Kamchatka.ics		Oral.ics		Tel_Aviv.ics
+Amman.ics		Dacca.ics		Karachi.ics		Phnom_Penh.ics		Thimbu.ics
+Anadyr.ics		Damascus.ics		Kashgar.ics		Pontianak.ics		Thimphu.ics
+Aqtau.ics		Dhaka.ics		Katmandu.ics		Pyongyang.ics		Tokyo.ics
+Aqtobe.ics		Dili.ics		Kolkata.ics		Qatar.ics		Ujung_Pandang.ics
+Ashgabat.ics		Dubai.ics		Krasnoyarsk.ics		Qyzylorda.ics		Ulaanbaatar.ics
+Ashkhabad.ics		Dushanbe.ics		Kuala_Lumpur.ics	Rangoon.ics		Ulan_Bator.ics
+Baghdad.ics		Gaza.ics		Kuching.ics		Riyadh.ics		Urumqi.ics
+Bahrain.ics		Harbin.ics		Kuwait.ics		Saigon.ics		Vientiane.ics
+Baku.ics		Ho_Chi_Minh.ics		Macao.ics		Sakhalin.ics		Vladivostok.ics
+Bangkok.ics		Hong_Kong.ics		Macau.ics		Samarkand.ics		Yakutsk.ics
+Beirut.ics		Hovd.ics		Magadan.ics		Seoul.ics		Yekaterinburg.ics
+Bishkek.ics		Irkutsk.ics		Makassar.ics		Shanghai.ics		Yerevan.ics
+Brunei.ics		Istanbul.ics		Manila.ics		Singapore.ics
+Calcutta.ics		Jakarta.ics		Muscat.ics		Taipei.ics
+Choibalsan.ics		Jayapura.ics		Nicosia.ics		Tashkent.ics
+Chongqing.ics		Jerusalem.ics		Novosibirsk.ics		Tbilisi.ics
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Atlantic:
+Azores.ics		Cape_Verde.ics		Jan_Mayen.ics		South_Georgia.ics
+Bermuda.ics		Faeroe.ics		Madeira.ics		St_Helena.ics
+Canary.ics		Faroe.ics		Reykjavik.ics		Stanley.ics
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Australia:
+ACT.ics		Canberra.ics	Hobart.ics	Melbourne.ics	Queensland.ics	Victoria.ics
+Adelaide.ics	Currie.ics	LHI.ics		NSW.ics		South.ics	West.ics
+Brisbane.ics	Darwin.ics	Lindeman.ics	North.ics	Sydney.ics	Yancowinna.ics
+Broken_Hill.ics	Eucla.ics	Lord_Howe.ics	Perth.ics	Tasmania.ics
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Brazil:
+Acre.ics	DeNoronha.ics	East.ics	West.ics
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Canada:
+Atlantic.ics		East-Saskatchewan.ics	Mountain.ics		Pacific.ics		Yukon.ics
+Central.ics		Eastern.ics		Newfoundland.ics	Saskatchewan.ics
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Chile:
+Continental.ics		EasterIsland.ics
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Europe:
+Amsterdam.ics	Budapest.ics	Jersey.ics	Mariehamn.ics	Riga.ics	Tallinn.ics	Warsaw.ics
+Andorra.ics	Chisinau.ics	Kaliningrad.ics	Minsk.ics	Rome.ics	Tirane.ics	Zagreb.ics
+Athens.ics	Copenhagen.ics	Kiev.ics	Monaco.ics	Samara.ics	Tiraspol.ics	Zaporozhye.ics
+Belfast.ics	Dublin.ics	Lisbon.ics	Moscow.ics	San_Marino.ics	Uzhgorod.ics	Zurich.ics
+Belgrade.ics	Gibraltar.ics	Ljubljana.ics	Nicosia.ics	Sarajevo.ics	Vaduz.ics
+Berlin.ics	Guernsey.ics	London.ics	Oslo.ics	Simferopol.ics	Vatican.ics
+Bratislava.ics	Helsinki.ics	Luxembourg.ics	Paris.ics	Skopje.ics	Vienna.ics
+Brussels.ics	Isle_of_Man.ics	Madrid.ics	Podgorica.ics	Sofia.ics	Vilnius.ics
+Bucharest.ics	Istanbul.ics	Malta.ics	Prague.ics	Stockholm.ics	Volgograd.ics
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Indian:
+Antananarivo.ics	Cocos.ics		Mahe.ics		Mayotte.ics
+Chagos.ics		Comoro.ics		Maldives.ics		Reunion.ics
+Christmas.ics		Kerguelen.ics		Mauritius.ics
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Mexico:
+BajaNorte.ics	BajaSur.ics	General.ics
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/Pacific:
+Apia.ics		Funafuti.ics		Kosrae.ics		Noumea.ics		Samoa.ics
+Auckland.ics		Galapagos.ics		Kwajalein.ics		Pago_Pago.ics		Tahiti.ics
+Chatham.ics		Gambier.ics		Majuro.ics		Palau.ics		Tarawa.ics
+Easter.ics		Guadalcanal.ics		Marquesas.ics		Pitcairn.ics		Tongatapu.ics
+Efate.ics		Guam.ics		Midway.ics		Ponape.ics		Truk.ics
+Enderbury.ics		Honolulu.ics		Nauru.ics		Port_Moresby.ics	Wake.ics
+Fakaofo.ics		Johnston.ics		Niue.ics		Rarotonga.ics		Wallis.ics
+Fiji.ics		Kiritimati.ics		Norfolk.ics		Saipan.ics		Yap.ics
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/twistedcaldav/zoneinfo/US:
+Alaska.ics		Central.ics		Hawaii.ics		Mountain.ics
+Aleutian.ics		East-Indiana.ics	Indiana-Starke.ics	Pacific.ics
+Arizona.ics		Eastern.ics		Michigan.ics		Samoa.ics
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/vobject:
+__init__.py	base.pyc	change_tz.py	hcalendar.pyc	ics_diff.py	vcard.pyc
+__init__.pyc	behavior.py	change_tz.pyc	icalendar.py	ics_diff.pyc	win32tz.py
+base.py		behavior.pyc	hcalendar.py	icalendar.pyc	vcard.py	win32tz.pyc
+
+/Volumes/ALMbpData/CALDAVCOMP/Library/Python/2.5/site-packages/vobject-0.7.1-py2.5.egg-info:
+PKG-INFO		dependency_links.txt	requires.txt		zip-safe
+SOURCES.txt		entry_points.txt	top_level.txt
+
+/Volumes/ALMbpData/CALDAVCOMP/System:
+Library
+
+/Volumes/ALMbpData/CALDAVCOMP/System/Library:
+Frameworks
+
+/Volumes/ALMbpData/CALDAVCOMP/System/Library/Frameworks:
+Python.framework
+
+/Volumes/ALMbpData/CALDAVCOMP/System/Library/Frameworks/Python.framework:
+Versions
+
+/Volumes/ALMbpData/CALDAVCOMP/System/Library/Frameworks/Python.framework/Versions:
+2.5
+
+/Volumes/ALMbpData/CALDAVCOMP/System/Library/Frameworks/Python.framework/Versions/2.5:
+caldavd
+
+/Volumes/ALMbpData/CALDAVCOMP/System/Library/Frameworks/Python.framework/Versions/2.5/caldavd:
+caldavd.plist
+
+/Volumes/ALMbpData/CALDAVCOMP/usr:
+local
+
+/Volumes/ALMbpData/CALDAVCOMP/usr/local:
+bin
+
+/Volumes/ALMbpData/CALDAVCOMP/usr/local/bin:
+bookify		cftp		ics_diff	manhole		pyhtmlizer	tapconvert	xmlproc_parse
+caladmin	change_tz	im		mktap		t-im		tkconch		xmlproc_val
+caldav_export	ckeygen		lore		pydir++.py	tap2deb		trial
+caldavd		conch		mailmail	pydir.py	tap2rpm		twistd

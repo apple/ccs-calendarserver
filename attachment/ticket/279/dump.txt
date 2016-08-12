@@ -1,0 +1,18 @@
+2008-06-06 07:52:54-0700 [-] [caldav-8009]  [AMP,client] Exception rendering:
+2008-06-06 07:52:54-0700 [-] [caldav-8009]  [AMP,client] Unhandled Error
+2008-06-06 07:52:54-0700 [-] [caldav-8009] 	Traceback (most recent call last):
+2008-06-06 07:52:54-0700 [-] [caldav-8009] 	  File "/Users/ted/OtherProjects/CalServer/Twisted/twisted/web2/server.py", line 314, in _getChild
+2008-06-06 07:52:54-0700 [-] [caldav-8009] 	    result = res.locateChild(self, path)
+2008-06-06 07:52:54-0700 [-] [caldav-8009] 	  File "/Users/ted/OtherProjects/CalServer/CalendarServer/twistedcaldav/root.py", line 182, in locateChild
+2008-06-06 07:52:54-0700 [-] [caldav-8009] 	    d.addCallback(_getCachedResource, request)
+2008-06-06 07:52:54-0700 [-] [caldav-8009] 	  File "/Users/ted/OtherProjects/CalServer/Twisted/twisted/internet/defer.py", line 191, in addCallback
+2008-06-06 07:52:54-0700 [-] [caldav-8009] 	    callbackKeywords=kw)
+2008-06-06 07:52:54-0700 [-] [caldav-8009] 	  File "/Users/ted/OtherProjects/CalServer/Twisted/twisted/internet/defer.py", line 182, in addCallbacks
+2008-06-06 07:52:54-0700 [-] [caldav-8009] 	    self._runCallbacks()
+2008-06-06 07:52:54-0700 [-] [caldav-8009] 	--- <exception caught here> ---
+2008-06-06 07:52:54-0700 [-] [caldav-8009] 	  File "/Users/ted/OtherProjects/CalServer/Twisted/twisted/internet/defer.py", line 317, in _runCallbacks
+2008-06-06 07:52:54-0700 [-] [caldav-8009] 	    self.result = callback(self.result, *args, **kw)
+2008-06-06 07:52:54-0700 [-] [caldav-8009] 	  File "/Users/ted/OtherProjects/CalServer/CalendarServer/twistedcaldav/root.py", line 162, in _getCachedResource
+2008-06-06 07:52:54-0700 [-] [caldav-8009] 	    d.addCallback(_serveResponse)
+2008-06-06 07:52:54-0700 [-] [caldav-8009] 	exceptions.AttributeError: 'NoneType' object has no attribute 'addCallback'
+2008-06-06 07:52:54-0700 [-] [caldav-8009] 	

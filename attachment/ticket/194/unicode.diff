@@ -1,0 +1,13 @@
+Index: twistedcaldav/method/put_common.py
+===================================================================
+--- twistedcaldav/method/put_common.py	(revision 1755)
++++ twistedcaldav/method/put_common.py	(working copy)
+@@ -243,7 +243,7 @@
+         result = True
+         message = ""
+         if config.MaximumAttachmentSize:
+-            calsize = len(str(calendar))
++            calsize = len(unicode(calendar))
+             if calsize > config.MaximumAttachmentSize:
+                 result = False
+                 message = "Data size %d bytes is larger than allowed limit %d bytes" % (calsize, config.MaximumAttachmentSize)

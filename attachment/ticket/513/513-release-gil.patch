@@ -1,0 +1,36 @@
+Index: src/kerberosgss.c
+===================================================================
+--- src/kerberosgss.c	(revision 9868)
++++ src/kerberosgss.c	(working copy)
+@@ -222,6 +222,7 @@
+     }
+     
+     // Do GSSAPI step
++    Py_BEGIN_ALLOW_THREADS
+     maj_stat = gss_init_sec_context(&min_stat,
+                                     state->client_creds,
+                                     &state->context,
+@@ -235,6 +236,7 @@
+                                     &output_token,
+                                     NULL,
+                                     NULL);
++    Py_END_ALLOW_THREADS
+     
+     if ((maj_stat != GSS_S_COMPLETE) && (maj_stat != GSS_S_CONTINUE_NEEDED))
+     {
+@@ -537,6 +539,7 @@
+         goto end;
+     }
+     
++    Py_BEGIN_ALLOW_THREADS
+     maj_stat = gss_accept_sec_context(&min_stat,
+                                       &state->context,
+                                       state->server_creds,
+@@ -548,6 +551,7 @@
+                                       NULL,
+                                       NULL,
+                                       &state->client_creds);
++    Py_END_ALLOW_THREADS
+     
+     if (GSS_ERROR(maj_stat))
+     {

@@ -1,0 +1,16 @@
+--- C:/Users/nbdzkii/AppData/Local/Temp/kerberosgss.c-revBASE.svn000.tmp.c	Mon Jan 12 18:10:44 2015
++++ C:/Kerberos/kerberos/trunk/src/kerberosgss.c	Thu Feb 26 10:06:58 2015
+@@ -471,8 +471,13 @@ int authenticate_gss_server_init(const char *servi
+         }
+         
+         // Get credentials
++        /*
+         maj_stat = gss_acquire_cred(&min_stat, state->server_name, GSS_C_INDEFINITE,
+                                     GSS_C_NO_OID_SET, GSS_C_ACCEPT, &state->server_creds, NULL, NULL);
++        */
++
++        maj_stat = gss_acquire_cred(&min_stat, GSS_C_NO_NAME, GSS_C_INDEFINITE,
++                                    GSS_C_NO_OID_SET, GSS_C_BOTH, &state->server_creds, NULL, NULL);
+         
+         if (GSS_ERROR(maj_stat))
+         {

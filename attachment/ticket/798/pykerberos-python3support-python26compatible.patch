@@ -1,0 +1,355 @@
+diff --git a/setup.py b/setup.py
+index 166bda4..aa59f59 100644
+--- a/setup.py
++++ b/setup.py
+@@ -16,7 +16,11 @@
+ 
+ from distutils.core import setup, Extension
+ import sys
+-import commands
++
++if sys.version_info >= (3,0):
++    from subprocess import getoutput
++else:
++    from commands import getoutput
+ 
+ long_description = """
+ This Python package is a high-level wrapper for Kerberos (GSSAPI) operations.
+@@ -34,14 +38,15 @@ setup (
+     classifiers = [
+         "License :: OSI Approved :: Apache Software License",
+         "Programming Language :: Python :: 2",
++        "Programming Language :: Python :: 3",
+         "Topic :: Software Development :: Libraries :: Python Modules",
+         "Topic :: System :: Systems Administration :: Authentication/Directory"
+         ],
+     ext_modules = [
+         Extension(
+             "kerberos",
+-            extra_link_args = commands.getoutput("krb5-config --libs gssapi").split(),
+-            extra_compile_args = commands.getoutput("krb5-config --cflags gssapi").split(),
++            extra_link_args = getoutput("krb5-config --libs gssapi").split(),
++            extra_compile_args = getoutput("krb5-config --cflags gssapi").split(),
+             sources = [
+                 "src/kerberos.c",
+                 "src/kerberosbasic.c",
+diff --git a/src/kerberos.c b/src/kerberos.c
+index 117aae7..70b9726 100644
+--- a/src/kerberos.c
++++ b/src/kerberos.c
+@@ -20,6 +20,42 @@
+ #include "kerberospw.h"
+ #include "kerberosgss.h"
+ 
++/*
++ * Support the Python 3 API while maintaining backward compatibility for the
++ * Python 2 API.
++ * Thanks to Lennart Regebro for http://python3porting.com/cextensions.html
++ */
++// Handle basic API changes
++#if PY_MAJOR_VERSION >= 3
++    // Basic renames (function parameters are the same)
++    // No more int objects
++    #define PyInt_FromLong PyLong_FromLong
++    // CObjects to Capsules
++    #define PyCObject_Check PyCapsule_CheckExact
++    #define PyCObject_SetVoidPtr PyCapsule_SetPointer
++
++    // More complex macros (function parameters are not the same)
++    // Note for PyCObject_FromVoidPtr, destr is now the third parameter
++    #define PyCObject_FromVoidPtr(cobj, destr) PyCapsule_New(cobj, NULL, destr)
++    #define PyCObject_AsVoidPtr(pobj) PyCapsule_GetPointer(pobj, NULL)
++#endif
++// Handle differences in module definition syntax and interface
++#if PY_MAJOR_VERSION >= 3
++  #define MOD_ERROR_VAL NULL
++  #define MOD_SUCCESS_VAL(val) val
++  #define MOD_INIT(name) PyMODINIT_FUNC PyInit_##name(void)
++  #define MOD_DEF(ob, name, doc, methods) \
++          static struct PyModuleDef moduledef = { \
++            PyModuleDef_HEAD_INIT, name, doc, -1, methods, }; \
++          ob = PyModule_Create(&moduledef);
++#else
++  #define MOD_ERROR_VAL
++  #define MOD_SUCCESS_VAL(val)
++  #define MOD_INIT(name) void init##name(void)
++  #define MOD_DEF(ob, name, doc, methods) \
++          ob = Py_InitModule3(name, methods, doc);
++#endif
++
+ PyObject *KrbException_class;
+ PyObject *BasicAuthException_class;
+ PyObject *PwdChangeException_class;
+@@ -442,11 +478,18 @@ static PyMethodDef KerberosMethods[] = {
+     {NULL, NULL, 0, NULL}        /* Sentinel */
+ };
+ 
+-PyMODINIT_FUNC initkerberos(void)
++/*
++ * Macros used to allow Python 2 and Python 3 compatibility.
++ * Thanks again to Lennart Regebro for http://python3porting.com/cextensions.html
++ */
++MOD_INIT(kerberos)
+ {
+     PyObject *m,*d;
+ 
+-    m = Py_InitModule("kerberos", KerberosMethods);
++    MOD_DEF(m, "kerberos", NULL, KerberosMethods);
++
++    if (m == NULL)
++        return MOD_ERROR_VAL;
+ 
+     d = PyModule_GetDict(m);
+ 
+@@ -486,6 +529,9 @@ PyMODINIT_FUNC initkerberos(void)
+     PyDict_SetItemString(d, "GSS_C_TRANS_FLAG", PyInt_FromLong(GSS_C_TRANS_FLAG));
+ 
+ error:
+-    if (PyErr_Occurred())
++    if (PyErr_Occurred()) {
+         PyErr_SetString(PyExc_ImportError, "kerberos: init failed");
++        return MOD_ERROR_VAL;
++    }
++    return MOD_SUCCESS_VAL(m);
+ }
+diff --git a/test.py b/test.py
+index eaae467..367b8d8 100644
+--- a/test.py
++++ b/test.py
+@@ -19,10 +19,14 @@
+ import kerberos
+ import getopt
+ import sys
+-import httplib
+ import socket
+ import ssl
+ 
++if sys.version_info >= (3,0):
++    from http.client import HTTPSConnection, HTTPConnection
++else:
++    from httplib import HTTPSConnection, HTTPConnection
++
+ """
+ Examples:
+ 
+@@ -73,49 +77,49 @@ def main():
+         if arg in allowedActions:
+             actions.add(arg)
+         else:
+-            print "Action not allowed: %s" % (arg,)
++            print("Action not allowed: %s" % (arg,))
+             sys.exit(1)
+     
+     # Get service principal
+     if "service" in actions:
+-        print "\n*** Running Service Principal test"
++        print("\n*** Running Service Principal test")
+         s, h = service.split("@")
+         testServicePrincipal(s, h);
+ 
+     # GSS Basic test
+     if "basic" in actions:
+         if (len(user) != 0) and (len(pswd) != 0):
+-            print "\n*** Running basic test"
++            print("\n*** Running basic test")
+             testCheckpassword(user, pswd, service, realm)
+         else:
+-            print "\n*** Skipping basic test: no user or password specified"
++            print("\n*** Skipping basic test: no user or password specified")
+ 
+     # Full GSSAPI test
+     if "gssapi" in actions:
+-        print "\n*** Running GSSAPI test"
++        print("\n*** Running GSSAPI test")
+         testGSSAPI(service)
+ 
+     if "server" in actions:
+-        print "\n*** Running HTTP test"
++        print("\n*** Running HTTP test")
+         testHTTP(host, port, use_ssl, service)
+ 
+-    print "\n*** Done\n"
++    print("\n*** Done\n")
+ 
+ def testServicePrincipal(service, hostname):
+     try:
+         result = kerberos.getServerPrincipalDetails(service, hostname)
+-    except kerberos.KrbError, e:
+-        print "Kerberos service principal for %s/%s failed: %s" % (service, hostname, e[0])
++    except kerberos.KrbError as e:
++        print("Kerberos service principal for %s/%s failed: %s" % (service, hostname, e.args[0]))
+     else:
+-        print "Kerberos service principal for %s/%s succeeded: %s" % (service, hostname, result)
++        print("Kerberos service principal for %s/%s succeeded: %s" % (service, hostname, result))
+ 
+ def testCheckpassword(user, pswd, service, realm):
+     try:
+         kerberos.checkPassword(user, pswd, service, realm)
+-    except kerberos.BasicAuthError, e:
+-        print "Kerberos authentication for %s failed: %s" % (user, e[0])
++    except kerberos.BasicAuthError as e:
++        print("Kerberos authentication for %s failed: %s" % (user, e.args[0]))
+     else:
+-        print "Kerberos authentication for %s succeeded" % user
++        print("Kerberos authentication for %s succeeded" % user)
+ 
+ def testGSSAPI(service):
+     def statusText(r):
+@@ -127,43 +131,43 @@ def testGSSAPI(service):
+             return "Error"
+ 
+     rc, vc = kerberos.authGSSClientInit(service);
+-    print "Status for authGSSClientInit = %s" % statusText(rc);
++    print("Status for authGSSClientInit = %s" % statusText(rc));
+     if rc != 1:
+         return
+     
+     rs, vs = kerberos.authGSSServerInit(service);
+-    print "Status for authGSSServerInit = %s" % statusText(rs);
++    print("Status for authGSSServerInit = %s" % statusText(rs));
+     if rs != 1:
+         return
+     
+     rc = kerberos.authGSSClientStep(vc, "");
+-    print "Status for authGSSClientStep = %s" % statusText(rc);
++    print("Status for authGSSClientStep = %s" % statusText(rc));
+     if rc != 0:
+         return
+     
+     rs = kerberos.authGSSServerStep(vs, kerberos.authGSSClientResponse(vc));
+-    print "Status for authGSSServerStep = %s" % statusText(rs);
++    print("Status for authGSSServerStep = %s" % statusText(rs));
+     if rs == -1:
+         return
+     
+     rc = kerberos.authGSSClientStep(vc, kerberos.authGSSServerResponse(vs));
+-    print "Status for authGSSClientStep = %s" % statusText(rc);
++    print("Status for authGSSClientStep = %s" % statusText(rc));
+     if rc == -1:
+         return
+ 
+-    print "Server user name: %s" % kerberos.authGSSServerUserName(vs);
+-    print "Server target name: %s" % kerberos.authGSSServerTargetName(vs);
+-    print "Client user name: %s" % kerberos.authGSSClientUserName(vc);
++    print("Server user name: %s" % kerberos.authGSSServerUserName(vs));
++    print("Server target name: %s" % kerberos.authGSSServerTargetName(vs));
++    print("Client user name: %s" % kerberos.authGSSClientUserName(vc));
+     
+     rc = kerberos.authGSSClientClean(vc);
+-    print "Status for authGSSClientClean = %s" % statusText(rc);
++    print("Status for authGSSClientClean = %s" % statusText(rc));
+     
+     rs = kerberos.authGSSServerClean(vs);
+-    print "Status for authGSSServerClean = %s" % statusText(rs);
++    print("Status for authGSSServerClean = %s" % statusText(rs));
+ 
+ def testHTTP(host, port, use_ssl, service):
+ 
+-    class HTTPSConnection_SSLv3(httplib.HTTPSConnection):
++    class HTTPSConnection_SSLv3(HTTPSConnection):
+         "This class allows communication via SSL."
+ 
+         def connect(self):
+@@ -177,7 +181,7 @@ def testHTTP(host, port, use_ssl, service):
+         if use_ssl:
+             http = HTTPSConnection_SSLv3(host, port)
+         else:
+-            http = httplib.HTTPConnection(host, port)
++            http = HTTPConnection(host, port)
+         try:
+             http.request(method, uri, "", headers)
+             response = http.getresponse()
+@@ -191,16 +195,16 @@ def testHTTP(host, port, use_ssl, service):
+     response = sendRequest(host, port, use_ssl, "OPTIONS", uri, {})
+     
+     if response is None:
+-        print "Initial HTTP request to server failed"
++        print("Initial HTTP request to server failed")
+         return
+     
+     if response.status != 401:
+-        print "Initial HTTP request did not result in a 401 response"
++        print("Initial HTTP request did not result in a 401 response")
+         return
+     
+     hdrs = response.msg.getheaders("www-authenticate")
+     if (hdrs is None) or (len(hdrs) == 0):
+-        print "No www-authenticate header in initial HTTP response."
++        print("No www-authenticate header in initial HTTP response.")
+     for hdr in hdrs:
+         hdr = hdr.strip()
+         splits = hdr.split(' ', 1)
+@@ -209,19 +213,19 @@ def testHTTP(host, port, use_ssl, service):
+         else:
+             break
+     else:
+-        print "No www-authenticate header with negotiate in initial HTTP response."
++        print("No www-authenticate header with negotiate in initial HTTP response.")
+         return        
+ 
+     try:
+         rc, vc = kerberos.authGSSClientInit(service=service);
+-    except kerberos.GSSError, e:
+-        print "Could not initialize GSSAPI: %s/%s" % (e[0][0], e[1][0])
++    except kerberos.GSSError as e:
++        print("Could not initialize GSSAPI: %s/%s" % (e.args[0][0], e.args[1][0]))
+         return
+ 
+     try:
+         kerberos.authGSSClientStep(vc, "");
+-    except kerberos.GSSError, e:
+-        print "Could not do GSSAPI step with continue: %s/%s" % (e[0][0], e[1][0])
++    except kerberos.GSSError as e:
++        print("Could not do GSSAPI step with continue: %s/%s" % (e.args[0][0], e.args[1][0]))
+         return
+ 
+     hdrs = {}
+@@ -231,16 +235,16 @@ def testHTTP(host, port, use_ssl, service):
+     response = sendRequest(host, port, use_ssl, "OPTIONS", uri, hdrs)
+     
+     if response is None:
+-        print "Second HTTP request to server failed"
++        print("Second HTTP request to server failed")
+         return
+     
+     if response.status/100 != 2:
+-        print "Second HTTP request did not result in a 2xx response: %d" % (response.status,)
++        print("Second HTTP request did not result in a 2xx response: %d" % (response.status,))
+         return
+     
+     hdrs = response.msg.getheaders("www-authenticate")
+     if (hdrs is None) or (len(hdrs) == 0):
+-        print "No www-authenticate header in second HTTP response."
++        print("No www-authenticate header in second HTTP response.")
+         return
+     for hdr in hdrs:
+         hdr = hdr.strip()
+@@ -250,22 +254,22 @@ def testHTTP(host, port, use_ssl, service):
+         else:
+             break
+     else:
+-        print "No www-authenticate header with negotiate in second HTTP response."
++        print("No www-authenticate header with negotiate in second HTTP response.")
+         return        
+ 
+     try:
+         kerberos.authGSSClientStep(vc, splits[1])
+-    except kerberos.GSSError, e:
+-        print "Could not verify server www-authenticate header in second HTTP response: %s/%s" % (e[0][0], e[1][0])
++    except kerberos.GSSError as e:
++        print("Could not verify server www-authenticate header in second HTTP response: %s/%s" % (e.args[0][0], e.args[1][0]))
+         return
+     
+     try:
+         rc = kerberos.authGSSClientClean(vc);
+-    except kerberos.GSSError, e:
+-        print "Could not clean-up GSSAPI: %s/%s" % (e[0][0], e[1][0])
++    except kerberos.GSSError as e:
++        print("Could not clean-up GSSAPI: %s/%s" % (e.args[0][0], e.args[1][0]))
+         return
+ 
+-    print "Authenticated successfully"
++    print("Authenticated successfully")
+     return
+ 
+ if __name__=='__main__':

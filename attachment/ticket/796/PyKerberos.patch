@@ -1,0 +1,170 @@
+Index: pysrc/kerberos.py
+===================================================================
+--- pysrc/kerberos.py	(revision 10613)
++++ pysrc/kerberos.py	(working copy)
+@@ -143,6 +143,14 @@
+     @return: a string containing the base64-encoded client data to be sent to the server.
+     """
+ 
++def authGSSClientResponseConf(context):
++    """
++    Returns 1 if confidentiality was enabled in the previously unwrapped buffer.  0 otherwise.
++
++    @param context: the context object returned from authGSSClientInit.
++    @return: an integer representing the confidentiality of the previously unwrapped buffer.
++    """
++
+ def authGSSClientUserName(context):
+     """
+     Get the user name of the principal authenticated via the now complete GSSAPI client-side operations.
+@@ -160,12 +168,13 @@
+     @return: a result code (see above) 
+     """ 
+ 
+-def authGSSClientWrap(context, data, user=None): 
++def authGSSClientWrap(context, data, user=None, protect=0): 
+     """ 
+     Perform the client side GSSAPI wrap step.  
+     
+     @param data:the result of the authGSSClientResponse after the authGSSClientUnwrap 
+     @param user: the user to authorize 
++    @param protect: if 0 then just provide integrity protection, if 1, then provide confidentiality as well.
+     @return: a result code (see above) 
+     """ 
+ 
+Index: src/kerberosgss.c
+===================================================================
+--- src/kerberosgss.c	(revision 10613)
++++ src/kerberosgss.c	(working copy)
+@@ -302,12 +302,14 @@
+ 	gss_buffer_desc input_token = GSS_C_EMPTY_BUFFER;
+ 	gss_buffer_desc output_token = GSS_C_EMPTY_BUFFER;
+ 	int ret = AUTH_GSS_CONTINUE;
++	int conf = 0;
+     
+ 	// Always clear out the old response
+ 	if (state->response != NULL)
+ 	{
+ 		free(state->response);
+ 		state->response = NULL;
++		state->responseConf = 0;
+ 	}
+     
+ 	// If there is a challenge (data from the server) we need to give it to GSS
+@@ -323,7 +325,7 @@
+                           state->context,
+                           &input_token,
+                           &output_token,
+-                          NULL,
++                          &conf,
+                           NULL);
+     
+ 	if (maj_stat != GSS_S_COMPLETE)
+@@ -339,6 +341,7 @@
+ 	if (output_token.length)
+ 	{
+ 		state->response = base64_encode((const unsigned char *)output_token.value, output_token.length);
++		state->responseConf = conf;
+ 		maj_stat = gss_release_buffer(&min_stat, &output_token);
+ 	}
+ end:
+@@ -349,7 +352,7 @@
+ 	return ret;
+ }
+ 
+-int authenticate_gss_client_wrap(gss_client_state* state, const char* challenge, const char* user)
++int authenticate_gss_client_wrap(gss_client_state* state, const char* challenge, const char* user, int protect)
+ {
+ 	OM_uint32 maj_stat;
+ 	OM_uint32 min_stat;
+@@ -400,7 +403,7 @@
+ 	// Do GSSAPI wrap
+ 	maj_stat = gss_wrap(&min_stat,
+ 						state->context,
+-						0,
++						protect,
+ 						GSS_C_QOP_DEFAULT,
+ 						&input_token,
+ 						NULL,
+Index: src/kerberos.c
+===================================================================
+--- src/kerberos.c	(revision 10613)
++++ src/kerberos.c	(working copy)
+@@ -158,6 +158,26 @@
+     return Py_BuildValue("i", result);
+ }
+ 
++static PyObject *authGSSClientResponseConf(PyObject *self, PyObject *args)
++{
++    gss_client_state *state;
++    PyObject *pystate;
++
++    if (!PyArg_ParseTuple(args, "O", &pystate))
++        return NULL;
++
++    if (!PyCObject_Check(pystate)) {
++        PyErr_SetString(PyExc_TypeError, "Expected a context object");
++        return NULL;
++    }
++
++    state = (gss_client_state *)PyCObject_AsVoidPtr(pystate);
++    if (state == NULL)
++        return NULL;
++
++    return Py_BuildValue("i", state->responseConf);
++}
++
+ static PyObject *authGSSClientResponse(PyObject *self, PyObject *args)
+ {
+     gss_client_state *state;
+@@ -230,9 +250,10 @@
+ 	PyObject *pystate;
+ 	char *challenge = NULL;
+ 	char *user = NULL;
++	int protect = 0;
+ 	int result = 0;
+ 
+-	if (!PyArg_ParseTuple(args, "Os|z", &pystate, &challenge, &user))
++	if (!PyArg_ParseTuple(args, "Os|zi", &pystate, &challenge, &user, &protect))
+ 		return NULL;
+ 
+ 	if (!PyCObject_Check(pystate)) {
+@@ -244,7 +265,7 @@
+ 	if (state == NULL)
+ 		return NULL;
+ 
+-	result = authenticate_gss_client_wrap(state, challenge, user);
++	result = authenticate_gss_client_wrap(state, challenge, user, protect);
+ 	if (result == AUTH_GSS_ERROR)
+ 		return NULL;
+ 
+@@ -398,6 +419,8 @@
+      "Do a client-side GSSAPI step."},
+     {"authGSSClientResponse",  authGSSClientResponse, METH_VARARGS,
+      "Get the response from the last client-side GSSAPI step."},
++    {"authGSSClientResponseConf",  authGSSClientResponseConf, METH_VARARGS,
++     "return 1 if confidentiality was set in the last unwrapped buffer, 0 otherwise."},
+     {"authGSSClientUserName",  authGSSClientUserName, METH_VARARGS,
+      "Get the user name from the last client-side GSSAPI step."},
+     {"authGSSServerInit",  authGSSServerInit, METH_VARARGS,
+Index: src/kerberosgss.h
+===================================================================
+--- src/kerberosgss.h	(revision 10613)
++++ src/kerberosgss.h	(working copy)
+@@ -35,6 +35,7 @@
+     gss_cred_id_t    client_creds;
+     char*            username;
+     char*            response;
++    int              responseConf;
+ } gss_client_state;
+ 
+ typedef struct {
+@@ -54,7 +55,7 @@
+ int authenticate_gss_client_clean(gss_client_state *state);
+ int authenticate_gss_client_step(gss_client_state *state, const char *challenge);
+ int authenticate_gss_client_unwrap(gss_client_state* state, const char* challenge);
+-int authenticate_gss_client_wrap(gss_client_state* state, const char* challenge, const char* user);
++int authenticate_gss_client_wrap(gss_client_state* state, const char* challenge, const char* user, int protect);
+ 
+ int authenticate_gss_server_init(const char* service, gss_server_state* state);
+ int authenticate_gss_server_clean(gss_server_state *state);

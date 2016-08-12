@@ -1,0 +1,110 @@
+Index: test
+===================================================================
+--- test	(revision 7292)
++++ test	(working copy)
+@@ -1,4 +1,4 @@
+-#!/bin/bash
++#!/usr/bin/env bash
+ 
+ ##
+ # Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+Index: contrib/create_caldavd_db.sh
+===================================================================
+--- contrib/create_caldavd_db.sh	(revision 7292)
++++ contrib/create_caldavd_db.sh	(working copy)
+@@ -1,4 +1,4 @@
+-#!/bin/bash
++#!/usr/bin/env bash
+ 
+ /usr/sbin/calendarserver_bootstrap_database
+ 
+Index: contrib/performance/sudo-run.sh
+===================================================================
+--- contrib/performance/sudo-run.sh	(revision 7292)
++++ contrib/performance/sudo-run.sh	(working copy)
+@@ -1,4 +1,4 @@
+-#!/bin/bash
++#!/usr/bin/env bash
+ 
+ ##
+ # Copyright (c) 2010 Apple Inc. All rights reserved.
+Index: contrib/performance/sample.sh
+===================================================================
+--- contrib/performance/sample.sh	(revision 7292)
++++ contrib/performance/sample.sh	(working copy)
+@@ -1,4 +1,4 @@
+-#!/bin/bash   
++#!/usr/bin/env bash   
+ 
+ ##
+ # Copyright (c) 2010 Apple Inc. All rights reserved.
+Index: contrib/performance/sample-many.sh
+===================================================================
+--- contrib/performance/sample-many.sh	(revision 7292)
++++ contrib/performance/sample-many.sh	(working copy)
+@@ -1,4 +1,4 @@
+-#!/bin/bash
++#!/usr/bin/env bash
+ 
+ ##
+ # Copyright (c) 2010 Apple Inc. All rights reserved.
+Index: contrib/performance/run.sh
+===================================================================
+--- contrib/performance/run.sh	(revision 7292)
++++ contrib/performance/run.sh	(working copy)
+@@ -1,4 +1,4 @@
+-#!/bin/bash
++#!/usr/bin/env bash
+ 
+ ##
+ # Copyright (c) 2010 Apple Inc. All rights reserved.
+Index: run
+===================================================================
+--- run	(revision 7292)
++++ run	(working copy)
+@@ -1,4 +1,4 @@
+-#!/bin/bash
++#!/usr/bin/env bash
+ # -*- sh-basic-offset: 2 -*-
+ 
+ ##
+Index: testserver
+===================================================================
+--- testserver	(revision 7292)
++++ testserver	(working copy)
+@@ -1,4 +1,4 @@
+-#!/bin/bash
++#!/usr/bin/env bash
+ 
+ ##
+ # Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+Index: bin/caldavd
+===================================================================
+--- bin/caldavd	(revision 7292)
++++ bin/caldavd	(working copy)
+@@ -1,4 +1,4 @@
+-#!/bin/bash
++#!/usr/bin/env bash
+ # -*- sh-basic-offset: 2 -*-
+ 
+ ##
+Index: bin/carddavd
+===================================================================
+--- bin/carddavd	(revision 7292)
++++ bin/carddavd	(working copy)
+@@ -1,4 +1,4 @@
+-#!/bin/bash
++#!/usr/bin/env bash
+ # -*- sh-basic-offset: 2 -*-
+ 
+ ##
+Index: support/shell.sh
+===================================================================
+--- support/shell.sh	(revision 7292)
++++ support/shell.sh	(working copy)
+@@ -1,4 +1,4 @@
+-#!/bin/bash
++#!/usr/bin/env bash
+ ##
+ # Copyright (c) 2010 Apple Inc. All rights reserved.
+ #

@@ -1,0 +1,40 @@
+From 3e08fc452b74f780951cef40ec7647abb64159c8 Mon Sep 17 00:00:00 2001
+From: Guido Guenther <agx@sigxcpu.org>
+Date: Mon, 14 Jan 2008 21:48:18 +0100
+Subject: [PATCH] add AUTH_GSS_CONTINUE/AUTH_GSS_COMPLETE
+
+so we don't have to use numeric constants
+---
+ src/kerberos.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/src/kerberos.c b/src/kerberos.c
+index fdfd2d6..983d3c7 100644
+--- a/src/kerberos.c
++++ b/src/kerberos.c
+@@ -348,6 +348,9 @@ PyMODINIT_FUNC initkerberos(void)
+     Py_INCREF(GssException_class);
+     PyDict_SetItemString(d, "GSSError", GssException_class);
+ 
++    PyDict_SetItemString(d, "AUTH_GSS_COMPLETE", PyInt_FromLong(AUTH_GSS_COMPLETE));
++    PyDict_SetItemString(d, "AUTH_GSS_CONTINUE", PyInt_FromLong(AUTH_GSS_CONTINUE));
++
+ error:
+     if (PyErr_Occurred())
+ 		PyErr_SetString(PyExc_ImportError, "kerberos: init failed");
+diff --git a/pysrc/kerberos.py b/pysrc/kerberos.py
+index f40f4e9..1c56c0e 100644
+--- a/pysrc/kerberos.py
++++ b/pysrc/kerberos.py
+@@ -73,6 +73,8 @@ GSSAPI Function Result Codes:
+     1  : GSSAPI step complete, or function return OK
+ 
+ """
++AUTH_GSS_CONTINUE=0
++AUTH_GSS_COMPLETE=1
+ 
+ def authGSSClientInit(service):
+     """
+-- 
+1.5.3.7
+

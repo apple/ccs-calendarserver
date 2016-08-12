@@ -1,0 +1,65 @@
+Index: PyKerberos/src/kerberosgss.h
+===================================================================
+--- PyKerberos/src/kerberosgss.h	(revision 100)
++++ PyKerberos/src/kerberosgss.h	(working copy)
+@@ -16,9 +16,16 @@
+  * DRI: Cyrus Daboo, cdaboo@apple.com
+  **/
+ 
+-#include <Kerberos/gssapi.h>
+-#include <Kerberos/gssapi_generic.h>
+-#include <Kerberos/gssapi_krb5.h>
++#ifdef C_MACOSX
++#  include <Kerberos/gssapi.h>
++#  include <Kerberos/gssapi_generic.h>
++#  include <Kerberos/gssapi_krb5.h>
++#else
++#  include <gssapi/gssapi.h>
++#  include <gssapi/gssapi_generic.h>
++#  include <gssapi/gssapi_krb5.h>
++#  include <kerberosIV/krb_err.h>
++#endif
+ 
+ #define krb5_get_err_text(context,code) error_message(code)
+ 
+Index: PyKerberos/src/kerberosbasic.h
+===================================================================
+--- PyKerberos/src/kerberosbasic.h	(revision 100)
++++ PyKerberos/src/kerberosbasic.h	(working copy)
+@@ -16,9 +16,16 @@
+  * DRI: Cyrus Daboo, cdaboo@apple.com
+  **/
+ 
+-#include <Kerberos/gssapi.h>
+-#include <Kerberos/gssapi_generic.h>
+-#include <Kerberos/gssapi_krb5.h>
++#ifdef C_MACOSX
++#  include <Kerberos/gssapi.h>
++#  include <Kerberos/gssapi_generic.h>
++#  include <Kerberos/gssapi_krb5.h>
++#else
++#  include <gssapi/gssapi.h>
++#  include <gssapi/gssapi_generic.h>
++#  include <gssapi/gssapi_krb5.h>
++#  include <kerberosIV/krb_err.h>
++#endif
+ 
+ #define krb5_get_err_text(context,code) error_message(code)
+ 
+Index: PyKerberos/src/kerberos.c
+===================================================================
+--- PyKerberos/src/kerberos.c	(revision 100)
++++ PyKerberos/src/kerberos.c	(working copy)
+@@ -16,7 +16,11 @@
+  * DRI: Cyrus Daboo, cdaboo@apple.com
+  **/
+ 
+-#include <Python/Python.h>
++#ifdef C_MACOSX
++#  include <Python/Python.h>
++#else
++#  include <Python.h>
++#endif
+ 
+ #include "kerberosbasic.h"
+ #include "kerberosgss.h"

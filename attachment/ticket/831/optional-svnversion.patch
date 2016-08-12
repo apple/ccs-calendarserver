@@ -1,0 +1,27 @@
+Index: setup.py
+===================================================================
+--- setup.py	(revision 12254)
++++ setup.py	(working copy)
+@@ -19,6 +19,7 @@
+ from __future__ import print_function
+ 
+ import sys
++import errno
+ from os.path import dirname, abspath, join as joinpath
+ import subprocess
+ 
+@@ -64,7 +65,13 @@
+ 
+     for branch in branches:
+         cmd = ["svnversion", "-n", source_root, branch]
+-        svn_revision = subprocess.check_output(cmd)
++        try:
++            svn_revision = subprocess.check_output(cmd)
++        except OSError as e:
++            if e.errno == errno.ENOENT:
++                full_version = base_version + "-unknown"
++                break
++            raise
+ 
+         if "S" in svn_revision:
+             continue

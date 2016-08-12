@@ -1,0 +1,374 @@
+sylvester:/usr/local/CalendarServer/CalendarServer-1.3# ./run
+./run: line 463: type: krb5-config: not found
+Traceback (most recent call last):
+  File "/usr/local/CalendarServer/Twisted/twisted/application/app.py", line 354, in parseOptions
+    usage.Options.parseOptions(self, options)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/usage.py", line 184, in parseOptions
+    for (cmd, short, parser, doc) in self.subCommands:
+  File "/usr/local/CalendarServer/Twisted/twisted/application/app.py", line 364, in subCommands
+    for plug in plugins:
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 186, in getPlugins
+    allDropins = getCache(package)
+--- <exception caught here> ---
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 151, in getCache
+    provider = pluginModule.load()
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 378, in load
+    return self.pathEntry.pythonPath.moduleLoader(self.name)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 614, in moduleLoader
+    return self._moduleLoader(modname)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/reflect.py", line 361, in namedAny
+    topLevelPackage = __import__(trialname)
+  File "/usr/lib/python2.5/site-packages/twisted/plugins/cred_anonymous.py", line 14, in <module>
+    from twisted.cred.strcred import ICheckerFactory
+exceptions.ImportError: No module named strcred
+Traceback (most recent call last):
+  File "/usr/local/CalendarServer/Twisted/twisted/application/app.py", line 354, in parseOptions
+    usage.Options.parseOptions(self, options)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/usage.py", line 184, in parseOptions
+    for (cmd, short, parser, doc) in self.subCommands:
+  File "/usr/local/CalendarServer/Twisted/twisted/application/app.py", line 364, in subCommands
+    for plug in plugins:
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 186, in getPlugins
+    allDropins = getCache(package)
+--- <exception caught here> ---
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 151, in getCache
+    provider = pluginModule.load()
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 378, in load
+    return self.pathEntry.pythonPath.moduleLoader(self.name)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 614, in moduleLoader
+    return self._moduleLoader(modname)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/reflect.py", line 361, in namedAny
+    topLevelPackage = __import__(trialname)
+  File "/usr/lib/python2.5/site-packages/twisted/plugins/cred_file.py", line 16, in <module>
+    from twisted.cred.strcred import ICheckerFactory
+exceptions.ImportError: No module named strcred
+Traceback (most recent call last):
+  File "/usr/local/CalendarServer/Twisted/twisted/application/app.py", line 354, in parseOptions
+    usage.Options.parseOptions(self, options)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/usage.py", line 184, in parseOptions
+    for (cmd, short, parser, doc) in self.subCommands:
+  File "/usr/local/CalendarServer/Twisted/twisted/application/app.py", line 364, in subCommands
+    for plug in plugins:
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 186, in getPlugins
+    allDropins = getCache(package)
+--- <exception caught here> ---
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 151, in getCache
+    provider = pluginModule.load()
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 378, in load
+    return self.pathEntry.pythonPath.moduleLoader(self.name)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 614, in moduleLoader
+    return self._moduleLoader(modname)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/reflect.py", line 361, in namedAny
+    topLevelPackage = __import__(trialname)
+  File "/usr/lib/python2.5/site-packages/twisted/plugins/cred_memory.py", line 13, in <module>
+    from twisted.cred.strcred import ICheckerFactory
+exceptions.ImportError: No module named strcred
+Traceback (most recent call last):
+  File "/usr/local/CalendarServer/Twisted/twisted/application/app.py", line 354, in parseOptions
+    usage.Options.parseOptions(self, options)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/usage.py", line 184, in parseOptions
+    for (cmd, short, parser, doc) in self.subCommands:
+  File "/usr/local/CalendarServer/Twisted/twisted/application/app.py", line 364, in subCommands
+    for plug in plugins:
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 186, in getPlugins
+    allDropins = getCache(package)
+--- <exception caught here> ---
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 151, in getCache
+    provider = pluginModule.load()
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 378, in load
+    return self.pathEntry.pythonPath.moduleLoader(self.name)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 614, in moduleLoader
+    return self._moduleLoader(modname)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/reflect.py", line 361, in namedAny
+    topLevelPackage = __import__(trialname)
+  File "/usr/lib/python2.5/site-packages/twisted/plugins/cred_unix.py", line 13, in <module>
+    from twisted.cred.strcred import ICheckerFactory
+exceptions.ImportError: No module named strcred
+Traceback (most recent call last):
+  File "/usr/local/CalendarServer/Twisted/twisted/application/app.py", line 354, in parseOptions
+    usage.Options.parseOptions(self, options)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/usage.py", line 184, in parseOptions
+    for (cmd, short, parser, doc) in self.subCommands:
+  File "/usr/local/CalendarServer/Twisted/twisted/application/app.py", line 364, in subCommands
+    for plug in plugins:
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 186, in getPlugins
+    allDropins = getCache(package)
+--- <exception caught here> ---
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 151, in getCache
+    provider = pluginModule.load()
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 378, in load
+    return self.pathEntry.pythonPath.moduleLoader(self.name)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 614, in moduleLoader
+    return self._moduleLoader(modname)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/reflect.py", line 361, in namedAny
+    topLevelPackage = __import__(trialname)
+  File "/usr/local/CalendarServer/Twisted/twisted/plugins/twisted_lore.py", line 4, in <module>
+    from twisted.lore.scripts.lore import IProcessor
+  File "/usr/local/CalendarServer/Twisted/twisted/lore/scripts/lore.py", line 8, in <module>
+    from twisted.lore import process, indexer, numberer, htmlbook
+  File "/usr/local/CalendarServer/Twisted/twisted/lore/process.py", line 7, in <module>
+    import tree #todo: get rid of this later
+  File "/usr/local/CalendarServer/Twisted/twisted/lore/tree.py", line 8, in <module>
+    from twisted.web import microdom, domhelpers
+  File "/usr/local/CalendarServer/Twisted/twisted/web/microdom.py", line 30, in <module>
+    from twisted.web.sux import XMLParser, ParseError
+  File "/usr/local/CalendarServer/Twisted/twisted/web/sux.py", line 23, in <module>
+    from twisted.internet.protocol import Protocol, FileWrapper
+  File "/usr/local/CalendarServer/Twisted/twisted/internet/protocol.py", line 394, in <module>
+    interfaces.IConsumer)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/components.py", line 87, in registerAdapter
+    raise ValueError("an adapter (%s) was already registered." % (factory, ))
+exceptions.ValueError: an adapter (twisted.internet.protocol.ProtocolToConsumerAdapter) was already registered.
+Traceback (most recent call last):
+  File "/usr/local/CalendarServer/Twisted/twisted/application/app.py", line 354, in parseOptions
+    usage.Options.parseOptions(self, options)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/usage.py", line 184, in parseOptions
+    for (cmd, short, parser, doc) in self.subCommands:
+  File "/usr/local/CalendarServer/Twisted/twisted/application/app.py", line 364, in subCommands
+    for plug in plugins:
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 186, in getPlugins
+    allDropins = getCache(package)
+--- <exception caught here> ---
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 151, in getCache
+    provider = pluginModule.load()
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 378, in load
+    return self.pathEntry.pythonPath.moduleLoader(self.name)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 614, in moduleLoader
+    return self._moduleLoader(modname)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/reflect.py", line 361, in namedAny
+    topLevelPackage = __import__(trialname)
+  File "/usr/local/CalendarServer/CalendarServer-1.3/twisted/plugins/caldav.py", line 1, in <module>
+    from twistedcaldav.tap import CalDAVServiceMaker
+  File "/usr/local/CalendarServer/CalendarServer-1.3/twistedcaldav/tap.py", line 39, in <module>
+    from twisted.web2.channel import http
+  File "/usr/local/CalendarServer/Twisted/twisted/web2/channel/__init__.py", line 9, in <module>
+    from twisted.web2.channel.http import HTTPFactory
+  File "/usr/local/CalendarServer/Twisted/twisted/web2/channel/http.py", line 8, in <module>
+    from twisted.protocols import policies, basic
+  File "/usr/local/CalendarServer/Twisted/twisted/protocols/policies.py", line 16, in <module>
+    from twisted.internet.protocol import ServerFactory, Protocol, ClientFactory
+  File "/usr/local/CalendarServer/Twisted/twisted/internet/protocol.py", line 394, in <module>
+    interfaces.IConsumer)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/components.py", line 87, in registerAdapter
+    raise ValueError("an adapter (%s) was already registered." % (factory, ))
+exceptions.ValueError: an adapter (twisted.internet.protocol.ProtocolToConsumerAdapter) was already registered.
+Traceback (most recent call last):
+  File "/usr/local/CalendarServer/Twisted/twisted/python/usage.py", line 373, in __str__
+    return self.getSynopsis() + '\n' + self.getUsage(width=None)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/usage.py", line 407, in getUsage
+    for (cmd, short, parser, desc) in self.subCommands:
+  File "/usr/local/CalendarServer/Twisted/twisted/application/app.py", line 364, in subCommands
+    for plug in plugins:
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 186, in getPlugins
+    allDropins = getCache(package)
+--- <exception caught here> ---
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 151, in getCache
+    provider = pluginModule.load()
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 378, in load
+    return self.pathEntry.pythonPath.moduleLoader(self.name)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 614, in moduleLoader
+    return self._moduleLoader(modname)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/reflect.py", line 361, in namedAny
+    topLevelPackage = __import__(trialname)
+  File "/usr/lib/python2.5/site-packages/twisted/plugins/cred_anonymous.py", line 14, in <module>
+    from twisted.cred.strcred import ICheckerFactory
+exceptions.ImportError: No module named strcred
+Traceback (most recent call last):
+  File "/usr/local/CalendarServer/Twisted/twisted/python/usage.py", line 373, in __str__
+    return self.getSynopsis() + '\n' + self.getUsage(width=None)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/usage.py", line 407, in getUsage
+    for (cmd, short, parser, desc) in self.subCommands:
+  File "/usr/local/CalendarServer/Twisted/twisted/application/app.py", line 364, in subCommands
+    for plug in plugins:
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 186, in getPlugins
+    allDropins = getCache(package)
+--- <exception caught here> ---
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 151, in getCache
+    provider = pluginModule.load()
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 378, in load
+    return self.pathEntry.pythonPath.moduleLoader(self.name)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 614, in moduleLoader
+    return self._moduleLoader(modname)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/reflect.py", line 361, in namedAny
+    topLevelPackage = __import__(trialname)
+  File "/usr/lib/python2.5/site-packages/twisted/plugins/cred_file.py", line 16, in <module>
+    from twisted.cred.strcred import ICheckerFactory
+exceptions.ImportError: No module named strcred
+Traceback (most recent call last):
+  File "/usr/local/CalendarServer/Twisted/twisted/python/usage.py", line 373, in __str__
+    return self.getSynopsis() + '\n' + self.getUsage(width=None)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/usage.py", line 407, in getUsage
+    for (cmd, short, parser, desc) in self.subCommands:
+  File "/usr/local/CalendarServer/Twisted/twisted/application/app.py", line 364, in subCommands
+    for plug in plugins:
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 186, in getPlugins
+    allDropins = getCache(package)
+--- <exception caught here> ---
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 151, in getCache
+    provider = pluginModule.load()
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 378, in load
+    return self.pathEntry.pythonPath.moduleLoader(self.name)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 614, in moduleLoader
+    return self._moduleLoader(modname)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/reflect.py", line 361, in namedAny
+    topLevelPackage = __import__(trialname)
+  File "/usr/lib/python2.5/site-packages/twisted/plugins/cred_memory.py", line 13, in <module>
+    from twisted.cred.strcred import ICheckerFactory
+exceptions.ImportError: No module named strcred
+Traceback (most recent call last):
+  File "/usr/local/CalendarServer/Twisted/twisted/python/usage.py", line 373, in __str__
+    return self.getSynopsis() + '\n' + self.getUsage(width=None)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/usage.py", line 407, in getUsage
+    for (cmd, short, parser, desc) in self.subCommands:
+  File "/usr/local/CalendarServer/Twisted/twisted/application/app.py", line 364, in subCommands
+    for plug in plugins:
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 186, in getPlugins
+    allDropins = getCache(package)
+--- <exception caught here> ---
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 151, in getCache
+    provider = pluginModule.load()
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 378, in load
+    return self.pathEntry.pythonPath.moduleLoader(self.name)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 614, in moduleLoader
+    return self._moduleLoader(modname)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/reflect.py", line 361, in namedAny
+    topLevelPackage = __import__(trialname)
+  File "/usr/lib/python2.5/site-packages/twisted/plugins/cred_unix.py", line 13, in <module>
+    from twisted.cred.strcred import ICheckerFactory
+exceptions.ImportError: No module named strcred
+Traceback (most recent call last):
+  File "/usr/local/CalendarServer/Twisted/twisted/python/usage.py", line 373, in __str__
+    return self.getSynopsis() + '\n' + self.getUsage(width=None)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/usage.py", line 407, in getUsage
+    for (cmd, short, parser, desc) in self.subCommands:
+  File "/usr/local/CalendarServer/Twisted/twisted/application/app.py", line 364, in subCommands
+    for plug in plugins:
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 186, in getPlugins
+    allDropins = getCache(package)
+--- <exception caught here> ---
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 151, in getCache
+    provider = pluginModule.load()
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 378, in load
+    return self.pathEntry.pythonPath.moduleLoader(self.name)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 614, in moduleLoader
+    return self._moduleLoader(modname)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/reflect.py", line 361, in namedAny
+    topLevelPackage = __import__(trialname)
+  File "/usr/local/CalendarServer/Twisted/twisted/plugins/twisted_lore.py", line 4, in <module>
+    from twisted.lore.scripts.lore import IProcessor
+  File "/usr/local/CalendarServer/Twisted/twisted/lore/scripts/lore.py", line 8, in <module>
+    from twisted.lore import process, indexer, numberer, htmlbook
+  File "/usr/local/CalendarServer/Twisted/twisted/lore/process.py", line 7, in <module>
+    import tree #todo: get rid of this later
+  File "/usr/local/CalendarServer/Twisted/twisted/lore/tree.py", line 8, in <module>
+    from twisted.web import microdom, domhelpers
+  File "/usr/local/CalendarServer/Twisted/twisted/web/microdom.py", line 30, in <module>
+    from twisted.web.sux import XMLParser, ParseError
+  File "/usr/local/CalendarServer/Twisted/twisted/web/sux.py", line 23, in <module>
+    from twisted.internet.protocol import Protocol, FileWrapper
+  File "/usr/local/CalendarServer/Twisted/twisted/internet/protocol.py", line 394, in <module>
+    interfaces.IConsumer)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/components.py", line 87, in registerAdapter
+    raise ValueError("an adapter (%s) was already registered." % (factory, ))
+exceptions.ValueError: an adapter (twisted.internet.protocol.ProtocolToConsumerAdapter) was already registered.
+Traceback (most recent call last):
+  File "/usr/local/CalendarServer/Twisted/twisted/python/usage.py", line 373, in __str__
+    return self.getSynopsis() + '\n' + self.getUsage(width=None)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/usage.py", line 407, in getUsage
+    for (cmd, short, parser, desc) in self.subCommands:
+  File "/usr/local/CalendarServer/Twisted/twisted/application/app.py", line 364, in subCommands
+    for plug in plugins:
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 186, in getPlugins
+    allDropins = getCache(package)
+--- <exception caught here> ---
+  File "/usr/local/CalendarServer/Twisted/twisted/plugin.py", line 151, in getCache
+    provider = pluginModule.load()
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 378, in load
+    return self.pathEntry.pythonPath.moduleLoader(self.name)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/modules.py", line 614, in moduleLoader
+    return self._moduleLoader(modname)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/reflect.py", line 361, in namedAny
+    topLevelPackage = __import__(trialname)
+  File "/usr/local/CalendarServer/CalendarServer-1.3/twisted/plugins/caldav.py", line 1, in <module>
+    from twistedcaldav.tap import CalDAVServiceMaker
+  File "/usr/local/CalendarServer/CalendarServer-1.3/twistedcaldav/__init__.py", line 62, in <module>
+    import twistedcaldav.customxml
+  File "/usr/local/CalendarServer/CalendarServer-1.3/twistedcaldav/customxml.py", line 28, in <module>
+    from twisted.web2.dav.resource import twisted_dav_namespace
+  File "/usr/local/CalendarServer/Twisted/twisted/web2/dav/resource.py", line 59, in <module>
+    from twisted.web2.http import HTTPError, RedirectResponse, StatusResponse
+  File "/usr/local/CalendarServer/Twisted/twisted/web2/http.py", line 475, in <module>
+    components.registerAdapter(compat.makeOldRequestAdapter, iweb.IRequest, iweb.IOldRequest)
+  File "/usr/local/CalendarServer/Twisted/twisted/python/components.py", line 87, in registerAdapter
+    raise ValueError("an adapter (%s) was already registered." % (factory, ))
+exceptions.ValueError: an adapter (<function makeOldRequestAdapter at 0x1765a28>) was already registered.
+Usage: twistd [options]
+Options:
+      --savestats        save the Stats object rather than the text output of
+                         the profiler.
+  -o, --no_save          do not save state on shutdown
+  -e, --encrypted        The specified tap/aos/xml file is encrypted.
+      --nothotshot       Don't use the 'hotshot' profiler even if it's
+                         available.
+  -n, --nodaemon         don't daemonize
+  -q, --quiet            No-op for backwards compatability.
+      --originalname     Don't try to change the process name
+      --syslog           Log to syslog, not to file
+      --euid             Set only effective user-id rather than real user-id.
+                         (This option has no effect unless the server is running
+                         as root, in which case it means not to shed all
+                         privileges after binding ports, retaining the option to
+                         regain privileges in cases such as spawning processes.
+                         Use with caution.)
+  -l, --logfile=         log to a specified file, - for stdout
+  -p, --profile=         Run in profile mode, dumping results to specified file
+  -f, --file=            read the given .tap file [default: twistd.tap]
+  -y, --python=          read an application from within a Python file (implies
+                         -o)
+  -x, --xml=             Read an application from a .tax file (Marmalade
+                         format).
+  -s, --source=          Read an application from a .tas file (AOT format).
+  -d, --rundir=          Change to a supplied directory before running [default:
+                         .]
+      --report-profile=  E-mail address to use when reporting dynamic execution
+                         profiler stats. This should not be combined with other
+                         profiling options. This will only take effect if the
+                         application to be run has an application name.
+      --prefix=          use the given prefix when syslogging [default: twisted]
+      --pidfile=         Name of the pidfile [default: twistd.pid]
+      --chroot=          Chroot to a supplied directory before running
+  -u, --uid=             The uid to run as.
+  -g, --gid=             The gid to run as.
+      --help-reactors    Display a list of possibly available reactor names.
+      --version          Print version information and exit.
+      --spew             Print an insanely verbose log of everything that
+                         happens. Useful when debugging freezes or locks in
+                         complex code.
+  -b, --debug            run the application in the Python Debugger (implies
+                         nodaemon), sending SIGUSR2 will drop into debugger
+  -r, --reactor=         Which reactor to use (see --help-reactors for a list of
+                         possibilities)
+      --help             Display this help and exit.
+Commands:
+    web2             An HTTP/1.1 web server that can serve from a filesystem or
+                     application resource.
+    ftp              An FTP server.
+    telnet           A simple, telnet-based remote debugging service.
+    socks            A SOCKSv4 proxy service.
+    manhole-old      An interactive remote debugger service.
+    portforward      A simple port-forwarder.
+    web              A general-purpose web server which can serve from a
+                     filesystem or application resource.
+    inetd            An inetd(8) replacement.
+    news             A news server.
+    words            A modern words server
+    toc              An AIM TOC service.
+    dns              A domain name server.
+    mail             An email service
+    manhole          An interactive remote debugger service accessible via
+                     telnet and ssh and providing syntax coloring and basic line
+                     editing functionality.
+    conch            A Conch SSH service.
+
+/usr/local/CalendarServer/Twisted/bin/twistd: Unknown command: caldav
+sylvester:/usr/local/CalendarServer/CalendarServer-1.3#

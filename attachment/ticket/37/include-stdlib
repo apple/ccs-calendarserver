@@ -1,0 +1,24 @@
+Index: pykerberos/src/kerberosbasic.c
+===================================================================
+--- pykerberos.orig/src/kerberosbasic.c	2006-09-08 19:13:10.000000000 +0200
++++ pykerberos/src/kerberosbasic.c	2006-09-08 19:13:23.000000000 +0200
+@@ -20,6 +20,7 @@
+ 
+ #include <stdio.h>
+ #include <string.h>
++#include <stdlib.h>
+ 
+ #undef PRINTFS
+ 
+Index: pykerberos/src/kerberosgss.c
+===================================================================
+--- pykerberos.orig/src/kerberosgss.c	2006-09-08 19:13:10.000000000 +0200
++++ pykerberos/src/kerberosgss.c	2006-09-08 19:13:23.000000000 +0200
+@@ -22,6 +22,7 @@
+ 
+ #include <stdio.h>
+ #include <string.h>
++#include <stdlib.h>
+ 
+ #undef PRINTFS
+ 

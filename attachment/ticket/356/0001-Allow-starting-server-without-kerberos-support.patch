@@ -1,0 +1,37 @@
+From 0424b4d82f56ca1c843f958f2fa32e920bd33e98 Mon Sep 17 00:00:00 2001
+From: Priit Laes <plaes@plaes.org>
+Date: Mon, 8 Mar 2010 00:18:49 +0200
+Subject: [PATCH] Allow starting server without kerberos support.
+
+---
+ twistedcaldav/directory/principal.py |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/twistedcaldav/directory/principal.py b/twistedcaldav/directory/principal.py
+index 438756c..4f7b040 100644
+--- a/twistedcaldav/directory/principal.py
++++ b/twistedcaldav/directory/principal.py
+@@ -52,7 +52,10 @@ from twistedcaldav import carddavxml
+ 
+ from twext.python.log import Logger
+ 
+-from twistedcaldav.authkerb import NegotiateCredentials
++try:
++    from twistedcaldav.authkerb import NegotiateCredentials
++except ImportError:
++    NegotiateCredentials = None
+ from twistedcaldav.config import config
+ from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
+ from twistedcaldav.directory import calendaruserproxy
+@@ -175,7 +178,7 @@ class DirectoryProvisioningResource (
+         # Basic/Digest creds -> just lookup user name
+         if isinstance(user, UsernamePassword) or isinstance(user, DigestedCredentials):
+             return self.principalForUser(user.username)
+-        elif isinstance(user, NegotiateCredentials):
++        elif NegotiateCredentials and isinstance(user, NegotiateCredentials):
+             authID = "Kerberos:%s" % (user.principal,)
+             principal = self.principalForRecord(self.directory.recordWithAuthID(authID))
+             if principal:
+-- 
+1.7.0
+

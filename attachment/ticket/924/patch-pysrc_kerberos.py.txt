@@ -1,0 +1,14 @@
+Index: pysrc/kerberos.py
+===================================================================
+--- pysrc/kerberos.py   (revision 15382)
++++ pysrc/kerberos.py   (working copy)
+@@ -266,7 +266,8 @@
+     to dispose of the context once all GSSAPI operations are complete.
+
+     @param service: A string containing the service principal in the form
+-        C{"type@fqdn"}.
++        C{"type@fqdn"}. To initialize the context for the purpose of accepting
++        delegated credentials, pass the literal string C{"DELEGATE"}.
+
+     @return: A tuple of (result, context) where result is the result code (see
+         above) and context is an opaque value that will need to be passed to

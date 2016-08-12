@@ -1,0 +1,525 @@
+diff -Naur calendarserver-2.3.dfsg.orig/twistedcaldav/directory/ldapdirectory.py calendarserver-2.3.dfsg/twistedcaldav/directory/ldapdirectory.py
+--- calendarserver-2.3.dfsg.orig/twistedcaldav/directory/ldapdirectory.py	1970-01-01 05:30:00.000000000 +0530
++++ calendarserver-2.3.dfsg/twistedcaldav/directory/ldapdirectory.py	2009-12-17 10:22:27.000000000 +0530
+@@ -0,0 +1,521 @@
++##
++# Copyright (c) 2008-2009 Aymeric Augustin. All rights reserved.
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++# http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++##
++
++"""
++LDAP directory service implementation.
++
++The following attributes from standard schemas are used:
++* Core (RFC 4519):
++    . cn | commonName
++    . givenName
++    . member (if not using NIS groups)
++    . ou
++    . sn | surname
++    . uid | userid (if using NIS groups)
++* COSINE (RFC 4524):
++    . mail
++* InetOrgPerson (RFC 2798):
++    . displayName (if cn is unavailable)
++* NIS (RFC):
++    . gecos (if cn is unavailable)
++    . memberUid (if using NIS groups)
++"""
++
++__all__ = [
++    "LdapDirectoryService",
++]
++
++import ldap
++import PAM
++
++from twisted.cred.credentials import UsernamePassword
++from twisted.web2.auth.digest import DigestedCredentials
++from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
++    CachingDirectoryRecord
++
++
++class LdapDirectoryService(CachingDirectoryService):
++    """
++    LDAP based implementation of L{IDirectoryService}.
++    """
++    baseGUID = "5A871574-0C86-44EE-B11B-B9440C3DC4DD"
++
++    def __repr__(self):
++        return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.uri)
++
++    def __init__(self, params, dosetup=True):
++        """
++        @param params: a dictionary containing the following keys:
++            cacheTimeout, realmName, uri, tls, tlsCACertFile, tlsCACertDir,
++            tlsRequireCert, crendentials, rdnSchema, groupSchema
++        @param dosetup: if C{True} then the directory records are initialized,
++                        if C{False} they are not.
++                        This should only be set to C{False} when doing unit tests.
++        """
++
++        defaults = {
++            "cacheTimeout": 30,
++            "realmName": "Test Realm",
++            "uri": "ldap://localhost/",
++            "tls": False,
++            "tlsCACertFile": None,
++            "tlsCACertDir": None,
++            "tlsRequireCert": None, # never, allow, try, demand/hard
++            "credentials": {
++                "dn": None,
++                "password": None,
++            },
++            "authMethod": "LDAP",
++            "rdnSchema": {
++                "base": "dc=example,dc=com",
++                "guidAttr": None,
++                "users": {
++                    "rdn": "ou=People",
++                    "attr": "uid",
++                    "emailSuffix": None,
++                    "filter": None,
++                },
++                "groups": {
++                    "rdn": "ou=Group",
++                    "attr": "cn",
++                    "emailSuffix": None,
++                    "filter": None,
++                },
++                "locations": {
++                    "rdn": "ou=Locations",
++                    "attr": "cn",
++                    "emailSuffix": None,
++                    "filter": None,
++                },
++                "resources": {
++                    "rdn": "ou=Resources",
++                    "attr": "cn",
++                    "emailSuffix": None,
++                    "filter": None,
++                },
++            },
++            "groupSchema": {
++                "membersAttr": "member",
++                "memberIdAttr": None,
++            },
++        }
++        ignored = None
++        params = self.getParams(params, defaults, ignored)
++
++        super(LdapDirectoryService, self).__init__(params['cacheTimeout'])
++
++        self.realmName = params['realmName']
++        self.uri = params['uri']
++        self.tls = params['tls']
++        self.tlsCACertFile = params['tlsCACertFile']
++        self.tlsCACertDir = params['tlsCACertDir']
++        self.tlsRequireCert = params['tlsRequireCert']
++        self.credentials = params['credentials']
++        self.authMethod = params['authMethod']
++        self.rdnSchema = params['rdnSchema']
++        self.groupSchema = params['groupSchema']
++
++        # Certain attributes (such as entryUUID) may be hidden and not 
++        # returned by default when queried for all attributes. Therefore it is 
++        # necessary to explicitly pass all the possible attributes list
++        # for ldap searches
++        attrSet = set(['mail', 'uid', 'userid', 'cn', 'commonName',
++                       'displayName', 'gecos', 'givenName', 'sn', 'surname'])
++        if self.rdnSchema['guidAttr']:
++            attrSet.add(self.rdnSchema['guidAttr'])
++        for recordType in self.recordTypes():
++            if self.rdnSchema[recordType]['attr']:
++                attrSet.add(self.rdnSchema[recordType]['attr'])
++        if self.groupSchema['membersAttr']:
++            attrSet.add(self.groupSchema['membersAttr'])
++        if self.groupSchema['memberIdAttr']:
++            attrSet.add(self.groupSchema['memberIdAttr'])
++        self.attrList = list(attrSet)
++
++        # Create LDAP connection
++        self.log_info("Calling ldap.ldapobject.ReconnectLDAPObject(%s)." % repr(self.uri), system="LdapDirectoryService")
++        self.ldap = ldap.ldapobject.ReconnectLDAPObject(self.uri)
++
++        # Open LDAP Connection
++        if self.tlsCACertFile:
++            ldap.set_option(ldap.OPT_X_TLS_CACERTFILE, self.tlsCACertFile)
++        if self.tlsCACertDir:
++            ldap.set_option(ldap.OPT_X_TLS_CACERTDIR, self.tlsCACertDir)
++
++        if self.tlsRequireCert == "never":
++            self.ldap.set_option(ldap.OPT_X_TLS, ldap.OPT_X_TLS_NEVER)
++        elif self.tlsRequireCert == "allow":
++            self.ldap.set_option(ldap.OPT_X_TLS, ldap.OPT_X_TLS_ALLOW)
++        elif self.tlsRequireCert == "try":
++            self.ldap.set_option(ldap.OPT_X_TLS, ldap.OPT_X_TLS_TRY)
++        elif self.tlsRequireCert == "demand":
++            self.ldap.set_option(ldap.OPT_X_TLS, ldap.OPT_X_TLS_DEMAND)
++        elif self.tlsRequireCert == "hard":
++            self.ldap.set_option(ldap.OPT_X_TLS, ldap.OPT_X_TLS_HARD)
++
++        if self.tls:
++            self.ldap.start_tls_s()
++
++        if self.credentials.get('dn', ''):
++            try:
++                self.log_info("Calling LDAPObject.simple_bind_s(%s, [password])." % repr(self.credentials.get('dn')), system="LdapDirectoryService")
++                self.ldap.simple_bind_s(self.credentials.get('dn'), self.credentials.get('password'))
++            except ldap.INVALID_CREDENTIALS:
++                self.log_error("Unable to bind to LDAP server %s: check credentials." % self.uri, system="LdapDirectoryService")
++                raise 
++
++    def __del__(self):
++        try: self.ldap.unbind_s()
++        except: pass
++
++    def recordTypes(self):
++        return (
++            self.recordType_users,
++            self.recordType_groups,
++            self.recordType_locations,
++            self.recordType_resources,
++        )
++
++    # Get the first value for one or several attributes
++    # Useful when attributes have aliases (e.g. sn vs. surname)
++    def _getUniqueLdapAttribute(self, attrs, *keys):
++        for key in keys:
++            values = attrs.get(key)
++            if values is not None:
++                return values[0]
++        return None
++
++    # Get all values for one or several attributes
++    def _getMultipleLdapAttributes(self, attrs, *keys):
++        results = []
++        for key in keys:
++            values = attrs.get(key)
++            if values is not None:
++                results += values
++        return set(results)
++
++    # Convert the attrs returned by a LDAP search into a LdapDirectoryRecord object
++    # Mappings are hardcoded below but the most standard LDAP schemas were used
++    # to define them
++    def _ldapResultToRecord(self, dn, attrs, recordType):
++        guid = None
++        shortNames  = ()
++        authIDs = set()
++        fullName = None
++        firstName = None
++        lastName = None
++        emailAddresses = set()
++        calendarUserAddresses = set()
++        enabledForCalendaring = None
++        uid = None
++
++        # First check for and add guid
++        guidAttr = self.rdnSchema['guidAttr']
++        if guidAttr:
++            guid = self._getUniqueLdapAttribute(attrs, guidAttr)
++
++        # Find or build email
++        emailAddresses = set(map(lambda v: 'mailto:' + v, self._getMultipleLdapAttributes(attrs, 'mail')))
++        emailSuffix = self.rdnSchema[recordType]['emailSuffix']
++        if len(emailAddresses) == 0 and emailSuffix is not None:
++            emailPrefix = self._getUniqueLdapAttribute(attrs, self.rdnSchema[recordType]['attr'])
++            emailAddresses.add('mailto:' + emailPrefix + emailSuffix)
++
++        # LDAP attribute -> principal matchings
++        if recordType == self.recordType_users:
++            shortNames = (self._getUniqueLdapAttribute(attrs, 'uid', 'userid'),)
++            fullName = self._getUniqueLdapAttribute(attrs, 'cn', 'commonName', 'displayName', 'gecos')
++            firstName = self._getUniqueLdapAttribute(attrs, 'givenName')
++            lastName = self._getUniqueLdapAttribute(attrs, 'sn', 'surname')
++            calendarUserAddresses = emailAddresses
++            enabledForCalendaring = True
++        elif recordType == self.recordType_groups:
++            shortNames = (self._getUniqueLdapAttribute(attrs, 'cn'),)
++            fullName = self._getUniqueLdapAttribute(attrs, 'cn')
++            enabledForCalendaring = False
++        elif recordType in (self.recordType_resources, self.recordType_locations):
++            shortNames = (self._getUniqueLdapAttribute(attrs, 'cn'),)
++            fullName = self._getUniqueLdapAttribute(attrs, 'cn')
++            calendarUserAddresses = emailAddresses
++            enabledForCalendaring = True
++
++        return LdapDirectoryRecord(
++            service     = self,
++            recordType  = recordType,
++            guid        = guid,
++            shortNames  = shortNames,
++            authIDs     = authIDs,
++            fullName    = fullName,
++            firstName   = firstName,
++            lastName    = lastName,
++            emailAddresses          = emailAddresses,
++            calendarUserAddresses   = calendarUserAddresses,
++            enabledForCalendaring   = enabledForCalendaring,
++            uid        = uid,
++            dn         = dn,
++            attrs      = attrs,
++        )
++
++
++    def queryDirectory(self, recordTypes, indexType, indexKey):
++        self.log_debug("Querying directory for recordTypes %s, indexType %s and indexKey %s"
++                      % (recordTypes, indexType, indexKey),
++                      system="LdapDirectoryService")
++        for recordType in recordTypes:
++            # Build base for this record Type
++            base = ldap.dn.str2dn(self.rdnSchema[recordType]['rdn']) + ldap.dn.str2dn(self.rdnSchema['base']) 
++
++            # Build filter
++            filter = "(!(objectClass=organizationalUnit))"
++            if self.rdnSchema[recordType]['filter']:
++                filter = "(&%s%s)" % (filter, self.rdnSchema[recordType]['filter'])
++            if indexType == self.INDEX_TYPE_GUID:
++                # Quey on guid only works if guid attribute has been defined.
++                # Support for query on guid even if is auto-generated should
++                # be added.
++                guidAttr = self.rdnSchema['guidAttr']
++                if not guidAttr: return
++                filter = "(&%s(%s=%s))" % (filter, guidAttr, indexKey)
++            elif indexType == self.INDEX_TYPE_SHORTNAME:
++                if recordType == self.recordType_users:
++                    filter = "(&%s(|(uid=%s)(userid=%s)))" % (filter, indexKey, indexKey)
++                elif recordType in (self.recordType_groups, self.recordType_resources, self.recordType_locations):
++                    filter = "(&%s(cn=%s))" % (filter, indexKey)
++            elif indexType == self.INDEX_TYPE_CUA:
++                # indexKey is of the form "mailto:test@example.net"
++                email = indexKey[7:] # strip "mailto:"
++                emailSuffix = self.rdnSchema[recordType]['emailSuffix']
++                if emailSuffix is not None and email.partition("@")[2] == emailSuffix:
++                    filter = "(&%s(|(&(!(mail=*))(%s=%s))(mail=%s)))" % \
++                             (filter, self.rdnSchema[recordType]['attr'],
++                              email.partition("@")[0], email)
++                else:
++                    filter = "(&%s(mail=%s))" % (filter, email)
++            elif indexType == self.INDEX_TYPE_AUTHID:
++                return
++
++            # Query the LDAP server
++            self.log_info("Retrieving ldap record with base %s and filter %s." %
++                          (ldap.dn.dn2str(base), filter),
++                          system="LdapDirectoryService")
++            result = self.ldap.search_s(ldap.dn.dn2str(base), ldap.SCOPE_SUBTREE, filter, self.attrList)
++
++            if result:
++                dn, attrs = result.pop()
++                self.recordCacheForType(recordType).addRecord(
++                        self._ldapResultToRecord(dn, attrs, recordType),
++                        indexType, indexKey
++                )
++
++
++
++class LdapDirectoryRecord(CachingDirectoryRecord):
++    """
++    LDAP implementation of L{IDirectoryRecord}.
++    """
++    def __init__(
++        self, service, recordType,
++        guid, shortNames, authIDs, fullName,
++        firstName, lastName, emailAddresses,
++        calendarUserAddresses, enabledForCalendaring, uid,
++        dn, attrs
++    ):
++        super(LdapDirectoryRecord, self).__init__(
++            service               = service,
++            recordType            = recordType,
++            guid                  = guid,
++            shortNames            = shortNames,
++            authIDs               = authIDs,
++            fullName              = fullName,
++            firstName             = firstName,
++            lastName              = lastName,
++            emailAddresses        = emailAddresses,
++            calendarUserAddresses = calendarUserAddresses,
++            enabledForCalendaring = enabledForCalendaring,
++            uid                   = uid,
++        )
++
++        # Save attributes of dn and attrs in case you might need them later
++        self.dn = dn
++        self.attrs = attrs
++
++        # Identifiers of the members of this record if it is a group
++        membersAttr = self.service.groupSchema['membersAttr']
++        self._memberIds = self.service._getMultipleLdapAttributes(attrs, membersAttr)
++
++        # Identifier of this record as a group member
++        memberIdAttr = self.service.groupSchema['memberIdAttr']
++        if memberIdAttr:
++            self._memberId = self.service._getUniqueLdapAttribute(attrs, memberIdAttr)
++        else:
++            self._memberId = self.dn
++        
++
++    # Singleton with lazy loading
++    def _ldap(self):
++        try:
++            return self.ldap
++        except AttributeError:
++            # Use a different LDAP connection for authentication
++            # in order not to re-bind the server connection at each verification
++            self.log_info("Calling ldap.ldapobject.ReconnectLDAPObject(%s) in %s." % (repr(self.service.uri), repr(self)),
++                          system="LdapDirectoryService")
++            self.ldap = ldap.ldapobject.ReconnectLDAPObject(self.service.uri)
++
++            if self.service.tlsCACertFile:
++                ldap.set_option(ldap.OPT_X_TLS_CACERTFILE, self.service.tlsCACertFile)
++            if self.service.tlsCACertDir:
++                ldap.set_option(ldap.OPT_X_TLS_CACERTDIR, self.service.tlsCACertDir)
++
++            if self.service.tlsRequireCert == "never":
++                self.ldap.set_option(ldap.OPT_X_TLS, ldap.OPT_X_TLS_NEVER)
++            elif self.service.tlsRequireCert == "allow":
++                self.ldap.set_option(ldap.OPT_X_TLS, ldap.OPT_X_TLS_ALLOW)
++            elif self.service.tlsRequireCert == "try":
++                self.ldap.set_option(ldap.OPT_X_TLS, ldap.OPT_X_TLS_TRY)
++            elif self.service.tlsRequireCert == "demand":
++                self.ldap.set_option(ldap.OPT_X_TLS, ldap.OPT_X_TLS_DEMAND)
++            elif self.service.tlsRequireCert == "hard":
++                self.ldap.set_option(ldap.OPT_X_TLS, ldap.OPT_X_TLS_HARD)
++
++            if self.service.tls:
++                self.ldap.start_tls_s()
++
++            return self.ldap
++
++    def _members(self):
++        # Only groups have members
++        memberIdAttr = self.service.groupSchema['memberIdAttr']
++        results = []
++        for memberId in self._memberIds:
++            if memberIdAttr:
++                base = self.service._base
++                filter = '(%s=%s)' % (self.service.groupSchema['memberIdAttr'], memberId)
++                self.log_info("Retrieving subtree of %s with filter %s." % (ldap.dn.dn2str(base), filter),
++                             system="LdapDirectoryService")
++                result = self.service.ldap.search_s(ldap.dn.dn2str(base), ldap.SCOPE_SUBTREE, filter, self.service.attrList)
++            else:
++                self.log_info("Retrieving %s." % memberId, system="LdapDirectoryService")
++                result = self.service.ldap.search_s(memberId, ldap.SCOPE_BASE, attrlist=self.service.attrList)
++
++            assert len(result) == 1
++            dn, attrs = result.pop()
++            
++            # Guess the recordType for the member (using scope bleeding)
++            for recordType in self.service.recordTypes():
++                attr = self.service.rdnSchema[recordType]['attr']
++                value = self.service._getUniqueLdapAttribute(attrs, attr)
++                calcDn = [[(attr, value, 1)]] + ldap.dn.str2dn(self.service.rdnSchema[recordType]['rdn']) \
++                                              + ldap.dn.str2dn(self.service.rdnSchema['base'])
++                if dn.lower() == ldap.dn.dn2str(calcDn).lower():
++                    break
++
++            if recordType == self.service.recordType_users:
++                shortName = self.service._getUniqueLdapAttribute(attrs, 'uid', 'userid')
++            elif recordType in (self.service.recordType_groups, self.service.recordType_resources,
++                                self.service.recordType_locations):
++                shortName = self.service._getUniqueLdapAttribute(attrs, 'cn')
++            results.append(self.service.recordWithShortName(recordType, shortName))
++
++        return results
++
++    def _groups(self):
++        recordType = self.service.recordType_groups
++        base =  ldap.dn.str2dn(self.service.rdnSchema[recordType]['rdn']) + \
++                ldap.dn.str2dn(self.service.rdnSchema['base'])
++        filter = '(%s=%s)' % (self.service.groupSchema['membersAttr'], self._memberId)
++        self.log_info("Retrieving subtree of %s with filter %s." % (ldap.dn.dn2str(base), filter),
++                     system="LdapDirectoryService")
++        results = self.service.ldap.search_s(ldap.dn.dn2str(base), ldap.SCOPE_SUBTREE, filter, self.service.attrList)
++
++        groups = []
++        for dn, attrs in results:
++            if recordType == self.service.recordType_users:
++                shortName = self.service._getUniqueLdapAttribute(attrs, 'uid', 'userid')
++            elif recordType in (self.service.recordType_groups, self.service.recordType_resources,
++                                self.service.recordType_locations):
++                shortName = self.service._getUniqueLdapAttribute(attrs, 'cn')
++            groups.append(self.service.recordWithShortName(recordType, shortName))
++
++        return groups
++
++    # There is no need to implement a timeout here, the LdapDirectoryRecord objects
++    # themselves are destroyed and re-created when the records list is refreshed
++    # in LdapDirectoryService.
++
++    def members(self):
++        try:
++            return self._members_storage
++        except AttributeError:
++            self._members_storage = self._members()
++            return self._members_storage
++
++    def groups(self):
++        try:
++            return self._groups_storage
++        except AttributeError:
++            self._groups_storage = self._groups()
++            return self._groups_storage
++
++
++    # Credentials are checked against PAM
++    # Thus, the password is needed in clear-text and digest authentication
++    # can not be supported.
++    def verifyCredentials(self, credentials):
++        if isinstance(credentials, UsernamePassword):
++            # Check that the username supplied matches one of the shortNames
++            # (The DCS might already enforce this constraint, not sure)
++            if credentials.username not in self.shortNames:
++                return False
++
++            # Check cached password
++            try:
++                if credentials.password == self.password:
++                    return True
++            except AttributeError:
++                pass
++
++            if self.service.authMethod.upper() == "PAM":
++                # Authenticate against PAM
++                def pam_conv(auth, query_list, userData):
++                    return [(credentials.password, 0)]
++
++                auth = PAM.pam()
++                auth.start("caldav")
++                auth.set_item(PAM.PAM_USER, credentials.username)
++                auth.set_item(PAM.PAM_CONV, pam_conv)
++                try:
++                    auth.authenticate()
++                except PAM.error, resp:
++                    return False
++                else:
++                    # Cache the password to avoid further LDAP queries
++                    self.password = credentials.password
++                    return True
++            else:
++                # Authenticate against LDAP
++                try:
++                    self.log_info("Calling LDAPObject.simple_bind_s(%s, [password])." % repr(self.dn), system="LdapDirectoryService")
++                    self.log_info(self._ldap().bind_s(self.dn, credentials.password))
++                    # Cache the password to avoid further LDAP queries
++                    self.password = credentials.password
++                    return True
++                except ldap.INVALID_CREDENTIALS:
++                    return False
++        
++
++        return super(LdapDirectoryRecord, self).verifyCredentials(credentials)
++

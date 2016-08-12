@@ -1,0 +1,34 @@
+Index: pykerberos/src/kerberosbasic.h
+===================================================================
+--- pykerberos.orig/src/kerberosbasic.h	2006-09-15 14:03:44.000000000 +0200
++++ pykerberos/src/kerberosbasic.h	2006-09-15 14:40:55.000000000 +0200
+@@ -16,9 +16,9 @@
+  * DRI: Cyrus Daboo, cdaboo@apple.com
+  **/
+ 
+-#include <Kerberos/gssapi.h>
+-#include <Kerberos/gssapi_generic.h>
+-#include <Kerberos/gssapi_krb5.h>
++#include <gssapi.h>
++#include <gssapi_generic.h>
++#include <gssapi_krb5.h>
+ 
+ #define krb5_get_err_text(context,code) error_message(code)
+ 
+Index: pykerberos/src/kerberosgss.h
+===================================================================
+--- pykerberos.orig/src/kerberosgss.h	2006-09-15 14:03:45.000000000 +0200
++++ pykerberos/src/kerberosgss.h	2006-09-15 14:41:07.000000000 +0200
+@@ -16,9 +16,9 @@
+  * DRI: Cyrus Daboo, cdaboo@apple.com
+  **/
+ 
+-#include <Kerberos/gssapi.h>
+-#include <Kerberos/gssapi_generic.h>
+-#include <Kerberos/gssapi_krb5.h>
++# include <gssapi.h>
++# include <gssapi_generic.h>
++# include <gssapi_krb5.h>
+ 
+ #define krb5_get_err_text(context,code) error_message(code)
+ 

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<multistatus xmlns="DAV:">
+    <response>
+        <href>http://localhost:8080/test/000241e7258cbf58</href>
+        <propstat>
+            <status>HTTP/1.1 200 Ok</status>
+            <prop>
+                <getetag/>
+                <calendar-data xmlns="urn:ietf:params:xml:ns:caldav">
+		[... data omitted ...]
+		</calendar-data>
+            </prop>
+        </propstat>
+    </response>
+    <response>
+        <href>http://localhost:8080/test/000241e56cd549e2</href>
+        <propstat>
+            <status>HTTP/1.1 200 Ok</status>
+            <prop>
+                <getetag/>
+                <calendar-data xmlns="urn:ietf:params:xml:ns:caldav">
+		[... data omitted again ...]
+		</calendar-data>
+            </prop>
+        </propstat>
+    </response>
+    <response>
+        <href>http://localhost:8080/test/000241e8d3e8250c</href>
+        <propstat>
+            <status>HTTP/1.1 200 Ok</status>
+            <prop>
+                <getetag/>
+                <calendar-data xmlns="urn:ietf:params:xml:ns:caldav">
+		[... and again ...]
+		</calendar-data>
+            </prop>
+        </propstat>
+    </response>
+</multistatus>

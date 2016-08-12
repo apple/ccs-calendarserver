@@ -1,0 +1,271 @@
+diff --git a/setup.py b/setup.py
+index 4a95d65..1b6cd09 100644
+--- a/setup.py
++++ b/setup.py
+@@ -33,6 +33,7 @@ setup (
+                 "src/kerberos.c",
+                 "src/kerberosbasic.c",
+                 "src/kerberosgss.c",
++                "src/kerberospw.c",
+                 "src/base64.c"
+             ],
+         ),
+diff --git a/src/kerberos.c b/src/kerberos.c
+index 507566c..7566495 100644
+--- a/src/kerberos.c
++++ b/src/kerberos.c
+@@ -19,10 +19,12 @@
+ #include <Python.h>
+ 
+ #include "kerberosbasic.h"
++#include "kerberospw.h"
+ #include "kerberosgss.h"
+ 
+ PyObject *KrbException_class;
+ PyObject *BasicAuthException_class;
++PyObject *PwdChangeException_class;
+ PyObject *GssException_class;
+ 
+ static PyObject *checkPassword(PyObject *self, PyObject *args)
+@@ -44,6 +46,23 @@ static PyObject *checkPassword(PyObject *self, PyObject *args)
+ 		return NULL;
+ }
+ 
++static PyObject *changePassword(PyObject *self, PyObject *args)
++{
++    const char *newpswd, *oldpswd;
++    const char *user;
++    int result = 0;
++
++    if (!PyArg_ParseTuple(args, "sss", &user, &oldpswd, &newpswd))
++        return NULL;
++
++    result = change_user_krb5pwd(user, oldpswd, newpswd);
++	
++    if (result)
++	return Py_INCREF(Py_True), Py_True;
++    else
++	return NULL;
++}
++
+ static PyObject *getServerPrincipalDetails(PyObject *self, PyObject *args)
+ {
+     const char *service;
+@@ -294,6 +313,8 @@ static PyObject *authGSSServerUserName(PyObject *self, PyObject *args)
+ static PyMethodDef KerberosMethods[] = {
+     {"checkPassword",  checkPassword, METH_VARARGS,
+ 		"Check the supplied user/password against Kerberos KDC."},
++    {"changePassword",  changePassword, METH_VARARGS,
++		"change the user password."},
+     {"getServerPrincipalDetails",  getServerPrincipalDetails, METH_VARARGS,
+ 		"Return the service principal for a given service and hostname."},
+     {"authGSSClientInit",  authGSSClientInit, METH_VARARGS,
+@@ -306,11 +327,11 @@ static PyMethodDef KerberosMethods[] = {
+ 		"Get the response from the last client-side GSSAPI step."},
+     {"authGSSClientUserName",  authGSSClientUserName, METH_VARARGS,
+ 		"Get the user name from the last client-side GSSAPI step."},
+-	{"authGSSClientWrap",  authGSSClientWrap, METH_VARARGS, 
+-		"Do a GSSAPI wrap."}, 
+-	{"authGSSClientUnwrap",  authGSSClientUnwrap, METH_VARARGS, 
+-		"Do a GSSAPI unwrap."}, 
+-	{"authGSSServerInit",  authGSSServerInit, METH_VARARGS,
++    {"authGSSClientWrap",  authGSSClientWrap, METH_VARARGS, 
++		"Do a GSSAPI wrap."},
++    {"authGSSClientUnwrap",  authGSSClientUnwrap, METH_VARARGS, 
++		"Do a GSSAPI unwrap."},
++    {"authGSSServerInit",  authGSSServerInit, METH_VARARGS,
+ 		"Initialize server-side GSSAPI operations."},
+     {"authGSSServerClean",  authGSSServerClean, METH_VARARGS,
+ 		"Terminate server-side GSSAPI operations."},
+@@ -339,12 +360,17 @@ PyMODINIT_FUNC initkerberos(void)
+ 
+     /* ...and the derived exceptions */
+     if (!(BasicAuthException_class = PyErr_NewException("kerberos.BasicAuthError", KrbException_class, NULL)))
+-    	goto error;
++	goto error;
+     Py_INCREF(BasicAuthException_class);
+     PyDict_SetItemString(d, "BasicAuthError", BasicAuthException_class);
+ 
++    if (!(PwdChangeException_class = PyErr_NewException("kerberos.PwdChangeError", KrbException_class, NULL)))
++	goto error;
++    Py_INCREF(PwdChangeException_class);
++    PyDict_SetItemString(d, "PwdChangeError", PwdChangeException_class);
++
+     if (!(GssException_class = PyErr_NewException("kerberos.GSSError", KrbException_class, NULL)))
+-		goto error;
++	goto error;
+     Py_INCREF(GssException_class);
+     PyDict_SetItemString(d, "GSSError", GssException_class);
+ 
+diff --git a/src/kerberospw.c b/src/kerberospw.c
+new file mode 100644
+index 0000000..62d57c7
+--- /dev/null
++++ b/src/kerberospw.c
+@@ -0,0 +1,136 @@
++/**
++ * Copyright (c) 2008 Guido Guenther <agx@sigxcpu.org>
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ **/
++
++#include <Python.h>
++#include "kerberospw.h"
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++#undef PRINTFS
++
++extern PyObject *PwdChangeException_class;
++
++static void set_pwchange_error(krb5_context context, krb5_error_code code)
++{
++	PyErr_SetObject(PwdChangeException_class, Py_BuildValue("(s:i)",
++	                krb5_get_err_text(context, code), code));
++}
++
++/* Inspired by krb5_verify_user from Heimdal */
++static krb5_error_code verify_krb5_user(krb5_context context,
++                                        krb5_principal principal,
++                                        const char *password,
++					const char *service,
++					krb5_creds* creds)
++{
++	krb5_get_init_creds_opt gic_options;
++	krb5_error_code code;
++	int ret = 0;
++	
++#ifdef PRINTFS
++	{
++		char *name = NULL;
++		code = krb5_unparse_name(context, principal, &name);
++		if (!code)
++			printf("Trying to get TGT for user %s\n", name);
++		free(name);
++	}
++#endif
++	krb5_get_init_creds_opt_init(&gic_options);
++	krb5_get_init_creds_opt_set_forwardable(&gic_options, 0);
++	krb5_get_init_creds_opt_set_proxiable(&gic_options, 0);
++	krb5_get_init_creds_opt_set_renew_life(&gic_options, 0);
++
++	memset(creds, 0, sizeof(krb5_creds));
++	
++	code = krb5_get_init_creds_password(context, creds, principal,
++	                                  (char *)password, NULL, NULL, 0,
++					  (char *)service, &gic_options);
++	if (code) {
++		set_pwchange_error(context, code);
++		goto end;
++	}
++	ret = 1; /* success */
++end:
++	return ret;
++}
++
++int change_user_krb5pwd(const char *user, const char* oldpswd, const char *newpswd)
++{
++	krb5_context    kcontext = NULL;
++	krb5_error_code code;
++	krb5_principal  client = NULL;
++	krb5_creds	creds;
++	int             ret = 0;
++	char            *name = NULL;
++	const char* service = "kadmin/changepw";
++	int result_code;
++	krb5_data result_code_string, result_string;
++
++	code = krb5_init_context(&kcontext);
++	if (code) {
++		PyErr_SetObject(PwdChangeException_class, Py_BuildValue("((s:i))",
++				"Cannot initialize Kerberos5 context", code));
++		return 0;
++	}
++
++	name = (char *)malloc(256);
++	snprintf(name, 256, "%s", user);
++		
++	code = krb5_parse_name(kcontext, name, &client);
++	if (code) {
++		set_pwchange_error(kcontext, code);
++		goto end;
++	}
++
++	code = verify_krb5_user(kcontext, client, oldpswd, service, &creds);
++	if (!code) /* exception set by verify_krb5_user */
++		goto end;
++
++	code = krb5_change_password(kcontext, &creds, (char*)newpswd,
++				    &result_code, &result_code_string, &result_string);
++	if (code) {
++		set_pwchange_error(kcontext, code);
++		goto end;
++	}
++	if (result_code) {
++	        char *message = NULL;
++		asprintf(&message, "%.*s: %.*s",
++                                   (int) result_code_string.length,
++			           (char *) result_code_string.data,
++                                   (int) result_string.length,
++                                   (char *) result_string.data);
++		PyErr_SetObject(PwdChangeException_class, Py_BuildValue("((s:i))",
++				message, result_code));
++		free(message);
++		goto end;
++	}
++
++	ret = 1; /* success */
++end:
++#ifdef PRINTFS
++	printf("%s: ret=%d user=%s\n", __FUNCTION__, ret, name);
++#endif
++	if (name)
++		free(name);
++	if (client)
++		krb5_free_principal(kcontext, client);
++	krb5_free_context(kcontext);
++	return ret;
++}
++
+diff --git a/src/kerberospw.h b/src/kerberospw.h
+new file mode 100644
+index 0000000..578108a
+--- /dev/null
++++ b/src/kerberospw.h
+@@ -0,0 +1,24 @@
++/**
++ * Copyright (c) 2008 Guido Guenther <agx@sigxcpu.org>
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ *
++ **/
++
++#include <gssapi/gssapi.h>
++#include <gssapi/gssapi_generic.h>
++#include <gssapi/gssapi_krb5.h>
++
++#define krb5_get_err_text(context,code) error_message(code)
++
++int change_user_krb5pwd(const char *user, const char* oldpswd, const char *newpswd);

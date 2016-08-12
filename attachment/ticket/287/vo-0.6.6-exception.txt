@@ -1,0 +1,26 @@
+ [HTTPChannel,2,10.0.0.1] PUT /calendars/users/foo/calendar/e91f1e67-94e0-4349-a202-b52532bd11ad.ics HTTP/1.1
+ [-] Exception rendering:
+ [-] Unhandled Error
+	Traceback (most recent call last):
+	  File "/usr/lib/python2.5/site-packages/twisted/internet/defer.py", line 614, in gotResult
+	    _deferGenerator(g, deferred)
+	  File "/usr/lib/python2.5/site-packages/twisted/internet/defer.py", line 589, in _deferGenerator
+	    result = g.next()
+	  File "/usr/lib/python2.5/site-packages/twistedcaldav/method/put.py", line 70, in http_PUT
+	    destinationparent = parent,)
+	  File "/usr/lib/python2.5/site-packages/twisted/internet/defer.py", line 688, in unwindGenerator
+	    return _deferGenerator(f(*args, **kwargs), Deferred())
+	--- <exception caught here> ---
+	  File "/usr/lib/python2.5/site-packages/twisted/internet/defer.py", line 589, in _deferGenerator
+	    result = g.next()
+	  File "/usr/lib/python2.5/site-packages/twistedcaldav/method/put_common.py", line 384, in storeCalendarObjectResource
+	    result, message = validCalDAVDataCheck()
+	  File "/usr/lib/python2.5/site-packages/twistedcaldav/method/put_common.py", line 250, in validCalDAVDataCheck
+	    calendar.validateForCalDAV()
+	  File "/usr/lib/python2.5/site-packages/twistedcaldav/ical.py", line 830, in validateForCalDAV
+	    self.validateComponentsForCalDAV(False)
+	  File "/usr/lib/python2.5/site-packages/twistedcaldav/ical.py", line 879, in validateComponentsForCalDAV
+	    timezone_refs.update(subcomponent.timezoneIDs())
+	  File "/usr/lib/python2.5/site-packages/twistedcaldav/ical.py", line 658, in timezoneIDs
+	    result.add(property.params().get('X-VOBJ-ORIGINAL-TZID'))
+	exceptions.TypeError: list objects are unhashable

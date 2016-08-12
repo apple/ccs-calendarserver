@@ -1,0 +1,44 @@
+Index: config.py
+===================================================================
+--- config.py	(revision 1952)
++++ config.py	(working copy)
+@@ -20,6 +20,7 @@
+ import copy
+ 
+ from twisted.python import log
++from twisted.python.reflect import namedClass
+ 
+ from twistedcaldav.py.plistlib import readPlist
+ 
+@@ -198,11 +199,31 @@
+                 newParams = items["DirectoryService"].get("params", {})
+                 _mergeData(oldParams, newParams)
+             else:
++                # Lookup default parameters and insert them in the module
++                # variable if they exist. This process also ensures that the
++                # specified directory service class can be imported and that
++                # we have default parameters for the subsequent logic that 
++                # follows.
++                try:
++                    serviceClass = namedClass(dsType)
++                    if hasattr(serviceClass, "defaultParams"):
++                        serviceDefaultParams[dsType] = serviceClass.defaultParams
++                    elif dsType not in serviceDefaultParams:
++                        raise ConfigurationError(
++                            "Default service parameters must be specified in " \
++                            "%s using the 'defaultParams' class variable or " \
++                            "via the 'defaultServiceParams' module variable " \
++                            "in twistedcaldav.config." % \
++                            dsType)
++                except (ImportError, AttributeError):
++                    raise ConfigurationError("Unable to load directory service %s" % dsType)
++
+                 if dsType in serviceDefaultParams:
+                     self._data["DirectoryService"]["params"] = copy.deepcopy(serviceDefaultParams[dsType])
+                 else:
+                     self._data["DirectoryService"]["params"] = {}
+ 
++
+         for param in items.get("DirectoryService", {}).get("params", {}):
+             if param not in serviceDefaultParams[dsType]:
+                 raise ConfigurationError("Parameter %s is not supported by service %s" % (param, dsType))

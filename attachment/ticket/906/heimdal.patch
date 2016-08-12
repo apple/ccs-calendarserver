@@ -1,0 +1,84 @@
+Index: src/kerberosbasic.h
+===================================================================
+--- src/kerberosbasic.h	(revision 15428)
++++ src/kerberosbasic.h	(working copy)
+@@ -14,8 +14,8 @@
+  * limitations under the License.
+  **/
+ 
++#include <krb5.h>
+ #include <gssapi/gssapi.h>
+-#include <gssapi/gssapi_generic.h>
+ #include <gssapi/gssapi_krb5.h>
+ 
+ #define krb5_get_err_text(context,code) error_message(code)
+Index: src/kerberosgss.c
+===================================================================
+--- src/kerberosgss.c	(revision 15428)
++++ src/kerberosgss.c	(working copy)
+@@ -43,7 +43,7 @@
+     int code;
+     krb5_context kcontext;
+     krb5_keytab kt = NULL;
+-    krb5_kt_cursor cursor = NULL;
++    krb5_kt_cursor cursor;
+     krb5_keytab_entry entry;
+     char* pname = NULL;
+     
+@@ -98,13 +98,13 @@
+                 goto end;
+             }
+             strcpy(result, pname);
+-            krb5_free_unparsed_name(kcontext, pname);
+-            krb5_free_keytab_entry_contents(kcontext, &entry);
++            krb5_xfree(pname);
++            krb5_kt_free_entry(&entry);
+             break;
+         }
+         
+-        krb5_free_unparsed_name(kcontext, pname);
+-        krb5_free_keytab_entry_contents(kcontext, &entry);
++        krb5_xfree(pname);
++        krb5_kt_free_entry(&entry);
+     }
+     
+     if (result == NULL) {
+@@ -115,9 +115,7 @@
+     }
+     
+ end:
+-    if (cursor) {
+-        krb5_kt_end_seq_get(kcontext, kt, &cursor);
+-    }
++    krb5_kt_end_seq_get(kcontext, kt, &cursor);
+     if (kt) {
+         krb5_kt_close(kcontext, kt);
+     }
+Index: src/kerberosgss.h
+===================================================================
+--- src/kerberosgss.h	(revision 15428)
++++ src/kerberosgss.h	(working copy)
+@@ -14,8 +14,8 @@
+  * limitations under the License.
+  **/
+ 
++#include <krb5.h>
+ #include <gssapi/gssapi.h>
+-#include <gssapi/gssapi_generic.h>
+ #include <gssapi/gssapi_krb5.h>
+ 
+ #define krb5_get_err_text(context,code) error_message(code)
+Index: src/kerberospw.h
+===================================================================
+--- src/kerberospw.h	(revision 15428)
++++ src/kerberospw.h	(working copy)
+@@ -15,8 +15,8 @@
+  *
+  **/
+ 
++#include <krb5.h>
+ #include <gssapi/gssapi.h>
+-#include <gssapi/gssapi_generic.h>
+ #include <gssapi/gssapi_krb5.h>
+ 
+ #define krb5_get_err_text(context,code) error_message(code)

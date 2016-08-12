@@ -1,0 +1,526 @@
+Index: config.py
+===================================================================
+--- config.py	(revision 1952)
++++ config.py	(working copy)
+@@ -20,21 +20,29 @@
+ import copy
+ 
+ from twisted.python import log
++from twisted.python.reflect import namedClass
+ 
+ from twistedcaldav.py.plistlib import readPlist
+ 
++def _loadDirectoryService(klass):
++    """
++    Loads a directory service class at runtime, raising a ConfigurationError
++    on failure.
++    """
++    try:
++        return namedClass(klass)
++    except (ImportError, AttributeError):
++        raise ConfigurationError(
++            "Unable to load directory service %s" % klass)
++
+ defaultConfigFile = "/etc/caldavd/caldavd.plist"
+ 
+-serviceDefaultParams = {
+-    "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
+-        "xmlFile": "/etc/caldavd/accounts.xml",
+-    },
+-    "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
+-        "node": "/Search",
+-        "requireComputerRecord": True,
+-    },
+-}
++defaultDirectoryService = \
++    "twistedcaldav.directory.xmlfile.XMLDirectoryService"
+ 
++defaultDirectoryServiceParams = \
++    copy.deepcopy(_loadDirectoryService(defaultDirectoryService).defaultParams)
++
+ defaultConfig = {
+     #
+     # Public network address information
+@@ -75,8 +83,8 @@
+     #    users, groups, locations and resources) to the server.
+     #
+     "DirectoryService": {
+-        "type": "twistedcaldav.directory.xmlfile.XMLDirectoryService",
+-        "params": serviceDefaultParams["twistedcaldav.directory.xmlfile.XMLDirectoryService"],
++        "type": defaultDirectoryService,
++        "params": defaultDirectoryServiceParams,
+     },
+ 
+     #
+@@ -189,29 +197,41 @@
+         return str(self._data)
+ 
+     def update(self, items):
++        dsData = self._data["DirectoryService"]
+         dsType = items.get("DirectoryService", {}).get("type", None)
+         if dsType is None:
+-            dsType = self._data["DirectoryService"]["type"]
+-        else:
+-            if dsType == self._data["DirectoryService"]["type"]:
+-                oldParams = self._data["DirectoryService"]["params"]
+-                newParams = items["DirectoryService"].get("params", {})
+-                _mergeData(oldParams, newParams)
+-            else:
+-                if dsType in serviceDefaultParams:
+-                    self._data["DirectoryService"]["params"] = copy.deepcopy(serviceDefaultParams[dsType])
+-                else:
+-                    self._data["DirectoryService"]["params"] = {}
++            dsType = dsData["type"]
++        dsClass = _loadDirectoryService(dsType)
+ 
++        # Copy the default parameters from the directory service class, if the
++        # directory service we've been given is different than the one we
++        # already have. This ensures that at the very least the directory 
++        # service is configured using the specified defaults and that the
++        # update method may be called more than once with specific parameters
++        # for configuration.
++        try:
++            if dsData["type"] != dsType:
++                dsData["type"] = dsType
++                dsData["params"] = copy.deepcopy(dsClass.defaultParams)
++        except AttributeError:
++            raise ConfigurationError(
++                "Default service parameters must be specified in %s " \
++                "using the 'defaultParams' class variable." % dsType)
++        # Ensure that the parameters defined in the configuration file are
++        # acceptable for the directory service.
+         for param in items.get("DirectoryService", {}).get("params", {}):
+-            if param not in serviceDefaultParams[dsType]:
+-                raise ConfigurationError("Parameter %s is not supported by service %s" % (param, dsType))
++            if param not in dsClass.defaultParams:
++                raise ConfigurationError(
++                    "Parameter %s is not supported by service %s" % \
++                    (param, dsType))
+ 
+         _mergeData(self._data, items)
+ 
+-        for param in tuple(self._data["DirectoryService"]["params"]):
+-            if param not in serviceDefaultParams[self._data["DirectoryService"]["type"]]:
+-                del self._data["DirectoryService"]["params"][param]
++        # Cleeanup parameters which may have been left around after a switch
++        # in directory service type.
++        for param in tuple(dsData["params"]):
++            if param not in dsClass.defaultParams:
++                del dsData["params"][param]
+ 
+         self.updateServerCapabilities()
+ 
+Index: directory/xmlfile.py
+===================================================================
+--- directory/xmlfile.py	(revision 1952)
++++ directory/xmlfile.py	(working copy)
+@@ -39,6 +39,10 @@
+ 
+     realmName = None
+ 
++    defaultParams = {
++        "xmlFile": "/etc/caldavd/accounts.xml",
++    }
++
+     def __repr__(self):
+         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.xmlFile)
+ 
+Index: directory/sqldb.py
+===================================================================
+--- directory/sqldb.py	(revision 1952)
++++ directory/sqldb.py	(working copy)
+@@ -285,6 +285,11 @@
+     baseGUID = "8256E464-35E0-4DBB-A99C-F0E30C231675"
+     realmName = None
+ 
++    defaultParams = {
++        "dbParentPath": "twistedcaldav/test/data/",
++        "xmlFile": None
++    }
++
+     def __repr__(self):
+         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.manager.dbpath)
+ 
+Index: directory/appleopendirectory.py
+===================================================================
+--- directory/appleopendirectory.py	(revision 1952)
++++ directory/appleopendirectory.py	(working copy)
+@@ -56,6 +56,11 @@
+     """
+     baseGUID = "891F8321-ED02-424C-BA72-89C32F215C1E"
+ 
++    defaultParams = {
++        "node": "/Search",
++        "requireComputerRecord": True,
++    }
++
+     def __repr__(self):
+         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.node)
+ 
+Index: directory/idirectory.py
+===================================================================
+--- directory/idirectory.py	(revision 1952)
++++ directory/idirectory.py	(working copy)
+@@ -34,6 +34,8 @@
+     realmName = Attribute("The name of the authentication realm this service represents.")
+     guid = Attribute("A GUID for this service.")
+ 
++    defaultParams = Attribute("Default configuration parameters for this service.")
++
+     def recordTypes():
+         """
+         @return: a sequence of strings denoting the record types that are kept
+Index: directory/principal.py
+===================================================================
+--- directory/principal.py	(revision 1952)
++++ directory/principal.py	(working copy)
+@@ -304,6 +304,8 @@
+         self.provision()
+         if name == "":
+             return self
++        # FIXME: Is this really the place for this? -- callan
++        name = unquote(name)
+ 
+         if "#" in name:
+             # This UID belongs to a sub-principal
+Index: directory/apache.py
+===================================================================
+--- directory/apache.py	(revision 1952)
++++ directory/apache.py	(working copy)
+@@ -37,6 +37,13 @@
+     """
+     Abstract Apache-compatible implementation of L{IDirectoryService}.
+     """
++
++    defaultParams = {
++        "realmName": "example.com",
++        "userFile": "/etc/caldavd/basic",
++        "groupFile": None,
++    }
++
+     def __repr__(self):
+         return "<%s %r: %r %r>" % (self.__class__.__name__, self.realmName, self.userFile, self.groupFile)
+ 
+Index: test/test_config.py
+===================================================================
+--- test/test_config.py	(revision 1952)
++++ test/test_config.py	(working copy)
+@@ -21,6 +21,7 @@
+ from twistedcaldav.py.plistlib import writePlist
+ 
+ from twistedcaldav.config import config, defaultConfig, ConfigurationError
++from twistedcaldav.directory.directory import DirectoryService
+ 
+ testConfig = """<?xml version="1.0" encoding="UTF-8"?>
+ <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+@@ -34,6 +35,38 @@
+ </plist>
+ """
+ 
++XML_DIRECTORY_SERVICE = \
++    "twistedcaldav.directory.xmlfile.XMLDirectoryService"
++
++OPEN_DIRECTORY_SERVICE = \
++    "twistedcaldav.directory.appleopendirectory.OpenDirectoryService"
++
++SQL_DIRECTORY_SERVICE = \
++    "twistedcaldav.directory.sqldb.SQLDirectoryService"
++
++APACHE_BASIC_DIRECTORY_SERVICE = \
++    "twistedcaldav.directory.apache.BasicDirectoryService"
++
++APACHE_DIGEST_DIRECTORY_SERVICE = \
++    "twistedcaldav.directory.apache.DigestDirectoryService"
++
++SUPER_DUPER_DIRECTORY_SERVICE = \
++    "twistedcaldav.test.test_config.SuperDuperService"
++
++class SuperDuperService(DirectoryService):
++    """
++    A super duper directory service that's super duper effective at being
++    used for testing but not awesome.
++    """
++    defaultParams = {
++        "superLevel": "super",
++        "duperLevel": "duper",
++        "dictParam": {
++            "keyA": "valueA",
++            "keyB": "valueB",
++        }
++    }
++
+ def _testVerbose(testCase):
+     from twistedcaldav.config import config
+     testCase.assertEquals(config.Verbose, True)
+@@ -44,12 +77,77 @@
+         config.update(defaultConfig)
+         self.testConfig = self.mktemp()
+         open(self.testConfig, 'w').write(testConfig)
++        self.ds = config.DirectoryService
+ 
+     def tearDown(self):
+         config.setDefaults(defaultConfig)
+         config.loadConfig(None)
+         config.reload()
+ 
++    def _checkXMLDefaults(self):
++        """
++        Checks that the base XML directory service defaults are correct.
++        """
++        self.assertEquals(self.ds["type"], XML_DIRECTORY_SERVICE)
++        self.assertEquals(self.ds["params"]["xmlFile"],
++                          "/etc/caldavd/accounts.xml")
++
++    def _checkODDefaults(self):
++        """
++        Checks that the base Apple open directory service defaults are correct.
++        """
++        self.assertEquals(self.ds["type"], OPEN_DIRECTORY_SERVICE)
++        self.assertNotIn("xmlFile", self.ds["params"])
++        self.assertEquals(self.ds["params"]["node"], "/Search")
++        self.assertEquals(self.ds["params"]["requireComputerRecord"], True)
++    
++    def _checkSQLDefaults(self):
++        """
++        Checks that the base SQL directory service defaults are correct.
++        """
++        self.assertEquals(self.ds["type"], SQL_DIRECTORY_SERVICE)
++        self.assertEquals(self.ds["params"]["dbParentPath"],
++                          "twistedcaldav/test/data/")
++        self.assertEquals(self.ds["params"]["xmlFile"], None)
++
++    def _checkApacheBaseDefaults(self):
++        """
++        Checks that the base Apache open directory service parameters are correct.
++        """
++        self.assertEquals(self.ds["params"]["realmName"], "example.com")
++        self.assertEquals(self.ds["params"]["userFile"], "/etc/caldavd/basic")
++        self.assertEquals(self.ds["params"]["groupFile"], None)
++
++    def _checkApacheBasicDefaults(self):
++        """
++        Checks that the base Apache basic authentication directory service
++        defaults are correct.
++        """
++        self.assertEquals(self.ds["type"], APACHE_BASIC_DIRECTORY_SERVICE)
++        self.assertNotIn("xmlFile", self.ds["params"])
++        self._checkApacheBaseDefaults()
++    
++    def _checkApacheDigestDefaults(self):
++        """
++        Checks that the base Apache digest authentication directory service
++        defaults are correct.
++        """
++        self.assertEquals(self.ds["type"], APACHE_DIGEST_DIRECTORY_SERVICE)
++        self.assertNotIn("xmlFile", self.ds["params"])
++        self._checkApacheBaseDefaults()
++
++    def _checkSuperDuperDefaults(self):
++        """
++        Checks that the base super duper test-only directory service defaults
++        are correct.
++        """
++        self.assertEquals(self.ds["type"], SUPER_DUPER_DIRECTORY_SERVICE)
++        self.assertNotIn("xmlFile", self.ds["params"])
++        self.assertEquals(self.ds["params"]["superLevel"], "super")
++        self.assertEquals(self.ds["params"]["duperLevel"], "duper")
++        self.assertEquals(self.ds["params"]["dictParam"]["keyA"], "valueA")
++        self.assertEquals(self.ds["params"]["dictParam"]["keyB"], "valueB")
++
+     def testDefaults(self):
+         for key, value in defaultConfig.iteritems():
+             self.assertEquals(getattr(config, key), value)
+@@ -121,65 +219,149 @@
+ 
+         self.assertEquals(config.MultiProcess["LoadBalancer"]["Enabled"], True)
+ 
++    def testDirectoryService_loadSQL(self):
++        self._checkXMLDefaults()
++        config.update({"DirectoryService": {"type": SQL_DIRECTORY_SERVICE}})
++        self._checkSQLDefaults()
++    
++    def testDirectoryService_loadApacheBasic(self):
++        self._checkXMLDefaults()
++        config.update({
++            "DirectoryService": {
++                "type": APACHE_BASIC_DIRECTORY_SERVICE
++            }
++        })
++        self._checkApacheBasicDefaults()
++
++    def testDirectoryService_loadApacheDigest(self):
++        self._checkXMLDefaults()
++        config.update({
++            "DirectoryService": {
++                "type": APACHE_DIGEST_DIRECTORY_SERVICE
++            }
++        })
++        self._checkApacheDigestDefaults()
++
+     def testDirectoryService_noChange(self):
+-        self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.xmlfile.XMLDirectoryService")
+-        self.assertEquals(config.DirectoryService["params"]["xmlFile"], "/etc/caldavd/accounts.xml")
+-
++        self._checkXMLDefaults()
+         config.update({"DirectoryService": {}})
++        self._checkXMLDefaults()
+ 
+-        self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.xmlfile.XMLDirectoryService")
+-        self.assertEquals(config.DirectoryService["params"]["xmlFile"], "/etc/caldavd/accounts.xml")
+-
+     def testDirectoryService_sameType(self):
+-        self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.xmlfile.XMLDirectoryService")
+-        self.assertEquals(config.DirectoryService["params"]["xmlFile"], "/etc/caldavd/accounts.xml")
++        self._checkXMLDefaults()
++        config.update({"DirectoryService": {"type": XML_DIRECTORY_SERVICE}})
++        self._checkXMLDefaults()
+ 
+-        config.update({"DirectoryService": {"type": "twistedcaldav.directory.xmlfile.XMLDirectoryService"}})
+-
+-        self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.xmlfile.XMLDirectoryService")
+-        self.assertEquals(config.DirectoryService["params"]["xmlFile"], "/etc/caldavd/accounts.xml")
+-
+     def testDirectoryService_newType(self):
+-        self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.xmlfile.XMLDirectoryService")
+-        self.assertEquals(config.DirectoryService["params"]["xmlFile"], "/etc/caldavd/accounts.xml")
++        self._checkXMLDefaults()
++        config.update({
++            "DirectoryService": {
++                "type": SUPER_DUPER_DIRECTORY_SERVICE
++            }
++        })
++        self._checkSuperDuperDefaults()
+ 
+-        config.update({"DirectoryService": {"type": "twistedcaldav.directory.appleopendirectory.OpenDirectoryService"}})
++    def testDirectoryService_newParam(self):
++        self._checkXMLDefaults()
++        config.update({
++            "DirectoryService": {
++                "type": SUPER_DUPER_DIRECTORY_SERVICE
++            }
++        })
++        config.update({
++            "DirectoryService": {
++                "params": {"superLevel": "!super" }
++            }
++        })
++        self.assertEquals(self.ds["type"], SUPER_DUPER_DIRECTORY_SERVICE)
++        self.assertNotIn("xmlFile", self.ds["params"])
++        self.assertEquals(self.ds["params"]["superLevel"], "!super")
++        self.assertEquals(self.ds["params"]["duperLevel"], "duper")
++    
++    def testDirectoryService_newBadParam(self):
++        self._checkXMLDefaults()
++        self.assertRaises(ConfigurationError, config.update, {
++            "DirectoryService": {
++                "type": SUPER_DUPER_DIRECTORY_SERVICE,
++                "params": {
++                    "xmlFile": "/etc/caldavd/accounts.xml"
++                }
++            }
++        })
++    
++    def testDirectoryService_twoNewParams(self):
++        self._checkXMLDefaults()
++        config.update({
++            "DirectoryService": {
++                "type": SUPER_DUPER_DIRECTORY_SERVICE
++            }
++        })
++        config.update({
++            "DirectoryService": {
++                "params": {"superLevel": "!super" }
++            }
++        })
++        config.update({
++            "DirectoryService": {
++                "params": {"duperLevel": "!duper" }
++            }
++        })
++        self.assertEquals(self.ds["type"], SUPER_DUPER_DIRECTORY_SERVICE)
++        self.assertNotIn("xmlFile", self.ds["params"])
++        self.assertEquals(self.ds["params"]["superLevel"], "!super")
++        self.assertEquals(self.ds["params"]["duperLevel"], "!duper")
+ 
+-        self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.appleopendirectory.OpenDirectoryService")
+-        self.assertNotIn("xmlFile", config.DirectoryService["params"])
+-        self.assertEquals(config.DirectoryService["params"]["node"], "/Search")
+-        self.assertEquals(config.DirectoryService["params"]["requireComputerRecord"], True)
++    def testDirectoryService_newDictParam(self):
++        self._checkXMLDefaults()
++        config.update({
++            "DirectoryService": {
++                "type": SUPER_DUPER_DIRECTORY_SERVICE
++            }
++        })
++        config.update({
++            "DirectoryService": {
++                "params": {
++                    "dictParam": {"keyB": "!valueB"}
++                }
++            }
++        })
++        self.assertEquals(self.ds["type"], SUPER_DUPER_DIRECTORY_SERVICE)
++        self.assertNotIn("xmlFile", self.ds["params"])
++        self.assertEquals(self.ds["params"]["dictParam"]["keyB"], "!valueB")
+ 
+-    def testDirectoryService_newParam(self):
+-        self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.xmlfile.XMLDirectoryService")
+-        self.assertEquals(config.DirectoryService["params"]["xmlFile"], "/etc/caldavd/accounts.xml")
++    def testDirectoryService_newTypeOD(self):
++        self._checkXMLDefaults()
++        config.update({"DirectoryService": {"type": OPEN_DIRECTORY_SERVICE}})
++        self._checkODDefaults()
+ 
+-        config.update({"DirectoryService": {"type": "twistedcaldav.directory.appleopendirectory.OpenDirectoryService"}})
+-        config.update({"DirectoryService": {"params": {"requireComputerRecord": False}}})
++    def testDirectoryService_newParamOD(self):
++        self._checkXMLDefaults()
++        config.update({"DirectoryService": {"type": OPEN_DIRECTORY_SERVICE}})
++        config.update({
++            "DirectoryService": {
++                "params": {"requireComputerRecord": False}
++            }
++        })
++        self.assertEquals(self.ds["type"], OPEN_DIRECTORY_SERVICE)
++        self.assertEquals(self.ds["params"]["node"], "/Search")
++        self.assertEquals(self.ds["params"]["requireComputerRecord"], False)
+ 
+-        self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.appleopendirectory.OpenDirectoryService")
+-        self.assertEquals(config.DirectoryService["params"]["node"], "/Search")
+-        self.assertEquals(config.DirectoryService["params"]["requireComputerRecord"], False)
+-
+     def testDirectoryService_badParam(self):
+-        self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.xmlfile.XMLDirectoryService")
+-        self.assertEquals(config.DirectoryService["params"]["xmlFile"], "/etc/caldavd/accounts.xml")
++        self._checkXMLDefaults()
++        self.assertRaises(ConfigurationError, config.update, {
++            "DirectoryService": {
++                "params": {"requireComputerRecord": False}
++            }
++        })
+ 
+-        self.assertRaises(ConfigurationError, config.update, {"DirectoryService": {"params": {"requireComputerRecord": False}}})
+-
+     def testDirectoryService_unknownType(self):
+-        self.assertEquals(config.DirectoryService["type"], "twistedcaldav.directory.xmlfile.XMLDirectoryService")
+-        self.assertEquals(config.DirectoryService["params"]["xmlFile"], "/etc/caldavd/accounts.xml")
++        self._checkXMLDefaults()
++        self.assertRaises(ConfigurationError, config.update, {
++            "DirectoryService": {
++                "type": "twistedcaldav.test.test_config.SuperDuperAwesomeService"
++            }
++        })
+ 
+-        config.update({"DirectoryService": {"type": "twistedcaldav.test.test_config.SuperDuperAwesomeService"}})
+-
+-        self.assertEquals(
+-            config.DirectoryService["params"],
+-            SuperDuperAwesomeService.defaultParameters
+-        )
+-
+-    testDirectoryService_unknownType.todo = "unimplemented"
+-
+     def testUpdateDefaults(self):
+         self.assertEquals(config.SSLPort, 0)
+ 

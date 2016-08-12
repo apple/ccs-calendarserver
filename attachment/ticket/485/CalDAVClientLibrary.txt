@@ -1,0 +1,559 @@
+Removing build directory /Users/inoue/Development/CalendarServer/CalDAVClientLibrary/build...
+Removing pyc files from /Users/inoue/Development/CalendarServer/CalDAVClientLibrary...
+Building CalDAVClientLibrary...
+
+
+Installing CalDAVClientLibrary...
+running install
+running build
+running build_py
+creating build/lib
+creating build/lib/caldavclientlibrary
+copying caldavclientlibrary/__init__.py -> build/lib/caldavclientlibrary
+creating build/lib/caldavclientlibrary/admin
+copying caldavclientlibrary/admin/__init__.py -> build/lib/caldavclientlibrary/admin
+creating build/lib/caldavclientlibrary/admin/xmlaccounts
+copying caldavclientlibrary/admin/xmlaccounts/__init__.py -> build/lib/caldavclientlibrary/admin/xmlaccounts
+copying caldavclientlibrary/admin/xmlaccounts/directory.py -> build/lib/caldavclientlibrary/admin/xmlaccounts
+copying caldavclientlibrary/admin/xmlaccounts/manage.py -> build/lib/caldavclientlibrary/admin/xmlaccounts
+copying caldavclientlibrary/admin/xmlaccounts/record.py -> build/lib/caldavclientlibrary/admin/xmlaccounts
+copying caldavclientlibrary/admin/xmlaccounts/recordtypes.py -> build/lib/caldavclientlibrary/admin/xmlaccounts
+copying caldavclientlibrary/admin/xmlaccounts/tags.py -> build/lib/caldavclientlibrary/admin/xmlaccounts
+creating build/lib/caldavclientlibrary/admin/xmlaccounts/commands
+copying caldavclientlibrary/admin/xmlaccounts/commands/__init__.py -> build/lib/caldavclientlibrary/admin/xmlaccounts/commands
+copying caldavclientlibrary/admin/xmlaccounts/commands/addrecord.py -> build/lib/caldavclientlibrary/admin/xmlaccounts/commands
+copying caldavclientlibrary/admin/xmlaccounts/commands/changepassword.py -> build/lib/caldavclientlibrary/admin/xmlaccounts/commands
+copying caldavclientlibrary/admin/xmlaccounts/commands/command.py -> build/lib/caldavclientlibrary/admin/xmlaccounts/commands
+copying caldavclientlibrary/admin/xmlaccounts/commands/listrecords.py -> build/lib/caldavclientlibrary/admin/xmlaccounts/commands
+copying caldavclientlibrary/admin/xmlaccounts/commands/removerecord.py -> build/lib/caldavclientlibrary/admin/xmlaccounts/commands
+creating build/lib/caldavclientlibrary/admin/xmlaccounts/tests
+copying caldavclientlibrary/admin/xmlaccounts/tests/__init__.py -> build/lib/caldavclientlibrary/admin/xmlaccounts/tests
+copying caldavclientlibrary/admin/xmlaccounts/tests/test_directory.py -> build/lib/caldavclientlibrary/admin/xmlaccounts/tests
+copying caldavclientlibrary/admin/xmlaccounts/tests/test_record.py -> build/lib/caldavclientlibrary/admin/xmlaccounts/tests
+copying caldavclientlibrary/admin/xmlaccounts/tests/utils.py -> build/lib/caldavclientlibrary/admin/xmlaccounts/tests
+creating build/lib/caldavclientlibrary/browser
+copying caldavclientlibrary/browser/__init__.py -> build/lib/caldavclientlibrary/browser
+copying caldavclientlibrary/browser/baseshell.py -> build/lib/caldavclientlibrary/browser
+copying caldavclientlibrary/browser/command.py -> build/lib/caldavclientlibrary/browser
+copying caldavclientlibrary/browser/shell.py -> build/lib/caldavclientlibrary/browser
+copying caldavclientlibrary/browser/subshell.py -> build/lib/caldavclientlibrary/browser
+copying caldavclientlibrary/browser/utils.py -> build/lib/caldavclientlibrary/browser
+creating build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/__init__.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/acl.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/addressbooks.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/calendars.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/cat.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/cd.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/help.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/history.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/import.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/logging.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/ls.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/mkadbk.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/mkcal.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/mkdir.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/mv.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/principal.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/props.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/proxies.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/put.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/quit.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/quota.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/rm.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/server.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/sync.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/user.py -> build/lib/caldavclientlibrary/browser/commands
+copying caldavclientlibrary/browser/commands/whoami.py -> build/lib/caldavclientlibrary/browser/commands
+creating build/lib/caldavclientlibrary/client
+copying caldavclientlibrary/client/__init__.py -> build/lib/caldavclientlibrary/client
+copying caldavclientlibrary/client/account.py -> build/lib/caldavclientlibrary/client
+copying caldavclientlibrary/client/addressbook.py -> build/lib/caldavclientlibrary/client
+copying caldavclientlibrary/client/calendar.py -> build/lib/caldavclientlibrary/client
+copying caldavclientlibrary/client/calendaruseraddress.py -> build/lib/caldavclientlibrary/client
+copying caldavclientlibrary/client/clientsession.py -> build/lib/caldavclientlibrary/client
+copying caldavclientlibrary/client/fullclient.py -> build/lib/caldavclientlibrary/client
+copying caldavclientlibrary/client/httpshandler.py -> build/lib/caldavclientlibrary/client
+copying caldavclientlibrary/client/principal.py -> build/lib/caldavclientlibrary/client
+copying caldavclientlibrary/client/simple.py -> build/lib/caldavclientlibrary/client
+creating build/lib/caldavclientlibrary/protocol
+copying caldavclientlibrary/protocol/__init__.py -> build/lib/caldavclientlibrary/protocol
+copying caldavclientlibrary/protocol/url.py -> build/lib/caldavclientlibrary/protocol
+creating build/lib/caldavclientlibrary/protocol/caldav
+copying caldavclientlibrary/protocol/caldav/__init__.py -> build/lib/caldavclientlibrary/protocol/caldav
+copying caldavclientlibrary/protocol/caldav/makecalendar.py -> build/lib/caldavclientlibrary/protocol/caldav
+copying caldavclientlibrary/protocol/caldav/multiget.py -> build/lib/caldavclientlibrary/protocol/caldav
+creating build/lib/caldavclientlibrary/protocol/caldav/definitions
+copying caldavclientlibrary/protocol/caldav/definitions/__init__.py -> build/lib/caldavclientlibrary/protocol/caldav/definitions
+copying caldavclientlibrary/protocol/caldav/definitions/caldavxml.py -> build/lib/caldavclientlibrary/protocol/caldav/definitions
+copying caldavclientlibrary/protocol/caldav/definitions/csxml.py -> build/lib/caldavclientlibrary/protocol/caldav/definitions
+copying caldavclientlibrary/protocol/caldav/definitions/headers.py -> build/lib/caldavclientlibrary/protocol/caldav/definitions
+copying caldavclientlibrary/protocol/caldav/definitions/methods.py -> build/lib/caldavclientlibrary/protocol/caldav/definitions
+creating build/lib/caldavclientlibrary/protocol/caldav/tests
+copying caldavclientlibrary/protocol/caldav/tests/__init__.py -> build/lib/caldavclientlibrary/protocol/caldav/tests
+copying caldavclientlibrary/protocol/caldav/tests/test_makecalendar.py -> build/lib/caldavclientlibrary/protocol/caldav/tests
+copying caldavclientlibrary/protocol/caldav/tests/test_multiget.py -> build/lib/caldavclientlibrary/protocol/caldav/tests
+creating build/lib/caldavclientlibrary/protocol/carddav
+copying caldavclientlibrary/protocol/carddav/__init__.py -> build/lib/caldavclientlibrary/protocol/carddav
+copying caldavclientlibrary/protocol/carddav/makeaddressbook.py -> build/lib/caldavclientlibrary/protocol/carddav
+creating build/lib/caldavclientlibrary/protocol/carddav/definitions
+copying caldavclientlibrary/protocol/carddav/definitions/__init__.py -> build/lib/caldavclientlibrary/protocol/carddav/definitions
+copying caldavclientlibrary/protocol/carddav/definitions/carddavxml.py -> build/lib/caldavclientlibrary/protocol/carddav/definitions
+creating build/lib/caldavclientlibrary/protocol/http
+copying caldavclientlibrary/protocol/http/__init__.py -> build/lib/caldavclientlibrary/protocol/http
+copying caldavclientlibrary/protocol/http/requestresponse.py -> build/lib/caldavclientlibrary/protocol/http
+copying caldavclientlibrary/protocol/http/session.py -> build/lib/caldavclientlibrary/protocol/http
+copying caldavclientlibrary/protocol/http/util.py -> build/lib/caldavclientlibrary/protocol/http
+creating build/lib/caldavclientlibrary/protocol/http/authentication
+copying caldavclientlibrary/protocol/http/authentication/__init__.py -> build/lib/caldavclientlibrary/protocol/http/authentication
+copying caldavclientlibrary/protocol/http/authentication/authenticator.py -> build/lib/caldavclientlibrary/protocol/http/authentication
+copying caldavclientlibrary/protocol/http/authentication/basic.py -> build/lib/caldavclientlibrary/protocol/http/authentication
+copying caldavclientlibrary/protocol/http/authentication/digest.py -> build/lib/caldavclientlibrary/protocol/http/authentication
+copying caldavclientlibrary/protocol/http/authentication/gssapi.py -> build/lib/caldavclientlibrary/protocol/http/authentication
+creating build/lib/caldavclientlibrary/protocol/http/authentication/tests
+copying caldavclientlibrary/protocol/http/authentication/tests/__init__.py -> build/lib/caldavclientlibrary/protocol/http/authentication/tests
+copying caldavclientlibrary/protocol/http/authentication/tests/test_basic.py -> build/lib/caldavclientlibrary/protocol/http/authentication/tests
+creating build/lib/caldavclientlibrary/protocol/http/data
+copying caldavclientlibrary/protocol/http/data/__init__.py -> build/lib/caldavclientlibrary/protocol/http/data
+copying caldavclientlibrary/protocol/http/data/data.py -> build/lib/caldavclientlibrary/protocol/http/data
+copying caldavclientlibrary/protocol/http/data/file.py -> build/lib/caldavclientlibrary/protocol/http/data
+copying caldavclientlibrary/protocol/http/data/string.py -> build/lib/caldavclientlibrary/protocol/http/data
+creating build/lib/caldavclientlibrary/protocol/http/definitions
+copying caldavclientlibrary/protocol/http/definitions/__init__.py -> build/lib/caldavclientlibrary/protocol/http/definitions
+copying caldavclientlibrary/protocol/http/definitions/headers.py -> build/lib/caldavclientlibrary/protocol/http/definitions
+copying caldavclientlibrary/protocol/http/definitions/methods.py -> build/lib/caldavclientlibrary/protocol/http/definitions
+copying caldavclientlibrary/protocol/http/definitions/statuscodes.py -> build/lib/caldavclientlibrary/protocol/http/definitions
+creating build/lib/caldavclientlibrary/protocol/http/tests
+copying caldavclientlibrary/protocol/http/tests/__init__.py -> build/lib/caldavclientlibrary/protocol/http/tests
+copying caldavclientlibrary/protocol/http/tests/test_requestresponse.py -> build/lib/caldavclientlibrary/protocol/http/tests
+copying caldavclientlibrary/protocol/http/tests/test_util.py -> build/lib/caldavclientlibrary/protocol/http/tests
+creating build/lib/caldavclientlibrary/protocol/tests
+copying caldavclientlibrary/protocol/tests/__init__.py -> build/lib/caldavclientlibrary/protocol/tests
+copying caldavclientlibrary/protocol/tests/test_url.py -> build/lib/caldavclientlibrary/protocol/tests
+creating build/lib/caldavclientlibrary/protocol/utils
+copying caldavclientlibrary/protocol/utils/__init__.py -> build/lib/caldavclientlibrary/protocol/utils
+copying caldavclientlibrary/protocol/utils/xmlhelpers.py -> build/lib/caldavclientlibrary/protocol/utils
+creating build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/__init__.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/ace.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/acl.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/copy.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/copymovebase.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/delete.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/get.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/getbase.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/head.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/lock.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/makecollection.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/move.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/multiresponseparser.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/options.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/post.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/principalmatch.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/propall.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/propfind.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/propfindbase.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/propfindparser.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/propnames.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/proppatch.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/put.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/report.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/requestresponse.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/session.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/synccollection.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/unlock.py -> build/lib/caldavclientlibrary/protocol/webdav
+copying caldavclientlibrary/protocol/webdav/xmlresponseparser.py -> build/lib/caldavclientlibrary/protocol/webdav
+creating build/lib/caldavclientlibrary/protocol/webdav/definitions
+copying caldavclientlibrary/protocol/webdav/definitions/__init__.py -> build/lib/caldavclientlibrary/protocol/webdav/definitions
+copying caldavclientlibrary/protocol/webdav/definitions/csxml.py -> build/lib/caldavclientlibrary/protocol/webdav/definitions
+copying caldavclientlibrary/protocol/webdav/definitions/davxml.py -> build/lib/caldavclientlibrary/protocol/webdav/definitions
+copying caldavclientlibrary/protocol/webdav/definitions/headers.py -> build/lib/caldavclientlibrary/protocol/webdav/definitions
+copying caldavclientlibrary/protocol/webdav/definitions/methods.py -> build/lib/caldavclientlibrary/protocol/webdav/definitions
+copying caldavclientlibrary/protocol/webdav/definitions/statuscodes.py -> build/lib/caldavclientlibrary/protocol/webdav/definitions
+creating build/lib/caldavclientlibrary/protocol/webdav/tests
+copying caldavclientlibrary/protocol/webdav/tests/__init__.py -> build/lib/caldavclientlibrary/protocol/webdav/tests
+copying caldavclientlibrary/protocol/webdav/tests/test_ace.py -> build/lib/caldavclientlibrary/protocol/webdav/tests
+copying caldavclientlibrary/protocol/webdav/tests/test_acl.py -> build/lib/caldavclientlibrary/protocol/webdav/tests
+copying caldavclientlibrary/protocol/webdav/tests/test_copy.py -> build/lib/caldavclientlibrary/protocol/webdav/tests
+copying caldavclientlibrary/protocol/webdav/tests/test_delete.py -> build/lib/caldavclientlibrary/protocol/webdav/tests
+copying caldavclientlibrary/protocol/webdav/tests/test_get.py -> build/lib/caldavclientlibrary/protocol/webdav/tests
+copying caldavclientlibrary/protocol/webdav/tests/test_head.py -> build/lib/caldavclientlibrary/protocol/webdav/tests
+copying caldavclientlibrary/protocol/webdav/tests/test_lock.py -> build/lib/caldavclientlibrary/protocol/webdav/tests
+copying caldavclientlibrary/protocol/webdav/tests/test_move.py -> build/lib/caldavclientlibrary/protocol/webdav/tests
+copying caldavclientlibrary/protocol/webdav/tests/test_options.py -> build/lib/caldavclientlibrary/protocol/webdav/tests
+copying caldavclientlibrary/protocol/webdav/tests/test_principalmatch.py -> build/lib/caldavclientlibrary/protocol/webdav/tests
+copying caldavclientlibrary/protocol/webdav/tests/test_propfind.py -> build/lib/caldavclientlibrary/protocol/webdav/tests
+copying caldavclientlibrary/protocol/webdav/tests/test_propfindparser.py -> build/lib/caldavclientlibrary/protocol/webdav/tests
+copying caldavclientlibrary/protocol/webdav/tests/test_propnames.py -> build/lib/caldavclientlibrary/protocol/webdav/tests
+copying caldavclientlibrary/protocol/webdav/tests/test_put.py -> build/lib/caldavclientlibrary/protocol/webdav/tests
+copying caldavclientlibrary/protocol/webdav/tests/test_report.py -> build/lib/caldavclientlibrary/protocol/webdav/tests
+copying caldavclientlibrary/protocol/webdav/tests/test_template.py -> build/lib/caldavclientlibrary/protocol/webdav/tests
+copying caldavclientlibrary/protocol/webdav/tests/test_unlock.py -> build/lib/caldavclientlibrary/protocol/webdav/tests
+creating build/lib/caldavclientlibrary/ui
+copying caldavclientlibrary/ui/__init__.py -> build/lib/caldavclientlibrary/ui
+copying caldavclientlibrary/ui/resource.py -> build/lib/caldavclientlibrary/ui
+copying caldavclientlibrary/ui/session.py -> build/lib/caldavclientlibrary/ui
+copying caldavclientlibrary/ui/WebDAVBrowser.py -> build/lib/caldavclientlibrary/ui
+creating build/lib/caldavclientlibrary/ui/WebDAVBrowser.nib
+copying caldavclientlibrary/ui/WebDAVBrowser.nib/designable.nib -> build/lib/caldavclientlibrary/ui/WebDAVBrowser.nib
+copying caldavclientlibrary/ui/WebDAVBrowser.nib/keyedobjects.nib -> build/lib/caldavclientlibrary/ui/WebDAVBrowser.nib
+running build_scripts
+running install_lib
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary
+copying build/lib/caldavclientlibrary/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin
+copying build/lib/caldavclientlibrary/admin/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts
+copying build/lib/caldavclientlibrary/admin/xmlaccounts/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/commands
+copying build/lib/caldavclientlibrary/admin/xmlaccounts/commands/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/commands
+copying build/lib/caldavclientlibrary/admin/xmlaccounts/commands/addrecord.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/commands
+copying build/lib/caldavclientlibrary/admin/xmlaccounts/commands/changepassword.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/commands
+copying build/lib/caldavclientlibrary/admin/xmlaccounts/commands/command.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/commands
+copying build/lib/caldavclientlibrary/admin/xmlaccounts/commands/listrecords.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/commands
+copying build/lib/caldavclientlibrary/admin/xmlaccounts/commands/removerecord.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/commands
+copying build/lib/caldavclientlibrary/admin/xmlaccounts/directory.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts
+copying build/lib/caldavclientlibrary/admin/xmlaccounts/manage.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts
+copying build/lib/caldavclientlibrary/admin/xmlaccounts/record.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts
+copying build/lib/caldavclientlibrary/admin/xmlaccounts/recordtypes.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts
+copying build/lib/caldavclientlibrary/admin/xmlaccounts/tags.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/tests
+copying build/lib/caldavclientlibrary/admin/xmlaccounts/tests/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/tests
+copying build/lib/caldavclientlibrary/admin/xmlaccounts/tests/test_directory.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/tests
+copying build/lib/caldavclientlibrary/admin/xmlaccounts/tests/test_record.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/tests
+copying build/lib/caldavclientlibrary/admin/xmlaccounts/tests/utils.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/tests
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser
+copying build/lib/caldavclientlibrary/browser/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser
+copying build/lib/caldavclientlibrary/browser/baseshell.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser
+copying build/lib/caldavclientlibrary/browser/command.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/acl.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/addressbooks.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/calendars.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/cat.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/cd.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/help.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/history.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/import.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/logging.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/ls.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/mkadbk.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/mkcal.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/mkdir.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/mv.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/principal.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/props.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/proxies.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/put.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/quit.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/quota.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/rm.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/server.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/sync.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/user.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/commands/whoami.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands
+copying build/lib/caldavclientlibrary/browser/shell.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser
+copying build/lib/caldavclientlibrary/browser/subshell.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser
+copying build/lib/caldavclientlibrary/browser/utils.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client
+copying build/lib/caldavclientlibrary/client/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client
+copying build/lib/caldavclientlibrary/client/account.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client
+copying build/lib/caldavclientlibrary/client/addressbook.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client
+copying build/lib/caldavclientlibrary/client/calendar.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client
+copying build/lib/caldavclientlibrary/client/calendaruseraddress.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client
+copying build/lib/caldavclientlibrary/client/clientsession.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client
+copying build/lib/caldavclientlibrary/client/fullclient.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client
+copying build/lib/caldavclientlibrary/client/httpshandler.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client
+copying build/lib/caldavclientlibrary/client/principal.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client
+copying build/lib/caldavclientlibrary/client/simple.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol
+copying build/lib/caldavclientlibrary/protocol/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav
+copying build/lib/caldavclientlibrary/protocol/caldav/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/definitions
+copying build/lib/caldavclientlibrary/protocol/caldav/definitions/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/definitions
+copying build/lib/caldavclientlibrary/protocol/caldav/definitions/caldavxml.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/definitions
+copying build/lib/caldavclientlibrary/protocol/caldav/definitions/csxml.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/definitions
+copying build/lib/caldavclientlibrary/protocol/caldav/definitions/headers.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/definitions
+copying build/lib/caldavclientlibrary/protocol/caldav/definitions/methods.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/definitions
+copying build/lib/caldavclientlibrary/protocol/caldav/makecalendar.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav
+copying build/lib/caldavclientlibrary/protocol/caldav/multiget.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/tests
+copying build/lib/caldavclientlibrary/protocol/caldav/tests/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/tests
+copying build/lib/caldavclientlibrary/protocol/caldav/tests/test_makecalendar.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/tests
+copying build/lib/caldavclientlibrary/protocol/caldav/tests/test_multiget.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/tests
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/carddav
+copying build/lib/caldavclientlibrary/protocol/carddav/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/carddav
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/carddav/definitions
+copying build/lib/caldavclientlibrary/protocol/carddav/definitions/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/carddav/definitions
+copying build/lib/caldavclientlibrary/protocol/carddav/definitions/carddavxml.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/carddav/definitions
+copying build/lib/caldavclientlibrary/protocol/carddav/makeaddressbook.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/carddav
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http
+copying build/lib/caldavclientlibrary/protocol/http/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/authentication
+copying build/lib/caldavclientlibrary/protocol/http/authentication/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/authentication
+copying build/lib/caldavclientlibrary/protocol/http/authentication/authenticator.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/authentication
+copying build/lib/caldavclientlibrary/protocol/http/authentication/basic.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/authentication
+copying build/lib/caldavclientlibrary/protocol/http/authentication/digest.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/authentication
+copying build/lib/caldavclientlibrary/protocol/http/authentication/gssapi.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/authentication
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/authentication/tests
+copying build/lib/caldavclientlibrary/protocol/http/authentication/tests/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/authentication/tests
+copying build/lib/caldavclientlibrary/protocol/http/authentication/tests/test_basic.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/authentication/tests
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/data
+copying build/lib/caldavclientlibrary/protocol/http/data/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/data
+copying build/lib/caldavclientlibrary/protocol/http/data/data.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/data
+copying build/lib/caldavclientlibrary/protocol/http/data/file.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/data
+copying build/lib/caldavclientlibrary/protocol/http/data/string.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/data
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/definitions
+copying build/lib/caldavclientlibrary/protocol/http/definitions/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/definitions
+copying build/lib/caldavclientlibrary/protocol/http/definitions/headers.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/definitions
+copying build/lib/caldavclientlibrary/protocol/http/definitions/methods.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/definitions
+copying build/lib/caldavclientlibrary/protocol/http/definitions/statuscodes.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/definitions
+copying build/lib/caldavclientlibrary/protocol/http/requestresponse.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http
+copying build/lib/caldavclientlibrary/protocol/http/session.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/tests
+copying build/lib/caldavclientlibrary/protocol/http/tests/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/tests
+copying build/lib/caldavclientlibrary/protocol/http/tests/test_requestresponse.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/tests
+copying build/lib/caldavclientlibrary/protocol/http/tests/test_util.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/tests
+copying build/lib/caldavclientlibrary/protocol/http/util.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/tests
+copying build/lib/caldavclientlibrary/protocol/tests/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/tests
+copying build/lib/caldavclientlibrary/protocol/tests/test_url.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/tests
+copying build/lib/caldavclientlibrary/protocol/url.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/utils
+copying build/lib/caldavclientlibrary/protocol/utils/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/utils
+copying build/lib/caldavclientlibrary/protocol/utils/xmlhelpers.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/utils
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/ace.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/acl.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/copy.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/copymovebase.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/definitions
+copying build/lib/caldavclientlibrary/protocol/webdav/definitions/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/definitions
+copying build/lib/caldavclientlibrary/protocol/webdav/definitions/csxml.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/definitions
+copying build/lib/caldavclientlibrary/protocol/webdav/definitions/davxml.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/definitions
+copying build/lib/caldavclientlibrary/protocol/webdav/definitions/headers.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/definitions
+copying build/lib/caldavclientlibrary/protocol/webdav/definitions/methods.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/definitions
+copying build/lib/caldavclientlibrary/protocol/webdav/definitions/statuscodes.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/definitions
+copying build/lib/caldavclientlibrary/protocol/webdav/delete.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/get.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/getbase.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/head.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/lock.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/makecollection.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/move.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/multiresponseparser.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/options.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/post.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/principalmatch.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/propall.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/propfind.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/propfindbase.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/propfindparser.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/propnames.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/proppatch.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/put.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/report.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/requestresponse.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/session.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/synccollection.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests
+copying build/lib/caldavclientlibrary/protocol/webdav/tests/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests
+copying build/lib/caldavclientlibrary/protocol/webdav/tests/test_ace.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests
+copying build/lib/caldavclientlibrary/protocol/webdav/tests/test_acl.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests
+copying build/lib/caldavclientlibrary/protocol/webdav/tests/test_copy.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests
+copying build/lib/caldavclientlibrary/protocol/webdav/tests/test_delete.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests
+copying build/lib/caldavclientlibrary/protocol/webdav/tests/test_get.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests
+copying build/lib/caldavclientlibrary/protocol/webdav/tests/test_head.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests
+copying build/lib/caldavclientlibrary/protocol/webdav/tests/test_lock.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests
+copying build/lib/caldavclientlibrary/protocol/webdav/tests/test_move.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests
+copying build/lib/caldavclientlibrary/protocol/webdav/tests/test_options.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests
+copying build/lib/caldavclientlibrary/protocol/webdav/tests/test_principalmatch.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests
+copying build/lib/caldavclientlibrary/protocol/webdav/tests/test_propfind.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests
+copying build/lib/caldavclientlibrary/protocol/webdav/tests/test_propfindparser.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests
+copying build/lib/caldavclientlibrary/protocol/webdav/tests/test_propnames.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests
+copying build/lib/caldavclientlibrary/protocol/webdav/tests/test_put.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests
+copying build/lib/caldavclientlibrary/protocol/webdav/tests/test_report.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests
+copying build/lib/caldavclientlibrary/protocol/webdav/tests/test_template.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests
+copying build/lib/caldavclientlibrary/protocol/webdav/tests/test_unlock.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests
+copying build/lib/caldavclientlibrary/protocol/webdav/unlock.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+copying build/lib/caldavclientlibrary/protocol/webdav/xmlresponseparser.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/ui
+copying build/lib/caldavclientlibrary/ui/__init__.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/ui
+copying build/lib/caldavclientlibrary/ui/resource.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/ui
+copying build/lib/caldavclientlibrary/ui/session.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/ui
+creating ../package/Library/Python/2.6/site-packages/caldavclientlibrary/ui/WebDAVBrowser.nib
+copying build/lib/caldavclientlibrary/ui/WebDAVBrowser.nib/designable.nib -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/ui/WebDAVBrowser.nib
+copying build/lib/caldavclientlibrary/ui/WebDAVBrowser.nib/keyedobjects.nib -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/ui/WebDAVBrowser.nib
+copying build/lib/caldavclientlibrary/ui/WebDAVBrowser.py -> ../package/Library/Python/2.6/site-packages/caldavclientlibrary/ui
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/commands/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/commands/addrecord.py to addrecord.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/commands/changepassword.py to changepassword.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/commands/command.py to command.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/commands/listrecords.py to listrecords.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/commands/removerecord.py to removerecord.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/directory.py to directory.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/manage.py to manage.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/record.py to record.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/recordtypes.py to recordtypes.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/tags.py to tags.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/tests/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/tests/test_directory.py to test_directory.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/tests/test_record.py to test_record.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/admin/xmlaccounts/tests/utils.py to utils.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/baseshell.py to baseshell.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/command.py to command.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/acl.py to acl.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/addressbooks.py to addressbooks.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/calendars.py to calendars.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/cat.py to cat.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/cd.py to cd.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/help.py to help.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/history.py to history.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/import.py to import.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/logging.py to logging.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/ls.py to ls.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/mkadbk.py to mkadbk.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/mkcal.py to mkcal.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/mkdir.py to mkdir.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/mv.py to mv.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/principal.py to principal.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/props.py to props.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/proxies.py to proxies.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/put.py to put.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/quit.py to quit.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/quota.py to quota.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/rm.py to rm.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/server.py to server.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/sync.py to sync.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/user.py to user.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/commands/whoami.py to whoami.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/shell.py to shell.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/subshell.py to subshell.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/browser/utils.py to utils.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client/account.py to account.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client/addressbook.py to addressbook.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client/calendar.py to calendar.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client/calendaruseraddress.py to calendaruseraddress.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client/clientsession.py to clientsession.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client/fullclient.py to fullclient.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client/httpshandler.py to httpshandler.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client/principal.py to principal.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/client/simple.py to simple.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/definitions/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/definitions/caldavxml.py to caldavxml.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/definitions/csxml.py to csxml.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/definitions/headers.py to headers.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/definitions/methods.py to methods.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/makecalendar.py to makecalendar.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/multiget.py to multiget.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/tests/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/tests/test_makecalendar.py to test_makecalendar.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/caldav/tests/test_multiget.py to test_multiget.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/carddav/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/carddav/definitions/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/carddav/definitions/carddavxml.py to carddavxml.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/carddav/makeaddressbook.py to makeaddressbook.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/authentication/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/authentication/authenticator.py to authenticator.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/authentication/basic.py to basic.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/authentication/digest.py to digest.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/authentication/gssapi.py to gssapi.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/authentication/tests/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/authentication/tests/test_basic.py to test_basic.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/data/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/data/data.py to data.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/data/file.py to file.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/data/string.py to string.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/definitions/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/definitions/headers.py to headers.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/definitions/methods.py to methods.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/definitions/statuscodes.py to statuscodes.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/requestresponse.py to requestresponse.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/session.py to session.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/tests/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/tests/test_requestresponse.py to test_requestresponse.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/tests/test_util.py to test_util.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/http/util.py to util.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/tests/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/tests/test_url.py to test_url.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/url.py to url.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/utils/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/utils/xmlhelpers.py to xmlhelpers.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/ace.py to ace.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/acl.py to acl.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/copy.py to copy.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/copymovebase.py to copymovebase.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/definitions/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/definitions/csxml.py to csxml.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/definitions/davxml.py to davxml.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/definitions/headers.py to headers.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/definitions/methods.py to methods.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/definitions/statuscodes.py to statuscodes.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/delete.py to delete.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/get.py to get.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/getbase.py to getbase.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/head.py to head.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/lock.py to lock.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/makecollection.py to makecollection.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/move.py to move.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/multiresponseparser.py to multiresponseparser.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/options.py to options.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/post.py to post.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/principalmatch.py to principalmatch.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/propall.py to propall.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/propfind.py to propfind.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/propfindbase.py to propfindbase.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/propfindparser.py to propfindparser.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/propnames.py to propnames.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/proppatch.py to proppatch.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/put.py to put.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/report.py to report.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/requestresponse.py to requestresponse.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/session.py to session.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/synccollection.py to synccollection.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests/test_ace.py to test_ace.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests/test_acl.py to test_acl.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests/test_copy.py to test_copy.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests/test_delete.py to test_delete.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests/test_get.py to test_get.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests/test_head.py to test_head.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests/test_lock.py to test_lock.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests/test_move.py to test_move.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests/test_options.py to test_options.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests/test_principalmatch.py to test_principalmatch.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests/test_propfind.py to test_propfind.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests/test_propfindparser.py to test_propfindparser.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests/test_propnames.py to test_propnames.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests/test_put.py to test_put.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests/test_report.py to test_report.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests/test_template.py to test_template.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/tests/test_unlock.py to test_unlock.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/unlock.py to unlock.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/protocol/webdav/xmlresponseparser.py to xmlresponseparser.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/ui/__init__.py to __init__.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/ui/resource.py to resource.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/ui/session.py to session.pyc
+byte-compiling ../package/Library/Python/2.6/site-packages/caldavclientlibrary/ui/WebDAVBrowser.py to WebDAVBrowser.pyc
+running install_data
+creating ../package/System
+creating ../package/System/Library
+creating ../package/System/Library/Frameworks
+creating ../package/System/Library/Frameworks/Python.framework
+creating ../package/System/Library/Frameworks/Python.framework/Versions
+creating ../package/System/Library/Frameworks/Python.framework/Versions/2.6
+warning: install_data: setup script did not provide a directory for 'caldavclientlibrary/ui/WebDAVBrowser.nib' -- installing right in '../package/System/Library/Frameworks/Python.framework/Versions/2.6'
+error: can't copy 'caldavclientlibrary/ui/WebDAVBrowser.nib': doesn't exist or not a regular file

@@ -1,0 +1,13 @@
+*** cluster.py.orig	Sun Apr 20 11:12:01 2008
+--- cluster.py	Wed Feb 11 13:39:08 2009
+***************
+*** 138,143 ****
+--- 138,145 ----
+      monitor.setServiceParent(s)
+  
+      parentEnv = {'PYTHONPATH': os.environ.get('PYTHONPATH', ''),}
++     if 'KRB5_KTNAME' in os.environ:
++         parentEnv.update({'KRB5_KTNAME': os.environ.get('KRB5_KTNAME')})
+  
+      hosts = []
+      sslHosts = []

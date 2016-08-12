@@ -1,0 +1,58 @@
+Index: twext/enterprise/adbapi2.py
+===================================================================
+--- twext/enterprise/adbapi2.py	(revision 12207)
++++ twext/enterprise/adbapi2.py	(working copy)
+@@ -980,7 +980,8 @@
+     def __init__(
+         self,
+         connectionFactory, maxConnections=10,
+-        paramstyle=DEFAULT_PARAM_STYLE, dialect=DEFAULT_DIALECT
++        paramstyle=DEFAULT_PARAM_STYLE, dialect=DEFAULT_DIALECT,
++        name=None,
+     ):
+ 
+         super(ConnectionPool, self).__init__()
+@@ -988,6 +989,8 @@
+         self.maxConnections = maxConnections
+         self.paramstyle = paramstyle
+         self.dialect = dialect
++        if name is not None:
++            self.name = name
+ 
+         self._free       = []
+         self._busy       = []
+Index: twext/enterprise/test/test_adbapi2.py
+===================================================================
+--- twext/enterprise/test/test_adbapi2.py	(revision 12207)
++++ twext/enterprise/test/test_adbapi2.py	(working copy)
+@@ -152,6 +152,30 @@
+ 
+ 
+ 
++class ConnectionPoolNameTests(TestCase):
++    """
++    Tests for L{ConnectionPool}'s C{name} attribute.
++    """
++    def test_default(self):
++        """
++        If no value is given for the C{name} parameter to L{ConnectionPool}'s
++        initializer then L{ConnectionPool.name} is C{None}.
++        """
++        pool = ConnectionPool(None)
++        self.assertIs(None, pool.name)
++
++
++    def test_specified(self):
++        """
++        If a value is given for the C{name} parameter to L{ConnectionPool}'s
++        initializer then it is used as the value for L{ConnectionPool.name}.
++        """
++        name = "some test pool"
++        pool = ConnectionPool(None, name=name)
++        self.assertEqual(name, pool.name)
++
++
++
+ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
+     """
+     Tests for L{ConnectionPool}.

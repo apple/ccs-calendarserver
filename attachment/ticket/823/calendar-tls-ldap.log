@@ -1,0 +1,52 @@
+2013-11-21 00:29:19+0000 [-] [caldav-1]  [HTTPChannel,2,98.210.29.222] [twext.web2.server#info] GET / HTTP/1.1
+2013-11-21 00:29:21+0000 [-] [caldav-1]  [HTTPChannel,3,98.210.29.222] [twext.web2.server#info] GET /calendars/ HTTP/1.1
+2013-11-21 00:29:27+0000 [-] [caldav-1]  [HTTPChannel,4,98.210.29.222] [twext.web2.server#info] GET /calendars/ HTTP/1.1
+2013-11-21 00:29:27+0000 [-] [caldav-1]  [HTTPChannel,4,98.210.29.222] [twistedcaldav.directory.ldapdirectory.LdapDirectoryService#info] Connecting to LDAP 'ldap://ldap.securesync.ows/'
+2013-11-21 00:29:27+0000 [-] [caldav-1]  [HTTPChannel,4,98.210.29.222] [twistedcaldav.directory.ldapdirectory.LdapDirectoryService#info] You can hear me!!!
+2013-11-21 00:29:27+0000 [-] [caldav-1]  [HTTPChannel,4,98.210.29.222] [twistedcaldav.directory.ldapdirectory.LdapDirectoryService#info] Will use CA cert file: /etc/ssl/certs/ca-certificates.crt
+2013-11-21 00:29:27+0000 [-] [caldav-1]  [HTTPChannel,4,98.210.29.222] [twistedcaldav.directory.ldapdirectory.LdapDirectoryService#info] Will use CA cert dir: /etc/ssl/certs
+2013-11-21 00:29:27+0000 [-] [caldav-1]  [HTTPChannel,4,98.210.29.222] [twext.web2.server#error] Exception rendering request: <GET /calendars/ (1, 1)>
+2013-11-21 00:29:27+0000 [-] [caldav-1]         Traceback (most recent call last):
+2013-11-21 00:29:27+0000 [-] [caldav-1]           File "/home/ubuntu/CalendarServer/twext/web2/dav/resource.py", line 957, in authorize
+2013-11-21 00:29:27+0000 [-] [caldav-1]             d = self.authenticate(request)
+2013-11-21 00:29:27+0000 [-] [caldav-1]           File "/home/ubuntu/CalendarServer/twext/web2/dav/resource.py", line 1060, in authenticate
+2013-11-21 00:29:27+0000 [-] [caldav-1]             d.addCallback(gotCreds)
+2013-11-21 00:29:27+0000 [-] [caldav-1]           File "/home/ubuntu/Twisted-12.3.0/build/lib.linux-x86_64-2.7/twisted/internet/defer.py", line 305, in addCallback
+2013-11-21 00:29:27+0000 [-] [caldav-1]             callbackKeywords=kw)
+2013-11-21 00:29:27+0000 [-] [caldav-1]           File "/home/ubuntu/Twisted-12.3.0/build/lib.linux-x86_64-2.7/twisted/internet/defer.py", line 294, in addCallbacks
+2013-11-21 00:29:27+0000 [-] [caldav-1]             self._runCallbacks()
+2013-11-21 00:29:27+0000 [-] [caldav-1]         --- <exception caught here> ---
+2013-11-21 00:29:27+0000 [-] [caldav-1]           File "/home/ubuntu/Twisted-12.3.0/build/lib.linux-x86_64-2.7/twisted/internet/defer.py", line 576, in _runCallbacks
+2013-11-21 00:29:27+0000 [-] [caldav-1]             current.result = callback(current.result, *args, **kw)
+2013-11-21 00:29:27+0000 [-] [caldav-1]           File "/home/ubuntu/CalendarServer/twext/web2/dav/resource.py", line 1024, in gotCreds
+2013-11-21 00:29:27+0000 [-] [caldav-1]             d = self.principalsForAuthID(request, creds.username)
+2013-11-21 00:29:27+0000 [-] [caldav-1]           File "/home/ubuntu/CalendarServer/twext/web2/dav/resource.py", line 1629, in principalsForAuthID
+2013-11-21 00:29:27+0000 [-] [caldav-1]             authnPrincipal = self.findPrincipalForAuthID(authid)
+2013-11-21 00:29:27+0000 [-] [caldav-1]           File "/home/ubuntu/CalendarServer/twext/web2/dav/resource.py", line 1654, in findPrincipalForAuthID
+2013-11-21 00:29:27+0000 [-] [caldav-1]             principal = collection.principalForUser(authid)
+2013-11-21 00:29:27+0000 [-] [caldav-1]           File "/home/ubuntu/CalendarServer/twistedcaldav/directory/principal.py", line 182, in principalForUser
+2013-11-21 00:29:27+0000 [-] [caldav-1]             return self.principalForShortName(DirectoryService.recordType_users, user)
+2013-11-21 00:29:27+0000 [-] [caldav-1]           File "/home/ubuntu/CalendarServer/twistedcaldav/directory/principal.py", line 178, in principalForShortName
+2013-11-21 00:29:27+0000 [-] [caldav-1]             return self.principalForRecord(self.directory.recordWithShortName(recordType, name))
+2013-11-21 00:29:27+0000 [-] [caldav-1]           File "/home/ubuntu/CalendarServer/twistedcaldav/directory/aggregate.py", line 174, in recordWithShortName
+2013-11-21 00:29:27+0000 [-] [caldav-1]             return self._query("recordWithShortName", recordType, shortName)
+2013-11-21 00:29:27+0000 [-] [caldav-1]           File "/home/ubuntu/CalendarServer/twistedcaldav/directory/aggregate.py", line 289, in _query
+2013-11-21 00:29:27+0000 [-] [caldav-1]             *[a[len(service.recordTypePrefix):] for a in args]
+2013-11-21 00:29:27+0000 [-] [caldav-1]           File "/home/ubuntu/CalendarServer/twistedcaldav/directory/cachingdirectory.py", line 297, in recordWithShortName
+2013-11-21 00:29:27+0000 [-] [caldav-1]             return self._lookupRecord((recordType,), CachingDirectoryService.INDEX_TYPE_SHORTNAME, shortName)
+2013-11-21 00:29:27+0000 [-] [caldav-1]           File "/home/ubuntu/CalendarServer/twistedcaldav/directory/cachingdirectory.py", line 396, in _lookupRecord
+2013-11-21 00:29:27+0000 [-] [caldav-1]             self.queryDirectory(recordTypes, indexType, indexKey)
+2013-11-21 00:29:27+0000 [-] [caldav-1]           File "/home/ubuntu/CalendarServer/twistedcaldav/directory/ldapdirectory.py", line 1047, in queryDirectory
+2013-11-21 00:29:27+0000 [-] [caldav-1]             ldap.SCOPE_SUBTREE, filterstr=filterstr, attrlist=self.attrlist)
+2013-11-21 00:29:27+0000 [-] [caldav-1]           File "/home/ubuntu/CalendarServer/twistedcaldav/directory/ldapdirectory.py", line 547, in timedSearch
+2013-11-21 00:29:27+0000 [-] [caldav-1]             s = ldap.async.List(self.getLDAPConnection())
+2013-11-21 00:29:27+0000 [-] [caldav-1]           File "/home/ubuntu/CalendarServer/twistedcaldav/directory/ldapdirectory.py", line 430, in getLDAPConnection
+2013-11-21 00:29:27+0000 [-] [caldav-1]             self.ldap = self.createLDAPConnection()
+2013-11-21 00:29:27+0000 [-] [caldav-1]           File "/home/ubuntu/CalendarServer/twistedcaldav/directory/ldapdirectory.py", line 475, in createLDAPConnection
+2013-11-21 00:29:27+0000 [-] [caldav-1]             cxn.start_tls_s()
+2013-11-21 00:29:27+0000 [-] [caldav-1]           File "/usr/lib/python2.7/dist-packages/ldap/ldapobject.py", line 526, in start_tls_s
+2013-11-21 00:29:27+0000 [-] [caldav-1]             return self._ldap_call(self._l.start_tls_s)
+2013-11-21 00:29:27+0000 [-] [caldav-1]           File "/usr/lib/python2.7/dist-packages/ldap/ldapobject.py", line 96, in _ldap_call
+2013-11-21 00:29:27+0000 [-] [caldav-1]             result = func(*args,**kwargs)
+2013-11-21 00:29:27+0000 [-] [caldav-1]         ldap.CONNECT_ERROR: {'desc': 'Connect error', 'info': 'error:14090086:SSL routines:SSL3_GET_SERVER_CERTIFICATE:certificate verify failed (self signed certificate in certificate chain)'}
+2013-11-21 00:29:27+0000 [-] [caldav-1]         

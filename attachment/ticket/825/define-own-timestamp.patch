@@ -1,0 +1,15 @@
+Index: twext/enterprise/util.py
+===================================================================
+--- twext/enterprise/util.py	(revision 11832)
++++ twext/enterprise/util.py	(working copy)
+@@ -20,8 +20,9 @@
+ """
+ 
+ from datetime import datetime
+-from twistedcaldav.dateops import SQL_TIMESTAMP_FORMAT
+ 
++SQL_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
++
+ def mapOracleOutputType(column):
+     """
+     Map a single output value from cx_Oracle based on some rules and

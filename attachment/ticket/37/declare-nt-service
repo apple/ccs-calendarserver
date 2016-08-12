@@ -1,0 +1,30 @@
+Index: pykerberos/src/kerberosgss.h
+===================================================================
+--- pykerberos.orig/src/kerberosgss.h	2006-09-08 19:24:54.000000000 +0200
++++ pykerberos/src/kerberosgss.h	2006-09-08 19:26:27.000000000 +0200
+@@ -19,10 +19,12 @@
+ #ifdef __linux__
+ # include <gssapi.h>
+ # include <krb5.h>
++# define PYKERBEROS_NT_SERVICE_NAME GSS_KRB5_NT_PRINCIPAL_NAME
+ #else
+ # include <Kerberos/gssapi.h>
+ # include <Kerberos/gssapi_generic.h>
+ # include <Kerberos/gssapi_krb5.h>
++# define PYKERBEROS_NT_SERVICE_NAME gss_krb5_nt_service_name
+ #endif
+ 
+ #define krb5_get_err_text(context,code) error_message(code)
+Index: pykerberos/src/kerberosgss.c
+===================================================================
+--- pykerberos.orig/src/kerberosgss.c	2006-09-08 19:21:51.000000000 +0200
++++ pykerberos/src/kerberosgss.c	2006-09-08 19:25:41.000000000 +0200
+@@ -47,7 +47,7 @@
+ 	name_token.length = strlen(service);
+     name_token.value = (char *)service;
+ 	
+-	maj_stat = gss_import_name(&min_stat, &name_token, gss_krb5_nt_service_name, &state->server_name);
++	maj_stat = gss_import_name(&min_stat, &name_token, PYKERBEROS_NT_SERVICE_NAME, &state->server_name);
+ 	
+ 	if (GSS_ERROR(maj_stat))
+ 	{

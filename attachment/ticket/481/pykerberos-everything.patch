@@ -1,0 +1,1040 @@
+Index: src/base64.c
+===================================================================
+--- src/base64.c	(revision 9231)
++++ src/base64.c	(working copy)
+@@ -1,120 +0,0 @@
+-/**
+- * Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+- *
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *     http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- **/
+-
+-#include "base64.h"
+-
+-#include <stdlib.h>
+-#include <string.h>
+-
+-// base64 tables
+-static char basis_64[] =
+-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+-static signed char index_64[128] =
+-{
+-    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
+-    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
+-    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,62, -1,-1,-1,63,
+-    52,53,54,55, 56,57,58,59, 60,61,-1,-1, -1,-1,-1,-1,
+-    -1, 0, 1, 2,  3, 4, 5, 6,  7, 8, 9,10, 11,12,13,14,
+-    15,16,17,18, 19,20,21,22, 23,24,25,-1, -1,-1,-1,-1,
+-    -1,26,27,28, 29,30,31,32, 33,34,35,36, 37,38,39,40,
+-    41,42,43,44, 45,46,47,48, 49,50,51,-1, -1,-1,-1,-1
+-};
+-#define CHAR64(c)  (((c) < 0 || (c) > 127) ? -1 : index_64[(c)])
+-
+-// base64_encode    :    base64 encode
+-//
+-// value            :    data to encode
+-// vlen             :    length of data
+-// (result)         :    new char[] - c-str of result
+-char *base64_encode(const unsigned char *value, size_t vlen)
+-{
+-    char *result = (char *)malloc((vlen * 4) / 3 + 5);
+-    char *out = result;
+-    while (vlen >= 3)
+-    {
+-        *out++ = basis_64[value[0] >> 2];
+-        *out++ = basis_64[((value[0] << 4) & 0x30) | (value[1] >> 4)];
+-        *out++ = basis_64[((value[1] << 2) & 0x3C) | (value[2] >> 6)];
+-        *out++ = basis_64[value[2] & 0x3F];
+-        value += 3;
+-        vlen -= 3;
+-    }
+-    if (vlen > 0)
+-    {
+-        *out++ = basis_64[value[0] >> 2];
+-        unsigned char oval = (value[0] << 4) & 0x30;
+-        if (vlen > 1) oval |= value[1] >> 4;
+-        *out++ = basis_64[oval];
+-        *out++ = (vlen < 2) ? '=' : basis_64[(value[1] << 2) & 0x3C];
+-        *out++ = '=';
+-    }
+-    *out = '\0';
+-
+-    return result;
+-}
+-
+-// base64_decode    :    base64 decode
+-//
+-// value            :    c-str to decode
+-// rlen             :    length of decoded result
+-// (result)         :    new unsigned char[] - decoded result
+-unsigned char *base64_decode(const char *value, size_t *rlen)
+-{
+-    *rlen = 0;
+-    int c1, c2, c3, c4;
+-
+-    size_t vlen = strlen(value);
+-    unsigned char *result =(unsigned char *)malloc((vlen * 3) / 4 + 1);
+-    unsigned char *out = result;
+-
+-    while (1)
+-    {
+-        if (value[0]==0)
+-            return result;
+-        c1 = value[0];
+-        if (CHAR64(c1) == -1)
+-            goto base64_decode_error;;
+-        c2 = value[1];
+-        if (CHAR64(c2) == -1)
+-            goto base64_decode_error;;
+-        c3 = value[2];
+-        if ((c3 != '=') && (CHAR64(c3) == -1))
+-            goto base64_decode_error;;
+-        c4 = value[3];
+-        if ((c4 != '=') && (CHAR64(c4) == -1))
+-            goto base64_decode_error;;
+-
+-        value += 4;
+-        *out++ = (CHAR64(c1) << 2) | (CHAR64(c2) >> 4);
+-        *rlen += 1;
+-        if (c3 != '=')
+-        {
+-            *out++ = ((CHAR64(c2) << 4) & 0xf0) | (CHAR64(c3) >> 2);
+-            *rlen += 1;
+-            if (c4 != '=')
+-            {
+-                *out++ = ((CHAR64(c3) << 6) & 0xc0) | CHAR64(c4);
+-                *rlen += 1;
+-            }
+-        }
+-    }
+-
+-base64_decode_error:
+-    *result = 0;
+-    *rlen = 0;
+-    return result;
+-}
+Index: src/base64.h
+===================================================================
+--- src/base64.h	(revision 9231)
++++ src/base64.h	(working copy)
+@@ -1,19 +0,0 @@
+-/**
+- * Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+- *
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *     http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- **/
+-
+-#include <stddef.h>
+-char *base64_encode(const unsigned char *value, size_t vlen);
+-unsigned char *base64_decode(const char *value, size_t *rlen);
+Index: src/kerberosgss.c
+===================================================================
+--- src/kerberosgss.c	(revision 9231)
++++ src/kerberosgss.c	(working copy)
+@@ -17,8 +17,6 @@
+ #include <Python.h>
+ #include "kerberosgss.h"
+ 
+-#include "base64.h"
+-
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -29,6 +27,30 @@
+ extern PyObject *GssException_class;
+ extern PyObject *KrbException_class;
+ 
++#define clear_response(context) \
++    do { \
++        if ((context)->response != NULL) \
++        { \
++            free((context)->response); \
++            (context)->response = NULL; \
++            (context)->response_len = 0; \
++        } \
++    } while (0)
++#define set_response(context, value, length) \
++    do { \
++        (context)->response_len = (length); \
++        (context)->response = malloc((length)); \
++        memcpy((context)->response, (value), (length)); \
++    } while (0)
++#define create_input_token(context, token, challenge, a_length) \
++    do { \
++        if ((challenge) && *(challenge)) { \
++            input_token.value = malloc((a_length)); \
++            memcpy(input_token.value, (challenge), (a_length)); \
++            input_token.length = (a_length); \
++        } \
++    } while (0)
++
+ char* server_principal_details(const char* service, const char* hostname)
+ {
+     char match[1024];
+@@ -106,7 +128,7 @@
+     return result;
+ }
+ 
+-int authenticate_gss_client_init(const char* service, const char* principal, long int gss_flags, gss_client_state* state)
++int authenticate_gss_client_init(const char* service, const char* principal, long int gss_flags, gss_server_state* delegatestate, gss_client_state* state)
+ {
+     OM_uint32 maj_stat;
+     OM_uint32 min_stat;
+@@ -120,6 +142,7 @@
+     state->client_creds = GSS_C_NO_CREDENTIAL;
+     state->username = NULL;
+     state->response = NULL;
++    state->response_len = 0;
+     
+     // Import server name first
+     name_token.length = strlen(service);
+@@ -134,8 +157,12 @@
+         goto end;
+     }
+     
++    if (delegatestate && delegatestate->client_creds != GSS_C_NO_CREDENTIAL)
++    {
++        state->client_creds = delegatestate->client_creds;
++    }
+     // Get credential for principal
+-    if (principal && *principal)
++    else if (principal && *principal)
+     {
+         gss_name_t name;
+         principal_token.length = strlen(principal);
+@@ -189,16 +216,12 @@
+         free(state->username);
+         state->username = NULL;
+     }
+-    if (state->response != NULL)
+-    {
+-        free(state->response);
+-        state->response = NULL;
+-    }
++    clear_response(state);
+     
+     return ret;
+ }
+ 
+-int authenticate_gss_client_step(gss_client_state* state, const char* challenge)
++int authenticate_gss_client_step(gss_client_state* state, const char* challenge, int challenge_len)
+ {
+     OM_uint32 maj_stat;
+     OM_uint32 min_stat;
+@@ -207,19 +230,10 @@
+     int ret = AUTH_GSS_CONTINUE;
+     
+     // Always clear out the old response
+-    if (state->response != NULL)
+-    {
+-        free(state->response);
+-        state->response = NULL;
+-    }
++    clear_response(state);
+     
+     // If there is a challenge (data from the server) we need to give it to GSS
+-    if (challenge && *challenge)
+-    {
+-        size_t len;
+-        input_token.value = base64_decode(challenge, &len);
+-        input_token.length = len;
+-    }
++    create_input_token(state, input_token, challenge, challenge_len);
+     
+     // Do GSSAPI step
+     maj_stat = gss_init_sec_context(&min_stat,
+@@ -247,7 +261,7 @@
+     // Grab the client response to send back to the server
+     if (output_token.length)
+     {
+-        state->response = base64_encode((const unsigned char *)output_token.value, output_token.length);;
++        set_response(state, (const unsigned char *)output_token.value, output_token.length);
+         maj_stat = gss_release_buffer(&min_stat, &output_token);
+     }
+     
+@@ -293,7 +307,7 @@
+     return ret;
+ }
+ 
+-int authenticate_gss_client_unwrap(gss_client_state *state, const char *challenge)
++int authenticate_gss_client_unwrap(gss_client_state *state, const char *challenge, int challenge_len)
+ {
+ 	OM_uint32 maj_stat;
+ 	OM_uint32 min_stat;
+@@ -302,19 +316,10 @@
+ 	int ret = AUTH_GSS_CONTINUE;
+     
+ 	// Always clear out the old response
+-	if (state->response != NULL)
+-	{
+-		free(state->response);
+-		state->response = NULL;
+-	}
++	clear_response(state);
+     
+ 	// If there is a challenge (data from the server) we need to give it to GSS
+-	if (challenge && *challenge)
+-	{
+-		size_t len;
+-		input_token.value = base64_decode(challenge, &len);
+-		input_token.length = len;
+-	}
++	create_input_token(state, input_token, challenge, challenge_len);
+     
+ 	// Do GSSAPI step
+ 	maj_stat = gss_unwrap(&min_stat,
+@@ -336,7 +341,7 @@
+ 	// Grab the client response
+ 	if (output_token.length)
+ 	{
+-		state->response = base64_encode((const unsigned char *)output_token.value, output_token.length);
++        set_response(state, (const unsigned char *)output_token.value, output_token.length);
+ 		maj_stat = gss_release_buffer(&min_stat, &output_token);
+ 	}
+ end:
+@@ -347,7 +352,7 @@
+ 	return ret;
+ }
+ 
+-int authenticate_gss_client_wrap(gss_client_state* state, const char* challenge, const char* user)
++int authenticate_gss_client_wrap(gss_client_state* state, const char* challenge, int challenge_len, const char* user)
+ {
+ 	OM_uint32 maj_stat;
+ 	OM_uint32 min_stat;
+@@ -358,18 +363,9 @@
+ 	unsigned long buf_size;
+     
+ 	// Always clear out the old response
+-	if (state->response != NULL)
+-	{
+-		free(state->response);
+-		state->response = NULL;
+-	}
++	clear_response(state);
+     
+-	if (challenge && *challenge)
+-	{
+-		size_t len;
+-		input_token.value = base64_decode(challenge, &len);
+-		input_token.length = len;
+-	}
++    create_input_token(state, input_token, challenge, challenge_len);
+     
+ 	if (user) {
+ 		// get bufsize
+@@ -415,7 +411,7 @@
+ 	// Grab the client response to send back to the server
+ 	if (output_token.length)
+ 	{
+-		state->response = base64_encode((const unsigned char *)output_token.value, output_token.length);;
++        set_response(state, (const unsigned char *)output_token.value, output_token.length);;
+ 		maj_stat = gss_release_buffer(&min_stat, &output_token);
+ 	}
+ end:
+@@ -439,6 +435,7 @@
+     state->username = NULL;
+     state->targetname = NULL;
+     state->response = NULL;
++    state->response_len = 0;
+     
+     // Server name may be empty which means we aren't going to create our own creds
+     size_t service_len = strlen(service);
+@@ -499,16 +496,12 @@
+         free(state->targetname);
+         state->targetname = NULL;
+     }
+-    if (state->response != NULL)
+-    {
+-        free(state->response);
+-        state->response = NULL;
+-    }
++    clear_response(state);
+     
+     return ret;
+ }
+ 
+-int authenticate_gss_server_step(gss_server_state *state, const char *challenge)
++int authenticate_gss_server_step(gss_server_state *state, const char *challenge, int challenge_len)
+ {
+     OM_uint32 maj_stat;
+     OM_uint32 min_stat;
+@@ -517,18 +510,12 @@
+     int ret = AUTH_GSS_CONTINUE;
+     
+     // Always clear out the old response
+-    if (state->response != NULL)
+-    {
+-        free(state->response);
+-        state->response = NULL;
+-    }
++    clear_response(state);
+     
+     // If there is a challenge (data from the server) we need to give it to GSS
+     if (challenge && *challenge)
+     {
+-        size_t len;
+-        input_token.value = base64_decode(challenge, &len);
+-        input_token.length = len;
++        create_input_token(state, input_token, challenge, challenge_len);
+     }
+     else
+     {
+@@ -559,7 +546,7 @@
+     // Grab the server response to send back to the client
+     if (output_token.length)
+     {
+-        state->response = base64_encode((const unsigned char *)output_token.value, output_token.length);;
++        set_response(state, (const unsigned char *)output_token.value, output_token.length);;
+         maj_stat = gss_release_buffer(&min_stat, &output_token);
+     }
+     
+@@ -608,7 +595,12 @@
+     return ret;
+ }
+ 
++int authenticate_gss_server_has_delegated(gss_server_state *state)
++{
++    return (state->client_creds != GSS_C_NO_CREDENTIAL);
++}
+ 
++
+ static void set_gss_error(OM_uint32 err_maj, OM_uint32 err_min)
+ {
+     OM_uint32 maj_stat, min_stat;
+Index: src/kerberos.c
+===================================================================
+--- src/kerberos.c	(revision 9231)
++++ src/kerberos.c	(working copy)
+@@ -87,18 +87,22 @@
+     const char *service;
+     const char *principal;
+     gss_client_state *state;
+-    PyObject *pystate;
+-    static char *kwlist[] = {"service", "principal", "gssflags", NULL};
++    gss_server_state *delegatestate = NULL;
++    PyObject *pystate, *pydelegatestate;
++    static char *kwlist[] = {"service", "principal", "gssflags", "delegated", NULL};
+     long int gss_flags = GSS_C_MUTUAL_FLAG | GSS_C_SEQUENCE_FLAG;
+     int result = 0;
+ 
+-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|sl", kwlist, &service, &principal, &gss_flags))
++    if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|slO", kwlist, &service, &principal, &gss_flags, &pydelegatestate))
+         return NULL;
+ 
+     state = (gss_client_state *) malloc(sizeof(gss_client_state));
+     pystate = PyCObject_FromVoidPtr(state, NULL);
+ 
+-    result = authenticate_gss_client_init(service, principal, gss_flags, state);
++    if (PyCObject_Check(pydelegatestate))
++        delegatestate = PyCObject_AsVoidPtr(pydelegatestate);
++
++    result = authenticate_gss_client_init(service, principal, gss_flags, delegatestate, state);
+     if (result == AUTH_GSS_ERROR)
+         return NULL;
+ 
+@@ -136,9 +140,10 @@
+     gss_client_state *state;
+     PyObject *pystate;
+     char *challenge;
++    int challenge_len;
+     int result = 0;
+ 
+-    if (!PyArg_ParseTuple(args, "Os", &pystate, &challenge))
++    if (!PyArg_ParseTuple(args, "Os#", &pystate, &challenge, &challenge_len))
+         return NULL;
+ 
+     if (!PyCObject_Check(pystate)) {
+@@ -150,7 +155,7 @@
+     if (state == NULL)
+         return NULL;
+ 
+-    result = authenticate_gss_client_step(state, challenge);
++    result = authenticate_gss_client_step(state, challenge, challenge_len);
+     if (result == AUTH_GSS_ERROR)
+         return NULL;
+ 
+@@ -174,7 +179,7 @@
+     if (state == NULL)
+         return NULL;
+ 
+-    return Py_BuildValue("s", state->response);
++    return Py_BuildValue("s#", state->response, state->response_len);
+ }
+ 
+ static PyObject *authGSSClientUserName(PyObject *self, PyObject *args)
+@@ -202,9 +207,10 @@
+ 	gss_client_state *state;
+ 	PyObject *pystate;
+ 	char *challenge;
++	int challenge_len;
+ 	int result = 0;
+ 
+-	if (!PyArg_ParseTuple(args, "Os", &pystate, &challenge))
++	if (!PyArg_ParseTuple(args, "Os#", &pystate, &challenge, &challenge_len))
+ 		return NULL;
+ 
+ 	if (!PyCObject_Check(pystate)) {
+@@ -216,7 +222,7 @@
+ 	if (state == NULL)
+ 		return NULL;
+ 
+-	result = authenticate_gss_client_unwrap(state, challenge);
++	result = authenticate_gss_client_unwrap(state, challenge, challenge_len);
+ 	if (result == AUTH_GSS_ERROR)
+ 		return NULL;
+ 
+@@ -228,9 +234,10 @@
+ 	gss_client_state *state;
+ 	PyObject *pystate;
+ 	char *challenge, *user = NULL;
++	int challenge_len;
+ 	int result = 0;
+ 
+-	if (!PyArg_ParseTuple(args, "Os|z", &pystate, &challenge, &user))
++	if (!PyArg_ParseTuple(args, "Os#|z", &pystate, &challenge, &challenge_len, &user))
+ 		return NULL;
+ 
+ 	if (!PyCObject_Check(pystate)) {
+@@ -242,7 +249,7 @@
+ 	if (state == NULL)
+ 		return NULL;
+ 
+-	result = authenticate_gss_client_wrap(state, challenge, user);
++	result = authenticate_gss_client_wrap(state, challenge, challenge_len, user);
+ 	if (result == AUTH_GSS_ERROR)
+ 		return NULL;
+ 
+@@ -300,9 +307,10 @@
+     gss_server_state *state;
+     PyObject *pystate;
+     char *challenge;
++    int challenge_len;
+     int result = 0;
+ 
+-    if (!PyArg_ParseTuple(args, "Os", &pystate, &challenge))
++    if (!PyArg_ParseTuple(args, "Os#", &pystate, &challenge, &challenge_len))
+         return NULL;
+ 
+     if (!PyCObject_Check(pystate)) {
+@@ -314,13 +322,33 @@
+     if (state == NULL)
+         return NULL;
+ 
+-    result = authenticate_gss_server_step(state, challenge);
++    result = authenticate_gss_server_step(state, challenge, challenge_len);
+     if (result == AUTH_GSS_ERROR)
+         return NULL;
+ 
+     return Py_BuildValue("i", result);
+ }
+ 
++static PyObject *authGSSServerHasDelegated(PyObject *self, PyObject *args)
++{
++    gss_server_state *state;
++    PyObject *pystate;
++
++    if (!PyArg_ParseTuple(args, "O", &pystate))
++        return NULL;
++
++    if (!PyCObject_Check(pystate)) {
++        PyErr_SetString(PyExc_TypeError, "Expected a context object");
++        return NULL;
++    }
++
++    state = (gss_server_state *)PyCObject_AsVoidPtr(pystate);
++    if (state == NULL)
++        return NULL;
++
++    return PyBool_FromLong(authenticate_gss_server_has_delegated(state));
++}
++
+ static PyObject *authGSSServerResponse(PyObject *self, PyObject *args)
+ {
+     gss_server_state *state;
+@@ -338,7 +366,7 @@
+     if (state == NULL)
+         return NULL;
+ 
+-    return Py_BuildValue("s", state->response);
++    return Py_BuildValue("s#", state->response, state->response_len);
+ }
+ 
+ static PyObject *authGSSServerUserName(PyObject *self, PyObject *args)
+@@ -408,6 +436,8 @@
+      "Terminate server-side GSSAPI operations."},
+     {"authGSSServerStep",  authGSSServerStep, METH_VARARGS,
+      "Do a server-side GSSAPI step."},
++    {"authGSSServerHasDelegated",  authGSSServerHasDelegated, METH_VARARGS,
++     "Check whether the client delegated credentials to us."},
+     {"authGSSServerResponse",  authGSSServerResponse, METH_VARARGS,
+      "Get the response from the last server-side GSSAPI step."},
+     {"authGSSServerUserName",  authGSSServerUserName, METH_VARARGS,
+@@ -417,32 +447,32 @@
+     {NULL, NULL, 0, NULL}        /* Sentinel */
+ };
+ 
+-PyMODINIT_FUNC initkerberos(void)
++PyMODINIT_FUNC init_kerberos(void)
+ {
+     PyObject *m,*d;
+ 
+-    m = Py_InitModule("kerberos", KerberosMethods);
++    m = Py_InitModule("_kerberos", KerberosMethods);
+ 
+     d = PyModule_GetDict(m);
+ 
+     /* create the base exception class */
+-    if (!(KrbException_class = PyErr_NewException("kerberos.KrbError", NULL, NULL)))
++    if (!(KrbException_class = PyErr_NewException("_kerberos.KrbError", NULL, NULL)))
+         goto error;
+     PyDict_SetItemString(d, "KrbError", KrbException_class);
+     Py_INCREF(KrbException_class);
+ 
+     /* ...and the derived exceptions */
+-    if (!(BasicAuthException_class = PyErr_NewException("kerberos.BasicAuthError", KrbException_class, NULL)))
++    if (!(BasicAuthException_class = PyErr_NewException("_kerberos.BasicAuthError", KrbException_class, NULL)))
+         goto error;
+     Py_INCREF(BasicAuthException_class);
+     PyDict_SetItemString(d, "BasicAuthError", BasicAuthException_class);
+ 
+-    if (!(PwdChangeException_class = PyErr_NewException("kerberos.PwdChangeError", KrbException_class, NULL)))
++    if (!(PwdChangeException_class = PyErr_NewException("_kerberos.PwdChangeError", KrbException_class, NULL)))
+         goto error;
+     Py_INCREF(PwdChangeException_class);
+     PyDict_SetItemString(d, "PwdChangeError", PwdChangeException_class);
+ 
+-    if (!(GssException_class = PyErr_NewException("kerberos.GSSError", KrbException_class, NULL)))
++    if (!(GssException_class = PyErr_NewException("_kerberos.GSSError", KrbException_class, NULL)))
+         goto error;
+     Py_INCREF(GssException_class);
+     PyDict_SetItemString(d, "GSSError", GssException_class);
+Index: src/kerberosgss.h
+===================================================================
+--- src/kerberosgss.h	(revision 9231)
++++ src/kerberosgss.h	(working copy)
+@@ -35,6 +35,7 @@
+     gss_cred_id_t    client_creds;
+     char*            username;
+     char*            response;
++    int              response_len;
+ } gss_client_state;
+ 
+ typedef struct {
+@@ -46,16 +47,18 @@
+     char*            username;
+     char*            targetname;
+     char*            response;
++    int              response_len;
+ } gss_server_state;
+ 
+ char* server_principal_details(const char* service, const char* hostname);
+ 
+-int authenticate_gss_client_init(const char* service, const char* principal, long int gss_flags, gss_client_state* state);
++int authenticate_gss_client_init(const char* service, const char* principal, long int gss_flags, gss_server_state* delegatestate, gss_client_state* state);
+ int authenticate_gss_client_clean(gss_client_state *state);
+-int authenticate_gss_client_step(gss_client_state *state, const char *challenge);
+-int authenticate_gss_client_unwrap(gss_client_state* state, const char* challenge);
+-int authenticate_gss_client_wrap(gss_client_state* state, const char* challenge, const char* user);
++int authenticate_gss_client_step(gss_client_state *state, const char *challenge, int challenge_len);
++int authenticate_gss_client_unwrap(gss_client_state* state, const char* challenge, int challenge_len);
++int authenticate_gss_client_wrap(gss_client_state* state, const char* challenge, int challenge_len, const char* user);
+ 
+ int authenticate_gss_server_init(const char* service, gss_server_state* state);
+ int authenticate_gss_server_clean(gss_server_state *state);
+-int authenticate_gss_server_step(gss_server_state *state, const char *challenge);
++int authenticate_gss_server_step(gss_server_state *state, const char *challenge, int challenge_len);
++int authenticate_gss_server_has_delegated(gss_server_state *state);
+Index: setup.py
+===================================================================
+--- setup.py	(revision 9231)
++++ setup.py	(working copy)
+@@ -37,9 +37,11 @@
+         "Topic :: Software Development :: Libraries :: Python Modules",
+         "Topic :: System :: Systems Administration :: Authentication/Directory"
+         ],
++    package_dir = {'': 'pysrc'},
++    py_modules = ['kerberos'],
+     ext_modules = [
+         Extension(
+-            "kerberos",
++            "_kerberos",
+             extra_link_args = commands.getoutput("krb5-config --libs gssapi").split(),
+             extra_compile_args = commands.getoutput("krb5-config --cflags gssapi").split(),
+             sources = [
+@@ -47,7 +49,6 @@
+                 "src/kerberosbasic.c",
+                 "src/kerberosgss.c",
+                 "src/kerberospw.c",
+-                "src/base64.c"
+             ],
+         ),
+     ],
+Index: pysrc/kerberos.py
+===================================================================
+--- pysrc/kerberos.py	(revision 9231)
++++ pysrc/kerberos.py	(working copy)
+@@ -18,15 +18,10 @@
+ PyKerberos Function Description.
+ """
+ 
+-class KrbError(Exception):
+-    pass
++import base64
++import _kerberos
++from _kerberos import *
+ 
+-class BasicAuthError(KrbError):
+-    pass
+-
+-class GSSError(KrbError):
+-    pass
+-
+ def checkPassword(user, pswd, service, default_realm):
+     """
+     This function provides a simple way to verify that a user name and password match
+@@ -51,6 +46,7 @@
+         uppercase (e.g., 'EXAMPLE.COM').
+     @return:              True if authentication succeeds, False otherwise.
+     """
++    return _kerberos.checkPassword(user, pswd, service, default_realm)
+ 
+ def changePassword(user, oldpswd, newpswd):
+     """
+@@ -64,6 +60,7 @@
+     @param newpswd:       a string containging the new password for the user.
+     @return:              True if password changing succeeds, False otherwise.
+     """
++    return _kerberos.changePassword(user, oldpswd, newpswd)
+ 
+ def getServerPrincipalDetails(service, hostname):
+     """
+@@ -74,32 +71,9 @@
+     @param hostname:      a string containing the hostname of the server.
+     @return:              a string containing the service principal.
+     """
+-
+-"""
+-GSSAPI Function Result Codes:
+-    
+-    -1 : Error
+-    0  : GSSAPI step continuation (only returned by 'Step' function)
+-    1  : GSSAPI step complete, or function return OK
+-
+-"""
+-
+-# Some useful result codes
+-AUTH_GSS_CONTINUE     = 0 
+-AUTH_GSS_COMPLETE     = 1 
++    return _kerberos.getServicePrincipalDetails(service, hostname)
+      
+-# Some useful gss flags 
+-GSS_C_DELEG_FLAG      = 1 
+-GSS_C_MUTUAL_FLAG     = 2 
+-GSS_C_REPLAY_FLAG     = 4 
+-GSS_C_SEQUENCE_FLAG   = 8 
+-GSS_C_CONF_FLAG       = 16 
+-GSS_C_INTEG_FLAG      = 32 
+-GSS_C_ANON_FLAG       = 64 
+-GSS_C_PROT_READY_FLAG = 128 
+-GSS_C_TRANS_FLAG      = 256 
+-     
+-def authGSSClientInit(service, principal=None, gssflags=GSS_C_MUTUAL_FLAG|GSS_C_SEQUENCE_FLAG):
++def authGSSClientInit(service, **kwargs):
+     """
+     Initializes a context for GSSAPI client-side authentication with the given service principal.
+     authGSSClientClean must be called after this function returns an OK result to dispose of
+@@ -112,9 +86,11 @@
+     @param gssflags: optional integer used to set GSS flags.
+         (e.g.  GSS_C_DELEG_FLAG|GSS_C_MUTUAL_FLAG|GSS_C_SEQUENCE_FLAG will allow 
+         for forwarding credentials to the remote host)
++    @param delegated: optional server context containing delegated credentials
+     @return: a tuple of (result, context) where result is the result code (see above) and
+         context is an opaque value that will need to be passed to subsequent functions.
+     """
++    return _kerberos.authGSSClientInit(service, **kwargs)
+ 
+ def authGSSClientClean(context):
+     """
+@@ -124,6 +100,7 @@
+     @param context: the context object returned from authGSSClientInit.
+     @return: a result code (see above).
+     """
++    return _kerberos.authGSSClientClean(context)
+ 
+ def authGSSClientStep(context, challenge):
+     """
+@@ -134,6 +111,7 @@
+         for the first step).
+     @return: a result code (see above).
+     """
++    return _kerberos.authGSSClientStep(context, base64.decodestring(challenge))
+ 
+ def authGSSClientResponse(context):
+     """
+@@ -142,6 +120,10 @@
+     @param context: the context object returned from authGSSClientInit.
+     @return: a string containing the base64-encoded client data to be sent to the server.
+     """
++    response = _kerberos.authGSSClientResponse(context)
++    if response is None:
++        return response
++    return base64.encodestring(response).replace("\n", "")
+ 
+ def authGSSClientUserName(context):
+     """
+@@ -151,6 +133,7 @@
+     @param context:   the context object returned from authGSSClientInit.
+     @return: a string containing the user name.
+     """
++    return _kerberos.authGSSClientUserName(context)
+ 
+ def authGSSClientUnwrap(context, challenge): 
+     """ 
+@@ -159,6 +142,7 @@
+     @param challenge: a string containing the base64-encoded server data. 
+     @return: a result code (see above) 
+     """ 
++    return _kerberos.authGSSClientUnwrap(context, base64.decodestring(challenge))
+ 
+ def authGSSClientWrap(context, data, user=None): 
+     """ 
+@@ -168,6 +152,7 @@
+     @param user: the user to authorize 
+     @return: a result code (see above) 
+     """ 
++    return _kerberos.authGSSClientWrap(context, base64.decodestring(data), user)
+ 
+ def authGSSServerInit(service):
+     """
+@@ -180,6 +165,7 @@
+     @return: a tuple of (result, context) where result is the result code (see above) and
+         context is an opaque value that will need to be passed to subsequent functions.
+     """
++    return _kerberos.authGSSServerInit(service)
+ 
+ def authGSSServerClean(context):
+     """
+@@ -189,6 +175,7 @@
+     @param context: the context object returned from authGSSServerInit.
+     @return: a result code (see above).
+     """
++    return _kerberos.authGSSServerClean(context)
+ 
+ def authGSSServerStep(context, challenge):
+     """
+@@ -198,7 +185,17 @@
+     @param challenge: a string containing the base64-encoded client data.
+     @return: a result code (see above).
+     """
++    return _kerberos.authGSSServerStep(context, base64.decodestring(challenge))
+ 
++def authGSSServerHasDelegated(context):
++    """
++    Checks whether a server context has delegated credentials.
++
++    @param context: the context object returned from authGSSServerInit.
++    @return: a bool saying whether delegated credentials are available.
++    """
++    return _kerberos.authGSSServerHasDelegated(context)
++
+ def authGSSServerResponse(context):
+     """
+     Get the server response from the last successful GSSAPI server-side step.
+@@ -206,6 +203,10 @@
+     @param context: the context object returned from authGSSServerInit.
+     @return: a string containing the base64-encoded server data to be sent to the client.
+     """
++    response = _kerberos.authGSSServerResponse(context)
++    if response is None:
++        return response
++    return base64.encodestring(response).replace("\n", "")
+ 
+ def authGSSServerUserName(context):
+     """
+@@ -215,6 +216,7 @@
+     @param context: the context object returned from authGSSServerInit.
+     @return: a string containing the user name.
+     """
++    return _kerberos.authGSSServerUserName(context)
+ 
+ def authGSSServerTargetName(context):
+     """
+@@ -224,4 +226,158 @@
+     @param context: the context object returned from authGSSServerInit.
+     @return: a string containing the target name.
+     """
++    return _kerberos.authGSSServerTargetName(context)
+ 
++class GSSAPIClient:
++    """
++    Pythonic GSSAPI client for Kerberos. This class hides most of the details, only requiring the step
++    function to be called with the challenge from the server.
++    """
++    def __init__(self, service, principal=None, gssflags=['MUTUAL', 'SEQUENCE'], delegated=None, username=None, do_base64=True):
++        """
++        Create a new GSSAPI client.
++
++        @param service: a string describing the service to authenticate to
++            (e.g. imap@mail.example.com)
++        @param gssflags: a list of strings containing GSS flag names
++            (e.g. ['MUTUAL', 'SEQUENCE'] which is the default)
++        @param delegated: a GSSAPIServer instance to use delegated credentials from
++        @param username: the username to wrap with
++        @return: an object to be used for authentication
++        """
++        def _flags2int(l):
++            ret = 0
++            for i in l:
++                for j in (i, "GSS_C_" + i + "_FLAG"):
++                    try:
++                        ret |= getattr(_kerberos, j)
++                    except AttributeError:
++                        continue
++            return ret
++
++        kwargs = {}
++        if principal is not None:
++            kwargs['principal'] = principal
++        if delegated is not None:
++            kwargs['delegated'] = delegated.gss
++        (result, self.gss) = _kerberos.authGSSClientInit(service,
++            gssflags=_flags2int(gssflags),
++            **kwargs)
++        if result == -1:
++            raise KrbError
++
++        self.in_username = username
++        self.steps_done = False
++        self.complete = False
++        self.base64 = do_base64
++
++    def __del__(self):
++        if hasattr(self, 'gss'):
++            _kerberos.authGSSClientClean(self.gss)
++
++    def decode(self, data):
++        if self.base64:
++            return base64.decodestring(data)
++        else:
++            return data
++    def encode(self, data):
++        if self.base64:
++            return base64.encodestring(data).replace("\n", "")
++        else:
++            return data
++
++    def step(self, challenge=''):
++        """
++        Call this function until self.complete is True.
++
++        @param challenge: the challenge/response from the server
++        @return: a challenge/response for the server
++        """
++        if not self.steps_done:
++            result = _kerberos.authGSSClientStep(self.gss, self.decode(challenge))
++            if result == -1:
++                raise KrbError
++            response = _kerberos.authGSSClientResponse(self.gss)
++            if result == AUTH_GSS_COMPLETE:
++                if response is None:
++                    response = ''
++                self.steps_done = True
++            response = self.encode(response)
++            return response
++        else:
++            result = _kerberos.authGSSClientUnwrap(self.gss, self.decode(challenge))
++            if result == -1:
++                raise KrbError
++            unwrap = _kerberos.authGSSClientResponse(self.gss)
++            result = _kerberos.authGSSClientWrap(self.gss, unwrap[:4], self.in_username)
++            if result == -1:
++                raise KrbError
++            response = self.encode(_kerberos.authGSSClientResponse(self.gss))
++            self.complete = True
++            return response
++
++    __call__ = step
++
++    def username(self):
++        return _kerberos.authGSSClientUserName(self.gss)
++
++class GSSAPIServer:
++    """
++    Pythonic GSSAPI server for Kerberos. This class hides most of the details, only requiring the step
++    function to be called with the challenge from the client.
++    """
++    def __init__(self, principal, do_base64=True):
++        """
++        Create a new GSSAPI server.
++
++        @param principal: a string containing the principal to authenticate with
++        @return: an object to be used for authentication
++        """
++        (result, self.gss) = _kerberos.authGSSServerInit(principal)
++        if result == -1:
++            raise KrbError
++        self.complete = False
++        self.base64 = do_base64
++
++    def __del__(self):
++        if hasattr(self, 'gss'):
++            _kerberos.authGSSServerClean(self.gss)
++
++    def decode(self, data):
++        if self.base64:
++            return base64.decodestring(data)
++        else:
++            return data
++    def encode(self, data):
++        if self.base64:
++            return base64.encodestring(data).replace("\n", "")
++        else:
++            return data
++
++    def step(self, challenge=''):
++        """
++        Call this function until self.complete is True.
++
++        @param challenge: the challenge/response from the client
++        @return: a challenge/response for the client
++        """
++        result = _kerberos.authGSSServerStep(self.gss, self.decode(challenge))
++        if result == -1:
++            raise KrbError
++        response = _kerberos.authGSSServerResponse(self.gss)
++        if result == AUTH_GSS_COMPLETE:
++            self.complete = True
++            if response is None:
++                response = ''
++        response = self.encode(response)
++        return response
++
++    __call__ = step
++
++    def target(self):
++        return _kerberos.authGSSServerTargetName(self.gss)
++    def username(self):
++        return _kerberos.authGSSServerUserName(self.gss)
++
++    def has_delegated(self):
++        return _kerberos.authGSSServerHasDelegated(self.gss)
