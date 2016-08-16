@@ -85,8 +85,8 @@ def git_info(wc_path):
     revision = revision.strip()
 
     try:
-        tag = subprocess.check_output(
-            ["git", "describe", "--candidates=0", "HEAD"],
+        tags = subprocess.check_output(
+            ["git", "describe", "--exact-match", "HEAD"],
             stderr=subprocess.STDOUT,
         )
     except OSError as e:
@@ -96,7 +96,8 @@ def git_info(wc_path):
     except subprocess.CalledProcessError:
         tag = None
     else:
-        tag = tag.strip()
+        tags = tags.strip().split()
+        tag = tags[0]
 
     return dict(
         project=base_project,
@@ -126,7 +127,11 @@ def version():
 
     if info["tag"]:
         project_version = info["tag"]
-        project, version = project_version.split("-")
+        try:
+            project, version = project_version.split("-")
+        except ValueError:
+            project = project_version
+            version = "Unknown"
         assert project == project_name, (
             "Tagged project {!r} != {!r}".format(project, project_name)
         )
@@ -150,18 +155,18 @@ def version():
         )
         # This is a release branch of this project.
         # Designate this as beta2, dev version based on git revision.
-        return "{}b2.dev-{}".format(base_version, info["revision"])
+        return "{}b2.dev0+{}".format(base_version, info["revision"])
 
     if info["branch"] == "master":
         # This is master.
         # Designate this as beta1, dev version based on git revision.
-        return "{}b1.dev-{}".format(base_version, info["revision"])
+        return "{}b1.dev0+{}".format(base_version, info["revision"])
 
     # This is some unknown branch or tag...
-    return "{}a1.dev-{}+{}".format(
+    return "{}a1.dev0+{}.{}".format(
         base_version,
         info["revision"],
-        info["branch"].replace("/", ".").replace("-", "."),
+        info["branch"].replace("/", ".").replace("-", ".").lower(),
     )
 
 
