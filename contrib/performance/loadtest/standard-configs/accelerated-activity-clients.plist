@@ -756,7 +756,7 @@
 						<key>params</key>
 						<dict>
 							<key>enabled</key>
-							<true/>
+							<false/>
 
 							<!-- Define the interval (in seconds) at which this profile will use
 								its client to subscribe. -->
