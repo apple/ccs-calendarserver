@@ -20,6 +20,7 @@ from calendarserver.accesslog import SystemMonitor, \
 from twistedcaldav.stdconfig import config as stdconfig
 from twistedcaldav.config import config
 import time
+import collections
 
 hasattr(stdconfig, "Servers")   # Quell pyflakes
 
@@ -49,40 +50,79 @@ class AccessLog(TestCase):
         L{SystemMonitor} is not created when stats socket not in use.
         """
 
+        logpath = self.mktemp()
+        stats = {
+            "type": "access-log",
+            "log-format": "",
+            "method": "GET",
+            "uri": "/index.html",
+            "statusCode": 200,
+        }
+
         # Disabled
         self.patch(config.Stats, "EnableUnixStatsSocket", False)
         self.patch(config.Stats, "EnableTCPStatsSocket", False)
 
-        logger = RotatingFileAccessLoggingObserver("")
+        logger = RotatingFileAccessLoggingObserver(logpath)
         self.assertTrue(logger.systemStats is None)
 
-        logger.logStats({})
+        logger.start()
+        stats["log-format"] = "test1"
+        logger.logStats(stats)
         self.assertTrue(logger.systemStats is None)
 
         logger.getStats()
         self.assertTrue(logger.systemStats is None)
+        logger.stop()
+        with open(logpath) as f:
+            self.assertIn("test1", f.read())
 
         # Enabled
         self.patch(config.Stats, "EnableUnixStatsSocket", True)
         self.patch(config.Stats, "EnableTCPStatsSocket", False)
 
-        logger = RotatingFileAccessLoggingObserver("")
+        logger = RotatingFileAccessLoggingObserver(logpath)
         self.assertTrue(logger.systemStats is None)
 
-        logger.logStats({})
+        logger.start()
+        stats["log-format"] = "test2"
+        logger.logStats(stats)
         self.assertTrue(logger.systemStats is not None)
-        logger.systemStats.stop()
+        logger.stop()
+        with open(logpath) as f:
+            self.assertIn("test2", f.read())
 
         # Enabled
         self.patch(config.Stats, "EnableUnixStatsSocket", False)
         self.patch(config.Stats, "EnableTCPStatsSocket", True)
 
-        logger = RotatingFileAccessLoggingObserver("")
+        logger = RotatingFileAccessLoggingObserver(logpath)
         self.assertTrue(logger.systemStats is None)
 
-        logger.logStats({})
+        logger.start()
+        stats["log-format"] = "test3"
+        logger.logStats(stats)
         self.assertTrue(logger.systemStats is not None)
-        logger.systemStats.stop()
+        logger.stop()
+        with open(logpath) as f:
+            self.assertIn("test3", f.read())
+
+        # Enabled
+        self.patch(config.Stats, "EnableUnixStatsSocket", True)
+        self.patch(config.Stats, "EnableTCPStatsSocket", True)
+
+        logger = RotatingFileAccessLoggingObserver(logpath)
+        self.assertTrue(logger.systemStats is None)
+
+        logger.start()
+        stats["log-format"] = "test4"
+        logger.logStats(stats)
+        self.assertTrue(logger.systemStats is not None)
+        logger.stop()
+        with open(logpath) as f:
+            self.assertIn("test4", f.read())
+
+        SystemMonitor.CPUStats = collections.namedtuple("CPUStats", ("total", "idle",))
 
 
     def test_unicodeLog(self):
