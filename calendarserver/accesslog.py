@@ -380,19 +380,18 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         """
 
         # Only use the L{SystemMonitor} when stats socket is in use
-        if not config.Stats.EnableUnixStatsSocket and not config.Stats.EnableTCPStatsSocket:
-            return
+        if config.Stats.EnableUnixStatsSocket or config.Stats.EnableTCPStatsSocket:
 
-        # Initialize a L{SystemMonitor} on the first call
-        if self.systemStats is None:
-            self.systemStats = SystemMonitor()
+            # Initialize a L{SystemMonitor} on the first call
+            if self.systemStats is None:
+                self.systemStats = SystemMonitor()
 
-        # Currently only storing stats for access log type
-        if "type" not in stats or stats["type"] != "access-log":
-            return
+            # Currently only storing stats for access log type
+            if "type" not in stats or stats["type"] != "access-log":
+                return
 
-        currentStats = self.ensureSequentialStats()
-        self.updateStats(currentStats, stats)
+            currentStats = self.ensureSequentialStats()
+            self.updateStats(currentStats, stats)
 
         if stats["type"] == "access-log":
             self.accessLog(stats["log-format"] % stats)
