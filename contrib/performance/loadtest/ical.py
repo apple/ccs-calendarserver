@@ -977,6 +977,7 @@ class BaseAppleClient(BaseClient):
                 method_label="PROPFIND{calendar}"
             )
 
+
     @inlineCallbacks
     def apnsSubscribe(self):
         url = "{}/apns/".format(self.server["uri"])
@@ -984,7 +985,7 @@ class BaseAppleClient(BaseClient):
             'Content-Type': ['application/x-www-form-urlencoded']
         })
         content = "token={}&key=/CalDAV/example".format(self._deviceToken)
-        response, responseBody = yield self._request(
+        _ignore_response, _ignore_responseBody = yield self._request(
             OK,
             'POST',
             url,
@@ -992,7 +993,6 @@ class BaseAppleClient(BaseClient):
             body=StringProducer(content),
             method_label="POST{apns}"
         )
-
 
 
     @inlineCallbacks
