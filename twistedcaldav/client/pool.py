@@ -421,7 +421,7 @@ def installPools(hosts, maxClients=5, reactor=None):
 
 
 
-def _configuredClientContextFactory():
+def _configuredClientContextFactory(hostname):
     """
     Get a client context factory from the configuration.
     """
@@ -430,7 +430,8 @@ def _configuredClientContextFactory():
         "", "",
         certificateChainFile="",
         keychainIdentity="",
-        sslmethod=getattr(OpenSSL.SSL, config.SSLMethod)
+        sslmethod=getattr(OpenSSL.SSL, config.SSLMethod),
+        peerName=hostname,
     )
 
 
@@ -440,7 +441,7 @@ def installPool(name, url, maxClients=5, reactor=None):
     if reactor is None:
         from twisted.internet import reactor
     parsedURL = urlparse.urlparse(url)
-    ctxf = _configuredClientContextFactory()
+    ctxf = _configuredClientContextFactory(parsedURL.hostname)
     pool = HTTPClientPool(
         name,
         parsedURL.scheme,

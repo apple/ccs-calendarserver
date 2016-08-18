@@ -22,8 +22,9 @@ from cStringIO import StringIO
 
 from twext.internet.adaptendpoint import connect
 from twext.internet.gaiendpoint import GAIEndpoint
+from twext.internet.ssl import simpleClientContextFactory
 from twext.python.log import Logger
-from twisted.internet import defer, ssl, reactor as _reactor
+from twisted.internet import defer, reactor as _reactor
 from twisted.mail.smtp import ESMTPSenderFactory, messageid
 from twistedcaldav.config import config
 
@@ -68,7 +69,7 @@ class SMTPSender(object):
         deferred = defer.Deferred()
 
         if self.useSSL:
-            contextFactory = ssl.ClientContextFactory()
+            contextFactory = simpleClientContextFactory(self.server)
         else:
             contextFactory = None
 

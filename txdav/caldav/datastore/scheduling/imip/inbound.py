@@ -21,10 +21,11 @@ Inbound IMIP mail handling for Calendar Server
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.jobs.workitem import WorkItem, RegeneratingWorkItem
 from twext.internet.gaiendpoint import GAIEndpoint
+from twext.internet.ssl import simpleClientContextFactory
 from twext.python.log import Logger
 
 from twisted.application import service
-from twisted.internet import protocol, defer, ssl
+from twisted.internet import protocol, defer
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.mail import pop3client, imap4
 from twisted.python.log import LogPublisher
@@ -138,7 +139,7 @@ class MailRetriever(service.Service):
 
         contextFactory = None
         if settings["UseSSL"]:
-            contextFactory = ssl.ClientContextFactory()
+            contextFactory = simpleClientContextFactory(settings.Server)
         self.point = GAIEndpoint(
             self.reactor, settings.Server,
             settings.Port, contextFactory=contextFactory)

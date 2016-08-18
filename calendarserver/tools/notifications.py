@@ -31,6 +31,7 @@ from twisted.words.xish import domish
 
 from twext.internet.gaiendpoint import GAIEndpoint
 from twext.internet.adaptendpoint import connect
+from twext.internet.ssl import simpleClientContextFactory
 
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.util import AuthorizedHTTPGetter
@@ -647,8 +648,7 @@ class PushMonitorService(Service):
         caldavFactory.noisy = False
         caldavFactory.protocol = PropfindRequestor
         if self.useSSL:
-            connect(GAIEndpoint(reactor, self.host, self.port,
-                                self.ClientContextFactory()),
+            connect(GAIEndpoint(reactor, self.host, self.port, simpleClientContextFactory(self.host)),
                     caldavFactory)
         else:
             connect(GAIEndpoint(reactor, self.host, self.port), caldavFactory)
