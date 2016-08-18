@@ -508,7 +508,7 @@ class IScheduleRequest(object):
         f = Factory()
         f.protocol = HTTPClientProtocol
         if ssl:
-            ep = GAIEndpoint(reactor, host, port, _configuredClientContextFactory())
+            ep = GAIEndpoint(reactor, host, port, _configuredClientContextFactory(host))
         else:
             ep = GAIEndpoint(reactor, host, port)
         proto = (yield ep.connect(f))
