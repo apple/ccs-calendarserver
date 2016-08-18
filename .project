@@ -6,9 +6,7 @@
 		<project>caldavclientlibrary</project>
 		<project>cx_Oracle</project>
 		<project>kerberos</project>
-		<project>osxframeworks</project>
 		<project>pycalendar</project>
-		<project>pysecuretransport</project>
 		<project>twextpy</project>
 	</projects>
 	<buildSpec>

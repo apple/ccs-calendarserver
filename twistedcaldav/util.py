@@ -23,7 +23,7 @@ import itertools
 from subprocess import Popen, PIPE, STDOUT
 from hashlib import md5, sha1
 
-from twisted.internet import ssl, reactor
+from twisted.internet import reactor
 from twisted.web import client
 from twisted.python import failure
 from twext.python.log import Logger
@@ -31,6 +31,7 @@ from twext.python.log import Logger
 log = Logger()
 from twext.internet.gaiendpoint import GAIEndpoint
 from twext.internet.adaptendpoint import connect
+from twext.internet.ssl import simpleClientContextFactory
 
 ##
 # System Resources (Memory size and processor count)
@@ -459,8 +460,7 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter):
 
             if self.factory.scheme == 'https':
                 connect(
-                    GAIEndpoint(reactor, self.factory.host, self.factory.port,
-                                ssl.ClientContextFactory()),
+                    GAIEndpoint(reactor, self.factory.host, self.factory.port, simpleClientContextFactory(self.factory.host)),
                     self.factory)
             else:
                 connect(
@@ -479,8 +479,7 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter):
 
             if self.factory.scheme == 'https':
                 connect(
-                    GAIEndpoint(reactor, self.factory.host, self.factory.port,
-                                ssl.ClientContextFactory()),
+                    GAIEndpoint(reactor, self.factory.host, self.factory.port, simpleClientContextFactory(self.factory.host)),
                     self.factory)
             else:
                 connect(

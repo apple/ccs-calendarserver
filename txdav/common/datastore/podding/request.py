@@ -201,7 +201,7 @@ class ConduitRequest(object):
         from twisted.internet import reactor
         f = Factory()
         f.protocol = HTTPClientProtocol
-        ep = GAIEndpoint(reactor, host, port, _configuredClientContextFactory() if ssl else None)
+        ep = GAIEndpoint(reactor, host, port, _configuredClientContextFactory(host) if ssl else None)
         proto = (yield ep.connect(f))
 
         request = ClientRequest("POST", path, headers, self.stream if self.stream is not None else self.data)

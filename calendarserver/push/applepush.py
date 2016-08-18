@@ -541,7 +541,8 @@ class APNConnectionService(service.Service):
                 certificateChainFile=self.chainPath,
                 passwdCallback=passwdCallback,
                 keychainIdentity=self.keychainIdentity,
-                sslmethod=getattr(OpenSSL.SSL, self.sslMethod)
+                sslmethod=getattr(OpenSSL.SSL, self.sslMethod),
+                peerName=self.host,
             )
             connect(GAIEndpoint(self.reactor, self.host, self.port, context),
                     factory)
