@@ -5,7 +5,7 @@ title: Calendar and Contacts Server
 Calendar and Contacts Server
 ============================
 
-The open source Calendar and Contacts Server project is a standards-compliant server implementing the CalDAV and CardDAV protocols. It provides a shared location on the network allowing multiple users to store and edit calendaring and contact information.
+The open source [Calendar and Contacts Server](https://github.com/apple/ccs-calendarserver) project is a standards-compliant server implementing the CalDAV and CardDAV protocols. It provides a shared location on the network allowing multiple users to store and edit calendaring and contact information.
 
 [CalDAV](http://caldav.calconnect.org/) is an Internet standard allowing a client to access scheduling information on a remote server. It extends the WebDAV (an HTTP-based protocol for data manipulation) specification and uses the iCalendar format for the data. The protocol is defined by [RFC 4791](http://www.ietf.org/rfc/rfc4791.txt). It allows multiple clients access to the same information thus allowing cooperative planning and information sharing. Many server and client applications support the protocol.
 
