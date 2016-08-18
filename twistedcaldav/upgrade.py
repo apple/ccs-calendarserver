@@ -49,7 +49,6 @@ from twistedcaldav.xmlutil import readXML, writeXML, addSubElement
 
 from txdav.caldav.datastore.index_file import db_basename
 from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser
-from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokensDatabase
 from txdav.caldav.datastore.scheduling.imip.mailgateway import migrateTokensToStore
 from txdav.caldav.datastore.scheduling.scheduler import DirectScheduler
 from txdav.caldav.datastore.util import normalizationLookup
@@ -339,22 +338,6 @@ def upgrade_to_1(config, directory):
         os.rename(oldHome, newHome)
 
 
-    def createMailTokensDatabase(config, uid, gid):
-        # Cause the tokens db to be created on disk so we can set the
-        # permissions on it now
-        db = MailGatewayTokensDatabase(config.DataRoot)
-        db.lookupByToken("")
-
-        dbPath = os.path.join(config.DataRoot, MailGatewayTokensDatabase.dbFilename)
-        if os.path.exists(dbPath):
-            os.chown(dbPath, uid, gid)
-
-        journalPath = "%s-journal" % (dbPath,)
-        if os.path.exists(journalPath):
-            os.chown(journalPath, uid, gid)
-
-        db._db_close()
-
     cuaCache = {}
 
     docRoot = config.DocumentRoot
@@ -499,8 +482,6 @@ def upgrade_to_1(config, directory):
                                             count=count, total=total,
                                         )
                 log.warn("Done processing calendar homes")
-
-    createMailTokensDatabase(config, uid, gid)
 
     if errorOccurred:
         log.warn("Data upgrade encountered errors but will proceed; see error.log for details")

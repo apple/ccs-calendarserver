@@ -29,7 +29,6 @@ from twistedcaldav.upgrade import xattrname, upgradeData, updateFreeBusySet, \
     upgradeResourcesXML, upgradeAugmentsXML, migrateAutoSchedule
 
 from txdav.caldav.datastore.index_file import db_basename
-from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokensDatabase
 from txdav.who.delegates import Delegates
 from txdav.xml.parser import WebDAVDocument
 
@@ -323,11 +322,6 @@ class UpgradeTests(StoreTestCase):
             ".calendarserver_version" : {
                 "@contents" : "2",
             },
-            MailGatewayTokensDatabase.dbFilename : {"@contents" : None},
-            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) : {
-                "@contents" : None,
-                "@optional" : True,
-            },
         }
 
         (yield self.verifyDirectoryComparison(before, after))
@@ -467,15 +461,6 @@ class UpgradeTests(StoreTestCase):
             {
                 "@contents" : None,
             },
-            MailGatewayTokensDatabase.dbFilename :
-            {
-                "@contents" : None,
-            },
-            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
-            {
-                "@contents" : None,
-                "@optional" : True,
-            },
         }
 
         (yield self.verifyDirectoryComparison(before, after, reverify=True))
@@ -536,15 +521,6 @@ class UpgradeTests(StoreTestCase):
             NEWPROXYFILE :
             {
                 "@contents" : None,
-            },
-            MailGatewayTokensDatabase.dbFilename :
-            {
-                "@contents" : None,
-            },
-            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
-            {
-                "@contents" : None,
-                "@optional" : True,
             },
         }
 
@@ -621,15 +597,6 @@ class UpgradeTests(StoreTestCase):
             NEWPROXYFILE :
             {
                 "@contents" : None,
-            },
-            MailGatewayTokensDatabase.dbFilename :
-            {
-                "@contents" : None,
-            },
-            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
-            {
-                "@contents" : None,
-                "@optional" : True,
             },
         }
 
@@ -713,15 +680,6 @@ class UpgradeTests(StoreTestCase):
             NEWPROXYFILE :
             {
                 "@contents" : None,
-            },
-            MailGatewayTokensDatabase.dbFilename :
-            {
-                "@contents" : None,
-            },
-            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
-            {
-                "@contents" : None,
-                "@optional" : True,
             },
         }
 
@@ -823,15 +781,6 @@ class UpgradeTests(StoreTestCase):
             {
                 "@contents" : None,
             },
-            MailGatewayTokensDatabase.dbFilename :
-            {
-                "@contents" : None,
-            },
-            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
-            {
-                "@contents" : None,
-                "@optional" : True,
-            },
         }
 
         (yield self.verifyDirectoryComparison(before, after, reverify=True))
@@ -931,15 +880,6 @@ class UpgradeTests(StoreTestCase):
             NEWPROXYFILE :
             {
                 "@contents" : None,
-            },
-            MailGatewayTokensDatabase.dbFilename :
-            {
-                "@contents" : None,
-            },
-            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
-            {
-                "@contents" : None,
-                "@optional" : True,
             },
         }
 
@@ -1058,15 +998,6 @@ class UpgradeTests(StoreTestCase):
             {
                 "@contents" : None,
             },
-            MailGatewayTokensDatabase.dbFilename :
-            {
-                "@contents" : None,
-            },
-            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
-            {
-                "@contents" : None,
-                "@optional" : True,
-            },
         }
 
         (yield self.verifyDirectoryComparison(before, after, reverify=True))
@@ -1184,15 +1115,6 @@ class UpgradeTests(StoreTestCase):
             {
                 "@contents" : None,
             },
-            MailGatewayTokensDatabase.dbFilename :
-            {
-                "@contents" : None,
-            },
-            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
-            {
-                "@contents" : None,
-                "@optional" : True,
-            },
         }
 
         (yield self.verifyDirectoryComparison(before, after))
@@ -1285,15 +1207,6 @@ class UpgradeTests(StoreTestCase):
             {
                 "@contents" : None,
             },
-            MailGatewayTokensDatabase.dbFilename :
-            {
-                "@contents" : None,
-            },
-            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
-            {
-                "@contents" : None,
-                "@optional" : True,
-            },
         }
 
         (yield self.verifyDirectoryComparison(before, after))
@@ -1379,15 +1292,6 @@ class UpgradeTests(StoreTestCase):
             NEWPROXYFILE :
             {
                 "@contents" : None,
-            },
-            MailGatewayTokensDatabase.dbFilename :
-            {
-                "@contents" : None,
-            },
-            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
-            {
-                "@contents" : None,
-                "@optional" : True,
             },
         }
 
