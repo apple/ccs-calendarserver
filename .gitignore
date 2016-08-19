@@ -7,10 +7,10 @@ build/
 dropin.cache
 *~
 *.lock
-.develop/
-bin/calendarserver_*
-calendarserver/version.py
-conf/caldavd-dev.plist
-data/
-subprojects/
-_run/
+/.develop/
+/data/
+/bin/calendarserver_*
+/calendarserver/version.py
+/conf/caldavd-dev.plist
+/subprojects/
+/_run/

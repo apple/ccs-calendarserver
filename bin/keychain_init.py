@@ -25,7 +25,8 @@ identity_preference = "org.calendarserver.test"
 certname_regex = re.compile(r'"alis"<blob>="(.*)"')
 
 certificate_name = "localhost"
-certificate_file = "./twistedcaldav/test/data/server.pem"
+identity_file = "./twistedcaldav/test/data/server.pem"
+certificate_file = "./twistedcaldav/test/data/cert.pem"
 
 def identityExists():
     child = Popen(
@@ -90,11 +91,11 @@ def certificateExists():
 
 
 
-def certificateImport():
+def certificateImport(importFile):
     child = Popen(
         args=[
             "/usr/bin/security", "import",
-            certificate_file,
+            importFile,
             "-k", "login.keychain",
             "-A",
         ],
@@ -106,6 +107,26 @@ def certificateImport():
         raise RuntimeError(error if error else output)
     else:
         print("Imported certificate '{}'".format(certificate_name))
+        return True
+
+
+
+def certificateTrust():
+    child = Popen(
+        args=[
+            "/usr/bin/security", "add-trusted-cert",
+            "-p", "ssl",
+            "-p", "basic",
+            certificate_file,
+        ],
+        stdout=PIPE, stderr=STDOUT,
+    )
+    output, error = child.communicate()
+
+    if child.returncode:
+        raise RuntimeError(error if error else output)
+    else:
+        print("Trusted certificate '{}'".format(certificate_name))
         return True
 
 
@@ -135,7 +156,13 @@ if __name__ == '__main__':
 
         # Check for certificate and import if not present
         if not certificateExists():
-            certificateImport()
+            try:
+                # Try cert + pkey first
+                certificateImport(identity_file)
+            except RuntimeError:
+                # Try just the cert
+                certificateImport(certificate_file)
+            certificateTrust()
 
         # Create the identity
         identityCreate()
