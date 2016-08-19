@@ -132,14 +132,14 @@ def version():
         except ValueError:
             project = project_version
             version = "Unknown"
-        assert project == project_name, (
-            "Tagged project {!r} != {!r}".format(project, project_name)
-        )
-        assert version == base_version, (
-            "Tagged version {!r} != {!r}".format(version, base_version)
-        )
-        # This is a correctly tagged release of this project.
-        return base_version
+
+        # Only process tags with our project name prefix
+        if project == project_name:
+            assert version == base_version, (
+                "Tagged version {!r} != {!r}".format(version, base_version)
+            )
+            # This is a correctly tagged release of this project.
+            return base_version
 
     if info["branch"].startswith("release/"):
         project_version = info["branch"][len("release/"):]
