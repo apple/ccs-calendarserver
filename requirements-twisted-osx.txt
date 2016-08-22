@@ -6,9 +6,9 @@ Twisted==15.4.0
     #zope.interface
     pycrypto==2.6.1
 
-    --editable git+https://github.com/apple/ccs-pyosxframeworks.git@839029002ee90df45efb294df3457aa75c3d965f#egg=osxframeworks
+    --editable git+https://github.com/apple/ccs-pyosxframeworks.git@b2da3be8bd1e4be4444ebbf03aa6f15c205f3fc9#egg=osxframeworks
         #cffi==1.3.0
         #    pycparser==2.14
 
-    --editable git+https://github.com/apple/ccs-pysecuretransport.git@a9e780a2102229b1799d471754b2f80c1bb43276#egg=pysecuretransport
+    --editable git+https://github.com/apple/ccs-pysecuretransport.git@ac84863b8a5d30031a11fca42c37ef99ea879bda#egg=pysecuretransport
 
