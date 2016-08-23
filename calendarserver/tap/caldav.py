@@ -806,8 +806,8 @@ class CalDAVServiceMaker (object):
                 execName = ""
 
             setproctitle(
-                "CalendarServer {} [{}{}] {}"
-                .format(version, config.ProcessType, logID, execName)
+                "CalendarServer {}{} {}"
+                .format(config.ProcessType, logID, execName)
             )
 
         serviceMethod = getattr(
