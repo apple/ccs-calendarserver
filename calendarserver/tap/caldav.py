@@ -139,7 +139,6 @@ TWISTED_VERSION = "CalendarServer/{} {}".format(
 log = Logger()
 
 
-
 # Control socket message-routing constants.
 _LOG_ROUTE = "log"
 _QUEUE_ROUTE = "queue"
@@ -153,7 +152,6 @@ def getid(uid, gid):
     if gid is not None:
         gid = gidFromString(gid)
     return (uid, gid)
-
 
 
 def conflictBetweenIPv4AndIPv6():
@@ -183,7 +181,6 @@ def conflictBetweenIPv4AndIPv6():
     finally:
         s4.close()
         s6.close()
-
 
 
 def _computeEnvVars(parent):
@@ -217,7 +214,6 @@ def _computeEnvVars(parent):
 PARENT_ENVIRONMENT = _computeEnvVars(environ)
 
 
-
 class ErrorLoggingMultiService(MultiService, object):
     """ Registers a rotating file logger for error logging, if
         config.ErrorLogEnabled is True. """
@@ -247,7 +243,6 @@ class ErrorLoggingMultiService(MultiService, object):
         self.logRotateOnStart = logRotateOnStart
         self.name = "elms"
 
-
     def setServiceParent(self, app):
         MultiService.setServiceParent(self, app)
 
@@ -275,7 +270,6 @@ class ErrorLoggingMultiService(MultiService, object):
         app.setComponent(ILogObserver, errorLogObserver)
 
 
-
 class CalDAVService (ErrorLoggingMultiService):
 
     # The ConnectionService is a MultiService which bundles all the connection
@@ -295,11 +289,9 @@ class CalDAVService (ErrorLoggingMultiService):
         )
         self.name = "cds"
 
-
     def privilegedStartService(self):
         MultiService.privilegedStartService(self)
         self.logObserver.start()
-
 
     @inlineCallbacks
     def stopService(self):
@@ -317,7 +309,6 @@ class CalDAVService (ErrorLoggingMultiService):
         self.logObserver.stop()
 
 
-
 class CalDAVOptions (Options):
     log = Logger()
 
@@ -331,7 +322,6 @@ class CalDAVOptions (Options):
         super(CalDAVOptions, self).__init__(*args, **kwargs)
 
         self.overrides = {}
-
 
     @staticmethod
     def coerceOption(configDict, key, value):
@@ -358,7 +348,6 @@ class CalDAVOptions (Options):
 
         return value
 
-
     @classmethod
     def setOverride(cls, configDict, path, value, overrideDict):
         """
@@ -384,7 +373,6 @@ class CalDAVOptions (Options):
                 value, overrideDict[key]
             )
 
-
     def opt_option(self, option):
         """
         Set an option to override a value in the config file. True, False, int,
@@ -405,7 +393,6 @@ class CalDAVOptions (Options):
 
     opt_o = opt_option
 
-
     def postOptions(self):
         try:
             if geteuid() == 0:
@@ -415,7 +402,6 @@ class CalDAVOptions (Options):
         except ConfigurationError, e:
             print("Invalid configuration:", e)
             sys.exit(1)
-
 
     def waitForServerRoot(self):
         """
@@ -429,7 +415,6 @@ class CalDAVOptions (Options):
                 access=W_OK,
                 wait=True  # Wait in a loop until ServerRoot exists
             )
-
 
     def loadConfiguration(self):
         if not exists(self["config"]):
@@ -451,10 +436,8 @@ class CalDAVOptions (Options):
 
         config.updateDefaults(self.overrides)
 
-
     def checkDirectories(self, config):
         checkDirectories(config)
-
 
     def checkConfiguration(self):
 
@@ -491,7 +474,6 @@ class CalDAVOptions (Options):
         self.parent["umask"] = config.umask
 
 
-
 class GroupOwnedUNIXServer(UNIXServer, object):
     """
     A L{GroupOwnedUNIXServer} is a L{UNIXServer} which changes the group
@@ -499,10 +481,10 @@ class GroupOwnedUNIXServer(UNIXServer, object):
 
     @ivar gid: the group ID which should own the socket after it is bound.
     """
+
     def __init__(self, gid, *args, **kw):
         super(GroupOwnedUNIXServer, self).__init__(*args, **kw)
         self.gid = gid
-
 
     def privilegedStartService(self):
         """
@@ -513,7 +495,6 @@ class GroupOwnedUNIXServer(UNIXServer, object):
         # Unfortunately, there's no public way to access this. -glyph
         fileName = self._port.port
         chown(fileName, getuid(), self.gid)
-
 
 
 class SlaveSpawnerService(Service):
@@ -536,7 +517,6 @@ class SlaveSpawnerService(Service):
         self.configPath = configPath
         self.inheritFDs = inheritFDs
         self.inheritSSLFDs = inheritSSLFDs
-
 
     def startService(self):
 
@@ -585,7 +565,6 @@ class SlaveSpawnerService(Service):
             self.monitor._reactor.callLater(5, self.stats.makeDirectoryProxyClient)
 
 
-
 class WorkSchedulingService(Service):
     """
     A Service to kick off the initial scheduling of periodic work items.
@@ -605,12 +584,10 @@ class WorkSchedulingService(Service):
         self.doGroupCaching = doGroupCaching
         self.doPrincipalPurging = doPrincipalPurging
 
-
     def startService(self):
         # Do the actual DB work after the reactor has started up
         from twisted.internet import reactor
         reactor.callWhenRunning(self.initializeWork)
-
 
     @inlineCallbacks
     def initializeWork(self):
@@ -646,7 +623,6 @@ class WorkSchedulingService(Service):
             self.store,
             int(config.LogID) if config.LogID else 5
         )
-
 
 
 class PreProcessingService(Service):
@@ -686,7 +662,6 @@ class PreProcessingService(Service):
             from twisted.internet import reactor
         self.reactor = reactor
 
-
     def stepWithResult(self, result):
         """
         The final "step"; if we get here we know our store is ready, so
@@ -699,7 +674,6 @@ class PreProcessingService(Service):
         if self.parent is not None:
             self.reactor.callLater(0, service.setServiceParent, self.parent)
         return succeed(None)
-
 
     def stepWithFailure(self, failure):
         """
@@ -740,7 +714,6 @@ class PreProcessingService(Service):
 
         return succeed(None)
 
-
     def addStep(self, step):
         """
         Hand the step to our Stepper
@@ -749,7 +722,6 @@ class PreProcessingService(Service):
         """
         self.stepper.addStep(step)
         return self
-
 
     def startService(self):
         """
@@ -760,12 +732,10 @@ class PreProcessingService(Service):
         self.stepper.start()
 
 
-
 class StoreNotAvailable(Exception):
     """
     Raised when we want to give up because the store is not available
     """
-
 
 
 class CalDAVServiceMaker (object):
@@ -776,7 +746,6 @@ class CalDAVServiceMaker (object):
     tapname = "caldav"
     description = "Calendar and Contacts Server"
     options = CalDAVOptions
-
 
     def makeService(self, options):
         """
@@ -871,7 +840,6 @@ class CalDAVServiceMaker (object):
                 self._makeManhole(namespace=namespace, parent=service)
             return service
 
-
     def createContextFactory(self):
         """
         Create an SSL context factory for use with any SSL socket talking to
@@ -890,7 +858,6 @@ class CalDAVServiceMaker (object):
             clientCACertFileNames=config.Authentication.ClientCertificate.CAFiles,
             sendCAsToClient=config.Authentication.ClientCertificate.SendCAsToClient,
         )
-
 
     def makeService_Slave(self, options):
         """
@@ -923,6 +890,7 @@ class CalDAVServiceMaker (object):
         controlSocketClient = ControlSocket()
 
         class LogClient(AMP):
+
             def startReceivingBoxes(self, sender):
                 super(LogClient, self).startReceivingBoxes(sender)
                 logObserver.addClient(self)
@@ -1000,7 +968,6 @@ class CalDAVServiceMaker (object):
 
         store.callWithNewTransactions(decorateTransaction)
         return result
-
 
     def requestProcessingService(self, options, store, logObserver):
         """
@@ -1209,7 +1176,6 @@ class CalDAVServiceMaker (object):
         log.levels().setLogLevelForNamespace(None, oldLogLevel)
         return service
 
-
     def _validatePortConfig(self):
         """
         If BindHTTPPorts is specified, HTTPPort must also be specified to
@@ -1235,7 +1201,6 @@ class CalDAVServiceMaker (object):
         elif config.SSLPort != 0:
             config.BindSSLPorts = [config.SSLPort]
 
-
     def _allBindAddresses(self):
         """
         An empty array for the config value of BindAddresses should be
@@ -1255,7 +1220,6 @@ class CalDAVServiceMaker (object):
             else:
                 config.BindAddresses = [""]
         return config.BindAddresses
-
 
     def _spawnMemcached(self, monitor=None):
         """
@@ -1293,7 +1257,6 @@ class CalDAVServiceMaker (object):
                     )
                 else:
                     Popen(memcachedArgv)
-
 
     def _makeManhole(self, namespace=None, parent=None):
         try:
@@ -1346,7 +1309,6 @@ class CalDAVServiceMaker (object):
                         "Set Manhole.UseSSH to false or rebuild CS with the "
                         "USE_OPENSSL environment variable set."
                     )
-
 
     def makeService_Single(self, options):
         """
@@ -1467,7 +1429,6 @@ class CalDAVServiceMaker (object):
             slaveSvcCreator, logObserver, uid=uid, gid=gid
         )
 
-
     def makeService_Utility(self, options):
         """
         Create a service to be used in a command-line utility
@@ -1483,7 +1444,6 @@ class CalDAVServiceMaker (object):
         return self.storageService(
             toolServiceCreator, None, uid=uid, gid=gid
         )
-
 
     def makeService_Agent(self, options):
         """
@@ -1539,7 +1499,6 @@ class CalDAVServiceMaker (object):
         svc.setName("agent")
         svc.setServiceParent(agentLoggingService)
         return agentLoggingService
-
 
     def storageService(
         self, createMainService, logObserver, uid=None, gid=None
@@ -1704,7 +1663,6 @@ class CalDAVServiceMaker (object):
         else:
             store = storeFromConfig(config, None, None)
             return createMainService(None, store, logObserver, None)
-
 
     def makeService_Combined(self, options):
         """
@@ -1892,7 +1850,6 @@ class CalDAVServiceMaker (object):
             statsService.setName("tcp-stats")
             statsService.setServiceParent(s)
 
-
         # Finally, let's get the real show on the road.  Create a service that
         # will spawn all of our worker processes when started, and wrap that
         # service in zero to two necessary layers before it's started: first,
@@ -1988,7 +1945,6 @@ class CalDAVServiceMaker (object):
         ssvc.setServiceParent(s)
         return s
 
-
     def deleteStaleSocketFiles(self):
 
         # Check all socket files we use.
@@ -2027,7 +1983,6 @@ class CalDAVServiceMaker (object):
                             socket=checkSocket
                         )
                         remove(checkSocket)
-
 
 
 class TwistdSlaveProcess(object):
@@ -2093,7 +2048,6 @@ class TwistdSlaveProcess(object):
         self.ampSQLDispenser = ampSQLDispenser
         self.ampDBSocket = None
 
-
     def starting(self):
         """
         Called when the process is being started (or restarted). Allows for
@@ -2108,7 +2062,6 @@ class TwistdSlaveProcess(object):
         if self.metaSocket is not None:
             self.metaSocket.start()
 
-
     def stopped(self):
         """
         Called when the process has stopped (died). The socket is marked as
@@ -2120,10 +2073,8 @@ class TwistdSlaveProcess(object):
         if self.metaSocket is not None:
             self.metaSocket.stop()
 
-
     def getName(self):
         return "{}-{}".format(self.prefix, self.id)
-
 
     def getFileDescriptors(self):
         """
@@ -2156,7 +2107,6 @@ class TwistdSlaveProcess(object):
         for fd in self.inheritSSLFDs + self.inheritFDs + extraFDs:
             fds[fd] = fd
         return fds
-
 
     def getCommandLine(self):
         """
@@ -2222,7 +2172,6 @@ class TwistdSlaveProcess(object):
         return args
 
 
-
 class ControlPortTCPServer(TCPServer):
     """ This TCPServer retrieves the port number that was actually assigned
         when the service was started, and stores that into config.ControlPort
@@ -2232,7 +2181,6 @@ class ControlPortTCPServer(TCPServer):
         TCPServer.startService(self)
         # Record the port we were actually assigned
         config.ControlPort = self._port.getHost().port
-
 
 
 class DelayedStartupProcessMonitor(Service, object):
@@ -2279,7 +2227,6 @@ class DelayedStartupProcessMonitor(Service, object):
         else:
             self.delayInterval = 0
 
-
     def addProcess(self, name, args, uid=None, gid=None, env={}):
         """
         Add a new monitored process and start it immediately if the
@@ -2324,7 +2271,6 @@ class DelayedStartupProcessMonitor(Service, object):
 
         self.addProcessObject(SimpleProcessObject(), env, uid, gid)
 
-
     def addProcessObject(self, process, env, uid=None, gid=None):
         """
         Add a process object to be run when this service is started.
@@ -2340,7 +2286,6 @@ class DelayedStartupProcessMonitor(Service, object):
         if self.running:
             self.startProcess(name)
 
-
     def startService(self):
         # Now we're ready to build the command lines and actually add the
         # processes to procmon.
@@ -2349,7 +2294,6 @@ class DelayedStartupProcessMonitor(Service, object):
         # OrderedDict
         for name in self.processes:
             self.startProcess(name)
-
 
     def stopService(self):
         """
@@ -2372,7 +2316,6 @@ class DelayedStartupProcessMonitor(Service, object):
             self.stopProcess(name)
         return gatherResults(self.deferreds.values())
 
-
     def removeProcess(self, name):
         """
         Stop the named process and remove it from the list of monitored
@@ -2383,7 +2326,6 @@ class DelayedStartupProcessMonitor(Service, object):
         """
         self.stopProcess(name)
         del self.processes[name]
-
 
     def stopProcess(self, name):
         """
@@ -2403,7 +2345,6 @@ class DelayedStartupProcessMonitor(Service, object):
                 self.murder[name] = self._reactor.callLater(
                     self.killTime, self._forceStopProcess, proc
                 )
-
 
     def processEnded(self, name):
         """
@@ -2445,7 +2386,6 @@ class DelayedStartupProcessMonitor(Service, object):
             if deferred is not None:
                 deferred.callback(None)
 
-
     def _forceStopProcess(self, proc):
         """
         @param proc: An L{IProcessTransport} provider
@@ -2454,7 +2394,6 @@ class DelayedStartupProcessMonitor(Service, object):
             proc.signalProcess('KILL')
         except ProcessExitedAlready:
             pass
-
 
     def signalAll(self, signal, startswithname=None):
         """
@@ -2469,7 +2408,6 @@ class DelayedStartupProcessMonitor(Service, object):
         for name in self.processes.keys():
             if startswithname is None or name.startswith(startswithname):
                 self.signalProcess(signal, name)
-
 
     def signalProcess(self, signal, name):
         """
@@ -2488,7 +2426,6 @@ class DelayedStartupProcessMonitor(Service, object):
             proc.signalProcess(signal)
         except ProcessExitedAlready:
             pass
-
 
     def reallyStartProcess(self, name):
         """
@@ -2535,7 +2472,6 @@ class DelayedStartupProcessMonitor(Service, object):
 
         self._reactor.callLater(interval, delayedStart)
 
-
     def restartAll(self):
         """
         Restart all processes. This is useful for third party management
@@ -2545,7 +2481,6 @@ class DelayedStartupProcessMonitor(Service, object):
         """
         for name in self.processes:
             self.stopProcess(name)
-
 
     def __repr__(self):
         l = []
@@ -2567,7 +2502,6 @@ class DelayedStartupProcessMonitor(Service, object):
         )
 
 
-
 class DelayedStartupLineLogger(object):
     """
     A line logger that can handle very long lines.
@@ -2584,7 +2518,6 @@ class DelayedStartupLineLogger(object):
         Ignore this IProtocol method, since I don't need a transport.
         """
         pass
-
 
     def dataReceived(self, data):
         lines = (self._buffer + data).split("\n")
@@ -2605,12 +2538,10 @@ class DelayedStartupLineLogger(object):
         else:
             self._buffer = lastLine
 
-
     def lineReceived(self, line):
         # Hand off slave log entry to logging system as critical to ensure it is always
         # displayed (as the slave will have filtered out unwanted entries itself).
         log.critical("{msg}", msg=line, log_system=self.tag, isError=False)
-
 
     def lineLengthExceeded(self, line):
         """
@@ -2620,7 +2551,6 @@ class DelayedStartupLineLogger(object):
         segments = self._breakLineIntoSegments(line)
         for segment in segments:
             self.lineReceived(segment)
-
 
     def _breakLineIntoSegments(self, line):
         """
@@ -2651,7 +2581,6 @@ class DelayedStartupLineLogger(object):
         return segments
 
 
-
 class DelayedStartupLoggingProtocol(ProcessProtocol):
     """
     Logging protocol that handles lines which are too long.
@@ -2670,13 +2599,11 @@ class DelayedStartupLoggingProtocol(ProcessProtocol):
         self.output.makeConnection(self.transport)
         self.output.tag = self.name
 
-
     def outReceived(self, data):
         self.output.dataReceived(data)
         self.empty = data[-1] == '\n'
 
     errReceived = outReceived
-
 
     def processEnded(self, reason):
         """
@@ -2685,7 +2612,6 @@ class DelayedStartupLoggingProtocol(ProcessProtocol):
         if not self.empty:
             self.output.dataReceived('\n')
         self.service.processEnded(self.name)
-
 
 
 def getSystemIDs(userName, groupName):
@@ -2725,7 +2651,6 @@ def getSystemIDs(userName, groupName):
     return uid, gid
 
 
-
 class DataStoreMonitor(object):
     implements(IDirectoryChangeListenee)
 
@@ -2737,21 +2662,17 @@ class DataStoreMonitor(object):
         self._reactor = reactor
         self._storageService = storageService
 
-
     def disconnected(self):
         self._storageService.hardStop()
         self._reactor.stop()
-
 
     def deleted(self):
         self._storageService.hardStop()
         self._reactor.stop()
 
-
     def renamed(self):
         self._storageService.hardStop()
         self._reactor.stop()
-
 
     def connectionLost(self, reason):
         pass

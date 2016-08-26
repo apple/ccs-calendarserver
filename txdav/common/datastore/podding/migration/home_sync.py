@@ -41,6 +41,7 @@ log = Logger()
 ACCOUNTING_TYPE = "migration"
 ACCOUNTING_LOG = "migration.log"
 
+
 def inTransactionWrapper(operation):
     """
     This wrapper converts an instance method that takes a transaction as its
@@ -86,7 +87,6 @@ def inTransactionWrapper(operation):
     return _inTxn
 
 
-
 # Cross-pod synchronization of an entire calendar home
 class CrossPodHomeSync(object):
 
@@ -112,16 +112,13 @@ class CrossPodHomeSync(object):
         self.record = None
         self.homeId = None
 
-
     def label(self, detail):
         return "Cross-pod Migration Sync for {}: {}".format(self.diruid, detail)
-
 
     def accounting(self, logstr):
         emitAccounting(ACCOUNTING_TYPE, self.record, "{} {}\n".format(datetime.datetime.now().isoformat(), logstr), filename=ACCOUNTING_LOG)
         if self.uselog is not None:
             self.uselog.write("CrossPodHomeSync: {}\n".format(logstr))
-
 
     @inlineCallbacks
     def migrateHere(self):
@@ -160,7 +157,6 @@ class CrossPodHomeSync(object):
         # Step 8 - say phew! TODO: Actually alert everyone else
         pass
 
-
     @inlineCallbacks
     def sync(self):
         """
@@ -183,7 +179,6 @@ class CrossPodHomeSync(object):
         yield self.syncAttachments()
 
         self.accounting("Completed: sync.\n")
-
 
     @inlineCallbacks
     def finalSync(self):
@@ -223,7 +218,6 @@ class CrossPodHomeSync(object):
 
         self.accounting("Completed: finalSync.\n")
 
-
     @inTransactionWrapper
     @inlineCallbacks
     def disableRemoteHome(self, txn):
@@ -250,7 +244,6 @@ class CrossPodHomeSync(object):
         self.disabledRemote = True
 
         self.accounting("Completed: disableRemoteHome.\n")
-
 
     @inTransactionWrapper
     @inlineCallbacks
@@ -298,7 +291,6 @@ class CrossPodHomeSync(object):
 
         self.accounting("Completed: enableLocalHome.\n")
 
-
     @inlineCallbacks
     def removeRemoteHome(self):
         """
@@ -315,14 +307,12 @@ class CrossPodHomeSync(object):
 
         self.accounting("Completed: removeRemoteHome.\n")
 
-
     @inTransactionWrapper
     def _migratedHome(self, txn):
         """
         Send cross-pod message to tell the old pod to remove the migrated data.
         """
         return txn.store().conduit.send_migrated_home(txn, self.diruid)
-
 
     @inlineCallbacks
     def loadRecord(self):
@@ -336,7 +326,6 @@ class CrossPodHomeSync(object):
                 raise DirectoryRecordNotFoundError("Cross-pod Migration Sync missing directory record for {}".format(self.diruid))
             if self.record.thisServer():
                 raise ValueError("Cross-pod Migration Sync cannot sync with user already on this server: {}".format(self.diruid))
-
 
     @inTransactionWrapper
     @inlineCallbacks
@@ -354,7 +343,6 @@ class CrossPodHomeSync(object):
                     home = yield txn.calendarHomeWithUID(self.diruid, status=_HOME_STATUS_MIGRATING, create=True)
                     self.accounting("  Created new home collection to migrate into.")
             self.homeId = home.id() if home is not None else None
-
 
     @inTransactionWrapper
     @inlineCallbacks
@@ -375,7 +363,6 @@ class CrossPodHomeSync(object):
 
         self.accounting("Completed: syncCalendarHomeMetaData.")
 
-
     @inlineCallbacks
     def _remoteHome(self, txn):
         """
@@ -389,7 +376,6 @@ class CrossPodHomeSync(object):
             home._migratingHome = True
         returnValue(home)
 
-
     @inlineCallbacks
     def _remoteNotificationsHome(self, txn):
         """
@@ -401,14 +387,12 @@ class CrossPodHomeSync(object):
             notifications._migratingHome = True
         returnValue(notifications)
 
-
     def _localHome(self, txn):
         """
         Get the home on this pod that will have data migrated to it.
         """
 
         return txn.calendarHomeWithUID(self.diruid, status=_HOME_STATUS_MIGRATING)
-
 
     @inlineCallbacks
     def syncCalendarList(self):
@@ -435,7 +419,6 @@ class CrossPodHomeSync(object):
 
         self.accounting("Completed: syncCalendarList.")
 
-
     @inTransactionWrapper
     @inlineCallbacks
     def getCalendarSyncList(self, txn):
@@ -461,7 +444,6 @@ class CrossPodHomeSync(object):
 
         returnValue(results)
 
-
     @inTransactionWrapper
     @inlineCallbacks
     def getSyncState(self, txn):
@@ -472,7 +454,6 @@ class CrossPodHomeSync(object):
             txn, calendarHomeResourceID=self.homeId
         )
         returnValue(dict([(record.remoteResourceID, record) for record in records]))
-
 
     @inTransactionWrapper
     @inlineCallbacks
@@ -489,7 +470,6 @@ class CrossPodHomeSync(object):
             stateRecord = stateRecord.duplicate()
             stateRecord.transaction = txn
             yield stateRecord.update(lastSyncToken=newSyncToken)
-
 
     @inTransactionWrapper
     @inlineCallbacks
@@ -511,7 +491,6 @@ class CrossPodHomeSync(object):
                 yield calendar.purge()
             del local_sync_state[localID]
             self.accounting("  Purged calendar local-id={} that no longer exists on the remote pod.".format(localID))
-
 
     @inlineCallbacks
     def syncCalendar(self, remoteID, local_sync_state, remote_sync_state):
@@ -558,7 +537,6 @@ class CrossPodHomeSync(object):
         yield self.updateSyncState(local_record, remote_token)
         self.accounting("Completed: syncCalendar.")
 
-
     @inTransactionWrapper
     @inlineCallbacks
     def newCalendar(self, txn):
@@ -570,7 +548,6 @@ class CrossPodHomeSync(object):
         home = yield self._localHome(txn)
         calendar = yield home.createChildWithName(str(uuid4()))
         returnValue(calendar.id())
-
 
     @inTransactionWrapper
     @inlineCallbacks
@@ -593,7 +570,6 @@ class CrossPodHomeSync(object):
         local_calendar = yield local_home.childWithID(migrationRecord.localResourceID)
         yield local_calendar.copyMetadata(remote_calendar)
         self.accounting("  Copied calendar meta-data for calendar local-id={0.localResourceID}, remote-id={0.remoteResourceID}.".format(migrationRecord))
-
 
     @inTransactionWrapper
     @inlineCallbacks
@@ -634,7 +610,6 @@ class CrossPodHomeSync(object):
 
         returnValue((actual_changes, deleted,))
 
-
     @inlineCallbacks
     def purgeDeletedObjectsInBatches(self, migrationRecord, deleted):
         """
@@ -652,7 +627,6 @@ class CrossPodHomeSync(object):
         while remaining:
             yield self.purgeBatch(migrationRecord.localResourceID, remaining[:self.BATCH_SIZE])
             del remaining[:self.BATCH_SIZE]
-
 
     @inTransactionWrapper
     @inlineCallbacks
@@ -677,7 +651,6 @@ class CrossPodHomeSync(object):
             yield local_object.purge(implicitly=False)
             self.accounting("  Purged calendar object local-id={}.".format(local_object.id()))
 
-
     @inlineCallbacks
     def updateChangedObjectsInBatches(self, migrationRecord, changed):
         """
@@ -699,7 +672,6 @@ class CrossPodHomeSync(object):
                 remaining[:self.BATCH_SIZE],
             )
             del remaining[:self.BATCH_SIZE]
-
 
     @inTransactionWrapper
     @inlineCallbacks
@@ -767,7 +739,6 @@ class CrossPodHomeSync(object):
             yield local_object.purge(implicitly=False)
             self.accounting("  Purged calendar object local-id={}.".format(local_object.id()))
 
-
     @inlineCallbacks
     def syncAttachments(self):
         """
@@ -786,7 +757,6 @@ class CrossPodHomeSync(object):
         self.accounting("Completed: syncAttachments.")
 
         returnValue((changed_ids, removed_ids,))
-
 
     @inTransactionWrapper
     @inlineCallbacks
@@ -845,7 +815,6 @@ class CrossPodHomeSync(object):
 
         returnValue((data_ids, removed,))
 
-
     @inTransactionWrapper
     @inlineCallbacks
     def syncAttachmentData(self, txn, local_id):
@@ -866,7 +835,6 @@ class CrossPodHomeSync(object):
             # Read the data from the conduit
             yield remote_home.readAttachmentData(records[0].remoteResourceID, attachment)
             self.accounting("  Read attachment local-id={0.localResourceID}, remote-id={0.remoteResourceID}".format(records[0]))
-
 
     @inlineCallbacks
     def linkAttachments(self):
@@ -893,7 +861,6 @@ class CrossPodHomeSync(object):
 
         returnValue(len_links)
 
-
     @inTransactionWrapper
     @inlineCallbacks
     def getAttachmentLinks(self, txn):
@@ -905,7 +872,6 @@ class CrossPodHomeSync(object):
         remote_home = yield self._remoteHome(txn)
         links = yield remote_home.getAttachmentLinks()
         returnValue(links)
-
 
     @inTransactionWrapper
     @inlineCallbacks
@@ -927,7 +893,6 @@ class CrossPodHomeSync(object):
 
         returnValue((attachmentIDMap, objectIDMap,))
 
-
     @inTransactionWrapper
     @inlineCallbacks
     def makeAttachmentLinks(self, txn, links, attachmentIDMap, objectIDMap):
@@ -945,7 +910,6 @@ class CrossPodHomeSync(object):
 
             yield link.insert()
 
-
     @inlineCallbacks
     def delegateReconcile(self):
         """
@@ -961,7 +925,6 @@ class CrossPodHomeSync(object):
 
         self.accounting("Completed: delegateReconcile.")
 
-
     @inTransactionWrapper
     @inlineCallbacks
     def individualDelegateReconcile(self, txn):
@@ -974,7 +937,6 @@ class CrossPodHomeSync(object):
             yield record.insert(txn)
 
         self.accounting("  Found {} individual delegates".format(len(remote_records)))
-
 
     @inTransactionWrapper
     @inlineCallbacks
@@ -992,7 +954,6 @@ class CrossPodHomeSync(object):
 
         self.accounting("  Found {} group delegates".format(len(remote_records)))
 
-
     @inTransactionWrapper
     @inlineCallbacks
     def externalDelegateReconcile(self, txn):
@@ -1005,7 +966,6 @@ class CrossPodHomeSync(object):
             yield record.insert(txn)
 
         self.accounting("  Found {} external delegates".format(len(remote_records)))
-
 
     @inlineCallbacks
     def groupAttendeeReconcile(self):
@@ -1029,7 +989,6 @@ class CrossPodHomeSync(object):
 
         returnValue(number_of_links)
 
-
     @inTransactionWrapper
     @inlineCallbacks
     def groupAttendeeData(self, txn):
@@ -1047,7 +1006,6 @@ class CrossPodHomeSync(object):
 
         returnValue((remote_group_attendees, objectIDMap,))
 
-
     @inTransactionWrapper
     @inlineCallbacks
     def groupAttendeeProcess(self, txn, results, objectIDMap):
@@ -1063,7 +1021,6 @@ class CrossPodHomeSync(object):
             except KeyError:
                 continue
             yield groupAttendee.insert(txn)
-
 
     @inlineCallbacks
     def notificationsReconcile(self):
@@ -1085,7 +1042,6 @@ class CrossPodHomeSync(object):
 
         returnValue(len_records)
 
-
     @inTransactionWrapper
     @inlineCallbacks
     def notificationRecords(self, txn):
@@ -1104,7 +1060,6 @@ class CrossPodHomeSync(object):
 
         returnValue(records)
 
-
     @inTransactionWrapper
     @inlineCallbacks
     def makeNotifications(self, txn, records):
@@ -1118,7 +1073,6 @@ class CrossPodHomeSync(object):
             # inserting the records directly.
             notification = yield notifications.writeNotificationObject(record.notificationUID, record.notificationType, record.notificationData)
             self.accounting("  Added notification local-id={}.".format(notification.id()))
-
 
     @inlineCallbacks
     def sharedByCollectionsReconcile(self):
@@ -1168,7 +1122,6 @@ class CrossPodHomeSync(object):
 
         returnValue(len_records)
 
-
     @inTransactionWrapper
     @inlineCallbacks
     def sharedByCollectionRecords(self, txn, remote_id, local_id):
@@ -1191,7 +1144,6 @@ class CrossPodHomeSync(object):
             yield local_records[0].update(bindUID=str(uuid4()))
 
         returnValue((records, local_records[0].bindUID,))
-
 
     @inTransactionWrapper
     @inlineCallbacks
@@ -1228,7 +1180,6 @@ class CrossPodHomeSync(object):
                 yield record.insert(txn)
                 self.accounting("    Adding new sharee {}".format(shareeHome.uid()))
 
-
     @inTransactionWrapper
     @inlineCallbacks
     def syncGroupSharees(self, txn, remote_id, local_id):
@@ -1246,7 +1197,6 @@ class CrossPodHomeSync(object):
             yield share.insert(txn)
             self.accounting("    Adding group sharee {}".format(local_group.groupUID))
 
-
     @inTransactionWrapper
     @inlineCallbacks
     def updatedRemoteSharedByCollections(self, txn, remote_id, bindUID):
@@ -1259,7 +1209,6 @@ class CrossPodHomeSync(object):
         records = yield remote_calendar.migrateBindRecords(bindUID)
         self.accounting("    Updating remote records")
         returnValue(records)
-
 
     @inlineCallbacks
     def sharedToCollectionsReconcile(self):
@@ -1293,7 +1242,6 @@ class CrossPodHomeSync(object):
 
         returnValue(len_records)
 
-
     @inTransactionWrapper
     @inlineCallbacks
     def sharedToCollectionRecords(self, txn):
@@ -1307,7 +1255,6 @@ class CrossPodHomeSync(object):
             returnValue(None)
         results = yield home.sharedToBindRecords()
         returnValue(results)
-
 
     @inTransactionWrapper
     @inlineCallbacks
@@ -1372,7 +1319,6 @@ class CrossPodHomeSync(object):
 
                 yield self.updatedRemoteSharedToCollection(remote_id, txn=txn)
 
-
     @inTransactionWrapper
     @inlineCallbacks
     def updatedRemoteSharedToCollection(self, txn, remote_id):
@@ -1385,7 +1331,6 @@ class CrossPodHomeSync(object):
         records = yield remote_calendar.migrateBindRecords(None)
         self.accounting("    Updating remote records")
         returnValue(records)
-
 
     @inlineCallbacks
     def iMIPTokensReconcile(self):
@@ -1407,7 +1352,6 @@ class CrossPodHomeSync(object):
 
         returnValue(len_records)
 
-
     @inTransactionWrapper
     @inlineCallbacks
     def iMIPTokenRecords(self, txn):
@@ -1419,7 +1363,6 @@ class CrossPodHomeSync(object):
         records = yield remote_home.iMIPTokens()
         returnValue(records)
 
-
     @inTransactionWrapper
     @inlineCallbacks
     def makeiMIPTokens(self, txn, records):
@@ -1429,7 +1372,6 @@ class CrossPodHomeSync(object):
 
         for record in records:
             yield record.insert(txn)
-
 
     @inlineCallbacks
     def workItemsReconcile(self):
@@ -1450,7 +1392,6 @@ class CrossPodHomeSync(object):
         self.accounting("Completed: workItemsReconcile.")
 
         returnValue(len_records)
-
 
     @inTransactionWrapper
     @inlineCallbacks
@@ -1475,7 +1416,6 @@ class CrossPodHomeSync(object):
                 mapping[item.remoteResourceID] = item.localResourceID
 
         returnValue((records, mapping,))
-
 
     @inTransactionWrapper
     @inlineCallbacks

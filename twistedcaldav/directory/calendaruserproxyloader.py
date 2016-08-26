@@ -50,9 +50,9 @@ class XMLCalendarUserProxyLoader(object):
     """
     XML calendar user proxy configuration file parser and loader.
     """
+
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.xmlFile)
-
 
     def __init__(self, xmlFile):
 
@@ -67,7 +67,6 @@ class XMLCalendarUserProxyLoader(object):
 
         # FIXME: RuntimeError is dumb.
         self._parseXML(proxies_node)
-
 
     def _parseXML(self, rootnode):
         """
@@ -107,12 +106,10 @@ class XMLCalendarUserProxyLoader(object):
             else:
                 self._buildRecord(guid, write_proxies, read_proxies)
 
-
     def _parseMembers(self, node, addto):
         for child in node:
             if child.tag == ELEMENT_MEMBER:
                 addto.add(child.text)
-
 
     def _buildRecord(self, guid, write_proxies, read_proxies, count=None):
 
@@ -129,7 +126,6 @@ class XMLCalendarUserProxyLoader(object):
 
         self.items.append((guid, write_proxies, read_proxies,))
 
-
     @inlineCallbacks
     def updateProxyDB(self, db):
         """
@@ -140,7 +136,6 @@ class XMLCalendarUserProxyLoader(object):
             guid, write_proxies, read_proxies = item
             yield db.setGroupMembers("%s#%s" % (guid, "calendar-proxy-write"), write_proxies)
             yield db.setGroupMembers("%s#%s" % (guid, "calendar-proxy-read"), read_proxies)
-
 
     @inlineCallbacks
     def updateProxyStore(self, store):

@@ -55,7 +55,6 @@ class ProvisionedPrincipals(StoreTestCase):
 
         self.principalRootResource = self.actualRoot.getChild("principals")
 
-
     @inlineCallbacks
     def test_hierarchy(self):
         """
@@ -167,7 +166,6 @@ class ProvisionedPrincipals(StoreTestCase):
                     )
                 )
 
-
     @inlineCallbacks
     def test_allRecords(self):
         """
@@ -178,7 +176,6 @@ class ProvisionedPrincipals(StoreTestCase):
         ) in (yield self._allRecords()):
             if True:  # user.enabled:
                 self.assertEquals(recordResource.record, record)
-
 
     ##
     # DirectoryPrincipalProvisioningResource
@@ -201,7 +198,6 @@ class ProvisionedPrincipals(StoreTestCase):
             else:
                 self.failIf(principal is not None)
 
-
     @inlineCallbacks
     def test_principalForUser(self):
         """
@@ -223,7 +219,6 @@ class ProvisionedPrincipals(StoreTestCase):
             else:
                 self.failIf(userResource is not None)
 
-
     @inlineCallbacks
     def test_principalForAuthID(self):
         """
@@ -244,7 +239,6 @@ class ProvisionedPrincipals(StoreTestCase):
             else:
                 self.failIf(userResource is not None)
 
-
     @inlineCallbacks
     def test_principalForUID(self):
         """
@@ -260,7 +254,6 @@ class ProvisionedPrincipals(StoreTestCase):
             else:
                 self.failIf(principal is not None)
 
-
     @inlineCallbacks
     def test_principalForRecord(self):
         """
@@ -275,7 +268,6 @@ class ProvisionedPrincipals(StoreTestCase):
                 self.assertEquals(record, principal.record)
             else:
                 self.failIf(principal is not None)
-
 
     @inlineCallbacks
     def test_principalForCalendarUserAddress(self):
@@ -349,7 +341,6 @@ class ProvisionedPrincipals(StoreTestCase):
             ),
             None
         )
-
 
     @inlineCallbacks
     def test_hasCalendars(self):
@@ -459,7 +450,6 @@ class ProvisionedPrincipals(StoreTestCase):
                     carddavxml.AddressBookHomeSet.qname()
                 )
 
-
     @inlineCallbacks
     def test_enabledAsOrganizer(self):
         """
@@ -505,7 +495,6 @@ class ProvisionedPrincipals(StoreTestCase):
                     recordType in ok_types
                 )
 
-
     # FIXME: Run DirectoryPrincipalProvisioningResource tests on
     # DirectoryPrincipalTypeProvisioningResource also
 
@@ -530,7 +519,6 @@ class ProvisionedPrincipals(StoreTestCase):
                     )
                 )
 
-
     @inlineCallbacks
     def test_displayName(self):
         """
@@ -540,7 +528,6 @@ class ProvisionedPrincipals(StoreTestCase):
             _ignore_provisioningResource, _ignore_recordType, recordResource, _ignore_record
         ) in (yield self._allRecords()):
             self.failUnless(recordResource.displayName())
-
 
     @inlineCallbacks
     def test_groupMembers(self):
@@ -556,7 +543,6 @@ class ProvisionedPrincipals(StoreTestCase):
                     set(r.record for r in members)
                 )
             )
-
 
     @inlineCallbacks
     def test_groupMemberships(self):
@@ -577,7 +563,6 @@ class ProvisionedPrincipals(StoreTestCase):
                     )
                 )
 
-
     @inlineCallbacks
     def test_principalUID(self):
         """
@@ -587,7 +572,6 @@ class ProvisionedPrincipals(StoreTestCase):
             _ignore_provisioningResource, _ignore_recordType, recordResource, record
         ) in (yield self._allRecords()):
             self.assertEquals(record.uid, recordResource.principalUID())
-
 
     @inlineCallbacks
     def test_calendarUserAddresses(self):
@@ -609,7 +593,6 @@ class ProvisionedPrincipals(StoreTestCase):
                 ] = False
                 self.failIf(recordResource.calendarUserAddresses())
 
-
     @inlineCallbacks
     def test_canonicalCalendarUserAddress(self):
         """
@@ -623,7 +606,6 @@ class ProvisionedPrincipals(StoreTestCase):
                     recordResource.canonicalCalendarUserAddress()
                     .startswith("urn:x-uid:")
                 )
-
 
     @inlineCallbacks
     def test_addressBookHomeURLs(self):
@@ -653,7 +635,6 @@ class ProvisionedPrincipals(StoreTestCase):
 
                 for homeURL in homeURLs:
                     self.failUnless(homeURL.startswith(addressBookRootURL))
-
 
     @inlineCallbacks
     def test_calendarHomeURLs(self):
@@ -736,7 +717,6 @@ class ProvisionedPrincipals(StoreTestCase):
                 self.failIf(inboxURL)
                 self.failIf(outboxURL)
 
-
     @inlineCallbacks
     def test_canAutoSchedule(self):
         """
@@ -797,7 +777,6 @@ class ProvisionedPrincipals(StoreTestCase):
             if record.hasCalendars:
                 self.assertFalse((yield recordResource.canAutoSchedule()))
 
-
     @inlineCallbacks
     def test_canAutoScheduleAutoAcceptGroup(self):
         """
@@ -837,7 +816,6 @@ class ProvisionedPrincipals(StoreTestCase):
             )
         )
 
-
     @inlineCallbacks
     def test_defaultAccessControlList_principals(self):
         """
@@ -853,7 +831,6 @@ class ProvisionedPrincipals(StoreTestCase):
                 )
             ):
                 yield self._checkPrivileges(*args)
-
 
     @inlineCallbacks
     def test_defaultAccessControlList_provisioners(self):
@@ -881,10 +858,10 @@ class ProvisionedPrincipals(StoreTestCase):
             ):
                 yield self._checkPrivileges(*args)
 
-
     def test_propertyToField(self):
 
         class stubElement(object):
+
             def __init__(self, ns, name):
                 self.ns = ns
                 self.name = name
@@ -958,7 +935,6 @@ class ProvisionedPrincipals(StoreTestCase):
                 (field, converted)
             )
 
-
     @inlineCallbacks
     def _allRecords(self):
         """
@@ -982,7 +958,6 @@ class ProvisionedPrincipals(StoreTestCase):
                     (provisioningResource, recordType, recordResource, record)
                 )
         returnValue(results)
-
 
     def _checkPrivileges(self, resource, url, principal, privilege, allowed):
         request = SimpleRequest(self.site, "GET", "/")
@@ -1018,7 +993,6 @@ class ProvisionedPrincipals(StoreTestCase):
         return d
 
 
-
 @inlineCallbacks
 def _authReadOnlyPrivileges(self, resource, url, records=None):
     items = []
@@ -1049,7 +1023,6 @@ def _authReadOnlyPrivileges(self, resource, url, records=None):
     returnValue(results)
 
 
-
 class ProxyPrincipals(StoreTestCase):
     """
     Directory service proxy principals.
@@ -1059,7 +1032,6 @@ class ProxyPrincipals(StoreTestCase):
         yield super(ProxyPrincipals, self).setUp()
 
         self.principalRootResource = self.actualRoot.getChild("principals")
-
 
     @inlineCallbacks
     def test_hideDisabledProxies(self):
@@ -1114,7 +1086,6 @@ class ProxyPrincipals(StoreTestCase):
 
         self.assertTrue(len((yield principal01.proxyFor(False))) == 0)
         self.assertTrue(len((yield principal01.proxyFor(True))) == 0)
-
 
     @inlineCallbacks
     def test_isProxyFor(self):
@@ -1171,7 +1142,6 @@ class ProxyPrincipals(StoreTestCase):
         proxies = yield principal03.proxyFor(True)
         self.assertEqual(proxies, set())
 
-
     @inlineCallbacks
     def test_proxyMode(self):
         """
@@ -1224,7 +1194,6 @@ class ProxyPrincipals(StoreTestCase):
         self.assertEqual(proxies, set())
         proxies = yield principal03.proxyFor(True)
         self.assertEqual(proxies, set())
-
 
     @inlineCallbacks
     def test_proxyFor(self):

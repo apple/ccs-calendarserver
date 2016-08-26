@@ -50,6 +50,7 @@ __all__ = [
 
 log = Logger()
 
+
 class ScheduleViaCalDAV(DeliveryService):
 
     def __init__(self, scheduler, recipients, responses, freebusy):
@@ -59,11 +60,9 @@ class ScheduleViaCalDAV(DeliveryService):
         self.responses = responses
         self.freebusy = freebusy
 
-
     @classmethod
     def serviceType(cls):
         return DeliveryService.serviceType_caldav
-
 
     @classmethod
     def matchCalendarUserAddress(cls, cuaddr):
@@ -88,7 +87,6 @@ class ScheduleViaCalDAV(DeliveryService):
         # Do default match
         return super(ScheduleViaCalDAV, cls).matchCalendarUserAddress(cuaddr)
 
-
     @inlineCallbacks
     def generateSchedulingResponses(self):
 
@@ -110,7 +108,6 @@ class ScheduleViaCalDAV(DeliveryService):
                 # Check access controls - we do not do this right now. But if we ever implement access controls to
                 # determine which users can schedule with other users, here is where we would do that test.
                 yield self.generateResponse(recipient, self.responses)
-
 
     @inlineCallbacks
     def generateResponse(self, recipient, responses):
@@ -190,7 +187,6 @@ class ScheduleViaCalDAV(DeliveryService):
             if self.scheduler.logItems is not None:
                 self.scheduler.logItems["itip.auto"] = self.scheduler.logItems.get("itip.auto", 0) + 1
         returnValue(True)
-
 
     @inlineCallbacks
     def generateFreeBusyResponse(self, recipient, responses, organizerProp, uid, event_details):

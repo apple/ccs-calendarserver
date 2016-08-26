@@ -97,7 +97,6 @@ def usage(e=None):
         sys.exit(0)
 
 
-
 class RunnerService(WorkerService):
     """
     A wrapper around Runner which uses utilityMain to get the store
@@ -114,11 +113,9 @@ class RunnerService(WorkerService):
         if runner.validate():
             yield runner.run()
 
-
     def doWorkWithoutStore(self):
         respondWithError("Database is not available")
         return succeed(None)
-
 
 
 def main():
@@ -159,7 +156,7 @@ def main():
     rawInput = sys.stdin.read()
     try:
         plist = readPlistFromString(rawInput)
-    except xml.parsers.expat.ExpatError, e: #@UndefinedVariable
+    except xml.parsers.expat.ExpatError, e:  # @UndefinedVariable
         respondWithError(str(e))
         return
 
@@ -174,7 +171,6 @@ def main():
     utilityMain(configFileName, RunnerService, verbose=debug)
 
 
-
 class Runner(object):
 
     def __init__(self, store, commands, output=None):
@@ -184,7 +180,6 @@ class Runner(object):
         if output is None:
             output = sys.stdout
         self.output = output
-
 
     def validate(self):
         # Make sure commands are valid
@@ -198,7 +193,6 @@ class Runner(object):
                 self.respondWithError("Unknown command '%s'" % (commandName,))
                 return False
         return True
-
 
     @inlineCallbacks
     def run(self):
@@ -224,13 +218,11 @@ class Runner(object):
             self.respondWithError("Command failed: '%s'" % (str(e),))
             raise
 
-
     # Locations
 
     # deferred
     def command_getLocationList(self, command):
         return self.respondWithRecordsOfTypes(self.dir, command, ["locations"])
-
 
     @inlineCallbacks
     def _saveRecord(self, typeName, recordType, command, oldFields=None):
@@ -325,18 +317,14 @@ class Runner(object):
 
         yield self.respondWithRecordsOfTypes(self.dir, command, [typeName])
 
-
     def command_createLocation(self, command):
         return self._saveRecord("locations", CalRecordType.location, command)
-
 
     def command_createResource(self, command):
         return self._saveRecord("resources", CalRecordType.resource, command)
 
-
     def command_createAddress(self, command):
         return self._saveRecord("addresses", CalRecordType.address, command)
-
 
     @inlineCallbacks
     def command_setLocationAttributes(self, command):
@@ -349,7 +337,6 @@ class Runner(object):
             oldFields=record.fields
         )
 
-
     @inlineCallbacks
     def command_setResourceAttributes(self, command):
         uid = command['GeneratedUID']
@@ -361,7 +348,6 @@ class Runner(object):
             oldFields=record.fields
         )
 
-
     @inlineCallbacks
     def command_setAddressAttributes(self, command):
         uid = command['GeneratedUID']
@@ -372,7 +358,6 @@ class Runner(object):
             command,
             oldFields=record.fields
         )
-
 
     @inlineCallbacks
     def command_getLocationAttributes(self, command):
@@ -396,30 +381,25 @@ class Runner(object):
     command_getResourceAttributes = command_getLocationAttributes
     command_getAddressAttributes = command_getLocationAttributes
 
-
     # Resources
 
     def command_getResourceList(self, command):
         return self.respondWithRecordsOfTypes(self.dir, command, ["resources"])
 
-
     # deferred
     def command_getLocationAndResourceList(self, command):
         return self.respondWithRecordsOfTypes(self.dir, command, ["locations", "resources"])
-
 
     # Addresses
 
     def command_getAddressList(self, command):
         return self.respondWithRecordsOfTypes(self.dir, command, ["addresses"])
 
-
     @inlineCallbacks
     def _delete(self, typeName, command):
         uid = command['GeneratedUID']
         yield self.dir.removeRecords([uid])
         yield self.respondWithRecordsOfTypes(self.dir, command, [typeName])
-
 
     @inlineCallbacks
     def command_deleteLocation(self, command):
@@ -430,7 +410,6 @@ class Runner(object):
 
         yield self._delete("locations", command)
 
-
     @inlineCallbacks
     def command_deleteResource(self, command):
         txn = self.store.newTransaction()
@@ -440,10 +419,8 @@ class Runner(object):
 
         yield self._delete("resources", command)
 
-
     def command_deleteAddress(self, command):
         return self._delete("addresses", command)
-
 
     # Config
 
@@ -468,7 +445,6 @@ class Runner(object):
                 setKeyPath(result, keyPath, value)
         self.respond(command, result)
 
-
     def command_writeConfig(self, command):
         """
         Write config to secondary, writable plist
@@ -490,16 +466,13 @@ class Runner(object):
         else:
             self.command_readConfig(command)
 
-
     # Proxies
 
     def command_listWriteProxies(self, command):
         return self._listProxies(command, "write")
 
-
     def command_listReadProxies(self, command):
         return self._listProxies(command, "read")
-
 
     @inlineCallbacks
     def _listProxies(self, command, proxyType):
@@ -509,14 +482,11 @@ class Runner(object):
             returnValue(None)
         yield self.respondWithProxies(command, record, proxyType)
 
-
     def command_addReadProxy(self, command):
         return self._addProxy(command, "read")
 
-
     def command_addWriteProxy(self, command):
         return self._addProxy(command, "write")
-
 
     @inlineCallbacks
     def _addProxy(self, command, proxyType):
@@ -535,14 +505,11 @@ class Runner(object):
         yield txn.commit()
         yield self.respondWithProxies(command, record, proxyType)
 
-
     def command_removeReadProxy(self, command):
         return self._removeProxy(command, "read")
 
-
     def command_removeWriteProxy(self, command):
         return self._removeProxy(command, "write")
-
 
     @inlineCallbacks
     def _removeProxy(self, command, proxyType):
@@ -561,7 +528,6 @@ class Runner(object):
         yield txn.commit()
         yield self.respondWithProxies(command, record, proxyType)
 
-
     @inlineCallbacks
     def command_purgeOldEvents(self, command):
         """
@@ -578,7 +544,6 @@ class Runner(object):
         eventCount = (yield PurgeOldEventsService.purgeOldEvents(self.store, None, cutoff, DEFAULT_BATCH_SIZE))
         self.respond(command, {'EventsRemoved': eventCount, "RetainDays": retainDays})
 
-
     @inlineCallbacks
     def respondWithProxies(self, command, record, proxyType):
         proxies = []
@@ -594,7 +559,6 @@ class Runner(object):
             'Principal': record.uid, 'Proxies': proxies
         })
 
-
     @inlineCallbacks
     def respondWithRecordsOfTypes(self, directory, command, recordTypes):
         result = []
@@ -605,14 +569,11 @@ class Runner(object):
                 result.append(recordDict)
         self.respond(command, result)
 
-
     def respond(self, command, result):
         self.output.write(writePlistToString({'command': command['command'], 'result': result}))
 
-
     def respondWithError(self, msg, status=1):
         self.output.write(writePlistToString({'error': msg, }))
-
 
 
 def recordToDict(record):
@@ -636,10 +597,8 @@ def recordToDict(record):
     return recordDict
 
 
-
 def respondWithError(msg, status=1):
     sys.stdout.write(writePlistToString({'error': msg, }))
-
 
 
 if __name__ == "__main__":

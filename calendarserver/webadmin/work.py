@@ -52,7 +52,6 @@ from .eventsource import EventSourceResource, IEventDecoder
 from .resource import PageElement, TemplateResource
 
 
-
 class WorkMonitorPageElement(PageElement):
     """
     Principal management page element.
@@ -61,12 +60,10 @@ class WorkMonitorPageElement(PageElement):
     def __init__(self):
         super(WorkMonitorPageElement, self).__init__(u"work")
 
-
     def pageSlots(self):
         return {
             u"title": u"Workload Monitor",
         }
-
 
 
 class WorkMonitorResource(TemplateResource):
@@ -76,14 +73,12 @@ class WorkMonitorResource(TemplateResource):
 
     addSlash = True
 
-
     def __init__(self, store, principalCollections):
         super(WorkMonitorResource, self).__init__(
             lambda: WorkMonitorPageElement(), principalCollections, isdir=False
         )
 
         self.putChild(u"events", WorkEventsResource(store, principalCollections))
-
 
 
 class WorkEventsResource(EventSourceResource):
@@ -93,7 +88,6 @@ class WorkEventsResource(EventSourceResource):
 
     log = Logger()
 
-
     def __init__(self, store, principalCollections, pollInterval=1000):
         super(WorkEventsResource, self).__init__(EventDecoder, principalCollections, bufferSize=100)
 
@@ -101,12 +95,10 @@ class WorkEventsResource(EventSourceResource):
         self._pollInterval = pollInterval
         self._polling = False
 
-
     @inlineCallbacks
     def render(self, request):
         yield self.poll()
         returnValue(super(WorkEventsResource, self).render(request))
-
 
     @inlineCallbacks
     def poll(self):
@@ -231,28 +223,24 @@ class WorkEventsResource(EventSourceResource):
         self._clock.callLater(self._pollInterval / 1000, self.poll)
 
 
-
 @implementer(IEventDecoder)
 class EventDecoder(object):
+
     @staticmethod
     def idForEvent(event):
         return event.get("eventID")
-
 
     @staticmethod
     def classForEvent(event):
         return event.get("eventClass")
 
-
     @staticmethod
     def textForEvent(event):
         return event.get("eventText")
 
-
     @staticmethod
     def retryForEvent(event):
         return event.get("eventRetry")
-
 
 
 def asJSON(obj):

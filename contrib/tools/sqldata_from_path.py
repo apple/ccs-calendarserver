@@ -73,31 +73,31 @@ if __name__ == '__main__':
 
     sqlstrings = {
         "calendars": {
-            "home_table"        : "CALENDAR_HOME",
-            "bind_table"        : "CALENDAR_BIND",
-            "object_table"      : "CALENDAR_OBJECT",
+            "home_table": "CALENDAR_HOME",
+            "bind_table": "CALENDAR_BIND",
+            "object_table": "CALENDAR_OBJECT",
 
-            "bind_home_id"      : "CALENDAR_HOME_RESOURCE_ID",
-            "bind_name"         : "CALENDAR_RESOURCE_NAME",
-            "bind_id"           : "CALENDAR_RESOURCE_ID",
+            "bind_home_id": "CALENDAR_HOME_RESOURCE_ID",
+            "bind_name": "CALENDAR_RESOURCE_NAME",
+            "bind_id": "CALENDAR_RESOURCE_ID",
 
-            "object_bind_id"    : "CALENDAR_RESOURCE_ID",
-            "object_name"       : "RESOURCE_NAME",
-            "object_data"       : "ICALENDAR_TEXT",
+            "object_bind_id": "CALENDAR_RESOURCE_ID",
+            "object_name": "RESOURCE_NAME",
+            "object_data": "ICALENDAR_TEXT",
         },
 
         "addressbooks": {
-            "home_table"        : "ADDRESSBOOK_HOME",
-            "bind_table"        : "ADDRESSBOOK_BIND",
-            "object_table"      : "ADDRESSBOOK_OBJECT",
+            "home_table": "ADDRESSBOOK_HOME",
+            "bind_table": "ADDRESSBOOK_BIND",
+            "object_table": "ADDRESSBOOK_OBJECT",
 
-            "bind_home_id"      : "ADDRESSBOOK_HOME_RESOURCE_ID",
-            "bind_name"         : "ADDRESSBOOK_RESOURCE_NAME",
-            "bind_id"           : "ADDRESSBOOK_RESOURCE_ID",
+            "bind_home_id": "ADDRESSBOOK_HOME_RESOURCE_ID",
+            "bind_name": "ADDRESSBOOK_RESOURCE_NAME",
+            "bind_id": "ADDRESSBOOK_RESOURCE_ID",
 
-            "object_bind_id"    : "ADDRESSBOOK_RESOURCE_ID",
-            "object_name"       : "RESOURCE_NAME",
-            "object_data"       : "VCARD_TEXT",
+            "object_bind_id": "ADDRESSBOOK_RESOURCE_ID",
+            "object_name": "RESOURCE_NAME",
+            "object_data": "VCARD_TEXT",
         },
     }
 

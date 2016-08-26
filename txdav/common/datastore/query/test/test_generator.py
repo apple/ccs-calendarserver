@@ -26,6 +26,7 @@ from twisted.trial.unittest import TestCase
 
 from txdav.common.datastore.sql_tables import schema
 
+
 class SQLQueryGeneratorTests(TestCase):
     """
     Tests for shared functionality in L{txdav.common.datastore.sql}.
@@ -37,7 +38,6 @@ class SQLQueryGeneratorTests(TestCase):
         def id(self):
             return 1234
 
-
     def test_all_query(self):
 
         expr = expression.allExpression()
@@ -45,7 +45,6 @@ class SQLQueryGeneratorTests(TestCase):
         select, args = SQLQueryGenerator(expr, resource, resource.id()).generate()
         self.assertEqual(select.toSQL(), SQLFragment("select distinct RESOURCE_NAME, ICALENDAR_UID from CALENDAR_OBJECT where CALENDAR_RESOURCE_ID = ?", [1234]))
         self.assertEqual(args, {})
-
 
     def test_uid_query(self):
 
@@ -55,7 +54,6 @@ class SQLQueryGeneratorTests(TestCase):
         select, args = SQLQueryGenerator(expr, resource, resource.id()).generate()
         self.assertEqual(select.toSQL(), SQLFragment("select distinct RESOURCE_NAME, ICALENDAR_UID from CALENDAR_OBJECT where CALENDAR_RESOURCE_ID = ? and ICALENDAR_UID = ?", [1234, 5678]))
         self.assertEqual(args, {})
-
 
     def test_or_query(self):
 
@@ -75,7 +73,6 @@ class SQLQueryGeneratorTests(TestCase):
         )
         self.assertEqual(args, {})
 
-
     def test_and_query(self):
 
         resource = self.FakeHomeChild()
@@ -94,7 +91,6 @@ class SQLQueryGeneratorTests(TestCase):
         )
         self.assertEqual(args, {})
 
-
     def test_not_query(self):
 
         resource = self.FakeHomeChild()
@@ -109,7 +105,6 @@ class SQLQueryGeneratorTests(TestCase):
             )
         )
         self.assertEqual(args, {})
-
 
     def test_in_query(self):
 

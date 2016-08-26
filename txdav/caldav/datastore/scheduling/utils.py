@@ -21,6 +21,7 @@ from uuid import UUID
 
 log = Logger()
 
+
 @inlineCallbacks
 def getCalendarObjectForRecord(txn, record, uid):
     """
@@ -51,7 +52,6 @@ def getCalendarObjectForRecord(txn, record, uid):
         returnValue(None)
 
 
-
 def normalizeCUAddr(addr):
     """
     Normalize a cuaddr string by lower()ing it if it's a mailto:, or
@@ -70,7 +70,6 @@ def normalizeCUAddr(addr):
         return addr.rstrip("/")
     else:
         return addr
-
 
 
 def uidFromCalendarUserAddress(address):
@@ -105,7 +104,6 @@ def uidFromCalendarUserAddress(address):
             return parts[3]
 
     return None
-
 
 
 def extractEmailDomain(mailtoURI):

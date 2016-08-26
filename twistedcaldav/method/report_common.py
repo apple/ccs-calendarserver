@@ -53,6 +53,7 @@ COLLECTION_TYPE_REGULAR = "collection"
 COLLECTION_TYPE_CALENDAR = "calendar"
 COLLECTION_TYPE_ADDRESSBOOK = "addressbook"
 
+
 @inlineCallbacks
 def applyToCalendarCollections(resource, request, request_uri, depth, apply, privileges):
     """
@@ -91,7 +92,6 @@ def applyToCalendarCollections(resource, request, request_uri, depth, apply, pri
             break
 
 
-
 @inlineCallbacks
 def applyToAddressBookCollections(resource, request, request_uri, depth, apply, privileges):
     """
@@ -128,7 +128,6 @@ def applyToAddressBookCollections(resource, request, request_uri, depth, apply, 
         result = yield apply(addrresource, uri)
         if not result:
             break
-
 
 
 def responseForHref(request, responses, href, resource, propertiesForResource, propertyreq, isowner=True, calendar=None, timezone=None, vcard=None):
@@ -182,7 +181,6 @@ def responseForHref(request, responses, href, resource, propertiesForResource, p
     return d
 
 
-
 def allPropertiesForResource(request, prop, resource, calendar=None, timezone=None, vcard=None, isowner=True):
     """
     Return all (non-hidden) properties for the specified resource.
@@ -210,8 +208,7 @@ def allPropertiesForResource(request, prop, resource, calendar=None, timezone=No
     return d
 
 
-
-def propertyNamesForResource(request, prop, resource, calendar=None, timezone=None, vcard=None, isowner=True): #@UnusedVariable
+def propertyNamesForResource(request, prop, resource, calendar=None, timezone=None, vcard=None, isowner=True):  # @UnusedVariable
     """
     Return property names for all properties on the specified resource.
     @param request: the L{IRequest} for the current request.
@@ -237,7 +234,6 @@ def propertyNamesForResource(request, prop, resource, calendar=None, timezone=No
     return d
 
 
-
 def propertyListForResource(request, prop, resource, calendar=None, timezone=None, vcard=None, isowner=True):
     """
     Return the specified properties on the specified resource.
@@ -254,7 +250,6 @@ def propertyListForResource(request, prop, resource, calendar=None, timezone=Non
     """
 
     return _namedPropertiesForResource(request, prop.children, resource, calendar, timezone, vcard, isowner)
-
 
 
 def validPropertyListCalendarDataTypeVersion(prop):
@@ -281,7 +276,6 @@ def validPropertyListCalendarDataTypeVersion(prop):
     return result, message, generate_calendar_data
 
 
-
 def validPropertyListAddressDataTypeVersion(prop):
     """
     If the supplied prop element includes an address-data element, verify that
@@ -304,7 +298,6 @@ def validPropertyListAddressDataTypeVersion(prop):
             break
 
     return result, message, generate_address_data
-
 
 
 @inlineCallbacks
@@ -330,9 +323,9 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
     @return: a map of OK and NOT FOUND property values.
     """
     properties_by_status = {
-        responsecode.OK        : [],
-        responsecode.FORBIDDEN : [],
-        responsecode.NOT_FOUND : [],
+        responsecode.OK: [],
+        responsecode.FORBIDDEN: [],
+        responsecode.NOT_FOUND: [],
     }
 
     # Look for Prefer header first, then try Brief

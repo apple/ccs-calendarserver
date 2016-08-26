@@ -48,13 +48,11 @@ class UpgradeAcquireLockStep(object):
     def __init__(self, sqlStore):
         self.sqlStore = sqlStore
 
-
     @inlineCallbacks
     def stepWithResult(self, result):
         sqlTxn = self.sqlStore.newTransaction(label="UpgradeAcquireLockStep.stepWithResult")
         yield sqlTxn.acquireUpgradeLock()
         yield sqlTxn.commit()
-
 
 
 class UpgradeReleaseLockStep(object):
@@ -69,7 +67,6 @@ class UpgradeReleaseLockStep(object):
     def __init__(self, sqlStore):
         self.sqlStore = sqlStore
 
-
     @inlineCallbacks
     def stepWithResult(self, result):
         sqlTxn = self.sqlStore.newTransaction(label="UpgradeReleaseLockStep.stepWithResult")
@@ -77,13 +74,11 @@ class UpgradeReleaseLockStep(object):
         yield sqlTxn.commit()
 
 
-
 class NotAllowedToUpgrade(Exception):
     """
     Exception indicating an upgrade is needed but we're not configured to
     perform it.
     """
-
 
 
 class UpgradeDatabaseCoreStep(object):
@@ -117,13 +112,11 @@ class UpgradeDatabaseCoreStep(object):
         self.upgradeFileSuffix = ""
         self.defaultKeyValue = None
 
-
     def stepWithResult(self, result):
         """
         Start the service.
         """
         return self.databaseUpgrade()
-
 
     @inlineCallbacks
     def databaseUpgrade(self):
@@ -169,7 +162,6 @@ class UpgradeDatabaseCoreStep(object):
 
         returnValue(None)
 
-
     @inlineCallbacks
     def getVersions(self):
         """
@@ -208,7 +200,6 @@ class UpgradeDatabaseCoreStep(object):
 
         returnValue((dialect, required_version, actual_version,))
 
-
     @inlineCallbacks
     def upgradeVersion(self, fromVersion, toVersion, dialect):
         """
@@ -234,13 +225,11 @@ class UpgradeDatabaseCoreStep(object):
 
         self.log.warn("{vers} upgraded from version {fr} to {to}.", vers=self.versionDescriptor.capitalize(), fr=fromVersion, to=toVersion)
 
-
     def getPathToUpgrades(self, dialect):
         """
         Return the path where appropriate upgrade files can be found.
         """
         raise NotImplementedError
-
 
     def scanForUpgradeFiles(self, dialect):
         """
@@ -259,7 +248,6 @@ class UpgradeDatabaseCoreStep(object):
 
         upgrades.sort(key=lambda x: (x[0], x[1]))
         return upgrades
-
 
     def determineUpgradeSequence(self, fromVersion, toVersion, files, dialect):
         """
@@ -289,13 +277,11 @@ class UpgradeDatabaseCoreStep(object):
 
         return upgrades
 
-
     def applyUpgrade(self, fp):
         """
         Apply the supplied upgrade to the database. Always return an L{Deferred"
         """
         raise NotImplementedError
-
 
 
 class UpgradeDatabaseSchemaStep(UpgradeDatabaseCoreStep):
@@ -321,10 +307,8 @@ class UpgradeDatabaseSchemaStep(UpgradeDatabaseCoreStep):
         self.versionDescriptor = "schema"
         self.upgradeFileSuffix = ".sql"
 
-
     def getPathToUpgrades(self, dialect):
         return self.schemaLocation.child("upgrades").child(dialect)
-
 
     @inlineCallbacks
     def applyUpgrade(self, fp):
@@ -349,7 +333,6 @@ class UpgradeDatabaseSchemaStep(UpgradeDatabaseCoreStep):
             f.raiseException()
 
 
-
 class _UpgradeDatabaseDataStep(UpgradeDatabaseCoreStep):
     """
     Checks and upgrades the database data. This assumes there are a bunch of
@@ -363,7 +346,6 @@ class _UpgradeDatabaseDataStep(UpgradeDatabaseCoreStep):
 
     def getPathToUpgrades(self, dialect):
         return self.pyLocation.child("upgrades")
-
 
     @inlineCallbacks
     def applyUpgrade(self, fp):
@@ -383,7 +365,6 @@ class _UpgradeDatabaseDataStep(UpgradeDatabaseCoreStep):
 
         self.log.warn("Applying data upgrade: {module}", module=module)
         yield doUpgrade(self.sqlStore)
-
 
 
 class UpgradeDatabaseAddressBookDataStep(_UpgradeDatabaseDataStep):
@@ -411,7 +392,6 @@ class UpgradeDatabaseAddressBookDataStep(_UpgradeDatabaseDataStep):
         self.upgradeFileSuffix = ".py"
 
 
-
 class UpgradeDatabaseCalendarDataStep(_UpgradeDatabaseDataStep):
     """
     Checks and upgrades the database data. This assumes there are a bunch of
@@ -436,7 +416,6 @@ class UpgradeDatabaseCalendarDataStep(_UpgradeDatabaseDataStep):
         self.versionDescriptor = "calendar data"
         self.upgradeFilePrefix = "calendar_"
         self.upgradeFileSuffix = ".py"
-
 
 
 class UpgradeDatabaseNotificationDataStep(_UpgradeDatabaseDataStep):
@@ -466,7 +445,6 @@ class UpgradeDatabaseNotificationDataStep(_UpgradeDatabaseDataStep):
         self.defaultKeyValue = 0
 
 
-
 class UpgradeDatabaseOtherStep(UpgradeDatabaseCoreStep):
     """
     Do any other upgrade behaviors once all the schema, data, file migration upgraders
@@ -485,7 +463,6 @@ class UpgradeDatabaseOtherStep(UpgradeDatabaseCoreStep):
         super(UpgradeDatabaseOtherStep, self).__init__(sqlStore, **kwargs)
 
         self.versionDescriptor = "other upgrades"
-
 
     @inlineCallbacks
     def databaseUpgrade(self):

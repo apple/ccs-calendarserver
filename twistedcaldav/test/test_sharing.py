@@ -44,14 +44,12 @@ sharedOwnerType = davxml.ResourceType.sharedownercalendar  # @UndefinedVariable
 regularCalendarType = davxml.ResourceType.calendar  # @UndefinedVariable
 
 
-
 def normalize(x):
     """
     Normalize some XML by parsing it, collapsing whitespace, and
     pretty-printing.
     """
     return WebDAVDocument.fromString(x).toxml()
-
 
 
 class BaseSharingTests(StoreTestCase):
@@ -65,12 +63,10 @@ class BaseSharingTests(StoreTestCase):
         self.patch(config.Sharing.Calendars, "Enabled", True)
         self.patch(config.Authentication.Wiki, "Enabled", True)
 
-
     @inlineCallbacks
     def setUp(self):
         yield super(BaseSharingTests, self).setUp()
         self.resource = yield self._getResource()
-
 
     @inlineCallbacks
     def _refreshRoot(self, request=None):
@@ -83,7 +79,6 @@ class BaseSharingTests(StoreTestCase):
         self.site.resource.responseCache = StubResponseCacheResource()
         self.site.resource.putChild("calendars", self.homeProvisioner)
         returnValue(result)
-
 
     @inlineCallbacks
     def _doPOST(self, body, resultcode=responsecode.OK):
@@ -102,7 +97,6 @@ class BaseSharingTests(StoreTestCase):
             returnValue(data)
         else:
             returnValue(None)
-
 
     @inlineCallbacks
     def _doPROPFINDHome(self, resultcode=responsecode.MULTI_STATUS):
@@ -163,13 +157,11 @@ class BaseSharingTests(StoreTestCase):
         else:
             returnValue(None)
 
-
     @inlineCallbacks
     def _getResource(self):
         request = SimpleStoreRequest(self, "GET", "/calendars/__uids__/user01/calendar/")
         resource = yield request.locateResource("/calendars/__uids__/user01/calendar/")
         returnValue(resource)
-
 
     @inlineCallbacks
     def _doPOSTSharerAccept(self, body, resultcode=responsecode.OK, sharer="user02"):
@@ -187,13 +179,11 @@ class BaseSharingTests(StoreTestCase):
         else:
             returnValue(None)
 
-
     @inlineCallbacks
     def _getResourceSharer(self, name):
         request = SimpleStoreRequest(self, "GET", "%s" % (name,))
         resource = yield request.locateResource("%s" % (name,))
         returnValue(resource)
-
 
     def _getUIDElementValue(self, xml):
 
@@ -202,7 +192,6 @@ class BaseSharingTests(StoreTestCase):
                 if type(element) == customxml.UID:
                     return element.children[0].data
         return None
-
 
     def _getUIDElementValues(self, xml):
 
@@ -213,7 +202,6 @@ class BaseSharingTests(StoreTestCase):
             results[href] = uid
         return results
 
-
     def _clearUIDElementValue(self, xml):
 
         for user in xml.children:
@@ -222,14 +210,12 @@ class BaseSharingTests(StoreTestCase):
                 uid.children[0].data = ""
         return xml
 
-
     def _getHRefElementValue(self, xml):
 
         for href in xml.root_element.children:
             if type(href) == davxml.HRef:
                 return href.children[0].data
         return None
-
 
 
 class SharingTests(BaseSharingTests):
@@ -253,7 +239,6 @@ class SharingTests(BaseSharingTests):
         isShareeResource = self.resource.isShareeResource()
         self.assertFalse(isShareeResource)
 
-
     @inlineCallbacks
     def test_downgradeFromShare(self):
 
@@ -274,7 +259,6 @@ class SharingTests(BaseSharingTests):
         self.assertFalse(isShared)
         isShareeResource = self.resource.isShareeResource()
         self.assertFalse(isShareeResource)
-
 
     @inlineCallbacks
     def test_POSTaddInviteeAlreadyShared(self):
@@ -307,7 +291,6 @@ class SharingTests(BaseSharingTests):
         isShareeResource = self.resource.isShareeResource()
         self.assertFalse(isShareeResource)
 
-
     @inlineCallbacks
     def test_POSTaddInviteeNotAlreadyShared(self):
 
@@ -336,7 +319,6 @@ class SharingTests(BaseSharingTests):
         self.assertTrue(isShared)
         isShareeResource = (yield self.resource.isShareeResource())
         self.assertFalse(isShareeResource)
-
 
     @inlineCallbacks
     def test_POSTupdateInvitee(self):
@@ -381,7 +363,6 @@ class SharingTests(BaseSharingTests):
             )
         ))
 
-
     @inlineCallbacks
     def test_POSTremoveInvitee(self):
 
@@ -414,7 +395,6 @@ class SharingTests(BaseSharingTests):
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(propInvite, None)
-
 
     @inlineCallbacks
     def test_POSTaddMoreInvitees(self):
@@ -470,7 +450,6 @@ class SharingTests(BaseSharingTests):
             ),
         ))
 
-
     @inlineCallbacks
     def test_POSTaddRemoveInvitees(self):
 
@@ -520,7 +499,6 @@ class SharingTests(BaseSharingTests):
                 customxml.InviteStatusNoResponse(),
             ),
         ))
-
 
     @inlineCallbacks
     def test_POSTaddRemoveSameInvitee(self):
@@ -572,7 +550,6 @@ class SharingTests(BaseSharingTests):
             ),
         ))
 
-
     @inlineCallbacks
     def test_POSTremoveNonInvitee(self):
         """
@@ -618,7 +595,6 @@ class SharingTests(BaseSharingTests):
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(propInvite, None)
 
-
     @inlineCallbacks
     def test_POSTaddInvalidInvitee(self):
         yield self.resource.upgradeToShare()
@@ -648,13 +624,11 @@ class SharingTests(BaseSharingTests):
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(propInvite, None)
 
-
     def assertXMLEquals(self, a, b):
         """
         Assert two strings are equivalent as XML.
         """
         self.assertEquals(normalize(a), normalize(b))
-
 
     @inlineCallbacks
     def test_POSTremoveInvalidInvitee(self):
@@ -707,7 +681,6 @@ class SharingTests(BaseSharingTests):
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(propInvite, None)
 
-
     @inlineCallbacks
     def wikiSetup(self):
         """
@@ -731,7 +704,6 @@ class SharingTests(BaseSharingTests):
         cal = yield sharer.calendarWithName("calendar")
         sharedName = yield cal.shareWith(sharee, _BIND_MODE_DIRECT)
         returnValue(sharedName)
-
 
     @inlineCallbacks
     def test_wikiACL(self):
@@ -759,7 +731,6 @@ class SharingTests(BaseSharingTests):
         access = WikiAccessLevel.write
         acl = (yield collection.shareeAccessControlList(request))
         self.assertTrue("<write/>" in acl.toxml())
-
 
     @inlineCallbacks
     def test_noWikiAccess(self):
@@ -798,7 +769,6 @@ class SharingTests(BaseSharingTests):
         childNames = yield listChildrenViaPropfind()
         self.assertNotIn(sharedName, childNames)
 
-
     @inlineCallbacks
     def test_POSTDowngradeWithMissingInvitee(self):
 
@@ -829,7 +799,6 @@ class SharingTests(BaseSharingTests):
         self.assertTrue((yield self.userUIDFromShortName("user02")) is None)
 
         yield self.resource.downgradeFromShare(norequest())
-
 
     @inlineCallbacks
     def test_POSTRemoveWithMissingInvitee(self):
@@ -873,7 +842,6 @@ class SharingTests(BaseSharingTests):
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(propInvite, None)
-
 
     @inlineCallbacks
     def test_POSTShareeRemoveWithDisabledSharer(self):
@@ -928,7 +896,6 @@ class SharingTests(BaseSharingTests):
         resource = (yield self._getResourceSharer(href))
         self.assertFalse(resource.exists())
 
-
     @inlineCallbacks
     def test_POSTShareeRemoveWithMissingSharer(self):
 
@@ -982,7 +949,6 @@ class SharingTests(BaseSharingTests):
         resource = (yield self._getResourceSharer(href))
         self.assertFalse(resource.exists())
 
-
     @inlineCallbacks
     def test_POSTShareeAcceptNewWithMissingSharer(self):
 
@@ -1029,7 +995,6 @@ class SharingTests(BaseSharingTests):
             """ % (uid,),
             resultcode=responsecode.FORBIDDEN,
         )
-
 
     @inlineCallbacks
     def test_POSTShareeAcceptExistingWithMissingSharer(self):
@@ -1117,7 +1082,6 @@ class SharingTests(BaseSharingTests):
             resultcode=responsecode.OK,
         )
 
-
     @inlineCallbacks
     def test_POSTShareeDeclineNewWithMissingSharer(self):
 
@@ -1164,7 +1128,6 @@ class SharingTests(BaseSharingTests):
             """ % (uid,),
             resultcode=responsecode.NO_CONTENT,
         )
-
 
     @inlineCallbacks
     def test_POSTShareeDeclineExistingWithMissingSharer(self):
@@ -1252,7 +1215,6 @@ class SharingTests(BaseSharingTests):
             resultcode=responsecode.NO_CONTENT,
         )
 
-
     @inlineCallbacks
     def test_shareeInviteWithDisabledSharer(self):
 
@@ -1317,7 +1279,6 @@ class SharingTests(BaseSharingTests):
                 customxml.InviteStatusAccepted(),
             ),
         ))
-
 
     @inlineCallbacks
     def test_shareeInviteWithMissingSharer(self):
@@ -1384,7 +1345,6 @@ class SharingTests(BaseSharingTests):
             ),
         ))
 
-
     @inlineCallbacks
     def test_shareeNotificationWithMissingSharer(self):
 
@@ -1410,7 +1370,6 @@ class SharingTests(BaseSharingTests):
         note_child = yield notification.getChild(names[0])
         note = yield note_child.text()
         self.assertTrue(isinstance(note, str))
-
 
     @inlineCallbacks
     def test_shareeReplyWithMissingSharee(self):
@@ -1454,7 +1413,6 @@ class SharingTests(BaseSharingTests):
         note_child = yield notification.getChild(names[0])
         note = yield note_child.text()
         self.assertTrue(isinstance(note, str))
-
 
     @inlineCallbacks
     def test_hideInvalidSharers(self):
@@ -1551,7 +1509,6 @@ class SharingTests(BaseSharingTests):
         ))
 
 
-
 class DropboxSharingTests(BaseSharingTests):
 
     def configure(self):
@@ -1561,7 +1518,6 @@ class DropboxSharingTests(BaseSharingTests):
         super(DropboxSharingTests, self).configure()
         self.patch(config, "EnableDropBox", True)
         self.patch(config, "EnableManagedAttachments", False)
-
 
     @inlineCallbacks
     def test_dropboxWithMissingInvitee(self):
@@ -1627,7 +1583,6 @@ END:VCALENDAR
         self.assertTrue(acl is not None)
 
 
-
 class MamnagedAttachmentSharingTests(BaseSharingTests):
 
     def configure(self):
@@ -1637,7 +1592,6 @@ class MamnagedAttachmentSharingTests(BaseSharingTests):
         super(MamnagedAttachmentSharingTests, self).configure()
         self.patch(config, "EnableDropBox", False)
         self.patch(config, "EnableManagedAttachments", True)
-
 
     @inlineCallbacks
     def test_attachmentWithMissingInvitee(self):

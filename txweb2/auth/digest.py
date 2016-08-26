@@ -59,6 +59,8 @@ algorithms = {
 }
 
 # DigestCalcHA1
+
+
 def calcHA1(pszAlg, pszUserName, pszRealm, pszPassword, pszNonce, pszCNonce,
             preHA1=None):
     """
@@ -83,7 +85,6 @@ def calcHA1(pszAlg, pszUserName, pszRealm, pszPassword, pszNonce, pszCNonce,
                         pszCNonce, preHA1)
 
 
-
 # DigestCalcResponse
 def calcResponse(
     HA1,
@@ -101,8 +102,8 @@ def calcResponse(
                              algo, pszNonce, pszNonceCount, pszCNonce, pszQop)
 
 
-
 DigestedCredentials = credentials.DigestedCredentials
+
 
 class DigestCredentialFactory(object):
     implements(ICredentialFactory)
@@ -119,14 +120,11 @@ class DigestCredentialFactory(object):
     def getChallenge(self, peer):
         return maybeDeferred(self._real.getChallenge, peer.host)
 
-
     def generateOpaque(self, *a, **k):
         return self._real._generateOpaque(*a, **k)
 
-
     def verifyOpaque(self, opaque, nonce, clientip):
         return self._real._verifyOpaque(opaque, nonce, clientip)
-
 
     def decode(self, response, request):
         method = getattr(request, "originalMethod", request.method)

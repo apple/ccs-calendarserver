@@ -30,9 +30,8 @@ class IProbe(Interface):
     An interface which can be used to verify some interface-related behavior of
     L{loggedReactor}.
     """
-    def probe(): #@NoSelf
+    def probe():  # @NoSelf
         pass
-
 
 
 class Probe(object):
@@ -43,17 +42,16 @@ class Probe(object):
     def __init__(self, result=None):
         self._result = result
 
-
     def probe(self):
         self._probed = True
         return self._result
-
 
 
 class TrafficLoggingReactorTests(TestCase):
     """
     Tests for L{loggedReactor}.
     """
+
     def test_nothing(self):
         """
         L{loggedReactor} returns the object passed to it, if the object passed
@@ -63,7 +61,6 @@ class TrafficLoggingReactorTests(TestCase):
         probe = object()
         self.assertIdentical(probe, loggedReactor(probe))
 
-
     def test_interfaces(self):
         """
         The object returned by L{loggedReactor} provides all of the interfaces
@@ -72,7 +69,6 @@ class TrafficLoggingReactorTests(TestCase):
         probe = Probe()
         reactor = loggedReactor(probe)
         self.assertTrue(IProbe.providedBy(reactor))
-
 
     def test_passthrough(self):
         """
@@ -86,7 +82,6 @@ class TrafficLoggingReactorTests(TestCase):
         self.assertTrue(probe._probed)
         self.assertIdentical(expected, result)
 
-
     def test_connectTCP(self):
         """
         Called on the object returned by L{loggedReactor}, C{connectTCP} calls
@@ -94,6 +89,7 @@ class TrafficLoggingReactorTests(TestCase):
         wrapped in a L{_TrafficLoggingFactory}.
         """
         class RecordDataProtocol(Protocol):
+
             def dataReceived(self, data):
                 self.data = data
         proto = RecordDataProtocol()
@@ -114,7 +110,6 @@ class TrafficLoggingReactorTests(TestCase):
         protocol.makeConnection(None)
         protocol.dataReceived("foo")
         self.assertEqual(proto.data, "foo")
-
 
     def test_getLogFiles(self):
         """
@@ -145,16 +140,15 @@ class TrafficLoggingReactorTests(TestCase):
         self.assertIn('active', logs.active[0].getvalue())
 
 
-
 class TrafficLoggingFactoryTests(TestCase):
     """
     Tests for L{_TrafficLoggingFactory}.
     """
+
     def setUp(self):
         self.wrapped = ClientFactory()
         self.wrapped.protocol = Discard
         self.factory = _TrafficLoggingFactory(self.wrapped)
-
 
     def test_receivedBytesLogged(self):
         """
@@ -174,7 +168,6 @@ class TrafficLoggingFactoryTests(TestCase):
         self.assertEqual(
             "*\nC 0: 'hello, world'\n", self.factory.logs[0].getvalue())
 
-
     def test_finishedLogs(self):
         """
         When connections are lost, the corresponding log files are moved into
@@ -187,7 +180,6 @@ class TrafficLoggingFactoryTests(TestCase):
         protocol.connectionLost(None)
         self.assertEqual(0, len(self.factory.logs))
         self.assertEqual([logfile], self.factory.finishedLogs)
-
 
     def test_finishedLogsLimit(self):
         """

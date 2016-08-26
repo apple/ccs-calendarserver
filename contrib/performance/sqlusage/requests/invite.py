@@ -58,6 +58,7 @@ END:VCALENDAR
 
 ATTENDEE = "ATTENDEE:mailto:user%02d@example.com"
 
+
 class InviteTest(HTTPTestBase):
     """
     A PUT operation (invite)
@@ -66,7 +67,6 @@ class InviteTest(HTTPTestBase):
     def __init__(self, label, sessions, logFilePath, logFilePrefix, count):
         super(InviteTest, self).__init__(label, sessions, logFilePath, logFilePrefix)
         self.count = count
-
 
     def doRequest(self):
         """
@@ -82,7 +82,6 @@ class InviteTest(HTTPTestBase):
             ICAL.format(year=now.getYear() + 1, count=self.count, attendees=attendees),
             "text/calendar",
         )
-
 
     def cleanup(self):
         """

@@ -114,7 +114,6 @@ class SharedResourceMixin(object):
 
         returnValue(None)
 
-
     @inlineCallbacks
     def upgradeToShare(self):
         """
@@ -123,7 +122,6 @@ class SharedResourceMixin(object):
         """
         # Change status on store object
         yield self._newStoreObject.setShared(True)
-
 
     @inlineCallbacks
     def downgradeFromShare(self, request):
@@ -136,7 +134,6 @@ class SharedResourceMixin(object):
             yield self._newStoreObject.uninviteUIDFromShare(invitation.shareeUID)
 
         returnValue(True)
-
 
     @inlineCallbacks
     def directShare(self, request):
@@ -219,7 +216,6 @@ class SharedResourceMixin(object):
             )
         ))
 
-
     def isSharedByOwner(self):
         """
         Return True if this is an owner shared calendar collection.
@@ -229,7 +225,6 @@ class SharedResourceMixin(object):
         except AttributeError:
             return False
 
-
     def setShare(self, share_url):
         """
         Set the URL associated with this L{SharedResourceMixin}.  (This
@@ -237,7 +232,6 @@ class SharedResourceMixin(object):
         """
         self._isShareeResource = True
         self._share_url = share_url
-
 
     def isShareeResource(self):
         """
@@ -250,13 +244,11 @@ class SharedResourceMixin(object):
             getattr(self._newStoreObject, "_bindMode", None) is not None
         )
 
-
     def removeShareeResource(self, request):
         """
         Called when the sharee DELETEs a shared collection.
         """
         return self._newStoreObject.deleteShare()
-
 
     @inlineCallbacks
     def _checkAccessControl(self):
@@ -300,7 +292,6 @@ class SharedResourceMixin(object):
             # Get the access for self
             bindMode = yield self._newStoreObject.effectiveShareMode()
             returnValue(invitationAccessFromBindModeMap.get(bindMode))
-
 
     @inlineCallbacks
     def shareeAccessControlList(self, request, *args, **kwargs):
@@ -405,7 +396,6 @@ class SharedResourceMixin(object):
 
         returnValue(element.ACL(*aces))
 
-
     @inlineCallbacks
     def validUserIDForShare(self, userid, request=None):
         """
@@ -438,7 +428,6 @@ class SharedResourceMixin(object):
         else:
             returnValue(None)
 
-
     @inlineCallbacks
     def principalForCalendarGroupAddress(self, groupid):
         """
@@ -459,7 +448,6 @@ class SharedResourceMixin(object):
                         returnValue(groupPrincipal)
 
         returnValue(None)
-
 
     @inlineCallbacks
     def validateInvites(self, request, invitations=None):
@@ -487,7 +475,6 @@ class SharedResourceMixin(object):
 
         returnValue(adjusted_invitations)
 
-
     def inviteUIDToShare(self, userid, cn, ace, summary, request):
         """ Send out in invite first, and then add this user to the share list
             @param userid:
@@ -504,7 +491,6 @@ class SharedResourceMixin(object):
 
         dl = [self.inviteSingleUserToShare(_user, _cn, ace, summary, request) for _user, _cn in zip(userid, cn)]
         return self._processShareActionList(dl, resultIsList)
-
 
     def uninviteUIDFromShare(self, userid, ace, request):
         """
@@ -523,7 +509,6 @@ class SharedResourceMixin(object):
         dl = [self.uninviteSingleUserFromShare(user, ace, request) for user in userid]
         return self._processShareActionList(dl, resultIsList)
 
-
     def inviteUserUpdateToShare(self, userid, cn, aceOLD, aceNEW, summary, request):
 
         resultIsList = True
@@ -536,16 +521,14 @@ class SharedResourceMixin(object):
         dl = [self.inviteSingleUserUpdateToShare(_user, _cn, aceOLD, aceNEW, summary, request) for _user, _cn in zip(userid, cn)]
         return self._processShareActionList(dl, resultIsList)
 
-
     def _processShareActionList(self, dl, resultIsList):
         def _defer(resultset):
             results = [result if success else False for success, result in resultset]
             return results if resultIsList else results[0]
         return DeferredList(dl).addCallback(_defer)
 
-
     @inlineCallbacks
-    def inviteSingleUserToShare(self, userid, cn, ace, summary, request): #@UnusedVariable
+    def inviteSingleUserToShare(self, userid, cn, ace, summary, request):  # @UnusedVariable
 
         # We currently only handle local users
         sharee = yield self.principalForCalendarUserAddress(userid)
@@ -566,9 +549,8 @@ class SharedResourceMixin(object):
 
         returnValue(result)
 
-
     @inlineCallbacks
-    def uninviteSingleUserFromShare(self, userid, aces, request): #@UnusedVariable
+    def uninviteSingleUserFromShare(self, userid, aces, request):  # @UnusedVariable
 
         # Cancel invites - we'll just use whatever userid we are given. However, if we
         # cannot find a matching principal, try to extract the uid from the userid
@@ -589,19 +571,16 @@ class SharedResourceMixin(object):
 
         returnValue(result)
 
-
     @inlineCallbacks
     def uninviteFromShare(self, invitation, request):
 
         yield self._newStoreObject.uninviteFromShare(invitation)
         returnValue(True)
 
-
-    def inviteSingleUserUpdateToShare(self, userid, commonName, acesOLD, aceNEW, summary, request): #@UnusedVariable
+    def inviteSingleUserUpdateToShare(self, userid, commonName, acesOLD, aceNEW, summary, request):  # @UnusedVariable
 
         # Just update existing
         return self.inviteSingleUserToShare(userid, commonName, aceNEW, summary, request)
-
 
     @inlineCallbacks
     def _xmlHandleInvite(self, request, docroot):
@@ -615,7 +594,6 @@ class SharedResourceMixin(object):
         yield self.authorize(request, (element.Read(), element.Write()))
         result = (yield self._handleInvite(request, docroot))
         returnValue(result)
-
 
     @inlineCallbacks
     def _handleInvite(self, request, invitedoc):
@@ -652,7 +630,6 @@ class SharedResourceMixin(object):
                     (customxml.calendarserver_namespace, "valid-request"),
                     "%s: %s" % (", ".join(error_text), inviteset,),
                 ))
-
 
         def _handleInviteRemove(inviteremove):
             userid = None
@@ -756,7 +733,6 @@ class SharedResourceMixin(object):
         else:
             returnValue(responsecode.OK)
 
-
     @inlineCallbacks
     def _xmlHandleInviteReply(self, request, docroot):
         # Sharing must be enabled for this collection
@@ -770,10 +746,8 @@ class SharedResourceMixin(object):
         result = (yield self._handleInviteReply(request, docroot))
         returnValue(result)
 
-
     def _handleInviteReply(self, request, docroot):
         raise NotImplementedError
-
 
     @inlineCallbacks
     def xmlRequestHandler(self, request):
@@ -807,13 +781,11 @@ class SharedResourceMixin(object):
         customxml.InviteReply: _xmlHandleInviteReply,
     }
 
-
     def isGroup(self):
         try:
             return self._newStoreObject._kind == _ABO_KIND_GROUP
         except AttributeError:
             return False
-
 
     def POST_handler_content_type(self, request, contentType):
         if self.isCollection() or self.isGroup():
@@ -827,23 +799,23 @@ class SharedResourceMixin(object):
         return succeed(responsecode.FORBIDDEN)
 
     _postHandlers = {
-        ("application", "xml") : xmlRequestHandler,
-        ("text", "xml") : xmlRequestHandler,
+        ("application", "xml"): xmlRequestHandler,
+        ("text", "xml"): xmlRequestHandler,
     }
 
 
 invitationBindStatusToXMLMap = {
-    _BIND_STATUS_INVITED      : customxml.InviteStatusNoResponse,
-    _BIND_STATUS_ACCEPTED     : customxml.InviteStatusAccepted,
-    _BIND_STATUS_DECLINED     : customxml.InviteStatusDeclined,
-    _BIND_STATUS_INVALID      : customxml.InviteStatusInvalid,
-    _BIND_STATUS_DELETED      : customxml.InviteStatusDeleted,
+    _BIND_STATUS_INVITED: customxml.InviteStatusNoResponse,
+    _BIND_STATUS_ACCEPTED: customxml.InviteStatusAccepted,
+    _BIND_STATUS_DECLINED: customxml.InviteStatusDeclined,
+    _BIND_STATUS_INVALID: customxml.InviteStatusInvalid,
+    _BIND_STATUS_DELETED: customxml.InviteStatusDeleted,
 }
 invitationBindStatusFromXMLMap = dict((v, k) for k, v in invitationBindStatusToXMLMap.iteritems())
 
 invitationBindModeToXMLMap = {
-    _BIND_MODE_READ           : customxml.ReadAccess,
-    _BIND_MODE_WRITE          : customxml.ReadWriteAccess,
+    _BIND_MODE_READ: customxml.ReadAccess,
+    _BIND_MODE_WRITE: customxml.ReadWriteAccess,
 }
 invitationBindModeFromXMLMap = dict((v, k) for k, v in invitationBindModeToXMLMap.iteritems())
 
@@ -876,11 +848,9 @@ class SharedHomeMixin(LinkFollowerMixIn):
                 returnValue(None)
         returnValue(child)
 
-
     def _otherPrincipalHomeURL(self, otherUID):
         # Is this only meant to be overridden?
         pass
-
 
     @inlineCallbacks
     def acceptShare(self, request, inviteUID, summary):
@@ -911,7 +881,6 @@ class SharedHomeMixin(LinkFollowerMixIn):
             )
         ))
 
-
     @inlineCallbacks
     def declineShare(self, request, inviteUID):
 
@@ -928,7 +897,6 @@ class SharedHomeMixin(LinkFollowerMixIn):
                 "Invite UID not valid",
             ))
         returnValue(Response(code=responsecode.NO_CONTENT))
-
 
     def _handleInviteReply(self, request, invitereplydoc):
         """

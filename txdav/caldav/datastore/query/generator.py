@@ -28,6 +28,7 @@ __all__ = [
     "CalDAVSQLQueryGenerator",
 ]
 
+
 class CalDAVSQLQueryGenerator(SQLQueryGenerator):
 
     _timerange = schema.TIME_RANGE
@@ -49,7 +50,6 @@ class CalDAVSQLQueryGenerator(SQLQueryGenerator):
         self.userid = userid if userid else "."
         self.freebusy = freebusy
         self.usedtimerange = False
-
 
     def generate(self):
         """
@@ -155,7 +155,6 @@ class CalDAVSQLQueryGenerator(SQLQueryGenerator):
 
         return select, self.arguments, self.usedtimerange
 
-
     def generateExpression(self, expr):
         """
         Generate an expression and all it's subexpressions.
@@ -199,7 +198,6 @@ class CalDAVSQLQueryGenerator(SQLQueryGenerator):
             partial = super(CalDAVSQLQueryGenerator, self).generateExpression(expr)
 
         return partial
-
 
     def addArgument(self, arg):
         """

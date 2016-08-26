@@ -44,17 +44,15 @@ class WebDAVContentHandler(xml.sax.handler.ContentHandler):
         xml.sax.handler.ContentHandler.__init__(self)
         self._characterBuffer = None
 
-
     def location(self):
         return "line %d, column %d" % (self.locator.getLineNumber(), self.locator.getColumnNumber())
 
-
     def startDocument(self):
         self.stack = [{
-            "name"       : None,
-            "class"      : None,
-            "attributes" : None,
-            "children"   : [],
+            "name": None,
+            "class": None,
+            "attributes": None,
+            "children": [],
         }]
 
         # Keep a cache of the subclasses we create for unknown XML
@@ -62,7 +60,6 @@ class WebDAVContentHandler(xml.sax.handler.ContentHandler):
         # same element; it's fairly typical for elements to appear
         # multiple times in a document.
         self.unknownElementClasses = {}
-
 
     def endDocument(self):
         top = self.stack[-1]
@@ -74,7 +71,6 @@ class WebDAVContentHandler(xml.sax.handler.ContentHandler):
 
         self.dom = WebDAVDocument(top["children"][0])
         del(self.unknownElementClasses)
-
 
     def startElementNS(self, name, qname, attributes):
         if self._characterBuffer is not None:
@@ -103,12 +99,11 @@ class WebDAVContentHandler(xml.sax.handler.ContentHandler):
             self.unknownElementClasses[name] = element_class
 
         self.stack.append({
-            "name"       : name,
-            "class"      : element_class,
-            "attributes" : attributes_dict,
-            "children"   : [],
+            "name": name,
+            "class": element_class,
+            "attributes": attributes_dict,
+            "children": [],
         })
-
 
     def endElementNS(self, name, qname):
         if self._characterBuffer is not None:
@@ -128,10 +123,9 @@ class WebDAVContentHandler(xml.sax.handler.ContentHandler):
             element = top["class"](*top["children"], **top["attributes"])
         except ValueError, e:
             e.args = ("%s at %s" % (e.args[0], self.location()),) + e.args[1:]
-            raise # Re-raises modified e, but preserves traceback
+            raise  # Re-raises modified e, but preserves traceback
 
         self.stack[-1]["children"].append(element)
-
 
     def characters(self, content):
         # Stash character data away in a list that we will "".join() when done
@@ -139,26 +133,20 @@ class WebDAVContentHandler(xml.sax.handler.ContentHandler):
             self._characterBuffer = []
         self._characterBuffer.append(content)
 
-
     def ignorableWhitespace(self, whitespace):
         self.characters(self, whitespace)
-
 
     def startElement(self, name, attributes):
         raise AssertionError("startElement() should not be called by namespace-aware parser")
 
-
     def endElement(self, name):
         raise AssertionError("endElement() should not be called by namespace-aware parser")
-
 
     def processingInstruction(self, target, data):
         raise AssertionError("processing instructions are not allowed")
 
-
     def skippedEntity(self, name):
         raise AssertionError("skipped entities are not allowed")
-
 
 
 class WebDAVDocument(AbstractWebDAVDocument):
@@ -179,7 +167,6 @@ class WebDAVDocument(AbstractWebDAVDocument):
         # handler.dom.root_element.validate()
 
         return handler.dom
-
 
     def writeXML(self, output):
         document = xml.dom.minidom.Document()

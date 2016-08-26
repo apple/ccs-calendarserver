@@ -36,6 +36,7 @@ from txdav.xml.base import WebDAVTextElement
 from txdav.xml.element import registerElement, registerElementClass, DisplayName
 import os
 
+
 class BaseSharingTests(CommonCommonTests, TestCase):
     """
     Test store-based calendar sharing.
@@ -46,7 +47,6 @@ class BaseSharingTests(CommonCommonTests, TestCase):
         yield super(BaseSharingTests, self).setUp()
         yield self.buildStoreAndDirectory()
         yield self.populate()
-
 
     @inlineCallbacks
     def populate(self):
@@ -69,7 +69,7 @@ END:VCALENDAR
 """
 
     @classproperty(cache=False)
-    def requirements(cls): #@NoSelf
+    def requirements(cls):  # @NoSelf
         return {
             "user01": {
                 "calendar": {
@@ -92,13 +92,11 @@ END:VCALENDAR
             },
         }
 
-
     def storeUnderTest(self):
         """
         Create and return a L{CalendarStore} for testing.
         """
         return self._sqlCalendarStore
-
 
     @inlineCallbacks
     def _createShare(self):
@@ -120,7 +118,6 @@ END:VCALENDAR
         returnValue(sharedName)
 
 
-
 class CalendarSharing(BaseSharingTests):
 
     @inlineCallbacks
@@ -133,7 +130,6 @@ class CalendarSharing(BaseSharingTests):
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
         self.assertFalse(calendar.isSharedByOwner())
-
 
     @inlineCallbacks
     def test_invite_sharee(self):
@@ -191,7 +187,6 @@ class CalendarSharing(BaseSharingTests):
         self.assertTrue(calendar.isSharedByOwner())
         yield calendar.setShared(False)
         self.assertFalse(calendar.isSharedByOwner())
-
 
     @inlineCallbacks
     def test_accept_share(self):
@@ -252,7 +247,6 @@ class CalendarSharing(BaseSharingTests):
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         self.assertTrue(calendar.isSharedByOwner())
 
-
     @inlineCallbacks
     def test_decline_share(self):
         """
@@ -311,7 +305,6 @@ class CalendarSharing(BaseSharingTests):
 
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         self.assertTrue(calendar.isSharedByOwner())
-
 
     @inlineCallbacks
     def test_accept_decline_share(self):
@@ -373,7 +366,6 @@ class CalendarSharing(BaseSharingTests):
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         self.assertTrue(calendar.isSharedByOwner())
 
-
     @inlineCallbacks
     def test_accept_remove_share(self):
         """
@@ -425,7 +417,6 @@ class CalendarSharing(BaseSharingTests):
         notifications = yield notifyHome.listNotificationObjects()
         self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
-
     @inlineCallbacks
     def test_inviteProperties(self):
 
@@ -437,7 +428,6 @@ class CalendarSharing(BaseSharingTests):
 
         shared = yield self.calendarUnderTest(home="user02", name=shared_name)
         self.assertFalse(shared.isUsedForFreeBusy())
-
 
     @inlineCallbacks
     def test_direct_sharee_without_displayname(self):
@@ -483,7 +473,6 @@ class CalendarSharing(BaseSharingTests):
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02")
         notifications = yield notifyHome.listNotificationObjects()
         self.assertEqual(len(notifications), 0)
-
 
     @inlineCallbacks
     def test_direct_sharee_with_displayname(self):
@@ -532,7 +521,6 @@ class CalendarSharing(BaseSharingTests):
         notifications = yield notifyHome.listNotificationObjects()
         self.assertEqual(len(notifications), 0)
 
-
     @inlineCallbacks
     def test_sharedNotifierID(self):
         shared_name = yield self._createShare()
@@ -548,7 +536,6 @@ class CalendarSharing(BaseSharingTests):
         calendar = yield home.calendarWithName(shared_name)
         self.assertEquals(calendar.notifierID(), ("CalDAV", "user01/calendar",))
         yield self.commit()
-
 
     @inlineCallbacks
     def test_perUserSharedProxyCollectionProperties(self):
@@ -636,7 +623,6 @@ class CalendarSharing(BaseSharingTests):
         self.assertEqual(str(calendar.properties()[PropertyName.fromElement(customxml.CalendarColor)]), "#000004")
         yield self.commit()
 
-
     @inlineCallbacks
     def test_sharingBindRecords(self):
 
@@ -650,7 +636,6 @@ class CalendarSharing(BaseSharingTests):
         self.assertEqual(len(results), 1)
         self.assertEqual(results.keys(), ["user02"])
         self.assertEqual(results["user02"].calendarResourceName, shared_name)
-
 
     @inlineCallbacks
     def test_sharedToBindRecords(self):
@@ -670,7 +655,6 @@ class CalendarSharing(BaseSharingTests):
         self.assertEqual(ownerRecord.calendarResourceName, "calendar")
         self.assertEqual(sharedRecord.calendarResourceName, shared_name)
         self.assertEqual(metadataRecord.supportedComponents, None)
-
 
 
 class GroupSharingTests(BaseSharingTests):
@@ -693,7 +677,6 @@ class GroupSharingTests(BaseSharingTests):
 
         self.paths = {}
 
-
     def configure(self):
         super(GroupSharingTests, self).configure()
         config.Sharing.Enabled = True
@@ -701,13 +684,11 @@ class GroupSharingTests(BaseSharingTests):
         config.Sharing.Calendars.Groups.Enabled = True
         config.Sharing.Calendars.Groups.ReconciliationDelaySeconds = 0
 
-
     @inlineCallbacks
     def _check_notifications(self, uid, items):
         notifyHome = yield self.transactionUnderTest().notificationsWithUID(uid, create=True)
         notifications = yield notifyHome.listNotificationObjects()
         self.assertEqual(set(notifications), set([item + ".xml" for item in items]))
-
 
 
 class GroupSharing(GroupSharingTests):
@@ -721,7 +702,6 @@ class GroupSharing(GroupSharingTests):
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
-
 
     @inlineCallbacks
     def test_invite_owner_group(self):
@@ -761,7 +741,6 @@ class GroupSharing(GroupSharingTests):
         self.assertTrue(calendar.isSharedByOwner())
         yield calendar.setShared(False)
         self.assertFalse(calendar.isSharedByOwner())
-
 
     @inlineCallbacks
     def test_invite_group(self):
@@ -814,7 +793,6 @@ class GroupSharing(GroupSharingTests):
         self.assertTrue(calendar.isSharedByOwner())
         yield calendar.setShared(False)
         self.assertFalse(calendar.isSharedByOwner())
-
 
     @inlineCallbacks
     def test_accept_group(self):
@@ -869,7 +847,6 @@ class GroupSharing(GroupSharingTests):
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         self.assertTrue(calendar.isSharedByOwner())
 
-
     @inlineCallbacks
     def test_decline_group(self):
         """
@@ -922,7 +899,6 @@ class GroupSharing(GroupSharingTests):
 
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         self.assertTrue(calendar.isSharedByOwner())
-
 
     @inlineCallbacks
     def test_accept_decline_share(self):
@@ -977,7 +953,6 @@ class GroupSharing(GroupSharingTests):
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         self.assertTrue(calendar.isSharedByOwner())
 
-
     @inlineCallbacks
     def test_accept_remove_group(self):
         """
@@ -1030,7 +1005,6 @@ class GroupSharing(GroupSharingTests):
 
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         self.assertTrue(calendar.isSharedByOwner())
-
 
     @inlineCallbacks
     def test_accept_uninvite_group(self):
@@ -1092,7 +1066,6 @@ class GroupSharing(GroupSharingTests):
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         self.assertTrue(calendar.isSharedByOwner())
 
-
     @inlineCallbacks
     def test_accept_two_groups(self):
         """
@@ -1136,7 +1109,6 @@ class GroupSharing(GroupSharingTests):
         self.assertTrue(calendar.isSharedByOwner())
 
         yield self.commit()
-
 
     @inlineCallbacks
     def test_accept_uninvite_two_groups(self):
@@ -1209,7 +1181,6 @@ class GroupSharing(GroupSharingTests):
         for invite in invites:
             self.assertEqual((yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)), None)
 
-
     @inlineCallbacks
     def test_accept_uninvite_two_groups_different_access(self):
         """
@@ -1281,7 +1252,6 @@ class GroupSharing(GroupSharingTests):
 
         for invite in invites:
             self.assertEqual((yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)), None)
-
 
 
 class MixedSharing(GroupSharingTests):
@@ -1359,7 +1329,6 @@ class MixedSharing(GroupSharingTests):
 
         for invite in invites:
             self.assertEqual((yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)), None)
-
 
     @inlineCallbacks
     def test_accept_uninvite_individual_direct_and_group(self):
@@ -1441,7 +1410,6 @@ class MixedSharing(GroupSharingTests):
         for invite in invites:
             self.assertEqual((yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)), None)
 
-
     @inlineCallbacks
     def test_accept_uninvite_group_and_individual(self):
         """
@@ -1515,7 +1483,6 @@ class MixedSharing(GroupSharingTests):
 
         for invite in invites:
             self.assertEqual((yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)), None)
-
 
     @inlineCallbacks
     def test_accept_uninvite_group_and_individual_direct(self):
@@ -1591,7 +1558,6 @@ class MixedSharing(GroupSharingTests):
 
         for invite in invites:
             self.assertEqual((yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)), None)
-
 
     @inlineCallbacks
     def test_accept_uninvite_individual_and_groups(self):
@@ -1682,7 +1648,6 @@ class MixedSharing(GroupSharingTests):
 
         for invite in invites:
             self.assertEqual((yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)), None)
-
 
     @inlineCallbacks
     def test_accept_uninvite_individual_and_groups_different_access(self):
@@ -1815,7 +1780,6 @@ class MixedSharing(GroupSharingTests):
             self.assertEqual((yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)), None)
 
 
-
 class SharingRevisions(BaseSharingTests):
     """
     Test store-based sharing and interaction with revision table.
@@ -1832,7 +1796,6 @@ class SharingRevisions(BaseSharingTests):
         self.assertEqual(normalCal._bindRevision, 0)
         otherCal = yield self.calendarUnderTest(home="user02", name=sharedName)
         self.assertNotEqual(otherCal._bindRevision, 0)
-
 
     @inlineCallbacks
     def test_updateShareRevision(self):
@@ -1864,7 +1827,6 @@ class SharingRevisions(BaseSharingTests):
         self.assertEqual(normalCal._bindRevision, 0)
         otherCal = yield self.calendarUnderTest(home="user02", name=sharedName)
         self.assertNotEqual(otherCal._bindRevision, 0)
-
 
     @inlineCallbacks
     def test_sharedRevisions(self):

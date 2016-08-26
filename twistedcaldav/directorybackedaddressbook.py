@@ -56,6 +56,7 @@ log = Logger()
 
 MatchFlags_none = MatchFlags.NOT & ~MatchFlags.NOT  # can't import MatchFlags_none
 
+
 class DirectoryBackedAddressBookResource (CalDAVResource):
     """
     Directory-backed address book
@@ -69,12 +70,10 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
         self.uri = uri
         self.directory = None
 
-
     def makeChild(self, name):
         from twistedcaldav.simpleresource import SimpleCalDAVResource
         return SimpleCalDAVResource(principalCollections=self.principalCollections())
         return self.directory
-
 
     def provisionDirectory(self):
         if self.directory is None:
@@ -86,7 +85,6 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
             # future: instantiate another directory based on /Search/Contacts (?)
 
         return succeed(None)
-
 
     def defaultAccessControlList(self):
         if config.AnonymousDirectoryAddressBookAccess:
@@ -110,7 +108,6 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
             )
         )
 
-
     def supportedReports(self):
         result = super(DirectoryBackedAddressBookResource, self).supportedReports()
         if config.EnableSyncReport:
@@ -118,10 +115,8 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
             result.remove(davxml.Report(davxml.SyncCollection(),))
         return result
 
-
     def resourceType(self):
         return davxml.ResourceType.directory
-
 
     def resourceID(self):
         if self.directory:
@@ -130,23 +125,18 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
             resource_id = "tag:unknown"
         return resource_id
 
-
     def isDirectoryBackedAddressBookCollection(self):
         return True
-
 
     def isAddressBookCollection(self):
         return True
 
-
     def isCollection(self):
         return True
-
 
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
         # Permissions here are fixed, and are not subject to inheritance rules, etc.
         return self.defaultAccessControlList()
-
 
     @inlineCallbacks
     def renderHTTP(self, request):
@@ -155,7 +145,6 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
 
         response = (yield maybeDeferred(super(DirectoryBackedAddressBookResource, self).renderHTTP, request))
         returnValue(response)
-
 
     @inlineCallbacks
     def doAddressBookDirectoryQuery(self, addressBookFilter, addressBookQuery, maxResults, defaultKind="individual"):
@@ -285,7 +274,6 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
         returnValue((results, limited,))
 
 
-
 def propertiesInAddressBookQuery(addressBookQuery):
     """
     Get the vCard properties requested by a given query
@@ -308,7 +296,6 @@ def propertiesInAddressBookQuery(addressBookQuery):
     return (etagRequested, propertyNames if len(propertyNames) else None)
 
 
-
 def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, constantProperties={}):
     """
     Convert the supplied addressbook-query into a ds expression tree.
@@ -320,7 +307,6 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
     """
 
     def propFilterListQuery(filterAllOf, propFilters):
-
         """
         Create an expression for a list of prop-filter elements.
 
@@ -361,7 +347,6 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
                         expressionList.extend(addedExpressions)
             return expressionList
 
-
         def propFilterExpression(filterAllOf, propFilter):
             """
             Create an expression for a single prop-filter element.
@@ -387,9 +372,8 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
 
                 return MatchExpression(fieldName, matchValue, matchType, matchFlags)
 
-
             def definedExpression(defined, allOf):
-                if constant or propFilter.filter_name in ("N" , "FN", "UID", "KIND",):
+                if constant or propFilter.filter_name in ("N", "FN", "UID", "KIND",):
                     return defined  # all records have this property so no records do not have it
                 else:
                     # FIXME: The startsWith expression below, which works with LDAP and OD. is not currently supported
@@ -409,8 +393,7 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
                 else:
                     return matchList
 
-
-            def paramFilterElementExpression(propFilterAllOf, paramFilterElement): #@UnusedVariable
+            def paramFilterElementExpression(propFilterAllOf, paramFilterElement):  # @UnusedVariable
 
                 params = vCardPropToParamMap.get(propFilter.filter_name.upper())
                 defined = params and paramFilterElement.filter_name.upper() in params
@@ -427,7 +410,6 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
 
                 return True
 
-
             def textMatchElementExpression(propFilterAllOf, textMatchElement):
 
                 # preprocess text match strings for ds query
@@ -442,7 +424,7 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
                     elif propFilter.filter_name == "GEO":
                         matchString = ",".join(matchString.split(";"))
 
-                    if propFilter.filter_name in ("N" , "ADR", "ORG",):
+                    if propFilter.filter_name in ("N", "ADR", "ORG",):
                         # for structured properties, change into multiple strings for ds query
                         if propFilter.filter_name == "ADR":
                             # split by newline and comma
@@ -481,7 +463,7 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
                         # use match_type where possible depending on property/attribute mapping
                         # FIXME: case-sensitive negate will not work.  This should return all all records in that case
                         matchType = MatchType.contains
-                        if propFilter.filter_name in ("NICKNAME" , "TITLE" , "NOTE" , "UID", "URL", "N", "ADR", "ORG", "REV", "LABEL",):
+                        if propFilter.filter_name in ("NICKNAME", "TITLE", "NOTE", "UID", "URL", "N", "ADR", "ORG", "REV", "LABEL",):
                             if textMatchElement.match_type == "equals":
                                 matchType = MatchType.equals
                             elif textMatchElement.match_type == "starts-with":
@@ -595,7 +577,6 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
     return((properties, expression))
 
 
-
 class ABDirectoryQueryResult(DAVPropertyMixIn):
     """
     Result from ab query report or multiget on directory
@@ -605,7 +586,6 @@ class ABDirectoryQueryResult(DAVPropertyMixIn):
 
         self._directoryBackedAddressBook = directoryBackedAddressBook
         # self._vCard = None
-
 
     def __repr__(self):
         return "<{self.__class__.__name__}[{rn}({uid})]>".format(
@@ -628,22 +608,17 @@ class ABDirectoryQueryResult(DAVPropertyMixIn):
         self._vCard = yield vCardFromRecord(record, forceKind, addProps, None)
         returnValue(self)
 
-
     def vCard(self):
         return self._vCard
-
 
     def vCardText(self):
         return str(self._vCard)
 
-
     def uri(self):
         return self.vCard().propertyValue("UID") + ".vcf"
 
-
     def hRef(self, parentURI=None):
         return davxml.HRef.fromString(joinURL(parentURI if parentURI else self._directoryBackedAddressBook.uri, self.uri()))
-
 
     def readProperty(self, property, request):
 
@@ -655,7 +630,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn):
 
         if namespace == dav_namespace:
             if name == "resourcetype":
-                result = davxml.ResourceType.empty #@UndefinedVariable
+                result = davxml.ResourceType.empty  # @UndefinedVariable
                 return result
             elif name == "getetag":
                 result = davxml.GETETag(ETag(hashlib.md5(self.vCardText()).hexdigest()).generate())
@@ -695,7 +670,6 @@ class ABDirectoryQueryResult(DAVPropertyMixIn):
             return super(ABDirectoryQueryResult, self).readProperty(property, request)
 
         return self._directoryBackedAddressBook.readProperty(property, request)
-
 
     def listProperties(self, request):  # @UnusedVariable
         qnames = set(self.liveProperties())

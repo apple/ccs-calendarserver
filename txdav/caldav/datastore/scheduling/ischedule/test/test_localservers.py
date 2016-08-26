@@ -78,7 +78,6 @@ class ServerTests(unittest.TestCase):
 </servers>
 """
 
-
     def _setupServers(self, data=data1):
         self.patch(config, "ServerHostName", "caldav1.example.com")
         self.patch(config, "HTTPPort", 8008)
@@ -88,7 +87,6 @@ class ServerTests(unittest.TestCase):
         servers.load(xmlFile, ignoreIPLookupFailures=True)
 
         return servers
-
 
     def test_read_ok(self):
 
@@ -105,7 +103,6 @@ class ServerTests(unittest.TestCase):
 
         self.assertEqual(servers.getServerById("00001").shared_secret, "foobar")
         self.assertEqual(servers.getServerById("00002").shared_secret, None)
-
 
     def test_this_server(self):
 
@@ -127,7 +124,6 @@ class ServerTests(unittest.TestCase):
         self.assertTrue(servers.getServerById("00002").thisServer)
         self.assertEqual(servers.getThisServer(), servers.getServerById("00002"))
 
-
     def test_all_except_this_server(self):
 
         servers = self._setupServers()
@@ -148,7 +144,6 @@ class ServerTests(unittest.TestCase):
         self.assertTrue(servers.getServerById("00002").thisServer)
         self.assertEqual(servers.allServersExceptThis(), [servers.getServerById("00001"), ])
 
-
     def test_check_this_ip(self):
 
         servers = self._setupServers()
@@ -157,7 +152,6 @@ class ServerTests(unittest.TestCase):
 
         self.assertTrue(servers.getServerById("00001").checkThisIP("127.0.0.2"))
         self.assertFalse(servers.getServerById("00001").checkThisIP("127.0.0.3"))
-
 
     def test_check_allowed_from(self):
 
@@ -171,7 +165,6 @@ class ServerTests(unittest.TestCase):
             self.assertFalse(servers.getServerById("00002").checkAllowedFromIP("127.0.0.1"))
             self.assertFalse(servers.getServerById("00002").checkAllowedFromIP("127.0.0.2"))
             self.assertFalse(servers.getServerById("00002").checkAllowedFromIP("127.0.0.3"))
-
 
     def test_check_shared_secret(self):
 
@@ -198,7 +191,6 @@ class ServerTests(unittest.TestCase):
 
         request = SimpleRequest(None, "POST", "/ischedule")
         self.assertTrue(servers.getServerById("00002").checkSharedSecret(request.headers))
-
 
     def test_urn_uuid(self):
 

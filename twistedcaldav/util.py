@@ -72,7 +72,6 @@ if sys.platform == "darwin" and hasCtypes:
 
         return int(ncpu.value)
 
-
     def getMemorySize():
         """
         Returns the physical amount of RAM installed, in bytes
@@ -100,7 +99,6 @@ elif sys.platform == "linux2" and hasCtypes:
     def getNCPU():
         return libc.get_nprocs()
 
-
     def getMemorySize():
         return libc.getpagesize() * libc.get_phys_pages()
 
@@ -113,10 +111,8 @@ else:
 
         raise NotImplementedError("getNCPU not supported on %s%s" % (sys.platform, msg))
 
-
     def getMemorySize():
         raise NotImplementedError("getMemorySize not yet supported on %s" % (sys.platform))
-
 
 
 def computeProcessCount(minimum, perCPU, perGB, cpuCount=None, memSize=None):
@@ -149,7 +145,6 @@ def computeProcessCount(minimum, perCPU, perGB, cpuCount=None, memSize=None):
     return max(count, minimum)
 
 
-
 ##
 # Module management
 ##
@@ -173,6 +168,7 @@ def submodule(module, name):
 
 from twisted.python.failure import Failure
 
+
 def printTracebacks(f):
     def wrapper(*args, **kwargs):
         try:
@@ -183,7 +179,6 @@ def printTracebacks(f):
     return wrapper
 
 
-
 ##
 # Helpers
 ##
@@ -192,9 +187,9 @@ class Alternator (object):
     """
     Object that alternates between True and False states.
     """
+
     def __init__(self, state=False):
         self._state = bool(state)
-
 
     def state(self):
         """
@@ -205,12 +200,10 @@ class Alternator (object):
         return state
 
 
-
 def utf8String(s):
     if isinstance(s, unicode):
         s = s.encode("utf-8")
     return s
-
 
 
 ##
@@ -223,13 +216,13 @@ class KeychainPasswordNotFound(Exception):
     """
 
 
-
 class KeychainAccessError(Exception):
     """
     Exception raised when not able to access keychain
     """
 
 passwordRegExp = re.compile(r'password: "(.*)"')
+
 
 def getPasswordFromKeychain(account):
     if os.path.isfile("/usr/bin/security"):
@@ -257,7 +250,6 @@ def getPasswordFromKeychain(account):
         raise KeychainAccessError(error)
 
 
-
 ##
 # Digest/Basic-capable HTTP GET factory
 ##
@@ -269,6 +261,8 @@ algorithms = {
 }
 
 # DigestCalcHA1
+
+
 def calcHA1(
     pszAlg,
     pszUserName,
@@ -322,7 +316,6 @@ def calcHA1(
     return HA1.encode('hex')
 
 
-
 # DigestCalcResponse
 def calcResponse(
     HA1,
@@ -361,10 +354,8 @@ def calcResponse(
     return respHash
 
 
-
 class Unauthorized(Exception):
     pass
-
 
 
 class AuthorizedHTTPGetter(client.HTTPPageGetter):
@@ -395,6 +386,7 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter):
             if item.startswith("digest "):
                 digestAvailable = True
                 wwwauth = item[7:]
+
                 def unq(s):
                     if s[0] == s[-1] == '"':
                         return s[1:-1]
@@ -494,7 +486,6 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter):
             return self.factory.deferred
 
 
-
 def bestAcceptType(accepts, allowedTypes):
     """
     Given a set of Accept headers and the set of types the server can return, determine the best choice
@@ -543,7 +534,6 @@ def bestAcceptType(accepts, allowedTypes):
     return result
 
 
-
 def userAgentProductTokens(user_agent):
     """
     Parse an HTTP User-Agent header to extract the product tokens and ignore
@@ -570,7 +560,6 @@ def userAgentProductTokens(user_agent):
             ua_tokens.append(token)
 
     return ua_tokens
-
 
 
 def matchClientFixes(config, user_agent):

@@ -21,6 +21,7 @@ from caldavclientlibrary.protocol.webdav.propfind import PropFind
 from contrib.performance.sqlusage.requests.httpTests import HTTPTestBase
 from caldavclientlibrary.protocol.caldav.definitions import csxml
 
+
 class PropfindInviteTest(HTTPTestBase):
     """
     A propfind operation
@@ -29,7 +30,6 @@ class PropfindInviteTest(HTTPTestBase):
     def __init__(self, label, sessions, logFilePath, logFilePrefix, depth=1):
         super(PropfindInviteTest, self).__init__(label, sessions, logFilePath, logFilePrefix)
         self.depth = headers.Depth1 if depth == 1 else headers.Depth0
-
 
     def doRequest(self):
         """

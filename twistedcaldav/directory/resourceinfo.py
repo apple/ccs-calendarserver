@@ -31,6 +31,7 @@ from twext.python.log import Logger
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
 
+
 class ResourceInfoDatabase(AbstractSQLDatabase):
     """
     A database to maintain resource (and location) information
@@ -62,13 +63,11 @@ class ResourceInfoDatabase(AbstractSQLDatabase):
                 autoSchedule = None
             returnValue(autoSchedule)
 
-
     def __init__(self, path):
         path = os.path.join(path, ResourceInfoDatabase.dbFilename)
         super(ResourceInfoDatabase, self).__init__(path, True)
 
         self._memcacher = ResourceInfoDatabase.ResourceInfoDBMemcacher("resourceInfoDB")
-
 
     @inlineCallbacks
     def setAutoSchedule(self, guid, autoSchedule):
@@ -83,7 +82,6 @@ class ResourceInfoDatabase(AbstractSQLDatabase):
         # Update cache
         (yield self._memcacher.setAutoSchedule(guid, autoSchedule))
 
-
     def setAutoScheduleInDatabase(self, guid, autoSchedule):
         """
         A blocking call to set a resource/location's auto-Schedule boolean
@@ -96,7 +94,6 @@ class ResourceInfoDatabase(AbstractSQLDatabase):
         self._delete_from_db(guid)
         self._add_to_db(guid, autoSchedule)
         self._db_commit()
-
 
     @inlineCallbacks
     def getAutoSchedule(self, guid):
@@ -114,7 +111,6 @@ class ResourceInfoDatabase(AbstractSQLDatabase):
                 (yield self._memcacher.setAutoSchedule(guid, autoSchedule))
         returnValue(autoSchedule)
 
-
     def _add_to_db(self, guid, autoSchedule):
         """
         Insert the specified entry into the database.
@@ -129,7 +125,6 @@ class ResourceInfoDatabase(AbstractSQLDatabase):
             """, guid, 1 if autoSchedule else 0
         )
 
-
     def _delete_from_db(self, guid):
         """
         Deletes the specified entry from the database.
@@ -138,20 +133,17 @@ class ResourceInfoDatabase(AbstractSQLDatabase):
         """
         self._db_execute("delete from RESOURCEINFO where GUID = :1", guid)
 
-
     def _db_version(self):
         """
         @return: the schema version assigned to this index.
         """
         return ResourceInfoDatabase.dbFormatVersion
 
-
     def _db_type(self):
         """
         @return: the collection type assigned to this index.
         """
         return ResourceInfoDatabase.dbType
-
 
     def _db_init_data_tables(self, q):
         """

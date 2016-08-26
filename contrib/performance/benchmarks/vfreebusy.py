@@ -78,15 +78,14 @@ END:VFREEBUSY
 END:VCALENDAR
 """
 
+
 def formatDate(d):
     return ''.join(filter(str.isalnum, d.isoformat()))
-
 
 
 def makeEvent(i):
     # Backwards compat interface, don't delete it for a little while.
     return makeEventNear(datetime(2010, 7, 30, 11, 15, 00), i)
-
 
 
 def makeEventNear(base, i):
@@ -115,10 +114,8 @@ END:VEVENT
     return data.replace("\n", "\r\n")
 
 
-
 def makeEvents(base, n):
     return [makeEventNear(base, i) for i in range(n)]
-
 
 
 @inlineCallbacks

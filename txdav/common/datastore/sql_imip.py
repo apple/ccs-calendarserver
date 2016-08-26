@@ -29,13 +29,13 @@ log = Logger()
 Classes and methods that relate to iMIP objects in the SQL store.
 """
 
+
 class iMIPTokensRecord(SerializableRecord, fromTable(schema.IMIP_TOKENS)):
     """
     @DynamicAttrs
     L{Record} for L{schema.IMIP_TOKENS}.
     """
     pass
-
 
 
 class imipAPIMixin(object):
@@ -65,11 +65,9 @@ class imipAPIMixin(object):
             record = yield self.imipGetToken(organizer, attendee, icaluid)
         returnValue(record)
 
-
     # Lookup IMIP organizer+attendee+icaluid for token
     def imipLookupByToken(self, token):
         return iMIPTokensRecord.querysimple(self, token=token)
-
 
     # Lookup IMIP token for organizer+attendee+icaluid
     @inlineCallbacks
@@ -88,11 +86,9 @@ class imipAPIMixin(object):
             record = None
         returnValue(record)
 
-
     # Remove IMIP token
     def imipRemoveToken(self, token):
         return iMIPTokensRecord.deletesimple(self, token=token)
-
 
     # Purge old IMIP tokens
     def purgeOldIMIPTokens(self, olderThan):

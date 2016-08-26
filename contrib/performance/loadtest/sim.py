@@ -65,7 +65,9 @@ from contrib.performance.loadtest.webadmin import LoadSimAdminResource
 
 from contrib.performance.loadtest.amphub import AMPHub
 
+
 class _DirectoryRecord(object):
+
     def __init__(self, uid, password, commonName, email, guid, podID="PodA"):
         self.uid = uid
         self.password = password
@@ -74,15 +76,12 @@ class _DirectoryRecord(object):
         self.guid = guid
         self.podID = podID
 
-
     def __repr__(self):
         return "user='{}'".format(self.uid)
 
 
-
 def safeDivision(value, total, factor=1):
     return value * factor / total if total else 0
-
 
 
 def generateRecords(
@@ -98,7 +97,6 @@ def generateRecords(
         email = emailPattern % (i,)
         guid = guidPattern % (i,)
         yield _DirectoryRecord(uid, password, name, email, guid, podID)
-
 
 
 def recordsFromCSVFile(path, interleavePods):
@@ -125,7 +123,6 @@ def recordsFromCSVFile(path, interleavePods):
     return records
 
 
-
 class LagTrackingReactor(object):
     """
     This reactor wraps another reactor and proxies all attribute
@@ -136,21 +133,20 @@ class LagTrackingReactor(object):
     the call was original scheduled and when the call actually took
     place.
     """
+
     def __init__(self, reactor):
         self._reactor = reactor
-
 
     def __getattr__(self, name):
         return getattr(self._reactor, name)
 
-
     def callLater(self, delay, function, *args, **kwargs):
         expected = self._reactor.seconds() + delay
+
         def modifyContext():
             now = self._reactor.seconds()
             context.call({'lag': now - expected}, function, *args, **kwargs)
         return self._reactor.callLater(delay, modifyContext)
-
 
 
 class SimOptions(Options):
@@ -173,7 +169,6 @@ class SimOptions(Options):
          FilePath),
     ]
 
-
     def opt_logfile(self, filename):
         """
         Enable normal logging to some file.  - for stdout.
@@ -184,14 +179,12 @@ class SimOptions(Options):
             fObj = file(filename, "a")
         startLogging(fObj, setStdout=False)
 
-
     def opt_debug(self):
         """
         Enable Deferred and Failure debugging.
         """
         self.opt_debug_deferred()
         self.opt_debug_failure()
-
 
     def opt_debug_deferred(self):
         """
@@ -200,14 +193,12 @@ class SimOptions(Options):
         from twisted.internet.defer import setDebugging
         setDebugging(True)
 
-
     def opt_debug_failure(self):
         """
         Enable Failure debugging.
         """
         from twisted.python.failure import startDebugMode
         startDebugMode()
-
 
     def postOptions(self):
         try:
@@ -243,7 +234,6 @@ class SimOptions(Options):
 Arrival = namedtuple('Arrival', 'factory parameters')
 
 
-
 class LoadSimulator(object):
     """
     A L{LoadSimulator} simulates some configuration of calendar
@@ -257,6 +247,7 @@ class LoadSimulator(object):
         user information about the accounts on the server being put
         under load.
     """
+
     def __init__(self, servers, principalPathTemplate, webadminPort, serializationPath, arrival, parameters, observers=None,
                  records=None, reactor=None, runtime=None, workers=None,
                  configTemplate=None, workerID=None, workerCount=1):
@@ -278,7 +269,6 @@ class LoadSimulator(object):
         self.workerID = workerID
         self.workerCount = workerCount
 
-
     @classmethod
     def fromCommandLine(cls, args=None, output=stdout):
         if args is None:
@@ -291,7 +281,6 @@ class LoadSimulator(object):
             raise SystemExit(str(e))
 
         return cls.fromConfig(options.config, options['runtime'], output)
-
 
     @classmethod
     def fromConfig(cls, config, runtime=None, output=stdout, reactor=None):
@@ -398,7 +387,6 @@ class LoadSimulator(object):
             workerCount=workerCount,
         )
 
-
     @classmethod
     def _convertParams(cls, params):
         """
@@ -414,7 +402,6 @@ class LoadSimulator(object):
                 params[k] = cls._convertDistribution(v)
         return params
 
-
     @classmethod
     def _convertDistribution(cls, value):
         """
@@ -422,7 +409,6 @@ class LoadSimulator(object):
         params specified by C{value}.
         """
         return namedAny(value['type'])(**value['params'])
-
 
     @classmethod
     def filterRecords(cls, records, servers):
@@ -439,14 +425,12 @@ class LoadSimulator(object):
         enabled = set(filter(lambda podID: servers[podID]["enabled"], servers.keys()))
         return filter(lambda record: record.podID in enabled, records)
 
-
     @classmethod
     def main(cls, args=None):
         simulator = cls.fromCommandLine(args)
         exitCode = simulator.run()
         print("Exit code: {}".format(exitCode))
         raise SystemExit(exitCode)
-
 
     def createSimulator(self):
         populator = Populator(Random())
@@ -463,10 +447,8 @@ class LoadSimulator(object):
             self.workerCount,
         )
 
-
     def createArrivalPolicy(self):
         return self.arrival.factory(self.reactor, **self.arrival.parameters)
-
 
     def serviceClasses(self):
         """
@@ -485,14 +467,12 @@ class LoadSimulator(object):
             ReporterService,
         ]
 
-
     def attachServices(self, output):
         self.ms = MultiService()
         for svcclass in self.serviceClasses():
             svcclass(self, output).setServiceParent(self.ms)
         attachService(self.reactor, self, self.ms)
         self.startAmpHub()
-
 
     def startAmpHub(self):
         hostsAndPorts = []
@@ -502,7 +482,6 @@ class LoadSimulator(object):
                     hostsAndPorts.append((host, serverInfo["ampPushPort"]))
         if hostsAndPorts:
             AMPHub.start(hostsAndPorts)
-
 
     def run(self, output=stdout):
         self.attachServices(output)
@@ -515,19 +494,16 @@ class LoadSimulator(object):
         # Return code to indicate pass or fail
         return 0 if all([len(obs.failures()) == 0 for obs in self.observers]) else 1
 
-
     def stop(self):
         if self.ms.running:
             self.updateStats()
             self.ms.stopService()
             self.reactor.callLater(5, self.stopAndReport)
 
-
     def shutdown(self):
         if self.ms.running:
             self.updateStats()
             return self.ms.stopService()
-
 
     def updateStats(self):
         """
@@ -548,7 +524,6 @@ class LoadSimulator(object):
                     )
                     msg(type="sim-expired", podID=podID, reason=result)
 
-
     def stopAndReport(self):
         """
         Runtime has expired - capture server stats and stop.
@@ -556,7 +531,6 @@ class LoadSimulator(object):
 
         self.updateStats()
         self.reactor.stop()
-
 
     def readStatsSock(self, sockname, useTCP):
         try:
@@ -580,7 +554,6 @@ class LoadSimulator(object):
         return data
 
 
-
 def attachService(reactor, loadsim, service):
     """
     Attach a given L{IService} provider to the given L{IReactorCore}; cause it
@@ -588,7 +561,6 @@ def attachService(reactor, loadsim, service):
     """
     reactor.callWhenRunning(service.startService)
     reactor.addSystemEventTrigger('before', 'shutdown', loadsim.shutdown)
-
 
 
 class SimService(Service, object):
@@ -600,7 +572,6 @@ class SimService(Service, object):
         super(SimService, self).__init__()
         self.loadsim = loadsim
         self.output = output
-
 
 
 class ObserverService(SimService):
@@ -617,12 +588,10 @@ class ObserverService(SimService):
         for obs in self.loadsim.observers:
             addObserver(obs.observe)
 
-
     def stopService(self):
         super(ObserverService, self).stopService()
         for obs in self.loadsim.observers:
             removeObserver(obs.observe)
-
 
 
 class SimulatorService(SimService):
@@ -637,12 +606,10 @@ class SimulatorService(SimService):
         arrivalPolicy = self.loadsim.createArrivalPolicy()
         arrivalPolicy.run(self.clientsim)
 
-
     @inlineCallbacks
     def stopService(self):
         yield super(SimulatorService, self).stopService()
         yield self.clientsim.stop()
-
 
 
 class ReporterService(SimService):
@@ -658,14 +625,12 @@ class ReporterService(SimService):
         super(ReporterService, self).startService()
         self.loadsim.reporter = self
 
-
     def stopService(self):
         """
         Emit the report to the specified output file.
         """
         super(ReporterService, self).stopService()
         self.generateReport(self.output)
-
 
     def generateReport(self, output):
         """
@@ -683,7 +648,6 @@ class ReporterService(SimService):
             output.write('\n*** PASS\n')
 
 
-
 class ProcessProtocolBridge(ProcessProtocol):
 
     def __init__(self, spawner, proto):
@@ -691,35 +655,28 @@ class ProcessProtocolBridge(ProcessProtocol):
         self.proto = proto
         self.deferred = Deferred()
 
-
     def connectionMade(self):
         self.transport.getPeer = self.getPeer
         self.transport.getHost = self.getHost
         self.proto.makeConnection(self.transport)
 
-
     def getPeer(self):
         return "Peer:PID:" + str(self.transport.pid)
-
 
     def getHost(self):
         return "Host:PID:" + str(self.transport.pid)
 
-
     def outReceived(self, data):
         self.proto.dataReceived(data)
-
 
     def errReceived(self, error):
         msg("stderr received from " + str(self.transport.pid))
         msg("    " + repr(error))
 
-
     def processEnded(self, reason):
         self.proto.connectionLost(reason)
         self.deferred.callback(None)
         self.spawner.bridges.remove(self)
-
 
 
 class WorkerSpawnerService(SimService):
@@ -739,16 +696,15 @@ class WorkerSpawnerService(SimService):
                 bridge, sh, [sh, "-c", worker], env=environ
             )
 
-
     def stopService(self):
         TERMINATE_TIMEOUT = 30.0
+
         def killThemAll(name):
             for bridge in self.bridges:
                 bridge.transport.signalProcess(name)
         killThemAll("TERM")
         self.loadsim.reactor.callLater(TERMINATE_TIMEOUT, killThemAll, "KILL")
         return gatherResults([bridge.deferred for bridge in self.bridges])
-
 
 
 main = LoadSimulator.main

@@ -28,11 +28,11 @@ from txdav.caldav.datastore.scheduling.cuaddress import calendarUserFromCalendar
 from txdav.caldav.datastore.scheduling.freebusy import FreebusyQuery
 from txdav.common.datastore.test.util import CommonCommonTests, populateCalendarsFrom
 
+
 def normalizeiCalendarText(data):
     data = data.replace("\r\n ", "")
     data = [line for line in data.splitlines() if not (line.startswith("UID") or line.startswith("DTSTAMP"))]
     return "\r\n".join(data) + "\r\n"
-
 
 
 class BuildFreeBusyResult (TestCase):
@@ -236,7 +236,6 @@ END:VCALENDAR
             self.assertEqual(normalizeiCalendarText(str(result)), calendar.replace("\n", "\r\n"), msg=description)
 
 
-
 class GenerateFreeBusyInfo(CommonCommonTests, TestCase):
     """
     Test txdav.caldav.datastore.scheduling.freebusy.FreebusyQuery
@@ -260,15 +259,13 @@ class GenerateFreeBusyInfo(CommonCommonTests, TestCase):
         self.now_1D = self.now.duplicate()
         self.now_1D.offsetDay(1)
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
 
-
     @classproperty(cache=False)
-    def requirements(cls): #@NoSelf
+    def requirements(cls):  # @NoSelf
         return {
             "user01": {
                 "calendar_1": {
@@ -290,20 +287,17 @@ class GenerateFreeBusyInfo(CommonCommonTests, TestCase):
             },
         }
 
-
     def storeUnderTest(self):
         """
         Create and return a L{CalendarStore} for testing.
         """
         return self._sqlCalendarStore
 
-
     @inlineCallbacks
     def _createCalendarObject(self, data, user, name):
         calendar_collection = (yield self.calendarUnderTest(home=user))
         yield calendar_collection.createCalendarObjectWithName("test.ics", Component.fromString(data))
         yield self.commit()
-
 
     @inlineCallbacks
     def test_no_events(self):
@@ -322,7 +316,6 @@ class GenerateFreeBusyInfo(CommonCommonTests, TestCase):
         self.assertEqual(len(fbinfo.busy), 0)
         self.assertEqual(len(fbinfo.tentative), 0)
         self.assertEqual(len(fbinfo.unavailable), 0)
-
 
     @inlineCallbacks
     def test_one_event(self):
@@ -354,7 +347,6 @@ END:VCALENDAR
         self.assertEqual(fbinfo.busy, [Period.parseText("%s/%s" % (self.now_12H.getText(), self.now_13H.getText(),)), ])
         self.assertEqual(len(fbinfo.tentative), 0)
         self.assertEqual(len(fbinfo.unavailable), 0)
-
 
     @inlineCallbacks
     def test_one_event_event_details(self):

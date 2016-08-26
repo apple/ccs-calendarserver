@@ -43,6 +43,7 @@ from twext.python.clsprop import classproperty
 import hashlib
 import sys
 
+
 class FakeScheduler(object):
     """
     A fake CalDAVScheduler that does nothing except track who messages were sent to.
@@ -51,11 +52,9 @@ class FakeScheduler(object):
     def __init__(self, recipients):
         self.recipients = recipients
 
-
     def doSchedulingViaPUT(self, originator, recipients, calendar, internal_request=False, suppress_refresh=False):
         self.recipients.extend(recipients)
         return succeed(ScheduleResponseQueue("FAKE", responsecode.OK))
-
 
 
 class Implicit(CommonCommonTests, TestCase):
@@ -67,7 +66,6 @@ class Implicit(CommonCommonTests, TestCase):
     def setUp(self):
         yield super(Implicit, self).setUp()
         yield self.buildStoreAndDirectory()
-
 
     @inlineCallbacks
     def test_removed_attendees(self):
@@ -808,7 +806,6 @@ END:VCALENDAR
             self.assertEqual(scheduler.cancelledAttendees, set(result), msg=description)
             yield self.commit()
 
-
     @inlineCallbacks
     def test_process_request_excludes_includes(self):
         """
@@ -818,7 +815,7 @@ END:VCALENDAR
         data = (
             ((), None, 3, ("mailto:user02@example.com", "mailto:user03@example.com", "mailto:user04@example.com",),),
             (("mailto:user02@example.com",), None, 2, ("mailto:user03@example.com", "mailto:user04@example.com",),),
-            ((), ("mailto:user02@example.com", "mailto:user04@example.com",) , 2, ("mailto:user02@example.com", "mailto:user04@example.com",),),
+            ((), ("mailto:user02@example.com", "mailto:user04@example.com",), 2, ("mailto:user02@example.com", "mailto:user04@example.com",),),
         )
 
         calendar = """BEGIN:VCALENDAR
@@ -874,7 +871,6 @@ END:VCALENDAR
             yield self.commit()
 
 
-
 class ImplicitRequests(CommonCommonTests, TestCase):
     """
     Test txdav.caldav.datastore.scheduling.implicit.
@@ -886,15 +882,13 @@ class ImplicitRequests(CommonCommonTests, TestCase):
         yield self.buildStoreAndDirectory()
         yield self.populate()
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
 
-
     @classproperty(cache=False)
-    def requirements(cls): #@NoSelf
+    def requirements(cls):  # @NoSelf
         return {
             "user01": {
                 "calendar_1": {
@@ -916,13 +910,11 @@ class ImplicitRequests(CommonCommonTests, TestCase):
             },
         }
 
-
     @inlineCallbacks
     def _createCalendarObject(self, data, user, name):
         calendar_collection = (yield self.calendarUnderTest(home=user))
         yield calendar_collection.createCalendarObjectWithName("test.ics", Component.fromString(data))
         yield self.commit()
-
 
     @inlineCallbacks
     def _listCalendarObjects(self, user, collection_name="calendar_1"):
@@ -930,7 +922,6 @@ class ImplicitRequests(CommonCommonTests, TestCase):
         items = (yield collection.listCalendarObjects())
         yield self.commit()
         returnValue(items)
-
 
     @inlineCallbacks
     def _getCalendarData(self, user, name=None):
@@ -943,7 +934,6 @@ class ImplicitRequests(CommonCommonTests, TestCase):
         yield self.commit()
         returnValue(str(calendar).replace("\r\n ", ""))
 
-
     @inlineCallbacks
     def _setCalendarData(self, data, user, name=None):
         if name is None:
@@ -953,7 +943,6 @@ class ImplicitRequests(CommonCommonTests, TestCase):
         calendar_resource = (yield self.calendarObjectUnderTest(name=name, home=user))
         yield calendar_resource.setComponent(Component.fromString(data))
         yield self.commit()
-
 
     @inlineCallbacks
     def test_testImplicitSchedulingPUT_ScheduleState(self):
@@ -1018,7 +1007,6 @@ END:VCALENDAR
             self.assertEqual(doAction, result)
             self.assertEqual(isScheduleObject, result)
 
-
     @inlineCallbacks
     def test_testImplicitSchedulingPUT_FixScheduleState(self):
         """
@@ -1071,7 +1059,6 @@ END:VCALENDAR
         self.assertTrue(doAction)
         self.assertTrue(isScheduleObject)
 
-
     @inlineCallbacks
     def test_testImplicitSchedulingPUT_NoChangeScheduleState(self):
         """
@@ -1122,7 +1109,6 @@ END:VCALENDAR
         else:
             self.fail("Exception must be raised")
 
-
     @inlineCallbacks
     def test_doImplicitScheduling_NewOrganizerEvent(self):
         """
@@ -1152,7 +1138,6 @@ END:VCALENDAR
         list2 = (yield self._listCalendarObjects("user02", "inbox"))
         self.assertEqual(len(list2), 1)
         self.assertTrue(list2[0].startswith(hashlib.md5("12345-67890").hexdigest()))
-
 
     @inlineCallbacks
     def test_doImplicitScheduling_UpdateOrganizerEvent(self):
@@ -1201,7 +1186,6 @@ END:VCALENDAR
         self.assertTrue(list2[0].startswith(hashlib.md5("12345-67890").hexdigest()))
         self.assertTrue(list2[1].startswith(hashlib.md5("12345-67890").hexdigest()))
 
-
     @inlineCallbacks
     def test_doImplicitScheduling_DeleteOrganizerEvent(self):
         """
@@ -1236,7 +1220,6 @@ END:VCALENDAR
         self.assertEqual(len(list2), 2)
         self.assertTrue(list2[0].startswith(hashlib.md5("12345-67890").hexdigest()))
         self.assertTrue(list2[1].startswith(hashlib.md5("12345-67890").hexdigest()))
-
 
     @inlineCallbacks
     def test_doImplicitScheduling_UpdateMailtoOrganizerEvent(self):
@@ -1322,7 +1305,6 @@ END:VCALENDAR
         self.assertTrue(comp.getOrganizerScheduleAgent())
         yield self.commit()
 
-
     @inlineCallbacks
     def test_doImplicitScheduling_AttendeeEventNoOrganizerEvent(self):
         """
@@ -1354,7 +1336,6 @@ END:VCALENDAR
 
         list1 = (yield self._listCalendarObjects("user01", "inbox"))
         self.assertEqual(len(list1), 0)
-
 
     @inlineCallbacks
     def test_doImplicitScheduling_AttendeeReply(self):
@@ -1408,7 +1389,6 @@ END:VCALENDAR
         calendar1 = (yield self._getCalendarData("user01", "test.ics"))
         self.assertTrue("SCHEDULE-STATUS=2.0" in calendar1)
         self.assertTrue("PARTSTAT=ACCEPTED" in calendar1)
-
 
     @inlineCallbacks
     def test_doImplicitScheduling_refreshAllAttendeesExceptSome(self):
@@ -1492,7 +1472,6 @@ END:VCALENDAR
 
         calendar3 = (yield self._getCalendarData("user03"))
         self.assertTrue("PARTSTAT=ACCEPTED" in calendar3)
-
 
     @inlineCallbacks
     def test_doImplicitScheduling_refreshAllAttendeesExceptSome_Batched(self):
@@ -1583,7 +1562,6 @@ END:VCALENDAR
 
         yield deferLater(reactor, 2.0, _test_user03_refresh)
 
-
     @inlineCallbacks
     def test_doImplicitScheduling_OrganizerEventTimezoneDST(self):
         """
@@ -1647,7 +1625,6 @@ END:VCALENDAR
         self.assertTrue(list2[0].startswith(hashlib.md5("12345-67890").hexdigest()))
         self.assertTrue(list2[1].startswith(hashlib.md5("12345-67890").hexdigest()))
 
-
     @inlineCallbacks
     def test_doImplicitScheduling_MissingAttendeeWithInvalidUser(self):
         """
@@ -1677,7 +1654,6 @@ END:VCALENDAR
         yield self._setCalendarData(data1, "user02", "test.ics")
         list2 = (yield self._listCalendarObjects("user02"))
         self.assertEqual(len(list2), 1)
-
 
     @inlineCallbacks
     def test_doImplicitScheduling_MissingAttendeeWithiMIP(self):
@@ -1712,7 +1688,6 @@ END:VCALENDAR
         list2 = (yield self._listCalendarObjects("user02"))
         self.assertEqual(len(list2), 1)
 
-
     @inlineCallbacks
     def test_sendAttendeeReply_ScheduleAgentNone(self):
         """
@@ -1741,7 +1716,6 @@ END:VCALENDAR
         result = yield ImplicitScheduler().sendAttendeeReply(cobj._txn, cobj)
         self.assertFalse(result)
 
-
     @inlineCallbacks
     def test_sendAttendeeReply_ScheduleAgentClient(self):
         """
@@ -1769,7 +1743,6 @@ END:VCALENDAR
         cobj = yield self.calendarObjectUnderTest(home="user02", name="test.ics",)
         result = yield ImplicitScheduler().sendAttendeeReply(cobj._txn, cobj)
         self.assertFalse(result)
-
 
     @inlineCallbacks
     def test_sendAttendeeReply_NoAttendee(self):
@@ -1805,7 +1778,6 @@ END:VCALENDAR
         self.assertFalse(result)
 
 
-
 class ScheduleAgentFixBase(CommonCommonTests, TestCase):
     """
     Test txdav.caldav.datastore.scheduling.implicit.
@@ -1817,7 +1789,6 @@ class ScheduleAgentFixBase(CommonCommonTests, TestCase):
         yield self.buildStoreAndDirectory()
         yield self.populate()
         self.patch(config.Scheduling.Options, "AttendeeRefreshBatch", 0)
-
 
     @inlineCallbacks
     def populate(self):
@@ -1833,7 +1804,7 @@ class ScheduleAgentFixBase(CommonCommonTests, TestCase):
     }
 
     @classproperty(cache=False)
-    def requirements(cls): #@NoSelf
+    def requirements(cls):  # @NoSelf
         return {
             "user01": {
                 "calendar_1": {
@@ -1857,7 +1828,6 @@ class ScheduleAgentFixBase(CommonCommonTests, TestCase):
                 },
             },
         }
-
 
 
 class ScheduleAgentFix(ScheduleAgentFixBase):
@@ -1994,7 +1964,6 @@ END:VEVENT
 END:VCALENDAR
 """
 
-
     @inlineCallbacks
     def test_doImplicitScheduling(self):
         """
@@ -2014,7 +1983,6 @@ END:VCALENDAR
         inbox = yield self.calendarUnderTest(home="user01", name="inbox")
         cobjs = yield inbox.calendarObjects()
         self.assertTrue(len(cobjs) == 1)
-
 
 
 class MissingOrganizerFix(ScheduleAgentFixBase):
@@ -2092,7 +2060,6 @@ ATTENDEE:urn:x-uid:user03
 END:VEVENT
 END:VCALENDAR
 """
-
 
     @inlineCallbacks
     def test_doImplicitScheduling(self):

@@ -52,7 +52,6 @@ def getIPsFromHost(host):
     return ips
 
 
-
 @inlineCallbacks
 def lookupServerViaSRV(domain, service="_ischedules"):
 
@@ -67,8 +66,8 @@ def lookupServerViaSRV(domain, service="_ischedules"):
         returnValue(None)
 
     if (
-        len(answers) == 1 and answers[0].type == dns.SRV and answers[0].payload
-        and answers[0].payload.target == dns.Name('.')
+        len(answers) == 1 and answers[0].type == dns.SRV and answers[0].payload and
+        answers[0].payload.target == dns.Name('.')
     ):
         # decidedly not available
         log.debug("DNS SRV: disabled: {l}", l=lookup)
@@ -83,7 +82,6 @@ def lookupServerViaSRV(domain, service="_ischedules"):
         servers.append((a.payload.priority, a.payload.weight, str(a.payload.target), a.payload.port))
 
     log.debug("DNS SRV: lookup results: {l}\n{s}", l=lookup, s=servers)
-
 
     def _serverCmp(a, b):
         if a[0] != b[0]:
@@ -116,7 +114,6 @@ def lookupServerViaSRV(domain, service="_ischedules"):
     returnValue((host, port,))
 
 
-
 @inlineCallbacks
 def lookupDataViaTXT(domain, prefix=""):
 
@@ -142,7 +139,6 @@ def lookupDataViaTXT(domain, prefix=""):
     returnValue(results)
 
 
-
 class FakeBindAuthority(BindAuthority):
 
     @inlineCallbacks
@@ -163,7 +159,6 @@ class FakeBindAuthority(BindAuthority):
         )
         returnValue(result)
 
-
     def stripComments(self, lines):
         """
         Work around a bug in the base implementation that causes parsing of TXT RRs with
@@ -175,7 +170,6 @@ class FakeBindAuthority(BindAuthority):
                 b.strip() for b in lines
             ]
         ]
-
 
     def parseLines(self, lines):
         """
@@ -189,7 +183,6 @@ class FakeBindAuthority(BindAuthority):
                 del line[5:]
 
         BindAuthority.parseLines(self, lines)
-
 
 
 def _initResolver():

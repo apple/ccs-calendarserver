@@ -59,7 +59,6 @@ def _todo(f, why):
 rewriteOrRemove = lambda f: _todo(f, "Rewrite or remove")
 
 
-
 class FakeChanRequest(object):
     code = 'request-not-finished'
 
@@ -67,36 +66,28 @@ class FakeChanRequest(object):
         self.code = code
         self.headers = headers
 
-
     def registerProducer(self, producer, streaming):
         pass
-
 
     def write(self, data):
         pass
 
-
     def unregisterProducer(self):
         pass
-
 
     def abortConnection(self):
         pass
 
-
     def getHostInfo(self):
         return '127.0.0.1', False
 
-
     def getRemoteHost(self):
         return '127.0.0.1'
-
 
     def finish(self):
         pass
 
     remoteAddr = '127.0.0.1'
-
 
 
 class WrappingTests(StoreTestCase):
@@ -124,7 +115,6 @@ class WrappingTests(StoreTestCase):
         cal = yield home.calendarWithName("calendar")
         yield cal.createCalendarObjectWithName(objectName, VComponent.fromString(objectText))
         yield self.commit()
-
 
     @inlineCallbacks
     def populateOneAddressBookObject(self, objectName, objectText):
@@ -179,7 +169,6 @@ class WrappingTests(StoreTestCase):
             req.authnUser = req.authzUser = principal
         returnValue(aResource)
 
-
     def requestForPath(self, path, method='GET'):
         """
         Get a L{Request} with a L{FakeChanRequest} for a given path and method.
@@ -197,7 +186,6 @@ class WrappingTests(StoreTestCase):
 
     pathTypes = ['calendar', 'addressbook']
 
-
     def checkPrincipalCollections(self, resource):
         """
         Verify that the C{_principalCollections} attribute of the given
@@ -207,7 +195,6 @@ class WrappingTests(StoreTestCase):
             resource._principalCollections,
             frozenset([self.actualRoot.getChild("principals")])
         )
-
 
     @inlineCallbacks
     def test_autoRevertUnCommitted(self):
@@ -228,7 +215,6 @@ class WrappingTests(StoreTestCase):
                 AlreadyFinishedError
             )
 
-
     @inlineCallbacks
     def test_simpleRequest(self):
         """
@@ -241,14 +227,12 @@ class WrappingTests(StoreTestCase):
             yield req.process()
             self.assertEquals(req.chanRequest.code, UNAUTHORIZED)
 
-
     def test_createStore(self):
         """
         Creating a DirectoryCalendarHomeProvisioningResource will create a
         paired CalendarStore.
         """
         assertProvides(self, IDataStore, self._sqlCalendarStore)
-
 
     @inlineCallbacks
     def test_lookupCalendarHome(self):
@@ -260,7 +244,6 @@ class WrappingTests(StoreTestCase):
         calDavFile = yield self.getResource("calendars/users/wsanchez/")
         yield self.commit()
         assertProvides(self, ICalendarHome, calDavFile._newStoreHome)
-
 
     @inlineCallbacks
     def test_lookupDropboxHome(self):
@@ -279,7 +262,6 @@ class WrappingTests(StoreTestCase):
         self.assertEquals(dropBoxResource.resourceType(),
                           dropboxHomeType)
 
-
     @inlineCallbacks
     def test_lookupExistingCalendar(self):
         """
@@ -293,7 +275,6 @@ class WrappingTests(StoreTestCase):
         self.assertEquals(calDavFile.resourceType(),
                           regularCalendarType)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_lookupNewCalendar(self):
@@ -311,7 +292,6 @@ class WrappingTests(StoreTestCase):
         self.assertTrue(calDavFile.exists())
         yield self.commit()
 
-
     @inlineCallbacks
     def test_lookupSpecial(self):
         """
@@ -328,7 +308,6 @@ class WrappingTests(StoreTestCase):
                 getattr(calDavFile, "_newStoreObject", None), None
             )
         yield self.commit()
-
 
     @inlineCallbacks
     def test_transactionPropagation(self):
@@ -354,7 +333,6 @@ class WrappingTests(StoreTestCase):
                 )
             )
 
-
     @inlineCallbacks
     def test_lookupCalendarObject(self):
         """
@@ -372,7 +350,6 @@ class WrappingTests(StoreTestCase):
         self.checkPrincipalCollections(calDavFileCalendar)
         self.assertEquals(calDavFileCalendar._associatedTransaction,
                           calendarHome._associatedTransaction)
-
 
     @inlineCallbacks
     def test_attachmentQuotaExceeded(self):
@@ -402,7 +379,6 @@ class WrappingTests(StoreTestCase):
         finally:
             yield self.commit()
 
-
     @inlineCallbacks
     def test_lookupNewCalendarObject(self):
         """
@@ -416,14 +392,12 @@ class WrappingTests(StoreTestCase):
         yield self.commit()
         self.checkPrincipalCollections(calDavFileCalendar)
 
-
     def test_createAddressBookStore(self):
         """
         Creating a AddressBookHomeProvisioningFile will create a paired
         AddressBookStore.
         """
         assertProvides(self, IDataStore, self.actualRoot.getChild("addressbooks")._newStore)
-
 
     @inlineCallbacks
     def test_lookupAddressBookHome(self):
@@ -436,7 +410,6 @@ class WrappingTests(StoreTestCase):
         yield self.commit()
         assertProvides(self, IAddressBookHome, calDavFile._newStoreHome)
 
-
     @inlineCallbacks
     def test_lookupExistingAddressBook(self):
         """
@@ -447,7 +420,6 @@ class WrappingTests(StoreTestCase):
         calDavFile = yield self.getResource("addressbooks/users/wsanchez/addressbook")
         yield self.commit()
         self.checkPrincipalCollections(calDavFile)
-
 
     @inlineCallbacks
     def test_lookupAddressBookObject(self):
@@ -463,7 +435,6 @@ class WrappingTests(StoreTestCase):
         yield self.commit()
         self.checkPrincipalCollections(calDavFileAddressBook)
 
-
     @inlineCallbacks
     def test_lookupNewAddressBookObject(self):
         """
@@ -477,7 +448,6 @@ class WrappingTests(StoreTestCase):
         yield self.commit()
         self.checkPrincipalCollections(calDavFileAddressBook)
 
-
     @inlineCallbacks
     def assertCalendarEmpty(self, user, calendarName="calendar"):
         """
@@ -488,7 +458,6 @@ class WrappingTests(StoreTestCase):
         cal = yield home.calendarWithName(calendarName)
         objects = yield cal.calendarObjects()
         self.assertEquals(len(objects), 0)
-
 
 
 class DatabaseWrappingTests(WrappingTests):
@@ -565,7 +534,6 @@ END:VEVENT""".format(wsanchez=wsanchez, cdaboo=cdaboo)
         yield self.assertCalendarEmpty(cdaboo)
 
 
-
 class TimeoutTests(StoreTestCase):
     """
     Tests for L{twistedcaldav.storebridge} lock timeouts.
@@ -605,7 +573,6 @@ END:VCALENDAR
 """.replace("\n", "\r\n"))
         response = yield self.send(request)
         self.assertEqual(response.code, responsecode.SERVICE_UNAVAILABLE)
-
 
     @inlineCallbacks
     def test_timeoutOnDELETE(self):

@@ -61,6 +61,7 @@ AddressBookStore = CommonDataStore
 
 AddressBookStoreTransaction = CommonStoreTransaction
 
+
 class AddressBookHome(CommonHome):
 
     implements(IAddressBookHome)
@@ -84,10 +85,8 @@ class AddressBookHome(CommonHome):
     def _addressbookStore(self):
         return self._dataStore
 
-
     def createdHome(self):
         self.createAddressBookWithName("addressbook")
-
 
 
 class AddressBook(CommonHomeChild):
@@ -117,7 +116,6 @@ class AddressBook(CommonHomeChild):
         self._index = Index(self)
         self._objectResourceClass = AddressBookObject
 
-
     @property
     def _addressbookHome(self):
         return self._home
@@ -129,7 +127,6 @@ class AddressBook(CommonHomeChild):
     addressbookObjectWithUID = CommonHomeChild.objectResourceWithUID
     createAddressBookObjectWithName = CommonHomeChild.createObjectResourceWithName
     addressbookObjectsSinceToken = CommonHomeChild.objectResourcesSinceToken
-
 
     def initPropertyStore(self, props):
         # Setup peruser special properties
@@ -143,13 +140,11 @@ class AddressBook(CommonHomeChild):
             (),
         )
 
-
     def contentType(self):
         """
         The content type of Addresbook objects is text/vcard.
         """
         return MimeType.fromString("text/vcard; charset=utf-8")
-
 
 
 class AddressBookObject(CommonObjectResource):
@@ -161,15 +156,12 @@ class AddressBookObject(CommonObjectResource):
 
         super(AddressBookObject, self).__init__(name, addressbook)
 
-
     @property
     def _addressbook(self):
         return self._parentCollection
 
-
     def addressbook(self):
         return self._addressbook
-
 
     @writeOperation
     def setComponent(self, component, inserting=False):
@@ -217,7 +209,6 @@ class AddressBookObject(CommonObjectResource):
 
         self._addressbook.notifyChanged()
 
-
     def component(self):
         """
         Read address data and validate/fix it. Do not raise a store error here if there are unfixable
@@ -245,7 +236,6 @@ class AddressBookObject(CommonObjectResource):
             self.log.error("Address data at {path} had fixable problems:\n  {problems}", path=self._path.path, problems="\n  ".join(fixed))
 
         return component
-
 
     def _text(self):
         if self._objectText is not None:
@@ -276,12 +266,10 @@ class AddressBookObject(CommonObjectResource):
         self._objectText = text
         return text
 
-
     def uid(self):
         if not hasattr(self, "_uid"):
             self._uid = self.component().resourceUID()
         return self._uid
-
 
     # IDataStoreObject
     def contentType(self):
@@ -289,7 +277,6 @@ class AddressBookObject(CommonObjectResource):
         The content type of Addressbook objects is text/x-vcard.
         """
         return MimeType.fromString("text/vcard; charset=utf-8")
-
 
 
 class AddressBookStubResource(CommonStubResource):
@@ -300,11 +287,11 @@ class AddressBookStubResource(CommonStubResource):
     def isAddressBookCollection(self):
         return True
 
-
     def getChild(self, name):
         addressbookObject = self.resource.addressbookObjectWithName(name)
         if addressbookObject:
             class ChildResource(object):
+
                 def __init__(self, addressbookObject):
                     self.addressbookObject = addressbookObject
 
@@ -316,17 +303,16 @@ class AddressBookStubResource(CommonStubResource):
             return None
 
 
-
 class Index(object):
     #
     # OK, here's where we get ugly.
     # The index code needs to be rewritten also, but in the meantime...
     #
+
     def __init__(self, addressbook):
         self.addressbook = addressbook
         stubResource = AddressBookStubResource(addressbook)
         self._oldIndex = OldIndex(stubResource)
-
 
     def addressbookObjects(self):
         addressbook = self.addressbook

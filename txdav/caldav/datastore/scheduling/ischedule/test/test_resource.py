@@ -57,17 +57,15 @@ class iSchedulePOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
         server = IScheduleServerRecord("http://127.0.0.1")
         server.allow_from = True
         IScheduleServers._domainMap["example.org"] = server
-        self.addCleanup(lambda : IScheduleServers._domainMap.pop("example.org")) #@UndefinedVariable
-
+        self.addCleanup(lambda: IScheduleServers._domainMap.pop("example.org"))  # @UndefinedVariable
 
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
 
-
     @classproperty(cache=False)
-    def requirements(cls): #@NoSelf
+    def requirements(cls):  # @NoSelf
         return {
             "user01": {
                 "calendar_1": {
@@ -88,7 +86,6 @@ class iSchedulePOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
                 },
             },
         }
-
 
     @inlineCallbacks
     def test_deadlock(self):
@@ -133,7 +130,6 @@ END:VCALENDAR
         self.assertEqual(response.code, responsecode.CONFLICT)
 
     test_deadlock.skip = "Locking behavior is different now"
-
 
     @inlineCallbacks
     def test_receive(self):
@@ -180,7 +176,6 @@ END:VCALENDAR
         inbox = (yield self.calendarUnderTest(name="inbox", home="user02"))
         count = (yield inbox.listCalendarObjects())
         self.assertEqual(len(count), 1)
-
 
     @inlineCallbacks
     def test_receive_reject_local_originator(self):
@@ -236,7 +231,6 @@ END:VCALENDAR
         count = (yield inbox.listCalendarObjects())
         self.assertEqual(len(count), 0)
 
-
     @inlineCallbacks
     def test_receive_reject_podded_originator(self):
         """
@@ -282,7 +276,6 @@ END:VCALENDAR
         inbox = (yield self.calendarUnderTest(name="inbox", home="user02"))
         count = (yield inbox.listCalendarObjects())
         self.assertEqual(len(count), 0)
-
 
     @inlineCallbacks
     def test_receive_podding(self):
@@ -330,7 +323,6 @@ END:VCALENDAR
         count = (yield inbox.listCalendarObjects())
         self.assertEqual(len(count), 1)
 
-
     @inlineCallbacks
     def test_receive_podding_reject_external_originator(self):
         """
@@ -376,7 +368,6 @@ END:VCALENDAR
         inbox = (yield self.calendarUnderTest(name="inbox", home="user02"))
         count = (yield inbox.listCalendarObjects())
         self.assertEqual(len(count), 0)
-
 
     @inlineCallbacks
     def test_receive_podding_reject_same_pod_originator(self):

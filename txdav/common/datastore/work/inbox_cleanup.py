@@ -45,13 +45,11 @@ class InboxCleanupWork(RegeneratingWorkItem, fromTable(schema.INBOX_CLEANUP_WORK
         else:
             return succeed(None)
 
-
     def regenerateInterval(self):
         """
         Return the interval in seconds between regenerating instances.
         """
         return float(config.InboxCleanup.CleanupPeriodDays) * 24 * 60 * 60
-
 
     @inlineCallbacks
     def doWork(self):
@@ -84,7 +82,6 @@ class InboxCleanupWork(RegeneratingWorkItem, fromTable(schema.INBOX_CLEANUP_WORK
                 seconds += config.InboxCleanup.StaggerSeconds
 
 
-
 class CleanupOneInboxWork(WorkItem, fromTable(schema.CLEANUP_ONE_INBOX_WORK)):
 
     group = property(lambda self: (self.table.HOME_ID == self.homeID))
@@ -95,7 +92,7 @@ class CleanupOneInboxWork(WorkItem, fromTable(schema.CLEANUP_ONE_INBOX_WORK)):
         # No need to delete other work items.  They are unique
 
         # get old item names
-        if float(config.InboxCleanup.ItemLifetimeDays) >= 0: # use -1 to disable; 0 is test case
+        if float(config.InboxCleanup.ItemLifetimeDays) >= 0:  # use -1 to disable; 0 is test case
             cutoff = datetime.datetime.utcnow() - datetime.timedelta(days=float(config.InboxCleanup.ItemLifetimeDays))
             oldItemNames = set((
                 yield self.transaction.listInboxItemsInHomeCreatedBefore(self.homeID, cutoff)
@@ -118,7 +115,6 @@ class CleanupOneInboxWork(WorkItem, fromTable(schema.CLEANUP_ONE_INBOX_WORK)):
                     for item in oldItemNames:
                         yield InboxRemoveWork.reschedule(self.transaction, seconds=seconds, homeID=self.homeID, resourceName=item)
                         seconds += config.InboxCleanup.RemovalStaggerSeconds
-
 
 
 class InboxRemoveWork(WorkItem, fromTable(schema.INBOX_REMOVE_WORK)):

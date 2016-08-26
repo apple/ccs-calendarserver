@@ -99,6 +99,7 @@ current_sql_schema = getModule(__name__).filePath.sibling("sql_schema").child("c
 
 log = Logger()
 
+
 class CommonDataStore(Service, object):
     """
     Shared logic for SQL-based data stores, between calendar and addressbook
@@ -196,21 +197,17 @@ class CommonDataStore(Service, object):
         __import__("txdav.caldav.datastore.sql")
         __import__("txdav.carddav.datastore.sql")
 
-
     def availablePrimaryStoreTypes(self):
         """
         The list of store home types supported.
         """
         return (ECALENDARTYPE, EADDRESSBOOKTYPE,)
 
-
     def directoryService(self):
         return self._directoryService
 
-
     def setDirectoryService(self, directoryService):
         self._directoryService = directoryService
-
 
     def callWithNewTransactions(self, callback):
         """
@@ -220,7 +217,6 @@ class CommonDataStore(Service, object):
         @param callback: callable taking a single argument, a transaction
         """
         self._newTransactionCallbacks.add(callback)
-
 
     @inlineCallbacks
     def _withEachHomeDo(self, homeTable, homeFromTxn, action, batchSize, processExternal=False):
@@ -243,7 +239,6 @@ class CommonDataStore(Service, object):
         else:
             yield txn.commit()
 
-
     def withEachCalendarHomeDo(self, action, batchSize=None, processExternal=False):
         """
         Implementation of L{ICalendarStore.withEachCalendarHomeDo}.
@@ -254,7 +249,6 @@ class CommonDataStore(Service, object):
             action, batchSize, processExternal
         )
 
-
     def withEachAddressbookHomeDo(self, action, batchSize=None, processExternal=False):
         """
         Implementation of L{IAddressbookStore.withEachAddressbookHomeDo}.
@@ -264,7 +258,6 @@ class CommonDataStore(Service, object):
             lambda txn, uid: txn.addressbookHomeWithUID(uid),
             action, batchSize, processExternal
         )
-
 
     def newTransaction(self, label="unlabeled", disableCache=False, authz_uid=None):
         """
@@ -287,7 +280,6 @@ class CommonDataStore(Service, object):
         for callback in self._newTransactionCallbacks:
             callback(txn)
         return txn
-
 
     @inlineCallbacks
     def inTransaction(self, label, operation, transactionCreator=None):
@@ -323,7 +315,6 @@ class CommonDataStore(Service, object):
             yield txn.commit()
             returnValue(result)
 
-
     def setMigrating(self, state):
         """
         Set the "migrating" state
@@ -331,13 +322,11 @@ class CommonDataStore(Service, object):
         self._migrating = state
         self._enableNotifications = not state
 
-
     def setUpgrading(self, state):
         """
         Set the "upgrading" state
         """
         self._enableNotifications = not state
-
 
     @inlineCallbacks
     def dropboxAllowed(self, txn):
@@ -350,7 +339,6 @@ class CommonDataStore(Service, object):
             self._dropbox_ok = already_migrated is None
         returnValue(self._dropbox_ok)
 
-
     def queryCachingEnabled(self):
         """
         Indicate whether SQL statement query caching is enabled. Also controls whether propstore caching is done.
@@ -359,7 +347,6 @@ class CommonDataStore(Service, object):
         @rtype: C{bool}
         """
         return self.queryCacher is not None
-
 
     @inlineCallbacks
     def uidInStore(self, txn, uid):
@@ -390,7 +377,6 @@ class CommonDataStore(Service, object):
         else:
             returnValue((False, None,))
 
-
     @inlineCallbacks
     def checkSchema(self, expected_schema, schema_name):
         """
@@ -416,7 +402,6 @@ class CommonDataStore(Service, object):
             yield txn.commit()
 
 
-
 class TransactionStatsCollector(object):
     """
     Used to log each SQL query and statistics about that query during the course of a single transaction.
@@ -428,7 +413,6 @@ class TransactionStatsCollector(object):
         self.logFileName = logFileName
         self.statements = []
         self.startTime = time.time()
-
 
     def startStatement(self, sql, args):
         """
@@ -446,7 +430,6 @@ class TransactionStatsCollector(object):
         self.statements.append(["%s %s" % (sql, args,), 0, 0, 0])
         return len(self.statements) - 1, time.time()
 
-
     def endStatement(self, context, rows):
         """
         Called after an SQL query has executed.
@@ -461,7 +444,6 @@ class TransactionStatsCollector(object):
         self.statements[index][1] = len(rows) if rows else 0
         self.statements[index][2] = t - tstamp
         self.statements[index][3] = t
-
 
     def printReport(self):
         """
@@ -501,7 +483,6 @@ class TransactionStatsCollector(object):
         return (total_statements, total_rows, total_time,)
 
 
-
 class CommonStoreTransactionMonitor(object):
     """
     Object that monitors the state of a transaction over time and logs or times out
@@ -523,7 +504,6 @@ class CommonStoreTransactionMonitor(object):
         self._installLogTimer()
         self._installTimeout()
 
-
     def _cleanTxn(self):
         self.txn = None
         if self.delayedLog:
@@ -533,7 +513,6 @@ class CommonStoreTransactionMonitor(object):
             self.delayedTimeout.cancel()
             self.delayedTimeout = None
         return succeed(None)
-
 
     def _installLogTimer(self):
         def _logTransactionWait():
@@ -553,7 +532,6 @@ class CommonStoreTransactionMonitor(object):
             self.delayedLog = self.callLater(
                 self.logTimerSeconds, _logTransactionWait
             )
-
 
     def _installTimeout(self):
         def _forceAbort():
@@ -575,7 +553,6 @@ class CommonStoreTransactionMonitor(object):
             self.delayedTimeout = self.callLater(
                 self.timeoutSeconds, _forceAbort
             )
-
 
 
 class CommonStoreTransaction(
@@ -656,7 +633,6 @@ class CommonStoreTransaction(
 
         self.logItems = {}
 
-
     def enqueue(self, workItem, **kw):
         """
         Enqueue a L{twext.enterprise.jobs.workitem.WorkItem} for later execution.
@@ -667,18 +643,14 @@ class CommonStoreTransaction(
         """
         return self._store.queuer.enqueueWork(self, workItem, **kw)
 
-
     def store(self):
         return self._store
-
 
     def directoryService(self):
         return self._store.directoryService()
 
-
     def __repr__(self):
         return 'PG-TXN<%s>' % (self._label,)
-
 
     @classproperty
     def _calendarserver(cls):
@@ -688,7 +660,6 @@ class CommonStoreTransaction(
             From=cs,
             Where=cs.NAME == Parameter('name'),
         )
-
 
     @inlineCallbacks
     def calendarserverValue(self, key, raiseIfMissing=True):
@@ -700,14 +671,12 @@ class CommonStoreTransaction(
         else:
             returnValue(None)
 
-
     @inlineCallbacks
     def setCalendarserverValue(self, key, value):
         cs = schema.CALENDARSERVER
         yield Insert(
             {cs.NAME: key, cs.VALUE: value},
         ).on(self)
-
 
     @inlineCallbacks
     def updateCalendarserverValue(self, key, value):
@@ -717,13 +686,11 @@ class CommonStoreTransaction(
             Where=cs.NAME == key,
         ).on(self)
 
-
     def _determineMemo(self, storeType, lookupMode, status):
         """
         Determine the memo dictionary to use for homeWithUID.
         """
         return self._cachedHomes[storeType][lookupMode][status]
-
 
     @inlineCallbacks
     def homes(self, storeType):
@@ -738,7 +705,6 @@ class CommonStoreTransaction(
 
         # Return the memoized list directly
         returnValue([kv[1] for kv in sorted(self._determineMemo(storeType, "byUID", _HOME_STATUS_NORMAL).items(), key=lambda x: x[0])])
-
 
     @inlineCallbacks
     def homeWithUID(self, storeType, uid, status=None, create=False, authzUID=None):
@@ -769,14 +735,11 @@ class CommonStoreTransaction(
                 self._determineMemo(storeType, "byID", None)[result.id()] = result
         returnValue(result)
 
-
     def calendarHomeWithUID(self, uid, status=None, create=False, authzUID=None):
         return self.homeWithUID(ECALENDARTYPE, uid, status=status, create=create, authzUID=authzUID)
 
-
     def addressbookHomeWithUID(self, uid, status=None, create=False, authzUID=None):
         return self.homeWithUID(EADDRESSBOOKTYPE, uid, status=status, create=create, authzUID=authzUID)
-
 
     @inlineCallbacks
     def homeWithResourceID(self, storeType, rid):
@@ -794,14 +757,11 @@ class CommonStoreTransaction(
                 self._determineMemo(storeType, "byUID", result.status())[result.uid()] = result
         returnValue(result)
 
-
     def calendarHomeWithResourceID(self, rid):
         return self.homeWithResourceID(ECALENDARTYPE, rid)
 
-
     def addressbookHomeWithResourceID(self, rid):
         return self.homeWithResourceID(EADDRESSBOOKTYPE, rid)
-
 
     def resetHomeCache(self):
         """
@@ -824,7 +784,6 @@ class CommonStoreTransaction(
             "byID": defaultdict(dict),
         }
 
-
     def cleanHomeCache(self, home):
         """
         Remove the specified home from the home cache.
@@ -837,7 +796,6 @@ class CommonStoreTransaction(
         uid_memo = self._determineMemo(home._homeType, "byUID", home.status())
         if home.uid() in uid_memo:
             del uid_memo[home.uid()]
-
 
     @inlineCallbacks
     def notificationsWithUID(self, uid, status=None, create=False):
@@ -853,7 +811,6 @@ class CommonStoreTransaction(
                 self._notificationHomes["byID"][None][result.id()] = result
         returnValue(result)
 
-
     @inlineCallbacks
     def notificationsWithResourceID(self, rid):
         """
@@ -867,7 +824,6 @@ class CommonStoreTransaction(
                 self._notificationHomes["byID"][None][rid] = result
                 self._notificationHomes["byUID"][result.status()][result.uid()] = result
         returnValue(result)
-
 
     def migratedHome(self, ownerUID):
         """
@@ -885,7 +841,6 @@ class CommonStoreTransaction(
             ownerUID=ownerUID,
         )
 
-
     def preCommit(self, operation):
         """
         Run things before C{commit}.  (Note: only provided by SQL
@@ -893,13 +848,11 @@ class CommonStoreTransaction(
         """
         return self._sqlTxn.preCommit(operation)
 
-
     def postCommit(self, operation):
         """
         Run things after C{commit}.
         """
         return self._sqlTxn.postCommit(operation)
-
 
     def postAbort(self, operation):
         """
@@ -907,14 +860,11 @@ class CommonStoreTransaction(
         """
         return self._sqlTxn.postAbort(operation)
 
-
     def isNotifiedAlready(self, obj):
         return obj.id() in self._notifiedAlready
 
-
     def notificationAddedForObject(self, obj):
         self._notifiedAlready.add(obj.id())
-
 
     def isRevisionBumpedAlready(self, obj):
         """
@@ -923,7 +873,6 @@ class CommonStoreTransaction(
         revision only once per object.
         """
         return obj.id() in self._bumpedRevisionAlready
-
 
     def bumpRevisionForObject(self, obj):
         """
@@ -939,7 +888,6 @@ class CommonStoreTransaction(
         """
         self._savepointCounter += 1
         return SavepointAction('sp%d' % (self._savepointCounter,))
-
 
     @inlineCallbacks
     def subtransaction(self, thunk, retries=1, failureOK=False):
@@ -1024,7 +972,6 @@ class CommonStoreTransaction(
             # in a way they have to be prepared for anyway.
             end()
 
-
     @inlineCallbacks
     def execSQL(self, *a, **kw):
         """
@@ -1049,7 +996,6 @@ class CommonStoreTransaction(
                 self._stats.endStatement(statsContext, results)
         returnValue(results)
 
-
     @inlineCallbacks
     def execSQLBlock(self, sql):
         """
@@ -1065,7 +1011,6 @@ class CommonStoreTransaction(
                     e.stmt = "SQLBlock statement failed: {}".format(stmt)
                     raise
 
-
     def commit(self):
         """
         Commit the transaction and execute any post-commit hooks.
@@ -1076,13 +1021,11 @@ class CommonStoreTransaction(
             self.postCommit(self.statsReport)
         return self._sqlTxn.commit()
 
-
     def abort(self):
         """
         Abort the transaction.
         """
         return self._sqlTxn.abort()
-
 
     def timeout(self):
         """
@@ -1090,7 +1033,6 @@ class CommonStoreTransaction(
         """
         self.timedout = True
         return self.abort()
-
 
     def statsReport(self):
         """
@@ -1100,7 +1042,6 @@ class CommonStoreTransaction(
         self.logItems["sql-s"] = str(sql_statements)
         self.logItems["sql-r"] = str(sql_rows)
         self.logItems["sql-t"] = "%.1f" % (sql_time,)
-
 
     def _oldEventsBase(self, limit):
         ch = schema.CALENDAR_HOME
@@ -1134,7 +1075,6 @@ class CommonStoreTransaction(
             **kwds
         )
 
-
     @inlineCallbacks
     def eventsOlderThan(self, cutoff, batchSize=None):
         """
@@ -1155,7 +1095,6 @@ class CommonStoreTransaction(
         kwds = {"CutOff": pyCalendarToSQLTimestamp(cutoff)}
         rows = yield self._oldEventsBase(batchSize).on(self, **kwds)
         returnValue([[row[0], row[1], row[2], parseSQLTimestamp(row[3])] for row in rows])
-
 
     @inlineCallbacks
     def removeOldEvents(self, cutoff, batchSize=None):
@@ -1180,7 +1119,6 @@ class CommonStoreTransaction(
             yield resource.purge(implicitly=False)
             count += 1
         returnValue(count)
-
 
     def orphanedAttachments(self, uuid=None, batchSize=None):
         """
@@ -1216,7 +1154,6 @@ class CommonStoreTransaction(
             GroupBy=(ch.OWNER_UID, chm.QUOTA_USED_BYTES),
             **options
         ).on(self, **kwds)
-
 
     @inlineCallbacks
     def removeOrphanedAttachments(self, uuid=None, batchSize=None):
@@ -1259,7 +1196,6 @@ class CommonStoreTransaction(
             count += 1
         returnValue(count)
 
-
     def oldDropboxAttachments(self, cutoff, uuid):
         """
         Find managed attachments attached to only events whose last instance is older than the specified cut-off.
@@ -1297,7 +1233,6 @@ class CommonStoreTransaction(
             Where=where,
             GroupBy=(ch.OWNER_UID, chm.QUOTA_USED_BYTES),
         ).on(self, **kwds)
-
 
     @inlineCallbacks
     def removeOldDropboxAttachments(self, cutoff, uuid, batchSize=None):
@@ -1346,7 +1281,6 @@ class CommonStoreTransaction(
             count += 1
         returnValue(count)
 
-
     def oldManagedAttachments(self, cutoff, uuid):
         """
         Find managed attachments attached to only events whose last instance is older than the specified cut-off.
@@ -1385,7 +1319,6 @@ class CommonStoreTransaction(
             Where=where,
             GroupBy=(ch.OWNER_UID, chm.QUOTA_USED_BYTES),
         ).on(self, **kwds)
-
 
     @inlineCallbacks
     def removeOldManagedAttachments(self, cutoff, uuid, batchSize=None):
@@ -1434,14 +1367,11 @@ class CommonStoreTransaction(
             count += 1
         returnValue(count)
 
-
     def acquireUpgradeLock(self):
         return DatabaseLock().on(self)
 
-
     def releaseUpgradeLock(self):
         return DatabaseUnlock().on(self)
-
 
     @inlineCallbacks
     def deleteRevisionsBefore(self, minRevision):
@@ -1513,7 +1443,6 @@ class CommonStoreTransaction(
                         )
                     ).on(self, revisionsToRemove=revisionsToRemove)
 
-
     @classproperty
     def _inboxItemsInHomeIDCreatedBeforeCutoffQuery(cls):
         """
@@ -1532,7 +1461,6 @@ class CommonStoreTransaction(
                 co.CREATED < Parameter("cutoff")),
         )
 
-
     @inlineCallbacks
     def listInboxItemsInHomeCreatedBefore(self, homeID, cutoff):
         """
@@ -1545,7 +1473,6 @@ class CommonStoreTransaction(
             self, homeID=homeID, cutoff=cutoff)
         names = [row[0] for row in rows]
         returnValue(names)
-
 
 
 class CommonHome(SharingHomeMixIn):
@@ -1588,7 +1515,6 @@ class CommonHome(SharingHomeMixIn):
             home = cls(transaction, homeData, authzUID=authzUID)
         return home.initFromStore()
 
-
     def __init__(self, transaction, homeData, authzUID=None):
         self._txn = transaction
 
@@ -1619,7 +1545,6 @@ class CommonHome(SharingHomeMixIn):
         # request (in which case requests for child objects etc will be directed at the local store).
         self._internalRequest = True
 
-
     @classmethod
     def _register(cls, homeType):
         """
@@ -1629,10 +1554,8 @@ class CommonHome(SharingHomeMixIn):
         cls._homeType = homeType
         CommonStoreTransaction._homeClass[cls._homeType] = cls
 
-
     def quotaAllowedBytes(self):
         return self._txn.store().quota
-
 
     @classproperty
     def _homeColumnsFromOwnerQuery(cls):
@@ -1645,7 +1568,6 @@ class CommonHome(SharingHomeMixIn):
             )
         )
 
-
     @classproperty
     def _ownerFromResourceID(cls):
         home = cls._homeSchema
@@ -1653,14 +1575,12 @@ class CommonHome(SharingHomeMixIn):
                       From=home,
                       Where=home.RESOURCE_ID == Parameter("resourceID"))
 
-
     @classproperty
     def _metaDataQuery(cls):
         metadata = cls._homeMetaDataSchema
         return Select(cls.metadataColumns(),
                       From=metadata,
                       Where=metadata.RESOURCE_ID == Parameter("resourceID"))
-
 
     @classmethod
     def homeColumns(cls):
@@ -1676,7 +1596,6 @@ class CommonHome(SharingHomeMixIn):
             cls._homeSchema.STATUS,
         )
 
-
     @classmethod
     def homeAttributes(cls):
         """
@@ -1690,7 +1609,6 @@ class CommonHome(SharingHomeMixIn):
             "_ownerUID",
             "_status",
         )
-
 
     @classmethod
     def metadataColumns(cls):
@@ -1707,7 +1625,6 @@ class CommonHome(SharingHomeMixIn):
             cls._homeMetaDataSchema.MODIFIED,
         )
 
-
     @classmethod
     def metadataAttributes(cls):
         """
@@ -1722,7 +1639,6 @@ class CommonHome(SharingHomeMixIn):
             "_created",
             "_modified",
         )
-
 
     @inlineCallbacks
     def initFromStore(self):
@@ -1739,7 +1655,6 @@ class CommonHome(SharingHomeMixIn):
             self.addNotifier(factory_type, factory.newNotifier(self))
 
         returnValue(self)
-
 
     @inlineCallbacks
     def initMetaDataFromStore(self):
@@ -1766,7 +1681,6 @@ class CommonHome(SharingHomeMixIn):
         self._created = parseSQLTimestamp(self._created)
         self._modified = parseSQLTimestamp(self._modified)
 
-
     def serialize(self):
         """
         Create a dictionary mapping metadata attributes so this object can be sent over a cross-pod call
@@ -1778,7 +1692,6 @@ class CommonHome(SharingHomeMixIn):
         data["modified"] = data["modified"].isoformat(" ")
         return data
 
-
     def deserialize(self, mapping):
         """
         Given a mapping generated by L{serialize}, convert the values to attributes on this object.
@@ -1788,7 +1701,6 @@ class CommonHome(SharingHomeMixIn):
             setattr(self, attr, mapping.get(attr[1:]))
         self._created = parseSQLTimestamp(self._created)
         self._modified = parseSQLTimestamp(self._modified)
-
 
     @classmethod
     @inlineCallbacks
@@ -1805,16 +1717,13 @@ class CommonHome(SharingHomeMixIn):
         rids = [row[0] for row in rows]
         returnValue(rids)
 
-
     @classmethod
     def homeWithUID(cls, txn, uid, status=None, create=False, authzUID=None):
         return cls.homeWith(txn, None, uid, status, create=create, authzUID=authzUID)
 
-
     @classmethod
     def homeWithResourceID(cls, txn, rid):
         return cls.homeWith(txn, rid, None)
-
 
     @classmethod
     @inlineCallbacks
@@ -1914,7 +1823,6 @@ class CommonHome(SharingHomeMixIn):
             else:
                 raise RecordNotAllowedError("Cannot create home with status {}: {}".format(status, uid))
 
-
             # Use savepoint so we can do a partial rollback if there is a race condition
             # where this row has already been inserted
             savepoint = SavepointAction("homeWithUID")
@@ -1962,14 +1870,11 @@ class CommonHome(SharingHomeMixIn):
                     yield homeObject.createdHome()
                 returnValue(homeObject)
 
-
     def __repr__(self):
         return "<%s: %s, %s>" % (self.__class__.__name__, self._resourceID, self._ownerUID)
 
-
     def cacheKey(self):
         return "{}-{}".format(self._status, self._ownerUID)
-
 
     def id(self):
         """
@@ -1980,7 +1885,6 @@ class CommonHome(SharingHomeMixIn):
         """
         return self._resourceID
 
-
     def uid(self):
         """
         Retrieve the unique identifier for this home.
@@ -1988,7 +1892,6 @@ class CommonHome(SharingHomeMixIn):
         @return: a string.
         """
         return self._ownerUID
-
 
     def authzuid(self):
         """
@@ -1998,10 +1901,8 @@ class CommonHome(SharingHomeMixIn):
         """
         return self._authzUID
 
-
     def status(self):
         return self._status
-
 
     def normal(self):
         """
@@ -2011,7 +1912,6 @@ class CommonHome(SharingHomeMixIn):
         """
         return self._status == _HOME_STATUS_NORMAL
 
-
     def external(self):
         """
         Is this an external home.
@@ -2019,7 +1919,6 @@ class CommonHome(SharingHomeMixIn):
         @return: a L{bool}.
         """
         return self._status == _HOME_STATUS_EXTERNAL
-
 
     def externalClass(self):
         """
@@ -2031,7 +1930,6 @@ class CommonHome(SharingHomeMixIn):
         """
         return self._status == _HOME_STATUS_EXTERNAL and self._internalRequest
 
-
     def purging(self):
         """
         Is this an external home.
@@ -2039,7 +1937,6 @@ class CommonHome(SharingHomeMixIn):
         @return: a string.
         """
         return self._status == _HOME_STATUS_PURGING
-
 
     def migrating(self):
         """
@@ -2049,20 +1946,17 @@ class CommonHome(SharingHomeMixIn):
         """
         return self._status == _HOME_STATUS_MIGRATING
 
-
     def purge(self):
         """
         Mark this home as being purged.
         """
         return self.setStatus(_HOME_STATUS_PURGING)
 
-
     def migrate(self):
         """
         Mark this home as being purged.
         """
         return self.setStatus(_HOME_STATUS_MIGRATING)
-
 
     @inlineCallbacks
     def setStatus(self, newStatus):
@@ -2087,7 +1981,6 @@ class CommonHome(SharingHomeMixIn):
                     self._status,
                 ))
             self._status = newStatus
-
 
     @inlineCallbacks
     def remove(self):
@@ -2122,7 +2015,6 @@ class CommonHome(SharingHomeMixIn):
                 self._status,
             ))
 
-
     @inlineCallbacks
     def removeAllChildren(self):
         """
@@ -2134,7 +2026,6 @@ class CommonHome(SharingHomeMixIn):
             yield child.remove()
             self._children.pop(child.name(), None)
             self._children.pop(child.id(), None)
-
 
     @inlineCallbacks
     def purgeAll(self):
@@ -2174,7 +2065,6 @@ class CommonHome(SharingHomeMixIn):
                 self._status,
             ))
 
-
     @inlineCallbacks
     def purgeAllChildren(self):
         """
@@ -2191,18 +2081,14 @@ class CommonHome(SharingHomeMixIn):
 
         yield self.removeUnacceptedShares()
 
-
     def transaction(self):
         return self._txn
-
 
     def directoryService(self):
         return self._txn.store().directoryService()
 
-
     def directoryRecord(self):
         return self.directoryService().recordWithUID(self.uid().decode("utf-8"))
-
 
     @inlineCallbacks
     def invalidateQueryCache(self):
@@ -2210,7 +2096,6 @@ class CommonHome(SharingHomeMixIn):
         if queryCacher is not None:
             cacheKey = queryCacher.keyForHomeMetaData(self._resourceID)
             yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
-
 
     @classproperty
     def _dataVersionQuery(cls):
@@ -2220,7 +2105,6 @@ class CommonHome(SharingHomeMixIn):
             Where=ch.RESOURCE_ID == Parameter("resourceID")
         )
 
-
     @inlineCallbacks
     def dataVersion(self):
         if self._dataVersion is None:
@@ -2228,13 +2112,11 @@ class CommonHome(SharingHomeMixIn):
                 self._txn, resourceID=self._resourceID))[0][0]
         returnValue(self._dataVersion)
 
-
     def name(self):
         """
         Implement L{IDataStoreObject.name} to return the uid.
         """
         return self.uid()
-
 
     @inlineCallbacks
     def children(self, onlyInTrash=False):
@@ -2247,10 +2129,8 @@ class CommonHome(SharingHomeMixIn):
             x.append((yield self.childWithName(name, onlyInTrash=onlyInTrash)))
         returnValue(x)
 
-
     def _childrenKey(self, onlyInTrash):
         return "TRASHED" if onlyInTrash else "NOTTRASHED"
-
 
     @inlineCallbacks
     def loadChildren(self):
@@ -2269,7 +2149,6 @@ class CommonHome(SharingHomeMixIn):
         self._childrenLoaded = True
         returnValue(results)
 
-
     @inlineCallbacks
     def listChildren(self, onlyInTrash=False):
         """
@@ -2282,7 +2161,6 @@ class CommonHome(SharingHomeMixIn):
             yield self.loadChildren()
         names = [k for k in self._children[self._childrenKey(onlyInTrash)].keys() if not isinstance(k, int)]
         returnValue(names)
-
 
     @inlineCallbacks
     def childWithName(self, name, onlyInTrash=False):
@@ -2301,7 +2179,6 @@ class CommonHome(SharingHomeMixIn):
                 self._children[childrenKey][child.id()] = child
         returnValue(self._children[childrenKey].get(name, None))
 
-
     def anyObjectWithShareUID(self, shareUID, onlyInTrash=False):
         """
         Retrieve the child accepted or otherwise with the given bind identifier contained in this
@@ -2311,7 +2188,6 @@ class CommonHome(SharingHomeMixIn):
         @return: an L{ICalendar} or C{None} if no such child exists.
         """
         return self._childClass.objectWithName(self, shareUID, accepted=None, onlyInTrash=onlyInTrash)
-
 
     @inlineCallbacks
     def childWithID(self, resourceID, onlyInTrash=False):
@@ -2330,7 +2206,6 @@ class CommonHome(SharingHomeMixIn):
                 self._children[childrenKey][child.name()] = child
         returnValue(self._children[childrenKey].get(resourceID, None))
 
-
     def childWithBindUID(self, bindUID, onlyInTrash=False):
         """
         Retrieve the child with the given C{bindUID} contained in this
@@ -2341,7 +2216,6 @@ class CommonHome(SharingHomeMixIn):
         """
         return self._childClass.objectWithBindUID(self, bindUID, onlyInTrash=onlyInTrash)
 
-
     def allChildWithID(self, resourceID, onlyInTrash=False):
         """
         Retrieve the child with the given C{resourceID} contained in this
@@ -2351,7 +2225,6 @@ class CommonHome(SharingHomeMixIn):
         @return: an L{ICalendar} or C{None} if no such child exists.
         """
         return self._childClass.objectWithID(self, resourceID, accepted=None, onlyInTrash=onlyInTrash)
-
 
     @inlineCallbacks
     def createChildWithName(self, name, bindUID=None):
@@ -2364,7 +2237,6 @@ class CommonHome(SharingHomeMixIn):
             self._children[key][name] = child
             self._children[key][child.id()] = child
         returnValue(child)
-
 
     @inlineCallbacks
     def removeChildWithName(self, name, useTrash=True):
@@ -2381,7 +2253,6 @@ class CommonHome(SharingHomeMixIn):
 
         self._children[key].pop(name, None)
         self._children[key].pop(resourceID, None)
-
 
     @inlineCallbacks
     def getTrash(self, create=False):
@@ -2420,7 +2291,6 @@ class CommonHome(SharingHomeMixIn):
                     ).on(self._txn)
                 self._trashObject = child
         returnValue(child)
-
 
     @classproperty
     def _syncTokenQuery(cls):
@@ -2462,7 +2332,6 @@ class CommonHome(SharingHomeMixIn):
             ),
         )
 
-
     def revisionFromToken(self, token):
         if token is None:
             return 0
@@ -2471,7 +2340,6 @@ class CommonHome(SharingHomeMixIn):
             return int(revision)
         else:
             return token
-
 
     @inlineCallbacks
     def syncToken(self):
@@ -2484,14 +2352,12 @@ class CommonHome(SharingHomeMixIn):
             self._syncTokenRevision = yield self.syncTokenRevision()
         returnValue("%s_%s" % (self._resourceID, self._syncTokenRevision))
 
-
     @inlineCallbacks
     def syncTokenRevision(self):
         revision = (yield self._syncTokenQuery.on(self._txn, resourceID=self._resourceID))[0][0]
         if revision is None:
             revision = int((yield self._txn.calendarserverValue("MIN-VALID-REVISION")))
         returnValue(revision)
-
 
     @classproperty
     def _changesQuery(cls):
@@ -2514,7 +2380,6 @@ class CommonHome(SharingHomeMixIn):
                   (rev.HOME_RESOURCE_ID == Parameter("resourceID"))
         )
 
-
     @inlineCallbacks
     def doChangesQuery(self, revision):
         """
@@ -2527,7 +2392,6 @@ class CommonHome(SharingHomeMixIn):
             revision=revision)
         returnValue(result)
 
-
     def resourceNamesSinceToken(self, token, depth):
         """
         Return the changed and deleted resources since a particular sync-token. This simply extracts
@@ -2538,7 +2402,6 @@ class CommonHome(SharingHomeMixIn):
         """
 
         return self.resourceNamesSinceRevision(self.revisionFromToken(token), depth)
-
 
     @inlineCallbacks
     def resourceNamesSinceRevision(self, revision, depth):
@@ -2644,7 +2507,6 @@ class CommonHome(SharingHomeMixIn):
         invalid = sorted(invalid)
         returnValue((changed, deleted, invalid,))
 
-
     @inlineCallbacks
     def resourceNamesSinceRevisionZero(self, depth):
         """
@@ -2681,7 +2543,6 @@ class CommonHome(SharingHomeMixIn):
         invalid = sorted(invalid)
         returnValue((changed, deleted, invalid,))
 
-
     @inlineCallbacks
     def _loadPropertyStore(self):
 
@@ -2697,10 +2558,8 @@ class CommonHome(SharingHomeMixIn):
         )
         self._propertyStore = props
 
-
     def properties(self):
         return self._propertyStore
-
 
     # IDataStoreObject
     def contentType(self):
@@ -2709,22 +2568,17 @@ class CommonHome(SharingHomeMixIn):
         """
         return None
 
-
     def md5(self):
         return None
-
 
     def size(self):
         return 0
 
-
     def created(self):
         return datetimeMktime(self._created) if self._created else None
 
-
     def modified(self):
         return datetimeMktime(self._modified) if self._modified else None
-
 
     @classmethod
     def _objectResourceQuery(cls, checkBindMode):
@@ -2740,16 +2594,13 @@ class CommonHome(SharingHomeMixIn):
             Where=where
         )
 
-
     @classproperty
     def _resourceByUIDQuery(cls):
         return cls._objectResourceQuery(checkBindMode=False)
 
-
     @classproperty
     def _resourceByUIDBindQuery(cls):
         return cls._objectResourceQuery(checkBindMode=True)
-
 
     @inlineCallbacks
     def objectResourcesWithUID(self, uid, ignore_children=[], allowShared=True):
@@ -2778,7 +2629,6 @@ class CommonHome(SharingHomeMixIn):
 
         returnValue(results)
 
-
     @classmethod
     def _objectResourceIDQuery(cls):
         obj = cls._objectSchema
@@ -2787,7 +2637,6 @@ class CommonHome(SharingHomeMixIn):
             From=obj,
             Where=(obj.RESOURCE_ID == Parameter("resourceID")),
         )
-
 
     @inlineCallbacks
     def objectResourceWithID(self, rid):
@@ -2806,7 +2655,6 @@ class CommonHome(SharingHomeMixIn):
 
         returnValue(None)
 
-
     @classproperty
     def _quotaQuery(cls):
         meta = cls._homeMetaDataSchema
@@ -2815,7 +2663,6 @@ class CommonHome(SharingHomeMixIn):
             Where=meta.RESOURCE_ID == Parameter("resourceID")
         )
 
-
     @inlineCallbacks
     def quotaUsedBytes(self):
         if self._quotaUsedBytes is None:
@@ -2823,14 +2670,12 @@ class CommonHome(SharingHomeMixIn):
                 self._txn, resourceID=self._resourceID))[0][0]
         returnValue(self._quotaUsedBytes)
 
-
     @classproperty
     def _preLockResourceIDQuery(cls):
         meta = cls._homeMetaDataSchema
         return Select(From=meta,
                       Where=meta.RESOURCE_ID == Parameter("resourceID"),
                       ForUpdate=True)
-
 
     @classproperty
     def _increaseQuotaQuery(cls):
@@ -2840,13 +2685,11 @@ class CommonHome(SharingHomeMixIn):
                       Where=meta.RESOURCE_ID == Parameter("resourceID"),
                       Return=meta.QUOTA_USED_BYTES)
 
-
     @classproperty
     def _resetQuotaQuery(cls):
         meta = cls._homeMetaDataSchema
         return Update({meta.QUOTA_USED_BYTES: 0},
                       Where=meta.RESOURCE_ID == Parameter("resourceID"))
-
 
     @inlineCallbacks
     def adjustQuotaUsedBytes(self, delta):
@@ -2873,20 +2716,16 @@ class CommonHome(SharingHomeMixIn):
                                            resourceID=self._resourceID)
             self._quotaUsedBytes = 0
 
-
     def addNotifier(self, factory_name, notifier):
         if self._notifiers is None:
             self._notifiers = {}
         self._notifiers[factory_name] = notifier
 
-
     def getNotifier(self, factory_name):
         return self._notifiers.get(factory_name) if self._notifiers else None
 
-
     def notifierID(self):
         return (self._notifierPrefix, self.uid(),)
-
 
     @inlineCallbacks
     def notifyChanged(self, category=ChangeCategory.default):
@@ -2915,7 +2754,6 @@ class CommonHome(SharingHomeMixIn):
             if notifier:
                 yield notifier.notify(self._txn, priority=category.value)
 
-
     @classproperty
     def _lockLastModifiedQuery(cls):
         meta = cls._homeMetaDataSchema
@@ -2926,14 +2764,12 @@ class CommonHome(SharingHomeMixIn):
             NoWait=True
         )
 
-
     @classproperty
     def _changeLastModifiedQuery(cls):
         meta = cls._homeMetaDataSchema
         return Update({meta.MODIFIED: utcNowSQL},
                       Where=meta.RESOURCE_ID == Parameter("resourceID"),
                       Return=meta.MODIFIED)
-
 
     @inlineCallbacks
     def bumpModified(self):
@@ -2969,7 +2805,6 @@ class CommonHome(SharingHomeMixIn):
         except AllRetriesFailed:
             log.debug("CommonHome.bumpModified failed")
 
-
     @inlineCallbacks
     def removeUnacceptedShares(self):
         """
@@ -2977,12 +2812,11 @@ class CommonHome(SharingHomeMixIn):
         accepted.  Associated invite entries are also removed.
         """
         bind = self._bindSchema
-        kwds = {"homeResourceID" : self._resourceID}
+        kwds = {"homeResourceID": self._resourceID}
         yield Delete(
             From=bind,
             Where=(bind.HOME_RESOURCE_ID == Parameter("homeResourceID")).And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
         ).on(self._txn, **kwds)
-
 
     @inlineCallbacks
     def ownerHomeAndChildNameForChildID(self, resourceID):
@@ -2997,7 +2831,6 @@ class CommonHome(SharingHomeMixIn):
             returnValue((ownerHome, ownerName))
         else:
             returnValue((None, None))
-
 
     @inlineCallbacks
     def emptyTrash(self, days=0, verbose=False):
@@ -3057,7 +2890,6 @@ class CommonHome(SharingHomeMixIn):
                     log.info(msg)
                 yield collection.purge()
 
-
     @inlineCallbacks
     def getTrashContents(self):
         result = {
@@ -3106,7 +2938,6 @@ class CommonHome(SharingHomeMixIn):
 
         returnValue(result)
 
-
     @inlineCallbacks
     def recoverTrash(self, mode, recoveryID):
         trash = yield self.getTrash()
@@ -3140,7 +2971,6 @@ class CommonHome(SharingHomeMixIn):
                         yield collection.fromTrash(restoreChildren=True)
 
 
-
 class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase, SharingMixIn):
     """
     Common ancestor class of AddressBooks and Calendars.
@@ -3169,7 +2999,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
     _objectSchema = None
 
     _childType = _CHILD_TYPE_NORMAL
-
 
     @classmethod
     @inlineCallbacks
@@ -3236,7 +3065,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         yield child._loadPropertyStore(propstore)
 
         returnValue(child)
-
 
     @classmethod
     @inlineCallbacks
@@ -3308,7 +3136,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
         returnValue((bindData, additionalBindData, metadataData,))
 
-
     def __init__(self, home, name, resourceID, mode, status, revision=0, message=None, ownerHome=None, ownerName=None, bindUID=None):
 
         self._home = home
@@ -3336,14 +3163,11 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         else:
             self._notifiers = None
 
-
     def isTrash(self):
         return False
 
-
     def originalParentForResource(self, objectResource):
         return succeed(objectResource._parentCollection)
-
 
     def memoMe(self, key, memo):
         """
@@ -3356,7 +3180,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         """
         memo[self._name] = self
         memo[self._resourceID] = self
-
 
     @classmethod
     @inlineCallbacks
@@ -3399,21 +3222,17 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
         returnValue(results)
 
-
     @classmethod
     def objectWithName(cls, home, name, accepted=True, onlyInTrash=False):
         return cls.objectWith(home, name=name, accepted=accepted, onlyInTrash=onlyInTrash)
-
 
     @classmethod
     def objectWithID(cls, home, resourceID, accepted=True, onlyInTrash=False):
         return cls.objectWith(home, resourceID=resourceID, accepted=accepted, onlyInTrash=onlyInTrash)
 
-
     @classmethod
     def objectWithBindUID(cls, home, bindUID, accepted=True, onlyInTrash=False):
         return cls.objectWith(home, bindUID=bindUID, accepted=accepted, onlyInTrash=onlyInTrash)
-
 
     @classmethod
     @inlineCallbacks
@@ -3461,7 +3280,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         child = yield cls.makeClass(home, bindData, additionalBindData, metadataData)
         returnValue(child)
 
-
     @classproperty
     def _insertHomeChild(cls):
         """
@@ -3472,7 +3290,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             {child.RESOURCE_ID: schema.RESOURCE_ID_SEQ},
             Return=(child.RESOURCE_ID)
         )
-
 
     @classproperty
     def _insertHomeChildMetaData(cls):
@@ -3487,7 +3304,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             },
             Return=(child.CREATED, child.MODIFIED)
         )
-
 
     @classmethod
     @inlineCallbacks
@@ -3524,7 +3340,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         yield child.notifyPropertyChanged()
         returnValue(child)
 
-
     @classproperty
     def _metadataByIDQuery(cls):
         """
@@ -3535,7 +3350,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
                       From=child,
                       Where=child.RESOURCE_ID == Parameter("resourceID"))
 
-
     def id(self):
         """
         Retrieve the store identifier for this collection.
@@ -3545,7 +3359,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         """
         return self._resourceID
 
-
     def external(self):
         """
         Is this an external home.
@@ -3554,7 +3367,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         """
         return self.ownerHome().external()
 
-
     def externalClass(self):
         """
         Is this an external home.
@@ -3562,7 +3374,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         @return: a string.
         """
         return self.ownerHome().externalClass()
-
 
     def serialize(self):
         """
@@ -3577,7 +3388,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         data["metadataData"]["created"] = data["metadataData"]["created"].isoformat(" ")
         data["metadataData"]["modified"] = data["metadataData"]["modified"].isoformat(" ")
         return data
-
 
     @classmethod
     @inlineCallbacks
@@ -3597,19 +3407,15 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 #            setattr(child, attr, mapping.get(attr[1:]))
         returnValue(child)
 
-
     @property
     def _txn(self):
         return self._home._txn
 
-
     def directoryService(self):
         return self._txn.store().directoryService()
 
-
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
-
 
     def exists(self):
         """
@@ -3617,10 +3423,8 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         """
         return self._resourceID is not None
 
-
     def name(self):
         return self._name
-
 
     @classproperty
     def _renameQuery(cls):
@@ -3631,7 +3435,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         return Update({bind.RESOURCE_NAME: Parameter("name")},
                       Where=(bind.RESOURCE_ID == Parameter("resourceID")).And(
                           bind.HOME_RESOURCE_ID == Parameter("homeID")))
-
 
     @inlineCallbacks
     def rename(self, name):
@@ -3662,7 +3465,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         yield self.notifyPropertyChanged()
         yield self._home.notifyChanged()
 
-
     @classproperty
     def _deleteQuery(cls):
         """
@@ -3670,7 +3472,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         """
         child = cls._homeChildSchema
         return Delete(child, Where=child.RESOURCE_ID == Parameter("resourceID"))
-
 
     @inlineCallbacks
     def remove(self):
@@ -3687,7 +3488,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
                 yield self.toTrash()
         else:
             yield self._reallyRemove()
-
 
     @inlineCallbacks
     def _reallyRemove(self):
@@ -3717,7 +3517,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
         yield self._home.notifyChanged()
 
-
     @classproperty
     def _updateIsInTrashQuery(cls):
         table = cls._homeChildMetaDataSchema
@@ -3725,7 +3524,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             {table.IS_IN_TRASH: Parameter("isInTrash"), table.TRASHED: Parameter("trashed")},
             Where=table.RESOURCE_ID == Parameter("resourceID"),
         )
-
 
     @inlineCallbacks
     def toTrash(self):
@@ -3758,7 +3556,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
         self._isInTrash = True
         self._trashed = str(whenTrashed)
-
 
     @inlineCallbacks
     def fromTrash(
@@ -3812,23 +3609,19 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
                         # Don't let one failed child stop the others, but alert the user
                         print("Failed to restore \"{}\" due to {}".format(child.name(), str(e)))
 
-
     def isInTrash(self):
         return getattr(self, "_isInTrash", False)
-
 
     def whenTrashed(self):
         if self._trashed is None:
             return None
         return parseSQLTimestamp(self._trashed)
 
-
     def purge(self):
         """
         Do a "silent" removal of this child.
         """
         return self._reallyRemove()
-
 
     def ownerHome(self):
         """
@@ -3837,14 +3630,12 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         """
         return self._ownerHome
 
-
     def viewerHome(self):
         """
         @see: L{ICalendar.viewerCalendarHome}
         @see: L{IAddressbook.viewerAddressbookHome}
         """
         return self._home
-
 
     @classproperty
     def _ownerHomeWithResourceID(cls):
@@ -3860,7 +3651,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
                 bind.BIND_MODE == _BIND_MODE_OWN)
         )
 
-
     @inlineCallbacks
     def objectResources(self):
         """
@@ -3873,7 +3663,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             self._objects[result.id()] = result
         self._objectNames = sorted([result.name() for result in results])
         returnValue(results)
-
 
     @inlineCallbacks
     def objectResourcesWithNames(self, names):
@@ -3888,7 +3677,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         self._objectNames = sorted([result.name() for result in results])
         returnValue(results)
 
-
     @inlineCallbacks
     def listObjectResources(self):
         """
@@ -3898,7 +3686,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             self._objectNames = yield self._objectResourceClass.listObjects(self)
         returnValue(self._objectNames)
 
-
     @inlineCallbacks
     def countObjectResources(self):
         if self._objectNames is None:
@@ -3906,13 +3693,11 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             returnValue(count)
         returnValue(len(self._objectNames))
 
-
     def objectResourceWithName(self, name):
         if name in self._objects:
             return succeed(self._objects[name])
         else:
             return self._makeObjectResource(name=name)
-
 
     def objectResourceWithUID(self, uid):
         if uid in self._objects:
@@ -3920,13 +3705,11 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         else:
             return self._makeObjectResource(uid=uid)
 
-
     def objectResourceWithID(self, resourceID):
         if resourceID in self._objects:
             return succeed(self._objects[resourceID])
         else:
             return self._makeObjectResource(resourceID=resourceID)
-
 
     @inlineCallbacks
     def _makeObjectResource(self, name=None, uid=None, resourceID=None):
@@ -3948,7 +3731,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
                 self._objects[name if name else uid] = None
         returnValue(objectResource)
 
-
     @inlineCallbacks
     def resourceNameForUID(self, uid):
         try:
@@ -3963,7 +3745,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             self._objects[uid] = None
             returnValue(None)
 
-
     @inlineCallbacks
     def resourceUIDForName(self, name):
         try:
@@ -3977,7 +3758,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         else:
             self._objects[name] = None
             returnValue(None)
-
 
     @inlineCallbacks
     def createObjectResourceWithName(self, name, component, options=None):
@@ -4009,7 +3789,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         # don't need to call notify() here like we do for object removal.
         returnValue(objectResource)
 
-
     @inlineCallbacks
     def addedObjectResource(self, child):
         """
@@ -4023,7 +3802,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         self._objectNames = None
         yield self.notifyChanged()
 
-
     @inlineCallbacks
     def removedObjectResource(self, child):
         self._objects.pop(child.name(), None)
@@ -4033,7 +3811,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             self._objectNames.remove(child.name())
         yield self._deleteRevision(child.name())
         yield self.notifyChanged(category=child.removeNotifyCategory())
-
 
     @classproperty
     def _moveParentUpdateQuery(cls, adjustName=False):
@@ -4051,14 +3828,12 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             Where=obj.RESOURCE_ID == Parameter("resourceID")
         )
 
-
     def _movedObjectResource(self, child, newparent):
         """
         Method that subclasses can override to do an extra DB adjustments when a resource
         is moved.
         """
         return succeed(True)
-
 
     @inlineCallbacks
     def _validObjectResource(self, child, newparent, newname=None):
@@ -4096,7 +3871,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
                 raise TooManyObjectResourcesError()
 
         returnValue(newname)
-
 
     @inlineCallbacks
     def moveObjectResource(self, child, newparent, newname=None):
@@ -4157,7 +3931,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         yield newparent._insertRevision(newname)
         yield newparent.notifyChanged()
 
-
     @inlineCallbacks
     def moveObjectResourceCreateDelete(self, child, newparent, newname=None):
         """
@@ -4182,7 +3955,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         yield newparent.moveObjectResourceHere(name, component)
         yield self.moveObjectResourceAway(child.id(), child)
 
-
     @inlineCallbacks
     def moveObjectResourceHere(self, name, component):
         """
@@ -4196,7 +3968,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         """
 
         yield self.createObjectResourceWithName(name, component)
-
 
     @inlineCallbacks
     def moveObjectResourceAway(self, rid, child=None):
@@ -4214,10 +3985,8 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             child = yield self.objectResourceWithID(rid)
         yield child.remove()
 
-
     def objectResourcesHaveProperties(self):
         return False
-
 
     def search(self, filter):
         """
@@ -4232,7 +4001,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
         # This implementation raises - sub-classes override to do the actual query
         raise IndexedSearchException()
-
 
     @inlineCallbacks
     def sharedChildResourceNamesSinceRevision(self, revision, depth):
@@ -4308,7 +4076,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
         returnValue((changed, deleted, invalid,))
 
-
     @inlineCallbacks
     def sharedChildResourceNamesSinceRevisionZero(self, depth):
         """
@@ -4339,7 +4106,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
         returnValue((changed, deleted, invalid,))
 
-
     @inlineCallbacks
     def _loadPropertyStore(self, props=None):
         if props is None:
@@ -4356,10 +4122,8 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         self.initPropertyStore(props)
         self._properties = props
 
-
     def properties(self):
         return self._properties
-
 
     def initPropertyStore(self, props):
         """
@@ -4370,45 +4134,35 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         """
         pass
 
-
     # IDataStoreObject
     def contentType(self):
         raise NotImplementedError()
 
-
     def md5(self):
         return None
-
 
     def size(self):
         return 0
 
-
     def created(self):
         return datetimeMktime(self._created) if self._created else None
 
-
     def modified(self):
         return datetimeMktime(self._modified) if self._modified else None
-
 
     def addNotifier(self, factory_name, notifier):
         if self._notifiers is None:
             self._notifiers = {}
         self._notifiers[factory_name] = notifier
 
-
     def getNotifier(self, factory_name):
         return self._notifiers.get(factory_name) if self._notifiers else None
-
 
     def notifierID(self):
         return (self.ownerHome()._notifierPrefix, "%s/%s" % (self.ownerHome().uid(), self._ownerName,),)
 
-
     def parentNotifierID(self):
         return self.ownerHome().notifierID()
-
 
     def notifyChanged(self, category=ChangeCategory.default):
         """
@@ -4416,13 +4170,11 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         """
         return self._notifyChanged(property_change=False, category=category)
 
-
     def notifyPropertyChanged(self):
         """
         Send notifications when properties on this object change.
         """
         return self._notifyChanged(property_change=True)
-
 
     @inlineCallbacks
     def _notifyChanged(self, property_change=False, category=ChangeCategory.default):
@@ -4466,7 +4218,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         if not self.external():
             yield self.notifyExternalShare(category)
 
-
     @classproperty
     def _lockLastModifiedQuery(cls):
         schema = cls._homeChildMetaDataSchema
@@ -4477,14 +4228,12 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             NoWait=True
         )
 
-
     @classproperty
     def _changeLastModifiedQuery(cls):
         schema = cls._homeChildMetaDataSchema
         return Update({schema.MODIFIED: utcNowSQL},
                       Where=schema.RESOURCE_ID == Parameter("resourceID"),
                       Return=schema.MODIFIED)
-
 
     @inlineCallbacks
     def bumpModified(self):
@@ -4524,7 +4273,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             log.debug("CommonHomeChild.bumpModified failed")
 
 
-
 class CommonObjectResource(FancyEqMixin, object):
     """
     Base class for object resources.
@@ -4546,7 +4294,6 @@ class CommonObjectResource(FancyEqMixin, object):
     _currentDataVersion = 0
 
     BATCH_LOAD_SIZE = 50
-
 
     @classmethod
     @inlineCallbacks
@@ -4583,7 +4330,6 @@ class CommonObjectResource(FancyEqMixin, object):
         yield child._loadPropertyStore(propstore)
 
         returnValue(child)
-
 
     @classmethod
     @inlineCallbacks
@@ -4625,7 +4371,6 @@ class CommonObjectResource(FancyEqMixin, object):
 
         returnValue(rows[0] if rows else None)
 
-
     def __init__(self, parent, name, uid, resourceID=None, options=None):
         self._parentCollection = parent
         self._resourceID = resourceID
@@ -4641,20 +4386,17 @@ class CommonObjectResource(FancyEqMixin, object):
 
         self._locked = False
 
-
     @classproperty
     def _allColumnsWithParentQuery(cls):
         obj = cls._objectSchema
         return Select(cls._allColumns(), From=obj,
                       Where=obj.PARENT_RESOURCE_ID == Parameter("parentID"))
 
-
     @classmethod
     @inlineCallbacks
     def _allColumnsWithParent(cls, parent):
         returnValue((yield cls._allColumnsWithParentQuery.on(
             parent._txn, parentID=parent._resourceID)))
-
 
     @classmethod
     @inlineCallbacks
@@ -4696,7 +4438,6 @@ class CommonObjectResource(FancyEqMixin, object):
 
         returnValue(results)
 
-
     @classmethod
     @inlineCallbacks
     def loadAllObjectsWithNames(cls, parent, names):
@@ -4714,7 +4455,6 @@ class CommonObjectResource(FancyEqMixin, object):
 
         returnValue(results)
 
-
     @classmethod
     @inlineCallbacks
     def listObjects(cls, parent):
@@ -4729,7 +4469,6 @@ class CommonObjectResource(FancyEqMixin, object):
         ).on(parent._txn, parentID=parent.id())
         returnValue(sorted([row[0] for row in rows]))
 
-
     @classmethod
     @inlineCallbacks
     def countObjects(cls, parent):
@@ -4741,7 +4480,6 @@ class CommonObjectResource(FancyEqMixin, object):
         ).on(parent._txn, parentID=parent.id())
         returnValue(rows[0][0])
 
-
     @classmethod
     def _allColumnsWithParentAndNamesQuery(cls, names):
         obj = cls._objectSchema
@@ -4749,13 +4487,11 @@ class CommonObjectResource(FancyEqMixin, object):
                       Where=(obj.PARENT_RESOURCE_ID == Parameter("parentID")).And(
                           obj.RESOURCE_NAME.In(Parameter("names", len(names)))))
 
-
     @classmethod
     @inlineCallbacks
     def _allColumnsWithParentAndNames(cls, parent, names):
         returnValue((yield cls._allColumnsWithParentAndNamesQuery(names).on(
             parent._txn, parentID=parent._resourceID, names=names)))
-
 
     @classmethod
     @inlineCallbacks
@@ -4800,21 +4536,17 @@ class CommonObjectResource(FancyEqMixin, object):
 
         returnValue(results)
 
-
     @classmethod
     def objectWithName(cls, parent, name):
         return cls.objectWith(parent, name=name)
-
 
     @classmethod
     def objectWithUID(cls, parent, uid):
         return cls.objectWith(parent, uid=uid)
 
-
     @classmethod
     def objectWithID(cls, parent, resourceID):
         return cls.objectWith(parent, resourceID=resourceID)
-
 
     @classmethod
     @inlineCallbacks
@@ -4844,7 +4576,6 @@ class CommonObjectResource(FancyEqMixin, object):
         else:
             returnValue(None)
 
-
     @classmethod
     @inlineCallbacks
     def resourceNameForUID(cls, parent, uid):
@@ -4861,7 +4592,6 @@ class CommonObjectResource(FancyEqMixin, object):
         ).on(parent._txn, uid=uid, parentID=parent.id())
         returnValue(rows[0][0] if rows else "")
 
-
     @classmethod
     @inlineCallbacks
     def resourceUIDForName(cls, parent, name):
@@ -4877,7 +4607,6 @@ class CommonObjectResource(FancyEqMixin, object):
                 obj.PARENT_RESOURCE_ID == Parameter("parentID"))
         ).on(parent._txn, name=name, parentID=parent.id())
         returnValue(rows[0][0] if rows else "")
-
 
     @classmethod
     @inlineCallbacks
@@ -4902,7 +4631,6 @@ class CommonObjectResource(FancyEqMixin, object):
         # call notify( ) here like we do for object removal.
         returnValue(objectResource)
 
-
     @classmethod
     def _allColumnsWithParentAnd(cls, column, paramName):
         """
@@ -4915,21 +4643,17 @@ class CommonObjectResource(FancyEqMixin, object):
                 cls._objectSchema.PARENT_RESOURCE_ID == Parameter("parentID"))
         )
 
-
     @classproperty
     def _allColumnsWithParentAndName(cls):
         return cls._allColumnsWithParentAnd(cls._objectSchema.RESOURCE_NAME, "name")
-
 
     @classproperty
     def _allColumnsWithParentAndUID(cls):
         return cls._allColumnsWithParentAnd(cls._objectSchema.UID, "uid")
 
-
     @classproperty
     def _allColumnsWithParentAndID(cls):
         return cls._allColumnsWithParentAnd(cls._objectSchema.RESOURCE_ID, "resourceID")
-
 
     @classmethod
     def _allColumns(cls):
@@ -4949,7 +4673,6 @@ class CommonObjectResource(FancyEqMixin, object):
             obj.DATAVERSION,
         ]
 
-
     @classmethod
     def _rowAttributes(cls):
         """
@@ -4967,7 +4690,6 @@ class CommonObjectResource(FancyEqMixin, object):
             "_dataversion",
         )
 
-
     @classmethod
     def _otherSerializedAttributes(cls):
         """
@@ -4976,7 +4698,6 @@ class CommonObjectResource(FancyEqMixin, object):
         return (
             "_componentChanged",
         )
-
 
     def serialize(self):
         """
@@ -4990,7 +4711,6 @@ class CommonObjectResource(FancyEqMixin, object):
         data["created"] = data["created"].isoformat(" ")
         data["modified"] = data["modified"].isoformat(" ")
         return data
-
 
     @classmethod
     @inlineCallbacks
@@ -5006,7 +4726,6 @@ class CommonObjectResource(FancyEqMixin, object):
         for attr in cls._otherSerializedAttributes():
             setattr(child, attr, mapping.get(attr[1:]))
         returnValue(child)
-
 
     @inlineCallbacks
     def _loadPropertyStore(self, props=None, created=False):
@@ -5025,10 +4744,8 @@ class CommonObjectResource(FancyEqMixin, object):
         self.initPropertyStore(props)
         self._propertyStore = props
 
-
     def properties(self):
         return self._propertyStore
-
 
     def initPropertyStore(self, props):
         """
@@ -5039,10 +4756,8 @@ class CommonObjectResource(FancyEqMixin, object):
         """
         pass
 
-
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
-
 
     def id(self):
         """
@@ -5053,40 +4768,31 @@ class CommonObjectResource(FancyEqMixin, object):
         """
         return self._resourceID
 
-
     @property
     def _txn(self):
         return self._parentCollection._txn
-
 
     @property
     def _home(self):
         return self._parentCollection._home
 
-
     def transaction(self):
         return self._parentCollection._txn
-
 
     def directoryService(self):
         return self._txn.store().directoryService()
 
-
     def parentCollection(self):
         return self._parentCollection
-
 
     def owned(self):
         return self._parentCollection.owned()
 
-
     def ownerHome(self):
         return self._parentCollection.ownerHome()
 
-
     def viewerHome(self):
         return self._parentCollection.viewerHome()
-
 
     @classmethod
     def _selectForUpdateQuery(cls, nowait):
@@ -5094,7 +4800,6 @@ class CommonObjectResource(FancyEqMixin, object):
         DAL statement to lock a L{CommonObjectResource} by its resource ID.
         """
         return Select(From=cls._objectSchema, ForUpdate=True, NoWait=nowait, Where=cls._objectSchema.RESOURCE_ID == Parameter("resourceID"))
-
 
     @inlineCallbacks
     def lock(self, wait=True, txn=None):
@@ -5118,19 +4823,15 @@ class CommonObjectResource(FancyEqMixin, object):
         yield self._selectForUpdateQuery(not wait).on(txn, NoSuchObjectResourceError, resourceID=self._resourceID)
         self._locked = True
 
-
     def setComponent(self, component, inserting=False, options=None):
         raise NotImplementedError
-
 
     def component(self):
         raise NotImplementedError
 
-
     @inlineCallbacks
     def componentType(self):
         returnValue((yield self.component()).mainType())
-
 
     @classproperty
     def _deleteQuery(cls):
@@ -5138,7 +4839,6 @@ class CommonObjectResource(FancyEqMixin, object):
         DAL statement to delete a L{CommonObjectResource} by its resource ID.
         """
         return Delete(cls._objectSchema, Where=cls._objectSchema.RESOURCE_ID == Parameter("resourceID"))
-
 
     @inlineCallbacks
     def moveTo(self, destination, name=None):
@@ -5160,10 +4860,8 @@ class CommonObjectResource(FancyEqMixin, object):
         else:
             yield self._parentCollection.moveObjectResourceCreateDelete(self, destination, name)
 
-
     def moveValidation(self, destination, name):
         raise NotImplementedError
-
 
     def remove(self):
         """
@@ -5177,7 +4875,6 @@ class CommonObjectResource(FancyEqMixin, object):
                 return self.toTrash()
         else:
             return self._reallyRemove()
-
 
     @inlineCallbacks
     def _reallyRemove(self):
@@ -5201,7 +4898,6 @@ class CommonObjectResource(FancyEqMixin, object):
         self._textData = None
         self._cachedComponent = None
 
-
     @classproperty
     def _updateToTrashQuery(cls):
         obj = cls._objectSchema
@@ -5209,7 +4905,6 @@ class CommonObjectResource(FancyEqMixin, object):
             {obj.ORIGINAL_COLLECTION: Parameter("originalCollection"), obj.TRASHED: Parameter("trashed")},
             Where=obj.RESOURCE_ID == Parameter("resourceID"),
         )
-
 
     @classproperty
     def _updateFromTrashQuery(cls):
@@ -5219,12 +4914,10 @@ class CommonObjectResource(FancyEqMixin, object):
             Where=obj.RESOURCE_ID == Parameter("resourceID"),
         )
 
-
     @classproperty
     def _selectTrashDataQuery(cls):
         obj = cls._objectSchema
         return Select((obj.ORIGINAL_COLLECTION, obj.TRASHED), From=obj, Where=obj.RESOURCE_ID == Parameter("resourceID"))
-
 
     @inlineCallbacks
     def originalCollection(self):
@@ -5235,7 +4928,6 @@ class CommonObjectResource(FancyEqMixin, object):
         )[0]
         originalCollection = yield self._parentCollection._home.childWithID(originalCollectionID)
         returnValue(originalCollection)
-
 
     @inlineCallbacks
     def toTrash(self):
@@ -5254,7 +4946,6 @@ class CommonObjectResource(FancyEqMixin, object):
         )
         returnValue(newName)
 
-
     @inlineCallbacks
     def fromTrash(self):
         originalCollection = yield self.originalCollection()
@@ -5267,23 +4958,19 @@ class CommonObjectResource(FancyEqMixin, object):
         )
         returnValue(self._name)
 
-
     def isInTrash(self):
         return (getattr(self, "_original_collection", None) is not None) or getattr(self, "_isInTrash", False)
-
 
     def whenTrashed(self):
         if self._trashed is None:
             return None
         return parseSQLTimestamp(self._trashed)
 
-
     def purge(self):
         """
         Delete this object, bypassing trash
         """
         return self._reallyRemove()
-
 
     def removeNotifyCategory(self):
         """
@@ -5296,35 +4983,27 @@ class CommonObjectResource(FancyEqMixin, object):
         """
         return ChangeCategory.default
 
-
     def uid(self):
         return self._uid
 
-
     def name(self):
         return self._name
-
 
     # IDataStoreObject
     def contentType(self):
         raise NotImplementedError()
 
-
     def md5(self):
         return self._md5
-
 
     def size(self):
         return self._size
 
-
     def created(self):
         return datetimeMktime(self._created)
 
-
     def modified(self):
         return datetimeMktime(self._modified)
-
 
     @classproperty
     def _textByIDQuery(cls):
@@ -5334,7 +5013,6 @@ class CommonObjectResource(FancyEqMixin, object):
         obj = cls._objectSchema
         return Select([obj.TEXT], From=obj,
                       Where=obj.RESOURCE_ID == Parameter("resourceID"))
-
 
     @inlineCallbacks
     def _text(self):

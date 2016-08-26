@@ -32,6 +32,7 @@ from twext.enterprise.ienterprise import ORACLE_TABLE_NAME_MAX
 import hashlib
 import itertools
 
+
 def _schemaFiles(version=None):
     """
     Find the set of files to process, either the current set if C{version} is L{None}, otherwise look
@@ -52,7 +53,6 @@ def _schemaFiles(version=None):
     return currentObj, extrasObj, outObj
 
 
-
 def _populateSchema(pathObj=None):
     """
     Generate the global L{SchemaSyntax}.
@@ -63,7 +63,6 @@ def _populateSchema(pathObj=None):
     return SchemaSyntax(schemaFromPath(pathObj))
 
 
-
 def _schemaExtras(out, extras):
     """
     If an extras file exists, add its entire content to the output stream..
@@ -71,7 +70,6 @@ def _schemaExtras(out, extras):
 
     if extras.exists():
         out.write("\n".join(itertools.dropwhile(lambda x: not x.startswith("-- Extra schema to add"), extras.getContent().splitlines())) + "\n")
-
 
 
 schema = _populateSchema()
@@ -112,7 +110,6 @@ schema.ADDRESSBOOK_OBJECT.UID = schema.ADDRESSBOOK_OBJECT.VCARD_UID
 schema.ADDRESSBOOK_OBJECT.PARENT_RESOURCE_ID = schema.ADDRESSBOOK_OBJECT.ADDRESSBOOK_HOME_RESOURCE_ID
 
 
-
 def _combine(**kw):
     """
     Combine two table dictionaries used in a join to produce a single dictionary
@@ -123,7 +120,6 @@ def _combine(**kw):
         result.update([("%s:%s" % (tableRole, k), v)
                        for k, v in tableDictionary.items()])
     return result
-
 
 
 def _S(tableSyntax):
@@ -146,7 +142,6 @@ def _S(tableSyntax):
     return result
 
 
-
 def _schemaConstants(nameColumn, valueColumn):
     """
     Get a constant value from the rows defined in the schema.
@@ -156,7 +151,6 @@ def _schemaConstants(nameColumn, valueColumn):
             if row[nameColumn.model] == name:
                 return row[valueColumn.model]
     return get
-
 
 
 def _schemaConstantsMaps(nameColumn, valueColumn):
@@ -172,7 +166,6 @@ def _schemaConstantsMaps(nameColumn, valueColumn):
         fromSQL[row[valueColumn.model]] = row[nameColumn.model]
 
     return (toSQL, fromSQL)
-
 
 
 # Various constants
@@ -277,7 +270,6 @@ _translatedTypes = {
 }
 
 
-
 def _quoted(x):
     """
     Quote an object for inclusion into an SQL string.
@@ -293,7 +285,6 @@ def _quoted(x):
         return ''.join(["'", x.replace("'", "''"), "'"])
     else:
         return str(x)
-
 
 
 def _staticSQL(sql, doquote=False):
@@ -325,7 +316,6 @@ def _staticSQL(sql, doquote=False):
     params = tuple([_quoted(param) for param in fragment.parameters])
     result = fragment.text % params
     return result
-
 
 
 def _translateSchema(out, schema=schema):
@@ -380,11 +370,11 @@ def _translateSchema(out, schema=schema):
                             default = 0
                         out.write(" " + repr(default))
             if (
-                (not column.model.canBeNull())
+                (not column.model.canBeNull()) and
                 # Oracle treats empty strings as NULLs, so we have to accept
                 # NULL values in columns of a string type.  Other types should
                 # be okay though.
-                and typeName not in ('varchar', 'nclob', 'char', 'nchar', 'nvarchar', 'nvarchar2')
+                typeName not in ('varchar', 'nclob', 'char', 'nchar', 'nvarchar', 'nvarchar2')
             ):
                 out.write(' not null')
             if [column.model] in list(table.model.uniques()):
@@ -395,7 +385,7 @@ def _translateSchema(out, schema=schema):
                 out.write(" on delete %s" % (column.model.deleteAction,))
 
         def writeConstraint(name, cols):
-            out.write(", \n") # the table has to have some preceding columns
+            out.write(", \n")  # the table has to have some preceding columns
             out.write("    %s(%s)" % (
                 name, ", ".join('"' + col.name + '"' for col in cols)
             ))
@@ -406,7 +396,7 @@ def _translateSchema(out, schema=schema):
 
         for uniqueColumns in table.model.uniques():
             if len(uniqueColumns) == 1:
-                continue # already done inline, skip
+                continue  # already done inline, skip
             writeConstraint("unique ", uniqueColumns)
 
         for checkConstraint in table.model.constraints:
@@ -421,11 +411,10 @@ def _translateSchema(out, schema=schema):
 
         for row in table.model.schemaRows:
             cmap = dict([(getattr(table, cmodel.name), val)
-                        for (cmodel, val) in row.items()])
+                         for (cmodel, val) in row.items()])
             out.write(_staticSQL(Insert(cmap)))
             out.write(";\n")
         out.write("\n\n" if len(table.model.schemaRows) else "\n")
-
 
     for index in schema.model.indexes:
         # Index names combine and repeat multiple table names and column names,

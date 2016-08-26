@@ -130,7 +130,6 @@ END:VCALENDAR
 """.replace("\n", "\r\n")
 
 
-
 test_event_notCalDAV_text = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Apple Inc.//iCal 4.0.1//EN
@@ -159,7 +158,6 @@ END:VCALENDAR
 """.replace("\n", "\r\n")
 
 
-
 event1modified_text = test_event_text.replace(
     "\r\nUID:uid-test\r\n",
     "\r\nUID:uid1\r\n"
@@ -180,10 +178,8 @@ class CaptureProtocol(Protocol):
         self.io = StringIO()
         self.dataReceived = self.io.write
 
-
     def connectionLost(self, reason):
         self.deferred.callback(self.io.getvalue())
-
 
 
 class CommonTests(CommonCommonTests):
@@ -237,7 +233,7 @@ class CommonTests(CommonCommonTests):
     )
 
     @classproperty(cache=False)
-    def requirements(cls): #@NoSelf
+    def requirements(cls):  # @NoSelf
         metadata1 = cls.metadata1.copy()
         metadata2 = cls.metadata2.copy()
         metadata3 = cls.metadata3.copy()
@@ -285,7 +281,7 @@ class CommonTests(CommonCommonTests):
                     "1.ics": (cal1DefaultsRoot.child("1.ics").getContent(), metadata1),
                     "3.ics": (cal1DefaultsRoot.child("3.ics").getContent(), metadata3),
                 },
-                "inbox" : {},
+                "inbox": {},
             },
         }
 
@@ -324,14 +320,12 @@ class CommonTests(CommonCommonTests):
         },
     }
 
-
     def test_calendarStoreProvides(self):
         """
         The calendar store provides L{IDataStore} and its required attributes.
         """
         calendarStore = self.storeUnderTest()
         self.assertProvides(IDataStore, calendarStore)
-
 
     def test_transactionProvides(self):
         """
@@ -343,7 +337,6 @@ class CommonTests(CommonCommonTests):
         self.assertProvides(ICommonTransaction, txn)
         self.assertProvides(ICalendarTransaction, txn)
 
-
     @inlineCallbacks
     def test_homeProvides(self):
         """
@@ -352,7 +345,6 @@ class CommonTests(CommonCommonTests):
         """
         self.assertProvides(ICalendarHome, (yield self.homeUnderTest()))
 
-
     @inlineCallbacks
     def test_calendarProvides(self):
         """
@@ -360,7 +352,6 @@ class CommonTests(CommonCommonTests):
         its required attributes.
         """
         self.assertProvides(ICalendar, (yield self.calendarUnderTest()))
-
 
     @inlineCallbacks
     def test_calendarObjectProvides(self):
@@ -371,7 +362,6 @@ class CommonTests(CommonCommonTests):
         self.assertProvides(
             ICalendarObject, (yield self.calendarObjectUnderTest())
         )
-
 
     @inlineCallbacks
     def notificationUnderTest(self):
@@ -385,7 +375,6 @@ class CommonTests(CommonCommonTests):
         notificationObject = yield notifications.notificationObjectWithUID("abc")
         returnValue(notificationObject)
 
-
     @inlineCallbacks
     def test_notificationObjectProvides(self):
         """
@@ -394,7 +383,6 @@ class CommonTests(CommonCommonTests):
         """
         notificationObject = yield self.notificationUnderTest()
         self.assertProvides(INotificationObject, notificationObject)
-
 
     @inlineCallbacks
     def test_notificationSyncToken(self):
@@ -428,7 +416,6 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(set(deleted), set([]))
         self.assertEquals(len(invalid), 0)
 
-
     @inlineCallbacks
     def test_replaceNotification(self):
         """
@@ -453,7 +440,6 @@ class CommonTests(CommonCommonTests):
             (yield abc.notificationData()),
             json.loads("{\"notification-type\":\"invite-notification\",\"summary\":\"a summary\"}"),
         )
-
 
     @inlineCallbacks
     def test_addRemoveNotification(self):
@@ -505,7 +491,6 @@ class CommonTests(CommonCommonTests):
         )
         yield self.commit()
 
-
     @inlineCallbacks
     def test_loadAllNotifications(self):
         """
@@ -535,7 +520,6 @@ class CommonTests(CommonCommonTests):
         self.assertEqual(set([obj.uid() for obj in allObjects]),
                          set(["abc", "def"]))
 
-
     @inlineCallbacks
     def test_notificationObjectMetaData(self):
         """
@@ -548,7 +532,6 @@ class CommonTests(CommonCommonTests):
         self.assertIsInstance(notification.created(), int)
         self.assertIsInstance(notification.modified(), int)
 
-
     @inlineCallbacks
     def test_notificationObjectParent(self):
         """
@@ -560,14 +543,12 @@ class CommonTests(CommonCommonTests):
         notification = yield self.notificationUnderTest()
         self.assertIdentical(collection, notification.notificationCollection())
 
-
     @inlineCallbacks
     def test_notifierID(self):
         home = yield self.homeUnderTest()
         self.assertEquals(home.notifierID(), ("CalDAV", "home1",))
         calendar = yield home.calendarWithName("calendar_1")
         self.assertEquals(calendar.notifierID(), ("CalDAV", "home1/calendar_1",))
-
 
     @inlineCallbacks
     def test_displayNameNone(self):
@@ -579,7 +560,6 @@ class CommonTests(CommonCommonTests):
         calendar = (yield home.calendarWithName("calendar_1"))
         name = (yield calendar.displayName())
         self.assertEquals(name, None)
-
 
     @inlineCallbacks
     def test_setDisplayName(self):
@@ -598,7 +578,6 @@ class CommonTests(CommonCommonTests):
         name = calendar.displayName()
         self.assertEquals(name, None)
 
-
     @inlineCallbacks
     def test_setDisplayNameBytes(self):
         """
@@ -608,7 +587,6 @@ class CommonTests(CommonCommonTests):
         home = (yield self.homeUnderTest())
         calendar = (yield home.calendarWithName("calendar_1"))
         self.assertRaises(ValueError, calendar.setDisplayName, "quux")
-
 
     @inlineCallbacks
     def test_calendarHomeWithUID_exists(self):
@@ -622,7 +600,6 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(calendarHome.uid(), "home1")
         self.assertProvides(ICalendarHome, calendarHome)
 
-
     @inlineCallbacks
     def test_calendarHomeWithUID_absent(self):
         """
@@ -631,7 +608,6 @@ class CommonTests(CommonCommonTests):
         """
         txn = self.transactionUnderTest()
         self.assertEquals((yield txn.calendarHomeWithUID("xyzzy")), None)
-
 
     @inlineCallbacks
     def test_calendarTasks_exists(self):
@@ -661,7 +637,6 @@ class CommonTests(CommonCommonTests):
             self.assertProvides(ICalendar, calendar)
             self.assertEquals(calendar.name(), name)
 
-
     @inlineCallbacks
     def test_calendarWithName_exists(self):
         """
@@ -676,7 +651,6 @@ class CommonTests(CommonCommonTests):
             self.assertProvides(ICalendar, calendar)
             self.assertEquals(calendar.name(), name)
 
-
     @inlineCallbacks
     def test_calendarRename(self):
         """
@@ -685,6 +659,7 @@ class CommonTests(CommonCommonTests):
         home = yield self.homeUnderTest()
         calendar = yield home.calendarWithName("calendar_1")
         yield calendar.rename("some_other_name")
+
         @inlineCallbacks
         def positiveAssertions():
             self.assertEquals(calendar.name(), "some_other_name")
@@ -701,7 +676,6 @@ class CommonTests(CommonCommonTests):
         # FIXME: test for multiple renames
         # FIXME: test for conflicting renames (a->b, c->a in the same txn)
 
-
     @inlineCallbacks
     def test_calendarWithName_absent(self):
         """
@@ -711,7 +685,6 @@ class CommonTests(CommonCommonTests):
         home = yield self.homeUnderTest()
         calendar = yield home.calendarWithName("xyzzy")
         self.assertEquals(calendar, None)
-
 
     @inlineCallbacks
     def test_createCalendarWithName_absent(self):
@@ -734,7 +707,6 @@ class CommonTests(CommonCommonTests):
         home = yield self.homeUnderTest()
         self.assertNotIdentical((yield home.calendarWithName(name)), None)
 
-
     @inlineCallbacks
     def test_createCalendarWithName_exists(self):
         """
@@ -748,7 +720,6 @@ class CommonTests(CommonCommonTests):
                 maybeDeferred(home.createCalendarWithName, name),
                 HomeChildNameAlreadyExistsError
             )
-
 
     @inlineCallbacks
     def test_removeCalendarWithName_exists(self):
@@ -784,7 +755,6 @@ class CommonTests(CommonCommonTests):
             set(expected)
         )
 
-
     @inlineCallbacks
     def test_removeCalendarWithName_absent(self):
         """
@@ -795,7 +765,6 @@ class CommonTests(CommonCommonTests):
             maybeDeferred(home.removeCalendarWithName, "xyzzy"),
             NoSuchHomeChildError
         )
-
 
     @inlineCallbacks
     def test_supportedComponentSet(self):
@@ -815,7 +784,6 @@ class CommonTests(CommonCommonTests):
         result = yield maybeDeferred(calendar.getSupportedComponents)
         self.assertEquals(result, None)
 
-
     @inlineCallbacks
     def test_countComponentTypes(self):
         """
@@ -832,7 +800,6 @@ class CommonTests(CommonCommonTests):
                 "home_splits")).calendarWithName(calname)
             result = yield maybeDeferred(testalendar._countComponentTypes)
             self.assertEquals(result, results)
-
 
     @inlineCallbacks
     def test_calendarObjects(self):
@@ -855,7 +822,6 @@ class CommonTests(CommonCommonTests):
             set(calendar1_objectNames)
         )
 
-
     @inlineCallbacks
     def test_calendarObjectsWithRemovedObject(self):
         """
@@ -869,7 +835,6 @@ class CommonTests(CommonCommonTests):
         calendarObjects = list((yield calendar1.calendarObjects()))
         self.assertEquals(set(o.name() for o in calendarObjects),
                           set(calendar1_objectNames) - set(["2.ics"]))
-
 
     @inlineCallbacks
     def test_calendarObjectRemoveConcurrent(self):
@@ -894,7 +859,6 @@ class CommonTests(CommonCommonTests):
             self.fail("ConcurrentModification not raised, %r returned." %
                       (retrieval,))
 
-
     @inlineCallbacks
     def test_ownerCalendarHome(self):
         """
@@ -904,7 +868,6 @@ class CommonTests(CommonCommonTests):
             (yield self.calendarUnderTest()).ownerCalendarHome().uid(),
             (yield self.homeUnderTest()).uid()
         )
-
 
     @inlineCallbacks
     def test_calendarObjectWithName_exists(self):
@@ -919,7 +882,6 @@ class CommonTests(CommonCommonTests):
             self.assertEquals(calendarObject.name(), name)
             # FIXME: add more tests based on CommonTests.requirements
 
-
     @inlineCallbacks
     def test_calendarObjectWithName_absent(self):
         """
@@ -928,7 +890,6 @@ class CommonTests(CommonCommonTests):
         """
         calendar1 = yield self.calendarUnderTest()
         self.assertEquals((yield calendar1.calendarObjectWithName("xyzzy")), None)
-
 
     @inlineCallbacks
     def test_CalendarObjectWithUID_remove_exists(self):
@@ -967,7 +928,6 @@ class CommonTests(CommonCommonTests):
         )
         yield self.commit()
 
-
     @inlineCallbacks
     def test_CalendarObject_remove(self):
         """
@@ -982,14 +942,12 @@ class CommonTests(CommonCommonTests):
                 (yield calendar.calendarObjectWithName(name)), None
             )
 
-
     @inlineCallbacks
     def test_calendarName(self):
         """
         L{Calendar.name} reflects the name of the calendar.
         """
         self.assertEquals((yield self.calendarUnderTest()).name(), "calendar_1")
-
 
     @inlineCallbacks
     def test_calendar_missingNotifier(self):
@@ -1001,7 +959,6 @@ class CommonTests(CommonCommonTests):
         calendar = yield home.calendarWithName("calendar_1")
         result = calendar.getNotifier("push")
         self.assertTrue(result is None)
-
 
     @inlineCallbacks
     def test_hasCalendarResourceUIDSomewhereElse(self):
@@ -1038,7 +995,6 @@ class CommonTests(CommonCommonTests):
         '''
         yield None
 
-
     @inlineCallbacks
     def test_getCalendarResourcesForUID(self):
         """
@@ -1052,7 +1008,6 @@ class CommonTests(CommonCommonTests):
         calendarObjects = (yield home.getCalendarResourcesForUID("uid1"))
         self.assertEquals(len(calendarObjects), 1)
 
-
     @inlineCallbacks
     def test_calendarObjectName(self):
         """
@@ -1062,7 +1017,6 @@ class CommonTests(CommonCommonTests):
             (yield self.calendarObjectUnderTest()).name(),
             "1.ics"
         )
-
 
     @inlineCallbacks
     def test_calendarObjectMetaData(self):
@@ -1101,7 +1055,6 @@ class CommonTests(CommonCommonTests):
         self.assertEqual(calendar.scheduleEtags, ("1234", "5678",))
         self.assertEqual(calendar.hasPrivateComment, True)
 
-
     @inlineCallbacks
     def test_usedQuotaAdjustment(self):
         """
@@ -1118,7 +1071,6 @@ class CommonTests(CommonCommonTests):
         yield self.commit()
         home3 = yield self.homeUnderTest()
         self.assertEqual((yield home3.quotaUsedBytes()), 0)
-
 
     @inlineCallbacks
     def test_component(self):
@@ -1209,7 +1161,6 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n"))
 
-
     @inlineCallbacks
     def setUpPerUser(self):
         """
@@ -1221,7 +1172,6 @@ END:VCALENDAR
             self.perUserComponent(),
             internal_state=ComponentUpdateState.RAW)
         returnValue((yield cal.calendarObjectWithName("per-user-stuff.ics")))
-
 
     @inlineCallbacks
     def test_filteredComponent(self):
@@ -1238,7 +1188,6 @@ END:VCALENDAR
         ownerComp = (yield obj.filteredComponent("home1"))
         self.assertEquals(ownerComp, self.asSeenByOwner())
 
-
     @inlineCallbacks
     def test_iCalendarText(self):
         """
@@ -1251,7 +1200,6 @@ END:VCALENDAR
         self.assertIn("\r\nUID:uid1\r\n", text)
         self.failUnless(text.endswith("\r\nEND:VCALENDAR\r\n"))
 
-
     @inlineCallbacks
     def test_calendarObjectUID(self):
         """
@@ -1261,7 +1209,6 @@ END:VCALENDAR
         self.assertEquals(
             (yield self.calendarObjectUnderTest()).uid(), "uid1"
         )
-
 
     @inlineCallbacks
     def test_organizer(self):
@@ -1278,7 +1225,6 @@ END:VCALENDAR
             "mailto:wsanchez@example.com"
         )
 
-
     @inlineCallbacks
     def test_calendarObjectWithUID_absent(self):
         """
@@ -1288,7 +1234,6 @@ END:VCALENDAR
         calendar1 = yield self.calendarUnderTest()
         self.assertEquals((yield calendar1.calendarObjectWithUID("xyzzy")),
                           None)
-
 
     @inlineCallbacks
     def test_calendars(self):
@@ -1311,7 +1256,6 @@ END:VCALENDAR
             set(c.name() for c in calendars),
             set(home1_calendarNames)
         )
-
 
     @inlineCallbacks
     def test_loadAllCalendars(self):
@@ -1338,7 +1282,6 @@ END:VCALENDAR
         for c in calendars:
             self.assertTrue(c.properties() is not None)
 
-
     @inlineCallbacks
     def test_calendarsAfterAddCalendar(self):
         """
@@ -1352,7 +1295,6 @@ END:VCALENDAR
         allCalendars = yield home.calendars()
         after = set(x.name() for x in allCalendars)
         self.assertEquals(before | set(['new-name']), after)
-
 
     @inlineCallbacks
     def test_createCalendarObjectWithName_absent(self):
@@ -1389,7 +1331,6 @@ END:VCALENDAR
         )
         yield self.commit()
 
-
     @inlineCallbacks
     def test_createCalendarObjectWithName_exists(self):
         """
@@ -1403,7 +1344,6 @@ END:VCALENDAR
             maybeDeferred(cal.createCalendarObjectWithName, "1.ics", comp),
             ObjectResourceNameAlreadyExistsError,
         )
-
 
     @inlineCallbacks
     def test_createCalendarObjectWithName_invalidName(self):
@@ -1419,7 +1359,6 @@ END:VCALENDAR
             ObjectResourceNameNotAllowedError,
         )
 
-
     @inlineCallbacks
     def test_createCalendarObjectWithName_longName(self):
         """
@@ -1433,7 +1372,6 @@ END:VCALENDAR
             maybeDeferred(cal.createCalendarObjectWithName, "A" * 256 + ".ics", comp),
             ObjectResourceNameNotAllowedError,
         )
-
 
     @inlineCallbacks
     def test_createCalendarObjectWithName_invalid(self):
@@ -1450,7 +1388,6 @@ END:VCALENDAR
             InvalidComponentForStoreError,
         )
 
-
     @inlineCallbacks
     def test_setComponent_invalid(self):
         """
@@ -1464,7 +1401,6 @@ END:VCALENDAR
             InvalidObjectResourceError,
             InvalidComponentForStoreError,
         )
-
 
     @inlineCallbacks
     def test_setComponent_uidchanged(self):
@@ -1481,7 +1417,6 @@ END:VCALENDAR
             InvalidUIDError,
         )
 
-
     @inlineCallbacks
     def test_calendarHomeWithUID_create(self):
         """
@@ -1494,6 +1429,7 @@ END:VCALENDAR
             noHomeUID,
             create=True
         )
+
         @inlineCallbacks
         def readOtherTxn():
             otherTxn = self.savedStore.newTransaction(self.id() + "other txn")
@@ -1508,7 +1444,6 @@ END:VCALENDAR
         yield self.commit()
         # But once it's committed, other transactions should see it.
         self.assertProvides(ICalendarHome, (yield readOtherTxn()))
-
 
     @inlineCallbacks
     def test_setComponent(self):
@@ -1539,7 +1474,6 @@ END:VCALENDAR
         )
         yield self.commit()
 
-
     def checkPropertiesMethod(self, thunk):
         """
         Verify that the given object has a properties method that returns an
@@ -1548,14 +1482,12 @@ END:VCALENDAR
         properties = thunk.properties()
         self.assertProvides(IPropertyStore, properties)
 
-
     @inlineCallbacks
     def test_homeProperties(self):
         """
         L{ICalendarHome.properties} returns a property store.
         """
         self.checkPropertiesMethod((yield self.homeUnderTest()))
-
 
     @inlineCallbacks
     def test_calendarProperties(self):
@@ -1564,14 +1496,12 @@ END:VCALENDAR
         """
         self.checkPropertiesMethod((yield self.calendarUnderTest()))
 
-
     @inlineCallbacks
     def test_calendarObjectProperties(self):
         """
         L{ICalendarObject.properties} returns a property store.
         """
         self.checkPropertiesMethod((yield self.calendarObjectUnderTest()))
-
 
     @inlineCallbacks
     def test_newCalendarObjectProperties(self):
@@ -1585,7 +1515,6 @@ END:VCALENDAR
         )
         newEvent = yield calendar.calendarObjectWithName("test.ics")
         self.assertEquals(newEvent.properties().items(), [])
-
 
     @inlineCallbacks
     def test_setComponentPreservesProperties(self):
@@ -1630,7 +1559,6 @@ END:VCALENDAR
                 propertyContent
             )
 
-
     def token2revision(self, token):
         """
         FIXME: the API names for L{syncToken}() and L{resourceNamesSinceToken}()
@@ -1643,7 +1571,6 @@ END:VCALENDAR
         _ignore_uuid, rev = token.split("_", 1)
         rev = int(rev)
         return rev
-
 
     @inlineCallbacks
     def test_simpleHomeSyncToken(self):
@@ -1695,7 +1622,6 @@ END:VCALENDAR
         self.assertEquals(deleted, [])
         self.assertEquals(invalid, [])
 
-
     @inlineCallbacks
     def test_collectionSyncToken(self):
         """
@@ -1721,7 +1647,6 @@ END:VCALENDAR
         self.assertEquals(set(deleted), set([]))
         self.assertEquals(len(invalid), 0)
 
-
     @inlineCallbacks
     def test_finishedOnCommit(self):
         """
@@ -1742,7 +1667,6 @@ END:VCALENDAR
             AlreadyFinishedError
         )
 
-
     @inlineCallbacks
     def test_dontLeakCalendars(self):
         """
@@ -1753,7 +1677,6 @@ END:VCALENDAR
             "home2", create=True)
         self.assertIdentical(
             (yield home2.calendarWithName("calendar_1")), None)
-
 
     @inlineCallbacks
     def test_dontLeakObjects(self):
@@ -1776,7 +1699,6 @@ END:VCALENDAR
             self.assertIdentical(
                 (yield calendar2.calendarObjectWithUID(obj.uid())), None)
 
-
     @inlineCallbacks
     def test_withEachCalendarHomeDo(self):
         """
@@ -1789,6 +1711,7 @@ END:VCALENDAR
             yield txn.calendarHomeWithUID(name, create=True)
         yield self.commit()
         store = yield self.storeUnderTest()
+
         def toEachCalendarHome(txn, eachHome):
             return eachHome.createCalendarWithName("a-new-calendar")
         result = yield store.withEachCalendarHomeDo(toEachCalendarHome)
@@ -1799,7 +1722,6 @@ END:VCALENDAR
             self.assertNotIdentical(
                 None, (yield home.calendarWithName("a-new-calendar"))
             )
-
 
     @transactionClean
     @inlineCallbacks
@@ -1816,12 +1738,12 @@ END:VCALENDAR
             yield txn.calendarHomeWithUID(uid, create=True)
         yield self.commit()
 
-
         # try to create a calendar in all of them, then fail.
         class AnException(Exception):
             pass
 
         caught = []
+
         @inlineCallbacks
         def toEachCalendarHome(txn, eachHome):
             caught.append(eachHome.uid())
@@ -1832,6 +1754,7 @@ END:VCALENDAR
             store.withEachCalendarHomeDo(toEachCalendarHome), AnException
         )
         self.assertEquals(len(caught), 1)
+
         @inlineCallbacks
         def noNewCalendar(x):
             home = yield txn.calendarHomeWithUID(uid, create=False)

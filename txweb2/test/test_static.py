@@ -14,12 +14,11 @@ from txweb2 import stream
 from txweb2 import iweb
 
 
-
 class TestData(BaseCase):
+
     def setUp(self):
         self.text = "Hello, World\n"
         self.data = static.Data(self.text, "text/plain")
-
 
     def test_dataState(self):
         """
@@ -30,7 +29,6 @@ class TestData(BaseCase):
         self.assertEquals(self.data.type, http_headers.MimeType("text", "plain"))
         self.assertEquals(self.data.contentType(), http_headers.MimeType("text", "plain"))
 
-
     def test_etag(self):
         """
         Test that we can get an ETag
@@ -39,7 +37,6 @@ class TestData(BaseCase):
             self.failUnless(result)
         d = self.data.etag().addCallback(_defer)
         return d
-
 
     def test_render(self):
         """
@@ -52,14 +49,15 @@ class TestData(BaseCase):
         self.assert_(response.headers.hasHeader("content-type"))
         self.assertEqual(response.headers.getHeader("content-type"),
                          http_headers.MimeType("text", "plain"))
+
         def checkStream(data):
             self.assertEquals(str(data), self.text)
         return stream.readStream(iweb.IResponse(self.data.render(None)).stream,
                                  checkStream)
 
 
-
 class TestFileSaver(BaseCase):
+
     def setUp(self):
         """
         Create an empty directory and a resource which will save uploads to
@@ -73,7 +71,6 @@ class TestFileSaver(BaseCase):
             expectedFields=['FileNameOne'],
             maxBytes=16)
         self.root.addSlash = True
-
 
     def uploadFile(self, fieldname, filename, mimetype, content, resrc=None,
                    host='foo', path='/'):
@@ -96,7 +93,6 @@ Content-Type: %s\r
 -----weeboundary--\r
 """ % (fieldname, filename, mimetype, content))
 
-
     def _CbAssertInResponse(self, (code, headers, data, failed),
                             expected_response, expectedFailure=False):
 
@@ -111,23 +107,19 @@ Content-Type: %s\r
 
         self.assertEquals(failed, expectedFailure)
 
-
     def fileNameFromResponse(self, response):
         (_ignore_code, _ignore_headers, data, _ignore_failure) = response
         return data[data.index('Saved file') + 11:data.index('<br />')]
-
 
     def assertInResponse(self, response, expected_response, failure=False):
         d = response
         d.addCallback(self._CbAssertInResponse, expected_response, failure)
         return d
 
-
     def test_enforcesMaxBytes(self):
         return self.assertInResponse(
             self.uploadFile('FileNameOne', 'myfilename', 'text/html', 'X' * 32),
             (200, {}, 'exceeds maximum length'))
-
 
     def test_enforcesMimeType(self):
         return self.assertInResponse(
@@ -135,18 +127,15 @@ Content-Type: %s\r
                             'application/x-python', 'X'),
             (200, {}, 'type not allowed'))
 
-
     def test_invalidField(self):
         return self.assertInResponse(
             self.uploadFile('NotARealField', 'myfilename', 'text/html', 'X'),
             (200, {}, 'not a valid field'))
 
-
     def test_reportFileSave(self):
         return self.assertInResponse(
             self.uploadFile('FileNameOne', 'myfilename', 'text/plain', 'X'),
             (200, {}, 'Saved file'))
-
 
     def test_compareFileContents(self):
         def gotFname(fname):

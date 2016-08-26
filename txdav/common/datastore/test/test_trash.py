@@ -31,10 +31,8 @@ from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
 
 class TrashTests(StoreTestCase):
 
-
     def _homeForUser(self, txn, userName):
         return txn.calendarHomeWithUID(userName, create=True)
-
 
     @inlineCallbacks
     def _collectionForUser(self, txn, userName, collectionName, create=False, onlyInTrash=False):
@@ -45,7 +43,6 @@ class TrashTests(StoreTestCase):
                 collection = yield home.createCalendarWithName(collectionName)
         returnValue(collection)
 
-
     @inlineCallbacks
     def _createResource(self, txn, userName, collectionName, resourceName, data):
         collection = yield self._collectionForUser(txn, userName, collectionName)
@@ -53,7 +50,6 @@ class TrashTests(StoreTestCase):
             resourceName, Component.allFromString(data)
         )
         returnValue(resource)
-
 
     @inlineCallbacks
     def _getResource(self, txn, userName, collectionName, resourceName):
@@ -67,13 +63,11 @@ class TrashTests(StoreTestCase):
         resource = yield collection.calendarObjectWithName(resourceName)
         returnValue(resource)
 
-
     @inlineCallbacks
     def _getResourceNames(self, txn, userName, collectionName):
         collection = yield self._collectionForUser(txn, userName, collectionName)
         resourceNames = yield collection.listObjectResources()
         returnValue(resourceNames)
-
 
     @inlineCallbacks
     def _getTrashNames(self, txn, userName):
@@ -82,13 +76,11 @@ class TrashTests(StoreTestCase):
         resourceNames = yield trash.listObjectResources()
         returnValue(resourceNames)
 
-
     @inlineCallbacks
     def _updateResource(self, txn, userName, collectionName, resourceName, data):
         resource = yield self._getResource(txn, userName, collectionName, resourceName)
         yield resource.setComponent(Component.fromString(data))
         returnValue(resource)
-
 
     @inlineCallbacks
     def _getResourceData(self, txn, userName, collectionName, resourceName):
@@ -98,7 +90,6 @@ class TrashTests(StoreTestCase):
         component = yield resource.component()
         returnValue(str(component).replace("\r\n ", ""))
 
-
     @inlineCallbacks
     def test_trashUnscheduled(self):
         """
@@ -107,7 +98,6 @@ class TrashTests(StoreTestCase):
 
         from twistedcaldav.stdconfig import config
         self.patch(config, "EnableTrashCollection", True)
-
 
         data1 = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -204,7 +194,6 @@ END:VCALENDAR
         resource = yield self._getResource(txn, "user01", trash.name(), "")
         self.assertTrue(resource is None)
 
-
         # One object in collection
         resourceNames = yield self._getResourceNames(txn, "user01", "calendar")
         self.assertEqual(len(resourceNames), 1)
@@ -218,7 +207,6 @@ END:VCALENDAR
         self.assertEqual(len(resourceNames), 0)
 
         yield txn.commit()
-
 
     @inlineCallbacks
     def test_trashScheduledFullyInFuture(self):
@@ -370,7 +358,6 @@ END:VCALENDAR
 
         yield txn.commit()
 
-
     @inlineCallbacks
     def test_trashScheduledFullyInFutureAttendeeTrashedThenOrganizerChanged(self):
 
@@ -421,7 +408,6 @@ END:VEVENT
 END:VCALENDAR
 """ % subs
 
-
         start.offsetHours(1)
         end.offsetHours(1)
 
@@ -456,7 +442,6 @@ ATTENDEE;PARTSTAT=DECLINED:mailto:user02@example.com
 END:VEVENT
 END:VCALENDAR
 """ % subs
-
 
         # user01 invites user02
         txn = self.store.newTransaction()
@@ -522,7 +507,6 @@ END:VCALENDAR
         resource = yield self._getResource(txn, "user01", "inbox", "")
         yield resource.remove()
 
-
         # user02's copy is in the trash only, and still has ACCEPTED
         resourceNames = yield self._getResourceNames(txn, "user02", trash2.name())
         self.assertEqual(len(resourceNames), 1)
@@ -543,7 +527,6 @@ END:VCALENDAR
         # result = yield txn.execSQL("select * from calendar_metadata", [])
         # for row in result:
         #     print("calendar ROW", row)
-
 
         yield txn.commit()
 
@@ -608,7 +591,6 @@ END:VCALENDAR
 
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
 
-
         txn = self.store.newTransaction()
 
         resourceNames = yield self._getResourceNames(txn, "user02", trash2.name())
@@ -621,7 +603,6 @@ END:VCALENDAR
         self.assertEqual(len(resourceNames), 0)
 
         yield txn.commit()
-
 
     @inlineCallbacks
     def test_trashScheduledFullyInFutureAttendeeRemovedThenOrganizerChanged(self):
@@ -673,7 +654,6 @@ END:VEVENT
 END:VCALENDAR
 """ % subs
 
-
         data3 = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -689,7 +669,6 @@ ATTENDEE;PARTSTAT=DECLINED:mailto:user02@example.com
 END:VEVENT
 END:VCALENDAR
 """ % subs
-
 
         start.offsetHours(1)
         end.offsetHours(1)
@@ -709,7 +688,6 @@ ATTENDEE;PARTSTAT=DECLINED:mailto:user02@example.com
 END:VEVENT
 END:VCALENDAR
 """ % subs
-
 
         # user01 invites user02
         txn = self.store.newTransaction()
@@ -789,7 +767,6 @@ END:VCALENDAR
         self.assertTrue("PARTSTAT=ACCEPTED" in data)
         yield txn.commit()
 
-
         # user02 removes the event completely from the trash
 
         txn = self.store.newTransaction()
@@ -798,7 +775,6 @@ END:VCALENDAR
         yield resource.purge()
 
         yield txn.commit()
-
 
         # user01 makes a SUMMARY change to event (user02 does not get notified because they are fully declined)
         txn = self.store.newTransaction()
@@ -844,7 +820,6 @@ END:VCALENDAR
         self.assertTrue("PARTSTAT=NEEDS-ACTION" in data)
 
         yield txn.commit()
-
 
     @inlineCallbacks
     def test_trashScheduledFullyInFutureAttendeeTrashedThenPutBack(self):
@@ -895,7 +870,6 @@ ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
 END:VEVENT
 END:VCALENDAR
 """ % subs
-
 
         # user01 invites user02
         txn = self.store.newTransaction()
@@ -1013,7 +987,6 @@ END:VCALENDAR
         self.assertTrue("PARTSTAT=ACCEPTED" in data)
 
         yield txn.commit()
-
 
     @inlineCallbacks
     def test_trashScheduledFullyInPast(self):
@@ -1153,9 +1126,7 @@ END:VCALENDAR
         data = yield self._getResourceData(txn, "user02", "calendar", "")
         self.assertTrue("PARTSTAT=TENTATIVE" in data)
 
-
         yield txn.commit()
-
 
     @inlineCallbacks
     def test_trashScheduledFullyInPastAttendeeTrashedThenPutBack(self):
@@ -1319,7 +1290,6 @@ END:VCALENDAR
         self.assertTrue("PARTSTAT=TENTATIVE" in data)
 
         yield txn.commit()
-
 
     @inlineCallbacks
     def test_trashScheduledSpanningNow(self):
@@ -1486,7 +1456,6 @@ END:VCALENDAR
 
         yield txn.commit()
 
-
     @inlineCallbacks
     def test_trashScheduledSpanningNowAttendeeTrashedThenPutBack(self):
 
@@ -1649,7 +1618,6 @@ END:VCALENDAR
 
         yield txn.commit()
 
-
     @inlineCallbacks
     def test_trashCalendar(self):
 
@@ -1711,7 +1679,6 @@ END:VCALENDAR
         names = yield home.listChildren(onlyInTrash=True)
         self.assertFalse("test" in names)
         yield txn.commit()
-
 
     @inlineCallbacks
     def test_trashCalendarWithUnscheduled(self):
@@ -1814,7 +1781,6 @@ END:VCALENDAR
 
         yield txn.commit()
 
-
     @inlineCallbacks
     def test_trashCalendarRestoreWithFailures(self):
 
@@ -1897,7 +1863,6 @@ END:VCALENDAR
         objects = yield trash.listObjectResources()
         self.assertEquals(len(objects), 2)
 
-
         resources = yield trash.trashForCollection(collection._resourceID)
         self.assertEquals(len(resources), 2)
 
@@ -1908,6 +1873,7 @@ END:VCALENDAR
 
         # Patch CalendarObject.fromTrash to raise an exception for one specific resource
         originalFromTrash = CalendarObject.fromTrash
+
         def fakeFromTrash(self):
             if self._uid == "2CE3B280-DBC9-4E8E-B0B2-996754020E5F":
                 raise 1 / 0
@@ -1938,7 +1904,6 @@ END:VCALENDAR
         self.assertEquals(len(objects), 1)
 
         yield txn.commit()
-
 
     @inlineCallbacks
     def test_shareeDelete(self):
@@ -2026,7 +1991,6 @@ END:VCALENDAR
 
         yield txn.commit()
 
-
     @inlineCallbacks
     def test_trashDuplicateUID(self):
         """
@@ -2094,7 +2058,6 @@ END:VCALENDAR
         resourceNames = yield self._getResourceNames(txn, "user01", trash.name())
         self.assertEqual(len(resourceNames), 0)
         yield txn.commit()
-
 
     @inlineCallbacks
     def test_trashDuplicateUIDDifferentOrganizer(self):
@@ -2178,7 +2141,6 @@ END:VCALENDAR
         self.assertTrue("user02" in newData)
         yield txn.commit()
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
-
 
     @inlineCallbacks
     def test_tool_emptyTrashForPrincipal(self):
@@ -2268,7 +2230,6 @@ END:VCALENDAR
         self.assertEquals(len(result), 0)
         yield txn.commit()
 
-
     @inlineCallbacks
     def test_trashedCalendars(self):
         """
@@ -2280,16 +2241,16 @@ END:VCALENDAR
 
         txn = self.store.newTransaction()
         home = yield self._homeForUser(txn, "user01")
-        yield home.getTrash(create=True) # force loading trash
+        yield home.getTrash(create=True)  # force loading trash
         calendars = yield home.calendars(onlyInTrash=False)
         self.assertEquals(
             set([c.name() for c in calendars]),
-            set(["tasks", "inbox", "calendar"]) # trash not there
+            set(["tasks", "inbox", "calendar"])  # trash not there
         )
         calendars = yield home.calendars(onlyInTrash=True)
         self.assertEquals(
             set([c.name() for c in calendars]),
-            set() # trash not there either
+            set()  # trash not there either
         )
         yield txn.commit()
 
@@ -2301,7 +2262,7 @@ END:VCALENDAR
 
         txn = self.store.newTransaction()
         home = yield self._homeForUser(txn, "user01")
-        yield home.getTrash(create=True) # force loading trash
+        yield home.getTrash(create=True)  # force loading trash
         calendars = yield home.calendars(onlyInTrash=False)
         self.assertEquals(
             set([c.name() for c in calendars]),

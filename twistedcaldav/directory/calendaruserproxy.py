@@ -69,6 +69,7 @@ log = Logger()
 
 
 class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
+
     def defaultAccessControlList(self):
         aces = (
             # DAV:read access for authenticated users.
@@ -96,12 +97,10 @@ class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
 
         return succeed(davxml.ACL(*aces))
 
-
     def accessControlList(self, request, inheritance=True, expanding=False,
                           inherited_aces=None):
         # Permissions here are fixed, and are not subject to inheritance rules, etc.
         return self.defaultAccessControlList()
-
 
 
 class ProxyPrincipalDetailElement(Element):
@@ -117,7 +116,6 @@ class ProxyPrincipalDetailElement(Element):
     def __init__(self, resource):
         super(ProxyPrincipalDetailElement, self).__init__()
         self.resource = resource
-
 
     @renderer
     def principal(self, request, tag):
@@ -157,7 +155,6 @@ class ProxyPrincipalDetailElement(Element):
         )
 
 
-
 class ProxyPrincipalElement(DirectoryElement):
     """
     L{ProxyPrincipalElement} is a renderer for a
@@ -170,7 +167,6 @@ class ProxyPrincipalElement(DirectoryElement):
         Render the proxy principal's details.
         """
         return ProxyPrincipalDetailElement(self.resource)
-
 
 
 class CalendarUserProxyPrincipalResource (
@@ -212,14 +208,11 @@ class CalendarUserProxyPrincipalResource (
             if url.startswith("/")
         )
 
-
     def __repr__(self):
         return "<{}: {}>".format(self.__class__.__name__, str(self))
 
-
     def __str__(self):
         return "{} [{}]".format(self.parent, self.proxyType)
-
 
     def _index(self):
         """
@@ -228,7 +221,6 @@ class CalendarUserProxyPrincipalResource (
         @return: the L{ProxyDB} for the principal collection.
         """
         return ProxyDBService
-
 
     def resourceType(self):
         if self.proxyType == "calendar-proxy-read":
@@ -242,7 +234,6 @@ class CalendarUserProxyPrincipalResource (
         else:
             return super(CalendarUserProxyPrincipalResource, self).resourceType()
 
-
     def isProxyType(self, read_write):
         if (
             read_write and self.proxyType == "calendar-proxy-write" or
@@ -252,20 +243,16 @@ class CalendarUserProxyPrincipalResource (
         else:
             return False
 
-
     def isCollection(self):
         return True
 
-
     def etag(self):
         return succeed(None)
-
 
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = NonePropertyStore(self)
         return self._dead_properties
-
 
     @inlineCallbacks
     def readProperty(self, property, request):
@@ -293,7 +280,6 @@ class CalendarUserProxyPrincipalResource (
         result = (yield super(CalendarUserProxyPrincipalResource, self).readProperty(property, request))
         returnValue(result)
 
-
     def writeProperty(self, property, request):
         assert isinstance(property, davxml.WebDAVElement)
 
@@ -302,7 +288,6 @@ class CalendarUserProxyPrincipalResource (
 
         return super(CalendarUserProxyPrincipalResource, self).writeProperty(
             property, request)
-
 
     @inlineCallbacks
     def setGroupMemberSet(self, new_members, request):
@@ -364,7 +349,6 @@ class CalendarUserProxyPrincipalResource (
 
         returnValue(True)
 
-
     @inlineCallbacks
     def setGroupMemberSetPrincipals(self, principals):
 
@@ -377,7 +361,6 @@ class CalendarUserProxyPrincipalResource (
         memberRecords = [p.record for p in principals]
         yield record.setMembers(memberRecords)
 
-
     ##
     # HTTP
     ##
@@ -388,14 +371,12 @@ class CalendarUserProxyPrincipalResource (
         """
         return ProxyPrincipalElement(self)
 
-
     ##
     # DAV
     ##
 
     def displayName(self):
         return self.proxyType
-
 
     ##
     # ACL
@@ -405,18 +386,14 @@ class CalendarUserProxyPrincipalResource (
         # FIXME: Add API to IDirectoryRecord for getting a record URI?
         return self._alternate_urls
 
-
     def principalURL(self):
         return self._url
-
 
     def principalUID(self):
         return self.uid
 
-
     def principalCollections(self):
         return self.parent.principalCollections()
-
 
     def _recordTypeFromProxyType(self):
         return {
@@ -425,7 +402,6 @@ class CalendarUserProxyPrincipalResource (
             "calendar-proxy-read-for": DelegateRecordType.readDelegatorGroup,
             "calendar-proxy-write-for": DelegateRecordType.writeDelegatorGroup,
         }.get(self.proxyType)
-
 
     @inlineCallbacks
     def _directGroupMembers(self, expanded=False):
@@ -451,10 +427,8 @@ class CalendarUserProxyPrincipalResource (
                         memberPrincipals.append(principal)
         returnValue(memberPrincipals)
 
-
     def groupMembers(self):
         return self._directGroupMembers(expanded=False)
-
 
     def expandedGroupMembers(self):
         """
@@ -463,11 +437,9 @@ class CalendarUserProxyPrincipalResource (
         """
         return self._directGroupMembers(expanded=True)
 
-
     def groupMemberships(self):
         # Unlikely to ever want to put a subprincipal into a group
         return succeed([])
-
 
     def containsPrincipal(self, principal):
         """
@@ -484,7 +456,6 @@ class CalendarUserProxyPrincipalResource (
         if principal == self.parent:
             return succeed(False)
         return super(CalendarUserProxyPrincipalResource, self).containsPrincipal(principal)
-
 
 
 class ProxyDB(AbstractADBAPIDatabase):
@@ -543,12 +514,10 @@ class ProxyDB(AbstractADBAPIDatabase):
         def deleteMembership(self, guid):
             return self.delete("memberships:%s" % (str(guid),))
 
-
     def __init__(self, dbID, dbapiName, dbapiArgs, **kwargs):
         AbstractADBAPIDatabase.__init__(self, dbID, dbapiName, dbapiArgs, True, **kwargs)
 
         self._memcacher = ProxyDB.ProxyDBMemcacher("ProxyDB")
-
 
     @inlineCallbacks
     def setGroupMembers(self, principalUID, members):
@@ -577,7 +546,6 @@ class ProxyDB(AbstractADBAPIDatabase):
             yield self._memcacher.deleteMembership(member)
         yield self._memcacher.deleteMember(principalUID)
 
-
     @inlineCallbacks
     def setGroupMembersInDatabase(self, principalUID, members):
         """
@@ -589,7 +557,6 @@ class ProxyDB(AbstractADBAPIDatabase):
         # Remove what is there, then add it back.
         yield self._delete_from_db(principalUID)
         yield self._add_to_db(principalUID, members)
-
 
     @inlineCallbacks
     def changeGroupMembersInDatabase(self, principalUID, addMembers, removeMembers):
@@ -605,7 +572,6 @@ class ProxyDB(AbstractADBAPIDatabase):
             yield self._delete_from_db_one(principalUID, member)
         for member in addMembers:
             yield self._add_to_db_one(principalUID, member)
-
 
     @inlineCallbacks
     def removeGroup(self, principalUID):
@@ -625,7 +591,6 @@ class ProxyDB(AbstractADBAPIDatabase):
             for member in members:
                 yield self._memcacher.deleteMembership(member)
             yield self._memcacher.deleteMember(principalUID)
-
 
     def getMembers(self, principalUID):
         """
@@ -652,7 +617,6 @@ class ProxyDB(AbstractADBAPIDatabase):
         d.addCallback(gotCachedMembers)
         return d
 
-
     def getMemberships(self, principalUID):
         """
         Return the list of group principal UIDs the specified principal is a member of.
@@ -678,7 +642,6 @@ class ProxyDB(AbstractADBAPIDatabase):
         d.addCallback(gotCachedMemberships)
         return d
 
-
     @inlineCallbacks
     def _add_to_db(self, principalUID, members):
         """
@@ -695,7 +658,6 @@ class ProxyDB(AbstractADBAPIDatabase):
                 """, (principalUID.decode("utf-8"), member,)
             )
 
-
     def _add_to_db_one(self, principalUID, memberUID):
         """
         Insert the specified entry into the database.
@@ -710,7 +672,6 @@ class ProxyDB(AbstractADBAPIDatabase):
             """, (principalUID.decode("utf-8"), memberUID.decode("utf-8"),)
         )
 
-
     def _delete_from_db(self, principalUID):
         """
         Deletes the specified entry from the database.
@@ -718,7 +679,6 @@ class ProxyDB(AbstractADBAPIDatabase):
         @param principalUID: the UID of the group principal to remove.
         """
         return self.execute("delete from GROUPS where GROUPNAME = :1", (principalUID.decode("utf-8"),))
-
 
     def _delete_from_db_one(self, principalUID, memberUID):
         """
@@ -729,7 +689,6 @@ class ProxyDB(AbstractADBAPIDatabase):
         """
         return self.execute("delete from GROUPS where GROUPNAME = :1 and MEMBER = :2", (principalUID.decode("utf-8"), memberUID.decode("utf-8"),))
 
-
     def _delete_from_db_member(self, principalUID):
         """
         Deletes the specified member entry from the database.
@@ -738,20 +697,17 @@ class ProxyDB(AbstractADBAPIDatabase):
         """
         return self.execute("delete from GROUPS where MEMBER = :1", (principalUID.decode("utf-8"),))
 
-
     def _db_version(self):
         """
         @return: the schema version assigned to this index.
         """
         return ProxyDB.schema_version
 
-
     def _db_type(self):
         """
         @return: the collection type assigned to this index.
         """
         return ProxyDB.schema_type
-
 
     @inlineCallbacks
     def _db_init_data_tables(self):
@@ -785,7 +741,6 @@ class ProxyDB(AbstractADBAPIDatabase):
             ifnotexists=True,
         )
 
-
     @inlineCallbacks
     def open(self):
         """
@@ -794,7 +749,6 @@ class ProxyDB(AbstractADBAPIDatabase):
         result = yield super(ProxyDB, self).open()
         yield self._maybeNormalizeUUIDs()
         returnValue(result)
-
 
     @inlineCallbacks
     def _maybeNormalizeUUIDs(self):
@@ -827,7 +781,6 @@ class ProxyDB(AbstractADBAPIDatabase):
                 """
             )
 
-
     @inlineCallbacks
     def _db_upgrade_data_tables(self, old_version):
         """
@@ -851,7 +804,6 @@ class ProxyDB(AbstractADBAPIDatabase):
                 ifnotexists=True,
             )
 
-
     def _db_empty_data_tables(self):
         """
         Empty the underlying database tables.
@@ -863,7 +815,6 @@ class ProxyDB(AbstractADBAPIDatabase):
         #
         return self._db_execute("delete from GROUPS")
 
-
     @inlineCallbacks
     def clean(self):
 
@@ -874,7 +825,6 @@ class ProxyDB(AbstractADBAPIDatabase):
             yield self.removeGroup(group)
 
         yield super(ProxyDB, self).clean()
-
 
     @inlineCallbacks
     def getAllMembers(self):
@@ -898,7 +848,6 @@ class ProxySqliteDB(ADBAPISqliteMixin, ProxyDB):
         ProxyDB.__init__(self, "Proxies", "sqlite3", (self.dbpath,))
 
 
-
 class ProxyPostgreSQLDB(ADBAPIPostgreSQLMixin, ProxyDB):
     """
     PostgreSQL based augment database implementation.
@@ -915,7 +864,6 @@ class ProxyPostgreSQLDB(ADBAPIPostgreSQLMixin, ProxyDB):
         if dbtype:
             ProxyDB.schema_type = dbtype
 
-
     def _maybeNormalizeUUIDs(self):
         """
         Don't bother normalizing UUIDs for postgres yet; users of postgres
@@ -923,7 +871,6 @@ class ProxyPostgreSQLDB(ADBAPIPostgreSQLMixin, ProxyDB):
         case-normalization issues than the general population.
         """
         return succeed(None)
-
 
 
 ##

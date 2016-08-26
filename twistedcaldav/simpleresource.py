@@ -39,6 +39,7 @@ from txdav.xml import element as davxml
 
 import time
 
+
 class SimpleResource (
     CalDAVResource,
 ):
@@ -68,26 +69,21 @@ class SimpleResource (
         self._isDir = isdir
         self.defaultACL = defaultACL
 
-
     def isCollection(self):
         return self._isDir
-
 
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = NonePropertyStore(self)
         return self._dead_properties
 
-
     def etag(self):
         return succeed(None)
-
 
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
         return succeed(self.defaultACL)
 
 SimpleCalDAVResource = SimpleResource
-
 
 
 class SimpleRedirectResource(SimpleResource):
@@ -105,10 +101,8 @@ class SimpleRedirectResource(SimpleResource):
         SimpleResource.__init__(self, principalCollections=principalCollections, isdir=isdir, defaultACL=defaultACL)
         self._kwargs = kwargs
 
-
     def renderHTTP(self, request):
         return http.RedirectResponse(request.unparseURL(host=request.host, **self._kwargs))
-
 
 
 class SimpleUnavailableResource(SimpleResource):
@@ -130,17 +124,14 @@ class SimpleUnavailableResource(SimpleResource):
         self.retryAfter = retryafter
         self._kwargs = kwargs
 
-
     def locateChild(self, request, segments):
         return self, server.StopTraversal
-
 
     def renderHTTP(self, request):
         response = http.StatusResponse(responsecode.SERVICE_UNAVAILABLE, responsecode.RESPONSES[responsecode.SERVICE_UNAVAILABLE])
         if self.retryAfter > 0:
             response.headers.setHeader("Retry-After", time.time() + self.retryAfter)
         raise HTTPError(response)
-
 
 
 class SimpleDataResource(SimpleResource):
@@ -159,10 +150,8 @@ class SimpleDataResource(SimpleResource):
         self.content_type = content_type
         self.data = data
 
-
     def contentType(self):
         return self.content_type
-
 
     def render(self, request):
         response = Response(200, {}, self.data)

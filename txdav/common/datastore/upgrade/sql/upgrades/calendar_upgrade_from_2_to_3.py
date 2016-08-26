@@ -27,6 +27,7 @@ from txdav.common.datastore.sql_util import fixUUIDNormalization
 
 UPGRADE_TO_VERSION = 3
 
+
 @inlineCallbacks
 def doUpgrade(sqlStore):
     """

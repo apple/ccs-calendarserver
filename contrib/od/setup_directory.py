@@ -34,97 +34,97 @@ masterUsers = [
     (
         "odtestamanda",
         {
-            dsattributes.kDS1AttrFirstName : ["Amanda"],
-            dsattributes.kDS1AttrLastName  : ["Test"],
-            dsattributes.kDS1AttrDistinguishedName : ["Amanda Test"],
-            dsattributes.kDSNAttrEMailAddress : ["amanda@example.com"],
-            dsattributes.kDS1AttrGeneratedUID : ["9DC04A70-E6DD-11DF-9492-0800200C9A66"],
-            dsattributes.kDS1AttrUniqueID : ["33300"],
-            dsattributes.kDS1AttrPrimaryGroupID : ["20"],
+            dsattributes.kDS1AttrFirstName: ["Amanda"],
+            dsattributes.kDS1AttrLastName: ["Test"],
+            dsattributes.kDS1AttrDistinguishedName: ["Amanda Test"],
+            dsattributes.kDSNAttrEMailAddress: ["amanda@example.com"],
+            dsattributes.kDS1AttrGeneratedUID: ["9DC04A70-E6DD-11DF-9492-0800200C9A66"],
+            dsattributes.kDS1AttrUniqueID: ["33300"],
+            dsattributes.kDS1AttrPrimaryGroupID: ["20"],
         },
     ),
     (
         "odtestbetty",
         {
-            dsattributes.kDS1AttrFirstName : ["Betty"],
-            dsattributes.kDS1AttrLastName  : ["Test"],
-            dsattributes.kDS1AttrDistinguishedName : ["Betty Test"],
-            dsattributes.kDSNAttrEMailAddress : ["betty@example.com"],
-            dsattributes.kDS1AttrGeneratedUID : ["9DC04A71-E6DD-11DF-9492-0800200C9A66"],
-            dsattributes.kDS1AttrUniqueID : ["33301"],
-            dsattributes.kDS1AttrPrimaryGroupID : ["20"],
+            dsattributes.kDS1AttrFirstName: ["Betty"],
+            dsattributes.kDS1AttrLastName: ["Test"],
+            dsattributes.kDS1AttrDistinguishedName: ["Betty Test"],
+            dsattributes.kDSNAttrEMailAddress: ["betty@example.com"],
+            dsattributes.kDS1AttrGeneratedUID: ["9DC04A71-E6DD-11DF-9492-0800200C9A66"],
+            dsattributes.kDS1AttrUniqueID: ["33301"],
+            dsattributes.kDS1AttrPrimaryGroupID: ["20"],
         },
     ),
     (
         "odtestcarlene",
         {
-            dsattributes.kDS1AttrFirstName : ["Carlene"],
-            dsattributes.kDS1AttrLastName  : ["Test"],
-            dsattributes.kDS1AttrDistinguishedName : ["Carlene Test"],
-            dsattributes.kDSNAttrEMailAddress : ["carlene@example.com"],
-            dsattributes.kDS1AttrGeneratedUID : ["9DC04A72-E6DD-11DF-9492-0800200C9A66"],
-            dsattributes.kDS1AttrUniqueID : ["33302"],
-            dsattributes.kDS1AttrPrimaryGroupID : ["20"],
+            dsattributes.kDS1AttrFirstName: ["Carlene"],
+            dsattributes.kDS1AttrLastName: ["Test"],
+            dsattributes.kDS1AttrDistinguishedName: ["Carlene Test"],
+            dsattributes.kDSNAttrEMailAddress: ["carlene@example.com"],
+            dsattributes.kDS1AttrGeneratedUID: ["9DC04A72-E6DD-11DF-9492-0800200C9A66"],
+            dsattributes.kDS1AttrUniqueID: ["33302"],
+            dsattributes.kDS1AttrPrimaryGroupID: ["20"],
         },
     ),
     (
         "odtestdenise",
         {
-            dsattributes.kDS1AttrFirstName : ["Denise"],
-            dsattributes.kDS1AttrLastName  : ["Test"],
-            dsattributes.kDS1AttrDistinguishedName : ["Denise Test"],
-            dsattributes.kDSNAttrEMailAddress : ["denise@example.com"],
-            dsattributes.kDS1AttrGeneratedUID : ["9DC04A73-E6DD-11DF-9492-0800200C9A66"],
-            dsattributes.kDS1AttrUniqueID : ["33303"],
-            dsattributes.kDS1AttrPrimaryGroupID : ["20"],
+            dsattributes.kDS1AttrFirstName: ["Denise"],
+            dsattributes.kDS1AttrLastName: ["Test"],
+            dsattributes.kDS1AttrDistinguishedName: ["Denise Test"],
+            dsattributes.kDSNAttrEMailAddress: ["denise@example.com"],
+            dsattributes.kDS1AttrGeneratedUID: ["9DC04A73-E6DD-11DF-9492-0800200C9A66"],
+            dsattributes.kDS1AttrUniqueID: ["33303"],
+            dsattributes.kDS1AttrPrimaryGroupID: ["20"],
         },
     ),
     (
         "odtestunicode",
         {
-            dsattributes.kDS1AttrFirstName : ["Unicode " + unichr(208)],
-            dsattributes.kDS1AttrLastName  : ["Test"],
-            dsattributes.kDS1AttrDistinguishedName : ["Unicode Test " + unichr(208)],
-            dsattributes.kDSNAttrEMailAddress : ["unicodetest@example.com"],
-            dsattributes.kDS1AttrGeneratedUID : ["CA795296-D77A-4E09-A72F-869920A3D284"],
-            dsattributes.kDS1AttrUniqueID : ["33304"],
-            dsattributes.kDS1AttrPrimaryGroupID : ["20"],
+            dsattributes.kDS1AttrFirstName: ["Unicode " + unichr(208)],
+            dsattributes.kDS1AttrLastName: ["Test"],
+            dsattributes.kDS1AttrDistinguishedName: ["Unicode Test " + unichr(208)],
+            dsattributes.kDSNAttrEMailAddress: ["unicodetest@example.com"],
+            dsattributes.kDS1AttrGeneratedUID: ["CA795296-D77A-4E09-A72F-869920A3D284"],
+            dsattributes.kDS1AttrUniqueID: ["33304"],
+            dsattributes.kDS1AttrPrimaryGroupID: ["20"],
         },
     ),
     (
         "odtestat@sign",
         {
-            dsattributes.kDS1AttrFirstName : ["AtSign"],
-            dsattributes.kDS1AttrLastName  : ["Test"],
-            dsattributes.kDS1AttrDistinguishedName : ["At Sign Test"],
-            dsattributes.kDSNAttrEMailAddress : ["attsign@example.com"],
-            dsattributes.kDS1AttrGeneratedUID : ["71646A3A-1CEF-4744-AB1D-0AC855E25DC8"],
-            dsattributes.kDS1AttrUniqueID : ["33305"],
-            dsattributes.kDS1AttrPrimaryGroupID : ["20"],
+            dsattributes.kDS1AttrFirstName: ["AtSign"],
+            dsattributes.kDS1AttrLastName: ["Test"],
+            dsattributes.kDS1AttrDistinguishedName: ["At Sign Test"],
+            dsattributes.kDSNAttrEMailAddress: ["attsign@example.com"],
+            dsattributes.kDS1AttrGeneratedUID: ["71646A3A-1CEF-4744-AB1D-0AC855E25DC8"],
+            dsattributes.kDS1AttrUniqueID: ["33305"],
+            dsattributes.kDS1AttrPrimaryGroupID: ["20"],
         },
     ),
     (
         "odtestsatou",
         {
-            dsattributes.kDS1AttrFirstName : ["\xe4\xbd\x90\xe8\x97\xa4\xe4\xbd\x90\xe8\x97\xa4\xe4\xbd\x90\xe8\x97\xa4".decode("utf-8")],
-            dsattributes.kDS1AttrLastName  : ["Test \xe4\xbd\x90\xe8\x97\xa4".decode("utf-8")],
-            dsattributes.kDS1AttrDistinguishedName : ["\xe4\xbd\x90\xe8\x97\xa4\xe4\xbd\x90\xe8\x97\xa4\xe4\xbd\x90\xe8\x97\xa4 Test \xe4\xbd\x90\xe8\x97\xa4".decode("utf-8")],
-            dsattributes.kDSNAttrEMailAddress : ["satou@example.com"],
-            dsattributes.kDS1AttrGeneratedUID : ["C662F833-75AD-4589-9879-5FF102943CEF"],
-            dsattributes.kDS1AttrUniqueID : ["33306"],
-            dsattributes.kDS1AttrPrimaryGroupID : ["20"],
+            dsattributes.kDS1AttrFirstName: ["\xe4\xbd\x90\xe8\x97\xa4\xe4\xbd\x90\xe8\x97\xa4\xe4\xbd\x90\xe8\x97\xa4".decode("utf-8")],
+            dsattributes.kDS1AttrLastName: ["Test \xe4\xbd\x90\xe8\x97\xa4".decode("utf-8")],
+            dsattributes.kDS1AttrDistinguishedName: ["\xe4\xbd\x90\xe8\x97\xa4\xe4\xbd\x90\xe8\x97\xa4\xe4\xbd\x90\xe8\x97\xa4 Test \xe4\xbd\x90\xe8\x97\xa4".decode("utf-8")],
+            dsattributes.kDSNAttrEMailAddress: ["satou@example.com"],
+            dsattributes.kDS1AttrGeneratedUID: ["C662F833-75AD-4589-9879-5FF102943CEF"],
+            dsattributes.kDS1AttrUniqueID: ["33306"],
+            dsattributes.kDS1AttrPrimaryGroupID: ["20"],
         },
     ),
     (
         "anotherodtestamanda",
         {
-            dsattributes.kDS1AttrFirstName : ["Amanda"],
-            dsattributes.kDS1AttrLastName  : ["Test"],
-            dsattributes.kDS1AttrDistinguishedName : ["Amanda Test"],
-            dsattributes.kDSNAttrEMailAddress : ["anotheramanda@example.com"],
-            dsattributes.kDS1AttrGeneratedUID : ["E7666814-6D92-49EC-8562-8C4C3D64A4B0"],
-            dsattributes.kDS1AttrUniqueID : ["33307"],
-            dsattributes.kDS1AttrPrimaryGroupID : ["20"],
+            dsattributes.kDS1AttrFirstName: ["Amanda"],
+            dsattributes.kDS1AttrLastName: ["Test"],
+            dsattributes.kDS1AttrDistinguishedName: ["Amanda Test"],
+            dsattributes.kDSNAttrEMailAddress: ["anotheramanda@example.com"],
+            dsattributes.kDS1AttrGeneratedUID: ["E7666814-6D92-49EC-8562-8C4C3D64A4B0"],
+            dsattributes.kDS1AttrUniqueID: ["33307"],
+            dsattributes.kDS1AttrPrimaryGroupID: ["20"],
         },
     ),
 ]
@@ -133,30 +133,30 @@ masterGroups = [
     (
         "odtestsubgroupb",
         {
-            dsattributes.kDS1AttrGeneratedUID : ["6C6CD282-E6E3-11DF-9492-0800200C9A66"],
-            dsattributes.kDS1AttrDistinguishedName : ["OD Test Subgroup B"],
-            dsattributes.kDSNAttrGroupMembers : ["9DC04A72-E6DD-11DF-9492-0800200C9A66"],
-            dsattributes.kDS1AttrPrimaryGroupID : ["33401"],
+            dsattributes.kDS1AttrGeneratedUID: ["6C6CD282-E6E3-11DF-9492-0800200C9A66"],
+            dsattributes.kDS1AttrDistinguishedName: ["OD Test Subgroup B"],
+            dsattributes.kDSNAttrGroupMembers: ["9DC04A72-E6DD-11DF-9492-0800200C9A66"],
+            dsattributes.kDS1AttrPrimaryGroupID: ["33401"],
         },
     ),
     (
         "odtestgrouptop",
         {
-            dsattributes.kDS1AttrGeneratedUID : ["6C6CD280-E6E3-11DF-9492-0800200C9A66"],
-            dsattributes.kDS1AttrDistinguishedName : ["OD Test Group Top"],
-            dsattributes.kDSNAttrGroupMembers : ["9DC04A70-E6DD-11DF-9492-0800200C9A66", "9DC04A71-E6DD-11DF-9492-0800200C9A66"],
-            dsattributes.kDSNAttrNestedGroups : ["6C6CD282-E6E3-11DF-9492-0800200C9A66"],
-            dsattributes.kDS1AttrPrimaryGroupID : ["33400"],
+            dsattributes.kDS1AttrGeneratedUID: ["6C6CD280-E6E3-11DF-9492-0800200C9A66"],
+            dsattributes.kDS1AttrDistinguishedName: ["OD Test Group Top"],
+            dsattributes.kDSNAttrGroupMembers: ["9DC04A70-E6DD-11DF-9492-0800200C9A66", "9DC04A71-E6DD-11DF-9492-0800200C9A66"],
+            dsattributes.kDSNAttrNestedGroups: ["6C6CD282-E6E3-11DF-9492-0800200C9A66"],
+            dsattributes.kDS1AttrPrimaryGroupID: ["33400"],
         },
     ),
     (
         "odtestgroupbetty",
         {
-            dsattributes.kDS1AttrGeneratedUID : ["2A1F3ED9-D1B3-40F2-8FC4-05E197C1F90C"],
-            dsattributes.kDS1AttrDistinguishedName : ["OD Test Group Betty"],
-            dsattributes.kDSNAttrGroupMembers : [],
-            dsattributes.kDSNAttrNestedGroups : [],
-            dsattributes.kDS1AttrPrimaryGroupID : ["33403"],
+            dsattributes.kDS1AttrGeneratedUID: ["2A1F3ED9-D1B3-40F2-8FC4-05E197C1F90C"],
+            dsattributes.kDS1AttrDistinguishedName: ["OD Test Group Betty"],
+            dsattributes.kDSNAttrGroupMembers: [],
+            dsattributes.kDSNAttrNestedGroups: [],
+            dsattributes.kDS1AttrPrimaryGroupID: ["33403"],
         },
     ),
 ]
@@ -165,61 +165,61 @@ localUsers = [
     (
         "odtestalbert",
         {
-            dsattributes.kDS1AttrFirstName : ["Albert"],
-            dsattributes.kDS1AttrLastName  : ["Test"],
-            dsattributes.kDS1AttrDistinguishedName : ["Albert Test"],
-            dsattributes.kDSNAttrEMailAddress : ["albert@example.com"],
-            dsattributes.kDS1AttrGeneratedUID : ["9DC04A74-E6DD-11DF-9492-0800200C9A66"],
-            dsattributes.kDS1AttrUniqueID : ["33350"],
-            dsattributes.kDS1AttrPrimaryGroupID : ["20"],
+            dsattributes.kDS1AttrFirstName: ["Albert"],
+            dsattributes.kDS1AttrLastName: ["Test"],
+            dsattributes.kDS1AttrDistinguishedName: ["Albert Test"],
+            dsattributes.kDSNAttrEMailAddress: ["albert@example.com"],
+            dsattributes.kDS1AttrGeneratedUID: ["9DC04A74-E6DD-11DF-9492-0800200C9A66"],
+            dsattributes.kDS1AttrUniqueID: ["33350"],
+            dsattributes.kDS1AttrPrimaryGroupID: ["20"],
         },
     ),
     (
         "odtestbill",
         {
-            dsattributes.kDS1AttrFirstName : ["Bill"],
-            dsattributes.kDS1AttrLastName  : ["Test"],
-            dsattributes.kDS1AttrDistinguishedName : ["Bill Test"],
-            dsattributes.kDSNAttrEMailAddress : ["bill@example.com"],
-            dsattributes.kDS1AttrGeneratedUID : ["9DC04A75-E6DD-11DF-9492-0800200C9A66"],
-            dsattributes.kDS1AttrUniqueID : ["33351"],
-            dsattributes.kDS1AttrPrimaryGroupID : ["20"],
+            dsattributes.kDS1AttrFirstName: ["Bill"],
+            dsattributes.kDS1AttrLastName: ["Test"],
+            dsattributes.kDS1AttrDistinguishedName: ["Bill Test"],
+            dsattributes.kDSNAttrEMailAddress: ["bill@example.com"],
+            dsattributes.kDS1AttrGeneratedUID: ["9DC04A75-E6DD-11DF-9492-0800200C9A66"],
+            dsattributes.kDS1AttrUniqueID: ["33351"],
+            dsattributes.kDS1AttrPrimaryGroupID: ["20"],
         },
     ),
     (
         "odtestcarl",
         {
-            dsattributes.kDS1AttrFirstName : ["Carl"],
-            dsattributes.kDS1AttrLastName  : ["Test"],
-            dsattributes.kDS1AttrDistinguishedName : ["Carl Test"],
-            dsattributes.kDSNAttrEMailAddress : ["carl@example.com"],
-            dsattributes.kDS1AttrGeneratedUID : ["9DC04A76-E6DD-11DF-9492-0800200C9A66"],
-            dsattributes.kDS1AttrUniqueID : ["33352"],
-            dsattributes.kDS1AttrPrimaryGroupID : ["20"],
+            dsattributes.kDS1AttrFirstName: ["Carl"],
+            dsattributes.kDS1AttrLastName: ["Test"],
+            dsattributes.kDS1AttrDistinguishedName: ["Carl Test"],
+            dsattributes.kDSNAttrEMailAddress: ["carl@example.com"],
+            dsattributes.kDS1AttrGeneratedUID: ["9DC04A76-E6DD-11DF-9492-0800200C9A66"],
+            dsattributes.kDS1AttrUniqueID: ["33352"],
+            dsattributes.kDS1AttrPrimaryGroupID: ["20"],
         },
     ),
     (
         "odtestdavid",
         {
-            dsattributes.kDS1AttrFirstName : ["David"],
-            dsattributes.kDS1AttrLastName  : ["Test"],
-            dsattributes.kDS1AttrDistinguishedName : ["David Test"],
-            dsattributes.kDSNAttrEMailAddress : ["david@example.com"],
-            dsattributes.kDS1AttrGeneratedUID : ["9DC04A77-E6DD-11DF-9492-0800200C9A66"],
-            dsattributes.kDS1AttrUniqueID : ["33353"],
-            dsattributes.kDS1AttrPrimaryGroupID : ["20"],
+            dsattributes.kDS1AttrFirstName: ["David"],
+            dsattributes.kDS1AttrLastName: ["Test"],
+            dsattributes.kDS1AttrDistinguishedName: ["David Test"],
+            dsattributes.kDSNAttrEMailAddress: ["david@example.com"],
+            dsattributes.kDS1AttrGeneratedUID: ["9DC04A77-E6DD-11DF-9492-0800200C9A66"],
+            dsattributes.kDS1AttrUniqueID: ["33353"],
+            dsattributes.kDS1AttrPrimaryGroupID: ["20"],
         },
     ),
     (
         "anotherodtestalbert",
         {
-            dsattributes.kDS1AttrFirstName : ["Albert"],
-            dsattributes.kDS1AttrLastName  : ["Test"],
-            dsattributes.kDS1AttrDistinguishedName : ["Albert Test"],
-            dsattributes.kDSNAttrEMailAddress : ["anotheralbert@example.com"],
-            dsattributes.kDS1AttrGeneratedUID : ["8F059F1B-1CD0-42B5-BEA2-6A36C9B5620F"],
-            dsattributes.kDS1AttrUniqueID : ["33354"],
-            dsattributes.kDS1AttrPrimaryGroupID : ["20"],
+            dsattributes.kDS1AttrFirstName: ["Albert"],
+            dsattributes.kDS1AttrLastName: ["Test"],
+            dsattributes.kDS1AttrDistinguishedName: ["Albert Test"],
+            dsattributes.kDSNAttrEMailAddress: ["anotheralbert@example.com"],
+            dsattributes.kDS1AttrGeneratedUID: ["8F059F1B-1CD0-42B5-BEA2-6A36C9B5620F"],
+            dsattributes.kDS1AttrUniqueID: ["33354"],
+            dsattributes.kDS1AttrPrimaryGroupID: ["20"],
         },
     ),
 ]
@@ -228,19 +228,19 @@ localGroups = [
     (
         "odtestsubgroupa",
         {
-            dsattributes.kDS1AttrGeneratedUID : ["6C6CD281-E6E3-11DF-9492-0800200C9A66"],
-            dsattributes.kDS1AttrDistinguishedName : ["OD Test Subgroup A"],
-            dsattributes.kDSNAttrGroupMembers : ["9DC04A74-E6DD-11DF-9492-0800200C9A66", "9DC04A75-E6DD-11DF-9492-0800200C9A66"],
-            dsattributes.kDS1AttrPrimaryGroupID : ["33402"],
+            dsattributes.kDS1AttrGeneratedUID: ["6C6CD281-E6E3-11DF-9492-0800200C9A66"],
+            dsattributes.kDS1AttrDistinguishedName: ["OD Test Subgroup A"],
+            dsattributes.kDSNAttrGroupMembers: ["9DC04A74-E6DD-11DF-9492-0800200C9A66", "9DC04A75-E6DD-11DF-9492-0800200C9A66"],
+            dsattributes.kDS1AttrPrimaryGroupID: ["33402"],
         },
     ),
     (
         "odtestgroupalbert",
         {
-            dsattributes.kDS1AttrGeneratedUID : ["3F4D01B8-FDFD-4805-A853-DE9879A2D951"],
-            dsattributes.kDS1AttrDistinguishedName : ["OD Test Group Albert"],
-            dsattributes.kDSNAttrGroupMembers : [],
-            dsattributes.kDS1AttrPrimaryGroupID : ["33404"],
+            dsattributes.kDS1AttrGeneratedUID: ["3F4D01B8-FDFD-4805-A853-DE9879A2D951"],
+            dsattributes.kDS1AttrDistinguishedName: ["OD Test Group Albert"],
+            dsattributes.kDSNAttrGroupMembers: [],
+            dsattributes.kDS1AttrPrimaryGroupID: ["33404"],
         },
     ),
 ]
@@ -258,7 +258,6 @@ def usage(e=None):
         sys.exit(1)
     else:
         sys.exit(0)
-
 
 
 def lookupRecordName(node, recordType, name):
@@ -285,7 +284,6 @@ def lookupRecordName(node, recordType, name):
     return records[0]
 
 
-
 def createRecord(node, recordType, recordName, attrs):
     record, error = node.createRecordWithRecordType_name_attributes_error_(
         recordType,
@@ -296,7 +294,6 @@ def createRecord(node, recordType, recordName, attrs):
         print(error)
         raise ODError(error)
     return record
-
 
 
 def main():
@@ -316,17 +313,17 @@ def main():
     localUser, localPassword, masterUser, masterPassword = args
 
     userInfo = {
-        masterNodeName : {
-            "user" : masterUser,
-            "password" : masterPassword,
-            "users" : masterUsers,
-            "groups" : masterGroups,
+        masterNodeName: {
+            "user": masterUser,
+            "password": masterPassword,
+            "users": masterUsers,
+            "groups": masterGroups,
         },
-        localNodeName : {
-            "user" : localUser,
-            "password" : localPassword,
-            "users" : localUsers,
-            "groups" : localGroups,
+        localNodeName: {
+            "user": localUser,
+            "password": localPassword,
+            "users": localUsers,
+            "groups": localGroups,
         },
     }
 
@@ -420,8 +417,8 @@ def main():
             print("")
 
 
-
 class ODError(Exception):
+
     def __init__(self, error):
         self.message = (str(error), error.code())
 

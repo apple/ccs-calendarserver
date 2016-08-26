@@ -49,12 +49,12 @@ log = Logger()
 
 # FIXME: copied from resource.py to avoid circular dependency
 class CalDAVComplianceMixIn(object):
+
     def davComplianceClasses(self):
         return (
-            tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses())
-            + config.CalDAVComplianceClasses
+            tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses()) +
+            config.CalDAVComplianceClasses
         )
-
 
 
 class DirectoryAddressBookProvisioningResource(
@@ -63,17 +63,15 @@ class DirectoryAddressBookProvisioningResource(
     DAVResourceWithChildrenMixin,
     DAVResource,
 ):
+
     def defaultAccessControlList(self):
         return succeed(config.ProvisioningResourceACL)
-
 
     def etag(self):
         return succeed(ETag(str(uuid4())))
 
-
     def contentType(self):
         return MimeType("httpd", "unix-directory")
-
 
 
 class DirectoryAddressBookHomeProvisioningResource(
@@ -82,6 +80,7 @@ class DirectoryAddressBookHomeProvisioningResource(
     """
     Resource which provisions address book home collections as needed.
     """
+
     def __init__(self, directory, url, store):
         """
         @param directory: an L{IDirectoryService} to provision address books from.
@@ -123,10 +122,8 @@ class DirectoryAddressBookHomeProvisioningResource(
 
         self.putChild(uidsResourceName, DirectoryAddressBookHomeUIDProvisioningResource(self))
 
-
     def url(self):
         return self._url
-
 
     def listChildren(self):
         return [
@@ -134,18 +131,15 @@ class DirectoryAddressBookHomeProvisioningResource(
             self.supportedChildTypes
         ]
 
-
     def principalCollections(self):
         # FIXME: directory.principalCollection smells like a hack
         # See DirectoryPrincipalProvisioningResource.__init__()
         return self.directory.principalCollection.principalCollections()
 
-
     def principalForRecord(self, record):
         # FIXME: directory.principalCollection smells like a hack
         # See DirectoryPrincipalProvisioningResource.__init__()
         return self.directory.principalCollection.principalForRecord(record)
-
 
     @inlineCallbacks
     def homeForDirectoryRecord(self, record, request):
@@ -155,7 +149,6 @@ class DirectoryAddressBookHomeProvisioningResource(
         else:
             returnValue((yield uidResource.homeResourceForRecord(record, request)))
 
-
     ##
     # DAV
     ##
@@ -163,10 +156,8 @@ class DirectoryAddressBookHomeProvisioningResource(
     def isCollection(self):
         return True
 
-
     def displayName(self):
         return "addressbooks"
-
 
 
 class DirectoryAddressBookHomeTypeProvisioningResource (
@@ -177,6 +168,7 @@ class DirectoryAddressBookHomeTypeProvisioningResource (
     Resource which provisions address book home collections of a specific
     record type as needed.
     """
+
     def __init__(self, parent, name, recordType):
         """
         @param parent: the parent of this resource
@@ -193,10 +185,8 @@ class DirectoryAddressBookHomeTypeProvisioningResource (
         self.recordType = recordType
         self._parent = parent
 
-
     def url(self):
         return joinURL(self._parent.url(), self.name)
-
 
     @inlineCallbacks
     def listChildren(self):
@@ -214,10 +204,8 @@ class DirectoryAddressBookHomeTypeProvisioningResource (
             # Not a listable collection
             raise HTTPError(responsecode.FORBIDDEN)
 
-
     def makeChild(self, name):
         return None
-
 
     ##
     # DAV
@@ -226,7 +214,6 @@ class DirectoryAddressBookHomeTypeProvisioningResource (
     def isCollection(self):
         return True
 
-
     def displayName(self):
         return self.directory.recordTypeToOldName(self.recordType)
 
@@ -234,14 +221,11 @@ class DirectoryAddressBookHomeTypeProvisioningResource (
     # ACL
     ##
 
-
     def principalCollections(self):
         return self._parent.principalCollections()
 
-
     def principalForRecord(self, record):
         return self._parent.principalForRecord(record)
-
 
 
 class DirectoryAddressBookHomeUIDProvisioningResource (
@@ -253,11 +237,9 @@ class DirectoryAddressBookHomeUIDProvisioningResource (
 
     enabledAttribute = 'hasContacts'
 
-
     def homeResourceCreator(self, record, transaction):
         return DirectoryAddressBookHomeResource.createHomeResource(
             self, record, transaction)
-
 
 
 class DirectoryAddressBookHomeResource (AddressBookHomeResource):
@@ -272,7 +254,6 @@ class DirectoryAddressBookHomeResource (AddressBookHomeResource):
             parent, record.uid, transaction)
         self.record = record
         returnValue(self)
-
 
     def principalForRecord(self):
         return self.parent.principalForRecord(self.record)

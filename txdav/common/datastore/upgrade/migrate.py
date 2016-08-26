@@ -68,7 +68,6 @@ def _getFixedComponent(cobj):
     returnValue(fixed)
 
 
-
 homeTypeLookup = {
     "calendar": (
         lambda inHome, outHome, getComponent=None, merge=False:
@@ -77,7 +76,6 @@ homeTypeLookup = {
     "addressbook": (migrateAddressbookHome,
                     lambda txn: txn.addressbookHomeWithUID)
 }
-
 
 
 def swapAMP(oldAMP, newAMP):
@@ -101,7 +99,6 @@ def swapAMP(oldAMP, newAMP):
     return newAMP
 
 
-
 class StoreSpawnerService(SpawnerService):
     """
     Abstract subclass of L{SpawnerService} that describes how to spawn a subclass.
@@ -115,7 +112,6 @@ class StoreSpawnerService(SpawnerService):
         """
         raise NotImplementedError("subclasses must implement the specifics")
 
-
     def spawnWithConfig(self, config, here, there):
         """
         Like L{SpawnerService.spawn}, but instead of instantiating C{there}
@@ -123,7 +119,6 @@ class StoreSpawnerService(SpawnerService):
         L{twistedcaldav.config.Config}.
         """
         raise NotImplementedError("subclasses must implement the specifics")
-
 
 
 class Configure(Command):
@@ -136,7 +131,6 @@ class Configure(Command):
                  ("merge", Boolean())]
 
 
-
 class OneUpgrade(Command):
     """
     Upgrade a single calendar home.
@@ -146,13 +140,11 @@ class OneUpgrade(Command):
                  ("homeType", String())]
 
 
-
 class LogIt(Command):
     """
     Log a message.
     """
     arguments = [("message", String())]
-
 
 
 class UpgradeDriver(AMP):
@@ -164,7 +156,6 @@ class UpgradeDriver(AMP):
         super(UpgradeDriver, self).__init__()
         self.service = upgradeService
 
-
     def configure(self, filename, storeClass):
         """
         Configure the subprocess to examine the file store at the given path
@@ -174,7 +165,6 @@ class UpgradeDriver(AMP):
                                appropriateStoreClass=qual(storeClass),
                                merge=self.service.merge)
 
-
     def oneUpgrade(self, uid, homeType):
         """
         Upgrade one calendar or addressbook home, with the given uid of the
@@ -182,7 +172,6 @@ class UpgradeDriver(AMP):
         is complete.
         """
         return self.callRemote(OneUpgrade, uid=uid, homeType=homeType)
-
 
 
 class UpgradeHelperProcess(AMP):
@@ -198,7 +187,6 @@ class UpgradeHelperProcess(AMP):
         self.store = store
         self.store.setMigrating(True)
 
-
     @Configure.responder
     def configure(self, filename, appropriateStoreClass, merge):
         subsvc = None
@@ -210,7 +198,6 @@ class UpgradeHelperProcess(AMP):
             ), self.store, subsvc, merge=merge
         )
         return {}
-
 
     @OneUpgrade.responder
     def oneUpgrade(self, uid, homeType):
@@ -231,7 +218,6 @@ class UpgradeHelperProcess(AMP):
                     .addCallback(lambda ign: err))
             .addCallback(lambda ignored: {})
         )
-
 
 
 class UpgradeToDatabaseStep(object):
@@ -259,7 +245,6 @@ class UpgradeToDatabaseStep(object):
         self.uid = uid
         self.gid = gid
         self.merge = merge
-
 
     @classmethod
     def fileStoreFromPath(cls, path):
@@ -308,7 +293,6 @@ class UpgradeToDatabaseStep(object):
                     propertyStoreClass=appropriateStoreClass)
         return None
 
-
     @inlineCallbacks
     def migrateOneHome(self, fileTxn, homeType, fileHome):
         """
@@ -344,7 +328,6 @@ class UpgradeToDatabaseStep(object):
             # this, this would simply be a store-to-store migrator rather than a
             # filesystem-to-database upgrade.)
             fileHome._path.remove()
-
 
     @inlineCallbacks
     def doMigration(self):
@@ -388,19 +371,16 @@ class UpgradeToDatabaseStep(object):
             "Filesystem upgrade complete, launching database service."
         )
 
-
     @inlineCallbacks
     def _upgradeAction(self, fileTxn, fileHome, homeType):
         uid = fileHome.uid()
         self.log.warn("Migrating {type} UID {uid}", type=homeType, uid=uid)
         yield self.migrateOneHome(fileTxn, homeType, fileHome)
 
-
     def stepWithResult(self, result):
         if self.fileStore is None:
             return succeed(None)
         return self.doMigration()
-
 
     @inlineCallbacks
     def doDataUpgradeSteps(self):

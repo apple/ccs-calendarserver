@@ -31,6 +31,7 @@ from txdav.common.datastore.test.util import populateCalendarsFrom, CommonCommon
 import json
 from txdav.common.datastore.podding.conduit import PoddingConduit
 
+
 class ConduitPOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
 
     class FakeConduit(PoddingConduit):
@@ -40,7 +41,6 @@ class ConduitPOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
                 "back2u": j["echo"],
                 "more": "bits",
             })
-
 
     @inlineCallbacks
     def setUp(self):
@@ -55,15 +55,13 @@ class ConduitPOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
 
         yield self.populate()
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
 
-
     @classproperty(cache=False)
-    def requirements(cls): #@NoSelf
+    def requirements(cls):  # @NoSelf
         return {
             "user01": {
                 "calendar_1": {
@@ -85,7 +83,6 @@ class ConduitPOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
             },
         }
 
-
     @inlineCallbacks
     def test_receive_no_secret(self):
         """
@@ -105,7 +102,6 @@ class ConduitPOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
 
         response = (yield self.send(request))
         self.assertEqual(response.code, responsecode.FORBIDDEN)
-
 
     @inlineCallbacks
     def test_receive_wrong_mime(self):
@@ -128,7 +124,6 @@ class ConduitPOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
         response = (yield self.send(request))
         self.assertEqual(response.code, responsecode.BAD_REQUEST)
 
-
     @inlineCallbacks
     def test_receive_invalid_json(self):
         """
@@ -149,7 +144,6 @@ class ConduitPOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
 
         response = (yield self.send(request))
         self.assertEqual(response.code, responsecode.BAD_REQUEST)
-
 
     @inlineCallbacks
     def test_receive_bad_json(self):
@@ -174,7 +168,6 @@ class ConduitPOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
 
         response = (yield self.send(request))
         self.assertEqual(response.code, responsecode.BAD_REQUEST)
-
 
     @inlineCallbacks
     def test_receive_ping(self):
@@ -204,7 +197,6 @@ class ConduitPOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
         self.assertTrue("result" in j)
         self.assertEqual(j["result"], "ok")
 
-
     @inlineCallbacks
     def test_receive_fake_conduit_no_action(self):
         """
@@ -232,7 +224,6 @@ class ConduitPOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
 
         response = (yield self.send(request))
         self.assertEqual(response.code, responsecode.BAD_REQUEST)
-
 
     @inlineCallbacks
     def test_receive_fake_conduit(self):

@@ -64,7 +64,6 @@ class ActiveLock (WebDAVElement):
     }
 
 
-
 @registerElement
 @registerElementClass
 class Depth (WebDAVTextElement):
@@ -81,7 +80,6 @@ class Depth (WebDAVTextElement):
             raise ValueError("Invalid depth: {0}".format(depth,))
 
 
-
 @registerElement
 @registerElementClass
 class LockToken (WebDAVElement):
@@ -93,7 +91,6 @@ class LockToken (WebDAVElement):
     allowed_children = {(dav_namespace, "href"): (1, None)}
 
 
-
 @registerElement
 @registerElementClass
 class Timeout (WebDAVTextElement):
@@ -101,7 +98,6 @@ class Timeout (WebDAVTextElement):
     The timeout associated with a lock. (RFC 2518, section 12.1.3)
     """
     name = "timeout"
-
 
 
 @registerElement
@@ -113,7 +109,6 @@ class Collection (WebDAVEmptyElement):
     name = "collection"
 
 
-
 @registerElement
 @registerElementClass
 class HRef (WebDAVTextElement):
@@ -121,7 +116,6 @@ class HRef (WebDAVTextElement):
     Identifies the content of the element as a URI. (RFC 2518, section 12.3)
     """
     name = "href"
-
 
 
 @registerElement
@@ -139,7 +133,6 @@ class Link (WebDAVElement):
     }
 
 
-
 @registerElement
 @registerElementClass
 class LinkDestination (WebDAVTextElement):
@@ -149,7 +142,6 @@ class LinkDestination (WebDAVTextElement):
     name = "dst"
 
 
-
 @registerElement
 @registerElementClass
 class LinkSource (WebDAVTextElement):
@@ -157,7 +149,6 @@ class LinkSource (WebDAVTextElement):
     Indicates the source of a link. (RFC 2518, section 12.4.2)
     """
     name = "src"
-
 
 
 @registerElement
@@ -173,7 +164,6 @@ class LockEntry (WebDAVElement):
         (dav_namespace, "lockscope"): (1, 1),
         (dav_namespace, "locktype"): (1, 1),
     }
-
 
 
 @registerElement
@@ -192,7 +182,6 @@ class LockInfo (WebDAVElement):
     }
 
 
-
 @registerElement
 @registerElementClass
 class LockScope (WebDAVOneShotElement):
@@ -206,7 +195,6 @@ class LockScope (WebDAVOneShotElement):
         (dav_namespace, "exclusive"): (0, 1),
         (dav_namespace, "shared"): (0, 1),
     }
-
 
 
 @registerElement
@@ -242,7 +230,6 @@ class LockType (WebDAVOneShotElement):
     allowed_children = {(dav_namespace, "write"): (0, 1)}
 
 
-
 @registerElement
 @registerElementClass
 class Write (WebDAVEmptyElement):
@@ -257,7 +244,6 @@ class Write (WebDAVEmptyElement):
 LockType.write = LockType(Write())
 
 
-
 @registerElement
 @registerElementClass
 class MultiStatus (WebDAVElement):
@@ -270,7 +256,6 @@ class MultiStatus (WebDAVElement):
         (dav_namespace, "response"): (0, None),
         (dav_namespace, "responsedescription"): (0, 1),
     }
-
 
 
 @registerElement
@@ -340,7 +325,6 @@ class Response (WebDAVElement):
         return StatusResponse.__new__(StatusResponse, *children)
 
 
-
 @registerElementClass
 class StatusResponse (Response):
     """
@@ -354,7 +338,6 @@ class StatusResponse (Response):
         (dav_namespace, "error"): (0, 1),        # 2518bis
         (dav_namespace, "responsedescription"): (0, 1),
     }
-
 
 
 @registerElementClass
@@ -372,7 +355,6 @@ class PropertyStatusResponse (Response):
     }
 
 
-
 @registerElement
 @registerElementClass
 class PropertyStatus (WebDAVElement):
@@ -388,7 +370,6 @@ class PropertyStatus (WebDAVElement):
         (dav_namespace, "error"): (0, 1),        # 2518bis
         (dav_namespace, "responsedescription"): (0, 1),
     }
-
 
 
 @registerElement
@@ -410,7 +391,6 @@ class Status (WebDAVTextElement):
 
         return cls(PCDATAElement("HTTP/1.1 {0} {1}".format(code, responsecode.RESPONSES[code])))
 
-
     def __init__(self, *children, **attributes):
         super(Status, self).__init__(*children, **attributes)
 
@@ -425,7 +405,6 @@ class Status (WebDAVTextElement):
         self.code = code
 
 
-
 @registerElement
 @registerElementClass
 class ResponseDescription (WebDAVTextElement):
@@ -434,7 +413,6 @@ class ResponseDescription (WebDAVTextElement):
     of the response. (RFC 2518, section 12.9.2)
     """
     name = "responsedescription"
-
 
 
 @registerElement
@@ -450,10 +428,9 @@ class Owner (WebDAVElement):
     """
     name = "owner"
     hidden = True
-    protected = True # may be protected, per RFC 3744, section 5.1
+    protected = True  # may be protected, per RFC 3744, section 5.1
 
     allowed_children = {WebDAVElement: (0, None)}
-
 
 
 @registerElement
@@ -465,7 +442,6 @@ class PropertyContainer (WebDAVElement):
     name = "prop"
 
     allowed_children = {WebDAVElement: (0, None)}
-
 
 
 @registerElement
@@ -482,7 +458,6 @@ class PropertyBehavior (WebDAVElement):
         (dav_namespace, "keepalive"): (0, 1),
     }
 
-
     def __init__(self, *children, **attributes):
         super(PropertyBehavior, self).__init__(*children, **attributes)
 
@@ -494,7 +469,6 @@ class PropertyBehavior (WebDAVElement):
             )
 
         self.behavior = children[0]
-
 
 
 @registerElement
@@ -510,7 +484,6 @@ class KeepAlive (WebDAVElement):
         (dav_namespace, "href"): (0, None),
         PCDATAElement: (0, 1),
     }
-
 
     def validate(self):
         super(KeepAlive, self).validate()
@@ -532,7 +505,6 @@ class KeepAlive (WebDAVElement):
                 raise ValueError("Invalid keepalive value: {0!r}".format(str(self),))
 
 
-
 @registerElement
 @registerElementClass
 class Omit (WebDAVEmptyElement):
@@ -541,7 +513,6 @@ class Omit (WebDAVEmptyElement):
     2518, section 12.12.2)
     """
     name = "omit"
-
 
 
 @registerElement
@@ -559,7 +530,6 @@ class PropertyUpdate (WebDAVElement):
     }
 
 
-
 @registerElement
 @registerElementClass
 class Remove (WebDAVElement):
@@ -572,7 +542,6 @@ class Remove (WebDAVElement):
     allowed_children = {(dav_namespace, "prop"): (1, 1)}
 
 
-
 @registerElement
 @registerElementClass
 class Set (WebDAVElement):
@@ -583,7 +552,6 @@ class Set (WebDAVElement):
     name = "set"
 
     allowed_children = {(dav_namespace, "prop"): (1, 1)}
-
 
 
 @registerElement
@@ -601,7 +569,6 @@ class PropertyFind (WebDAVElement):
         (dav_namespace, "prop"): (0, 1),
     }
 
-
     def validate(self):
         super(PropertyFind, self).validate()
 
@@ -611,7 +578,6 @@ class PropertyFind (WebDAVElement):
                     self.sname(), self.children
                 )
             )
-
 
 
 @registerElement
@@ -624,7 +590,6 @@ class AllProperties (WebDAVEmptyElement):
     name = "allprop"
 
 
-
 @registerElement
 @registerElementClass
 class PropertyName (WebDAVEmptyElement):
@@ -633,7 +598,6 @@ class PropertyName (WebDAVEmptyElement):
     to be returned. (RFC 2518, section 12.14.2)
     """
     name = "propname"
-
 
 
 ##
@@ -652,7 +616,6 @@ class CreationDate (WebDAVDateTimeElement):
     protected = True
 
 
-
 @registerElement
 @registerElementClass
 class DisplayName (WebDAVTextElement):
@@ -661,7 +624,6 @@ class DisplayName (WebDAVTextElement):
     to a user. (RFC 2518, section 13.2)
     """
     name = "displayname"
-
 
 
 @registerElement
@@ -674,7 +636,6 @@ class GETContentLanguage (WebDAVTextElement):
     name = "getcontentlanguage"
 
 
-
 @registerElement
 @registerElementClass
 class GETContentLength (WebDAVTextElement):
@@ -684,7 +645,6 @@ class GETContentLength (WebDAVTextElement):
     """
     name = "getcontentlength"
     protected = True
-
 
 
 @registerElement
@@ -700,7 +660,6 @@ class GETContentType (WebDAVTextElement):
         return MimeType.fromString(str(self))
 
 
-
 @registerElement
 @registerElementClass
 class GETETag (WebDAVTextElement):
@@ -710,7 +669,6 @@ class GETETag (WebDAVTextElement):
     """
     name = "getetag"
     protected = True
-
 
 
 @registerElement
@@ -724,7 +682,6 @@ class GETLastModified (DateTimeHeaderElement):
     protected = True
 
 
-
 @registerElement
 @registerElementClass
 class LockDiscovery (WebDAVElement):
@@ -735,7 +692,6 @@ class LockDiscovery (WebDAVElement):
     protected = True
 
     allowed_children = {(dav_namespace, "activelock"): (0, None)}
-
 
 
 @registerElement
@@ -766,7 +722,6 @@ class Source (WebDAVElement):
     allowed_children = {(dav_namespace, "link"): (0, None)}
 
 
-
 @registerElement
 @registerElementClass
 class SupportedLock (WebDAVElement):
@@ -778,7 +733,6 @@ class SupportedLock (WebDAVElement):
     protected = True
 
     allowed_children = {(dav_namespace, "lockentry"): (0, None)}
-
 
 
 # FIXME: Add preconditions codes defined in RFC4918

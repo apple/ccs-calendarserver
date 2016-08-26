@@ -57,8 +57,10 @@ log = Logger()
 # Reading request body
 ##
 
+
 def allDataFromStream(stream, filter=None):
     data = []
+
     def gotAllData(_):
         if not data:
             return None
@@ -70,7 +72,6 @@ def allDataFromStream(stream, filter=None):
     return readStream(stream, data.append).addCallback(gotAllData)
 
 
-
 def davXMLFromStream(stream):
     # FIXME:
     #   This reads the request body into a string and then parses it.
@@ -78,7 +79,6 @@ def davXMLFromStream(stream):
     #   request stream.
     if stream is None:
         return succeed(None)
-
 
     def parse(xml):
         try:
@@ -91,13 +91,11 @@ def davXMLFromStream(stream):
     return allDataFromStream(stream, parse)
 
 
-
 def noDataFromStream(stream):
     def gotData(data):
         if data:
             raise ValueError("Stream contains unexpected data.")
     return readStream(stream, gotData)
-
 
 
 ##
@@ -133,7 +131,6 @@ def normalizeURL(url):
     return urlunsplit((scheme, host, path, query, fragment))
 
 
-
 def joinURL(*urls):
     """
     Appends URLs in series.
@@ -152,7 +149,6 @@ def joinURL(*urls):
         return "/"
     else:
         return url + trailing
-
 
 
 def parentForURL(url):
@@ -182,7 +178,6 @@ def parentForURL(url):
     return urlunsplit((scheme, host, path, None, None))
 
 
-
 ##
 # Python magic
 ##
@@ -195,7 +190,6 @@ def unimplemented(obj):
     import inspect
     caller = inspect.getouterframes(inspect.currentframe())[1][3]
     raise NotImplementedError("Method %s is unimplemented in subclass %s" % (caller, obj.__class__))
-
 
 
 def bindMethods(module, clazz, prefixes=("preconditions_", "http_", "report_")):

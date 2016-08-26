@@ -38,6 +38,7 @@ log = Logger()
 Handle mapping a calendar user address to a schedule delivery type.
 """
 
+
 class ScheduleAddressMapper(object):
     """
     Class that maps a calendar user address into a delivery service type.
@@ -47,7 +48,6 @@ class ScheduleAddressMapper(object):
 
         # We are going to cache mappings whilst running
         self.cache = Memcacher("ScheduleAddressMapper", no_invalidation=True)
-
 
     @inlineCallbacks
     def getCalendarUser(self, cuaddr):
@@ -62,7 +62,6 @@ class ScheduleAddressMapper(object):
             returnValue(EmailCalendarUser(cuaddr))
         else:
             returnValue(InvalidCalendarUser(cuaddr))
-
 
     @inlineCallbacks
     def getCalendarUserServiceType(self, cuaddr):
@@ -83,7 +82,6 @@ class ScheduleAddressMapper(object):
                     returnValue(service.serviceType())
 
         returnValue(cuaddr_type)
-
 
     def isCalendarUserInMyDomain(self, cuaddr):
 

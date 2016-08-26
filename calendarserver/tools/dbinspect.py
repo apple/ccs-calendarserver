@@ -49,6 +49,7 @@ import os
 import sys
 import traceback
 
+
 def usage(e=None):
     if e:
         print(e)
@@ -72,6 +73,7 @@ description = '\n'.join(
     )
 )
 
+
 class DBInspectOptions(Options):
     """
     Command-line options for 'calendarserver_dbinspect'
@@ -94,12 +96,10 @@ class DBInspectOptions(Options):
         self.outputName = '-'
 
 
-
 @inlineCallbacks
 def UserNameFromUID(txn, uid):
     record = yield txn.directoryService().recordWithUID(uid)
     returnValue(record.shortNames[0] if record else "(%s)" % (uid,))
-
 
 
 @inlineCallbacks
@@ -119,7 +119,6 @@ def UIDFromInput(txn, value):
     returnValue(record.uid if record else None)
 
 
-
 class Cmd(object):
 
     _name = None
@@ -128,10 +127,8 @@ class Cmd(object):
     def name(cls):
         return cls._name
 
-
     def doIt(self, txn):
         raise NotImplementedError
-
 
 
 class TableSizes(Cmd):
@@ -142,7 +139,7 @@ class TableSizes(Cmd):
     def doIt(self, txn):
 
         results = []
-        for dbtable in schema.model.tables: #@UndefinedVariable
+        for dbtable in schema.model.tables:  # @UndefinedVariable
             dbtable = getattr(schema, dbtable.name)
             count = yield self.getTableSize(txn, dbtable)
             results.append((dbtable.model.name, count,))
@@ -160,7 +157,6 @@ class TableSizes(Cmd):
         print("Database Tables (total=%d):\n" % (len(results),))
         table.printTable()
 
-
     @inlineCallbacks
     def getTableSize(self, txn, dbtable):
         rows = (yield Select(
@@ -168,7 +164,6 @@ class TableSizes(Cmd):
             From=dbtable,
         ).on(txn))
         returnValue(rows[0][0])
-
 
 
 class CalendarHomes(Cmd):
@@ -197,7 +192,6 @@ class CalendarHomes(Cmd):
         print("Calendar Homes (total=%d, missing=%d):\n" % (len(uids), missing,))
         table.printTable()
 
-
     @inlineCallbacks
     def getAllHomeUIDs(self, txn):
         ch = schema.CALENDAR_HOME
@@ -206,7 +200,6 @@ class CalendarHomes(Cmd):
             From=ch,
         ).on(txn))
         returnValue(tuple([row[0] for row in rows]))
-
 
 
 class CalendarHomesSummary(Cmd):
@@ -253,7 +246,6 @@ class CalendarHomesSummary(Cmd):
         print("Calendars with resource count (total=%d):\n" % (len(results),))
         table.printTable()
 
-
     @inlineCallbacks
     def getCalendars(self, txn):
         ch = schema.CALENDAR_HOME
@@ -272,7 +264,6 @@ class CalendarHomesSummary(Cmd):
             GroupBy=(ch.OWNER_UID, cb.CALENDAR_RESOURCE_NAME)
         ).on(txn))
         returnValue(tuple(rows))
-
 
 
 class Calendars(Cmd):
@@ -300,7 +291,6 @@ class Calendars(Cmd):
         print("Calendars with resource count (total=%d):\n" % (len(uids),))
         table.printTable()
 
-
     @inlineCallbacks
     def getCalendars(self, txn):
         ch = schema.CALENDAR_HOME
@@ -319,7 +309,6 @@ class Calendars(Cmd):
             GroupBy=(ch.OWNER_UID, cb.CALENDAR_RESOURCE_NAME)
         ).on(txn))
         returnValue(tuple(rows))
-
 
 
 class CalendarsByOwner(Cmd):
@@ -354,7 +343,6 @@ class CalendarsByOwner(Cmd):
         print("Calendars with resource count (total=%d):\n" % (len(uids),))
         table.printTable()
 
-
     @inlineCallbacks
     def getCalendars(self, txn, uid):
         ch = schema.CALENDAR_HOME
@@ -375,7 +363,6 @@ class CalendarsByOwner(Cmd):
             GroupBy=(ch.OWNER_UID, cb.CALENDAR_RESOURCE_NAME, co.CALENDAR_RESOURCE_ID)
         ).on(txn, **{"UID": uid}))
         returnValue(tuple(rows))
-
 
 
 class Events(Cmd):
@@ -405,7 +392,6 @@ class Events(Cmd):
         print("Calendar events (total=%d):\n" % (len(uids),))
         table.printTable()
 
-
     @inlineCallbacks
     def getEvents(self, txn):
         ch = schema.CALENDAR_HOME
@@ -425,7 +411,6 @@ class Events(Cmd):
                 co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
         ).on(txn))
         returnValue(tuple(rows))
-
 
 
 class EventsByCalendar(Cmd):
@@ -458,7 +443,6 @@ class EventsByCalendar(Cmd):
         print("Calendar events (total=%d):\n" % (len(uids),))
         table.printTable()
 
-
     @inlineCallbacks
     def getEvents(self, txn, rid):
         ch = schema.CALENDAR_HOME
@@ -480,7 +464,6 @@ class EventsByCalendar(Cmd):
         returnValue(tuple(rows))
 
 
-
 class EventDetails(Cmd):
     """
     Base class for common event details commands.
@@ -500,7 +483,6 @@ class EventDetails(Cmd):
         print("\n")
         table.printTable()
         print(data)
-
 
     @inlineCallbacks
     def getEventData(self, txn, whereClause, whereParams):
@@ -526,7 +508,6 @@ class EventDetails(Cmd):
         returnValue(tuple(rows))
 
 
-
 class Event(EventDetails):
 
     _name = "Get Event Data by Resource-ID"
@@ -546,11 +527,9 @@ class Event(EventDetails):
         else:
             print("Could not find resource")
 
-
     def getData(self, txn, rid):
         co = schema.CALENDAR_OBJECT
         return self.getEventData(txn, (co.RESOURCE_ID == Parameter("RID")), {"RID": rid})
-
 
 
 class EventsByUID(EventDetails):
@@ -568,11 +547,9 @@ class EventsByUID(EventDetails):
         else:
             print("Could not find icalendar data")
 
-
     def getData(self, txn, uid):
         co = schema.CALENDAR_OBJECT
         return self.getEventData(txn, (co.ICALENDAR_UID == Parameter("UID")), {"UID": uid})
-
 
 
 class EventsByName(EventDetails):
@@ -590,11 +567,9 @@ class EventsByName(EventDetails):
         else:
             print("Could not find icalendar data")
 
-
     def getData(self, txn, name):
         co = schema.CALENDAR_OBJECT
         return self.getEventData(txn, (co.RESOURCE_NAME == Parameter("NAME")), {"NAME": name})
-
 
 
 class EventsByOwner(EventDetails):
@@ -613,11 +588,9 @@ class EventsByOwner(EventDetails):
         else:
             print("Could not find icalendar data")
 
-
     def getData(self, txn, uid):
         ch = schema.CALENDAR_HOME
         return self.getEventData(txn, (ch.OWNER_UID == Parameter("UID")), {"UID": uid})
-
 
 
 class EventsByOwnerCalendar(EventDetails):
@@ -637,12 +610,10 @@ class EventsByOwnerCalendar(EventDetails):
         else:
             print("Could not find icalendar data")
 
-
     def getData(self, txn, uid, name):
         ch = schema.CALENDAR_HOME
         cb = schema.CALENDAR_BIND
         return self.getEventData(txn, (ch.OWNER_UID == Parameter("UID")).And(cb.CALENDAR_RESOURCE_NAME == Parameter("NAME")), {"UID": uid, "NAME": name})
-
 
 
 class EventsByPath(EventDetails):
@@ -667,7 +638,6 @@ class EventsByPath(EventDetails):
         else:
             print("Could not find icalendar data")
 
-
     def getData(self, txn, homeName, calendarName, resourceName):
         ch = schema.CALENDAR_HOME
         cb = schema.CALENDAR_BIND
@@ -681,7 +651,6 @@ class EventsByPath(EventDetails):
             ),
             {"HOME": homeName, "CALENDAR": calendarName, "RESOURCE": resourceName}
         )
-
 
 
 class EventsByContent(EventDetails):
@@ -699,11 +668,9 @@ class EventsByContent(EventDetails):
         else:
             print("Could not find icalendar data")
 
-
     def getData(self, txn, text):
         co = schema.CALENDAR_OBJECT
         return self.getEventData(txn, (co.ICALENDAR_TEXT.Contains(Parameter("TEXT"))), {"TEXT": text})
-
 
 
 class EventsInTimerange(Cmd):
@@ -740,7 +707,6 @@ class EventsInTimerange(Cmd):
 
         yield self.eventsForEachCalendar(home, uid, timerange)
 
-
     @inlineCallbacks
     def eventsForEachCalendar(self, home, uid, timerange):
 
@@ -749,7 +715,6 @@ class EventsInTimerange(Cmd):
             if calendar.name() == "inbox":
                 continue
             yield self.eventsInTimeRange(calendar, uid, timerange)
-
 
     @inlineCallbacks
     def eventsInTimeRange(self, calendar, uid, timerange):
@@ -784,7 +749,6 @@ class EventsInTimerange(Cmd):
             print("\n")
             table.printTable()
             print(ical_data.getTextWithoutTimezones())
-
 
 
 class Purge(Cmd):
@@ -834,7 +798,7 @@ class Purge(Cmd):
             print("Removed rows in table %s" % (tableschema,))
 
         if calendaruserproxy.ProxyDBService is not None:
-            calendaruserproxy.ProxyDBService.clean() #@UndefinedVariable
+            calendaruserproxy.ProxyDBService.clean()  # @UndefinedVariable
             print("Removed all proxies")
         else:
             print("No proxy database to clean.")
@@ -847,14 +811,12 @@ class Purge(Cmd):
         else:
             print("No attachments path to delete.")
 
-
     @inlineCallbacks
     def removeTableData(self, txn, tableschema):
         yield Delete(
             From=tableschema,
             Where=None  # Deletes all rows
         ).on(txn)
-
 
 
 class DBInspectService(WorkerService, object):
@@ -869,7 +831,6 @@ class DBInspectService(WorkerService, object):
         self.config = config
         self.commands = []
         self.commandMap = {}
-
 
     def doWork(self):
         """
@@ -896,18 +857,15 @@ class DBInspectService(WorkerService, object):
 
         return succeed(None)
 
-
     def postStartService(self):
         """
         Don't quit right away
         """
         pass
 
-
     def registerCommand(self, cmd):
         self.commands.append(cmd.name())
         self.commandMap[cmd.name()] = cmd
-
 
     @inlineCallbacks
     def runCommandByPosition(self, position):
@@ -917,14 +875,12 @@ class DBInspectService(WorkerService, object):
             print("Position %d not available" % (position,))
             returnValue(None)
 
-
     @inlineCallbacks
     def runCommandByName(self, name):
         try:
             yield self.runCommand(self.commandMap[name])
         except IndexError:
             print("Unknown command: '%s'" % (name,))
-
 
     @inlineCallbacks
     def runCommand(self, cmd):
@@ -937,7 +893,6 @@ class DBInspectService(WorkerService, object):
             print("Command '%s' failed because of: %s" % (cmd.name(), e,))
             yield txn.abort()
 
-
     def printCommands(self):
 
         print("\n<---- Commands ---->")
@@ -946,7 +901,6 @@ class DBInspectService(WorkerService, object):
         if self.options["purging"]:
             print("P. Purge\n")
         print("Q. Quit\n")
-
 
     @inlineCallbacks
     def doDBInspect(self):
@@ -972,7 +926,6 @@ class DBInspectService(WorkerService, object):
 
         self.reactor.stop()
 
-
     def stopService(self):
         """
         Stop the service.  Nothing to do; everything should be finished by this
@@ -984,7 +937,6 @@ class DBInspectService(WorkerService, object):
         # anyway).
 
 
-
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     """
     Do the export.
@@ -993,6 +945,7 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         from twisted.internet import reactor
     options = DBInspectOptions()
     options.parseOptions(argv[1:])
+
     def makeService(store):
         return DBInspectService(store, options, reactor, config)
     utilityMain(options['config'], makeService, reactor, verbose=options['debug'])

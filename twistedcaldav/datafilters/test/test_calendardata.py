@@ -20,6 +20,7 @@ from twistedcaldav.caldavxml import CalendarData, CalendarComponent, \
     AllComponents, AllProperties, Property
 from twistedcaldav.ical import Component
 
+
 class CalendarDataTest (twistedcaldav.test.util.TestCase):
 
     def test_empty(self):
@@ -41,7 +42,6 @@ END:VCALENDAR
         empty = CalendarData()
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(CalendarDataFilter(empty).filter(item)), data)
-
 
     def test_vcalendar_no_effect(self):
 
@@ -76,7 +76,6 @@ END:VCALENDAR
         )
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(CalendarDataFilter(no_effect).filter(item)), data)
-
 
     def test_vcalendar_no_props(self):
 
@@ -116,7 +115,6 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(CalendarDataFilter(empty).filter(item)), result)
 
-
     def test_vcalendar_no_comp(self):
 
         data = """BEGIN:VCALENDAR
@@ -150,7 +148,6 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(CalendarDataFilter(empty).filter(item)), result)
 
-
     def test_vevent_no_effect(self):
 
         data = """BEGIN:VCALENDAR
@@ -178,7 +175,6 @@ END:VCALENDAR
         )
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(CalendarDataFilter(no_effect).filter(item)), data)
-
 
     def test_vevent_other_component(self):
 
@@ -213,7 +209,6 @@ END:VCALENDAR
         )
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(CalendarDataFilter(other_component).filter(item)), result)
-
 
     def test_vevent_no_props(self):
 
@@ -265,7 +260,6 @@ END:VCALENDAR
             filtered = "".join([line for line in filtered.splitlines(True) if not line.startswith("UID:")])
             self.assertEqual(filtered, result)
 
-
     def test_vevent_no_comp(self):
 
         data = """BEGIN:VCALENDAR
@@ -313,7 +307,6 @@ END:VCALENDAR
         )
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(CalendarDataFilter(empty).filter(item)), result)
-
 
     def test_vevent_some_props(self):
 

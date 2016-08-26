@@ -62,6 +62,7 @@ import time
 
 log = Logger()
 
+
 class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMixin, DAVResource):
     """
     Resource used to execute admin commands.
@@ -80,44 +81,34 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
         self._store = store
         self._directory = directory
 
-
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = NonePropertyStore(self)
         return self._dead_properties
 
-
     def etag(self):
         return succeed(None)
-
 
     def checkPreconditions(self, request):
         return None
 
-
     def defaultAccessControlList(self):
         return succeed(davxml.ACL(*config.AdminACEs))
-
 
     def contentType(self):
         return MimeType.fromString("text/html; charset=utf-8")
 
-
     def resourceType(self):
         return None
-
 
     def isCollection(self):
         return False
 
-
     def isCalendarCollection(self):
         return False
 
-
     def isPseudoCalendarCollection(self):
         return False
-
 
     def render(self, request):
         output = """<html>
@@ -141,7 +132,6 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
         """
         return self.render(request)
 
-
     def _ok(self, status, description, result=None):
         if result is None:
             result = {}
@@ -152,7 +142,6 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
             result,
         )
 
-
     def _error(self, status, description):
         raise HTTPError(JSONResponse(
             responsecode.BAD_REQUEST,
@@ -161,7 +150,6 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
                 "description": description,
             },
         ))
-
 
     def _recordsToJSON(self, records):
         results = []
@@ -179,7 +167,6 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
                 }
             )
         return results
-
 
     @inlineCallbacks
     def http_POST(self, request):
@@ -217,7 +204,6 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
         result = yield getattr(self, method)(j)
         returnValue(result)
 
-
     @inlineCallbacks
     def action_listgroupmembers(self, j):
         try:
@@ -238,7 +224,6 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
             "group": grpID,
             "members": self._recordsToJSON(members),
         }))
-
 
     @inlineCallbacks
     def action_addgroupmembers(self, j):
@@ -283,7 +268,6 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
             "invalid": sorted(invalid),
         }))
 
-
     @inlineCallbacks
     def action_removegroupmembers(self, j):
         try:
@@ -327,7 +311,6 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
             "invalid": sorted(invalid),
         }))
 
-
     @inlineCallbacks
     def action_refreshgroups(self, j):
         txn = self._store.newTransaction(label="ControlAPIResource.action_refreshgroups")
@@ -344,7 +327,6 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
 
         returnValue(self._ok("ok", "Group refresh scheduled"))
 
-
     @inlineCallbacks
     def action_schedulingdone(self, j):
         """
@@ -355,7 +337,6 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
         ))
 
         returnValue(self._ok("ok", "Scheduling done"))
-
 
     @inlineCallbacks
     def action_testwork(self, j):
@@ -396,7 +377,6 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
             )
 
         returnValue(self._ok("ok", "Test work scheduled"))
-
 
     @inlineCallbacks
     def action_revisioncleanup(self, j):

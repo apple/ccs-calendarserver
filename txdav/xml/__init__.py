@@ -54,4 +54,4 @@ import txdav.xml.extensions
 
 # FIXME: add symbols to __all__
 
-txdav # Shhh pyflakes
+txdav  # Shhh pyflakes

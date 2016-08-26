@@ -70,7 +70,6 @@ def newCA(caPath):
     os.remove(reqfile)
 
 
-
 def updateCRL(caPath):
     """
     Create a new certificate authority with supporting files at the specified path.
@@ -96,7 +95,6 @@ def updateCRL(caPath):
             with open(certcrlfile, "w") as h:
                 h.write(f.read())
                 h.write(g.read())
-
 
 
 def makeUserCertificate(caPath, user, self_signed=False):
@@ -146,7 +144,6 @@ def makeUserCertificate(caPath, user, self_signed=False):
             subject="/C=US/ST=CA/O=Example.com/CN={user}/emailAddress={user}@example.com".format(user=user)
         ).split())
 
-
     with open(keyfile) as f:
         privkey = f.read()
     with open(certfile) as f:
@@ -165,7 +162,6 @@ def makeUserCertificate(caPath, user, self_signed=False):
         p12out=pkcs12file,
         passwd="secret",
     ).split())
-
 
 
 def usage():

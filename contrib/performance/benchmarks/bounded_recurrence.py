@@ -25,6 +25,7 @@ from datetime import datetime, timedelta
 from contrib.performance._event_create import (
     makeAttendees, makeVCalendar, formatDate, measure as _measure)
 
+
 def makeEvent(i, organizerSequence, attendeeCount):
     """
     Create a new half-hour long event that starts soon and recurs
@@ -38,7 +39,6 @@ def makeEvent(i, organizerSequence, attendeeCount):
     return makeVCalendar(
         uuid4(), start, end, rrule, organizerSequence,
         makeAttendees(attendeeCount))
-
 
 
 def measure(host, port, dtrace, attendeeCount, samples):

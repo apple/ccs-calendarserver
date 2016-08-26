@@ -40,10 +40,8 @@ except ImportError:
     from xml.parsers.expat import ExpatError as XMLParseError
 
 
-
 def QNameSplit(qname):
     return tuple(qname[1:].split("}", 1)) if "}" in qname else ("", qname,)
-
 
 
 class WebDAVContentHandler (TreeBuilder):
@@ -54,7 +52,6 @@ class WebDAVContentHandler (TreeBuilder):
 
         self.startDocument()
 
-
     def doctype(self, name, pubid, system):
         """
         Doctype declaration is ignored.
@@ -62,10 +59,10 @@ class WebDAVContentHandler (TreeBuilder):
 
     def startDocument(self):
         self.stack = [{
-            "name"       : None,
-            "class"      : None,
-            "attributes" : None,
-            "children"   : [],
+            "name": None,
+            "class": None,
+            "attributes": None,
+            "children": [],
         }]
 
         # Keep a cache of the subclasses we create for unknown XML
@@ -73,7 +70,6 @@ class WebDAVContentHandler (TreeBuilder):
         # same element; it's fairly typical for elements to appear
         # multiple times in a document.
         self.unknownElementClasses = {}
-
 
     def close(self):
         top = self.stack[-1]
@@ -87,13 +83,11 @@ class WebDAVContentHandler (TreeBuilder):
         del(self.unknownElementClasses)
         return self.dom
 
-
     def data(self, data):
         # Stash character data away in a list that we will "".join() when done
         if self._characterBuffer is None:
             self._characterBuffer = []
         self._characterBuffer.append(data)
-
 
     def start(self, tag, attrs):
         name = QNameSplit(tag)
@@ -128,12 +122,11 @@ class WebDAVContentHandler (TreeBuilder):
             self.unknownElementClasses[name] = element_class
 
         self.stack.append({
-            "name"       : name,
-            "class"      : element_class,
-            "attributes" : attributes_dict,
-            "children"   : [],
+            "name": name,
+            "class": element_class,
+            "attributes": attributes_dict,
+            "children": [],
         })
-
 
     def end(self, tag):
         name = QNameSplit(tag)
@@ -156,8 +149,8 @@ class WebDAVContentHandler (TreeBuilder):
         self.stack[-1]["children"].append(element)
 
 
-
 class WebDAVDocument(AbstractWebDAVDocument):
+
     @classmethod
     def fromStream(cls, source):
         parser = XMLParser(target=WebDAVContentHandler())
@@ -170,7 +163,6 @@ class WebDAVDocument(AbstractWebDAVDocument):
         except XMLParseError, e:
             raise ValueError(e)
         return parser.close()
-
 
     def writeXML(self, output):
         self.root_element.writeXML(output)

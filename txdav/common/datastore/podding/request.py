@@ -42,7 +42,6 @@ import json
 log = Logger()
 
 
-
 class ConduitRequest(object):
     """
     An HTTP request between pods. This is typically used to send and receive JSON data. However,
@@ -56,7 +55,6 @@ class ConduitRequest(object):
         self.stream = stream
         self.streamType = stream_type
         self.writeStream = writeStream
-
 
     @inlineCallbacks
     def doRequest(self, txn):
@@ -107,7 +105,6 @@ class ConduitRequest(object):
 
         returnValue(data)
 
-
     @inlineCallbacks
     def logRequest(self, request):
         """
@@ -145,7 +142,6 @@ class ConduitRequest(object):
         iostr.write("\n\n>>>> Request end\n")
         returnValue(iostr.getvalue())
 
-
     @inlineCallbacks
     def logResponse(self, response):
         """
@@ -174,7 +170,6 @@ class ConduitRequest(object):
 
         iostr.write("\n\n>>>> Response end\n")
         returnValue(iostr.getvalue())
-
 
     @inlineCallbacks
     def _processRequest(self):

@@ -42,6 +42,7 @@ __all__ = [
 
 log = Logger()
 
+
 class CalDAVScheduler(Scheduler):
 
     scheduleResponse = ScheduleResponseQueue
@@ -66,14 +67,12 @@ class CalDAVScheduler(Scheduler):
         super(CalDAVScheduler, self).__init__(txn, originator_uid, **kwargs)
         self.doingPOST = False
 
-
     def doSchedulingViaPOST(self, originator, recipients, calendar):
         """
         The Scheduling POST operation on an Outbox.
         """
         self.doingPOST = True
         return super(CalDAVScheduler, self).doSchedulingViaPOST(originator, recipients, calendar)
-
 
     def checkAuthorization(self):
         # Must have an authenticated user
@@ -87,7 +86,6 @@ class CalDAVScheduler(Scheduler):
                 self.errorElements["originator-denied"],
                 "Invalid originator",
             ))
-
 
     @inlineCallbacks
     def checkOriginator(self):
@@ -121,7 +119,6 @@ class CalDAVScheduler(Scheduler):
                 ))
 
             self.originator = originatorAddress
-
 
     @inlineCallbacks
     def checkRecipients(self):
@@ -161,7 +158,6 @@ class CalDAVScheduler(Scheduler):
                     results.append(InvalidCalendarUser(recipient))
 
         self.recipients = results
-
 
     @inlineCallbacks
     def checkOrganizer(self):
@@ -214,7 +210,6 @@ class CalDAVScheduler(Scheduler):
                 "Missing organizer",
             ))
 
-
     def checkOrganizerAsOriginator(self):
 
         # Make sure that the ORGANIZER is local
@@ -234,7 +229,6 @@ class CalDAVScheduler(Scheduler):
                 self.errorElements["organizer-denied"],
                 "Outbox does not belong to organizer",
             ))
-
 
     @inlineCallbacks
     def checkAttendeeAsOriginator(self):
@@ -261,7 +255,6 @@ class CalDAVScheduler(Scheduler):
                 "No principal for attendee",
             ))
 
-
     def securityChecks(self):
         """
         Check that the originator has the appropriate rights to send this type of iTIP message.
@@ -274,7 +267,6 @@ class CalDAVScheduler(Scheduler):
         # Prevent spoofing when doing reply-like METHODs
         else:
             return self.checkAttendeeAsOriginator()
-
 
     def finalChecks(self):
         """

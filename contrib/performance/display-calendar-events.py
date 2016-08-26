@@ -24,6 +24,6 @@ print(calendars)
 raise SystemExit
 
 predicate = store.predicateForEventsWithStartDate_endDate_calendars_(
-     NSDate.date(), NSDate.distantFuture(),
-     [calendars[2]])
+    NSDate.date(), NSDate.distantFuture(),
+    [calendars[2]])
 print(store.eventsMatchingPredicate_(predicate))

@@ -28,7 +28,6 @@ class RecordWithShortNameCommand(amp.Command):
     ]
 
 
-
 class RecordWithUIDCommand(amp.Command):
     arguments = [
         ('uid', amp.String()),
@@ -39,7 +38,6 @@ class RecordWithUIDCommand(amp.Command):
     ]
 
 
-
 class RecordWithGUIDCommand(amp.Command):
     arguments = [
         ('guid', amp.String()),
@@ -48,7 +46,6 @@ class RecordWithGUIDCommand(amp.Command):
     response = [
         ('fields', amp.String()),
     ]
-
 
 
 class RecordsWithRecordTypeCommand(amp.Command):
@@ -63,7 +60,6 @@ class RecordsWithRecordTypeCommand(amp.Command):
     ]
 
 
-
 class RecordsWithEmailAddressCommand(amp.Command):
     arguments = [
         ('emailAddress', amp.String()),
@@ -76,7 +72,6 @@ class RecordsWithEmailAddressCommand(amp.Command):
     ]
 
 
-
 class ContinuationCommand(amp.Command):
     arguments = [
         ('continuation', amp.String(optional=True)),
@@ -85,7 +80,6 @@ class ContinuationCommand(amp.Command):
         ('items', amp.ListOf(amp.String())),
         ('continuation', amp.String(optional=True)),
     ]
-
 
 
 class RecordsMatchingTokensCommand(amp.Command):
@@ -99,7 +93,6 @@ class RecordsMatchingTokensCommand(amp.Command):
         ('items', amp.ListOf(amp.String())),
         ('continuation', amp.String(optional=True)),
     ]
-
 
 
 class RecordsMatchingFieldsCommand(amp.Command):
@@ -116,7 +109,6 @@ class RecordsMatchingFieldsCommand(amp.Command):
     ]
 
 
-
 class UpdateRecordsCommand(amp.Command):
     arguments = [
         ('uids', amp.ListOf(amp.String())),
@@ -127,7 +119,6 @@ class UpdateRecordsCommand(amp.Command):
     ]
 
 
-
 class RemoveRecordsCommand(amp.Command):
     arguments = [
         ('uids', amp.ListOf(amp.String())),
@@ -135,7 +126,6 @@ class RemoveRecordsCommand(amp.Command):
     response = [
         ('success', amp.Boolean()),
     ]
-
 
 
 class MembersCommand(amp.Command):
@@ -148,7 +138,6 @@ class MembersCommand(amp.Command):
     ]
 
 
-
 class ExpandedMembersCommand(amp.Command):
     arguments = [
         ('uid', amp.String()),
@@ -157,7 +146,6 @@ class ExpandedMembersCommand(amp.Command):
         ('items', amp.ListOf(amp.String())),
         ('continuation', amp.String(optional=True)),
     ]
-
 
 
 class GroupsCommand(amp.Command):
@@ -170,7 +158,6 @@ class GroupsCommand(amp.Command):
     ]
 
 
-
 class AddMembersCommand(amp.Command):
     arguments = [
         ('uid', amp.String()),
@@ -179,7 +166,6 @@ class AddMembersCommand(amp.Command):
     response = [
         ('success', amp.Boolean()),
     ]
-
 
 
 class RemoveMembersCommand(amp.Command):
@@ -192,7 +178,6 @@ class RemoveMembersCommand(amp.Command):
     ]
 
 
-
 class SetMembersCommand(amp.Command):
     arguments = [
         ('uid', amp.String()),
@@ -201,7 +186,6 @@ class SetMembersCommand(amp.Command):
     response = [
         ('success', amp.Boolean()),
     ]
-
 
 
 class ExpandedMemberUIDsCommand(amp.Command):
@@ -214,7 +198,6 @@ class ExpandedMemberUIDsCommand(amp.Command):
     ]
 
 
-
 class VerifyPlaintextPasswordCommand(amp.Command):
     arguments = [
         ('uid', amp.String()),
@@ -223,7 +206,6 @@ class VerifyPlaintextPasswordCommand(amp.Command):
     response = [
         ('authenticated', amp.Boolean()),
     ]
-
 
 
 class VerifyHTTPDigestCommand(amp.Command):
@@ -245,7 +227,6 @@ class VerifyHTTPDigestCommand(amp.Command):
     ]
 
 
-
 class WikiAccessForUIDCommand(amp.Command):
     arguments = [
         ('wikiUID', amp.String()),
@@ -256,14 +237,12 @@ class WikiAccessForUIDCommand(amp.Command):
     ]
 
 
-
 class ExternalDelegatesCommand(amp.Command):
     arguments = []
     response = [
         ('items', amp.ListOf(amp.String())),
         ('continuation', amp.String(optional=True)),
     ]
-
 
 
 class SetAutoScheduleModeCommand(amp.Command):
@@ -276,13 +255,11 @@ class SetAutoScheduleModeCommand(amp.Command):
     ]
 
 
-
 class FlushCommand(amp.Command):
     arguments = []
     response = [
         ('flush', amp.Boolean()),
     ]
-
 
 
 class StatsCommand(amp.Command):

@@ -127,7 +127,6 @@ def usage(e=None):
         sys.exit(0)
 
 
-
 def runAsRootCheck():
     """
     If we're running in Server.app context and are not running as root, exit.
@@ -137,7 +136,6 @@ def runAsRootCheck():
         if os.getuid() != 0:
             print("Must be run as root")
             sys.exit(1)
-
 
 
 def main():
@@ -250,7 +248,6 @@ def main():
     processArgs(writable, args)
 
 
-
 def setServiceState(service, state):
     """
     Invoke serverctl to enable/disable a service
@@ -269,7 +266,6 @@ def setServiceState(service, state):
         )
 
 
-
 def setEnabled(enabled):
     command = {
         "command": "writeConfig",
@@ -281,7 +277,6 @@ def setEnabled(enabled):
 
     runner = Runner([command], quiet=True)
     runner.run()
-
 
 
 def setReverseProxies():
@@ -296,7 +291,6 @@ def setReverseProxies():
         stderr=subprocess.PIPE,
     )
     child.communicate()
-
 
 
 def processArgs(writable, args, restart=True):
@@ -341,7 +335,7 @@ def processArgs(writable, args, restart=True):
         try:
             plist = readPlistFromString(rawInput)
             # Note: values in plist will already be unicode
-        except xml.parsers.expat.ExpatError, e: #@UndefinedVariable
+        except xml.parsers.expat.ExpatError, e:  # @UndefinedVariable
             respondWithError(str(e))
             return
 
@@ -354,7 +348,6 @@ def processArgs(writable, args, restart=True):
 
         runner = Runner(commands)
         runner.run()
-
 
 
 class Runner(object):
@@ -371,7 +364,6 @@ class Runner(object):
         """
         self.commands = commands
         self.quiet = quiet
-
 
     def validate(self):
         """
@@ -391,7 +383,6 @@ class Runner(object):
                 return False
         return True
 
-
     def run(self):
         """
         Find the appropriate method for each command and call them.
@@ -408,7 +399,6 @@ class Runner(object):
         except Exception, e:
             respondWithError("Command failed: '%s'" % (str(e),))
             raise
-
 
     def command_readConfig(self, command):
         """
@@ -427,7 +417,6 @@ class Runner(object):
                     value = value.decode("utf-8")
                 setKeyPath(result, keyPath, value)
         respond(command, result)
-
 
     def command_writeConfig(self, command):
         """
@@ -451,7 +440,6 @@ class Runner(object):
             config.reload()
             if not self.quiet:
                 self.command_readConfig(command)
-
 
 
 def setKeyPath(parent, keyPath, value):
@@ -489,7 +477,6 @@ def setKeyPath(parent, keyPath, value):
     return original
 
 
-
 def getKeyPath(parent, keyPath):
     """
     Allows the getting of arbitrary nested dictionary keys via a single
@@ -513,7 +500,6 @@ def getKeyPath(parent, keyPath):
     return parent.get(parts[-1], None)
 
 
-
 def flattenDictionary(dictionary, current=""):
     """
     Returns a generator of (keyPath, value) tuples for the given dictionary,
@@ -532,7 +518,6 @@ def flattenDictionary(dictionary, current=""):
                 yield result
         else:
             yield (current + key, value)
-
 
 
 def restartService(pidFilename):
@@ -556,7 +541,6 @@ def restartService(pidFilename):
             pass
 
 
-
 class WritableConfig(object):
     """
     A wrapper around a Config object which allows writing of values.  The idea
@@ -578,7 +562,6 @@ class WritableConfig(object):
         self.currentConfigSubset = ConfigDict()
         self.dirty = False
 
-
     def set(self, data):
         """
         Merges data into a ConfigDict of changes intended to be saved to disk
@@ -591,7 +574,6 @@ class WritableConfig(object):
             data = ConfigDict(mapping=data)
         mergeData(self.currentConfigSubset, data)
         self.dirty = True
-
 
     def delete(self, key):
         """
@@ -606,7 +588,6 @@ class WritableConfig(object):
         except:
             pass
 
-
     def read(self):
         """
         Reads in the data contained in the writable plist file.
@@ -618,10 +599,8 @@ class WritableConfig(object):
         else:
             self.currentConfigSubset = ConfigDict()
 
-
     def toString(self):
         return plistlib.writePlistToString(self.currentConfigSubset)
-
 
     def save(self, restart=False):
         """
@@ -638,7 +617,6 @@ class WritableConfig(object):
             self.dirty = False
             if restart:
                 restartService(self.config.PIDFile)
-
 
     @classmethod
     def convertToValue(cls, string):
@@ -664,10 +642,8 @@ class WritableConfig(object):
         return value
 
 
-
 def respond(command, result):
     sys.stdout.write(writePlistToString({'command': command['command'], 'result': result}))
-
 
 
 def respondWithError(msg, status=1):

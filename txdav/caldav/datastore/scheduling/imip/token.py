@@ -22,6 +22,7 @@ from txdav.common.datastore.sql_tables import schema
 Database L{Record} for iMIP tokens.
 """
 
+
 class iMIPTokenRecord(SerializableRecord, fromTable(schema.IMIP_TOKENS)):
     """
     @DynamicAttrs

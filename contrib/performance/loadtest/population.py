@@ -62,10 +62,8 @@ class ProfileType(object, FancyEqMixin):
         self.profileType = profileType
         self.params = params
 
-
     def __call__(self, reactor, simulator, client, number):
         return self.profileType(reactor, simulator, client, number, **self.params)
-
 
 
 class ClientType(object, FancyEqMixin):
@@ -80,7 +78,6 @@ class ClientType(object, FancyEqMixin):
         self.clientParams = clientParams
         self.profileTypes = profileTypes
 
-
     def new(self, reactor, server, principalPathTemplate, serializationPath, userRecord, authInfo, instanceNumber):
         """
         Create a new instance of this client type.
@@ -92,7 +89,6 @@ class ClientType(object, FancyEqMixin):
         )
 
 
-
 class PopulationParameters(object, FancyEqMixin):
     """
     Descriptive statistics about a population of Calendar Server users.
@@ -101,7 +97,6 @@ class PopulationParameters(object, FancyEqMixin):
 
     def __init__(self):
         self.clients = []
-
 
     def addClient(self, weight, clientType):
         """
@@ -117,14 +112,12 @@ class PopulationParameters(object, FancyEqMixin):
         """
         self.clients.append((weight, clientType))
 
-
     def clientTypes(self):
         """
         Return a list of two-tuples giving the weights and types of
         clients in the population.
         """
         return self.clients
-
 
 
 class Populator(object):
@@ -137,16 +130,15 @@ class Populator(object):
     @ivar passwordPattern: Similar to C{userPattern}, but for
         passwords.
     """
+
     def __init__(self, random):
         self._random = random
-
 
     def _cycle(self, elements):
         while True:
             for (weight, value) in elements:
                 for _ignore_i in range(weight):
                     yield value
-
 
     def populate(self, parameters):
         """
@@ -160,8 +152,8 @@ class Populator(object):
             yield clientType
 
 
-
 class CalendarClientSimulator(object):
+
     def __init__(self, records, populator, random, parameters, reactor, servers,
                  principalPathTemplate, serializationPath, workerIndex=0, workerCount=1):
         self._records = records
@@ -180,10 +172,8 @@ class CalendarClientSimulator(object):
 
         TimezoneCache.create()
 
-
     def getUserRecord(self, index):
         return self._records[index]
-
 
     def getRandomUserRecord(self, besides=None):
         count = len(self._records)
@@ -207,12 +197,10 @@ class CalendarClientSimulator(object):
             return None
         return self._records[n]
 
-
     def _nextUserNumber(self):
         result = self._user
         self._user += 1
         return result
-
 
     def _createUser(self, number):
         record = self._records[number]
@@ -231,7 +219,6 @@ class CalendarClientSimulator(object):
             passwd=record.password.encode('utf-8'))
         return record, user, {"basic": authBasic, "digest": authDigest, }
 
-
     def stop(self):
         """
         Indicate that the simulation is over.  CalendarClientSimulator doesn't
@@ -246,7 +233,6 @@ class CalendarClientSimulator(object):
             deferreds.append(client.stop())
         self._stopped = True
         return DeferredList(deferreds)
-
 
     def add(self, numClients, clientsPerUser):
         instanceNumber = 0
@@ -282,6 +268,7 @@ class CalendarClientSimulator(object):
                     profile = profileType(reactor, self, client, number)
                     if profile.enabled:
                         d = profile.initialize()
+
                         def _run(result):
                             d2 = profile.run()
                             d2.addErrback(self._profileFailure, profileType, reactor)
@@ -291,7 +278,6 @@ class CalendarClientSimulator(object):
         # XXX this status message is prone to be slightly inaccurate, but isn't
         # really used by much anyway.
         msg(type="status", clientCount=self._user - 1)
-
 
     def _dumpLogs(self, loggingReactor, reason):
         path = FilePath(mkdtemp())
@@ -304,7 +290,6 @@ class CalendarClientSimulator(object):
         path.child('reason.log').setContent(reason.getTraceback())
         return path
 
-
     def _clientFailure(self, reason, reactor):
         if not self._stopped:
             where = self._dumpLogs(reactor, reason)
@@ -314,21 +299,19 @@ class CalendarClientSimulator(object):
                 reason = Failure(reason)
             msg(type="client-failure", reason="%s: %s" % (reason.type, reason.value,))
 
-
     def _profileFailure(self, reason, profileType, reactor):
         if not self._stopped:
             where = self._dumpLogs(reactor, reason)
             err(reason, "Profile stopped with error; recent traffic in %r" % (
                 where.path,))
 
-
     def _simFailure(self, reason, reactor):
         if not self._stopped:
             msg(type="sim-failure", reason=reason)
 
 
-
 class SmoothRampUp(object):
+
     def __init__(self, reactor, groups, groupSize, interval, clientsPerUser):
         self.reactor = reactor
         self.groups = groups
@@ -336,15 +319,14 @@ class SmoothRampUp(object):
         self.interval = interval
         self.clientsPerUser = clientsPerUser
 
-
     def run(self, simulator):
         for i in range(self.groups):
             self.reactor.callLater(
                 self.interval * i, simulator.add, self.groupSize, self.clientsPerUser)
 
 
-
 class StatisticsBase(object):
+
     def observe(self, event):
         if event.get('type') == 'response':
             self.eventReceived(event)
@@ -353,22 +335,19 @@ class StatisticsBase(object):
         elif event.get('type') == 'sim-failure':
             self.simFailure(event)
 
-
     def report(self, output):
         pass
-
 
     def failures(self):
         return []
 
 
-
 class SimpleStatistics(StatisticsBase):
+
     def __init__(self):
         self._times = []
         self._failures = collections.defaultdict(int)
         self._simFailures = collections.defaultdict(int)
-
 
     def eventReceived(self, event):
         self._times.append(event['duration'])
@@ -379,14 +358,11 @@ class SimpleStatistics(StatisticsBase):
             print('mad:', mad(self._times))
             del self._times[:100]
 
-
     def clientFailure(self, event):
         self._failures[event] += 1
 
-
     def simFailure(self, event):
         self._simFailures[event] += 1
-
 
 
 class ReportStatistics(StatisticsBase, SummarizingMixin):
@@ -460,29 +436,23 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         if "failCutoff" in params:
             self._fail_cut_off = params["failCutoff"]
 
-
     def observe(self, event):
         if event.get('type') == 'sim-expired':
             self.simExpired(event)
         else:
             super(ReportStatistics, self).observe(event)
 
-
     def countUsers(self):
         return len(self._users)
-
 
     def countClients(self):
         return len(self._clients)
 
-
     def countClientFailures(self):
         return len(self._failed_clients)
 
-
     def countSimFailures(self):
         return len(self._failed_sim)
-
 
     def eventReceived(self, event):
         dataset = self._perMethodTimes.setdefault(event['method'], [])
@@ -490,25 +460,20 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         self._users.add(event['user'])
         self._clients.add(event['client_id'])
 
-
     def clientFailure(self, event):
         self._failed_clients.append(event['reason'])
-
 
     def simFailure(self, event):
         self._failed_sim[event['reason']] += 1
 
-
     def simExpired(self, event):
         self._expired_data[event['podID']] = event['reason']
-
 
     def printMiscellaneous(self, output, items):
         maxColumnWidth = str(len(max(items.iterkeys(), key=len)))
         fmt = "%" + maxColumnWidth + "s : %-s\n"
         for k in sorted(items.iterkeys()):
             output.write(fmt % (k.title(), items[k],))
-
 
     def qos(self):
         """
@@ -523,7 +488,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
             try:
                 means[method] = mean([duration for success, duration in results if success])
             except ZeroDivisionError:
-                pass # Ignore the case where all samples were unsuccessful?
+                pass  # Ignore the case where all samples were unsuccessful?
 
         # Determine percentage differences with weighting
         differences = []
@@ -534,7 +499,6 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
 
         return ("%-8.4f" % mean(differences)) if differences else "None"
 
-
     def qos_value(self, method, value):
         benchmark = self.benchmarks.get(method)
         if benchmark is None:
@@ -542,14 +506,12 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         test_mean, weight = (benchmark["mean"], benchmark["weight"],)
         return ((value / test_mean) - 1.0) * weight + 1.0
 
-
     def _summarizeData(self, operation, data, total_count):
         data = SummarizingMixin._summarizeData(self, operation, data, total_count)
         value = self.qos_value(operation, data[-4])
         if value is None:
             value = 0.0
         return data[:-1] + (value,) + data[-1:]
-
 
     def report(self, output):
         output.write("\n")
@@ -585,7 +547,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
 
         for podID, data in self._expired_data.items():
             items = {
-                "Req/sec" : "%.1f" % (data[0],),
+                "Req/sec": "%.1f" % (data[0],),
                 "Response": "%.1f (ms)" % (data[1],),
                 "Slots": "%.2f" % (data[2],),
                 "CPU": "%.1f%%" % (data[3],),
@@ -647,7 +609,6 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         if self.countSimFailures() != 0:
             reasons.append("Overall failures: %d" % (self.countSimFailures(),))
         return reasons
-
 
 
 def main():

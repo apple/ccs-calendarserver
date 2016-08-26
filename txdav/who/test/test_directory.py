@@ -31,10 +31,8 @@ from txdav.who.util import startswithFilter
 from uuid import UUID
 
 
-
 class TestDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
     pass
-
 
 
 class DirectoryTestCase(StoreTestCase):
@@ -55,7 +53,6 @@ class DirectoryTestCase(StoreTestCase):
             set([u"Chris Lecroy", u"Cyrus Daboo", u"David Reid", u"Wilfredo Sanchez-Vega"]),
             set([r.displayName for r in expanded])
         )
-
 
     def test_canonicalCalendarUserAddress(self):
 
@@ -87,7 +84,6 @@ class DirectoryTestCase(StoreTestCase):
             record.canonicalCalendarUserAddress(),
             u"urn:x-uid:test"
         )
-
 
     def test_calendarUserAddresses(self):
         """
@@ -135,7 +131,6 @@ class DirectoryTestCase(StoreTestCase):
             )
         )
 
-
     @inlineCallbacks
     def test_recordsFromMatchExpression(self):
         expression = MatchExpression(
@@ -147,7 +142,6 @@ class DirectoryTestCase(StoreTestCase):
         records = yield self.directory.recordsFromExpression(expression)
         self.assertEquals(len(records), 1)
 
-
     @inlineCallbacks
     def test_recordsFromMatchExpressionNonUnicode(self):
         expression = MatchExpression(
@@ -158,7 +152,6 @@ class DirectoryTestCase(StoreTestCase):
         )
         records = yield self.directory.recordsFromExpression(expression)
         self.assertEquals(len(records), 1)
-
 
     @inlineCallbacks
     def test_recordWithCalendarUserAddress(self):
@@ -205,7 +198,6 @@ class DirectoryTestCase(StoreTestCase):
         )
         self.assertEquals(record, None)
 
-
     @inlineCallbacks
     def test_recordWithCalendarUserAddress_no_fake_email(self):
         """
@@ -220,7 +212,6 @@ class DirectoryTestCase(StoreTestCase):
         record = yield self.directory.recordWithCalendarUserAddress(u"mailto:{}@do_not_reply".format("resource02".encode("hex")))
         self.assertTrue(record is None)
 
-
     @inlineCallbacks
     def test_calendarUserAddress_no_fake_email(self):
         """
@@ -231,7 +222,6 @@ class DirectoryTestCase(StoreTestCase):
         self.assertTrue(record is not None)
         self.assertTrue(len(getattr(record, "emailAddresses", ())) == 0)
         self.assertTrue(len([cuaddr for cuaddr in record.calendarUserAddresses if cuaddr.startswith("mailto:")]) == 0)
-
 
     @inlineCallbacks
     def test_recordsMatchingTokensNoFilter(self):
@@ -248,7 +238,6 @@ class DirectoryTestCase(StoreTestCase):
                 matchingShortNames.add(shortName)
         self.assertTrue("dre" in matchingShortNames)
         self.assertTrue("wsanchez" in matchingShortNames)
-
 
     @inlineCallbacks
     def test_recordsMatchingTokensStartswithFilter(self):
@@ -278,7 +267,6 @@ class DirectoryTestCase(StoreTestCase):
                 matchingShortNames.add(shortName)
         self.assertTrue("dre" not in matchingShortNames)
         self.assertTrue("wsanchez" in matchingShortNames)
-
 
     @inlineCallbacks
     def test_getAutoScheduleMode(self):
@@ -357,7 +345,6 @@ class DirectoryTestCase(StoreTestCase):
                 notInGroupMode
             )
 
-
     @inlineCallbacks
     def test_setAutoScheduleMode(self):
         """
@@ -374,9 +361,7 @@ class DirectoryTestCase(StoreTestCase):
         self.assertEquals(orion.autoScheduleMode, AutoScheduleMode.declineIfBusy)
 
 
-
 class DirectoryTestCaseFakeEmail(StoreTestCase):
-
 
     def configure(self):
         """
@@ -385,7 +370,6 @@ class DirectoryTestCaseFakeEmail(StoreTestCase):
         super(StoreTestCase, self).configure()
 
         config.Scheduling.Options.FakeResourceLocationEmail = True
-
 
     @inlineCallbacks
     def test_recordWithCalendarUserAddress_fake_email(self):
@@ -400,7 +384,6 @@ class DirectoryTestCaseFakeEmail(StoreTestCase):
         self.assertTrue(record is not None)
         record = yield self.directory.recordWithCalendarUserAddress(u"mailto:{}@do_not_reply".format("resource02".encode("hex")))
         self.assertTrue(record is None)
-
 
     @inlineCallbacks
     def test_calendarUserAddress_fake_email(self):

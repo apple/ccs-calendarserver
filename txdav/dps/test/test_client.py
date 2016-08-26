@@ -67,7 +67,6 @@ elif testMode == "od":
         pass
 
 
-
 class DPSClientSingleDirectoryTest(unittest.TestCase):
     """
     Tests the client against a single directory service (as opposed to the
@@ -110,12 +109,10 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
 
         self.patch(self.directory, "_sendCommand", newCall)
 
-
     @inlineCallbacks
     def test_uid(self):
         record = (yield self.directory.recordWithUID(testUID))
         self.assertTrue(testShortName in record.shortNames)
-
 
     @inlineCallbacks
     def test_shortName(self):
@@ -125,13 +122,11 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
         ))
         self.assertEquals(record.uid, testUID)
 
-
     @inlineCallbacks
     def test_guid(self):
         if testMode == "od":
             record = (yield self.directory.recordWithGUID(testUID))
             self.assertTrue(testShortName in record.shortNames)
-
 
     @inlineCallbacks
     def test_recordType(self):
@@ -141,7 +136,6 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
             ))
             self.assertEquals(len(records), 9)
 
-
     @inlineCallbacks
     def test_emailAddress(self):
         if testMode == "xml":
@@ -150,7 +144,6 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
             ))
             self.assertEquals(len(records), 1)
             self.assertEquals(records[0].shortNames, [u"cdaboo"])
-
 
     @inlineCallbacks
     def test_recordsMatchingTokens(self):
@@ -163,7 +156,6 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
                 matchingShortNames.add(shortName)
         self.assertTrue("dre" in matchingShortNames)
         self.assertTrue("wsanchez" in matchingShortNames)
-
 
     @inlineCallbacks
     def test_recordsMatchingFields_anyType(self):
@@ -183,7 +175,6 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
         self.assertTrue("wsanchez" in matchingShortNames)
         self.assertTrue("sanchezoffice" in matchingShortNames)
 
-
     @inlineCallbacks
     def test_recordsMatchingFields_oneType(self):
         fields = (
@@ -200,7 +191,6 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
         self.assertTrue("wsanchez" in matchingShortNames)
         # This location should *not* appear in the results
         self.assertFalse("sanchezoffice" in matchingShortNames)
-
 
     @inlineCallbacks
     def test_recordsMatchingFields_unsupportedField(self):
@@ -220,7 +210,6 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
         self.assertTrue("wsanchez" in matchingShortNames)
         self.assertTrue("sanchezoffice" in matchingShortNames)
 
-
     @inlineCallbacks
     def test_recordsMatchingFields_nonUnicode(self):
         fields = (
@@ -236,7 +225,6 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
                 matchingShortNames.add(shortName)
         self.assertTrue("dre" in matchingShortNames)
         self.assertFalse("wsanchez" in matchingShortNames)
-
 
     @inlineCallbacks
     def test_recordsMatchingFields_not(self):
@@ -259,7 +247,6 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
         self.assertTrue("wsanchez" not in matchingShortNames)
         self.assertTrue("sanchezoffice" not in matchingShortNames)
 
-
     @inlineCallbacks
     def test_recordsFromMatchExpression(self):
         expression = MatchExpression(
@@ -273,13 +260,11 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
 
     test_recordsFromMatchExpression.todo = "Won't work until we can serialize expressions"
 
-
     @inlineCallbacks
     def test_members(self):
         group = yield self.directory.recordWithUID(u"__calendar-dev__")
         members = yield group.members()
         self.assertEquals(len(members), 5)
-
 
     @inlineCallbacks
     def test_groups(self):
@@ -288,7 +273,6 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
         record = yield self.directory.recordWithUID(u"__sagen__")
         groups = yield record.groups()
         self.assertEquals(len(groups), 1)
-
 
     @inlineCallbacks
     def test_group_changes(self):
@@ -336,7 +320,6 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
         members = yield group.members()
         self.assertEquals(len(members), 5)
 
-
     @inlineCallbacks
     def test_verifyPlaintextPassword(self):
         expectations = (
@@ -354,7 +337,6 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
         for password, answer in expectations:
             authenticated = (yield record.verifyPlaintextPassword(password))
             self.assertEquals(authenticated, answer)
-
 
     @inlineCallbacks
     def test_verifyHTTPDigest(self):
@@ -392,7 +374,6 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
                     )
                 )
                 self.assertEquals(authenticated, answer)
-
 
 
 class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
@@ -433,14 +414,12 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
 
         self.patch(self.client, "_sendCommand", newCall)
 
-
     def configure(self):
         """
         Override configuration hook to turn on wiki.
         """
         super(DPSClientAugmentedAggregateDirectoryTest, self).configure()
         self.patch(config.Authentication.Wiki, "Enabled", True)
-
 
     @inlineCallbacks
     def test_setAutoScheduleMode(self):
@@ -457,12 +436,10 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
         # Verify it's changed
         self.assertEquals(record.autoScheduleMode, AutoScheduleMode.acceptIfFree)
 
-
     @inlineCallbacks
     def test_uid(self):
         record = (yield self.client.recordWithUID(self.wsanchezUID))
         self.assertTrue(u"wsanchez" in record.shortNames)
-
 
     @inlineCallbacks
     def test_shortName(self):
@@ -472,12 +449,10 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
         ))
         self.assertEquals(record.uid, self.wsanchezUID)
 
-
     @inlineCallbacks
     def test_guid(self):
         record = yield self.client.recordWithGUID(self.wsanchezUID)
         self.assertTrue(u"wsanchez" in record.shortNames)
-
 
     @inlineCallbacks
     def test_recordType(self):
@@ -486,7 +461,6 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
         ))
         self.assertEquals(len(records), 244)
 
-
     @inlineCallbacks
     def test_emailAddress(self):
         records = (yield self.client.recordsWithEmailAddress(
@@ -494,7 +468,6 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
         ))
         self.assertEquals(len(records), 1)
         self.assertEquals(records[0].shortNames, [u"wsanchez"])
-
 
     @inlineCallbacks
     def test_recordsMatchingTokens(self):
@@ -507,7 +480,6 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
                 matchingShortNames.add(shortName)
         self.assertTrue("dre" in matchingShortNames)
         self.assertTrue("wsanchez" in matchingShortNames)
-
 
     @inlineCallbacks
     def test_recordsMatchingTokensWithContext(self):
@@ -577,7 +549,6 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
             for name in unexpected:
                 self.assertFalse(name in matchingShortNames)
 
-
     @inlineCallbacks
     def test_recordsMatchingFields_anyType(self):
         fields = (
@@ -596,7 +567,6 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
         self.assertTrue("wsanchez" in matchingShortNames)
         self.assertTrue("sanchezoffice" in matchingShortNames)
 
-
     @inlineCallbacks
     def test_recordsMatchingFields_oneType(self):
         fields = (
@@ -613,7 +583,6 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
         self.assertTrue("wsanchez" in matchingShortNames)
         # This location should *not* appear in the results
         self.assertFalse("sanchezoffice" in matchingShortNames)
-
 
     @inlineCallbacks
     def test_recordsMatchingFields_unsupportedField(self):
@@ -633,7 +602,6 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
         self.assertTrue("wsanchez" in matchingShortNames)
         self.assertTrue("sanchezoffice" in matchingShortNames)
 
-
     @inlineCallbacks
     def test_recordsFromMatchExpression(self):
         expression = MatchExpression(
@@ -647,7 +615,6 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
 
     test_recordsFromMatchExpression.todo = "Won't work until we can serialize expressions"
 
-
     @inlineCallbacks
     def test_members(self):
         group = yield self.client.recordWithUID(u"__top_group_1__")
@@ -657,7 +624,6 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
         group = yield self.client.recordWithUID(u"emptygroup")
         members = yield group.members()
         self.assertEquals(len(members), 0)
-
 
     @inlineCallbacks
     def test_expandedMemberUIDs(self):
@@ -669,7 +635,6 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
                 [u'__wsanchez1__', u'__cdaboo1__', u'__glyph1__', u'__sagen1__']
             )
         )
-
 
     @inlineCallbacks
     def test_groups(self):
@@ -687,7 +652,6 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
         # self.assertEquals(len(groups), 1)
 
     test_groups.todo = "Figure out why this hangs"
-
 
     @inlineCallbacks
     def test_group_changes(self):
@@ -735,7 +699,6 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
         members = yield group.members()
         self.assertEquals(len(members), 3)
 
-
     @inlineCallbacks
     def test_verifyPlaintextPassword(self):
         expectations = (
@@ -752,7 +715,6 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
         for password, answer in expectations:
             authenticated = (yield record.verifyPlaintextPassword(password))
             self.assertEquals(authenticated, answer)
-
 
     @inlineCallbacks
     def test_verifyHTTPDigest(self):
@@ -790,7 +752,6 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
                     )
                 )
                 self.assertEquals(authenticated, answer)
-
 
 
 class DPSClientLargeResultsTest(unittest.TestCase):
@@ -863,7 +824,6 @@ class DPSClientLargeResultsTest(unittest.TestCase):
             return d
 
         self.patch(self.directory, "_call", newCall)
-
 
     @inlineCallbacks
     def test_tooBigResults(self):

@@ -27,7 +27,6 @@ from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
 from txdav.xml import element as davxml
 
 
-
 class Properties(StoreTestCase):
     """
     CalDAV properties
@@ -38,13 +37,11 @@ class Properties(StoreTestCase):
         yield StoreTestCase.setUp(self)
         self.authPrincipal = yield self.actualRoot.findPrincipalForAuthID("user01")
 
-
     def test_live_props(self):
         """
         Live CalDAV properties
         """
         calendar_uri = "/calendars/users/user01/test/"
-
 
         def mkcalendar_cb(response):
             response = IResponse(response)
@@ -154,7 +151,6 @@ class Properties(StoreTestCase):
 
         request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authPrincipal=self.authPrincipal)
         return self.send(request, mkcalendar_cb)
-
 
     def test_all_props(self):
         """

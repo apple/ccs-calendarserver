@@ -76,7 +76,6 @@ class ICalSplitter (unittest.TestCase):
 
         self.patch(config, "MaxAllowedInstances", 500)
 
-
     def test_will_split(self):
 
         data = (
@@ -618,7 +617,6 @@ END:VCALENDAR
             splitter = iCalSplitter(1024, 14)
             willSplitResult = splitter.willSplit(ical)
             self.assertEqual(willSplitResult, result, msg="Failed: %s" % (description,))
-
 
     def test_split(self):
 
@@ -2223,7 +2221,6 @@ END:VCALENDAR
             self.assertFalse(splitter.willSplit(icalNew)[0], "Failed future will split: %s" % (title,))
             self.assertFalse(splitter.willSplit(icalOld)[0], "Failed past will split: %s" % (title,))
 
-
     def test_split_negative_count(self):
 
         data = (
@@ -2325,7 +2322,6 @@ END:VCALENDAR
             relsubs["relID"] = icalOld.mainComponent().propertyValue("RELATED-TO") if icalOld.mainComponent() else icalNew.mainComponent().propertyValue("RELATED-TO")
             self.assertEqual(str(icalNew).replace("\r\n ", ""), split_future.replace("\n", "\r\n") % relsubs, "Failed future: %s" % (title,))
             self.assertEqual(str(icalOld).replace("\r\n ", ""), split_past.replace("\n", "\r\n") % relsubs, "Failed past: %s" % (title,))
-
 
     def test_future_split(self):
 

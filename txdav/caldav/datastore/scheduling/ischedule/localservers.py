@@ -47,6 +47,7 @@ log = Logger()
 
 SERVER_SECRET_HEADER = "X-CALENDARSERVER-ISCHEDULE"
 
+
 class ServersDB(object):
     """
     Represents the set of servers within the same domain.
@@ -57,7 +58,6 @@ class ServersDB(object):
         self._servers = {}
         self._xmlFile = None
         self._thisServer = None
-
 
     def load(self, xmlFile=None, ignoreIPLookupFailures=False):
         if self._xmlFile is None or xmlFile is not None:
@@ -77,22 +77,18 @@ class ServersDB(object):
         else:
             raise ValueError("No server in {} matches this server.".format(self._xmlFile,))
 
-
     def clear(self):
         self._servers = {}
         self._xmlFile = None
         self._thisServer = None
-
 
     def addServer(self, server):
         self._servers[server.id] = server
         if server.thisServer:
             self._thisServer = server
 
-
     def getServerById(self, id):
         return self._servers.get(id)
-
 
     def getServerURIById(self, id):
         try:
@@ -100,14 +96,11 @@ class ServersDB(object):
         except KeyError:
             return None
 
-
     def getThisServer(self):
         return self._thisServer
 
-
     def allServersExceptThis(self, filter_v5=False):
         return filter(lambda x: x != self._thisServer and not (filter_v5 and x.v5), self._servers.values())
-
 
     def installReverseProxies(self, maxClients):
         """
@@ -127,13 +120,11 @@ class ServersDB(object):
             )
 
 
-
 def buildServersDB(maxClients=5):
     serversDB = ServersDB()
     serversDB.load()
     serversDB.installReverseProxies(maxClients)
     return serversDB
-
 
 
 class Server(object):
@@ -150,12 +141,10 @@ class Server(object):
         self.shared_secret = sharedSecret
         self.v5 = False   # Needs old style urn:uuid cu-address
 
-
     def details(self):
         if not hasattr(self, "ssl"):
             self._parseDetails()
         return (self.ssl, self.host, self.port, self.path,)
-
 
     def check(self, ignoreIPLookupFailures=False):
         # Check whether this matches the current server
@@ -196,21 +185,17 @@ class Server(object):
                 actual_ips.add(item)
         self.allowed_from_ips = actual_ips
 
-
     def checkThisIP(self, ip):
         """
         Check that the passed in IP address corresponds to this server.
         """
         return (ip in self.ips)
 
-
     def hasAllowedFromIP(self):
         return len(self.allowed_from_ips) > 0
 
-
     def checkAllowedFromIP(self, ip):
         return ip in self.allowed_from_ips
-
 
     def checkSharedSecret(self, headers):
 
@@ -238,13 +223,11 @@ class Server(object):
         else:
             return True
 
-
     def secretHeader(self):
         """
         Return a tuple of header name, header value
         """
         return (SERVER_SECRET_HEADER, self.shared_secret,)
-
 
     def _parseDetails(self):
         # Extract scheme, host, port and path
@@ -267,7 +250,6 @@ class Server(object):
             self.path += splits[1]
 
 
-
 ELEMENT_SERVERS = "servers"
 ELEMENT_SERVER = "server"
 ELEMENT_ID = "id"
@@ -277,6 +259,7 @@ ELEMENT_SHARED_SECRET = "shared-secret"
 ATTR_V5 = "v5"
 ATTR_VALUE_YES = "yes"
 ATTR_VALUE_NO = "no"
+
 
 class ServersParser(object):
     """

@@ -30,7 +30,6 @@ class AugmentTest(StoreTestCase):
         yield super(AugmentTest, self).setUp()
         self.groupCacher = GroupCacher(self.directory)
 
-
     @inlineCallbacks
     def test_groups(self):
         """

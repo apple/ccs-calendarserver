@@ -22,6 +22,7 @@ from getpass import getpass
 import os
 import sys
 
+
 def usage(e=None):
     name = os.path.basename(sys.argv[0])
     print("usage: %s [options]" % (name,))
@@ -38,7 +39,6 @@ def usage(e=None):
         sys.exit(1)
     else:
         sys.exit(0)
-
 
 
 def lookupRecordName(node, recordType, ctr):
@@ -66,17 +66,16 @@ def lookupRecordName(node, recordType, ctr):
     return records[0]
 
 
-
 def createRecord(node, recordType, ctr):
     recordName = "user{:02d}".format(ctr)
     attrs = {
-        dsattributes.kDS1AttrFirstName : ["User"],
-        dsattributes.kDS1AttrLastName  : ["{:02d}".format(ctr)],
-        dsattributes.kDS1AttrDistinguishedName : ["User {:02d}".format(ctr)],
-        dsattributes.kDSNAttrEMailAddress : ["user{:02d}@example.com".format(ctr)],
-        dsattributes.kDS1AttrGeneratedUID : ["10000000-0000-0000-0000-000000000{:03d}".format(ctr)],
-        dsattributes.kDS1AttrUniqueID : ["33{:03d}".format(ctr)],
-        dsattributes.kDS1AttrPrimaryGroupID : ["20"],
+        dsattributes.kDS1AttrFirstName: ["User"],
+        dsattributes.kDS1AttrLastName: ["{:02d}".format(ctr)],
+        dsattributes.kDS1AttrDistinguishedName: ["User {:02d}".format(ctr)],
+        dsattributes.kDSNAttrEMailAddress: ["user{:02d}@example.com".format(ctr)],
+        dsattributes.kDS1AttrGeneratedUID: ["10000000-0000-0000-0000-000000000{:03d}".format(ctr)],
+        dsattributes.kDS1AttrUniqueID: ["33{:03d}".format(ctr)],
+        dsattributes.kDS1AttrPrimaryGroupID: ["20"],
     }
     record, error = node.createRecordWithRecordType_name_attributes_error_(
         recordType,
@@ -87,7 +86,6 @@ def createRecord(node, recordType, ctr):
         print(error)
         raise ODError(error)
     return record
-
 
 
 def main():
@@ -161,11 +159,10 @@ def main():
             userRecords.append(record)
 
 
-
 class ODError(Exception):
+
     def __init__(self, error):
         self.message = (str(error), error.code())
-
 
 
 if __name__ == "__main__":

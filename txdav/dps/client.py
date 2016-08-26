@@ -64,7 +64,6 @@ log = Logger()
 #
 
 
-
 # MOVE2WHO TODOs:
 # LDAP
 # Store based directory service (records in the store, i.e.
@@ -91,7 +90,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
          txdav.who.idirectory.FieldName,
          txdav.who.augment.FieldName)
     )
-
 
     def _dictToRecord(self, serializedFields):
         """
@@ -128,7 +126,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         # print("AFTER:", fields)
         return DirectoryRecord(self, fields)
 
-
     def _processSingleRecord(self, result):
         """
         Takes a dictionary with a "fields" key whose value is a pickled
@@ -136,7 +133,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         """
         serializedFields = pickle.loads(result['fields'])
         return self._dictToRecord(serializedFields)
-
 
     def _processMultipleRecords(self, result):
         """
@@ -155,7 +151,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
                 results.append(record)
         return results
 
-
     @inlineCallbacks
     def _getConnection(self):
 
@@ -168,7 +163,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             )
             self._connection = connection
         returnValue(self._connection)
-
 
     @inlineCallbacks
     def _sendCommand(self, command, **kwds):
@@ -189,7 +183,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             raise
         returnValue(results)
 
-
     def _logResultTiming(self, command, startTime, results):
         duration = time.time() - startTime
         numResults = 0
@@ -201,7 +194,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             "DPS call {command} duration={duration:.2f}ms, results={numResults}",
             command=command, duration=1000.0 * duration, numResults=numResults
         )
-
 
     @inlineCallbacks
     def _call(self, command, postProcess, **kwds):
@@ -244,7 +236,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         self._logResultTiming(command, startTime, results)
         returnValue(postProcess(results))
 
-
     def recordWithShortName(self, recordType, shortName, timeoutSeconds=None):
         # MOVE2WHO
         # temporary hack until we can fix all callers not to pass strings:
@@ -269,7 +260,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             **kwds
         )
 
-
     def recordWithUID(self, uid, timeoutSeconds=None):
         # MOVE2WHO, REMOVE THIS:
         if not isinstance(uid, unicode):
@@ -288,7 +278,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             **kwds
         )
 
-
     def recordWithGUID(self, guid, timeoutSeconds=None):
         kwds = {
             "guid": str(guid),
@@ -301,7 +290,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             self._processSingleRecord,
             **kwds
         )
-
 
     def recordsWithRecordType(
         self, recordType, limitResults=None, timeoutSeconds=None
@@ -318,7 +306,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             self._processMultipleRecords,
             **kwds
         )
-
 
     def recordsWithEmailAddress(
         self, emailAddress, limitResults=None, timeoutSeconds=None
@@ -337,7 +324,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             **kwds
         )
 
-
     def recordsMatchingTokens(
         self, tokens, context=None, limitResults=None, timeoutSeconds=None
     ):
@@ -355,7 +341,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             self._processMultipleRecords,
             **kwds
         )
-
 
     def recordsMatchingFields(
         self, fields, operand=Operand.OR, recordType=None,
@@ -388,13 +373,11 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         if timeoutSeconds is not None:
             kwds["timeoutSeconds"] = timeoutSeconds
 
-
         return self._call(
             RecordsMatchingFieldsCommand,
             self._processMultipleRecords,
             **kwds
         )
-
 
     def recordsWithDirectoryBasedDelegates(self):
         return self._call(
@@ -402,13 +385,11 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             self._processMultipleRecords
         )
 
-
     def recordsFromExpression(self, expression, recordTypes=None):
         raise NotImplementedError(
             "This won't work until expressions are serializable to send "
             "across AMP"
         )
-
 
     def updateRecords(self, records, create=False):
         # FIXME: cannot create right now
@@ -422,14 +403,12 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             create=False,
         )
 
-
     def setAutoScheduleMode(self, record, autoScheduleMode):
         return self._sendCommand(
             SetAutoScheduleModeCommand,
             uid=record.uid.encode("utf-8"),
             autoScheduleMode=autoScheduleMode.name,
         )
-
 
     @inlineCallbacks
     def flush(self):
@@ -438,7 +417,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             returnValue(None)
         except ConnectError:
             returnValue(None)
-
 
     @inlineCallbacks
     def stats(self):
@@ -449,10 +427,8 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             returnValue({})
 
 
-
 @implementer(ICalendarStoreDirectoryRecord)
 class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
-
 
     def verifyPlaintextPassword(self, password):
         if isinstance(password, unicode):
@@ -463,7 +439,6 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
             uid=self.uid.encode("utf-8"),
             password=password,
         )
-
 
     def verifyHTTPDigest(
         self, username, realm, uri, nonce, cnonce,
@@ -485,7 +460,6 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
             method=method.encode("utf-8"),
         )
 
-
     def members(self):
         if self.recordType in (
             RecordType.group,
@@ -501,7 +475,6 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
             )
         else:
             return succeed([])
-
 
     def expandedMembers(self):
         """
@@ -521,14 +494,12 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
         else:
             return succeed([])
 
-
     def groups(self):
         return self.service._call(
             GroupsCommand,
             self.service._processMultipleRecords,
             uid=self.uid.encode("utf-8")
         )
-
 
     def addMembers(self, members):
         log.debug("DPS Client addMembers")
@@ -540,7 +511,6 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
             memberUIDs=memberUIDs
         )
 
-
     def removeMembers(self, members):
         log.debug("DPS Client removeMembers")
         memberUIDs = [m.uid.encode("utf-8") for m in members]
@@ -550,7 +520,6 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
             uid=self.uid.encode("utf-8"),
             memberUIDs=memberUIDs
         )
-
 
     def setMembers(self, members):
         log.debug("DPS Client setMembers")
@@ -562,13 +531,11 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
             memberUIDs=memberUIDs
         )
 
-
     def _convertUIDs(self, results):
         uids = []
         for uid in results["items"]:
             uids.append(uid.decode("utf-8"))
         return uids
-
 
     def expandedMemberUIDs(self):
         log.debug("DPS Client expandedMemberUIDs")
@@ -581,11 +548,9 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
         else:
             return succeed([])
 
-
     def _convertAccess(self, results):
         access = results["access"].decode("utf-8")
         return txdav.who.wiki.WikiAccessLevel.lookupByName(access)
-
 
     def accessForRecord(self, record):
         log.debug("DPS Client accessForRecord")
@@ -595,7 +560,6 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
             wikiUID=self.uid.encode("utf-8"),
             uid=record.uid.encode("utf-8") if record else ""
         )
-
 
 
 # Test client:
@@ -629,11 +593,9 @@ def makeEvenBetterRequest():
     # print("emailAddress: {r}".format(r=records))
 
 
-
 def succeeded(result):
     print("yay")
     reactor.stop()
-
 
 
 def failed(failure):

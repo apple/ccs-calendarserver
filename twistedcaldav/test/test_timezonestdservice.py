@@ -22,6 +22,7 @@ import hashlib
 import os
 import twistedcaldav.test.util
 
+
 class TestTimezoneInfo (twistedcaldav.test.util.TestCase):
     """
     Timezone support tests
@@ -42,7 +43,6 @@ class TestTimezoneInfo (twistedcaldav.test.util.TestCase):
         self.assertEqual(timezone.findtext("alias"), "US/Eastern")
         self.assertEqual(timezone.findtext("md5"), hashed)
 
-
     def test_parseXML(self):
 
         hashed = hashlib.md5("test").hexdigest()
@@ -60,7 +60,6 @@ class TestTimezoneInfo (twistedcaldav.test.util.TestCase):
         self.assertEqual(info2.md5, hashed)
 
 
-
 class TestPrimaryTimezoneDatabase (twistedcaldav.test.util.TestCase):
     """
     Timezone support tests
@@ -68,7 +67,6 @@ class TestPrimaryTimezoneDatabase (twistedcaldav.test.util.TestCase):
 
     def setUp(self):
         TimezoneCache.create()
-
 
     def testCreate(self):
 
@@ -79,7 +77,6 @@ class TestPrimaryTimezoneDatabase (twistedcaldav.test.util.TestCase):
         self.assertTrue(os.path.exists(xmlfile))
         self.assertTrue(db.dtstamp is not None)
         self.assertTrue(len(db.timezones) > 0)
-
 
     def testUpdate(self):
 
@@ -93,7 +90,6 @@ class TestPrimaryTimezoneDatabase (twistedcaldav.test.util.TestCase):
         self.assertTrue(db.changeCount == 0)
         self.assertTrue(len(db.changed) == 0)
 
-
     def testRead(self):
 
         xmlfile = self.mktemp()
@@ -106,7 +102,6 @@ class TestPrimaryTimezoneDatabase (twistedcaldav.test.util.TestCase):
         self.assertEqual(db1.dtstamp, db2.dtstamp)
         self.assertEqual(len(db1.timezones), len(db2.timezones))
 
-
     def testList(self):
 
         xmlfile = self.mktemp()
@@ -118,7 +113,6 @@ class TestPrimaryTimezoneDatabase (twistedcaldav.test.util.TestCase):
         self.assertTrue("America/New_York" in tzids)
         self.assertTrue("US/Eastern" not in tzids)
 
-
     def testListChangedSince(self):
 
         xmlfile = self.mktemp()
@@ -129,7 +123,6 @@ class TestPrimaryTimezoneDatabase (twistedcaldav.test.util.TestCase):
         tzids = set([tz.tzid for tz in db.listTimezones(db.dtstamp)])
         self.assertTrue(len(tzids) == 0)
 
-
     def testGetNone(self):
 
         xmlfile = self.mktemp()
@@ -139,7 +132,6 @@ class TestPrimaryTimezoneDatabase (twistedcaldav.test.util.TestCase):
 
         tz = db.getTimezone("Bogus")
         self.assertEqual(tz, None)
-
 
     def testGetOne(self):
 

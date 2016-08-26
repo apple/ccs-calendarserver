@@ -65,31 +65,29 @@ class ProcessCountTestCase(TestCase):
             )
 
 
-
 # Stub classes for MemoryLimitServiceTestCase
 
 class StubProtocol(object):
+
     def __init__(self, transport):
         self.transport = transport
 
 
-
 class StubProcess(object):
+
     def __init__(self, pid):
         self.pid = pid
 
 
-
 class StubProcessMonitor(object):
+
     def __init__(self, processes, protocols):
         self.processes = processes
         self.protocols = protocols
         self.history = []
 
-
     def stopProcess(self, name):
         self.history.append(name)
-
 
 
 class MemoryLimitServiceTestCase(TestCase):
@@ -139,7 +137,6 @@ class MemoryLimitServiceTestCase(TestCase):
         clock.advance(10)
         self.assertEquals(processMonitor.history, ['process #1', 'process #2', 'process #3'])
 
-
     def test_memoryForPID(self):
         """
         Test that L{memoryForPID} returns a valid result.
@@ -147,7 +144,6 @@ class MemoryLimitServiceTestCase(TestCase):
 
         memory = memoryForPID(os.getpid())
         self.assertNotEqual(memory, 0)
-
 
 
 #
@@ -160,13 +156,11 @@ class Step(object):
         self._recordCallback = recordCallback
         self._shouldFail = shouldFail
 
-
     def stepWithResult(self, result):
         self._recordCallback(self.successValue, None)
         if self._shouldFail:
             1 / 0
         return succeed(result)
-
 
     def stepWithFailure(self, failure):
         self._recordCallback(self.errorValue, failure)
@@ -174,11 +168,9 @@ class Step(object):
             return failure
 
 
-
 class StepOne(Step):
     successValue = "one success"
     errorValue = "one failure"
-
 
 
 class StepTwo(Step):
@@ -186,17 +178,14 @@ class StepTwo(Step):
     errorValue = "two failure"
 
 
-
 class StepThree(Step):
     successValue = "three success"
     errorValue = "three failure"
 
 
-
 class StepFour(Step):
     successValue = "four success"
     errorValue = "four failure"
-
 
 
 class StepperTestCase(TestCase):
@@ -205,10 +194,8 @@ class StepperTestCase(TestCase):
         self.history = []
         self.stepper = Stepper()
 
-
     def _record(self, value, failure):
         self.history.append(value)
-
 
     @inlineCallbacks
     def test_allSuccess(self):
@@ -227,7 +214,6 @@ class StepperTestCase(TestCase):
             self.history,
             ['one success', 'two success', 'three success', 'four success'])
 
-
     def test_allFailure(self):
         self.stepper.addStep(StepOne(self._record, True))
         self.stepper.addStep(StepTwo(self._record, True))
@@ -237,7 +223,6 @@ class StepperTestCase(TestCase):
         self.assertEquals(
             self.history,
             ['one success', 'two failure', 'three failure', 'four failure'])
-
 
     @inlineCallbacks
     def test_partialFailure(self):
@@ -250,7 +235,6 @@ class StepperTestCase(TestCase):
         self.assertEquals(
             self.history,
             ['one success', 'two failure', 'three success', 'four failure'])
-
 
 
 class PreFlightChecksTestCase(TestCase):
@@ -269,7 +253,6 @@ class PreFlightChecksTestCase(TestCase):
         )
         self.assertFalse(success)
 
-
     def test_emptyCertificate(self):
         certFilePath = FilePath(self.mktemp())
         certFilePath.setContent("")
@@ -282,7 +265,6 @@ class PreFlightChecksTestCase(TestCase):
             )
         )
         self.assertFalse(success)
-
 
     def test_bogusCertificate(self):
         certFilePath = FilePath(self.mktemp())
@@ -302,7 +284,6 @@ class PreFlightChecksTestCase(TestCase):
             )
         )
         self.assertFalse(success)
-
 
 
 class AlertTestCase(TestCase):
@@ -341,12 +322,10 @@ class AlertTestCase(TestCase):
             12
         )
 
-
     def stubPostAlert(self, alertType, ignoreWithinSeconds, args):
         self.alertType = alertType
         self.ignoreWithinSeconds = ignoreWithinSeconds
         self.args = args
-
 
     def test_protocol(self):
         self.patch(AlertPoster, "postAlert", self.stubPostAlert)

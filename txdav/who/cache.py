@@ -61,7 +61,6 @@ class IndexType(Values):
     emailAddress = ValueConstant("emailAddress")
 
 
-
 @implementer(IDirectoryService, IStoreDirectoryService)
 class CachingDirectoryService(
     BaseDirectoryService, CalendarDirectoryServiceMixin
@@ -77,7 +76,6 @@ class CachingDirectoryService(
         BaseFieldName,
         FieldName,
     ))
-
 
     def __init__(self, directory, expireSeconds=30):
         BaseDirectoryService.__init__(self, directory.realmName)
@@ -101,13 +99,11 @@ class CachingDirectoryService(
         self._expireSeconds = expireSeconds
         self.resetCache()
 
-
     def setTimingMethod(self, f):
         """
         Replace the default no-op timing method
         """
         self._addTiming = f
-
 
     def _addTiming(self, key, duration):
         """
@@ -115,7 +111,6 @@ class CachingDirectoryService(
         with a callable that takes a key such as a method name, and a duration.
         """
         pass
-
 
     def resetCache(self):
         """
@@ -131,7 +126,6 @@ class CachingDirectoryService(
         self._requestCount = 0
         self._lookupsUntilScan = SCAN_AFTER_LOOKUP_COUNT
 
-
     def setTestTime(self, timestamp):
         """
         Only used for unit tests to override the notion of "now"
@@ -140,7 +134,6 @@ class CachingDirectoryService(
         @type timestamp: C{float}
         """
         self._test_time = timestamp
-
 
     def cacheRecord(self, record, indexTypes):
         """
@@ -177,7 +170,6 @@ class CachingDirectoryService(
             except AttributeError:
                 pass
 
-
     def purgeRecord(self, record):
         """
         Remove a record from all indices in the cache
@@ -210,7 +202,6 @@ class CachingDirectoryService(
         except AttributeError:
             pass
 
-
     def purgeExpiredRecords(self):
         """
         Scans the cache for expired records and deletes them
@@ -224,7 +215,6 @@ class CachingDirectoryService(
             for key, (cachedTime, _ignore_record) in self._cache[indexType].items():
                 if now - self._expireSeconds > cachedTime:
                     del self._cache[indexType][key]
-
 
     def lookupRecord(self, indexType, key, name):
         """
@@ -286,7 +276,6 @@ class CachingDirectoryService(
         self._addTiming("{}-miss".format(name), 0)
         return None
 
-
     # Cached methods:
 
     @inlineCallbacks
@@ -307,7 +296,6 @@ class CachingDirectoryService(
 
         returnValue(record)
 
-
     @inlineCallbacks
     def recordWithGUID(self, guid, timeoutSeconds=None):
 
@@ -325,7 +313,6 @@ class CachingDirectoryService(
                 )
 
         returnValue(record)
-
 
     @inlineCallbacks
     def recordWithShortName(self, recordType, shortName, timeoutSeconds=None):
@@ -348,7 +335,6 @@ class CachingDirectoryService(
                 )
 
         returnValue(record)
-
 
     @inlineCallbacks
     def recordsWithEmailAddress(
@@ -388,7 +374,6 @@ class CachingDirectoryService(
 
         returnValue(records)
 
-
     # Uncached methods:
 
     @property
@@ -396,11 +381,9 @@ class CachingDirectoryService(
         # Defer to the directory service we're caching
         return self._directory.recordType
 
-
     def recordTypes(self):
         # Defer to the directory service we're caching
         return self._directory.recordTypes()
-
 
     def recordsFromExpression(
         self, expression, recordTypes=None, records=None,
@@ -412,7 +395,6 @@ class CachingDirectoryService(
             limitResults=limitResults, timeoutSeconds=timeoutSeconds
         )
 
-
     def recordsWithFieldValue(
         self, fieldName, value,
         limitResults=None, timeoutSeconds=None
@@ -423,16 +405,13 @@ class CachingDirectoryService(
             limitResults=limitResults, timeoutSeconds=timeoutSeconds
         )
 
-
     def updateRecords(self, records, create=False):
         # Defer to the directory service we're caching
         return self._directory.updateRecords(records, create=create)
 
-
     def removeRecords(self, uids):
         # Defer to the directory service we're caching
         return self._directory.removeRecords(uids)
-
 
     def recordsWithRecordType(
         self, recordType, limitResults=None, timeoutSeconds=None
@@ -442,7 +421,6 @@ class CachingDirectoryService(
             recordType, limitResults=limitResults, timeoutSeconds=timeoutSeconds
         )
 
-
     def recordsMatchingTokens(
         self, tokens, context=None, limitResults=None, timeoutSeconds=None
     ):
@@ -450,7 +428,6 @@ class CachingDirectoryService(
             tokens, context=context,
             limitResults=limitResults, timeoutSeconds=timeoutSeconds
         )
-
 
     def recordsMatchingFields(
         self, fields, operand, recordType,
@@ -461,10 +438,8 @@ class CachingDirectoryService(
             limitResults=limitResults, timeoutSeconds=timeoutSeconds
         )
 
-
     def recordsWithDirectoryBasedDelegates(self):
         return self._directory.recordsWithDirectoryBasedDelegates()
-
 
     def recordWithCalendarUserAddress(self, cua, timeoutSeconds=None):
         # This will get cached by the underlying recordWith... call
@@ -472,16 +447,13 @@ class CachingDirectoryService(
             self, cua, timeoutSeconds=timeoutSeconds
         )
 
-
     def serversDB(self):
         return self._directory.serversDB()
-
 
     @inlineCallbacks
     def flush(self):
         self.resetCache()
         yield self._directory.flush()
-
 
     def stats(self):
         return self._directory.stats()

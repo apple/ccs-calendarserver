@@ -40,30 +40,27 @@ import os
 
 log = Logger()
 
+
 class NotificationResource(CalDAVResource):
     """
     An xml resource in a Notification collection.
     """
+
     def __init__(self, parent):
         self._parent = parent
         CalDAVResource.__init__(self)
 
-
     def principalCollections(self):
         return self._parent.principalCollections()
-
 
     def isCollection(self):
         return False
 
-
     def resourceName(self):
         raise NotImplementedError
 
-
     def http_PUT(self, request):
         return responsecode.FORBIDDEN
-
 
     @inlineCallbacks
     def http_DELETE(self, request):
@@ -74,7 +71,6 @@ class NotificationResource(CalDAVResource):
         returnValue(response)
 
 
-
 class NotificationCollectionResource(ReadOnlyNoCopyResourceMixIn, CalDAVResource):
 
     def notificationsDB(self):
@@ -83,22 +79,17 @@ class NotificationCollectionResource(ReadOnlyNoCopyResourceMixIn, CalDAVResource
             self._notificationsDB = NotificationsDatabase(self)
         return self._notificationsDB
 
-
     def isCollection(self):
         return True
-
 
     def resourceType(self):
         return davxml.ResourceType.notification
 
-
     def getNotifictionMessages(self, request, componentType=None, returnLatestVersion=True):
         return succeed([])
 
-
     def getNotifictionMessageByUID(self, request, uid):
         return maybeDeferred(self.notificationsDB().recordForUID, uid)
-
 
     @inlineCallbacks
     def deleteNotifictionMessageByUID(self, request, uid):
@@ -107,7 +98,6 @@ class NotificationCollectionResource(ReadOnlyNoCopyResourceMixIn, CalDAVResource
         record = yield self.notificationsDB().recordForUID(uid)
         if record:
             yield self.deleteNotification(request, record)
-
 
     @inlineCallbacks
     def deleteNotifictionMessageByName(self, request, rname):
@@ -119,16 +109,13 @@ class NotificationCollectionResource(ReadOnlyNoCopyResourceMixIn, CalDAVResource
 
         returnValue(None)
 
-
     @inlineCallbacks
     def deleteNotification(self, request, record):
         yield self._deleteNotification(request, record.name)
         yield self.notificationsDB().removeRecordForUID(record.uid)
 
-
     def removedNotifictionMessage(self, request, rname):
         return maybeDeferred(self.notificationsDB().removeRecordForName, rname)
-
 
 
 class NotificationRecord(object):
@@ -137,7 +124,6 @@ class NotificationRecord(object):
         self.uid = uid
         self.name = name
         self.notificationtype = notificationtype if isinstance(notificationtype, dict) else json.loads(notificationtype)
-
 
 
 class NotificationsDatabase(AbstractSQLDatabase):
@@ -159,18 +145,15 @@ class NotificationsDatabase(AbstractSQLDatabase):
         self.resource._txn.postCommit(self._db_close)
         self.resource._txn.postAbort(self._db_close)
 
-
     def allRecords(self):
 
         records = self._db_execute("select * from NOTIFICATIONS")
         return [self._makeRecord(row) for row in (records if records is not None else ())]
 
-
     def recordForUID(self, uid):
 
         row = self._db_execute("select * from NOTIFICATIONS where UID = :1", uid)
         return self._makeRecord(row[0]) if row else None
-
 
     def addOrUpdateRecord(self, record):
 
@@ -187,12 +170,10 @@ class NotificationsDatabase(AbstractSQLDatabase):
             """, record.name, self.bumpRevision(fast=True), 'N',
         )
 
-
     def removeRecordForUID(self, uid):
 
         record = self.recordForUID(uid)
         self.removeRecordForName(record.name)
-
 
     def removeRecordForName(self, rname):
 
@@ -203,7 +184,6 @@ class NotificationsDatabase(AbstractSQLDatabase):
             where NAME = :3
             """, self.bumpRevision(fast=True), 'Y', rname
         )
-
 
     def whatchanged(self, revision):
 
@@ -224,12 +204,10 @@ class NotificationsDatabase(AbstractSQLDatabase):
 
         return changed, deleted,
 
-
     def lastRevision(self):
         return self._db_value_for_sql(
             "select REVISION from REVISION_SEQUENCE"
         )
-
 
     def bumpRevision(self, fast=False):
         self._db_execute(
@@ -244,20 +222,17 @@ class NotificationsDatabase(AbstractSQLDatabase):
             """,
         )
 
-
     def _db_version(self):
         """
         @return: the schema version assigned to this index.
         """
         return NotificationsDatabase.schema_version
 
-
     def _db_type(self):
         """
         @return: the collection type assigned to this index.
         """
         return NotificationsDatabase.db_type
-
 
     def _db_init_data_tables(self, q):
         """
@@ -319,7 +294,6 @@ class NotificationsDatabase(AbstractSQLDatabase):
             """
         )
 
-
     def _db_upgrade_data_tables(self, q, old_version):
         """
         Upgrade the data from an older version of the DB.
@@ -327,7 +301,6 @@ class NotificationsDatabase(AbstractSQLDatabase):
 
         # Nothing to do as we have not changed the schema
         pass
-
 
     def _makeRecord(self, row):
 

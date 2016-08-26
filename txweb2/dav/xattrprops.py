@@ -65,7 +65,6 @@ if hasattr(errno, "ENODATA"):
     _ATTR_MISSING += (errno.ENODATA,)
 
 
-
 class xattrPropertyStore (object):
     """
 
@@ -88,14 +87,12 @@ class xattrPropertyStore (object):
     if sys.platform == "linux2":
         deadPropertyXattrPrefix = "user."
 
-
     def _encode(clazz, name, uid=None):
         result = urllib.quote(encodeXMLName(*name), safe='{}:')
         if uid:
             result = uid + result
         r = clazz.deadPropertyXattrPrefix + result
         return r
-
 
     def _decode(clazz, name):
         name = urllib.unquote(name[len(clazz.deadPropertyXattrPrefix):])
@@ -120,7 +117,6 @@ class xattrPropertyStore (object):
     def __init__(self, resource):
         self.resource = resource
         self.attrs = xattr.xattr(self.resource.fp.path)
-
 
     def get(self, qname, uid=None):
         """
@@ -202,7 +198,6 @@ class xattrPropertyStore (object):
 
         return doc.root_element
 
-
     def set(self, property, uid=None):
         """
         Store the given property as an extended attribute on the wrapped path.
@@ -217,7 +212,6 @@ class xattrPropertyStore (object):
 
         # Update the resource because we've modified it
         self.resource.fp.restat()
-
 
     def delete(self, qname, uid=None):
         """
@@ -243,7 +237,6 @@ class xattrPropertyStore (object):
                 statusForFailure(Failure()),
                 "Unable to delete property: %s", (key,)
             ))
-
 
     def contains(self, qname, uid=None):
         """
@@ -272,7 +265,6 @@ class xattrPropertyStore (object):
             ))
         else:
             return True
-
 
     def list(self, uid=None, filterByUID=True):
         """

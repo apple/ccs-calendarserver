@@ -51,7 +51,6 @@ class AttachmentsConduitMixin(object):
         response = yield self.sendRequestToServer(txn, server, request, stream, content_type)
         returnValue(response)
 
-
     @inlineCallbacks
     def recv_add_attachment(self, txn, request):
         """
@@ -70,7 +69,6 @@ class AttachmentsConduitMixin(object):
         )
 
         returnValue((attachment.managedID(), attachment.size(), location,))
-
 
     @inlineCallbacks
     def send_update_attachment(self, objectResource, managed_id, content_type, filename, stream):
@@ -97,7 +95,6 @@ class AttachmentsConduitMixin(object):
         response = yield self.sendRequestToServer(txn, server, request, stream, content_type)
         returnValue(response)
 
-
     @inlineCallbacks
     def recv_update_attachment(self, txn, request):
         """
@@ -116,7 +113,6 @@ class AttachmentsConduitMixin(object):
         )
 
         returnValue((attachment.managedID(), attachment.size(), location,))
-
 
     @inlineCallbacks
     def send_remove_attachment(self, objectResource, rids, managed_id):
@@ -138,7 +134,6 @@ class AttachmentsConduitMixin(object):
 
         yield self.sendRequestToServer(txn, server, request)
 
-
     @inlineCallbacks
     def recv_remove_attachment(self, txn, request):
         """
@@ -153,7 +148,6 @@ class AttachmentsConduitMixin(object):
             request["rids"],
             request["managedID"],
         )
-
 
     @inlineCallbacks
     def send_get_attachment_data(self, home, attachment_id, stream):
@@ -175,7 +169,6 @@ class AttachmentsConduitMixin(object):
 
         response = yield self.sendRequestToServer(txn, server, request, writeStream=stream)
         returnValue(response)
-
 
     @inlineCallbacks
     def recv_get_attachment_data(self, txn, request, stream):

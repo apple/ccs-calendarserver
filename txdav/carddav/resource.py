@@ -32,6 +32,7 @@ from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVResource
 
+
 class CardDAVResource(DAVResource):
     """
     CardDAV resource.
@@ -40,10 +41,9 @@ class CardDAVResource(DAVResource):
 
     def davComplianceClasses(self):
         return (
-            tuple(super(CardDAVResource, self).davComplianceClasses())
-            + config.CardDAVComplianceClasses
+            tuple(super(CardDAVResource, self).davComplianceClasses()) +
+            config.CardDAVComplianceClasses
         )
-
 
 
 class AddressBookHomeResource(CardDAVResource):
@@ -52,7 +52,6 @@ class AddressBookHomeResource(CardDAVResource):
 
     This resource is backed by an L{IAddressBookHome} implementation.
     """
-
 
 
 class AddressBookCollectionResource(CardDAVResource):
@@ -75,7 +74,6 @@ class AddressBookCollectionResource(CardDAVResource):
             (dav_namespace, "owner"),
             (carddav_namespace, "supported-addressbook-data"),
         )
-
 
 
 class AddressBookObjectResource(CardDAVResource):

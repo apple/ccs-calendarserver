@@ -22,6 +22,7 @@ __all__ = [
     "AddressDataFilter",
 ]
 
+
 class AddressDataFilter(AddressFilter):
     """
     Filter using the CARDDAV:address-data element specification
@@ -35,7 +36,6 @@ class AddressDataFilter(AddressFilter):
         """
 
         self.addressdata = addressdata
-
 
     def filter(self, vcard):
         """
@@ -59,7 +59,6 @@ class AddressDataFilter(AddressFilter):
             vcard = self.propFilter(self.addressdata.properties, vcard)
 
         return vcard
-
 
     def propFilter(self, properties, vcard):
         """
@@ -90,7 +89,6 @@ class AddressDataFilter(AddressFilter):
                         result.addProperty(vcard.getProperty(requiredProperty))
 
         return result
-
 
     def merge(self, vcardnew, vcardold):
         """

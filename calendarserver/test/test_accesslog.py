@@ -24,6 +24,7 @@ import collections
 
 hasattr(stdconfig, "Servers")   # Quell pyflakes
 
+
 class AccessLog(TestCase):
     """
     Tests for L{calendarserver.accesslog}.
@@ -43,7 +44,6 @@ class AccessLog(TestCase):
 
         monitor.stop()
         self.assertNotEqual(monitor.items["cpu count"], 0)
-
 
     def test_disableSystemMonitor(self):
         """
@@ -124,7 +124,6 @@ class AccessLog(TestCase):
 
         SystemMonitor.CPUStats = collections.namedtuple("CPUStats", ("total", "idle",))
 
-
     def test_unicodeLog(self):
         """
         Make sure L{RotatingFileAccessLoggingObserver} handles non-ascii data properly.
@@ -138,7 +137,6 @@ class AccessLog(TestCase):
 
         with open(logpath) as f:
             self.assertIn("log this", f.read())
-
 
     def test_truncateStats(self):
         """
@@ -161,7 +159,6 @@ class AccessLog(TestCase):
         observer.ensureSequentialStats()
         self.assertEqual(len(observer.statsByMinute), 65)
         observer.stop()
-
 
     def test_smallerStats(self):
         """

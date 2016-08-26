@@ -47,9 +47,9 @@ __all__ = [
     "listTZs",
 ]
 
+
 class TimezoneException(Exception):
     pass
-
 
 
 class TimezoneCache(object):
@@ -65,8 +65,7 @@ class TimezoneCache(object):
         except ImportError:
             return os.path.join(os.path.dirname(__file__), "zoneinfo")
         else:
-            return pkg_resources.resource_filename("twistedcaldav", "zoneinfo") #@UndefinedVariable
-
+            return pkg_resources.resource_filename("twistedcaldav", "zoneinfo")  # @UndefinedVariable
 
     @staticmethod
     def getDBPath():
@@ -79,7 +78,6 @@ class TimezoneCache(object):
                 TimezoneCache.dirName = os.path.join(config.DataRoot, "zoneinfo")
 
         return TimezoneCache.dirName
-
 
     @staticmethod
     def create(empty=False):
@@ -98,7 +96,6 @@ class TimezoneCache(object):
         TimezoneCache.version = TimezoneCache.getTZVersion(TimezoneCache.getDBPath())
         TimezoneDatabase.createTimezoneDatabase(TimezoneCache.getDBPath())
 
-
     @staticmethod
     def getTZVersion(dbpath):
         try:
@@ -106,7 +103,6 @@ class TimezoneCache(object):
                 return f.read().strip()
         except IOError:
             return ""
-
 
     class FilteredFilePath(FilePath):
         """
@@ -125,7 +121,6 @@ class TimezoneCache(object):
             elif self.isfile():
                 self.copyTo(destination)
 
-
     @staticmethod
     def validatePath():
         dbpath = FilePath(TimezoneCache.getDBPath())
@@ -140,7 +135,6 @@ class TimezoneCache(object):
                 TimezoneCache.copyPackage("Updating")
             else:
                 log.info("Valid timezones at {p}", p=dbpath.path)
-
 
     @staticmethod
     def copyPackage(title):
@@ -171,7 +165,6 @@ class TimezoneCache(object):
             if result:
                 lockfile.unlock()
 
-
     @staticmethod
     def clear():
         TimezoneDatabase.clearTimezoneDatabase()
@@ -180,6 +173,7 @@ class TimezoneCache(object):
 cachedTZs = {}
 cachedVTZs = {}
 cachedTZIDs = []
+
 
 def hasTZ(tzid):
     """
@@ -194,7 +188,6 @@ def hasTZ(tzid):
     return True
 
 
-
 def addVTZ(tzid, tzcal):
     """
     Add a VTIMEZONE component to the cache.
@@ -204,7 +197,6 @@ def addVTZ(tzid, tzcal):
     if tzid not in cachedVTZs:
         cachedVTZs[tzid] = tzcal
         cachedTZs[tzid] = str(tzcal)
-
 
 
 def readVTZ(tzid):
@@ -225,7 +217,6 @@ def readVTZ(tzid):
     return cachedVTZs[tzid]
 
 
-
 def readTZ(tzid):
     """
     Try to load the specified TZID as text from the database. Raise if not found.
@@ -242,7 +233,6 @@ def readTZ(tzid):
             raise TimezoneException("Unknown time zone: %s" % (tzid,))
 
     return cachedTZs[tzid]
-
 
 
 def listTZs(path=""):

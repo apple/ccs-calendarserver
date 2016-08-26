@@ -35,6 +35,7 @@ class NameEncodeTests(TestCase):
     """
     Name encoding tests.
     """
+
     def test_decodeXMLName(self):
         # Empty name
         self.assertRaises(ValueError, decodeXMLName, "")
@@ -59,21 +60,20 @@ class NameEncodeTests(TestCase):
         # Normal case
         self.assertEquals(decodeXMLName("{namespace}name"), ("namespace", "name"))
 
-
     def test_encodeXMLName(self):
         # No namespace
         self.assertEquals(encodeXMLName(None, "name"), "name")
-        self.assertEquals(encodeXMLName(""  , "name"), "name")
+        self.assertEquals(encodeXMLName("", "name"), "name")
 
         # Normal case
         self.assertEquals(encodeXMLName("namespace", "name"), "{namespace}name")
-
 
 
 class WebDAVElementTestsMixin:
     """
     Mixin for L{TestCase}s which test a L{WebDAVElement} subclass.
     """
+
     def test_fromString(self):
         """
         The XML representation of L{WebDAVDocument} can be parsed into a
@@ -81,7 +81,6 @@ class WebDAVElementTestsMixin:
         """
         doc = WebDAVDocument.fromString(self.serialized)
         self.assertEquals(doc, WebDAVDocument(self.element))
-
 
     def test_toxml(self):
         """
@@ -92,7 +91,6 @@ class WebDAVElementTestsMixin:
         self.assertEquals(
             document,
             WebDAVDocument.fromString(document.toxml()))
-
 
 
 class WebDAVUnknownElementTests(WebDAVElementTestsMixin, TestCase):

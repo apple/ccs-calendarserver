@@ -404,11 +404,11 @@ END:VCALENDAR
 """.replace("\n", "\r\n") % {'UID': EVENT_UID}
 
 
-
 class EventTests(TestCase):
     """
     Tests for L{Event}.
     """
+
     def test_uid(self):
         """
         When the C{vevent} attribute of an L{Event} instance is set,
@@ -417,7 +417,6 @@ class EventTests(TestCase):
         event = Event(None, u'/foo/bar', u'etag', Component.fromString(EVENT))
         self.assertEquals(event.getUID(), EVENT_UID)
 
-
     def test_withoutUID(self):
         """
         When an L{Event} has a C{vevent} attribute set to C{None},
@@ -425,7 +424,6 @@ class EventTests(TestCase):
         """
         event = Event(None, u'/bar/baz', u'etag')
         self.assertIdentical(event.getUID(), None)
-
 
 
 PRINCIPAL_PROPFIND_RESPONSE = """\
@@ -1139,8 +1137,8 @@ CALENDAR_HOME_PROPFIND_RESPONSE_WITH_XMPP = _CALENDAR_HOME_PROPFIND_RESPONSE_TEM
 CALENDAR_HOME_PROPFIND_RESPONSE_XMPP_MISSING = _CALENDAR_HOME_PROPFIND_RESPONSE_TEMPLATE % {"xmpp": ""}
 
 
-
 class MemoryResponse(object):
+
     def __init__(self, version, code, phrase, headers, bodyProducer):
         self.version = version
         self.code = code
@@ -1149,18 +1147,17 @@ class MemoryResponse(object):
         self.length = bodyProducer.length
         self._bodyProducer = bodyProducer
 
-
     def deliverBody(self, protocol):
         protocol.makeConnection(self._bodyProducer)
         d = self._bodyProducer.startProducing(ProtocolToConsumerAdapter(protocol))
         d.addCallback(lambda ignored: protocol.connectionLost(Failure(ResponseDone())))
 
 
-
 class OS_X_10_11Mixin:
     """
     Mixin for L{TestCase}s for L{OS_X_10_11}.
     """
+
     def setUp(self):
         TimezoneCache.create()
         self.record = _DirectoryRecord(
@@ -1180,9 +1177,9 @@ class OS_X_10_11Mixin:
             1
         )
 
-
     def interceptRequests(self):
         requests = []
+
         def request(*args, **kwargs):
             result = Deferred()
             requests.append((result, args))
@@ -1191,11 +1188,11 @@ class OS_X_10_11Mixin:
         return requests
 
 
-
 class OS_X_10_11Tests(OS_X_10_11Mixin, TestCase):
     """
     Tests for L{OS_X_10_11}.
     """
+
     def test_parsePrincipalPROPFINDResponse(self):
         """
         L{Principal._parsePROPFINDResponse} accepts an XML document
@@ -1234,7 +1231,6 @@ class OS_X_10_11Tests(OS_X_10_11Mixin, TestCase):
 #                     '{DAV:}expand-property',
 #                     )})
 
-
     def test_extractCalendars(self):
         """
         L{OS_X_10_11._extractCalendars} accepts a calendar home
@@ -1261,7 +1257,6 @@ class OS_X_10_11Tests(OS_X_10_11Mixin, TestCase):
 
         self.assertEqual({}, self.client.xmpp)
 
-
     def test_extractCalendarsXMPP(self):
         """
         If there is XMPP push information in a calendar home PROPFIND response,
@@ -1281,13 +1276,11 @@ class OS_X_10_11Tests(OS_X_10_11Mixin, TestCase):
             self.client.xmpp
         )
 
-
     def test_handleMissingXMPP(self):
         home = "/calendars/__uids__/user01/"
         self.client._extractCalendars(
             self.client._parseMultiStatus(CALENDAR_HOME_PROPFIND_RESPONSE_XMPP_MISSING), home)
         self.assertEqual({}, self.client.xmpp)
-
 
     @inlineCallbacks
     def test_changeEventAttendee(self):
@@ -1323,7 +1316,6 @@ class OS_X_10_11Tests(OS_X_10_11Mixin, TestCase):
         self.assertEquals(attendees[0].parameterValue('CN'), 'User 01')
         self.assertEquals(attendees[1].parameterValue('CN'), 'Some Other Guy')
 
-
     def test_addEvent(self):
         """
         L{OS_X_10_11.addEvent} PUTs the event passed to it to the
@@ -1349,6 +1341,7 @@ class OS_X_10_11Tests(OS_X_10_11Mixin, TestCase):
 
         consumer = MemoryConsumer()
         finished = body.startProducing(consumer)
+
         def cbFinished(ignored):
             self.assertEqual(
                 Component.fromString(consumer.value()),
@@ -1363,7 +1356,6 @@ class OS_X_10_11Tests(OS_X_10_11Mixin, TestCase):
         finished.addCallback(requested)
 
         return d
-
 
     @inlineCallbacks
     def test_addInvite(self):
@@ -1469,7 +1461,6 @@ class OS_X_10_11Tests(OS_X_10_11Mixin, TestCase):
         self.client._request = _requestHandler
         yield self.client.addInvite('/mumble/frotz.ics', vcalendar)
 
-
     def test_deleteEvent(self):
         """
         L{OS_X_10_11.deleteEvent} DELETEs the event at the relative
@@ -1502,7 +1493,6 @@ class OS_X_10_11Tests(OS_X_10_11Mixin, TestCase):
             StringProducer(""))
         result.callback((response, ""))
         return d
-
 
     def test_serialization(self):
         """
@@ -1565,6 +1555,7 @@ END:VCALENDAR
         self.client.serialize()
         self.assertTrue(os.path.exists(clientPath))
         self.assertTrue(os.path.exists(indexPath))
+
         def _normDict(d):
             return dict([
                 (
@@ -1667,7 +1658,6 @@ END:VCALENDAR
         with open(event2Path) as f:
             data = f.read()
         self.assertEqual(data, cal2)
-
 
     def test_deserialization(self):
         """
@@ -1821,7 +1811,6 @@ END:VCALENDAR
         self.assertEqual(str(self.client._events["/home/inbox/i2.ics"].component), cal2)
         self.assertEqual(self.client.calendarHomeToken, "hometoken")
         self.assertEqual(self.client._managed_attachments_server_url, "attachmentsurl")
-
 
 
 class UpdateCalendarTests(OS_X_10_11Mixin, TestCase):
@@ -1999,7 +1988,6 @@ END:VCALENDAR
         # 404 status.
         self.assertIn('/something/else.ics', self.client._events)
 
-
     def test_multigetBatch(self):
         """
         If an event included in the calendar sync REPORT response no longer exists
@@ -2065,11 +2053,11 @@ END:VCALENDAR
         self.assertTrue(self.client._events['/something/else.ics'].etag is not None)
 
 
-
 class VFreeBusyTests(OS_X_10_11Mixin, TestCase):
     """
     Tests for L{OS_X_10_11.requestAvailability}.
     """
+
     def test_requestAvailability(self):
         """
         L{OS_X_10_11.requestAvailability} accepts a date range and a set of
@@ -2102,6 +2090,7 @@ class VFreeBusyTests(OS_X_10_11Mixin, TestCase):
 
         consumer = MemoryConsumer()
         finished = body.startProducing(consumer)
+
         def cbFinished(ignored):
             vevent = Component.fromString(consumer.value())
             uid = vevent.resourceUID()

@@ -76,9 +76,9 @@ log = Logger()
 
 
 class PermissionsMixIn (ReadOnlyResourceMixIn):
+
     def defaultAccessControlList(self):
         return succeed(authReadACL)
-
 
     @inlineCallbacks
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
@@ -98,7 +98,6 @@ class PermissionsMixIn (ReadOnlyResourceMixIn):
             returnValue((yield self.defaultAccessControlList()))
 
 
-
 # Converter methods for recordsMatchingFields()
 #
 # A DAV property can be associated with one of these converter methods,
@@ -110,7 +109,6 @@ def cuTypeConverter(cuType):
     """ Converts calendar user types to OD type names """
 
     return "recordType", CalendarDirectoryRecordMixin.fromCUType(cuType)
-
 
 
 def cuAddressConverter(origCUAddr):
@@ -141,11 +139,11 @@ def cuAddressConverter(origCUAddr):
         )
 
 
-
 class DirectoryProvisioningResource (
     PermissionsMixIn,
     CalendarPrincipalCollectionResource,
 ):
+
     def __init__(self, url, directory):
         """
         @param url: the canonical URL for the resource.
@@ -160,10 +158,8 @@ class DirectoryProvisioningResource (
         # self.directory = IDirectoryService(directory)
         self.directory = directory
 
-
     def __repr__(self):
         return "<%s: %s %s>" % (self.__class__.__name__, self.directory, self._url)
-
 
     @inlineCallbacks
     def locateChild(self, req, segments):
@@ -172,26 +168,21 @@ class DirectoryProvisioningResource (
             returnValue((child, segments[1:]))
         returnValue((NotFoundResource(principalCollections=self.principalCollections()), ()))
 
-
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = NonePropertyStore(self)
         return self._dead_properties
 
-
     def etag(self):
         return succeed(None)
-
 
     @inlineCallbacks
     def principalForShortName(self, recordType, name):
         record = (yield self.directory.recordWithShortName(recordType, name))
         returnValue((yield self.principalForRecord(record)))
 
-
     def principalForUser(self, user):
         return self.principalForShortName(self.directory.recordType.lookupByName("user"), user)
-
 
     @inlineCallbacks
     def principalForAuthID(self, user):
@@ -212,14 +203,11 @@ class DirectoryProvisioningResource (
 
         returnValue(None)
 
-
     def principalForUID(self, uid):
         raise NotImplementedError("Subclass must implement principalForUID()")
 
-
     def principalForCalendarUserAddress(self, address):
         raise NotImplementedError("Subclass must implement principalForCalendarUserAddress()")
-
 
     def principalForRecord(self, record):
         if record is None or not record.enabled:
@@ -232,17 +220,16 @@ class DirectoryProvisioningResource (
 
     _cs_ns = "http://calendarserver.org/ns/"
     _fieldMap = {
-        ("DAV:" , "displayname") :
+        ("DAV:", "displayname"):
             ("fullNames", None, "Display Name", davxml.DisplayName),
-        ("urn:ietf:params:xml:ns:caldav" , "calendar-user-type") :
+        ("urn:ietf:params:xml:ns:caldav", "calendar-user-type"):
             ("", cuTypeConverter, "Calendar User Type", caldavxml.CalendarUserType),
-        ("urn:ietf:params:xml:ns:caldav" , "calendar-user-address-set") :
+        ("urn:ietf:params:xml:ns:caldav", "calendar-user-address-set"):
             ("", cuAddressConverter, "Calendar User Address Set", caldavxml.CalendarUserAddressSet),
-        (_cs_ns, "email-address-set") :
+        (_cs_ns, "email-address-set"):
             ("emailAddresses", None, "Email Addresses", customxml.EmailAddressSet),
     }
     _fieldList = [v for _ignore_k, v in sorted(_fieldMap.iteritems(), key=lambda x:x[0])]
-
 
     def propertyToField(self, property, match):
         """
@@ -256,7 +243,6 @@ class DirectoryProvisioningResource (
         elif converter is not None:
             field, match = converter(match)
         return (field, match)
-
 
     def principalSearchPropertySet(self):
         props = []
@@ -276,11 +262,11 @@ class DirectoryProvisioningResource (
         return davxml.PrincipalSearchPropertySet(*props)
 
 
-
 class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
     """
     Collection resource which provisions directory principals as its children.
     """
+
     def __init__(self, url, directory):
         DirectoryProvisioningResource.__init__(self, url, directory)
 
@@ -319,12 +305,10 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
 
         self.putChild(uidsResourceName, DirectoryPrincipalUIDProvisioningResource(self))
 
-
     @inlineCallbacks
     def principalForUID(self, uid):
         child = (yield self.getChild(uidsResourceName))
         returnValue((yield child.getChild(uid)))
-
 
     @inlineCallbacks
     def _principalForURI(self, uri):
@@ -353,7 +337,7 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
                 returnValue(None)
 
             if port != {
-                "http" : config.HTTPPort,
+                "http": config.HTTPPort,
                 "https": config.SSLPort,
             }[scheme]:
                 returnValue(None)
@@ -381,7 +365,6 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
 
         returnValue(None)
 
-
     @inlineCallbacks
     def principalForCalendarUserAddress(self, address):
         # First see if the address is a principal URI
@@ -401,12 +384,10 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         log.debug("No principal for calendar user address: {addr}", addr=address)
         returnValue(None)
 
-
     @inlineCallbacks
     def principalForRecord(self, record):
         child = (yield self.getChild(uidsResourceName))
         returnValue((yield child.principalForRecord(record)))
-
 
     ##
     # Static
@@ -416,20 +397,17 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         log.error("Attempt to create clone {path} of resource {rsrc!r}", path=path, rsrc=self)
         raise HTTPError(responsecode.NOT_FOUND)
 
-
     def getChild(self, name):
         if name == "":
             return succeed(self)
         else:
             return succeed(self.putChildren.get(name, None))
 
-
     def listChildren(self):
         return [
             self.directory.recordTypeToOldName(r) for r in
             self.supportedChildTypes
         ]
-
 
     ##
     # ACL
@@ -439,12 +417,12 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         return (self,)
 
 
-
 class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource):
     """
     Collection resource which provisions directory principals of a
     specific type as its children, indexed by short name.
     """
+
     def __init__(self, parent, name, recordType):
         """
         @param parent: the parent L{DirectoryPrincipalProvisioningResource}.
@@ -459,14 +437,11 @@ class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource)
         self.recordType = recordType
         self.parent = parent
 
-
     def principalForUID(self, uid):
         return self.parent.principalForUID(uid)
 
-
     def principalForCalendarUserAddress(self, address):
         return self.parent.principalForCalendarUserAddress(address)
-
 
     def principalForRecord(self, record):
         return self.parent.principalForRecord(record)
@@ -475,18 +450,15 @@ class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource)
     # Static
     ##
 
-
     def createSimilarFile(self, path):
         log.error("Attempt to create clone {path} of resource {rsrc!r}", path=path, rsrc=self)
         raise HTTPError(responsecode.NOT_FOUND)
-
 
     def getChild(self, name):
         if name == "":
             return succeed(self)
         else:
             return self.principalForShortName(self.recordType, name)
-
 
     @inlineCallbacks
     def listChildren(self):
@@ -513,10 +485,8 @@ class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource)
     # ACL
     ##
 
-
     def principalCollections(self):
         return self.parent.principalCollections()
-
 
 
 class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
@@ -524,6 +494,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
     Collection resource which provisions directory principals indexed
     by UID.
     """
+
     def __init__(self, parent):
         """
         @param directory: an L{IDirectoryService} to provision calendars from.
@@ -537,14 +508,11 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
 
         self.parent = parent
 
-
     def principalForUID(self, uid):
         return self.parent.principalForUID(uid)
 
-
     def principalForCalendarUserAddress(self, address):
         return self.parent.principalForCalendarUserAddress(address)
-
 
     def principalForRecord(self, record):
         if record is None:
@@ -562,11 +530,9 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
     # Static
     ##
 
-
     def createSimilarFile(self, path):
         log.error("Attempt to create clone {path} of resource {rsrc!r}", path=path, rsrc=self)
         raise HTTPError(responsecode.NOT_FOUND)
-
 
     @inlineCallbacks
     def getChild(self, name):
@@ -591,7 +557,6 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
         else:
             returnValue((yield primaryPrincipal.getChild(subType)))
 
-
     def listChildren(self):
         # Not a listable collection
         raise HTTPError(responsecode.FORBIDDEN)
@@ -600,10 +565,8 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
     # ACL
     ##
 
-
     def principalCollections(self):
         return self.parent.principalCollections()
-
 
 
 class DirectoryPrincipalDetailElement(Element):
@@ -616,11 +579,9 @@ class DirectoryPrincipalDetailElement(Element):
         "directory-principal-resource.html")
     )
 
-
     def __init__(self, resource):
         super(DirectoryPrincipalDetailElement, self).__init__()
         self.resource = resource
-
 
     @renderer
     def serversEnabled(self, request, tag):
@@ -633,7 +594,6 @@ class DirectoryPrincipalDetailElement(Element):
         return tag.fillSlots(
             hostedAt=str(record.serverURI()),
         )
-
 
     @renderer
     def principal(self, request, tag):
@@ -681,14 +641,12 @@ class DirectoryPrincipalDetailElement(Element):
             ),
         )
 
-
     @renderer
     def extra(self, request, tag):
         """
         No-op; implemented in subclass.
         """
         return ''
-
 
     @renderer
     def enabledForCalendaring(self, request, tag):
@@ -697,14 +655,12 @@ class DirectoryPrincipalDetailElement(Element):
         """
         return ''
 
-
     @renderer
     def enabledForAddressBooks(self, request, tag):
         """
         No-op; implemented in subclass.
         """
         return ''
-
 
 
 class DirectoryPrincipalElement(DirectoryElement):
@@ -720,7 +676,6 @@ class DirectoryPrincipalElement(DirectoryElement):
         return DirectoryPrincipalDetailElement(self.resource)
 
 
-
 class DirectoryCalendarPrincipalDetailElement(DirectoryPrincipalDetailElement):
 
     @renderer
@@ -730,7 +685,6 @@ class DirectoryCalendarPrincipalDetailElement(DirectoryPrincipalDetailElement):
         principals.
         """
         return tag
-
 
     @renderer
     def enabledForCalendaring(self, request, tag):
@@ -749,7 +703,6 @@ class DirectoryCalendarPrincipalDetailElement(DirectoryPrincipalDetailElement):
             )
         return ''
 
-
     @renderer
     def enabledForAddressBooks(self, request, tag):
         """
@@ -763,7 +716,6 @@ class DirectoryCalendarPrincipalDetailElement(DirectoryPrincipalDetailElement):
                 addressBookHomes=formatLinks(resource.addressBookHomeURLs())
             )
         return ''
-
 
 
 class DirectoryCalendarPrincipalElement(DirectoryPrincipalElement):
@@ -780,7 +732,6 @@ class DirectoryCalendarPrincipalElement(DirectoryPrincipalElement):
         return DirectoryCalendarPrincipalDetailElement(self.resource)
 
 
-
 class DirectoryPrincipalResource (
         PropfindCacheMixin, PermissionsMixIn, DAVPrincipalResource):
     """
@@ -795,7 +746,6 @@ class DirectoryPrincipalResource (
         )
 
     cacheNotifierFactory = DisabledCacheNotifier
-
 
     def __init__(self, parent, record):
         """
@@ -828,14 +778,11 @@ class DirectoryPrincipalResource (
             for shortName in getattr(record, "shortNames", [])
         ])
 
-
     def __repr__(self):
         return "<{}: {}>".format(self.__class__.__name__, str(self))
 
-
     def __str__(self):
         return "({}){}".format(self.record.recordType, self.record.uid)
-
 
     def __eq__(self, other):
         """
@@ -846,14 +793,11 @@ class DirectoryPrincipalResource (
         else:
             return False
 
-
     def __ne__(self, other):
         return not self.__eq__(other)
 
-
     def __hash__(self):
         return hash(self.principalUID())
-
 
     @inlineCallbacks
     def readProperty(self, property, request):
@@ -880,12 +824,10 @@ class DirectoryPrincipalResource (
         result = (yield super(DirectoryPrincipalResource, self).readProperty(property, request))
         returnValue(result)
 
-
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = NonePropertyStore(self)
         return self._dead_properties
-
 
     def etag(self):
         return succeed(None)
@@ -893,7 +835,6 @@ class DirectoryPrincipalResource (
     ##
     # HTTP
     ##
-
 
     def htmlElement(self):
         """
@@ -905,10 +846,8 @@ class DirectoryPrincipalResource (
     # DAV
     ##
 
-
     def isCollection(self):
         return True
-
 
     @inlineCallbacks
     def handleMissingTrailingSlash(self, request):
@@ -934,14 +873,12 @@ class DirectoryPrincipalResource (
             )
             returnValue(response)
 
-
     def displayName(self):
         return self.record.displayName
 
     ##
     # ACL
     ##
-
 
     def _calendar_user_proxy_index(self):
         """
@@ -954,23 +891,18 @@ class DirectoryPrincipalResource (
         from twistedcaldav.directory.calendaruserproxy import ProxyDBService
         return ProxyDBService
 
-
     def alternateURIs(self):
         # FIXME: Add API to IDirectoryRecord for getting a record URI?
         return self._alternate_urls
 
-
     def principalURL(self):
         return self._url
-
 
     def url(self):
         return self.principalURL()
 
-
     def notifierID(self):
         return self.principalURL()
-
 
     def isProxyFor(self, principal):
         """
@@ -982,7 +914,6 @@ class DirectoryPrincipalResource (
         """
         return self.record.isProxyFor(principal.record)
 
-
     def proxyMode(self, principal):
         """
         Determine whether proxy mode this principal has in relation to the one specified.
@@ -991,7 +922,6 @@ class DirectoryPrincipalResource (
         @type principal: L{DirectoryPrincipalResource}
         """
         return self.record.proxyMode(principal.record)
-
 
     @inlineCallbacks
     def proxyFor(self, readWrite, ignoreDisabled=True):
@@ -1020,7 +950,6 @@ class DirectoryPrincipalResource (
                     proxyFors.add(principal)
 
         returnValue(proxyFors)
-
 
     @inlineCallbacks
     def _getRelatives(self, method, record=None, relatives=None, records=None, proxy=None, infinity=False):
@@ -1053,14 +982,11 @@ class DirectoryPrincipalResource (
 
         returnValue(relatives)
 
-
     def groupMembers(self):
         return self._getRelatives("members")
 
-
     def expandedGroupMembers(self):
         return self._getRelatives("members", infinity=True)
-
 
     @inlineCallbacks
     def groupMemberships(self, infinity=False):
@@ -1081,10 +1007,8 @@ class DirectoryPrincipalResource (
 
         returnValue(groups)
 
-
     def expandedGroupMemberships(self):
         return self.groupMemberships(infinity=True)
-
 
     def groupsChanged(self):
         """
@@ -1094,26 +1018,20 @@ class DirectoryPrincipalResource (
         """
         return self.cacheNotifier.changed()
 
-
     def principalCollections(self):
         return self.parent.principalCollections()
-
 
     def principalUID(self):
         return self.record.uid
 
-
     def serverURI(self):
         return self.record.serverURI()
-
 
     def server(self):
         return self.record.server()
 
-
     def thisServer(self):
         return self.record.thisServer()
-
 
     def canAutoSchedule(self, organizer=None):
         """
@@ -1125,14 +1043,12 @@ class DirectoryPrincipalResource (
         """
         return self.record.canAutoSchedule(organizer)
 
-
     @inlineCallbacks
     def setAutoScheduleMode(self, autoScheduleMode):
         self.record.autoScheduleMode = autoScheduleMode if autoScheduleMode in allowedAutoScheduleModes else "default"
         augmentRecord = (yield self.record.service.augmentService.getAugmentRecord(self.record.guid, self.record.recordType))
         augmentRecord.autoScheduleMode = autoScheduleMode
         (yield self.record.service.augmentService.addAugmentRecords([augmentRecord]))
-
 
     def getAutoScheduleMode(self, organizer=None):
         """
@@ -1150,7 +1066,6 @@ class DirectoryPrincipalResource (
         """
         return self.record.getAutoScheduleMode(organizer)
 
-
     @inlineCallbacks
     def setAutoAcceptGroup(self, autoAcceptGroup):
         """
@@ -1165,14 +1080,12 @@ class DirectoryPrincipalResource (
         augmentRecord.autoAcceptGroup = autoAcceptGroup
         (yield self.record.service.augmentService.addAugmentRecords([augmentRecord]))
 
-
     def getAutoAcceptGroup(self):
         """
         Returns the GUID of the auto accept group assigned to this principal, or empty
         string if not assigned
         """
         return self.record.autoAcceptGroup
-
 
     def autoAcceptFromOrganizer(self, organizer):
         """
@@ -1186,7 +1099,6 @@ class DirectoryPrincipalResource (
         """
         return self.record.autoAcceptFromOrganizer()
 
-
     def getCUType(self):
         return self.record.getCUType()
 
@@ -1194,11 +1106,9 @@ class DirectoryPrincipalResource (
     # Static
     ##
 
-
     def createSimilarFile(self, path):
         log.error("Attempt to create clone {path} of resource {rsrc!r}", path=path, rsrc=self)
         raise HTTPError(responsecode.NOT_FOUND)
-
 
     @inlineCallbacks
     def locateChild(self, req, segments):
@@ -1207,17 +1117,14 @@ class DirectoryPrincipalResource (
             returnValue((child, segments[1:]))
         returnValue((None, ()))
 
-
     def getChild(self, name):
         if name == "":
             return succeed(self)
 
         return succeed(None)
 
-
     def listChildren(self):
         return ()
-
 
 
 class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
@@ -1229,14 +1136,11 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
     def liveProperties(self):
         return DirectoryPrincipalResource.liveProperties(self) + CalendarPrincipalResource.liveProperties(self)
 
-
     def calendarsEnabled(self):
         return self.record.calendarsEnabled()
 
-
     def addressBooksEnabled(self):
         return config.EnableCardDAV and self.record.hasContacts
-
 
     @inlineCallbacks
     def readProperty(self, property, request):
@@ -1246,15 +1150,12 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
             result = (yield CalendarPrincipalResource.readProperty(self, property, request))
         returnValue(result)
 
-
     ##
     # CalDAV
     ##
 
-
     def calendarUserAddresses(self):
         return self.record.calendarUserAddresses
-
 
     def htmlElement(self):
         """
@@ -1262,17 +1163,14 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
         """
         return DirectoryCalendarPrincipalElement(self)
 
-
     def canonicalCalendarUserAddress(self):
         """
         Return a CUA for this principal
         """
         return self.record.canonicalCalendarUserAddress()
 
-
     def enabledAsOrganizer(self):
         return self.record.enabledAsOrganizer()
-
 
     @inlineCallbacks
     def scheduleInbox(self, request):
@@ -1286,7 +1184,6 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
 
         returnValue(inbox)
 
-
     @inlineCallbacks
     def notificationCollection(self, request):
 
@@ -1297,7 +1194,6 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
                 notification = yield home.getChild("notification")
         returnValue(notification)
 
-
     def calendarHomeURLs(self):
         if self.record.hasCalendars:
             homeURL = self._homeChildURL(None)
@@ -1305,14 +1201,11 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
             homeURL = ""
         return (homeURL,) if homeURL else ()
 
-
     def scheduleInboxURL(self):
         return self._homeChildURL("inbox/")
 
-
     def scheduleOutboxURL(self):
         return self._homeChildURL("outbox/")
-
 
     def dropboxURL(self):
         if config.EnableDropBox or config.EnableManagedAttachments:
@@ -1320,13 +1213,11 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
         else:
             return None
 
-
     def notificationURL(self):
         if config.Sharing.Enabled:
             return self._homeChildURL("notification/")
         else:
             return None
-
 
     def addressBookHomeURLs(self):
         if self.record.hasContacts:
@@ -1334,7 +1225,6 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
         else:
             homeURL = ""
         return (homeURL,) if homeURL else ()
-
 
     def _homeChildURL(self, name):
         if not hasattr(self, "calendarHomeURL"):
@@ -1356,13 +1246,11 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
         else:
             return joinURL(url, name) if name else url
 
-
     def calendarHome(self, request):
         if self.parent.parent.calendarCollection is not None:
             return self.parent.parent.calendarCollection.homeForDirectoryRecord(self.record, request)
         else:
             return succeed(None)
-
 
     def _addressBookHomeChildURL(self, name):
         if not hasattr(self, "addressBookHomeURL"):
@@ -1384,7 +1272,6 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
         else:
             return joinURL(url, name) if name else url
 
-
     def addressBookHome(self, request):
         if self.parent.parent.addressBookCollection is not None:
             return self.parent.parent.addressBookCollection.homeForDirectoryRecord(self.record, request)
@@ -1394,7 +1281,6 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
     ##
     # Static
     ##
-
 
     def getChild(self, name):
         if name == "":
@@ -1411,7 +1297,6 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
             return succeed(CalendarUserProxyPrincipalResource(self, str(name)))
         else:
             return succeed(None)
-
 
     def listChildren(self):
         if config.EnableProxyPrincipals:

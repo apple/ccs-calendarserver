@@ -26,7 +26,6 @@ from txdav.common.datastore.sql_tables import _BIND_MODE_READ, \
     _BIND_MODE_WRITE
 
 
-
 class BaseSharingTests(CommonCommonTests, TestCase):
     """
     Test store-based address book sharing.
@@ -37,7 +36,6 @@ class BaseSharingTests(CommonCommonTests, TestCase):
         yield super(BaseSharingTests, self).setUp()
         yield self.buildStoreAndDirectory()
         yield self.populate()
-
 
     @inlineCallbacks
     def populate(self):
@@ -107,9 +105,8 @@ X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:foreign
 END:VCARD
 """
 
-
     @classproperty(cache=False)
-    def requirements(cls): #@NoSelf
+    def requirements(cls):  # @NoSelf
         return {
             "user01": {
                 "addressbook": {
@@ -135,13 +132,11 @@ END:VCARD
     group1_children = ["group1.vcf", "card1.vcf", "card2.vcf", ]
     group2_children = ["group2.vcf", "card1.vcf", "card3.vcf", ]
 
-
     @inlineCallbacks
     def _createShare(self, mode=_BIND_MODE_READ):
         inviteUID = yield self._inviteShare(mode)
         sharedName = yield self._acceptShare(inviteUID)
         returnValue(sharedName)
-
 
     @inlineCallbacks
     def _inviteShare(self, mode=_BIND_MODE_READ):
@@ -156,7 +151,6 @@ END:VCARD
 
         returnValue(inviteUID)
 
-
     @inlineCallbacks
     def _acceptShare(self, inviteUID):
         # Accept
@@ -167,13 +161,11 @@ END:VCARD
 
         returnValue(sharedName)
 
-
     @inlineCallbacks
     def _createGroupShare(self, groupname="group1.vcf", mode=_BIND_MODE_READ):
         inviteUID = yield self._inviteGroupShare(groupname, mode)
         sharedName = yield self._acceptGroupShare(inviteUID)
         returnValue(sharedName)
-
 
     @inlineCallbacks
     def _inviteGroupShare(self, groupname="group1.vcf", mode=_BIND_MODE_READ):
@@ -185,7 +177,6 @@ END:VCARD
 
         returnValue(inviteUID)
 
-
     @inlineCallbacks
     def _acceptGroupShare(self, inviteUID):
         # Accept
@@ -195,13 +186,11 @@ END:VCARD
 
         returnValue(inviteUID)
 
-
     @inlineCallbacks
     def _check_notifications(self, home, items):
         notifyHome = yield self.transactionUnderTest().notificationsWithUID(home, create=True)
         notifications = yield notifyHome.listNotificationObjects()
         self.assertEqual(set(notifications), set([item + ".xml" for item in items]))
-
 
     @inlineCallbacks
     def _check_addressbook(self, home, addressbook_name, child_names):
@@ -218,7 +207,6 @@ END:VCARD
             shared = yield self.addressbookObjectUnderTest(home=home, addressbook_name=addressbook_name, name=child)
             self.assertTrue(shared is not None, msg="Missing child:{}".format(child))
 
-
     @inlineCallbacks
     def _check_read_only(self, home, addressbook_name, child_names):
         for child in child_names:
@@ -226,14 +214,12 @@ END:VCARD
             rw_mode = yield shared.readWriteAccess()
             self.assertFalse(rw_mode)
 
-
     @inlineCallbacks
     def _check_read_write(self, home, addressbook_name, child_names):
         for child in child_names:
             shared = yield self.addressbookObjectUnderTest(home=home, addressbook_name=addressbook_name, name=child)
             rw_mode = yield shared.readWriteAccess()
             self.assertTrue(rw_mode, msg="Wrong mode: {}".format(child))
-
 
 
 class AddressBookSharing(BaseSharingTests):
@@ -250,7 +236,6 @@ class AddressBookSharing(BaseSharingTests):
         invites = yield addressbook.sharingInvites()
         self.assertEqual(len(invites), 0)
         self.assertFalse(addressbook.isSharedByOwner())
-
 
     @inlineCallbacks
     def test_invite_sharee(self):
@@ -303,7 +288,6 @@ class AddressBookSharing(BaseSharingTests):
 
         addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
         self.assertFalse(addressbook.isSharedByOwner())
-
 
     @inlineCallbacks
     def test_accept_share(self):
@@ -359,7 +343,6 @@ class AddressBookSharing(BaseSharingTests):
 
         addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
         self.assertTrue(addressbook.isSharedByOwner())
-
 
     @inlineCallbacks
     def test_decline_share(self):
@@ -414,7 +397,6 @@ class AddressBookSharing(BaseSharingTests):
         addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
         self.assertTrue(addressbook.isSharedByOwner())
 
-
     @inlineCallbacks
     def test_accept_decline_share(self):
         """
@@ -460,7 +442,6 @@ class AddressBookSharing(BaseSharingTests):
         self.assertTrue(shared is None)
 
         yield self._check_notifications("user01", [inviteUID + "-reply", ])
-
 
     @inlineCallbacks
     def test_accept_remove_share(self):
@@ -508,7 +489,6 @@ class AddressBookSharing(BaseSharingTests):
 
         yield self._check_notifications("user01", [inviteUID + "-reply", ])
 
-
     @inlineCallbacks
     def test_direct_sharee(self):
         """
@@ -548,7 +528,6 @@ class AddressBookSharing(BaseSharingTests):
 
         yield self._check_notifications("user02", [])
 
-
     @inlineCallbacks
     def test_sharedNotifierID(self):
         shared_name = yield self._createShare()
@@ -566,7 +545,6 @@ class AddressBookSharing(BaseSharingTests):
         yield self.commit()
 
 
-
 class GroupSharing(BaseSharingTests):
     """
     Test store-based group book sharing.
@@ -581,7 +559,6 @@ class GroupSharing(BaseSharingTests):
         addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
         invites = yield addressbook.sharingInvites()
         self.assertEqual(len(invites), 0)
-
 
     @inlineCallbacks
     def test_invite_sharee(self):
@@ -638,7 +615,6 @@ class GroupSharing(BaseSharingTests):
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group1.vcf")
         self.assertFalse(group.isSharedByOwner())
 
-
     @inlineCallbacks
     def test_accept_share(self):
         """
@@ -686,7 +662,6 @@ class GroupSharing(BaseSharingTests):
 
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group1.vcf")
         self.assertTrue(group.isSharedByOwner())
-
 
     @inlineCallbacks
     def test_decline_share(self):
@@ -740,7 +715,6 @@ class GroupSharing(BaseSharingTests):
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group1.vcf")
         self.assertTrue(group.isSharedByOwner())
 
-
     @inlineCallbacks
     def test_accept_decline_share(self):
         """
@@ -792,7 +766,6 @@ class GroupSharing(BaseSharingTests):
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group1.vcf")
         self.assertTrue(group.isSharedByOwner())
 
-
     @inlineCallbacks
     def test_accept_remove_share(self):
         """
@@ -835,7 +808,6 @@ class GroupSharing(BaseSharingTests):
 
         yield self._check_notifications("user01", [inviteUID + "-reply", ])
 
-
     @inlineCallbacks
     def test_accept_two_groups(self):
         """
@@ -848,7 +820,6 @@ class GroupSharing(BaseSharingTests):
 
         yield self._check_addressbook("user02", "user01", self.all_children)
         yield self._check_notifications("user01", [inviteUID1 + "-reply", inviteUID2 + "-reply", ])
-
 
     @inlineCallbacks
     def test_accept_uninvite_two_groups(self):
@@ -889,7 +860,6 @@ class GroupSharing(BaseSharingTests):
         sharedParent = yield self.addressbookUnderTest(home="user02", name="user01")
         self.assertTrue(sharedParent is None)
 
-
     @inlineCallbacks
     def test_accept_decline_two_groups(self):
         """
@@ -924,7 +894,6 @@ class GroupSharing(BaseSharingTests):
 
         sharedParent = yield self.addressbookUnderTest(home="user02", name="user01")
         self.assertTrue(sharedParent is None)
-
 
     @inlineCallbacks
     def test_accept_two_groups_different_access(self):
@@ -966,7 +935,6 @@ class GroupSharing(BaseSharingTests):
 
         sharedParent = yield self.addressbookUnderTest(home="user02", name="user01")
         self.assertTrue(sharedParent is None)
-
 
 
 class MixedSharing(BaseSharingTests):
@@ -1016,7 +984,6 @@ class MixedSharing(BaseSharingTests):
         yield self._check_read_only("user02", "user01", self.all_children)
         yield self._check_read_write("user02", "user01", [])
 
-
     @inlineCallbacks
     def test_addressbook_ro_then_group_no_accept(self):
 
@@ -1037,7 +1004,6 @@ class MixedSharing(BaseSharingTests):
         yield self._check_read_write("user02", "user01", [])
 
 
-
 class SharingRevisions(BaseSharingTests):
     """
     Test store-based sharing and interaction with revision table.
@@ -1055,7 +1021,6 @@ class SharingRevisions(BaseSharingTests):
         otherAB = yield self.addressbookUnderTest(home="user02", name="user01")
         self.assertNotEqual(otherAB._bindRevision, 0)
 
-
     @inlineCallbacks
     def test_shareGroupWithRevision(self):
         """
@@ -1068,7 +1033,6 @@ class SharingRevisions(BaseSharingTests):
         self.assertEqual(normalAB._bindRevision, 0)
         otherAB = yield self.addressbookUnderTest(home="user02", name="user01")
         self.assertNotEqual(otherAB._bindRevision, 0)
-
 
     @inlineCallbacks
     def test_updateShareRevision(self):
@@ -1091,7 +1055,6 @@ class SharingRevisions(BaseSharingTests):
         otherAB = yield self.addressbookUnderTest(home="user02", name="user01")
         self.assertNotEqual(otherAB._bindRevision, 0)
 
-
     @inlineCallbacks
     def test_updateSharedGroupRevision(self):
         """
@@ -1112,7 +1075,6 @@ class SharingRevisions(BaseSharingTests):
         self.assertEqual(normalAB._bindRevision, 0)
         otherAB = yield self.addressbookUnderTest(home="user02", name="user01")
         self.assertNotEqual(otherAB._bindRevision, 0)
-
 
     @inlineCallbacks
     def test_sharedRevisions(self):
@@ -1148,7 +1110,6 @@ class SharingRevisions(BaseSharingTests):
             self.assertEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
             self.assertEqual(len(invalid), 0)
-
 
     @inlineCallbacks
     def test_sharedGroupRevisions(self):
@@ -1192,7 +1153,6 @@ class SharingRevisions(BaseSharingTests):
             self.assertEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
             self.assertEqual(len(invalid), 0)
-
 
     @inlineCallbacks
     def test_addressbookRevisionChangeConcurrency(self):

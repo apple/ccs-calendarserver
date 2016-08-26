@@ -48,7 +48,6 @@ class ResourceID (WebDAVElement):
     allowed_children = {(dav_namespace, "href"): (0, 1)}
 
 
-
 @registerElement
 @registerElementClass
 class ParentSet (WebDAVElement):
@@ -62,7 +61,6 @@ class ParentSet (WebDAVElement):
     allowed_children = {(dav_namespace, "parent"): (0, 1)}
 
 
-
 @registerElement
 @registerElementClass
 class Parent (WebDAVElement):
@@ -70,10 +68,9 @@ class Parent (WebDAVElement):
     name = "parent"
 
     allowed_children = {
-        (dav_namespace, "href")    : (1, 1),
-        (dav_namespace, "segment") : (1, 1),
+        (dav_namespace, "href"): (1, 1),
+        (dav_namespace, "segment"): (1, 1),
     }
-
 
 
 @registerElement

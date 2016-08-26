@@ -23,10 +23,12 @@ from twisted.trial.unittest import TestCase
 
 from contrib.performance.loadtest.population import ReportStatistics
 
+
 class ReportStatisticsTests(TestCase):
     """
     Tests for L{loadtest.population.ReportStatistics}.
     """
+
     def test_countUsers(self):
         """
         L{ReportStatistics.countUsers} returns the number of users observed to
@@ -40,7 +42,6 @@ class ReportStatisticsTests(TestCase):
                 duration=1.23, user=user, client_type="test", client_id="1234"
             ))
         self.assertEqual(len(users), logger.countUsers())
-
 
     def test_countClients(self):
         """
@@ -56,7 +57,6 @@ class ReportStatisticsTests(TestCase):
             ))
         self.assertEqual(len(clients), logger.countClients())
 
-
     def test_clientFailures(self):
         """
         L{ReportStatistics.countClientFailures} returns the number of clients observed to
@@ -69,7 +69,6 @@ class ReportStatisticsTests(TestCase):
                 type='client-failure', reason="testing %s" % (client,)
             ))
         self.assertEqual(len(clients), logger.countClientFailures())
-
 
     def test_simFailures(self):
         """
@@ -84,7 +83,6 @@ class ReportStatisticsTests(TestCase):
             ))
         self.assertEqual(len(clients), logger.countSimFailures())
 
-
     def test_noFailures(self):
         """
         If fewer than 1% of requests fail, fewer than 1% of requests take 5
@@ -97,7 +95,6 @@ class ReportStatisticsTests(TestCase):
             duration=2.5, user='user01', client_type="test", client_id="1234"
         ))
         self.assertEqual([], logger.failures())
-
 
     def test_requestFailures(self):
         """
@@ -117,7 +114,6 @@ class ReportStatisticsTests(TestCase):
         self.assertEqual(
             ["Greater than 1% GET failed"],
             logger.failures())
-
 
     def test_threeSecondFailure(self):
         """
@@ -140,7 +136,6 @@ class ReportStatisticsTests(TestCase):
             ["Greater than 5% GET exceeded 3 second response time"],
             logger.failures())
 
-
     def test_fiveSecondFailure(self):
         """
         If more than 1% of requests take longer than 5 seconds,
@@ -160,7 +155,6 @@ class ReportStatisticsTests(TestCase):
         self.assertEqual(
             ["Greater than 1% GET exceeded 5 second response time"],
             logger.failures())
-
 
     def test_methodsCountedSeparately(self):
         """
@@ -187,7 +181,6 @@ class ReportStatisticsTests(TestCase):
         ))
 
         self.assertEqual([], logger.failures())
-
 
     def test_bucketRequest(self):
         """

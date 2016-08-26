@@ -159,8 +159,8 @@ def http_PROPFIND(self, request):
             }
         else:
             properties_by_status = {
-                responsecode.OK        : [],
-                responsecode.NOT_FOUND : [],
+                responsecode.OK: [],
+                responsecode.NOT_FOUND: [],
             }
 
             if search_properties == "all":
@@ -232,6 +232,7 @@ http_PROPFIND = deferredGenerator(http_PROPFIND)
 ##
 # Utilities
 ##
+
 
 def propertyName(name):
     property_namespace, property_name = name

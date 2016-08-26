@@ -49,7 +49,6 @@ class LogNormal(object):
             (x / scale_x * sigma * np.sqrt(2 * np.pi))
         )
 
-
     @staticmethod
     def estimate(x, y):
         """
@@ -88,7 +87,6 @@ class LogNormal(object):
             LogNormal.Params(estimate_mu, estimate_sigma, estimate_scale_x, estimate_scale_y),
         )
 
-
     @staticmethod
     def plot(min_x, max_x, params, color):
         """
@@ -111,7 +109,6 @@ class LogNormal(object):
         )
 
         plt.plot(xl, params.scale_y * yl, linewidth=2, color=color)
-
 
     @staticmethod
     def plotCSV(path, cutoff, bucket, color):
@@ -141,7 +138,6 @@ class LogNormal(object):
         plt.plot(x, y)
         return (x, y,)
 
-
     @staticmethod
     def distributionPlot(mode, median, maximum, color):
         """
@@ -169,7 +165,6 @@ class LogNormal(object):
         scale_y = sum(sorted(y, reverse=True)[0:100]) / 100.0 / peak_y
 
         return (x, y, LogNormal.Params(distribution._mu, distribution._sigma, distribution._scale, scale_y),)
-
 
     @staticmethod
     def fit(x, y):
@@ -207,7 +202,6 @@ class LogNormal(object):
             LogNormal.Params(*popt),
             estimate_params,
         )
-
 
 
 if __name__ == '__main__':

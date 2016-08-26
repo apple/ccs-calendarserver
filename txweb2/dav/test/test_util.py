@@ -25,10 +25,12 @@
 from twisted.trial import unittest
 from txweb2.dav import util
 
+
 class Utilities(unittest.TestCase):
     """
     Utilities.
     """
+
     def test_normalizeURL(self):
         """
         normalizeURL()
@@ -41,7 +43,6 @@ class Utilities(unittest.TestCase):
         self.assertEquals(util.normalizeURL("//foo///bar/./baz"), "/foo/bar/baz")
         self.assertEquals(util.normalizeURL("///../"), "/")
         self.assertEquals(util.normalizeURL("/.."), "/")
-
 
     def test_joinURL(self):
         """
@@ -67,7 +68,6 @@ class Utilities(unittest.TestCase):
         self.assertEquals(util.joinURL("/foo/../", "/bar"), "/bar")
         self.assertEquals(util.joinURL("/foo", "/../"), "/")
         self.assertEquals(util.joinURL("/foo", "/./"), "/foo/")
-
 
     def test_parentForURL(self):
         """

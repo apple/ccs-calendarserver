@@ -56,24 +56,21 @@ from calendarserver.tools.shell.directory import recordInfo
 log = Logger()
 
 
-
 class ListEntry(object):
     """
     Information about a C{File} as returned by C{File.list()}.
     """
 
     def __init__(self, parent, Class, Name, **fields):
-        self.parent = parent # The class implementing list()
+        self.parent = parent  # The class implementing list()
         self.fileClass = Class
         self.fileName = Name
         self.fields = fields
 
         fields["Name"] = Name
 
-
     def __str__(self):
         return self.toString()
-
 
     def __repr__(self):
         fields = self.fields.copy()
@@ -91,17 +88,14 @@ class ListEntry(object):
             fields,
         )
 
-
     def isFolder(self):
         return issubclass(self.fileClass, Folder)
-
 
     def toString(self):
         if self.isFolder():
             return "%s/" % (self.fileName,)
         else:
             return self.fileName
-
 
     @property
     def fieldNames(self):
@@ -117,7 +111,6 @@ class ListEntry(object):
 
         return self._fieldNames
 
-
     def toFields(self):
         try:
             return tuple(self.fields[fieldName] for fieldName in self.fieldNames)
@@ -128,25 +121,22 @@ class ListEntry(object):
             )
 
 
-
 class File(object):
     """
     Object in virtual data hierarchy.
     """
+
     def __init__(self, service, path):
         assert type(path) is tuple
 
         self.service = service
         self.path = path
 
-
     def __str__(self):
         return "/" + "/".join(self.path)
 
-
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self)
-
 
     def __eq__(self, other):
         if isinstance(other, File):
@@ -154,10 +144,8 @@ class File(object):
         else:
             return NotImplemented
 
-
     def describe(self):
         return succeed("%s (%s)" % (self, self.__class__.__name__))
-
 
     def list(self):
         return succeed((
@@ -165,24 +153,22 @@ class File(object):
         ))
 
 
-
 class Folder(File):
     """
     Location in virtual data hierarchy.
     """
+
     def __init__(self, service, path):
         File.__init__(self, service, path)
 
         self._children = {}
         self._childClasses = {}
 
-
     def __str__(self):
         if self.path:
             return "/" + "/".join(self.path) + "/"
         else:
             return "/"
-
 
     @inlineCallbacks
     def locate(self, path):
@@ -201,7 +187,6 @@ class Folder(File):
             target = (yield RootFolder(self.service).locate(path[1:]))
 
         returnValue(target)
-
 
     @inlineCallbacks
     def child(self, name):
@@ -226,7 +211,6 @@ class Folder(File):
 
         raise NotFoundError("Folder %r has no child %r" % (str(self), name))
 
-
     def list(self):
         result = {}
         for name in self._children:
@@ -235,7 +219,6 @@ class Folder(File):
             if name not in result:
                 result[name] = ListEntry(self, self._childClasses[name], name)
         return succeed(result.itervalues())
-
 
 
 class RootFolder(Folder):
@@ -263,6 +246,7 @@ class RootFolder(Folder):
           <name>/          PrincipalHomeFolder
             ...
     """
+
     def __init__(self, service):
         Folder.__init__(self, service, ())
 
@@ -273,14 +257,13 @@ class RootFolder(Folder):
         self._childClasses["groups"] = GroupsFolder
 
 
-
 class UIDsFolder(Folder):
     """
     Folder containing all principals by UID.
     """
+
     def child(self, name):
         return PrincipalHomeFolder(self.service, self.path + (name,), name)
-
 
     @inlineCallbacks
     def list(self):
@@ -298,8 +281,8 @@ class UIDsFolder(Folder):
             if record:
                 info = {
                     "Record Type": record.recordType,
-                    "Short Name" : record.shortNames[0],
-                    "Full Name"  : record.fullName,
+                    "Short Name": record.shortNames[0],
+                    "Full Name": record.fullName,
                 }
             else:
                 info = {}
@@ -310,13 +293,12 @@ class UIDsFolder(Folder):
         returnValue(results.itervalues())
 
 
-
 class RecordFolder(Folder):
+
     def _recordForName(self, name):
         recordTypeAttr = "recordType_" + self.recordType
         recordType = getattr(self.service.directory, recordTypeAttr)
         return self.service.directory.recordWithShortName(recordType, name)
-
 
     def child(self, name):
         record = self._recordForName(name)
@@ -330,7 +312,6 @@ class RecordFolder(Folder):
             record.uid,
             record=record
         )
-
 
     @inlineCallbacks
     def list(self):
@@ -356,13 +337,11 @@ class RecordFolder(Folder):
     list.fieldNames = ("UID", "Full Name")
 
 
-
 class UsersFolder(RecordFolder):
     """
     Folder containing all user principals by name.
     """
     recordType = "users"
-
 
 
 class LocationsFolder(RecordFolder):
@@ -372,13 +351,11 @@ class LocationsFolder(RecordFolder):
     recordType = "locations"
 
 
-
 class ResourcesFolder(RecordFolder):
     """
     Folder containing all resource principals by name.
     """
     recordType = "resources"
-
 
 
 class GroupsFolder(RecordFolder):
@@ -388,11 +365,11 @@ class GroupsFolder(RecordFolder):
     recordType = "groups"
 
 
-
 class PrincipalHomeFolder(Folder):
     """
     Folder containing everything related to a given principal.
     """
+
     def __init__(self, service, path, uid, record=None):
         Folder.__init__(self, service, path)
 
@@ -405,7 +382,6 @@ class PrincipalHomeFolder(Folder):
 
         self.uid = uid
         self.record = record
-
 
     @inlineCallbacks
     def _initChildren(self):
@@ -485,40 +461,35 @@ class PrincipalHomeFolder(Folder):
 
         self._didInitChildren = True
 
-
-    def _needsChildren(m): #@NoSelf
+    def _needsChildren(m):  # @NoSelf
         def decorate(self, *args, **kwargs):
             d = self._initChildren()
             d.addCallback(lambda _: m(self, *args, **kwargs))
             return d
         return decorate
 
-
     @_needsChildren
     def child(self, name):
         return Folder.child(self, name)
-
 
     @_needsChildren
     def list(self):
         return Folder.list(self)
 
-
     def describe(self):
         return recordInfo(self.service.directory, self.record)
-
 
 
 class CalendarHomeFolder(Folder):
     """
     Calendar home folder.
     """
+
     def __init__(self, service, path, home, record):
         Folder.__init__(self, service, path)
 
         self.home = home
         self.record = record
-
 
     @inlineCallbacks
     def child(self, name):
@@ -527,7 +498,6 @@ class CalendarHomeFolder(Folder):
             returnValue(CalendarFolder(self.service, self.path + (name,), calendar))
         else:
             raise NotFoundError("Calendar home %r has no calendar %r" % (self, name))
-
 
     @inlineCallbacks
     def list(self):
@@ -540,11 +510,10 @@ class CalendarHomeFolder(Folder):
 
             info = {
                 "Display Name": displayName,
-                "Sync Token"  : (yield calendar.syncToken()),
+                "Sync Token": (yield calendar.syncToken()),
             }
             result.append(ListEntry(self, CalendarFolder, calendar.name(), **info))
         returnValue(result)
-
 
     @inlineCallbacks
     def describe(self):
@@ -565,7 +534,7 @@ class CalendarHomeFolder(Folder):
         rows = []
         rows.append(("UID", uid))
         rows.append(("Owner", "(%s)%s" % (recordType, recordShortName)))
-        rows.append(("Created"      , timeString(created)))
+        rows.append(("Created", timeString(created)))
         rows.append(("Last modified", timeString(modified)))
         if quotaUsed is not None:
             rows.append((
@@ -587,22 +556,20 @@ class CalendarHomeFolder(Folder):
         returnValue("\n".join(description))
 
 
-
 class CalendarFolder(Folder):
     """
     Calendar.
     """
+
     def __init__(self, service, path, calendar):
         Folder.__init__(self, service, path)
 
         self.calendar = calendar
 
-
     @inlineCallbacks
     def _childWithObject(self, object):
         uid = (yield object.uid())
         returnValue(CalendarObject(self.service, self.path + (uid,), object, uid))
-
 
     @inlineCallbacks
     def child(self, name):
@@ -613,7 +580,6 @@ class CalendarFolder(Folder):
 
         child = (yield self._childWithObject(object))
         returnValue(child)
-
 
     @inlineCallbacks
     def list(self):
@@ -626,7 +592,6 @@ class CalendarFolder(Folder):
 
         returnValue(result)
 
-
     @inlineCallbacks
     def describe(self):
         description = ["Calendar:\n"]
@@ -634,11 +599,11 @@ class CalendarFolder(Folder):
         #
         # Attributes
         #
-        ownerHome = (yield self.calendar.ownerCalendarHome()) # FIXME: Translate into human
+        ownerHome = (yield self.calendar.ownerCalendarHome())  # FIXME: Translate into human
         syncToken = (yield self.calendar.syncToken())
 
         rows = []
-        rows.append(("Owner"     , ownerHome))
+        rows.append(("Owner", ownerHome))
         rows.append(("Sync Token", syncToken))
 
         description.append("Attributes:")
@@ -653,7 +618,6 @@ class CalendarFolder(Folder):
 
         returnValue("\n".join(description))
 
-
     def delete(self, implicit=True):
 
         if implicit:
@@ -664,17 +628,16 @@ class CalendarFolder(Folder):
             self.calendarObject.remove()
 
 
-
 class CalendarObject(File):
     """
     Calendar object.
     """
+
     def __init__(self, service, path, calendarObject, uid):
         File.__init__(self, service, path)
 
         self.object = calendarObject
         self.uid = uid
-
 
     @inlineCallbacks
     def lookup(self):
@@ -699,7 +662,6 @@ class CalendarObject(File):
 
             self.component = component
 
-
     @inlineCallbacks
     def list(self):
         (yield self.lookup())
@@ -714,7 +676,6 @@ class CalendarObject(File):
     def text(self):
         (yield self.lookup())
         returnValue(str(self.component))
-
 
     @inlineCallbacks
     def describe(self):
@@ -736,12 +697,12 @@ class CalendarObject(File):
             organizerName = organizer.parameterValue("CN")
             organizerEmail = organizer.parameterValue("EMAIL")
 
-            name = " (%s)" % (organizerName ,) if organizerName else ""
+            name = " (%s)" % (organizerName,) if organizerName else ""
             email = " <%s>" % (organizerEmail,) if organizerEmail else ""
 
             rows.append(("Organizer", "%s%s%s" % (organizer.value(), name, email)))
 
-        rows.append(("Created" , timeString(self.object.created())))
+        rows.append(("Created", timeString(self.object.created())))
         rows.append(("Modified", timeString(self.object.modified())))
 
         description.append("Attributes:")
@@ -756,12 +717,12 @@ class CalendarObject(File):
             contentType = "%s/%s" % (contentType.mediaType, contentType.mediaSubtype)
 
             rows = []
-            rows.append(("Name"        , attachment.name()))
-            rows.append(("Size"        , "%s bytes" % (attachment.size(),)))
+            rows.append(("Name", attachment.name()))
+            rows.append(("Size", "%s bytes" % (attachment.size(),)))
             rows.append(("Content Type", contentType))
-            rows.append(("MD5 Sum"     , attachment.md5()))
-            rows.append(("Created"     , timeString(attachment.created())))
-            rows.append(("Modified"    , timeString(attachment.modified())))
+            rows.append(("MD5 Sum", attachment.md5()))
+            rows.append(("Created", timeString(attachment.created())))
+            rows.append(("Modified", timeString(attachment.modified())))
 
             description.append("Attachment:")
             description.append(tableString(rows))
@@ -776,11 +737,11 @@ class CalendarObject(File):
         returnValue("\n".join(description))
 
 
-
 class AddressBookHomeFolder(Folder):
     """
     Address book home folder.
     """
+
     def __init__(self, service, path, home, record):
         Folder.__init__(self, service, path)
 
@@ -788,7 +749,6 @@ class AddressBookHomeFolder(Folder):
         self.record = record
 
     # FIXME
-
 
 
 def tableString(rows, header=None):
@@ -803,7 +763,6 @@ def tableString(rows, header=None):
     return output.getvalue()
 
 
-
 def tableStringForProperties(properties):
     return "Properties:\n%s" % (tableString((
         (name.toString(), truncateAtNewline(properties[name]))
@@ -811,13 +770,11 @@ def tableStringForProperties(properties):
     )))
 
 
-
 def timeString(time):
     if time is None:
         return "(unknown)"
 
     return strftime("%a, %d %b %Y %H:%M:%S %z(%Z)", localtime(time))
-
 
 
 def truncateAtNewline(text):

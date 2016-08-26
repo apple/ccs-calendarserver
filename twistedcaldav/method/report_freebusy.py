@@ -45,6 +45,7 @@ from pycalendar.period import Period
 
 log = Logger()
 
+
 @inlineCallbacks
 def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy):
     """
@@ -68,8 +69,7 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
     if accepted_type is None:
         raise HTTPError(StatusResponse(responsecode.NOT_ACCEPTABLE, "Cannot generate requested data type"))
 
-
-    def getCalendarList(calresource, uri): #@UnusedVariable
+    def getCalendarList(calresource, uri):  # @UnusedVariable
         """
         Store the calendars that match the query in L{fbset} which will then be used with the
         freebusy query.

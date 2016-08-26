@@ -98,7 +98,6 @@ class iTipProcessing(object):
             other_props, recipient,
         )
 
-
     @staticmethod
     def processNewRequest(itip_message, recipient=None, creating=False):
         """
@@ -141,7 +140,6 @@ class iTipProcessing(object):
                             calendar.removeComponent(component)
 
         return calendar
-
 
     @staticmethod
     def processRequest(itip_message, calendar, recipient):
@@ -248,7 +246,6 @@ class iTipProcessing(object):
 
             # Write back the modified object
             return calendar, rids
-
 
     @staticmethod
     def processCancel(itip_message, calendar, autoprocessing=False):
@@ -357,7 +354,6 @@ class iTipProcessing(object):
         else:
             return True, False, rids
 
-
     @staticmethod
     def processPollStatus(itip_message, calendar, recipient):
         """
@@ -390,7 +386,6 @@ class iTipProcessing(object):
                 calendar_master.addComponent(component.duplicate())
 
         return calendar
-
 
     # Tuple used to hold information about what an ATTENDEE changed in their REPLY
     # "params" indicates which parameters in the ATTENDEE property changes
@@ -494,7 +489,6 @@ class iTipProcessing(object):
         else:
             log.error("ATTENDEE property in a REPLY must be the same in all components\n{msg}", msg=str(itip_message))
             return False, None
-
 
     @staticmethod
     def updateAttendeeDataFromReply(reply_component, organizer_component):
@@ -633,7 +627,6 @@ class iTipProcessing(object):
                 if iTipProcessing.updateVPOLLDataFromReply(reply_component, organizer_component, attendee):
                     reply_changes.params.append("PARTSTAT")
 
-
             for propname in config.Scheduling.CalDAV.AttendeePublicProperties:
                 # Copy any property in the incoming component to the existing one.
                 # We do not currently delete anything in the existing component.
@@ -649,7 +642,6 @@ class iTipProcessing(object):
         if len(reply_changes.props) == 0 and len(reply_changes.params) == 0:
             reply_changes = None
         return attendee.value(), reply_changes
-
 
     @staticmethod
     def updateVPOLLDataFromReply(reply_component, organizer_component, attendee):
@@ -713,7 +705,6 @@ class iTipProcessing(object):
 
         return partstat_changed
 
-
     @staticmethod
     def transferItems(from_calendar, to_component, needs_action_rids, reschedule, master_details, remove_matched=False):
         """
@@ -771,7 +762,6 @@ class iTipProcessing(object):
 
         return False
 
-
     @staticmethod
     def _transferItems(to_component, transfer_partstat, details):
         """
@@ -828,7 +818,6 @@ class iTipProcessing(object):
 
         return False
 
-
     @staticmethod
     def mergePartStat(from_attendee, to_attendee):
         """
@@ -846,7 +835,6 @@ class iTipProcessing(object):
             to_attendee.setParameter("PARTSTAT", preserve)
         if preserve != "NEEDS-ACTION":
             to_attendee.removeParameter("RSVP")
-
 
     @staticmethod
     def addTranspForNeedsAction(components, recipient):
@@ -866,7 +854,6 @@ class iTipProcessing(object):
             attendee = component.getAttendeeProperty((recipient,))
             if attendee and attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "NEEDS-ACTION":
                 component.replaceProperty(Property("TRANSP", "TRANSPARENT"))
-
 
     @staticmethod
     def sequenceComparison(itip, calendar):
@@ -941,7 +928,6 @@ class iTipProcessing(object):
 
             # If there are others in one set and not the other - always process, else no process
             return len(cal_rids ^ itip_rids) > 0
-
 
 
 class iTipGenerator(object):
@@ -1049,7 +1035,6 @@ class iTipGenerator(object):
         else:
             return None
 
-
     @staticmethod
     def generateAttendeeRequest(original, attendees, filter_rids, test_only=False):
         """
@@ -1062,7 +1047,6 @@ class iTipGenerator(object):
         itip.addProperty(Property("METHOD", "REQUEST"))
 
         return iTipGenerator.generateAttendeeView(itip, attendees, filter_rids, test_only)
-
 
     @staticmethod
     def generateAttendeeView(calendar, attendees, filter_rids, test_only=False):
@@ -1093,7 +1077,6 @@ class iTipGenerator(object):
 
         else:
             return None
-
 
     @staticmethod
     def generateAttendeeReply(original, attendee, changedRids=None, force_decline=False, method="REPLY"):
@@ -1167,7 +1150,6 @@ class iTipGenerator(object):
 
         return itip if uid is not None else None
 
-
     @staticmethod
     def generateVPOLLReply(vpoll, attendee):
         """
@@ -1183,7 +1165,6 @@ class iTipGenerator(object):
         for component in tuple(vpoll.subcomponents(ignore=True)):
             if component.name() != "VVOTER" or component.getVoterProperty((attendee,)) is None:
                 vpoll.removeComponent(component)
-
 
     @staticmethod
     def prepareSchedulingMessage(itip, reply=False):
@@ -1219,7 +1200,6 @@ class iTipGenerator(object):
         itip.removePropertyParameters("ATTENDEE", ("SCHEDULE-AGENT", "SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND", DTSTAMP_PARAM,))
         itip.removePropertyParameters("VOTER", ("SCHEDULE-AGENT", "SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND", DTSTAMP_PARAM,))
         itip.removePropertyParameters("ORGANIZER", ("SCHEDULE-AGENT", "SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND",))
-
 
 
 class iTIPRequestStatus(object):

@@ -34,7 +34,7 @@ if __name__ == '__main__':
             from twisted.internet import reactor
             from twisted.internet.stdio import StandardIO
 
-            from contrib.performance.loadtest.ampsim import Worker # @UnresolvedImport
+            from contrib.performance.loadtest.ampsim import Worker  # @UnresolvedImport
             from contrib.performance.loadtest.sim import LagTrackingReactor
 
             StandardIO(Worker(LagTrackingReactor(reactor)))
@@ -58,6 +58,7 @@ from twext.enterprise.adbapi2 import Pickle
 
 from contrib.performance.loadtest.sim import _DirectoryRecord, LoadSimulator
 
+
 class Configure(Command):
     """
     Configure this worker process with the text of an XML property list.
@@ -67,14 +68,12 @@ class Configure(Command):
     errors = {OSError: 'OSError'}
 
 
-
 class LogMessage(Command):
     """
     This message represents an observed log message being relayed from a worker
     process to the manager process.
     """
     arguments = [("event", Pickle())]
-
 
 
 class Account(Command):
@@ -91,7 +90,6 @@ class Account(Command):
     ]
 
 
-
 class Worker(AMP):
     """
     Protocol to be run in the worker process, to handle messages from its
@@ -103,12 +101,10 @@ class Worker(AMP):
         self.reactor = reactor
         self.records = []
 
-
     @Account.responder
     def account(self, **kw):
         self.records.append(_DirectoryRecord(**kw))
         return {}
-
 
     @Configure.responder
     def config(self, plist):
@@ -120,19 +116,16 @@ class Worker(AMP):
         sim.attachServices(stderr)
         return {}
 
-
     def emit(self, eventDict):
         if 'type' in eventDict:
             self.reactor.callFromThread(
                 self.callRemote, LogMessage, event=eventDict
             )
 
-
     def connectionLost(self, reason):
         super(Worker, self).connectionLost(reason)
         msg("Standard IO connection lost.")
         self.reactor.stop()
-
 
 
 class Manager(AMP):
@@ -147,7 +140,6 @@ class Manager(AMP):
         self.whichWorker = whichWorker
         self.numWorkers = numWorkers
         self.output = output
-
 
     def connectionMade(self):
         super(Manager, self).connectionMade()
@@ -177,12 +169,13 @@ class Manager(AMP):
 
         plist = writePlistToString(workerConfig)
         self.output.write("Initiating worker configuration\n")
+
         def completed(x):
             self.output.write("Worker configuration complete.\n")
+
         def failed(reason):
             self.output.write("Worker configuration failed. {}\n".format(reason))
         self.callRemote(Configure, plist=plist).addCallback(completed).addErrback(failed)
-
 
     @LogMessage.responder
     def observed(self, event):

@@ -80,7 +80,6 @@ from txdav.who.idirectory import (
 log = Logger()
 
 
-
 # Monkey patch
 def new_validRecurrenceIDs(self, doFix=True):
 
@@ -176,7 +175,6 @@ def new_validRecurrenceIDs(self, doFix=True):
     return fixed, unfixed
 
 
-
 def new_hasDuplicateAlarms(self, doFix=False):
     """
     test and optionally remove alarms that have the same ACTION and TRIGGER values in the same component.
@@ -205,6 +203,7 @@ if not hasattr(Component, "maxAlarmCounts"):
     Component.hasDuplicateAlarms = new_hasDuplicateAlarms
 
 VERSION = "12"
+
 
 def printusage(e=None):
     if e:
@@ -320,7 +319,6 @@ def safePercent(x, y, multiplier=100.0):
     return ((multiplier * x) / y) if y else 0
 
 
-
 class CalVerifyOptions(Options):
     """
     Command-line options for 'calendarserver_verify_data'
@@ -360,15 +358,12 @@ class CalVerifyOptions(Options):
         ['rid', '', "", "Split date-time."],
     ]
 
-
     def __init__(self):
         super(CalVerifyOptions, self).__init__()
         self.outputName = '-'
 
-
     def getUsage(self, width=None):
         return ""
-
 
     def opt_output(self, filename):
         """
@@ -378,7 +373,6 @@ class CalVerifyOptions(Options):
 
     opt_o = opt_output
 
-
     def openOutput(self):
         """
         Open the appropriate output file based on the '--output' option.
@@ -387,7 +381,6 @@ class CalVerifyOptions(Options):
             return sys.stdout
         else:
             return open(self.outputName, 'wb')
-
 
 
 class CalVerifyService(WorkerService, object):
@@ -414,10 +407,8 @@ class CalVerifyService(WorkerService, object):
 
         TimezoneCache.create()
 
-
     def title(self):
         return ""
-
 
     @inlineCallbacks
     def doWork(self):
@@ -432,13 +423,11 @@ class CalVerifyService(WorkerService, object):
         except:
             log.failure("doWork()")
 
-
     def directoryService(self):
         """
         Return the directory service
         """
         return self._directory
-
 
     @inlineCallbacks
     def getAllHomeUIDs(self):
@@ -448,7 +437,6 @@ class CalVerifyService(WorkerService, object):
             From=ch,
         ).on(self.txn))
         returnValue(tuple([uid[0] for uid in rows]))
-
 
     @inlineCallbacks
     def getMatchingHomeUIDs(self, uuid):
@@ -461,13 +449,12 @@ class CalVerifyService(WorkerService, object):
         ).on(self.txn, **kwds))
         returnValue(tuple([uid[0] for uid in rows]))
 
-
     @inlineCallbacks
     def countHomeContents(self, uid):
         ch = schema.CALENDAR_HOME
         cb = schema.CALENDAR_BIND
         co = schema.CALENDAR_OBJECT
-        kwds = {"UID" : uid}
+        kwds = {"UID": uid}
         rows = (yield Select(
             [Count(co.RESOURCE_ID), ],
             From=ch.join(
@@ -477,7 +464,6 @@ class CalVerifyService(WorkerService, object):
             Where=(ch.OWNER_UID == Parameter("UID"))
         ).on(self.txn, **kwds))
         returnValue(int(rows[0][0]) if rows else 0)
-
 
     @inlineCallbacks
     def getAllResourceInfo(self, inbox=False):
@@ -502,7 +488,6 @@ class CalVerifyService(WorkerService, object):
             GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED,),
         ).on(self.txn, **kwds))
         returnValue(tuple(rows))
-
 
     @inlineCallbacks
     def getAllResourceInfoWithUUID(self, uuid, inbox=False):
@@ -533,7 +518,6 @@ class CalVerifyService(WorkerService, object):
         ).on(self.txn, **kwds))
         returnValue(tuple(rows))
 
-
     @inlineCallbacks
     def getAllResourceInfoTimeRange(self, start):
         co = schema.CALENDAR_OBJECT
@@ -541,8 +525,8 @@ class CalVerifyService(WorkerService, object):
         ch = schema.CALENDAR_HOME
         tr = schema.TIME_RANGE
         kwds = {
-            "Start" : pyCalendarToSQLTimestamp(start),
-            "Max"   : pyCalendarToSQLTimestamp(DateTime(1900, 1, 1, 0, 0, 0))
+            "Start": pyCalendarToSQLTimestamp(start),
+            "Max": pyCalendarToSQLTimestamp(DateTime(1900, 1, 1, 0, 0, 0))
         }
         rows = (yield Select(
             [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED],
@@ -557,7 +541,6 @@ class CalVerifyService(WorkerService, object):
             GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED,),
         ).on(self.txn, **kwds))
         returnValue(tuple(rows))
-
 
     @inlineCallbacks
     def getAllResourceInfoWithUID(self, uid, inbox=False):
@@ -574,7 +557,7 @@ class CalVerifyService(WorkerService, object):
                 cb.CALENDAR_RESOURCE_NAME != "inbox")
 
         kwds = {
-            "UID" : uid,
+            "UID": uid,
         }
         rows = (yield Select(
             [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED],
@@ -586,7 +569,6 @@ class CalVerifyService(WorkerService, object):
         ).on(self.txn, **kwds))
         returnValue(tuple(rows))
 
-
     @inlineCallbacks
     def getAllResourceInfoTimeRangeWithUUID(self, start, uuid):
         co = schema.CALENDAR_OBJECT
@@ -594,9 +576,9 @@ class CalVerifyService(WorkerService, object):
         ch = schema.CALENDAR_HOME
         tr = schema.TIME_RANGE
         kwds = {
-            "Start" : pyCalendarToSQLTimestamp(start),
-            "Max"   : pyCalendarToSQLTimestamp(DateTime(1900, 1, 1, 0, 0, 0)),
-            "UUID" : uuid,
+            "Start": pyCalendarToSQLTimestamp(start),
+            "Max": pyCalendarToSQLTimestamp(DateTime(1900, 1, 1, 0, 0, 0)),
+            "UUID": uuid,
         }
         rows = (yield Select(
             [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED],
@@ -611,7 +593,6 @@ class CalVerifyService(WorkerService, object):
         ).on(self.txn, **kwds))
         returnValue(tuple(rows))
 
-
     @inlineCallbacks
     def getAllResourceInfoTimeRangeWithUUIDForAllUID(self, start, uuid):
         co = schema.CALENDAR_OBJECT
@@ -624,9 +605,9 @@ class CalVerifyService(WorkerService, object):
             cb.CALENDAR_RESOURCE_NAME != "inbox")
 
         kwds = {
-            "Start" : pyCalendarToSQLTimestamp(start),
-            "Max"   : pyCalendarToSQLTimestamp(DateTime(1900, 1, 1, 0, 0, 0)),
-            "UUID" : uuid,
+            "Start": pyCalendarToSQLTimestamp(start),
+            "Max": pyCalendarToSQLTimestamp(DateTime(1900, 1, 1, 0, 0, 0)),
+            "UUID": uuid,
         }
         rows = (yield Select(
             [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED],
@@ -649,7 +630,6 @@ class CalVerifyService(WorkerService, object):
         ).on(self.txn, **kwds))
         returnValue(tuple(rows))
 
-
     @inlineCallbacks
     def getAllResourceInfoForResourceID(self, resid):
         co = schema.CALENDAR_OBJECT
@@ -665,7 +645,6 @@ class CalVerifyService(WorkerService, object):
             Where=(co.RESOURCE_ID == Parameter("resid")),
         ).on(self.txn, **kwds))
         returnValue(rows[0])
-
 
     @inlineCallbacks
     def getResourceID(self, home, calendar, resource):
@@ -690,11 +669,10 @@ class CalVerifyService(WorkerService, object):
         ).on(self.txn, **kwds))
         returnValue(rows[0][0] if rows else None)
 
-
     @inlineCallbacks
     def getCalendar(self, resid, doFix=False):
         co = schema.CALENDAR_OBJECT
-        kwds = {"ResourceID" : resid}
+        kwds = {"ResourceID": resid}
         rows = (yield Select(
             [co.ICALENDAR_TEXT],
             From=co,
@@ -710,7 +688,6 @@ class CalVerifyService(WorkerService, object):
 
         self.parseError = None
         returnValue(caldata)
-
 
     @inlineCallbacks
     def getCalendarForOwnerByUID(self, owner, uid):
@@ -736,7 +713,6 @@ class CalVerifyService(WorkerService, object):
 
         returnValue((caldata, rows[0][1], rows[0][2], rows[0][3],) if rows else (None, None, None, None,))
 
-
     @inlineCallbacks
     def removeEvent(self, resid):
         """
@@ -761,12 +737,10 @@ class CalVerifyService(WorkerService, object):
             print("Failed to remove resource whilst fixing: %d\n%s" % (resid, e,))
             returnValue(False)
 
-
     def logResult(self, key, value, total=None):
         self.output.write("%s: %s\n" % (key, value,))
         self.results[key] = value
         self.addToSummary(key, value, total)
-
 
     def addToSummary(self, title, count, total=None):
         if total is not None:
@@ -775,10 +749,8 @@ class CalVerifyService(WorkerService, object):
             percent = ""
         self.summary.append((title, count, percent))
 
-
     def addSummaryBreak(self):
         self.summary.append(None)
-
 
     def printSummary(self):
         # Print summary of results
@@ -803,7 +775,6 @@ class CalVerifyService(WorkerService, object):
         table.printTable(os=self.output)
 
 
-
 class NukeService(CalVerifyService):
     """
     Service which removes specific events.
@@ -811,7 +782,6 @@ class NukeService(CalVerifyService):
 
     def title(self):
         return "Nuke Service"
-
 
     @inlineCallbacks
     def doAction(self):
@@ -858,7 +828,6 @@ class NukeService(CalVerifyService):
         self.txn = None
 
 
-
 class OrphansService(CalVerifyService):
     """
     Service which detects orphaned calendar homes.
@@ -866,7 +835,6 @@ class OrphansService(CalVerifyService):
 
     def title(self):
         return "Orphans Service"
-
 
     @inlineCallbacks
     def doAction(self):
@@ -963,7 +931,6 @@ class OrphansService(CalVerifyService):
         self.printSummary()
 
 
-
 class BadDataService(CalVerifyService):
     """
     Service which scans for bad calendar data.
@@ -971,7 +938,6 @@ class BadDataService(CalVerifyService):
 
     def title(self):
         return "Bad Data Service"
-
 
     @inlineCallbacks
     def doAction(self):
@@ -1015,7 +981,6 @@ class BadDataService(CalVerifyService):
         yield self.calendarDataCheck(rows)
 
         self.printSummary()
-
 
     @inlineCallbacks
     def calendarDataCheck(self, rows):
@@ -1147,7 +1112,6 @@ class BadDataService(CalVerifyService):
 
         returnValue((result, message,))
 
-
     @inlineCallbacks
     def noPrincipalPathCUAddresses(self, component, doFix):
 
@@ -1228,7 +1192,6 @@ class BadDataService(CalVerifyService):
                         else:
                             raise InvalidICalendarDataError("iCalendar ATTENDEE missing mailto:")
 
-
     def attendeesWithoutOrganizer(self, component, doFix):
         """
         Look for events with ATTENDEE properties and no ORGANIZER property.
@@ -1241,7 +1204,6 @@ class BadDataService(CalVerifyService):
                 raise ValueError("ATTENDEEs without ORGANIZER")
             else:
                 raise InvalidICalendarDataError("ATTENDEEs without ORGANIZER")
-
 
     @inlineCallbacks
     def fixCalendarData(self, resid, isinbox):
@@ -1291,7 +1253,6 @@ class BadDataService(CalVerifyService):
         returnValue((result, message,))
 
 
-
 class SchedulingMismatchService(CalVerifyService):
     """
     Service which detects mismatched scheduled events.
@@ -1325,10 +1286,8 @@ class SchedulingMismatchService(CalVerifyService):
         self.fixFailed = 0
         self.fixedAutoAccepts = []
 
-
     def title(self):
         return "Scheduling Mismatch Service"
-
 
     @inlineCallbacks
     def doAction(self):
@@ -1402,7 +1361,6 @@ class SchedulingMismatchService(CalVerifyService):
 
         self.printSummary()
 
-
     @inlineCallbacks
     def buildResourceInfo(self, rows, onlyOrganizer=False, onlyAttendee=False):
         """
@@ -1448,7 +1406,6 @@ class SchedulingMismatchService(CalVerifyService):
 
         returnValue((skipped, inboxes))
 
-
     @inlineCallbacks
     def testForCalendaringUUID(self, uuid):
         """
@@ -1465,7 +1422,6 @@ class SchedulingMismatchService(CalVerifyService):
             record = yield self.directoryService().recordWithUID(uuid)
             self.validForCalendaringUUIDs[uuid] = record is not None and record.hasCalendars and record.thisServer()
         returnValue(self.validForCalendaringUUIDs[uuid])
-
 
     @inlineCallbacks
     def verifyAllAttendeesForOrganizer(self):
@@ -1657,7 +1613,6 @@ class SchedulingMismatchService(CalVerifyService):
         table.printTable(os=self.output)
         self.totalErrors += len(results_mismatch)
 
-
     @inlineCallbacks
     def verifyAllOrganizersForAttendee(self):
         """
@@ -1674,7 +1629,7 @@ class SchedulingMismatchService(CalVerifyService):
         attended_div = 1 if attended_len < 100 else attended_len / 100
 
         t = time.time()
-        for ctr, attendeeEvent in enumerate(tuple(self.attended)): # self.attended might mutate during the loop
+        for ctr, attendeeEvent in enumerate(tuple(self.attended)):  # self.attended might mutate during the loop
 
             if self.options["verbose"] and divmod(ctr, attended_div)[1] == 0:
                 self.output.write(("\r%d of %d (%d%%) Missing: %d  Mismatched: %s" % (
@@ -1811,7 +1766,6 @@ class SchedulingMismatchService(CalVerifyService):
         table.printTable(os=self.output)
         self.totalErrors += len(mismatched)
 
-
     @inlineCallbacks
     def fixByReinvitingAttendee(self, orgresid, attresid, attendee):
         """
@@ -1909,14 +1863,12 @@ class SchedulingMismatchService(CalVerifyService):
             print("Failed to fix resource: %d for attendee: %s\n%s" % (orgresid, attendee, e,))
             returnValue(False)
 
-
     @inlineCallbacks
     def defaultCalendarForAttendee(self, home):
 
         # Check for property
         calendar = (yield home.defaultCalendar("VEVENT"))
         returnValue(calendar)
-
 
     def printAutoAccepts(self):
         # Print summary of results
@@ -1935,7 +1887,6 @@ class SchedulingMismatchService(CalVerifyService):
         self.output.write("Auto-Accept Fixes:\n")
         table.printTable(os=self.output)
 
-
     def masterComponent(self, calendar):
         """
         Return the master iCal component in this calendar.
@@ -1948,7 +1899,6 @@ class SchedulingMismatchService(CalVerifyService):
                 return component
 
         return None
-
 
     def buildAttendeeStates(self, calendar, start, end, attendee_only=None):
         # Expand events into instances in the start/end range
@@ -2003,7 +1953,6 @@ class SchedulingMismatchService(CalVerifyService):
 
         return attendees
 
-
     def allCancelled(self, attendeesStatus):
         # Check whether attendees have all instances cancelled
         all_cancelled = True
@@ -2015,7 +1964,6 @@ class SchedulingMismatchService(CalVerifyService):
             if not all_cancelled:
                 break
         return all_cancelled
-
 
     def setTransparencyForAttendee(self, calendar, attendee):
         """
@@ -2031,7 +1979,6 @@ class SchedulingMismatchService(CalVerifyService):
             component.replaceProperty(Property("TRANSP", "TRANSPARENT" if addTransp else "OPAQUE"))
 
 
-
 class DoubleBookingService(CalVerifyService):
     """
     Service which detects double-booked events.
@@ -2039,7 +1986,6 @@ class DoubleBookingService(CalVerifyService):
 
     def title(self):
         return "Double Booking Service"
-
 
     @inlineCallbacks
     def doAction(self):
@@ -2161,7 +2107,6 @@ class DoubleBookingService(CalVerifyService):
             if self.options["verbose"]:
                 self.output.write("%s time: %.1fs\n" % ("Summary", time.time() - ot,))
 
-
     @inlineCallbacks
     def getTimeRangeInfoWithUUID(self, uuid, start):
         co = schema.CALENDAR_OBJECT
@@ -2170,7 +2115,7 @@ class DoubleBookingService(CalVerifyService):
         tr = schema.TIME_RANGE
         kwds = {
             "uuid": uuid,
-            "Start" : pyCalendarToSQLTimestamp(start),
+            "Start": pyCalendarToSQLTimestamp(start),
         }
         rows = (yield Select(
             [co.RESOURCE_ID, ],
@@ -2185,7 +2130,6 @@ class DoubleBookingService(CalVerifyService):
             Distinct=True,
         ).on(self.txn, **kwds))
         returnValue(tuple(rows))
-
 
     @inlineCallbacks
     def doubleBookCheck(self, rows, uuid, start):
@@ -2341,7 +2285,6 @@ class DoubleBookingService(CalVerifyService):
         returnValue(len(double_booked) != 0)
 
 
-
 class DarkPurgeService(CalVerifyService):
     """
     Service which detects room/resource events that have an invalid organizer.
@@ -2349,7 +2292,6 @@ class DarkPurgeService(CalVerifyService):
 
     def title(self):
         return "Dark Purge Service"
-
 
     @inlineCallbacks
     def doAction(self):
@@ -2479,7 +2421,6 @@ class DarkPurgeService(CalVerifyService):
             if self.options["verbose"]:
                 self.output.write("%s time: %.1fs\n" % ("Summary", time.time() - ot,))
 
-
     @inlineCallbacks
     def darkPurge(self, rows, uuid):
         """
@@ -2580,7 +2521,6 @@ class DarkPurgeService(CalVerifyService):
         returnValue(details)
 
 
-
 class MissingLocationService(CalVerifyService):
     """
     Service which detects room/resource events that have an ATTENDEE;CUTYPE=ROOM property but no Location.
@@ -2588,7 +2528,6 @@ class MissingLocationService(CalVerifyService):
 
     def title(self):
         return "Missing Location Service"
-
 
     @inlineCallbacks
     def doAction(self):
@@ -2714,7 +2653,6 @@ class MissingLocationService(CalVerifyService):
             if self.options["verbose"]:
                 self.output.write("%s time: %.1fs\n" % ("Summary", time.time() - ot,))
 
-
     @inlineCallbacks
     def missingLocation(self, rows, uuid, rname):
         """
@@ -2819,7 +2757,6 @@ class MissingLocationService(CalVerifyService):
 
         returnValue(details)
 
-
     @inlineCallbacks
     def fixCalendarData(self, cal, rname, cuaddr, location_resid):
         """
@@ -2878,7 +2815,6 @@ class MissingLocationService(CalVerifyService):
         returnValue((result, message,))
 
 
-
 class EventSplitService(CalVerifyService):
     """
     Service which splits a recurring event at a specific date-time value.
@@ -2886,7 +2822,6 @@ class EventSplitService(CalVerifyService):
 
     def title(self):
         return "Event Split Service"
-
 
     @inlineCallbacks
     def doAction(self):
@@ -2943,7 +2878,6 @@ class EventSplitService(CalVerifyService):
 
         returnValue(result)
 
-
     def doSummary(self, ical):
         """
         Print a summary of the recurrence instances of the specified event.
@@ -2960,7 +2894,6 @@ class EventSplitService(CalVerifyService):
         instances = sorted(instances.instances.values(), key=lambda x: x.start)
         for instance in instances:
             self.output.write(instance.rid.getText() + (" *\n" if instance.overridden else "\n"))
-
 
     @inlineCallbacks
     def doSplit(self, resid, calendarObj, ical):
@@ -2996,7 +2929,6 @@ class EventSplitService(CalVerifyService):
         returnValue((oldUID, oldRelated,))
 
 
-
 class UpgradeDataService(CalVerifyService):
     """
     Service which scans calendar data.
@@ -3004,7 +2936,6 @@ class UpgradeDataService(CalVerifyService):
 
     def title(self):
         return "Upgrade Data Service"
-
 
     @inlineCallbacks
     def doAction(self):
@@ -3048,7 +2979,6 @@ class UpgradeDataService(CalVerifyService):
         yield self.calendarDataUpgrade(rows)
 
         self.printSummary()
-
 
     @inlineCallbacks
     def calendarDataUpgrade(self, rows):
@@ -3143,7 +3073,6 @@ class UpgradeDataService(CalVerifyService):
             ))
 
 
-
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
 
     if reactor is None:
@@ -3159,7 +3088,6 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     except IOError, e:
         stderr.write("Unable to open output file for writing: %s\n" % (e))
         sys.exit(1)
-
 
     def makeService(store):
         from twistedcaldav.config import config

@@ -26,6 +26,7 @@ from twistedcaldav.caldavxml import ComponentFilter, PropertyFilter, TextMatch, 
 from txdav.caldav.datastore.query.filter import Filter as storeFilter
 from txdav.caldav.datastore.query.filter import ComponentFilter as storeComponentFilter
 
+
 class XML (twistedcaldav.test.util.TestCase):
     """
     XML tests
@@ -59,7 +60,6 @@ class XML (twistedcaldav.test.util.TestCase):
             ).match(self.calendar, None):
                 self.fail("Calendar has %s%s?" % (no, component_name))
 
-
     def test_PropertyFilter(self):
         """
         Property filter element.
@@ -86,13 +86,11 @@ class XML (twistedcaldav.test.util.TestCase):
             ).match(self.calendar, None):
                 self.fail("Calendar has %sVEVENT with %s?" % (no, property_name))
 
-
     def test_ParameterFilter(self):
         """
         Parameter filter element.
         """
         raise SkipTest("test unimplemented")
-
 
     def test_TextMatch(self):
         """
@@ -123,28 +121,27 @@ class XML (twistedcaldav.test.util.TestCase):
             ).match(self.calendar, None):
                 self.fail("Calendar has %sVEVENT with UID %s? (caseless=%s)" % (no, uid, caseless))
 
-
     def test_TimeRange(self):
         """
         Time range match element.
         """
         for start, end, has in (
             ("20020101T000000Z", "20020101T000001Z", True),
-            ("20020101T000000Z", "20020101T000000Z", True), # Timespan of zero duration
-            ("20020101", "20020101", True), # Timespan of zero duration
+            ("20020101T000000Z", "20020101T000000Z", True),  # Timespan of zero duration
+            ("20020101", "20020101", True),  # Timespan of zero duration
             ("20020101", "20020102", True),
             ("20020101", "20020103", True),
             ("20020102", "20020103", False),
-            ("20011201", "20020101", False), # End is non-inclusive
+            ("20011201", "20020101", False),  # End is non-inclusive
 
             # Expanded recurrence
             ("20030101T000000Z", "20030101T000001Z", True),
-            ("20030101T000000Z", "20030101T000000Z", True), # Timespan of zero duration
-            ("20030101", "20030101", True), # Timespan of zero duration
+            ("20030101T000000Z", "20030101T000000Z", True),  # Timespan of zero duration
+            ("20030101", "20030101", True),  # Timespan of zero duration
             ("20030101", "20030102", True),
             ("20030101", "20030103", True),
             ("20030102", "20030103", False),
-            ("20021201", "20030101", False), # End is non-inclusive
+            ("20021201", "20030101", False),  # End is non-inclusive
         ):
             if has:
                 no = "no "

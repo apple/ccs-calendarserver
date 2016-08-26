@@ -54,6 +54,7 @@ data into overridden instance.
 
 """
 
+
 class PerUserDataFilter(CalendarFilter):
     """
     Filter per-user data
@@ -77,7 +78,6 @@ class PerUserDataFilter(CalendarFilter):
         """
 
         self.uid = uid
-
 
     def filter(self, ical):
         """
@@ -114,7 +114,6 @@ class PerUserDataFilter(CalendarFilter):
             self._defaultFilter(ical)
 
         return ical
-
 
     def _filterBack(self, ical, peruser):
         """
@@ -169,7 +168,6 @@ class PerUserDataFilter(CalendarFilter):
                     ical_component = ical.overriddenComponent(rid)
                     self._filterBackComponent(ical_component, peruser_master)
 
-
     def _filterBackComponent(self, ical, peruser):
         """
         Copy all properties and sub-components from per-user data into the main component
@@ -190,7 +188,6 @@ class PerUserDataFilter(CalendarFilter):
                 continue
             ical.addProperty(property)
 
-
     def _defaultFilter(self, ical):
         """
         There is no per-user component. Instead apply default properties to the data for this user.
@@ -203,7 +200,6 @@ class PerUserDataFilter(CalendarFilter):
         comp = ical.mainComponent()
         if comp.name() == "VEVENT" and comp.propertyValue("DTSTART").isDateOnly() and not comp.hasProperty("TRANSP"):
             ical.addPropertyToAllComponents(Property("TRANSP", "TRANSPARENT"))
-
 
     def merge(self, icalnew, icalold):
         """
@@ -235,7 +231,6 @@ class PerUserDataFilter(CalendarFilter):
 
         self._mergeRepresentations(icalnew, icalold)
         return icalnew
-
 
     def _splitPerUserData(self, ical):
         """
@@ -308,7 +303,6 @@ class PerUserDataFilter(CalendarFilter):
 
             self._compactInstances(ical)
 
-
     def _compactInstances(self, ical):
         """
         Remove recurrences instances that are the same as their master-derived counterparts. This gives the most
@@ -335,7 +329,6 @@ class PerUserDataFilter(CalendarFilter):
             if derived is not None and derived == subcomponent:
                 ical.removeComponent(subcomponent)
 
-
     def _defaultMerge(self, component):
         """
         Handle default property values during a merge.
@@ -350,7 +343,6 @@ class PerUserDataFilter(CalendarFilter):
         if component.name() == "VEVENT" and component.propertyValue("DTSTART").isDateOnly() and not component.hasProperty("TRANSP"):
             component.addProperty(Property("TRANSP", "OPAQUE"))
 
-
     def _mergeRepresentations(self, icalnew, icalold):
 
         # Test for simple case first
@@ -359,7 +351,6 @@ class PerUserDataFilter(CalendarFilter):
             self._complexMerge(icalnew, icalold)
         else:
             self._simpleMerge(icalnew, icalold)
-
 
     def _simpleMerge(self, icalnew, icalold):
 
@@ -381,7 +372,6 @@ class PerUserDataFilter(CalendarFilter):
 
                     if len(tuple(newcomponent.subcomponents())):
                         icalnew.addComponent(newcomponent)
-
 
     def _complexMerge(self, icalnew, icalold):
 

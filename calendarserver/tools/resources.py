@@ -54,7 +54,6 @@ class ResourceMigrationService(WorkerService):
         yield migrateResources(sourceService, destService)
 
 
-
 def usage():
 
     name = os.path.basename(sys.argv[0])
@@ -69,7 +68,6 @@ def usage():
     print("")
 
     sys.exit(0)
-
 
 
 def main():
@@ -102,10 +100,8 @@ def main():
     utilityMain(configFileName, ResourceMigrationService, verbose=verbose)
 
 
-
 class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
     pass
-
 
 
 @inlineCallbacks
@@ -149,7 +145,6 @@ def migrateResources(sourceService, destService, verbose=False):
 
     if destRecords:
         yield destService.updateRecords(destRecords, create=True)
-
 
 
 if __name__ == "__main__":

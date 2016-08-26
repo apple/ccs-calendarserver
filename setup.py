@@ -51,7 +51,6 @@ def find_packages():
     return modules
 
 
-
 def git_info(wc_path):
     """
     Look up info on a GIT working copy.
@@ -105,7 +104,6 @@ def git_info(wc_path):
         revision=revision,
         tag=tag,
     )
-
 
 
 def version():
@@ -170,7 +168,6 @@ def version():
     )
 
 
-
 #
 # Options
 #
@@ -204,7 +201,6 @@ author_email = "calendarserver-dev@lists.macosforge.org"
 license = "Apache License, Version 2.0"
 
 platforms = ["all"]
-
 
 
 #
@@ -299,7 +295,6 @@ for tool, (module, function) in script_entry_points.iteritems():
     entry_points["console_scripts"].append(
         "calendarserver_{} = {}:{}".format(tool, module, function)
     )
-
 
 
 #

@@ -78,7 +78,6 @@ def registerElement(elementClass):
     return elementClass
 
 
-
 def registerElementClass(elementClass):
     """
     Add an XML element class to this module's namespace.
@@ -96,7 +95,6 @@ def registerElementClass(elementClass):
     __all__.append(name)
 
     return elementClass
-
 
 
 def lookupElement(qname):

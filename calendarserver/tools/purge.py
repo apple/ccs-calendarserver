@@ -50,7 +50,6 @@ DEFAULT_BATCH_SIZE = 100
 DEFAULT_RETAIN_DAYS = 365
 
 
-
 class PrincipalPurgePollingWork(
     RegeneratingWorkItem,
     fromTable(schema.PRINCIPAL_PURGE_POLLING_WORK)
@@ -73,13 +72,11 @@ class PrincipalPurgePollingWork(
         else:
             return succeed(None)
 
-
     def regenerateInterval(self):
         """
         Return the interval in seconds between regenerating instances.
         """
         return config.AutomaticPurging.PollingIntervalSeconds if config.AutomaticPurging.Enabled else None
-
 
     @inlineCallbacks
     def doWork(self):
@@ -113,7 +110,6 @@ class PrincipalPurgePollingWork(
                 uid=uid,
                 notBefore=notBefore
             )
-
 
 
 class PrincipalPurgeCheckWork(
@@ -164,7 +160,6 @@ class PrincipalPurgeCheckWork(
             log.debug("{uid} is still in the directory", uid=self.uid)
 
 
-
 class PrincipalPurgeWork(
     WorkItem,
     fromTable(schema.PRINCIPAL_PURGE_WORK)
@@ -209,7 +204,6 @@ class PrincipalPurgeWork(
             )
         else:
             log.debug("{uid} has re-appeared in the directory", uid=self.uid)
-
 
 
 class PrincipalPurgeHomeWork(
@@ -276,7 +270,6 @@ class PrincipalPurgeHomeWork(
                 yield home.remove()
 
 
-
 class PurgeOldEventsService(WorkerService):
 
     uuid = None
@@ -308,7 +301,6 @@ class PurgeOldEventsService(WorkerService):
             sys.exit(64)
         else:
             sys.exit(0)
-
 
     @classmethod
     def main(cls):
@@ -400,7 +392,6 @@ class PurgeOldEventsService(WorkerService):
             verbose=verbose,
         )
 
-
     @classmethod
     @inlineCallbacks
     def purgeOldEvents(cls, store, uuid, cutoff, batchSize, debug=False, dryrun=False):
@@ -413,7 +404,6 @@ class PurgeOldEventsService(WorkerService):
         service.debug = debug
         result = yield service.doWork()
         returnValue(result)
-
 
     @inlineCallbacks
     def getMatchingHomeUIDs(self):
@@ -440,7 +430,6 @@ class PurgeOldEventsService(WorkerService):
         log.debug("  Found {len} calendar homes", len=len(rows))
         returnValue(sorted(rows, key=lambda x: x[1]))
 
-
     @inlineCallbacks
     def getMatchingCalendarIDs(self, home_id, owner_uid):
         """
@@ -465,7 +454,6 @@ class PurgeOldEventsService(WorkerService):
         yield txn.commit()
         log.debug("  Found {len} calendars", len=len(rows))
         returnValue(rows)
-
 
     PurgeEvent = collections.namedtuple("PurgeEvent", ("home", "calendar", "resource",))
 
@@ -533,7 +521,6 @@ class PurgeOldEventsService(WorkerService):
         log.debug("    Found {len} resources to purge", len=len(purge))
         returnValue(purge)
 
-
     @inlineCallbacks
     def getCalendar(self, txn, resid):
         """
@@ -543,7 +530,7 @@ class PurgeOldEventsService(WorkerService):
         @type resid: L{int}
         """
         co = schema.CALENDAR_OBJECT
-        kwds = {"ResourceID" : resid}
+        kwds = {"ResourceID": resid}
         rows = (yield Select(
             [co.ICALENDAR_TEXT],
             From=co,
@@ -557,7 +544,6 @@ class PurgeOldEventsService(WorkerService):
             returnValue(None)
 
         returnValue(caldata)
-
 
     def checkLastInstance(self, calendar):
         """
@@ -599,7 +585,6 @@ class PurgeOldEventsService(WorkerService):
 
         return True
 
-
     @inlineCallbacks
     def getResourcesToPurge(self, home_id, owner_uid):
         """
@@ -617,7 +602,6 @@ class PurgeOldEventsService(WorkerService):
             purge.update((yield self.getResourceIDsToPurge(home_id, calendar_id, calendar_name)))
 
         returnValue(purge)
-
 
     @inlineCallbacks
     def purgeResources(self, events):
@@ -650,7 +634,6 @@ class PurgeOldEventsService(WorkerService):
             count += 1
         yield txn.commit()
         returnValue(count)
-
 
     @inlineCallbacks
     def doWork(self):
@@ -712,7 +695,6 @@ class PurgeOldEventsService(WorkerService):
         returnValue(totalRemoved)
 
 
-
 class PurgeAttachmentsService(WorkerService):
 
     uuid = None
@@ -745,7 +727,6 @@ class PurgeAttachmentsService(WorkerService):
             sys.exit(64)
         else:
             sys.exit(0)
-
 
     @classmethod
     def main(cls):
@@ -837,7 +818,6 @@ class PurgeAttachmentsService(WorkerService):
             verbose=debug,
         )
 
-
     @classmethod
     @inlineCallbacks
     def purgeAttachments(cls, store, uuid, days, limit, dryrun, verbose):
@@ -856,7 +836,6 @@ class PurgeAttachmentsService(WorkerService):
         service.verbose = verbose
         result = yield service.doWork()
         returnValue(result)
-
 
     @inlineCallbacks
     def doWork(self):
@@ -878,7 +857,6 @@ class PurgeAttachmentsService(WorkerService):
                 total += yield self._managedPurge()
             returnValue(total)
 
-
     @inlineCallbacks
     def _orphansDryRun(self):
 
@@ -887,7 +865,6 @@ class PurgeAttachmentsService(WorkerService):
         txn = self.store.newTransaction(label="Find orphaned attachments")
         orphans = yield txn.orphanedAttachments(self.uuid)
         returnValue(orphans)
-
 
     @inlineCallbacks
     def _dropboxDryRun(self):
@@ -900,7 +877,6 @@ class PurgeAttachmentsService(WorkerService):
 
         returnValue(cutoffs)
 
-
     @inlineCallbacks
     def _managedDryRun(self):
 
@@ -911,7 +887,6 @@ class PurgeAttachmentsService(WorkerService):
         yield txn.commit()
 
         returnValue(cutoffs)
-
 
     def _dryRunSummary(self, orphans, dropbox, managed):
 
@@ -976,7 +951,6 @@ class PurgeAttachmentsService(WorkerService):
 
         return total
 
-
     @inlineCallbacks
     def _orphansPurge(self):
 
@@ -1006,7 +980,6 @@ class PurgeAttachmentsService(WorkerService):
             print("")
 
         returnValue(totalRemoved)
-
 
     @inlineCallbacks
     def _dropboxPurge(self):
@@ -1038,7 +1011,6 @@ class PurgeAttachmentsService(WorkerService):
 
         returnValue(totalRemoved)
 
-
     @inlineCallbacks
     def _managedPurge(self):
 
@@ -1068,7 +1040,6 @@ class PurgeAttachmentsService(WorkerService):
             print("")
 
         returnValue(totalRemoved)
-
 
 
 class PurgePrincipalService(WorkerService):
@@ -1103,7 +1074,6 @@ class PurgePrincipalService(WorkerService):
             sys.exit(64)
         else:
             sys.exit(0)
-
 
     @classmethod
     def main(cls):
@@ -1159,7 +1129,6 @@ class PurgePrincipalService(WorkerService):
             verbose=debug,
         )
 
-
     @classmethod
     @inlineCallbacks
     def purgeUIDs(cls, store, directory, uids, verbose=False, dryrun=False,
@@ -1174,7 +1143,6 @@ class PurgePrincipalService(WorkerService):
         service.when = when
         result = yield service.doWork()
         returnValue(result)
-
 
     @inlineCallbacks
     def doWork(self):
@@ -1196,7 +1164,6 @@ class PurgePrincipalService(WorkerService):
                 print("Modified or deleted %s" % (amount,))
 
         returnValue(total)
-
 
     @inlineCallbacks
     def _purgeUID(self, uid):
@@ -1239,7 +1206,6 @@ class PurgePrincipalService(WorkerService):
 
         returnValue(count)
 
-
     @inlineCallbacks
     def _cleanHome(self, txn, storeCalHome):
 
@@ -1259,7 +1225,6 @@ class PurgePrincipalService(WorkerService):
             notificationHome = yield txn.notificationsWithUID(storeCalHome.uid())
             if notificationHome is not None:
                 yield notificationHome.purge()
-
 
     @inlineCallbacks
     def _cancelEvents(self, txn, uid, cuas):
@@ -1351,7 +1316,6 @@ class PurgePrincipalService(WorkerService):
 
         returnValue(count)
 
-
     @inlineCallbacks
     def _removeCalendarHome(self, uid):
 
@@ -1411,7 +1375,6 @@ class PurgePrincipalService(WorkerService):
             yield txn.abort()
             raise e
 
-
     @inlineCallbacks
     def _removeAddressbookHome(self, uid):
 
@@ -1464,7 +1427,6 @@ class PurgePrincipalService(WorkerService):
             raise e
 
         returnValue(count)
-
 
     @inlineCallbacks
     def _purgeProxyAssignments(self, store, uid):

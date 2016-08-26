@@ -27,13 +27,13 @@ log = Logger()
 Classes and methods that relate to APN objects in the SQL store.
 """
 
+
 class APNSubscriptionsRecord(SerializableRecord, fromTable(schema.APN_SUBSCRIPTIONS)):
     """
     @DynamicAttrs
     L{Record} for L{schema.APN_SUBSCRIPTIONS}.
     """
     pass
-
 
 
 class APNSubscriptionsMixin(object):
@@ -84,7 +84,6 @@ class APNSubscriptionsMixin(object):
                 # Subscription may have been added by someone else, which is fine
                 pass
 
-
     def removeAPNSubscription(self, token, key):
         return APNSubscriptionsRecord.deletesimple(
             self,
@@ -92,13 +91,11 @@ class APNSubscriptionsMixin(object):
             resourceKey=key
         )
 
-
     def purgeOldAPNSubscriptions(self, olderThan):
         return APNSubscriptionsRecord.deletesome(
             self,
             APNSubscriptionsRecord.modified < olderThan,
         )
-
 
     def apnSubscriptionsByToken(self, token):
         return APNSubscriptionsRecord.querysimple(
@@ -106,13 +103,11 @@ class APNSubscriptionsMixin(object):
             token=token,
         )
 
-
     def apnSubscriptionsByKey(self, key):
         return APNSubscriptionsRecord.querysimple(
             self,
             resourceKey=key,
         )
-
 
     def apnSubscriptionsBySubscriber(self, guid):
         return APNSubscriptionsRecord.querysimple(

@@ -22,10 +22,11 @@ from twisted.web.http_headers import Headers
 import urlparse
 import urllib2
 
+
 class BasicChallenge(object):
+
     def __init__(self, realm):
         self.realm = realm
-
 
     def response(self, uri, method, keyring):
         if type(keyring) is dict:
@@ -36,13 +37,12 @@ class BasicChallenge(object):
         return {'authorization': [authorization]}
 
 
-
 class DigestChallenge(object):
+
     def __init__(self, realm, **fields):
         self.realm = realm
         self.fields = fields
         self.fields['realm'] = realm
-
 
     def response(self, uri, method, keyring):
         if type(keyring) is dict:
@@ -55,6 +55,7 @@ class DigestChallenge(object):
         authorization = []
 
         class BigSigh:
+
             def getURL(self):
                 return uri
         BigSigh.method = method
@@ -64,21 +65,18 @@ class DigestChallenge(object):
         return {'authorization': [value for (_ignore_name, value) in authorization]}
 
 
-
 class AuthHandlerAgent(object):
+
     def __init__(self, agent, authinfo):
         self._agent = agent
         self._authinfo = authinfo
         self._challenged = {}
 
-
     def _authKey(self, method, uri):
         return urlparse.urlparse(uri)[:2]
 
-
     def request(self, method, uri, headers=None, bodyProducer=None):
         return self._requestWithAuth(method, uri, headers, bodyProducer)
-
 
     def _requestWithAuth(self, method, uri, headers, bodyProducer):
         key = self._authKey(method, uri)
@@ -88,7 +86,6 @@ class AuthHandlerAgent(object):
             d = self._agent.request(method, uri, headers, bodyProducer)
         d.addCallback(self._authenticate, method, uri, headers, bodyProducer)
         return d
-
 
     def _parse(self, authorization):
         try:
@@ -106,7 +103,6 @@ class AuthHandlerAgent(object):
             return "", None
         return scheme.lower(), challengeType(**args)
 
-
     def _respondToChallenge(self, challenge, method, uri, headers, bodyProducer):
         if headers is None:
             headers = Headers()
@@ -116,7 +112,6 @@ class AuthHandlerAgent(object):
             for v in vs:
                 headers.addRawHeader(k, v)
         return self._agent.request(method, uri, headers, bodyProducer)
-
 
     def _authenticate(self, response, method, uri, headers, bodyProducer):
         if response.code == UNAUTHORIZED:
@@ -146,7 +141,6 @@ class AuthHandlerAgent(object):
         return response
 
 
-
 if __name__ == '__main__':
     from urllib2 import HTTPDigestAuthHandler
     handler = HTTPDigestAuthHandler()
@@ -162,6 +156,7 @@ if __name__ == '__main__':
     agent = AuthHandlerAgent(Agent(reactor), handler)
     d = agent.request(
         'DELETE', 'http://localhost:8008/calendars/users/user01/monkeys3/')
+
     def deleted(response):
         print(response.code)
         print(response.headers)

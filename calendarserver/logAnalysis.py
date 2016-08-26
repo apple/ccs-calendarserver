@@ -145,7 +145,6 @@ def getAdjustedMethodName(stats, method=None, uri=None):
 
         return method
 
-
     def _REPORT():
 
         if "(" in method:
@@ -165,24 +164,23 @@ def getAdjustedMethodName(stats, method=None, uri=None):
                     else:
                         report_type = "adbk-sync"
             mappedNames = {
-                "calendar-multiget"             : METHOD_REPORT_CALENDAR_MULTIGET,
-                "calendar-query"                : METHOD_REPORT_CALENDAR_QUERY,
-                "free-busy-query"               : METHOD_REPORT_CALENDAR_FREEBUSY,
-                "cal-home-sync"                 : METHOD_REPORT_CALENDAR_HOME_SYNC,
-                "cal-sync"                      : METHOD_REPORT_CALENDAR_SYNC,
-                "addressbook-multiget"          : METHOD_REPORT_ADDRESSBOOK_MULTIGET,
-                "addressbook-query"             : METHOD_REPORT_ADDRESSBOOK_QUERY,
-                "directory-query"               : METHOD_REPORT_DIRECTORY_QUERY,
-                "adbk-home-sync"                : METHOD_REPORT_ADDRESSBOOK_HOME_SYNC,
-                "adbk-sync"                     : METHOD_REPORT_ADDRESSBOOK_SYNC,
-                "principal-search-property-set" : METHOD_REPORT_P_SEARCH_P_SET,
-                "principal-property-search"     : METHOD_REPORT_P_P_SEARCH,
-                "expand-property"               : METHOD_REPORT_EXPAND_P,
+                "calendar-multiget": METHOD_REPORT_CALENDAR_MULTIGET,
+                "calendar-query": METHOD_REPORT_CALENDAR_QUERY,
+                "free-busy-query": METHOD_REPORT_CALENDAR_FREEBUSY,
+                "cal-home-sync": METHOD_REPORT_CALENDAR_HOME_SYNC,
+                "cal-sync": METHOD_REPORT_CALENDAR_SYNC,
+                "addressbook-multiget": METHOD_REPORT_ADDRESSBOOK_MULTIGET,
+                "addressbook-query": METHOD_REPORT_ADDRESSBOOK_QUERY,
+                "directory-query": METHOD_REPORT_DIRECTORY_QUERY,
+                "adbk-home-sync": METHOD_REPORT_ADDRESSBOOK_HOME_SYNC,
+                "adbk-sync": METHOD_REPORT_ADDRESSBOOK_SYNC,
+                "principal-search-property-set": METHOD_REPORT_P_SEARCH_P_SET,
+                "principal-property-search": METHOD_REPORT_P_P_SEARCH,
+                "expand-property": METHOD_REPORT_EXPAND_P,
             }
             return mappedNames.get(report_type, "REPORT %s" % (report_type,))
 
         return method
-
 
     def _PROPPATCH():
 
@@ -193,7 +191,6 @@ def getAdjustedMethodName(stats, method=None, uri=None):
 
         return method
 
-
     def _POST():
 
         if uribits[0] == "calendars":
@@ -201,11 +198,11 @@ def getAdjustedMethodName(stats, method=None, uri=None):
             if "(" in method:
                 post_type = method.split("(")[1][:-1]
                 mappedNames = {
-                    "add-member"            : METHOD_POST_CALENDAR_ADD_MEMBER,
-                    "split"                 : METHOD_POST_CALENDAR_OBJECT_SPLIT,
-                    "attachment-add"        : METHOD_POST_CALENDAR_OBJECT_ATTACHMENT_ADD,
-                    "attachment-update"     : METHOD_POST_CALENDAR_OBJECT_ATTACHMENT_UPDATE,
-                    "attachment-remove"     : METHOD_POST_CALENDAR_OBJECT_ATTACHMENT_REMOVE,
+                    "add-member": METHOD_POST_CALENDAR_ADD_MEMBER,
+                    "split": METHOD_POST_CALENDAR_OBJECT_SPLIT,
+                    "attachment-add": METHOD_POST_CALENDAR_OBJECT_ATTACHMENT_ADD,
+                    "attachment-update": METHOD_POST_CALENDAR_OBJECT_ATTACHMENT_UPDATE,
+                    "attachment-remove": METHOD_POST_CALENDAR_OBJECT_ATTACHMENT_REMOVE,
                 }
                 return mappedNames.get(post_type, "POST %s" % (post_type,))
 
@@ -257,7 +254,6 @@ def getAdjustedMethodName(stats, method=None, uri=None):
 
         return method
 
-
     def _PUT():
 
         if uribits[0] == "calendars":
@@ -284,7 +280,6 @@ def getAdjustedMethodName(stats, method=None, uri=None):
                     return METHOD_PUT_VCF
 
         return method
-
 
     def _GET():
 
@@ -319,7 +314,6 @@ def getAdjustedMethodName(stats, method=None, uri=None):
 
         return method
 
-
     def _DELETE():
 
         if uribits[0] == "calendars":
@@ -350,20 +344,18 @@ def getAdjustedMethodName(stats, method=None, uri=None):
 
         return method
 
-
     def _ANY():
         return method
 
     return {
-        "DELETE" : _DELETE,
-        "GET" : _GET,
-        "POST" : _POST,
-        "PROPFIND" : _PROPFIND,
-        "PROPPATCH" : _PROPPATCH,
-        "PUT" : _PUT,
-        "REPORT" : _REPORT,
+        "DELETE": _DELETE,
+        "GET": _GET,
+        "POST": _POST,
+        "PROPFIND": _PROPFIND,
+        "PROPPATCH": _PROPPATCH,
+        "PUT": _PUT,
+        "REPORT": _REPORT,
     }.get(method.split("(")[0], _ANY)()
-
 
 
 osClients = (
@@ -394,6 +386,7 @@ quickclients = (
     ("Mail/", "Mail"),
     ("iChat/", "iChat"),
 )
+
 
 def getAdjustedClientName(stats):
 

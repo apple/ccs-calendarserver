@@ -65,7 +65,6 @@ def usage(e=None):
         sys.exit(0)
 
 
-
 class DelegatesMigrationService(WorkerService):
     """
     """
@@ -81,7 +80,6 @@ class DelegatesMigrationService(WorkerService):
         """
         if self.function is not None:
             yield self.function(self.store, *self.params)
-
 
 
 def main():
@@ -145,12 +143,10 @@ def main():
         else:
             raise NotImplementedError(opt)
 
-
     DelegatesMigrationService.function = migrateDelegates
     DelegatesMigrationService.params = [server, user, password, pod, database, dbtype]
 
     utilityMain(configFileName, DelegatesMigrationService)
-
 
 
 @inlineCallbacks
@@ -164,7 +160,6 @@ def getAssignments(db):
     rows = yield db.query("select GROUPNAME, MEMBER from GROUPS;")
     print("Fetched {} delegate assignments".format(len(rows)))
     returnValue(rows)
-
 
 
 @inlineCallbacks
@@ -187,7 +182,6 @@ def copyAssignments(assignments, pod, directory, store):
     numOtherPod = 0
     numDirectoryBased = 0
     numExamined = 0
-
 
     # If locations and resources' delegate assignments come from the directory,
     # then we're only interested in copying assignments where the delegator is a
@@ -274,21 +268,19 @@ def copyAssignments(assignments, pod, directory, store):
             print(uid)
 
 
-
 @inlineCallbacks
 def migrateDelegates(service, store, server, user, password, pod, database, dbtype):
     print("Migrating from server {}".format(server))
     try:
         calendaruserproxy.ProxyDBService = calendaruserproxy.ProxyPostgreSQLDB(server, database, user, password, dbtype)
-        calendaruserproxy.ProxyDBService.open() #@UndefinedVariable
+        calendaruserproxy.ProxyDBService.open()  # @UndefinedVariable
         assignments = yield getAssignments(calendaruserproxy.ProxyDBService)
         yield copyAssignments(assignments, pod, store.directoryService(), store)
-        calendaruserproxy.ProxyDBService.close() #@UndefinedVariable
+        calendaruserproxy.ProxyDBService.close()  # @UndefinedVariable
 
     except IOError:
         log.error("Could not start proxydb service")
         raise
-
 
 
 if __name__ == "__main__":

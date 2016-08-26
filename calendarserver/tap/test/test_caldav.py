@@ -100,7 +100,6 @@ class NotAProcessTransport(object):
         self.childFDs = childFDs
 
 
-
 class InMemoryProcessSpawner(Clock):
     """
     Stub out L{IReactorProcess} and L{IReactorClock} so that we can examine the
@@ -115,7 +114,6 @@ class InMemoryProcessSpawner(Clock):
         super(InMemoryProcessSpawner, self).__init__()
         self.processTransports = []
         self.waiting = []
-
 
     def waitForOneProcess(self, amount=10.0):
         """
@@ -132,7 +130,6 @@ class InMemoryProcessSpawner(Clock):
                 repr(self.calls)
             )
 
-
     def spawnProcess(self, processProtocol, executable, args=(), env={},
                      path=None, uid=None, gid=None, usePTY=0,
                      childFDs=None):
@@ -148,23 +145,20 @@ class InMemoryProcessSpawner(Clock):
         return transport
 
 
-
 class TestCalDAVOptions (CalDAVOptions):
     """
     A fake implementation of CalDAVOptions that provides
     empty implementations of checkDirectory and checkFile.
     """
+
     def checkDirectory(self, *args, **kwargs):
         pass
-
 
     def checkFile(self, *args, **kwargs):
         pass
 
-
     def checkDirectories(self, *args, **kwargs):
         pass
-
 
     def loadConfiguration(self):
         """
@@ -179,7 +173,6 @@ class TestCalDAVOptions (CalDAVOptions):
             log.info(
                 "load configuration console output: {result}", result=newout.getvalue()
             )
-
 
 
 class CalDAVOptionsTest(StoreTestCase):
@@ -199,11 +192,9 @@ class CalDAVOptionsTest(StoreTestCase):
         self.config.parent["gid"] = 0
         self.config.parent["nodaemon"] = False
 
-
     def tearDown(self):
         config.setDefaults(DEFAULT_CONFIG)
         config.reload()
-
 
     def test_overridesConfig(self):
         """
@@ -238,7 +229,6 @@ class CalDAVOptionsTest(StoreTestCase):
 
         self.assertRaises(UsageError, self.config.parseOptions, argv)
 
-
     def test_setsParent(self):
         """
         Test that certain values are set on the parent (i.e. twistd's
@@ -260,7 +250,6 @@ class CalDAVOptionsTest(StoreTestCase):
 
         self.assertEquals(self.config.parent["pidfile"], "/dev/null")
         self.assertEquals(self.config.parent["umask"], 0077)
-
 
     def test_specifyConfigFile(self):
         """
@@ -287,7 +276,6 @@ class CalDAVOptionsTest(StoreTestCase):
             myConfig.Authentication.Basic.Enabled
         )
 
-
     def test_specifyDictPath(self):
         """
         Test that we can specify command line overrides to leafs using
@@ -307,7 +295,6 @@ class CalDAVOptionsTest(StoreTestCase):
         self.assertEquals(config.MultiProcess["ProcessCount"], 102)
 
 
-
 def inServiceHierarchy(svc, predicate):
     """
     Find services in the service collection which satisfy the given predicate.
@@ -320,13 +307,11 @@ def inServiceHierarchy(svc, predicate):
             yield subsvc
 
 
-
 def determineAppropriateGroupID():
     """
     Determine a secondary group ID which can be used for testing.
     """
     return os.getgroups()[1]
-
 
 
 class SocketGroupOwnership(StoreTestCase):
@@ -350,7 +335,6 @@ class SocketGroupOwnership(StoreTestCase):
         self.assertEquals(filestat.st_uid, os.getuid())
 
 
-
 # Tests for the various makeService_ flavors:
 
 class CalDAVServiceMakerTestBase(StoreTestCase):
@@ -365,18 +349,15 @@ class CalDAVServiceMakerTestBase(StoreTestCase):
         self.options.parent["nodaemon"] = None
 
 
-
 class CalDAVServiceMakerTestSingle(CalDAVServiceMakerTestBase):
 
     def configure(self):
         super(CalDAVServiceMakerTestSingle, self).configure()
         config.ProcessType = "Single"
 
-
     def test_makeService(self):
         CalDAVServiceMaker().makeService(self.options)
         # No error
-
 
 
 class CalDAVServiceMakerTestSlave(CalDAVServiceMakerTestBase):
@@ -385,11 +366,9 @@ class CalDAVServiceMakerTestSlave(CalDAVServiceMakerTestBase):
         super(CalDAVServiceMakerTestSlave, self).configure()
         config.ProcessType = "Slave"
 
-
     def test_makeService(self):
         CalDAVServiceMaker().makeService(self.options)
         # No error
-
 
 
 class CalDAVServiceMakerTestUnknown(CalDAVServiceMakerTestBase):
@@ -398,11 +377,9 @@ class CalDAVServiceMakerTestUnknown(CalDAVServiceMakerTestBase):
         super(CalDAVServiceMakerTestUnknown, self).configure()
         config.ProcessType = "Unknown"
 
-
     def test_makeService(self):
         self.assertRaises(UsageError, CalDAVServiceMaker().makeService, self.options)
         # error
-
 
 
 class ModesOnUNIXSocketsTests(CalDAVServiceMakerTestBase):
@@ -414,7 +391,6 @@ class ModesOnUNIXSocketsTests(CalDAVServiceMakerTestBase):
         self.alternateGroup = determineAppropriateGroupID()
         config.GroupName = grp.getgrgid(self.alternateGroup).gr_name
         config.Stats.EnableUnixStatsSocket = True
-
 
     def test_modesOnUNIXSockets(self):
         """
@@ -443,13 +419,11 @@ class ModesOnUNIXSocketsTests(CalDAVServiceMakerTestBase):
             self.assertEquals(socketService.gid, self.alternateGroup)
 
 
-
 class TestLoggingProtocol(LoggingProtocol):
 
     def processEnded(self, reason):
         LoggingProtocol.processEnded(self, reason)
         self.service.processEnded(self.name)
-
 
 
 class TestErrorLoggingMultiService(TestCase):
@@ -481,7 +455,6 @@ class TestErrorLoggingMultiService(TestCase):
         self.assertIn("Couldn\xe2\x80\x99t be wrong", logentry)
 
 
-
 class TestProcessMonitor(ProcessMonitor):
 
     def startProcess(self, name):
@@ -504,7 +477,6 @@ class TestProcessMonitor(ProcessMonitor):
             proto, args[0], args, uid=uid, gid=gid, env=env
         )
 
-
     def stopService(self):
         """
         Return a deferred that fires when all child processes have ended.
@@ -526,13 +498,11 @@ class TestProcessMonitor(ProcessMonitor):
 
         return gatherResults(self.deferreds.values())
 
-
     def processEnded(self, name):
         if self.stopping:
             deferred = self.deferreds.pop(name, None)
             if deferred is not None:
                 deferred.callback(None)
-
 
 
 class MemcacheSpawner(TestCase):
@@ -543,7 +513,6 @@ class MemcacheSpawner(TestCase):
         self.monitor.startService()
         self.socket = os.path.join(tempfile.gettempdir(), "memcache.sock")
         self.patch(config.Memcached.Pools.Default, "ServerEnabled", True)
-
 
     def test_memcacheUnix(self):
         """
@@ -563,7 +532,6 @@ class MemcacheSpawner(TestCase):
         self.assertTrue(str(oct(st.st_mode)).endswith("00"))
         mc.disconnect_all()
 
-
     def test_memcacheINET(self):
         """
         Spawn a memcached process listening on a network socket that becomes
@@ -580,7 +548,6 @@ class MemcacheSpawner(TestCase):
         self.assertEquals(rando, mc.get("the_password"))
         mc.disconnect_all()
 
-
     def tearDown(self):
         """
         Verify that our spawned memcached can be reaped.
@@ -588,13 +555,11 @@ class MemcacheSpawner(TestCase):
         return self.monitor.stopService()
 
 
-
 class ProcessMonitorTests(CalDAVServiceMakerTestBase):
 
     def configure(self):
         super(ProcessMonitorTests, self).configure()
         config.ProcessType = "Combined"
-
 
     def test_processMonitor(self):
         """
@@ -612,7 +577,6 @@ class ProcessMonitorTests(CalDAVServiceMakerTestBase):
         )
 
 
-
 class SlaveServiceTests(CalDAVServiceMakerTestBase):
     """
     Test various configurations of the Slave service
@@ -628,7 +592,6 @@ class SlaveServiceTests(CalDAVServiceMakerTestBase):
         config.SSLCertificate = pemFile
         config.SSLKeychainIdentity = "org.calendarserver.test"
         config.EnableSSL = True
-
 
     def test_defaultService(self):
         """
@@ -649,7 +612,6 @@ class SlaveServiceTests(CalDAVServiceMakerTestBase):
             isinstance(service, CalDAVService),
             "%s is not a CalDAVService" % (service,)
         )
-
 
     def test_defaultListeners(self):
         """
@@ -677,7 +639,6 @@ class SlaveServiceTests(CalDAVServiceMakerTestBase):
                 )
         # TCP+SSL services for each bind address
         self.assertEquals(checked, 2 * len(config.BindAddresses))
-
 
     def test_SSLKeyConfiguration(self):
         """
@@ -708,7 +669,6 @@ class SlaveServiceTests(CalDAVServiceMakerTestBase):
         )
 
 
-
 class NoSSLTests(CalDAVServiceMakerTestBase):
 
     def configure(self):
@@ -719,7 +679,6 @@ class NoSSLTests(CalDAVServiceMakerTestBase):
         # config.SSLPrivateKey = pemFile
         # config.SSLCertificate = pemFile
         # config.EnableSSL = True
-
 
     def test_noSSL(self):
         """
@@ -736,7 +695,6 @@ class NoSSLTests(CalDAVServiceMakerTestBase):
         )
 
 
-
 class NoHTTPTests(CalDAVServiceMakerTestBase):
 
     def configure(self):
@@ -748,7 +706,6 @@ class NoHTTPTests(CalDAVServiceMakerTestBase):
         config.SSLCertificate = pemFile
         config.SSLKeychainIdentity = "org.calendarserver.test"
         config.EnableSSL = True
-
 
     def test_noHTTP(self):
         """
@@ -765,7 +722,6 @@ class NoHTTPTests(CalDAVServiceMakerTestBase):
         )
 
 
-
 class SingleBindAddressesTests(CalDAVServiceMakerTestBase):
 
     def configure(self):
@@ -773,7 +729,6 @@ class SingleBindAddressesTests(CalDAVServiceMakerTestBase):
         config.ProcessType = "Slave"
         config.HTTPPort = 8008
         config.BindAddresses = ["127.0.0.1"]
-
 
     def test_singleBindAddresses(self):
         """
@@ -786,7 +741,6 @@ class SingleBindAddressesTests(CalDAVServiceMakerTestBase):
         for s in service.services:
             if isinstance(s, (internet.TCPServer, internet.SSLServer)):
                 self.assertEquals(s.kwargs["interface"], "127.0.0.1")
-
 
 
 class MultipleBindAddressesTests(CalDAVServiceMakerTestBase):
@@ -806,7 +760,6 @@ class MultipleBindAddressesTests(CalDAVServiceMakerTestBase):
             "10.0.0.2",
             "172.53.13.123",
         ]
-
 
     def test_multipleBindAddresses(self):
         """
@@ -842,7 +795,6 @@ class MultipleBindAddressesTests(CalDAVServiceMakerTestBase):
         self.assertEquals(len(sslServers), 0)
 
 
-
 class ListenBacklogTests(CalDAVServiceMakerTestBase):
 
     def configure(self):
@@ -862,7 +814,6 @@ class ListenBacklogTests(CalDAVServiceMakerTestBase):
             "172.53.13.123",
         ]
 
-
     def test_listenBacklog(self):
         """
         Test that the backlog arguments is set in TCPServer and SSLServers
@@ -876,7 +827,6 @@ class ListenBacklogTests(CalDAVServiceMakerTestBase):
                 self.assertEquals(s.kwargs["backlog"], 1024)
 
 
-
 class AuthWrapperAllEnabledTests(CalDAVServiceMakerTestBase):
 
     def configure(self):
@@ -886,7 +836,6 @@ class AuthWrapperAllEnabledTests(CalDAVServiceMakerTestBase):
         config.Authentication.Kerberos.Enabled = True
         config.Authentication.Kerberos.ServicePrincipal = "http/hello@bob"
         config.Authentication.Basic.Enabled = True
-
 
     def test_AuthWrapperAllEnabled(self):
         """
@@ -916,7 +865,6 @@ class AuthWrapperAllEnabledTests(CalDAVServiceMakerTestBase):
         self.assertEquals(ncf.realm, "bob")
 
 
-
 class ServicePrincipalNoneTests(CalDAVServiceMakerTestBase):
 
     def configure(self):
@@ -927,14 +875,12 @@ class ServicePrincipalNoneTests(CalDAVServiceMakerTestBase):
         config.Authentication.Kerberos.ServicePrincipal = ""
         config.Authentication.Basic.Enabled = True
 
-
     def test_servicePrincipalNone(self):
         """
         Test that the Kerberos principal look is attempted if the principal is empty.
         """
         authWrapper = self.rootResource.resource
         self.assertFalse("negotiate" in authWrapper.credentialFactories)
-
 
 
 class AuthWrapperPartialEnabledTests(CalDAVServiceMakerTestBase):
@@ -944,7 +890,6 @@ class AuthWrapperPartialEnabledTests(CalDAVServiceMakerTestBase):
         config.Authentication.Digest.Enabled = True
         config.Authentication.Kerberos.Enabled = False
         config.Authentication.Basic.Enabled = False
-
 
     def test_AuthWrapperPartialEnabled(self):
         """
@@ -965,7 +910,6 @@ class AuthWrapperPartialEnabledTests(CalDAVServiceMakerTestBase):
         )
 
 
-
 class ResourceTests(CalDAVServiceMakerTestBase):
 
     def test_LogWrapper(self):
@@ -974,20 +918,17 @@ class ResourceTests(CalDAVServiceMakerTestBase):
         """
         self.failUnless(isinstance(self.rootResource, LogWrapperResource))
 
-
     def test_AuthWrapper(self):
         """
         Test the configuration of the auth wrapper
         """
         self.failUnless(isinstance(self.rootResource.resource, AuthenticationWrapper))
 
-
     def test_rootResource(self):
         """
         Test the root resource
         """
         self.failUnless(isinstance(self.rootResource.resource.resource, RootResource))
-
 
     @inlineCallbacks
     def test_principalResource(self):
@@ -999,7 +940,6 @@ class ResourceTests(CalDAVServiceMakerTestBase):
             DirectoryPrincipalProvisioningResource
         ))
 
-
     @inlineCallbacks
     def test_calendarResource(self):
         """
@@ -1009,7 +949,6 @@ class ResourceTests(CalDAVServiceMakerTestBase):
             (yield self.actualRoot.getChild("calendars")),
             DirectoryCalendarHomeProvisioningResource
         ))
-
 
     @inlineCallbacks
     def test_sameDirectory(self):
@@ -1021,7 +960,6 @@ class ResourceTests(CalDAVServiceMakerTestBase):
         calendars = yield self.actualRoot.getChild("calendars")
 
         self.assertEquals(principals.directory, calendars.directory)
-
 
 
 class DummyProcessObject(object):
@@ -1036,14 +974,11 @@ class DummyProcessObject(object):
         self.scriptname = scriptname
         self.args = args
 
-
     def starting(self):
         pass
 
-
     def stopped(self):
         pass
-
 
     def getCommandLine(self):
         """
@@ -1051,20 +986,17 @@ class DummyProcessObject(object):
         """
         return [self.scriptname] + list(self.args)
 
-
     def getFileDescriptors(self):
         """
         Return a dummy, empty mapping of file descriptors.
         """
         return {}
 
-
     def getName(self):
         """
         Get a dummy name.
         """
         return 'Dummy'
-
 
 
 class ScriptProcessObject(DummyProcessObject):
@@ -1080,7 +1012,6 @@ class ScriptProcessObject(DummyProcessObject):
             sys.executable,
             FilePath(__file__).sibling(self.scriptname).path
         ] + list(self.args)
-
 
 
 class DelayedStartupProcessMonitorTests(StoreTestCase):
@@ -1139,7 +1070,6 @@ class DelayedStartupProcessMonitorTests(StoreTestCase):
         d.addCallback(assertions)
         return d
 
-
     def test_breakLineIntoSegments(self):
         """
         Exercise the line-breaking logic with various key lengths
@@ -1176,7 +1106,6 @@ class DelayedStartupProcessMonitorTests(StoreTestCase):
         ]:
             self.assertEquals(output, testLogger._breakLineIntoSegments(input))
 
-
     def test_acceptDescriptorInheritance(self):
         """
         If a L{TwistdSlaveProcess} specifies some file descriptors to be
@@ -1207,7 +1136,6 @@ class DelayedStartupProcessMonitorTests(StoreTestCase):
                            3: 3, 7: 7,
                            19: 19, 25: 25})
 
-
     def test_changedArgumentEachSpawn(self):
         """
         If the result of C{getCommandLine} changes on subsequent calls,
@@ -1227,7 +1155,6 @@ class DelayedStartupProcessMonitorTests(StoreTestCase):
         twoProcessTransport = imps.waitForOneProcess()
         self.assertEquals(twoProcessTransport.args,
                           ['scriptname', 'second'])
-
 
     def test_metaDescriptorInheritance(self):
         """
@@ -1261,7 +1188,6 @@ class DelayedStartupProcessMonitorTests(StoreTestCase):
                           {0: 'w', 1: 'r', 2: 'r',
                            4: 4})
 
-
     def test_startServiceDelay(self):
         """
         Starting a L{DelayedStartupProcessMonitor} should result in the process
@@ -1292,16 +1218,13 @@ class DelayedStartupProcessMonitorTests(StoreTestCase):
                           expectedValues)
 
 
-
 class FakeFD(object):
 
     def __init__(self, n):
         self.fd = n
 
-
     def fileno(self):
         return self.fd
-
 
 
 class FakeSubsocket(object):
@@ -1309,22 +1232,17 @@ class FakeSubsocket(object):
     def __init__(self, fakefd):
         self.fakefd = fakefd
 
-
     def childSocket(self):
         return self.fakefd
-
 
     def start(self):
         pass
 
-
     def restarted(self):
         pass
 
-
     def stop(self):
         pass
-
 
 
 class FakeDispatcher(object):
@@ -1335,11 +1253,11 @@ class FakeDispatcher(object):
         return FakeSubsocket(FakeFD(self.n))
 
 
-
 class TwistdSlaveProcessTests(StoreTestCase):
     """
     Tests for L{TwistdSlaveProcess}.
     """
+
     def test_pidfile(self):
         """
         The result of L{TwistdSlaveProcess.getCommandLine} includes an option
@@ -1351,7 +1269,6 @@ class TwistdSlaveProcessTests(StoreTestCase):
         option = 'PIDFile=something-instance-7.pid'
         self.assertIn(option, commandLine)
         self.assertEquals(commandLine[commandLine.index(option) - 1], '-o')
-
 
 
 class ReExecServiceTests(StoreTestCase):
@@ -1386,7 +1303,6 @@ class ReExecServiceTests(StoreTestCase):
         self.assertEquals(output.count("STOP"), 2)
 
 
-
 class SystemIDsTests(StoreTestCase):
     """
     Verifies the behavior of calendarserver.tap.caldav.getSystemIDs
@@ -1419,7 +1335,7 @@ class SystemIDsTests(StoreTestCase):
             return 45
 
         return type(getSystemIDs)(
-            getSystemIDs.func_code, #@UndefinedVariable
+            getSystemIDs.func_code,  # @UndefinedVariable
             {
                 "getpwnam": _getpwnam,
                 "getgrnam": _getgrnam,
@@ -1429,7 +1345,6 @@ class SystemIDsTests(StoreTestCase):
                 "ConfigurationError": ConfigurationError,
             }
         )
-
 
     def test_getSystemIDs_UserNameNotFound(self):
         """
@@ -1441,7 +1356,6 @@ class SystemIDsTests(StoreTestCase):
             "nonexistent", "exists"
         )
 
-
     def test_getSystemIDs_GroupNameNotFound(self):
         """
         If groupName is passed in but is not found on the system, raise a
@@ -1452,20 +1366,17 @@ class SystemIDsTests(StoreTestCase):
             "exists", "nonexistent"
         )
 
-
     def test_getSystemIDs_NamesNotSpecified(self):
         """
         If names are not provided, use the IDs of the process
         """
         self.assertEquals(self._wrappedFunction()("", ""), (44, 45))
 
-
     def test_getSystemIDs_NamesSpecified(self):
         """
         If names are provided, use the IDs corresponding to those names
         """
         self.assertEquals(self._wrappedFunction()("exists", "exists"), (42, 43))
-
 
 
 #
@@ -1478,13 +1389,11 @@ class Step(object):
         self._recordCallback = recordCallback
         self._shouldFail = shouldFail
 
-
     def stepWithResult(self, result):
         self._recordCallback(self.successValue, None)
         if self._shouldFail:
             1 / 0
         return succeed(result)
-
 
     def stepWithFailure(self, failure):
         self._recordCallback(self.errorValue, failure)
@@ -1492,11 +1401,9 @@ class Step(object):
             return failure
 
 
-
 class StepOne(Step):
     successValue = "one success"
     errorValue = "one failure"
-
 
 
 class StepTwo(Step):
@@ -1504,11 +1411,9 @@ class StepTwo(Step):
     errorValue = "two failure"
 
 
-
 class StepThree(Step):
     successValue = "three success"
     errorValue = "three failure"
-
 
 
 class StepFour(Step):
@@ -1516,12 +1421,10 @@ class StepFour(Step):
     errorValue = "four failure"
 
 
-
 class PreProcessingServiceTestCase(TestCase):
 
     def fakeServiceCreator(self, cp, store, lo, storageService):
         self.history.append(("serviceCreator", store, storageService))
-
 
     def setUp(self):
         self.history = []
@@ -1531,10 +1434,8 @@ class PreProcessingServiceTestCase(TestCase):
             None, "storageService", reactor=self.clock
         )
 
-
     def _record(self, value, failure):
         self.history.append(value)
-
 
     def test_allSuccess(self):
         self.pps.addStep(
@@ -1555,7 +1456,6 @@ class PreProcessingServiceTestCase(TestCase):
             ]
         )
 
-
     def test_allFailure(self):
         self.pps.addStep(
             StepOne(self._record, True)
@@ -1574,7 +1474,6 @@ class PreProcessingServiceTestCase(TestCase):
                 ('serviceCreator', None, 'storageService')
             ]
         )
-
 
     def test_partialFailure(self):
         self.pps.addStep(
@@ -1596,16 +1495,13 @@ class PreProcessingServiceTestCase(TestCase):
         )
 
 
-
 class StubStorageService(object):
 
     def __init__(self):
         self.hardStopCalled = False
 
-
     def hardStop(self):
         self.hardStopCalled = True
-
 
 
 class StubReactor(object):
@@ -1613,10 +1509,8 @@ class StubReactor(object):
     def __init__(self):
         self.stopCalled = False
 
-
     def stop(self):
         self.stopCalled = True
-
 
 
 class DataStoreMonitorTestCase(TestCase):

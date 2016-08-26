@@ -351,7 +351,6 @@ END:VCALENDAR
 """.replace("\n", "\r\n")
 
 
-
 class CalVerifyDataTests(StoreTestCase):
     """
     Tests calverify for iCalendar data problems.
@@ -366,26 +365,25 @@ class CalVerifyDataTests(StoreTestCase):
     }
 
     requirements = {
-        "home1" : {
-            "calendar_1" : {
-                "ok.ics"   : (OK_ICS, metadata,),
-                "bad1.ics" : (BAD1_ICS, metadata,),
-                "bad2.ics" : (BAD2_ICS, metadata,),
-                "bad3.ics" : (BAD3_ICS, metadata,),
-                "bad4.ics" : (BAD4_ICS, metadata,),
-                "bad5.ics" : (BAD5_ICS, metadata,),
-                "bad6.ics" : (BAD6_ICS, metadata,),
-                "ok8.ics"  : (OK8_ICS, metadata,),
-                "bad10.ics" : (BAD10_ICS, metadata,),
-                "bad11.ics" : (BAD11_ICS, metadata,),
-                "bad12.ics" : (BAD12_ICS, metadata,),
-                "bad13.ics" : (BAD13_ICS, metadata,),
+        "home1": {
+            "calendar_1": {
+                "ok.ics": (OK_ICS, metadata,),
+                "bad1.ics": (BAD1_ICS, metadata,),
+                "bad2.ics": (BAD2_ICS, metadata,),
+                "bad3.ics": (BAD3_ICS, metadata,),
+                "bad4.ics": (BAD4_ICS, metadata,),
+                "bad5.ics": (BAD5_ICS, metadata,),
+                "bad6.ics": (BAD6_ICS, metadata,),
+                "ok8.ics": (OK8_ICS, metadata,),
+                "bad10.ics": (BAD10_ICS, metadata,),
+                "bad11.ics": (BAD11_ICS, metadata,),
+                "bad12.ics": (BAD12_ICS, metadata,),
+                "bad13.ics": (BAD13_ICS, metadata,),
             }
         },
     }
 
     number_to_process = len(requirements["home1"]["calendar_1"])
-
 
     @inlineCallbacks
     def populate(self):
@@ -394,18 +392,15 @@ class CalVerifyDataTests(StoreTestCase):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
 
-
     def storeUnderTest(self):
         """
         Create and return a L{CalendarStore} for testing.
         """
         return self._sqlCalendarStore
 
-
     def verifyResultsByUID(self, results, expected):
         reported = set([(home, uid) for home, uid, _ignore_resid, _ignore_reason in results])
         self.assertEqual(reported, expected)
-
 
     @inlineCallbacks
     def test_scanBadData(self):
@@ -447,7 +442,6 @@ class CalVerifyDataTests(StoreTestCase):
 
         sync_token_new = (yield (yield self.calendarUnderTest()).syncToken())
         self.assertEqual(sync_token_old, sync_token_new)
-
 
     @inlineCallbacks
     def test_fixBadData(self):
@@ -518,7 +512,6 @@ class CalVerifyDataTests(StoreTestCase):
                 attendee.value().startswith("/principals")
             )
 
-
     @inlineCallbacks
     def test_scanBadCuaOnly(self):
         """
@@ -555,7 +548,6 @@ class CalVerifyDataTests(StoreTestCase):
 
         sync_token_new = (yield (yield self.calendarUnderTest()).syncToken())
         self.assertEqual(sync_token_old, sync_token_new)
-
 
     @inlineCallbacks
     def test_fixBadCuaOnly(self):
@@ -609,7 +601,6 @@ class CalVerifyDataTests(StoreTestCase):
         self.assertNotEqual(sync_token_old, sync_token_new)
 
 
-
 class CalVerifyMismatchTestsBase(StoreTestCase):
     """
     Tests calverify for iCalendar mismatch problems.
@@ -629,7 +620,6 @@ class CalVerifyMismatchTestsBase(StoreTestCase):
     uuidl1 = "75EA36BE-F71B-40F9-81F9-CF59BF40CA8F"
     uuidl2 = "CDAF464F-9C77-4F56-A7A6-98E4ED9903D6"
 
-
     @inlineCallbacks
     def populate(self):
 
@@ -643,6 +633,7 @@ now.setDay(1)
 now.offsetMonth(2)
 nowYear = now.getYear()
 nowMonth = now.getMonth()
+
 
 class CalVerifyMismatchTestsNonRecurring(CalVerifyMismatchTestsBase):
     """
@@ -1030,40 +1021,40 @@ END:VCALENDAR
 """.replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     requirements = {
-        CalVerifyMismatchTestsBase.uuid1 : {
-            "calendar" : {
-                "missing_attendee.ics"      : (MISSING_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                "mismatched_attendee.ics"   : (MISMATCH_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                "mismatched2_attendee.ics"  : (MISMATCH2_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                "mismatched3_attendee.ics"  : (MISMATCH3_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                "mismatched_organizer.ics"  : (MISMATCH_ORGANIZER_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                "mismatched2_organizer.ics" : (MISMATCH2_ORGANIZER_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        CalVerifyMismatchTestsBase.uuid1: {
+            "calendar": {
+                "missing_attendee.ics": (MISSING_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched_attendee.ics": (MISMATCH_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched2_attendee.ics": (MISMATCH2_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched3_attendee.ics": (MISMATCH3_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched_organizer.ics": (MISMATCH_ORGANIZER_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched2_organizer.ics": (MISMATCH2_ORGANIZER_1_ICS, CalVerifyMismatchTestsBase.metadata,),
             },
-            "inbox" : {},
+            "inbox": {},
         },
-        CalVerifyMismatchTestsBase.uuid2 : {
-            "calendar" : {
-                "mismatched_attendee.ics"   : (MISMATCH_ATTENDEE_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-                "mismatched2_attendee.ics"  : (MISMATCH2_ATTENDEE_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-                "mismatched3_attendee.ics"  : (MISMATCH3_ATTENDEE_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-                "missing_organizer.ics"     : (MISSING_ORGANIZER_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-                "mismatched_organizer.ics"  : (MISMATCH_ORGANIZER_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-                "mismatched2_organizer.ics" : (MISMATCH2_ORGANIZER_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        CalVerifyMismatchTestsBase.uuid2: {
+            "calendar": {
+                "mismatched_attendee.ics": (MISMATCH_ATTENDEE_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched2_attendee.ics": (MISMATCH2_ATTENDEE_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched3_attendee.ics": (MISMATCH3_ATTENDEE_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "missing_organizer.ics": (MISSING_ORGANIZER_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched_organizer.ics": (MISMATCH_ORGANIZER_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched2_organizer.ics": (MISMATCH2_ORGANIZER_2_ICS, CalVerifyMismatchTestsBase.metadata,),
             },
-            "inbox" : {},
+            "inbox": {},
         },
-        CalVerifyMismatchTestsBase.uuid3 : {
-            "calendar" : {
-                "mismatched_attendee.ics"   : (MISMATCH_ATTENDEE_3_ICS, CalVerifyMismatchTestsBase.metadata,),
-                "mismatched3_attendee.ics"  : (MISMATCH3_ATTENDEE_3_ICS, CalVerifyMismatchTestsBase.metadata,),
-                "missing_organizer.ics"     : (MISSING_ORGANIZER_3_ICS, CalVerifyMismatchTestsBase.metadata,),
-                "mismatched2_organizer.ics" : (MISMATCH2_ORGANIZER_3_ICS, CalVerifyMismatchTestsBase.metadata,),
+        CalVerifyMismatchTestsBase.uuid3: {
+            "calendar": {
+                "mismatched_attendee.ics": (MISMATCH_ATTENDEE_3_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched3_attendee.ics": (MISMATCH3_ATTENDEE_3_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "missing_organizer.ics": (MISSING_ORGANIZER_3_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched2_organizer.ics": (MISMATCH2_ORGANIZER_3_ICS, CalVerifyMismatchTestsBase.metadata,),
             },
-            "calendar2" : {
-                "mismatched_organizer.ics" : (MISMATCH_ORGANIZER_3_ICS, CalVerifyMismatchTestsBase.metadata,),
-                "mismatched2_attendee.ics" : (MISMATCH2_ATTENDEE_3_ICS, CalVerifyMismatchTestsBase.metadata,),
+            "calendar2": {
+                "mismatched_organizer.ics": (MISMATCH_ORGANIZER_3_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched2_attendee.ics": (MISMATCH2_ATTENDEE_3_ICS, CalVerifyMismatchTestsBase.metadata,),
             },
-            "inbox" : {},
+            "inbox": {},
         },
     }
 
@@ -1075,7 +1066,6 @@ END:VCALENDAR
         calendar = (yield self.calendarUnderTest(name="calendar2", home=self.uuid3))
         yield home.setDefaultCalendar(calendar, "VEVENT")
         yield self.commit()
-
 
     @inlineCallbacks
     def test_scanMismatchOnly(self):
@@ -1142,7 +1132,6 @@ END:VCALENDAR
         self.assertEqual(sync_token_old1, sync_token_new1)
         self.assertEqual(sync_token_old2, sync_token_new2)
         self.assertEqual(sync_token_old3, sync_token_new3)
-
 
     @inlineCallbacks
     def test_fixMismatch(self):
@@ -1262,7 +1251,6 @@ END:VCALENDAR
         self.assertTrue("Auto-Accepts" not in calverify.results)
 
 
-
 class CalVerifyMismatchTestsAutoAccept(CalVerifyMismatchTestsBase):
     """
     Tests calverify for iCalendar mismatch problems for auto-accept attendees.
@@ -1331,26 +1319,26 @@ END:VCALENDAR
 """.replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     requirements = {
-        CalVerifyMismatchTestsBase.uuid1 : {
-            "calendar" : {
-                "missing_attendee.ics"      : (MISSING_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                "mismatched_attendee.ics"   : (MISMATCH_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        CalVerifyMismatchTestsBase.uuid1: {
+            "calendar": {
+                "missing_attendee.ics": (MISSING_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched_attendee.ics": (MISMATCH_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
             },
-            "inbox" : {},
+            "inbox": {},
         },
-        CalVerifyMismatchTestsBase.uuid2 : {
-            "calendar" : {},
-            "inbox" : {},
+        CalVerifyMismatchTestsBase.uuid2: {
+            "calendar": {},
+            "inbox": {},
         },
-        CalVerifyMismatchTestsBase.uuid3 : {
-            "calendar" : {},
-            "inbox" : {},
+        CalVerifyMismatchTestsBase.uuid3: {
+            "calendar": {},
+            "inbox": {},
         },
-        CalVerifyMismatchTestsBase.uuidl1 : {
-            "calendar" : {
-                "mismatched_attendee.ics"   : (MISMATCH_ATTENDEE_L1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        CalVerifyMismatchTestsBase.uuidl1: {
+            "calendar": {
+                "mismatched_attendee.ics": (MISMATCH_ATTENDEE_L1_ICS, CalVerifyMismatchTestsBase.metadata,),
             },
-            "inbox" : {},
+            "inbox": {},
         },
     }
 
@@ -1403,7 +1391,6 @@ END:VCALENDAR
         sync_token_newl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.assertEqual(sync_token_old1, sync_token_new1)
         self.assertEqual(sync_token_oldl1, sync_token_newl1)
-
 
     @inlineCallbacks
     def test_fixMismatch(self):
@@ -1489,7 +1476,6 @@ END:VCALENDAR
         self.assertTrue("Auto-Accepts" not in calverify.results)
 
 
-
 class CalVerifyMismatchTestsUUID(CalVerifyMismatchTestsBase):
     """
     Tests calverify for iCalendar mismatch problems for auto-accept attendees.
@@ -1558,26 +1544,26 @@ END:VCALENDAR
 """.replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     requirements = {
-        CalVerifyMismatchTestsBase.uuid1 : {
-            "calendar" : {
-                "missing_attendee.ics"      : (MISSING_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                "mismatched_attendee.ics"   : (MISMATCH_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        CalVerifyMismatchTestsBase.uuid1: {
+            "calendar": {
+                "missing_attendee.ics": (MISSING_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched_attendee.ics": (MISMATCH_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
             },
-            "inbox" : {},
+            "inbox": {},
         },
-        CalVerifyMismatchTestsBase.uuid2 : {
-            "calendar" : {},
-            "inbox" : {},
+        CalVerifyMismatchTestsBase.uuid2: {
+            "calendar": {},
+            "inbox": {},
         },
-        CalVerifyMismatchTestsBase.uuid3 : {
-            "calendar" : {},
-            "inbox" : {},
+        CalVerifyMismatchTestsBase.uuid3: {
+            "calendar": {},
+            "inbox": {},
         },
-        CalVerifyMismatchTestsBase.uuidl1 : {
-            "calendar" : {
-                "mismatched_attendee.ics"   : (MISMATCH_ATTENDEE_L1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        CalVerifyMismatchTestsBase.uuidl1: {
+            "calendar": {
+                "mismatched_attendee.ics": (MISMATCH_ATTENDEE_L1_ICS, CalVerifyMismatchTestsBase.metadata,),
             },
-            "inbox" : {},
+            "inbox": {},
         },
     }
 
@@ -1628,7 +1614,6 @@ END:VCALENDAR
         sync_token_newl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.assertEqual(sync_token_old1, sync_token_new1)
         self.assertEqual(sync_token_oldl1, sync_token_newl1)
-
 
     @inlineCallbacks
     def test_fixMismatch(self):
@@ -1706,7 +1691,6 @@ END:VCALENDAR
         self.assertTrue("Fix remove" not in calverify.results)
         self.assertTrue("Fix failures" not in calverify.results)
         self.assertTrue("Auto-Accepts" not in calverify.results)
-
 
 
 class CalVerifyDoubleBooked(CalVerifyMismatchTestsBase):
@@ -2054,39 +2038,39 @@ END:VCALENDAR
 """.replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     allEvents = {
-        "invite1.ics"      : (INVITE_NO_OVERLAP_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite2.ics"      : (INVITE_NO_OVERLAP1_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite3.ics"      : (INVITE_NO_OVERLAP1_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite4.ics"      : (INVITE_NO_OVERLAP2_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite5.ics"      : (INVITE_NO_OVERLAP2_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite6.ics"      : (INVITE_NO_OVERLAP3_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite7.ics"      : (INVITE_NO_OVERLAP3_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite8.ics"      : (INVITE_NO_OVERLAP4_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite9.ics"      : (INVITE_NO_OVERLAP4_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite10.ics"     : (INVITE_NO_OVERLAP5_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite11.ics"     : (INVITE_NO_OVERLAP5_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite12.ics"     : (INVITE_NO_OVERLAP6_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite13.ics"     : (INVITE_NO_OVERLAP6_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite14.ics"     : (INVITE_NO_OVERLAP7_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite15.ics"     : (INVITE_NO_OVERLAP7_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite1.ics": (INVITE_NO_OVERLAP_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite2.ics": (INVITE_NO_OVERLAP1_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite3.ics": (INVITE_NO_OVERLAP1_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite4.ics": (INVITE_NO_OVERLAP2_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite5.ics": (INVITE_NO_OVERLAP2_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite6.ics": (INVITE_NO_OVERLAP3_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite7.ics": (INVITE_NO_OVERLAP3_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite8.ics": (INVITE_NO_OVERLAP4_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite9.ics": (INVITE_NO_OVERLAP4_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite10.ics": (INVITE_NO_OVERLAP5_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite11.ics": (INVITE_NO_OVERLAP5_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite12.ics": (INVITE_NO_OVERLAP6_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite13.ics": (INVITE_NO_OVERLAP6_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite14.ics": (INVITE_NO_OVERLAP7_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite15.ics": (INVITE_NO_OVERLAP7_2_ICS, CalVerifyMismatchTestsBase.metadata,),
     }
 
     requirements = {
-        CalVerifyMismatchTestsBase.uuid1 : {
-            "calendar" : allEvents,
-            "inbox" : {},
+        CalVerifyMismatchTestsBase.uuid1: {
+            "calendar": allEvents,
+            "inbox": {},
         },
-        CalVerifyMismatchTestsBase.uuid2 : {
-            "calendar" : {},
-            "inbox" : {},
+        CalVerifyMismatchTestsBase.uuid2: {
+            "calendar": {},
+            "inbox": {},
         },
-        CalVerifyMismatchTestsBase.uuid3 : {
-            "calendar" : {},
-            "inbox" : {},
+        CalVerifyMismatchTestsBase.uuid3: {
+            "calendar": {},
+            "inbox": {},
         },
-        CalVerifyMismatchTestsBase.uuidl1 : {
-            "calendar" : allEvents,
-            "inbox" : {},
+        CalVerifyMismatchTestsBase.uuidl1: {
+            "calendar": allEvents,
+            "inbox": {},
         },
     }
 
@@ -2138,7 +2122,6 @@ END:VCALENDAR
         sync_token_newl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.assertEqual(sync_token_old1, sync_token_new1)
         self.assertEqual(sync_token_oldl1, sync_token_newl1)
-
 
 
 class CalVerifyDarkPurge(CalVerifyMismatchTestsBase):
@@ -2228,28 +2211,28 @@ END:VCALENDAR
 """.replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     allEvents = {
-        "invite1.ics"      : (INVITE_NO_ORGANIZER_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite2.ics"      : (INVITE_VALID_ORGANIZER_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite3.ics"      : (INVITE_INVALID_ORGANIZER_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite4.ics"      : (INVITE_INVALID_ORGANIZER_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite1.ics": (INVITE_NO_ORGANIZER_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite2.ics": (INVITE_VALID_ORGANIZER_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite3.ics": (INVITE_INVALID_ORGANIZER_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite4.ics": (INVITE_INVALID_ORGANIZER_2_ICS, CalVerifyMismatchTestsBase.metadata,),
     }
 
     requirements = {
-        CalVerifyMismatchTestsBase.uuid1 : {
-            "calendar" : {},
-            "inbox" : {},
+        CalVerifyMismatchTestsBase.uuid1: {
+            "calendar": {},
+            "inbox": {},
         },
-        CalVerifyMismatchTestsBase.uuid2 : {
-            "calendar" : {},
-            "inbox" : {},
+        CalVerifyMismatchTestsBase.uuid2: {
+            "calendar": {},
+            "inbox": {},
         },
-        CalVerifyMismatchTestsBase.uuid3 : {
-            "calendar" : {},
-            "inbox" : {},
+        CalVerifyMismatchTestsBase.uuid3: {
+            "calendar": {},
+            "inbox": {},
         },
-        CalVerifyMismatchTestsBase.uuidl1 : {
-            "calendar" : allEvents,
-            "inbox" : {},
+        CalVerifyMismatchTestsBase.uuidl1: {
+            "calendar": allEvents,
+            "inbox": {},
         },
     }
 
@@ -2298,7 +2281,6 @@ END:VCALENDAR
 
         sync_token_newl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.assertEqual(sync_token_oldl1, sync_token_newl1)
-
 
     @inlineCallbacks
     def test_fixDarkEvents(self):
@@ -2358,7 +2340,6 @@ END:VCALENDAR
         self.assertTrue("Fix dark events" not in calverify.results)
         self.assertTrue("Fix remove" not in calverify.results)
 
-
     @inlineCallbacks
     def test_fixDarkEventsNoOrganizerOnly(self):
         """
@@ -2417,7 +2398,6 @@ END:VCALENDAR
         self.assertTrue("Fix dark events" not in calverify.results)
         self.assertTrue("Fix remove" not in calverify.results)
 
-
     @inlineCallbacks
     def test_fixDarkEventsAllTypes(self):
         """
@@ -2475,7 +2455,6 @@ END:VCALENDAR
         self.assertEqual(len(calverify.results["Dark Events"]), 0)
         self.assertTrue("Fix dark events" not in calverify.results)
         self.assertTrue("Fix remove" not in calverify.results)
-
 
 
 class CalVerifyEventPurge(CalVerifyMismatchTestsBase):
@@ -2643,8 +2622,8 @@ END:VCALENDAR
     def setUp(self):
 
         self.subs = {
-            "uuid1" : CalVerifyMismatchTestsBase.uuid1,
-            "uuid2" : CalVerifyMismatchTestsBase.uuid2,
+            "uuid1": CalVerifyMismatchTestsBase.uuid1,
+            "uuid2": CalVerifyMismatchTestsBase.uuid2,
         }
 
         self.now = DateTime.getNowUTC()
@@ -2685,32 +2664,31 @@ END:VCALENDAR
             self.subs[attrname_1] = getattr(self, attrname_1)
 
         self.requirements = {
-            CalVerifyMismatchTestsBase.uuid1 : {
-                "calendar" : {
-                    "invite1.ics" : (self.NO_ORGANIZER_ICS % self.subs, CalVerifyMismatchTestsBase.metadata,),
-                    "invite2.ics" : (self.VALID_ORGANIZER_ICS % self.subs, CalVerifyMismatchTestsBase.metadata,),
-                    "invite3.ics" : (self.VALID_ORGANIZER_OVERRIDE_ICS % self.subs, CalVerifyMismatchTestsBase.metadata,),
+            CalVerifyMismatchTestsBase.uuid1: {
+                "calendar": {
+                    "invite1.ics": (self.NO_ORGANIZER_ICS % self.subs, CalVerifyMismatchTestsBase.metadata,),
+                    "invite2.ics": (self.VALID_ORGANIZER_ICS % self.subs, CalVerifyMismatchTestsBase.metadata,),
+                    "invite3.ics": (self.VALID_ORGANIZER_OVERRIDE_ICS % self.subs, CalVerifyMismatchTestsBase.metadata,),
                 },
-                "inbox" : {},
+                "inbox": {},
             },
-            CalVerifyMismatchTestsBase.uuid2 : {
-                "calendar" : {
-                    "invite2a.ics" : (self.VALID_ATTENDEE_ICS % self.subs, CalVerifyMismatchTestsBase.metadata,),
+            CalVerifyMismatchTestsBase.uuid2: {
+                "calendar": {
+                    "invite2a.ics": (self.VALID_ATTENDEE_ICS % self.subs, CalVerifyMismatchTestsBase.metadata,),
                 },
-                "inbox" : {},
+                "inbox": {},
             },
-            CalVerifyMismatchTestsBase.uuid3 : {
-                "calendar" : {},
-                "inbox" : {},
+            CalVerifyMismatchTestsBase.uuid3: {
+                "calendar": {},
+                "inbox": {},
             },
-            CalVerifyMismatchTestsBase.uuidl1 : {
-                "calendar" : {},
-                "inbox" : {},
+            CalVerifyMismatchTestsBase.uuidl1: {
+                "calendar": {},
+                "inbox": {},
             },
         }
 
         yield super(CalVerifyEventPurge, self).setUp()
-
 
     @inlineCallbacks
     def test_validSplit(self):
@@ -2767,7 +2745,6 @@ END:VCALENDAR
         ical2 = yield obj2.component()
         self.assertEqual(normalize_iCalStr(ical2), self.VALID_ATTENDEE_PAST_ICS % relsubs)
 
-
     @inlineCallbacks
     def test_summary(self):
         """
@@ -2795,7 +2772,6 @@ END:VCALENDAR
         self.assertTrue("%(now_fwd10)s" % self.subs in result)
         self.assertTrue("%(now_fwd11)s *" % self.subs in result)
         self.assertTrue("%(now_fwd12)s" % self.subs in result)
-
 
 
 class CalVerifyMissingLocations(CalVerifyMismatchTestsBase):
@@ -2967,45 +2943,45 @@ END:VCALENDAR
 """.replace("\n", "\r\n") % subs
 
     allEvents = {
-        "invite1.ics"      : (VALID_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite2.ics"      : (INVALID_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite3.ics"      : (VALID_MULTI_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite4.ics"      : (INVALID_MULTI_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite1.ics": (VALID_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite2.ics": (INVALID_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite3.ics": (VALID_MULTI_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite4.ics": (INVALID_MULTI_ICS, CalVerifyMismatchTestsBase.metadata,),
     }
     allEvents_Room1 = {
-        "invite1.ics"      : (VALID_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite2.ics"      : (INVALID_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite3.ics"      : (VALID_MULTI_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite4.ics"      : (INVALID_MULTI_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite5.ics"      : (ROOM_ORGANIZER_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite6.ics"      : (ROOM_NO_ORGANIZER_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite7.ics"      : (ROOM_MISSING_ORGANIZER_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite1.ics": (VALID_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite2.ics": (INVALID_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite3.ics": (VALID_MULTI_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite4.ics": (INVALID_MULTI_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite5.ics": (ROOM_ORGANIZER_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite6.ics": (ROOM_NO_ORGANIZER_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite7.ics": (ROOM_MISSING_ORGANIZER_ICS, CalVerifyMismatchTestsBase.metadata,),
     }
     allEvents_Room2 = {
-        "invite3.ics"      : (VALID_MULTI_ICS, CalVerifyMismatchTestsBase.metadata,),
-        "invite4.ics"      : (INVALID_MULTI_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite3.ics": (VALID_MULTI_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite4.ics": (INVALID_MULTI_ICS, CalVerifyMismatchTestsBase.metadata,),
     }
 
     requirements = {
-        CalVerifyMismatchTestsBase.uuid1 : {
-            "calendar" : allEvents,
-            "inbox" : {},
+        CalVerifyMismatchTestsBase.uuid1: {
+            "calendar": allEvents,
+            "inbox": {},
         },
-        CalVerifyMismatchTestsBase.uuid2 : {
-            "calendar" : allEvents,
-            "inbox" : {},
+        CalVerifyMismatchTestsBase.uuid2: {
+            "calendar": allEvents,
+            "inbox": {},
         },
-        CalVerifyMismatchTestsBase.uuid3 : {
-            "calendar" : {},
-            "inbox" : {},
+        CalVerifyMismatchTestsBase.uuid3: {
+            "calendar": {},
+            "inbox": {},
         },
-        CalVerifyMismatchTestsBase.uuidl1 : {
-            "calendar" : allEvents_Room1,
-            "inbox" : {},
+        CalVerifyMismatchTestsBase.uuidl1: {
+            "calendar": allEvents_Room1,
+            "inbox": {},
         },
-        CalVerifyMismatchTestsBase.uuidl2 : {
-            "calendar" : allEvents_Room2,
-            "inbox" : {},
+        CalVerifyMismatchTestsBase.uuidl2: {
+            "calendar": allEvents_Room2,
+            "inbox": {},
         },
     }
 
@@ -3056,7 +3032,6 @@ END:VCALENDAR
 
         sync_token_newl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.assertEqual(sync_token_oldl1, sync_token_newl1)
-
 
     @inlineCallbacks
     def test_fixMissingLocations(self):

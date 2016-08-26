@@ -84,7 +84,6 @@ def http_REPORT(self, request):
     else:
         request.submethod = name
 
-
     def to_method(namespace, name):
         if namespace:
             s = "_".join((namespace, name))

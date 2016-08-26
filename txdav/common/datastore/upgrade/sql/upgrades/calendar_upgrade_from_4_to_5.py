@@ -35,6 +35,7 @@ Data upgrade from database version 4 to 5
 UPGRADE_TO_VERSION = 5
 BATCH_SIZE = 100
 
+
 @inlineCallbacks
 def doUpgrade(sqlStore):
     """
@@ -50,7 +51,6 @@ def doUpgrade(sqlStore):
         yield updateCalendarDataVersion(sqlStore, UPGRADE_TO_VERSION)
 
 
-
 @inlineCallbacks
 def updateCalendarHomes(sqlStore, prefix=None):
     """
@@ -58,7 +58,6 @@ def updateCalendarHomes(sqlStore, prefix=None):
     """
 
     yield doToEachHomeNotAtVersion(sqlStore, schema.CALENDAR_HOME, UPGRADE_TO_VERSION, updateCalendarHome, "Update Calendar Home", filterOwnerUID=prefix)
-
 
 
 @inlineCallbacks
@@ -71,7 +70,6 @@ def updateCalendarHome(txn, homeResourceID):
     yield moveCalendarTimezoneProperties(home)
     yield moveCalendarAvailabilityProperties(home)
     yield cleanPropertyStore()
-
 
 
 @inlineCallbacks
@@ -93,7 +91,6 @@ def moveCalendarTimezoneProperties(home):
             del calendar.properties()[PropertyName.fromElement(caldavxml.CalendarTimeZone)]
 
 
-
 @inlineCallbacks
 def moveCalendarAvailabilityProperties(home):
     """
@@ -107,7 +104,6 @@ def moveCalendarAvailabilityProperties(home):
         if prop is not None:
             yield home.setAvailability(prop.calendar())
             del inbox.properties()[PropertyName.fromElement(customxml.CalendarAvailability)]
-
 
 
 @inlineCallbacks

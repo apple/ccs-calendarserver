@@ -71,35 +71,32 @@ is making the request (including proxy state changes etc).
 
 
 class DisabledCacheNotifier(object):
+
     def __init__(self, *args, **kwargs):
         pass
-
 
     def changed(self, url=None):
         return succeed(None)
 
 
-
 class DisabledCache(object):
+
     def getResponseForRequest(self, request):
         return succeed(None)
-
 
     def cacheResponseForRequest(self, request, response):
         return succeed(response)
 
 
-
 class URINotFoundException(Exception):
+
     def __init__(self, uri):
         self.uri = uri
-
 
     def __repr__(self):
         return "%s: Could not find URI %r" % (
             self.__class__.__name__,
             self.uri)
-
 
 
 class MemcacheChangeNotifier(CachePoolUserMixIn):
@@ -113,10 +110,8 @@ class MemcacheChangeNotifier(CachePoolUserMixIn):
         self._cachePool = cachePool
         self._cachePoolHandle = cacheHandle
 
-
     def _newCacheToken(self):
         return str(uuid.uuid4())
-
 
     def changed(self, url=None):
         """
@@ -139,7 +134,6 @@ class MemcacheChangeNotifier(CachePoolUserMixIn):
             self._newCacheToken(), expireTime=config.ResponseCacheTimeout * 60)
 
 
-
 class MemcacheURLPatternChangeNotifier(CachePoolUserMixIn):
     """
     A change notifier used to target arbitrary tokens.
@@ -151,10 +145,8 @@ class MemcacheURLPatternChangeNotifier(CachePoolUserMixIn):
         self._cachePool = cachePool
         self._cachePoolHandle = cacheHandle
 
-
     def _newCacheToken(self):
         return str(uuid.uuid4())
-
 
     def changed(self, token):
         """
@@ -173,7 +165,6 @@ class MemcacheURLPatternChangeNotifier(CachePoolUserMixIn):
         )
 
 
-
 class BaseResponseCache(object):
     """
     A base class which provides some common operations
@@ -183,11 +174,9 @@ class BaseResponseCache(object):
     def _principalURI(self, principal):
         return principal.principalURL() if principal is not None else "unauthenticated"
 
-
     def _uriNotFound(self, f, uri):
         f.trap(AttributeError)
         raise URINotFoundException(uri)
-
 
     def _getRecordForURI(self, uri, request):
         """
@@ -202,7 +191,6 @@ class BaseResponseCache(object):
                 _getRecord).addErrback(self._uriNotFound, uri)
         except AssertionError:
             raise URINotFoundException(uri)
-
 
     @inlineCallbacks
     def _canonicalizeURIForRequest(self, uri, request):
@@ -236,7 +224,6 @@ class BaseResponseCache(object):
         except AssertionError:
             raise URINotFoundException(uri)
 
-
     def _getURIs(self, request):
         """
         Get principal and resource URIs from the request.
@@ -250,7 +237,6 @@ class BaseResponseCache(object):
         d.addCallback(_getSecondURI)
 
         return d
-
 
     @inlineCallbacks
     def _requestKey(self, request):
@@ -277,19 +263,17 @@ class BaseResponseCache(object):
 
         returnValue(request.cacheKey)
 
-
     def _getResponseBody(self, key, response):
         d1 = allDataFromStream(response.stream)
         d1.addCallback(lambda responseBody: (key, responseBody))
         return d1
 
 
-
 class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
+
     def __init__(self, docroot, cachePool=None):
         self._docroot = docroot
         self._cachePool = cachePool
-
 
     @inlineCallbacks
     def _tokenForURI(self, uri, cachePoolHandle=None):
@@ -306,7 +290,6 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
             _ignore_flags, result = result
         returnValue(result)
 
-
     @inlineCallbacks
     def _tokenForRecord(self, uri, request):
         """
@@ -315,7 +298,6 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
 
         record = (yield self._getRecordForURI(uri, request))
         returnValue(record.cacheToken())
-
 
     @inlineCallbacks
     def _tokensForChildren(self, rURI, request):
@@ -328,7 +310,6 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
             returnValue(tokens)
         else:
             returnValue({})
-
 
     @inlineCallbacks
     def _getTokens(self, request):
@@ -344,7 +325,6 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         tokens.append((yield self._tokensForChildren(rURI, request)))
         returnValue(tokens)
 
-
     @inlineCallbacks
     def _hashedRequestKey(self, request):
         """
@@ -356,7 +336,6 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
             ':'.join([str(t) for t in oldkey])).hexdigest()
         self.log.debug("hashing key for get: {old!r} to {new!r}", old=oldkey, new=key)
         returnValue(request.cacheKey)
-
 
     @inlineCallbacks
     def getResponseForRequest(self, request):
@@ -440,7 +419,6 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
             self.log.debug("Could not locate URI: {e!r}", e=e)
             returnValue(None)
 
-
     @inlineCallbacks
     def cacheResponseForRequest(self, request, response):
         """
@@ -491,13 +469,11 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         returnValue(response)
 
 
-
 class _CachedResponseResource(object):
     implements(IResource)
 
     def __init__(self, response):
         self._response = response
-
 
     def renderHTTP(self, request):
         if not hasattr(request, "extendedLogItems"):
@@ -505,10 +481,8 @@ class _CachedResponseResource(object):
         request.extendedLogItems["cached"] = "1"
         return self._response
 
-
     def locateChild(self, request, segments):
         return self, []
-
 
 
 class PropfindCacheMixin(object):
@@ -531,7 +505,6 @@ class PropfindCacheMixin(object):
         returnValue(response)
 
 
-
 class CacheStoreNotifierFactory(CachePoolUserMixIn):
     """
     A notifier factory specifically for store object notifications. This is handed of to
@@ -548,10 +521,8 @@ class CacheStoreNotifierFactory(CachePoolUserMixIn):
     def newNotifier(self, storeObject):
         return CacheStoreNotifier(self, storeObject)
 
-
     def _newCacheToken(self):
         return str(uuid.uuid4())
-
 
     def changed(self, cache_id):
         """
@@ -566,7 +537,6 @@ class CacheStoreNotifierFactory(CachePoolUserMixIn):
             self._newCacheToken(), expireTime=config.ResponseCacheTimeout * 60)
 
 
-
 class CacheStoreNotifier(object):
     """
     A notifier for store objects. Store objects will call .notify() when they change.
@@ -577,7 +547,6 @@ class CacheStoreNotifier(object):
     def __init__(self, notifierFactory, storeObject):
         self._notifierFactory = notifierFactory
         self._storeObject = storeObject
-
 
     @inlineCallbacks
     def notify(self):
@@ -605,7 +574,6 @@ class CacheStoreNotifier(object):
 
         for uri in uris:
             yield self._notifierFactory.changed(uri)
-
 
     def clone(self, storeObject):
         return self.__class__(self._notifierFactory, storeObject)

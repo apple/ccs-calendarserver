@@ -48,10 +48,8 @@ class NonePropertyStore (object):
             NonePropertyStore.__singleton = object.__new__(clazz)
         return NonePropertyStore.__singleton
 
-
     def __init__(self, resource):
         pass
-
 
     def get(self, qname, uid=None):
         raise HTTPError(StatusResponse(
@@ -59,23 +57,19 @@ class NonePropertyStore (object):
             "No such property: %s" % (encodeXMLName(*qname),)
         ))
 
-
     def set(self, property, uid=None):
         raise HTTPError(StatusResponse(
             responsecode.FORBIDDEN,
             "Permission denied for setting property: %s" % (property,)
         ))
 
-
     def delete(self, qname, uid=None):
         # RFC 2518 Section 12.13.1 says that removal of
         # non-existing property is not an error.
         pass
 
-
     def contains(self, qname, uid=None):
         return False
-
 
     def list(self, uid=None):
         return ()

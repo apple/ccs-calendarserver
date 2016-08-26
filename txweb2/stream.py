@@ -71,7 +71,6 @@ from twext.python.log import Logger
 log = Logger()
 
 
-
 # Python 2.4.2 (only) has a broken mmap that leaks a fd every time you call it.
 if sys.version_info[0:3] != (2, 4, 2):
     try:
@@ -80,7 +79,6 @@ if sys.version_info[0:3] != (2, 4, 2):
         mmap = None
 else:
     mmap = None
-
 
 
 #
@@ -103,7 +101,6 @@ class IStream(Interface):
     def close():
         """Prematurely close. Should also cause further reads to
         return None."""
-
 
 
 class IByteStream(IStream):
@@ -138,8 +135,8 @@ class IByteStream(IStream):
         """
 
 
-
 class ISendfileableStream(Interface):
+
     def read(sendfile=False):
         """
         Read some data.
@@ -148,7 +145,6 @@ class ISendfileableStream(Interface):
 
         If sendfile == True, returns either the above, or a SendfileBuffer.
         """
-
 
 
 class SimpleStream(object):
@@ -162,10 +158,8 @@ class SimpleStream(object):
     def read(self):
         return None
 
-
     def close(self):
         self.length = 0
-
 
     def split(self, point):
         if self.length is not None:
@@ -192,6 +186,7 @@ SENDFILE_LIMIT = 16777216
 # minimum sendfile size
 SENDFILE_THRESHOLD = 256
 
+
 def mmapwrapper(*args, **kwargs):
     """
     Python's mmap call sucks and ommitted the "offset" argument for no
@@ -207,7 +202,6 @@ def mmapwrapper(*args, **kwargs):
     return mmap.mmap(*args, **kwargs)
 
 
-
 class FileStream(SimpleStream):
     implements(ISendfileableStream)
     """A stream that reads data from a file. File must be a normal
@@ -216,6 +210,7 @@ class FileStream(SimpleStream):
     CHUNK_SIZE = 2 ** 2 ** 2 ** 2 - 32
 
     f = None
+
     def __init__(self, f, start=0, length=None, useMMap=bool(mmap)):
         """
         Create the stream from file f. If you specify start and length,
@@ -228,7 +223,6 @@ class FileStream(SimpleStream):
         else:
             self.length = length
         self.useMMap = useMMap
-
 
     def read(self, sendfile=False):
         if self.f is None:
@@ -274,7 +268,6 @@ class FileStream(SimpleStream):
             self.start += bytesRead
             return b
 
-
     def close(self):
         self.f = None
         SimpleStream.close(self)
@@ -285,8 +278,10 @@ components.registerAdapter(FileStream, file, IByteStream)
 # MemoryStream
 #
 
+
 class MemoryStream(SimpleStream):
     """A stream that reads data from a buffer object."""
+
     def __init__(self, mem, start=0, length=None):
         """
         Create the stream from buffer object mem. If you specify start and length,
@@ -301,7 +296,6 @@ class MemoryStream(SimpleStream):
                 raise ValueError("len(mem) < start + length")
             self.length = length
 
-
     def read(self):
         if self.mem is None:
             return None
@@ -313,7 +307,6 @@ class MemoryStream(SimpleStream):
         self.length = 0
         return result
 
-
     def close(self):
         self.mem = None
         SimpleStream.close(self)
@@ -324,6 +317,7 @@ components.registerAdapter(MemoryStream, types.BufferType, IByteStream)
 #
 # CompoundStream
 #
+
 
 class CompoundStream(object):
     """A stream which is composed of many other streams.
@@ -338,7 +332,6 @@ class CompoundStream(object):
     def __init__(self, buckets=()):
         self.buckets = [IByteStream(s) for s in buckets]
 
-
     def addStream(self, bucket):
         """Add a stream to the output"""
         bucket = IByteStream(bucket)
@@ -348,7 +341,6 @@ class CompoundStream(object):
                 self.length = None
             else:
                 self.length += bucket.length
-
 
     def read(self, sendfile=False):
         if self.deferred is not None:
@@ -375,13 +367,11 @@ class CompoundStream(object):
 
         return self._gotRead(result, sendfile)
 
-
     def _gotFailure(self, f):
         self.deferred = None
         del self.buckets[0]
         self.close()
         return f
-
 
     def _gotRead(self, result, sendfile):
         self.deferred = None
@@ -393,7 +383,6 @@ class CompoundStream(object):
         if self.length is not None:
             self.length -= len(result)
         return result
-
 
     def split(self, point):
         num = 0
@@ -424,13 +413,11 @@ class CompoundStream(object):
 
             point -= bucket.length
 
-
     def close(self):
         for bucket in self.buckets:
             bucket.close()
         self.buckets = []
         self.length = 0
-
 
 
 #
@@ -445,13 +432,11 @@ class _StreamReader(object):
         self.gotDataCallback = gotDataCallback
         self.result = Deferred()
 
-
     def run(self):
         # self.result may be del'd in _read()
         result = self.result
         self._read()
         return result
-
 
     def _read(self):
         try:
@@ -464,12 +449,10 @@ class _StreamReader(object):
         else:
             self._gotData(result)
 
-
     def _gotError(self, failure):
         result = self.result
         del self.result, self.gotDataCallback, self.stream
         result.errback(failure)
-
 
     def _gotData(self, data):
         if data is None:
@@ -485,7 +468,6 @@ class _StreamReader(object):
         reactor.callLater(0, self._read)
 
 
-
 def readStream(stream, gotDataCallback):
     """Pass a stream's data to a callback.
 
@@ -496,14 +478,12 @@ def readStream(stream, gotDataCallback):
     return _StreamReader(stream, gotDataCallback).run()
 
 
-
 def readAndDiscard(stream):
     """Read all the data from the given stream, and throw it out.
 
     Returns Deferred which will be triggered on finish.
     """
     return readStream(stream, lambda _: None)
-
 
 
 def readIntoFile(stream, outFile):
@@ -517,7 +497,6 @@ def readIntoFile(stream, outFile):
     return readStream(stream, outFile.write).addBoth(done)
 
 
-
 def connectStream(inputStream, factory):
     """Connect a protocol constructed from a factory to stream.
 
@@ -529,12 +508,11 @@ def connectStream(inputStream, factory):
     # XXX deal better with addresses
     p = factory.buildProtocol(None)
     out = ProducerStream()
-    out.disconnecting = False # XXX for LineReceiver suckage
+    out.disconnecting = False  # XXX for LineReceiver suckage
     p.makeConnection(out)
     readStream(inputStream, lambda _: p.dataReceived(_)).addCallbacks(
         lambda _: p.connectionLost(ti_error.ConnectionDone()), lambda _: p.connectionLost(_))
     return out
-
 
 
 #
@@ -547,13 +525,12 @@ def fallbackSplit(stream, point):
     return (before, after)
 
 
-
 class TruncaterStream(object):
+
     def __init__(self, stream, point, postTruncater):
         self.stream = stream
         self.length = point
         self.postTruncater = postTruncater
-
 
     def read(self):
         if self.length == 0:
@@ -569,7 +546,6 @@ class TruncaterStream(object):
             return result.addCallback(self._gotRead)
         else:
             return self._gotRead(result)
-
 
     def _gotRead(self, data):
         if data is None:
@@ -588,7 +564,6 @@ class TruncaterStream(object):
                 self.stream = None
             return before
 
-
     def split(self, point):
         if point > self.length:
             raise ValueError("split point (%d) > length (%d)" % (point, self.length))
@@ -598,7 +573,6 @@ class TruncaterStream(object):
         self.length = point
         self.postTruncater = post
         return self, trunc
-
 
     def close(self):
         if self.postTruncater is not None:
@@ -610,7 +584,6 @@ class TruncaterStream(object):
             self.length = 0
 
 
-
 class PostTruncaterStream(object):
     deferred = None
     sentInitialSegment = False
@@ -618,12 +591,12 @@ class PostTruncaterStream(object):
     closed = False
 
     length = None
+
     def __init__(self, stream, point):
         self.stream = stream
         self.deferred = Deferred()
         if stream.length is not None:
             self.length = stream.length - point
-
 
     def read(self):
         if not self.sentInitialSegment:
@@ -635,10 +608,8 @@ class PostTruncaterStream(object):
 
         return self.stream.read()
 
-
     def split(self, point):
         return fallbackSplit(self, point)
-
 
     def close(self):
         self.closed = True
@@ -652,7 +623,6 @@ class PostTruncaterStream(object):
 
         self.deferred = None
 
-
     # Callbacks from TruncaterStream
     def sendInitialSegment(self, data):
         if self.closed:
@@ -665,7 +635,6 @@ class PostTruncaterStream(object):
             else:
                 self.deferred.callback(data)
 
-
     def notifyClosed(self, truncater):
         if self.closed:
             # we are closed, have first half really close
@@ -677,7 +646,6 @@ class PostTruncaterStream(object):
         else:
             # Idle, store closed info.
             self.truncaterClosed = truncater
-
 
 
 #
@@ -702,7 +670,6 @@ class ProducerStream(object):
         self.buffer = []
         self.length = length
 
-
     # IByteStream implementation
     def read(self):
         if self.buffer:
@@ -716,17 +683,14 @@ class ProducerStream(object):
             return None
         else:
             deferred = self.deferred = Deferred()
-            if self.producer is not None and (not self.streamingProducer
-                                              or self.producerPaused):
+            if self.producer is not None and (not self.streamingProducer or self.producerPaused):
                 self.producerPaused = False
                 self.producer.resumeProducing()
 
             return deferred
 
-
     def split(self, point):
         return fallbackSplit(self, point)
-
 
     def close(self):
         """Called by reader of stream when it is done reading."""
@@ -736,7 +700,6 @@ class ProducerStream(object):
             self.producer.stopProducing()
             self.producer = None
         self.deferred = None
-
 
     # IConsumer implementation
     def write(self, data):
@@ -749,11 +712,9 @@ class ProducerStream(object):
             deferred.callback(data)
         else:
             self.buffer.append(data)
-            if(self.producer is not None and self.streamingProducer
-               and len(self.buffer) > self.bufferSize):
+            if(self.producer is not None and self.streamingProducer and len(self.buffer) > self.bufferSize):
                 self.producer.pauseProducing()
                 self.producerPaused = True
-
 
     def finish(self, failure=None):
         """Called by producer when it is done.
@@ -777,7 +738,6 @@ class ProducerStream(object):
                 self.failed = True
                 self.failure = failure
 
-
     def registerProducer(self, producer, streaming):
         if self.producer is not None:
             raise RuntimeError("Cannot register producer %s, because producer %s was never unregistered." % (producer, self.producer))
@@ -790,10 +750,8 @@ class ProducerStream(object):
             if not streaming:
                 producer.resumeProducing()
 
-
     def unregisterProducer(self):
         self.producer = None
-
 
 
 class StreamProducer(object):
@@ -809,7 +767,6 @@ class StreamProducer(object):
         self.stream = stream
         self.enforceStr = enforceStr
 
-
     def beginProducing(self, consumer):
         if self.stream is None:
             return defer.succeed(None)
@@ -819,7 +776,6 @@ class StreamProducer(object):
         self.consumer.registerProducer(self, True)
         self.resumeProducing()
         return finishedCallback
-
 
     def resumeProducing(self):
         self.paused = False
@@ -837,7 +793,6 @@ class StreamProducer(object):
             self.deferred.addCallbacks(self._doWrite, self.stopProducing)
         else:
             self._doWrite(data)
-
 
     def _doWrite(self, data):
         if self.consumer is None:
@@ -860,10 +815,8 @@ class StreamProducer(object):
         if not self.paused:
             self.resumeProducing()
 
-
     def pauseProducing(self):
         self.paused = True
-
 
     def stopProducing(self, failure=ti_error.ConnectionLost()):
         if self.consumer is not None:
@@ -881,7 +834,6 @@ class StreamProducer(object):
         self.finishedCallback = self.deferred = self.consumer = self.stream = None
 
 
-
 #
 # ProcessStreamer
 #
@@ -894,7 +846,6 @@ class _ProcessStreamerProtocol(protocol.ProcessProtocol):
         self.errStream = errStream
         self.resultDeferred = defer.Deferred()
 
-
     def connectionMade(self):
         p = StreamProducer(self.inputStream)
         # if the process stopped reading from the input stream,
@@ -906,32 +857,25 @@ class _ProcessStreamerProtocol(protocol.ProcessProtocol):
         d.addCallbacks(lambda _: self.transport.closeStdin(),
                        self._inputError)
 
-
     def _inputError(self, f):
         log.failure("Error in input stream for transport {transport}", f, transport=self.transport)
         self.transport.closeStdin()
 
-
     def outReceived(self, data):
         self.outStream.write(data)
-
 
     def errReceived(self, data):
         self.errStream.write(data)
 
-
     def outConnectionLost(self):
         self.outStream.finish()
-
 
     def errConnectionLost(self):
         self.errStream.finish()
 
-
     def processEnded(self, reason):
         self.resultDeferred.errback(reason)
         del self.resultDeferred
-
 
 
 class ProcessStreamer(object):
@@ -952,7 +896,6 @@ class ProcessStreamer(object):
         self._args = args
         self._env = env
 
-
     def run(self):
         """Run the process.
 
@@ -965,7 +908,6 @@ class ProcessStreamer(object):
         return self._protocol.resultDeferred.addErrback(lambda _: _.trap(ti_error.ProcessDone))
 
 
-
 #
 # generatorToStream
 #
@@ -976,13 +918,11 @@ class _StreamIterator(object):
     def __iter__(self):
         return self
 
-
     def next(self):
         if self.done:
             raise StopIteration
         return self.value
     wait = object()
-
 
 
 class _IteratorStream(object):
@@ -992,7 +932,6 @@ class _IteratorStream(object):
         self._stream = stream
         self._streamIterator = _StreamIterator()
         self._gen = fun(self._streamIterator, *args, **kwargs)
-
 
     def read(self):
         try:
@@ -1008,7 +947,6 @@ class _IteratorStream(object):
                     return self._gotRead(newdata)
             return val
 
-
     def _gotRead(self, data):
         if data is None:
             self._streamIterator.done = True
@@ -1016,15 +954,12 @@ class _IteratorStream(object):
             self._streamIterator.value = data
         return self.read()
 
-
     def close(self):
         self._stream.close()
         del self._gen, self._stream, self._streamIterator
 
-
     def split(self):
         return fallbackSplit(self)
-
 
 
 def generatorToStream(fun):
@@ -1071,7 +1006,6 @@ def generatorToStream(fun):
     return generatorToStream_inner
 
 
-
 #
 # BufferedStream
 #
@@ -1081,9 +1015,9 @@ class BufferedStream(object):
     readline and readExactly."""
 
     data = ""
+
     def __init__(self, stream):
         self.stream = stream
-
 
     def _readUntil(self, f):
         """Internal helper function which repeatedly calls f each time
@@ -1109,7 +1043,6 @@ class BufferedStream(object):
             self.data += str(newdata)
     _readUntil = defer.deferredGenerator(_readUntil)
 
-
     def readExactly(self, size=None):
         """Read exactly size bytes of data, or, if size is None, read
         the entire stream into a string."""
@@ -1123,7 +1056,6 @@ class BufferedStream(object):
                 self.data = post
                 return pre
         return self._readUntil(gotdata)
-
 
     def readline(self, delimiter='\r\n', size=None):
         """
@@ -1158,12 +1090,10 @@ class BufferedStream(object):
                 return pre
         return self._readUntil(gotdata)
 
-
     def pushback(self, pushed):
         """Push data back into the buffer."""
 
         self.data = pushed + self.data
-
 
     def read(self):
         data = self.data
@@ -1171,7 +1101,6 @@ class BufferedStream(object):
             self.data = ""
             return data
         return self.stream.read()
-
 
     def _len(self):
         l = self.stream.length
@@ -1196,7 +1125,6 @@ class BufferedStream(object):
         return pre, post
 
 
-
 #
 # MD5Stream
 #
@@ -1213,7 +1141,6 @@ class MD5Stream(SimpleStream):
         self._stream = wrap
         self._md5 = md5()
 
-
     def _update(self, value):
         """
         Update the MD5 hash object.
@@ -1226,7 +1153,6 @@ class MD5Stream(SimpleStream):
         if value is not None:
             self._md5.update(value)
         return value
-
 
     def read(self):
         """
@@ -1242,7 +1168,6 @@ class MD5Stream(SimpleStream):
             self._update(b)
         return b
 
-
     def close(self):
         """
         Compute the final hex digest of the contents of the wrapped stream.
@@ -1251,7 +1176,6 @@ class MD5Stream(SimpleStream):
         self._md5value = self._md5.hexdigest()
         self._stream = None
         self._md5 = None
-
 
     def getMD5(self):
         """
@@ -1264,7 +1188,6 @@ class MD5Stream(SimpleStream):
         if self._md5 is not None:
             raise RuntimeError("Cannot get MD5 value until stream is closed")
         return self._md5value
-
 
 
 __all__ = ['IStream', 'IByteStream', 'FileStream', 'MemoryStream', 'CompoundStream',

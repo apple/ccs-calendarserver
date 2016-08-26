@@ -24,6 +24,7 @@ import twistedcaldav.test.util
 import os
 import stat
 
+
 class AccountingITIP (twistedcaldav.test.util.TestCase):
 
     def setUp(self):
@@ -32,12 +33,10 @@ class AccountingITIP (twistedcaldav.test.util.TestCase):
         config.AccountingPrincipals = ["*", ]
         os.mkdir(config.AccountingLogRoot)
 
-
     class _Record(object):
 
         def __init__(self, uid):
             self.uid = uid
-
 
     def test_permissions_makedirs(self):
         """
@@ -48,7 +47,6 @@ class AccountingITIP (twistedcaldav.test.util.TestCase):
         os.chmod(config.AccountingLogRoot, stat.S_IRUSR)
 
         emitAccounting("iTIP", self._Record("1234-5678"), "bogus")
-
 
     def test_file_instead_of_directory(self):
         """
@@ -61,7 +59,6 @@ class AccountingITIP (twistedcaldav.test.util.TestCase):
         emitAccounting("iTIP", self._Record("1234-5678"), "bogus")
 
 
-
 class AccountingHTTP (twistedcaldav.test.util.TestCase):
 
     def setUp(self):
@@ -69,7 +66,6 @@ class AccountingHTTP (twistedcaldav.test.util.TestCase):
         super(AccountingHTTP, self).setUp()
         config.AccountingCategories.HTTP = True
         config.AccountingPrincipals = ["*", ]
-
 
     def test_channel_request(self):
         """
@@ -80,7 +76,6 @@ class AccountingHTTP (twistedcaldav.test.util.TestCase):
         channelRequest = HTTPLoggingChannelRequest(HTTPChannel())
         self.assertTrue(channelRequest != None)
 
-
     def test_logging(self):
         """
         Test permissions when creating accounting
@@ -90,6 +85,7 @@ class AccountingHTTP (twistedcaldav.test.util.TestCase):
 
             def handleContentChunk(self, data):
                 pass
+
             def handleContentComplete(self):
                 pass
 

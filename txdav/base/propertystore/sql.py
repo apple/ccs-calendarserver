@@ -40,6 +40,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 
 prop = schema.RESOURCE_PROPERTY
 
+
 class PropertyStore(AbstractPropertyStore):
     """
     We are going to use memcache to cache properties per-resource/per-user. However, we
@@ -68,10 +69,8 @@ class PropertyStore(AbstractPropertyStore):
               (prop.VIEWER_UID == Parameter("viewerID"))
     )
 
-
     def _cacheToken(self, userid):
         return "{0!s}/{1}".format(self._resourceID, userid)
-
 
     @inlineCallbacks
     def _refresh(self, txn):
@@ -120,7 +119,6 @@ class PropertyStore(AbstractPropertyStore):
         if self._proxyUser != self._perUser:
             yield _cache_user_props(self._proxyUser)
 
-
     @classmethod
     @inlineCallbacks
     def load(cls, defaultuser, shareUser, proxyUser, txn, resourceID, created=False, notifyCallback=None):
@@ -139,7 +137,6 @@ class PropertyStore(AbstractPropertyStore):
             yield self._refresh(txn)
         self._notifyCallback = notifyCallback
         returnValue(self)
-
 
     @classmethod
     @inlineCallbacks
@@ -183,7 +180,6 @@ class PropertyStore(AbstractPropertyStore):
         rows = yield query.on(txn)
         stores = cls._createMultipleStores(defaultUser, shareeUser, proxyUser, txn, rows)
         returnValue(stores)
-
 
     @classmethod
     @inlineCallbacks
@@ -230,7 +226,6 @@ class PropertyStore(AbstractPropertyStore):
 
         returnValue(stores)
 
-
     @classmethod
     def _createMultipleStores(cls, defaultUser, shareeUser, proxyUser, txn, rows):
         """
@@ -263,7 +258,6 @@ class PropertyStore(AbstractPropertyStore):
 
         return createdStores
 
-
     def _getitem_uid(self, key, uid):
         validKey(key)
 
@@ -285,7 +279,6 @@ class PropertyStore(AbstractPropertyStore):
                            prop.NAME: Parameter("name"),
                            prop.VIEWER_UID: Parameter("uid")})
 
-
     def _setitem_uid(self, key, value, uid):
         validKey(key)
 
@@ -296,6 +289,7 @@ class PropertyStore(AbstractPropertyStore):
 
         wasCached = [(key_str, uid) in self._cached]
         self._cached[(key_str, uid)] = value_str
+
         @inlineCallbacks
         def trySetItem(txn):
             if tried:
@@ -331,12 +325,12 @@ class PropertyStore(AbstractPropertyStore):
                 prop.VIEWER_UID == Parameter("uid"))
     )
 
-
     def _delitem_uid(self, key, uid):
         validKey(key)
 
         key_str = key.toString()
         del self._cached[(key_str, uid)]
+
         @inlineCallbacks
         def doIt(txn):
             yield self._deleteQuery.on(
@@ -359,7 +353,6 @@ class PropertyStore(AbstractPropertyStore):
             self.log.error("setting a property failed; probably nothing.")
         self._txn.subtransaction(doIt).addErrback(justLogIt)
 
-
     def _keys_uid(self, uid):
         for cachedKey, cachedUID in self._cached.keys():
             if cachedUID == uid:
@@ -378,7 +371,6 @@ class PropertyStore(AbstractPropertyStore):
         # Invalidate entire set of cached per-user data for this resource
         if self._cacher is not None:
             self._cacher.delete(str(self._resourceID))
-
 
     @inlineCallbacks
     def copyAllProperties(self, other):

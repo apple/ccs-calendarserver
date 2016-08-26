@@ -31,6 +31,8 @@ and IResource.  I am based heavily on ideas from C{nevow.inevow}.
 from zope.interface import Attribute, Interface, interface
 
 # server.py interfaces
+
+
 class IResource(Interface):
     """
     An HTTP resource.
@@ -67,9 +69,12 @@ class IResource(Interface):
 
 # Is there a better way to do this than this funky extra class?
 _default = object()
+
+
 class SpecialAdaptInterfaceClass(interface.InterfaceClass):
     # A special adapter for IResource to handle the extra step of adapting
     # from IOldNevowResource-providing resources.
+
     def __call__(self, other, alternate=_default):
         result = super(SpecialAdaptInterfaceClass, self).__call__(other, alternate)
         if result is not alternate:
@@ -83,6 +88,7 @@ class SpecialAdaptInterfaceClass(interface.InterfaceClass):
             return alternate
         raise TypeError('Could not adapt', other, self)
 IResource.__class__ = SpecialAdaptInterfaceClass
+
 
 class IOldNevowResource(Interface):
     # Shared interface with inevow.IResource
@@ -107,7 +113,6 @@ class IOldNevowResource(Interface):
         """
 
 
-
 class ICanHandleException(Interface):
 
     # Shared interface with inevow.ICanHandleException
@@ -122,7 +127,6 @@ class ICanHandleException(Interface):
         not replacing the page."""
 
 
-
 # http.py interfaces
 class IResponse(Interface):
     """
@@ -131,7 +135,6 @@ class IResponse(Interface):
     code = Attribute("The HTTP response code")
     headers = Attribute("A http_headers.Headers instance of headers to send")
     stream = Attribute("A stream.IByteStream of outgoing data, or else None.")
-
 
 
 class IRequest(Interface):
@@ -154,8 +157,7 @@ class IRequest(Interface):
     chanRequest = Attribute("The ChannelRequest. I wonder if this is public really?")
 
 
-
-from twisted.web.iweb import IRequest as IOldRequest #@UnusedImport
+from twisted.web.iweb import IRequest as IOldRequest  # @UnusedImport
 
 
 class IChanRequestCallbacks(Interface):
@@ -196,7 +198,6 @@ class IChanRequestCallbacks(Interface):
         """
         Called if the connection was lost.
         """
-
 
 
 class IChanRequest(Interface):
@@ -275,7 +276,6 @@ class IChanRequest(Interface):
         """
 
     persistent = Attribute("""Whether this request supports HTTP connection persistence. May be set to False. Should not be set to other values.""")
-
 
 
 class ISite(Interface):

@@ -64,19 +64,16 @@ __all__ = [
 log = Logger()
 
 
-
 class ImplicitProcessorException(Exception):
 
     def __init__(self, msg):
         self.msg = msg
 
 
-
 class ImplicitProcessor(object):
 
     def __init__(self):
         pass
-
 
     @inlineCallbacks
     def doImplicitProcessing(self, txn, message, originator, recipient, noAttendeeRefresh=False):
@@ -140,21 +137,17 @@ class ImplicitProcessor(object):
 
         returnValue(result)
 
-
     def extractCalendarData(self):
 
         # Some other useful things
         self.method = self.message.propertyValue("METHOD")
         self.uid = self.message.resourceUID()
 
-
     def isOrganizerReceivingMessage(self):
         return self.method in ("REPLY", "REFRESH", "X-RESTORE")
 
-
     def isAttendeeReceivingMessage(self):
         return self.method in ("REQUEST", "ADD", "CANCEL", "POLLSTATUS")
-
 
     @inlineCallbacks
     def getRecipientsCopy(self):
@@ -169,7 +162,6 @@ class ImplicitProcessor(object):
             self.recipient_calendar = (yield calendar_resource.componentForUser(self.recipient.record.uid)).duplicate()
             self.recipient_calendar_resource = calendar_resource
             self.recipient_in_trash = self.recipient_calendar_resource.isInTrash()
-
 
     @inlineCallbacks
     def doImplicitOrganizer(self):
@@ -192,7 +184,6 @@ class ImplicitProcessor(object):
             result = (True, True, False, None,)
 
         returnValue(result)
-
 
     @inlineCallbacks
     def doImplicitOrganizerUpdate(self):
@@ -269,7 +260,6 @@ class ImplicitProcessor(object):
 
         returnValue(result)
 
-
     @inlineCallbacks
     def queueAttendeeUpdate(self, exclude_attendees):
         """
@@ -291,7 +281,6 @@ class ImplicitProcessor(object):
         else:
             yield self._doRefresh(self.organizer_calendar_resource, exclude_attendees)
 
-
     def _enqueueBatchRefresh(self, attendees):
         """
         Create a batch refresh work item. Do this in a separate method to allow for easy
@@ -306,7 +295,6 @@ class ImplicitProcessor(object):
             self.recipient_calendar,
             attendees,
         )
-
 
     @inlineCallbacks
     def _doRefresh(self, organizer_resource, exclude_attendees=(), only_attendees=None):
@@ -330,7 +318,6 @@ class ImplicitProcessor(object):
             only_attendees=only_attendees,
         )
 
-
     @inlineCallbacks
     def doImplicitAttendee(self):
         """
@@ -350,7 +337,6 @@ class ImplicitProcessor(object):
             result = (yield self.doImplicitAttendeeUpdate())
 
         returnValue(result)
-
 
     @inlineCallbacks
     def doImplicitAttendeeUpdate(self):
@@ -435,7 +421,6 @@ class ImplicitProcessor(object):
 
         returnValue(result)
 
-
     @inlineCallbacks
     def doImplicitAttendeeSplit(self):
         """
@@ -450,7 +435,6 @@ class ImplicitProcessor(object):
         yield self.recipient_calendar_resource.splitForAttendee(rid=split_rid, olderUID=olderUID)
 
         returnValue(True)
-
 
     @inlineCallbacks
     def doImplicitAttendeeRequest(self):
@@ -612,7 +596,6 @@ class ImplicitProcessor(object):
 
         returnValue(result)
 
-
     @inlineCallbacks
     def doImplicitAttendeeCancel(self):
         """
@@ -697,7 +680,6 @@ class ImplicitProcessor(object):
 
         returnValue(result)
 
-
     @inlineCallbacks
     def doImplicitAttendeePollStatus(self):
         """
@@ -720,7 +702,6 @@ class ImplicitProcessor(object):
         yield self.writeCalendarResource(None, self.recipient_calendar_resource, processed_message)
 
         returnValue((True, False, False, None,))
-
 
     @inlineCallbacks
     def checkAttendeeAutoReply(self, calendar, automode):
@@ -764,7 +745,6 @@ class ImplicitProcessor(object):
                 config.Scheduling.Options.AutoSchedule.DefaultMode,
                 AutoScheduleMode.acceptIfFreeDeclineIfBusy
             )
-
 
         log.debug("ImplicitProcessing - recipient '{recip}' processing UID: '{uid}' - checking for auto-reply with mode: {mode}", recip=self.recipient.cuaddr, uid=self.uid, mode=automode.name)
         cuas = self.recipient.record.calendarUserAddresses
@@ -979,7 +959,6 @@ class ImplicitProcessor(object):
 
         returnValue((made_changes, store_inbox, partstat, accounting,))
 
-
     @inlineCallbacks
     def writeCalendarResource(self, collection, resource, calendar):
         """
@@ -1008,7 +987,6 @@ class ImplicitProcessor(object):
 
         returnValue(newchild)
 
-
     @inlineCallbacks
     def deleteCalendarResource(self, resource):
         """
@@ -1023,7 +1001,6 @@ class ImplicitProcessor(object):
         """
 
         yield resource._removeInternal(internal_state=ComponentRemoveState.INTERNAL, useTrash=False)
-
 
     def resetAttendeePartstat(self, component, cuas, partstat, hadRSVP=False):
         """
@@ -1068,7 +1045,6 @@ class ImplicitProcessor(object):
                 attendee.removeParameter(DTSTAMP_PARAM)
 
         return madeChanges
-
 
     @inlineCallbacks
     def doImplicitAttendeeEventFix(self, ex):

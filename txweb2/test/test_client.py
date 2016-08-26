@@ -14,7 +14,6 @@ from txweb2 import stream
 from txweb2.test.test_http import LoopbackRelay, HTTPTests, TestConnection
 
 
-
 class TestServer(protocol.Protocol):
     data = ""
     done = False
@@ -22,23 +21,20 @@ class TestServer(protocol.Protocol):
     def dataReceived(self, data):
         self.data += data
 
-
     def write(self, data):
         self.transport.write(data)
-
 
     def connectionLost(self, reason):
         self.done = True
         self.transport.loseConnection()
-
 
     def loseConnection(self):
         self.done = True
         self.transport.loseConnection()
 
 
-
 class ClientTests(HTTPTests):
+
     def connect(self, logFile=None, maxPipeline=4,
                 inputTimeOut=60000, betweenRequestsTimeOut=600000):
         cxn = TestConnection()
@@ -55,15 +51,12 @@ class ClientTests(HTTPTests):
 
         return cxn
 
-
     def writeToClient(self, cxn, data):
         cxn.server.write(data)
         self.iterate(cxn)
 
-
     def writeLines(self, cxn, lines):
         self.writeToClient(cxn, '\r\n'.join(lines))
-
 
     def assertReceived(
         self, cxn, expectedStatus, expectedHeaders,
@@ -88,17 +81,14 @@ class ClientTests(HTTPTests):
 
         self.assertEquals(content, expectedContent)
 
-
     def assertDone(self, cxn):
         self.iterate(cxn)
         self.assertEquals(cxn.server.done, True, 'Connection not closed.')
-
 
     def assertHeaders(self, resp, expectedHeaders):
         headers = list(resp.headers.getAllRawHeaders())
         headers.sort()
         self.assertEquals(headers, expectedHeaders)
-
 
     def checkResponse(self, resp, code, headers, length, data):
         """
@@ -113,7 +103,6 @@ class ClientTests(HTTPTests):
         self.assertEquals(resp.stream.length, length)
 
         return defer.maybeDeferred(resp.stream.read).addCallback(gotData)
-
 
 
 class TestHTTPClient(ClientTests):
@@ -141,7 +130,6 @@ class TestHTTPClient(ClientTests):
 
         return d.addCallback(lambda _: self.assertDone(cxn))
 
-
     def test_delayedContent(self):
         """
         Make sure that the client returns the response object as soon as the
@@ -165,7 +153,6 @@ class TestHTTPClient(ClientTests):
 
         d = cxn.client.submitRequest(req).addCallback(gotResp)
 
-
         self.assertReceived(cxn, 'GET / HTTP/1.1',
                             ['Connection: close'])
 
@@ -175,7 +162,6 @@ class TestHTTPClient(ClientTests):
                               '\r\n'))
 
         return d.addCallback(lambda _: self.assertDone(cxn))
-
 
     def test_prematurePipelining(self):
         """
@@ -201,7 +187,6 @@ class TestHTTPClient(ClientTests):
                               '\r\n'))
 
         return d
-
 
     def test_userHeaders(self):
         """
@@ -251,7 +236,6 @@ class TestHTTPClient(ClientTests):
 
         return d.addCallback(lambda _: self.assertDone(cxn))
 
-
     def test_streamedUpload(self):
         """
         Make sure that sending request content works.
@@ -275,7 +259,6 @@ class TestHTTPClient(ClientTests):
 
         return d.addCallback(lambda _: self.assertDone(cxn))
 
-
     def test_sentHead(self):
         """
         Ensure that HEAD requests work, and return Content-Length.
@@ -294,10 +277,9 @@ class TestHTTPClient(ClientTests):
                               'Connection: close',
                               'Content-Length: 5',
                               '',
-                              'Pants')) # bad server
+                              'Pants'))  # bad server
 
         return d.addCallback(lambda _: self.assertDone(cxn))
-
 
     def test_sentHeadKeepAlive(self):
         """
@@ -349,7 +331,6 @@ class TestHTTPClient(ClientTests):
 
         return d.addCallback(lambda _: self.assertDone(cxn))
 
-
     def test_chunkedUpload(self):
         """
         Ensure chunked data is correctly decoded on upload.
@@ -380,8 +361,8 @@ class TestHTTPClient(ClientTests):
         return d.addCallback(lambda _: self.assertDone(cxn))
 
 
-
 class TestEdgeCases(ClientTests):
+
     def test_serverDoesntSendConnectionClose(self):
         """
         Check that a lost connection is treated as end of response, if we
@@ -403,7 +384,6 @@ class TestEdgeCases(ClientTests):
 
         return d.addCallback(lambda _: self.assertDone(cxn))
 
-
     def test_serverIsntHttp(self):
         """
         Check that an error is returned if the server doesn't talk HTTP.
@@ -422,7 +402,6 @@ class TestEdgeCases(ClientTests):
         self.writeLines(cxn, ('HTTP-NG/1.1 200 OK',
                               '\r\n'))
 
-
     def test_newServer(self):
         """
         Check that an error is returned if the server is a new major version.
@@ -438,7 +417,6 @@ class TestEdgeCases(ClientTests):
         self.writeLines(cxn, ('HTTP/2.3 200 OK',
                               '\r\n'))
 
-
     def test_shortStatus(self):
         """
         Check that an error is returned if the response line is invalid.
@@ -453,7 +431,6 @@ class TestEdgeCases(ClientTests):
 
         self.writeLines(cxn, ('HTTP/1.1 200',
                               '\r\n'))
-
 
     def test_errorReadingRequestStream(self):
         """
@@ -473,7 +450,6 @@ class TestEdgeCases(ClientTests):
 
         return self.assertFailure(d, IOError)
 
-
     def test_connectionLost(self):
         """
         Check that closing the connection is propagated to the response
@@ -488,7 +464,6 @@ class TestEdgeCases(ClientTests):
                                  ['Connection: close'])
         cxn.client.connectionLost(ValueError("foo"))
         return self.assertFailure(d, ValueError)
-
 
     def test_connectionLostAfterHeaders(self):
         """
@@ -508,6 +483,7 @@ class TestEdgeCases(ClientTests):
                               'Connection: close',
                               '\r\n'))
         cxn.client.connectionLost(ValueError("foo"))
+
         def cb(response):
             return self.assertFailure(response.stream.read(), ValueError)
         d.addCallback(cb)

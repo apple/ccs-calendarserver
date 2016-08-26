@@ -29,7 +29,6 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.filepath import FilePath
 
 
-
 class AddressBookQuery(StoreTestCase):
     """
     addressbook-query REPORT
@@ -52,7 +51,6 @@ class AddressBookQuery(StoreTestCase):
             [uid]
         )
 
-
     def test_addressbook_query_all_vcards(self):
         """
         All vCards.
@@ -60,7 +58,6 @@ class AddressBookQuery(StoreTestCase):
         uids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.vcards_dir)) if r[1] == ".vcf"]
 
         return self.simple_vcard_query("/addressbook/", None, uids)
-
 
     def test_addressbook_query_limited_with_data(self):
         """
@@ -84,7 +81,6 @@ class AddressBookQuery(StoreTestCase):
         d.addCallbacks(_restoreValueOK, _restoreValueError)
         return d
 
-
     def test_addressbook_query_limited_without_data(self):
         """
         All vCards.
@@ -106,7 +102,6 @@ class AddressBookQuery(StoreTestCase):
         d = self.simple_vcard_query("/addressbook/", None, uids, withData=False)
         d.addCallbacks(_restoreValueOK, _restoreValueError)
         return d
-
 
     def simple_vcard_query(self, vcard_uri, vcard_filter, uids, withData=True, limit=None):
 
@@ -174,7 +169,6 @@ class AddressBookQuery(StoreTestCase):
                     self.fail("Wrong number of limited results: %d" % (count,))
 
         return self.addressbook_query(vcard_uri, query, got_xml)
-
 
     @inlineCallbacks
     def addressbook_query(self, addressbook_uri, query, got_xml):

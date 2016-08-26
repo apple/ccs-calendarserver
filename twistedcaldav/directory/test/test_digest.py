@@ -32,6 +32,7 @@ from txweb2.auth.digest import DigestCredentialFactory
 from txweb2.test.test_httpauth import makeDigestDeterministic
 from txweb2.test.test_httpauth import FAKE_STATIC_NONCE
 
+
 class FakeDigestCredentialFactory(QopDigestCredentialFactory):
     """
     A Fake Digest Credential Factory that generates a predictable
@@ -41,7 +42,6 @@ class FakeDigestCredentialFactory(QopDigestCredentialFactory):
     def __init__(self, *args, **kwargs):
         super(FakeDigestCredentialFactory, self).__init__(*args, **kwargs)
         makeDigestDeterministic(self._real)
-
 
 
 clientAddress = address.IPv4Address('TCP', '127.0.0.1', 80)
@@ -143,7 +143,6 @@ class DigestAuthTestCase(TestCase):
             )
         )
 
-
     def getDigestResponse(self, challenge, ncount):
         """
         Calculate the response for the given challenge
@@ -177,7 +176,6 @@ class DigestAuthTestCase(TestCase):
                 algo, nonce, None, None, None, "GET", "/write/", None
             )
         return expected
-
 
     def getDigestResponseComma(self, challenge, ncount):
         """
@@ -213,7 +211,6 @@ class DigestAuthTestCase(TestCase):
             )
         return expected
 
-
     @inlineCallbacks
     def assertRaisesDeferred(self, exception, f, *args, **kwargs):
         try:
@@ -228,7 +225,6 @@ class DigestAuthTestCase(TestCase):
         else:
             raise self.failureException('%s not raised (%r returned)'
                                         % (exception.__name__, result))
-
 
     @inlineCallbacks
     def test_getChallenge(self):
@@ -250,7 +246,6 @@ class DigestAuthTestCase(TestCase):
         self.assertEquals(challenge['algorithm'], 'md5')
         self.assertTrue("nonce" in challenge)
 
-
     @inlineCallbacks
     def test_response(self):
         """
@@ -267,7 +262,6 @@ class DigestAuthTestCase(TestCase):
 
             creds = (yield factory.decode(clientResponse, _trivial_GET()))
             self.failUnless(creds.checkPassword('password'))
-
 
     @inlineCallbacks
     def test_multiResponse(self):
@@ -295,7 +289,6 @@ class DigestAuthTestCase(TestCase):
             creds = (yield factory.decode(clientResponse, _trivial_GET()))
             self.failUnless(creds.checkPassword('password'))
 
-
     @inlineCallbacks
     def test_failsWithDifferentMethod(self):
         """
@@ -316,7 +309,6 @@ class DigestAuthTestCase(TestCase):
                 SimpleRequest(None, 'POST', '/')
             ))
             self.failIf(creds.checkPassword('password'))
-
 
     @inlineCallbacks
     def test_noUsername(self):
@@ -344,7 +336,6 @@ class DigestAuthTestCase(TestCase):
             ))
             self.assertEquals(str(e), "Invalid response, no username given.")
 
-
     @inlineCallbacks
     def test_noNonce(self):
         """
@@ -359,7 +350,6 @@ class DigestAuthTestCase(TestCase):
                 _trivial_GET()
             ))
             self.assertEquals(str(e), "Invalid response, no nonce given.")
-
 
     @inlineCallbacks
     def test_emptyAttribute(self):
@@ -377,7 +367,6 @@ class DigestAuthTestCase(TestCase):
                 _trivial_GET()
             ))
             self.assertEquals(str(e), "Invalid response, no username given.")
-
 
     @inlineCallbacks
     def test_checkHash(self):
@@ -401,7 +390,6 @@ class DigestAuthTestCase(TestCase):
 
             self.failIf(creds.checkHash(
                 md5('username:test realm:bogus').hexdigest()))
-
 
     @inlineCallbacks
     def test_invalidNonceCount(self):
@@ -457,7 +445,6 @@ class DigestAuthTestCase(TestCase):
                     _trivial_GET()
                 )
 
-
     @inlineCallbacks
     def test_invalidNonce(self):
         """
@@ -493,7 +480,6 @@ class DigestAuthTestCase(TestCase):
                 request.remoteAddr
             ))
             response.headers.getHeader("www-authenticate")[0][1]
-
 
     @inlineCallbacks
     def test_oldNonce(self):
@@ -533,7 +519,6 @@ class DigestAuthTestCase(TestCase):
             self.assertTrue('stale' in wwwhdrs, msg="No stale parameter in Digest WWW-Authenticate headers: %s" % (wwwhdrs,))
             self.assertEquals(wwwhdrs['stale'], 'true', msg="stale parameter not set to true in Digest WWW-Authenticate headers: %s" % (wwwhdrs,))
 
-
     def test_incompatibleCalcHA1Options(self):
         """
         Test that the appropriate error is raised when any of the
@@ -560,7 +545,6 @@ class DigestAuthTestCase(TestCase):
                 preHA1=preHA1
             )
 
-
     @inlineCallbacks
     def test_commaURI(self):
         """
@@ -578,14 +562,15 @@ class DigestAuthTestCase(TestCase):
             creds = (yield factory.decode(clientResponse, _trivial_GET()))
             self.failUnless(creds.checkPassword('password'))
 
-
     @inlineCallbacks
     def test_stale_response(self):
         """
         Test that we can decode a valid response to our challenge
         """
         theTime = 0
+
         class newtime(object):
+
             def time(self):
                 return theTime
         from twistedcaldav.directory import digest as ddigest
@@ -617,7 +602,6 @@ class DigestAuthTestCase(TestCase):
                 self.fail("Invalid exception from nonce timeout: %s" % e)
             challenge = (yield factory.getChallenge(request.remoteAddr))
             self.assertTrue(challenge.get("stale") == "true")
-
 
 
 def _trivial_GET():

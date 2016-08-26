@@ -20,16 +20,13 @@ import calendarserver.webcal.resource
 from calendarserver.webcal.resource import getLocalTimezone, DEFAULT_TIMEZONE
 
 
-
 class DefaultTimezoneTests(TestCase):
 
     def stubLookup(self):
         return self._storedLookup
 
-
     def stubHasTZ(self, ignored):
         return self._storedHasTZ.pop()
-
 
     def setUp(self):
         self.patch(
@@ -39,7 +36,6 @@ class DefaultTimezoneTests(TestCase):
         self.patch(
             calendarserver.webcal.resource, "hasTZ", self.stubHasTZ
         )
-
 
     def test_getLocalTimezone(self):
 

@@ -26,10 +26,12 @@ from twisted.trial.unittest import SkipTest
 
 import txweb2.dav.test.util
 
+
 class REPORT_expand(txweb2.dav.test.util.TestCase):
     """
     DAV:expand-property REPORT request
     """
+
     def test_REPORT_expand_property(self):
         """
         DAV:expand-property REPORT request.

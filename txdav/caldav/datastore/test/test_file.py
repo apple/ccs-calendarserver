@@ -49,11 +49,9 @@ def _todo(f, why):
     return f
 
 
-
 featureUnimplemented = lambda f: _todo(f, "Feature unimplemented")
 testUnimplemented = lambda f: _todo(f, "Test unimplemented")
 todo = lambda why: lambda f: _todo(f, why)
-
 
 
 def setUpCalendarStore(test):
@@ -94,7 +92,6 @@ def setUpCalendarStore(test):
     assert test.calendarStore is not None, "No calendar store?"
 
 
-
 @inlineCallbacks
 def setUpHome1(test):
     setUpCalendarStore(test)
@@ -102,13 +99,11 @@ def setUpHome1(test):
     assert test.home1 is not None, "No calendar home?"
 
 
-
 @inlineCallbacks
 def setUpCalendar1(test):
     yield setUpHome1(test)
     test.calendar1 = yield test.home1.calendarWithName("calendar_1")
     assert test.calendar1 is not None, "No calendar?"
-
 
 
 class CalendarStoreTest(unittest.TestCase):
@@ -121,7 +116,6 @@ class CalendarStoreTest(unittest.TestCase):
     def setUp(self):
         setUpCalendarStore(self)
 
-
     @inlineCallbacks
     def tearDown(self):
         super(CalendarStoreTest, self).tearDown()
@@ -129,7 +123,6 @@ class CalendarStoreTest(unittest.TestCase):
             yield self.txn.commit()
         except AlreadyFinishedError:
             pass
-
 
     def test_calendarHomeWithUID_dot(self):
         """
@@ -142,14 +135,12 @@ class CalendarStoreTest(unittest.TestCase):
         )
 
 
-
 class CalendarHomeTest(unittest.TestCase):
 
     notifierFactory = None
 
     def setUp(self):
         return setUpHome1(self)
-
 
     @inlineCallbacks
     def tearDown(self):
@@ -158,7 +149,6 @@ class CalendarHomeTest(unittest.TestCase):
             yield self.txn.commit()
         except AlreadyFinishedError:
             pass
-
 
     def test_init(self):
         """
@@ -174,7 +164,6 @@ class CalendarHomeTest(unittest.TestCase):
             self.calendarStore
         )
 
-
     def test_calendarWithName_dot(self):
         """
         Filenames starting with "." are reserved by this
@@ -183,7 +172,6 @@ class CalendarHomeTest(unittest.TestCase):
         name = ".foo"
         self.home1._path.child(name).createDirectory()
         self.assertEquals(self.home1.calendarWithName(name), None)
-
 
     def test_createCalendarWithName_dot(self):
         """
@@ -194,7 +182,6 @@ class CalendarHomeTest(unittest.TestCase):
             HomeChildNameNotAllowedError,
             self.home1.createCalendarWithName, ".foo"
         )
-
 
     def test_removeCalendarWithName_dot(self):
         """
@@ -209,14 +196,12 @@ class CalendarHomeTest(unittest.TestCase):
         )
 
 
-
 class CalendarTest(unittest.TestCase):
 
     notifierFactory = None
 
     def setUp(self):
         return setUpCalendar1(self)
-
 
     @inlineCallbacks
     def tearDown(self):
@@ -225,7 +210,6 @@ class CalendarTest(unittest.TestCase):
             yield self.txn.commit()
         except AlreadyFinishedError:
             pass
-
 
     def test_init(self):
         """
@@ -240,7 +224,6 @@ class CalendarTest(unittest.TestCase):
             isinstance(self.calendar1._calendarHome, CalendarHome),
             self.calendar1._calendarHome
         )
-
 
     @inlineCallbacks
     def test_useIndexImmediately(self):
@@ -266,7 +249,6 @@ class CalendarTest(unittest.TestCase):
                           set((yield calendar.calendarObjects())))
         index._oldIndex._db_close()
 
-
     @inlineCallbacks
     def test_calendarObjectWithName_dot(self):
         """
@@ -279,7 +261,6 @@ class CalendarTest(unittest.TestCase):
         self.assertEquals(
             (yield self.calendar1.calendarObjectWithName(name)),
             None)
-
 
     @featureUnimplemented
     @inlineCallbacks
@@ -297,7 +278,6 @@ class CalendarTest(unittest.TestCase):
             (yield self.calendar1.calendarObjectWithName("1.ics")).component()
         )
 
-
     def test_createCalendarObjectWithName_dot(self):
         """
         Filenames starting with "." are reserved by this
@@ -309,7 +289,6 @@ class CalendarTest(unittest.TestCase):
             self.calendar1.createCalendarObjectWithName,
             ".foo", VComponent.fromString(test_event_text)
         )
-
 
     @featureUnimplemented
     @inlineCallbacks
@@ -326,7 +305,6 @@ class CalendarTest(unittest.TestCase):
             self.calendar1.createCalendarObjectWithName,
             name, component
         )
-
 
     @inlineCallbacks
     def test_CalendarObject_remove_delayedEffect(self):
@@ -355,7 +333,6 @@ class CalendarTest(unittest.TestCase):
         self.home1 = yield self.txn.calendarHomeWithUID("home1")
         self.calendar1 = yield self.home1.calendarWithName("calendar_1")
 
-
     @inlineCallbacks
     def test_undoCreateCalendarObject(self):
         """
@@ -378,7 +355,6 @@ class CalendarTest(unittest.TestCase):
         )
         yield self.txn.commit()
 
-
     @inlineCallbacks
     def doThenUndo(self):
         """
@@ -392,7 +368,6 @@ class CalendarTest(unittest.TestCase):
         self.txn.addOperation(fail, "dummy failing operation")
         self.assertRaises(RuntimeError, self.txn.commit)
         yield self._refresh()
-
 
     @inlineCallbacks
     def test_undoModifyCalendarObject(self):
@@ -418,7 +393,6 @@ class CalendarTest(unittest.TestCase):
         )
         index._oldIndex._db_close()
 
-
     @testUnimplemented
     def test_syncToken(self):
         """
@@ -426,14 +400,12 @@ class CalendarTest(unittest.TestCase):
         """
         raise NotImplementedError()
 
-
     @testUnimplemented
     def test_calendarObjectsInTimeRange(self):
         """
         Find calendar objects occuring in a given time range.
         """
         raise NotImplementedError()
-
 
     @testUnimplemented
     def test_calendarObjectsSinceToken(self):
@@ -444,7 +416,6 @@ class CalendarTest(unittest.TestCase):
         raise NotImplementedError()
 
 
-
 class CalendarObjectTest(unittest.TestCase):
     notifierFactory = None
 
@@ -453,7 +424,6 @@ class CalendarObjectTest(unittest.TestCase):
         yield setUpCalendar1(self)
         self.object1 = yield self.calendar1.calendarObjectWithName("1.ics")
 
-
     @inlineCallbacks
     def tearDown(self):
         super(CalendarObjectTest, self).tearDown()
@@ -461,7 +431,6 @@ class CalendarObjectTest(unittest.TestCase):
             yield self.txn.commit()
         except AlreadyFinishedError:
             pass
-
 
     def test_init(self):
         """
@@ -478,13 +447,11 @@ class CalendarObjectTest(unittest.TestCase):
             self.object1._calendar
         )
 
-
     def test_componentType(self):
         """
         Component type is correct.
         """
         self.assertEquals(self.object1.componentType(), "VEVENT")
-
 
 
 class FileStorageTests(CommonTests, unittest.TestCase):
@@ -502,7 +469,6 @@ class FileStorageTests(CommonTests, unittest.TestCase):
             setUpCalendarStore(self)
         return self.calendarStore
 
-
     def test_shareWith(self):
         """
         Overridden to be skipped.
@@ -518,7 +484,6 @@ class FileStorageTests(CommonTests, unittest.TestCase):
     test_unshareShareeSide = test_shareWith
     test_sharedNotifierID = test_shareWith
 
-
     def test_init(self):
         """
         L{CalendarStore} has a C{_path} attribute which refers to its
@@ -526,7 +491,6 @@ class FileStorageTests(CommonTests, unittest.TestCase):
         """
         self.assertEquals(self.storeUnderTest()._path,
                           self.storeRootPath)
-
 
     @inlineCallbacks
     def test_calendarObjectsWithDotFile(self):
@@ -537,7 +501,6 @@ class FileStorageTests(CommonTests, unittest.TestCase):
         (yield self.homeUnderTest())._path.child(".foo").createDirectory()
         yield self.test_calendarObjects()
 
-
     @inlineCallbacks
     def test_calendarObjectsWithDirectory(self):
         """
@@ -547,7 +510,6 @@ class FileStorageTests(CommonTests, unittest.TestCase):
         ((yield self.calendarUnderTest())._path.child("not-a-calendar-object")
          .createDirectory())
         yield self.test_calendarObjects()
-
 
     def test_simpleHomeSyncToken(self):
         """

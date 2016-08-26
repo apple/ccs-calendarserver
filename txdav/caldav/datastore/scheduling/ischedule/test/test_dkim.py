@@ -37,6 +37,7 @@ import hashlib
 import os
 import time
 
+
 class TestDKIMBase (unittest.TestCase):
     """
     DKIM support tests
@@ -51,7 +52,6 @@ class TestDKIMBase (unittest.TestCase):
             Do the key lookup using the actual lookup method.
             """
             return succeed(self.keys)
-
 
     def setUp(self):
         super(TestDKIMBase, self).setUp()
@@ -103,7 +103,6 @@ jQIDAQAB
         self.public_key_data = pkey_data.replace("\n", "")
 
 
-
 class TestDKIMRequest (TestDKIMBase):
     """
     L{DKIMRequest} support tests.
@@ -126,7 +125,6 @@ class TestDKIMRequest (TestDKIMBase):
             hash = base64.b64encode(hash_method(DKIMUtils.canonicalizeBody(data)).digest())
             result = (yield request.bodyHash())
             self.assertEqual(result, hash)
-
 
     def test_generateSignature(self):
 
@@ -160,7 +158,6 @@ dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=dns/txt:http/well
 
             self.assertEqual(result, signature)
 
-
     @inlineCallbacks
     def test_signatureHeaders(self):
 
@@ -188,7 +185,6 @@ ischedule-message-id:%s
 dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=private-exchange:http/well-known:dns/txt; c=ischedule-relaxed/simple; h=Originator:Recipient:Content-Type:iSchedule-Version:iSchedule-Message-ID; bh=%s; b=""".replace("\n", "\r\n") % (headers.getRawHeaders("Content-Type")[0], request.message_id, request.time, request.expire, algorithm, bodyhash)
 
             self.assertEqual(result, sign_this)
-
 
     @inlineCallbacks
     def test_sign(self):
@@ -232,7 +228,6 @@ dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=private-exchange:
             self.assertEqual(DKIMUtils.verify(sign_this, result, pubkey, DKIMUtils.hash_func(algorithm)), None)
 
 
-
 class TestDKIMVerifier (TestDKIMBase):
     """
     L{DKIMVerifier} support tests.
@@ -248,13 +243,11 @@ class TestDKIMVerifier (TestDKIMBase):
                 self.headers.addRawHeader(name, value)
             self.stream = MemoryStream(body)
 
-
     def _makeHeaders(self, headers_pairs):
         headers = Headers()
         for name, value in headers_pairs:
             headers.addRawHeader(name, value)
         return headers
-
 
     def test_valid_dkim_headers(self):
         """
@@ -294,7 +287,6 @@ class TestDKIMVerifier (TestDKIMBase):
             else:
                 self.assertRaises(DKIMVerificationError, verifier.processDKIMHeader)
 
-
     def test_canonicalize_header(self):
         """
         L{DKIMVerifier.canonicalizeHeader} correctly canonicalizes headers.
@@ -323,7 +315,6 @@ class TestDKIMVerifier (TestDKIMBase):
                 verifier.processDKIMHeader()
             canonicalized = DKIMUtils.canonicalizeHeader(name, value, verifier.dkim_tags if name == "DKIM-Signature" else None)
             self.assertEqual(canonicalized, result)
-
 
     def test_extract_headers(self):
         """
@@ -392,7 +383,6 @@ dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:htt
             extracted = verifier.extractSignedHeaders()
             self.assertEqual(extracted, result.replace("\n", "\r\n"))
 
-
     def test_canonicalize_body(self):
         """
         L{DKIMUtils.canonicalizeBody} correctly canonicalizes bodies.
@@ -418,7 +408,6 @@ dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:htt
                 DKIMUtils.canonicalizeBody(text.replace("\n", "\r\n")),
                 result.replace("\n", "\r\n"),
             )
-
 
     @inlineCallbacks
     def test_locate_public_key(self):
@@ -479,7 +468,6 @@ Connection:close
                 self.assertTrue(pkey is not None)
             else:
                 self.assertTrue(pkey is None)
-
 
     @inlineCallbacks
     def test_verify(self):
@@ -652,7 +640,6 @@ END:DATA
         )
 
 
-
 class TestPublicKeyLookup (TestDKIMBase):
     """
     L{PublicKeyLookup} support tests.
@@ -665,7 +652,6 @@ class TestPublicKeyLookup (TestDKIMBase):
         """
         client.theResolver = None
         utils.DebugResolver = None
-
 
     def test_selector_key(self):
 
@@ -680,7 +666,6 @@ class TestPublicKeyLookup (TestDKIMBase):
             dkim = "v=1; d=%s; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known:private-exchange ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b=" % (d,)
             tester = lookup(DKIMUtils.extractTags(dkim))
             self.assertEqual(tester._getSelectorKey(), result)
-
 
     @inlineCallbacks
     def test_get_key(self):
@@ -769,7 +754,6 @@ class TestPublicKeyLookup (TestDKIMBase):
         pubkey = (yield lookup.getPublicKey())
         self.assertTrue(pubkey is None)
 
-
     @inlineCallbacks
     def test_cached_key(self):
 
@@ -796,7 +780,6 @@ class TestPublicKeyLookup (TestDKIMBase):
         pubkey = (yield lookup.getPublicKey())
         self.assertTrue(pubkey is None)
 
-
     @inlineCallbacks
     def test_TXT_key(self):
 
@@ -820,7 +803,6 @@ class TestPublicKeyLookup (TestDKIMBase):
             pkey = yield tester.getPublicKey(False)
             self.assertEqual(pkey is not None, result)
 
-
     @inlineCallbacks
     def test_HTTP_URI_key(self):
 
@@ -841,7 +823,6 @@ class TestPublicKeyLookup (TestDKIMBase):
             tester = PublicKeyLookup_HTTP_WellKnown(DKIMUtils.extractTags(dkim))
             uri = (yield tester._getURI())
             self.assertEqual(uri, result)
-
 
     @inlineCallbacks
     def test_private_exchange(self):

@@ -44,9 +44,7 @@ from twistedcaldav.memcacheclient import ClientFactory
 from twistedcaldav.memcacheclient import MemcacheError, TokenMismatchError
 
 
-
 NoValue = ""
-
 
 
 class MemcachePropertyCollection (object):
@@ -58,7 +56,6 @@ class MemcachePropertyCollection (object):
     def __init__(self, collection, cacheTimeout=0):
         self.collection = collection
         self.cacheTimeout = cacheTimeout
-
 
     @classmethod
     def memcacheClient(cls, refresh=False):
@@ -77,7 +74,6 @@ class MemcachePropertyCollection (object):
 
         return MemcachePropertyCollection._memcacheClient
 
-
     def propertyCache(self):
         # The property cache has this format:
         #  {
@@ -94,7 +90,6 @@ class MemcachePropertyCollection (object):
         if not hasattr(self, "_propertyCache"):
             self._propertyCache = self._loadCache()
         return self._propertyCache
-
 
     def childCache(self, child):
         path = child.fp.path
@@ -113,14 +108,12 @@ class MemcachePropertyCollection (object):
 
         return propertyCache, key, childCache, token
 
-
     def _keyForPath(self, path):
         key = "|".join((
             self.__class__.__name__,
             path
         ))
         return md5(key).hexdigest()
-
 
     def _loadCache(self, childNames=None):
         if childNames is None:
@@ -175,7 +168,6 @@ class MemcachePropertyCollection (object):
 
         return result
 
-
     def _split_gets_multi(self, keys, func, chunksize=250):
         """
         Splits gets_multi into chunks to avoid a memcacheclient timeout due
@@ -198,7 +190,6 @@ class MemcachePropertyCollection (object):
             results.update(func(subset))
         return results
 
-
     def _split_set_multi(self, values, func, time=0, chunksize=250):
         """
         Splits set_multi into chunks to avoid a memcacheclient timeout due
@@ -218,7 +209,6 @@ class MemcachePropertyCollection (object):
         if count:
             func(subset, time=time)
 
-
     def _storeCache(self, cache):
         self.log.debug("Storing cache for {c}", c=self.collection)
 
@@ -234,7 +224,6 @@ class MemcachePropertyCollection (object):
                 values, client.set_multi,
                 time=self.cacheTimeout
             )
-
 
     def _buildCache(self, childNames=None):
         if childNames is None:
@@ -261,7 +250,6 @@ class MemcachePropertyCollection (object):
         self._storeCache(cache)
 
         return cache
-
 
     def setProperty(self, child, property, uid, delete=False):
         propertyCache, key, childCache, token = self.childCache(child)
@@ -319,10 +307,8 @@ class MemcachePropertyCollection (object):
                     child
                 ))
 
-
     def deleteProperty(self, child, qname, uid):
         return self.setProperty(child, qname, uid, delete=True)
-
 
     def flushCache(self, child):
         path = child.fp.path
@@ -338,10 +324,8 @@ class MemcachePropertyCollection (object):
             if not result:
                 raise MemcacheError("Unable to flush cache on %s" % (child,))
 
-
     def propertyStoreForChild(self, child, childPropertyStore):
         return self.ChildPropertyStore(self, child, childPropertyStore)
-
 
     class ChildPropertyStore (object):
         log = Logger()

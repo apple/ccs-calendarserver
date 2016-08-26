@@ -51,11 +51,11 @@ pylocals - generate a list of the name and values of all locals in the current
     frame as found by the pybt command).
 """
 
-import lldb #@UnresolvedImport
+import lldb  # @UnresolvedImport
+
 
 def _toStr(obj, pystring_t):
     return obj.Cast(pystring_t).GetValueForExpressionPath("->ob_sval").summary
-
 
 
 def pybt(debugger=None, command=None, result=None, dict=None, thread=None):
@@ -101,7 +101,6 @@ def pybt(debugger=None, command=None, result=None, dict=None, thread=None):
                 ))
 
 
-
 def pybtall(debugger=None, command=None, result=None, dict=None):
     """
     An lldb command that prints a Python call back trace for all threads.
@@ -123,7 +122,6 @@ def pybtall(debugger=None, command=None, result=None, dict=None):
         thread = process.GetThreadAtIndex(i)
         print("----- Thread: {} -----".format(i + 1))
         pybt(debugger=debugger, thread=thread)
-
 
 
 def pylocals(debugger=None, command=None, result=None, dict=None):

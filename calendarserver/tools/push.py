@@ -37,7 +37,6 @@ class DisplayAPNSubscriptions(WorkerService):
                                        self.users)
 
 
-
 def main():
 
     parser = ArgumentParser(description='Display Apple Push Notification subscriptions')
@@ -53,7 +52,6 @@ def main():
         DisplayAPNSubscriptions,
         verbose=args.debug,
     )
-
 
 
 @inlineCallbacks

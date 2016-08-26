@@ -26,6 +26,7 @@ import re
 import sys
 import tables
 
+
 class Dtrace(object):
 
     class DtraceLine(object):
@@ -119,7 +120,6 @@ class Dtrace(object):
 
         def stackName(self):
             return self.function_name, self.filePath()
-
 
     class DtraceStack(object):
 
@@ -224,13 +224,11 @@ class Dtrace(object):
                 line.prettyPrint(self.start_indent + indent, indents, sout)
                 ctr += 1
 
-
     def __init__(self, filepath):
 
         self.filepath = filepath
         self.calltimes = collections.defaultdict(lambda: [0, 0, 0])
         self.exclusiveTotal = 0
-
 
     def analyze(self, do_stack, no_collapse):
 
@@ -261,7 +259,6 @@ class Dtrace(object):
         for ctr, title in enumerate(("Sorted by Count", "Sorted by Exclusive", "Sorted by Inclusive",)):
             print(title)
             self.printCallTimeTotals(ctr)
-
 
     def printTraceDetails(self, lines, do_stack, no_collapse):
 
@@ -332,7 +329,6 @@ class Dtrace(object):
         table.printTable()
         print("")
 
-
     def parseCallTimeLine(self, line, index):
 
         file, type, name, value = line.split()
@@ -342,7 +338,6 @@ class Dtrace(object):
             self.calltimes[(file, name)][index] = int(value)
             if index == 1:
                 self.exclusiveTotal += int(value)
-
 
     def printCallTimeTotals(self, sortIndex):
 
@@ -379,7 +374,6 @@ class Dtrace(object):
 
         table.printTable()
         print("")
-
 
 
 def usage(error_msg=None):

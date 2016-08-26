@@ -33,6 +33,7 @@ PRIORITY = {
     "high": 2,
 }
 
+
 def httploop(ctr, config, complete):
 
     # Random time delay
@@ -110,7 +111,6 @@ def httploop(ctr, config, complete):
             base_time = time.time()
         else:
             time.sleep(sleep_time)
-
 
 
 def usage(error_msg=None):

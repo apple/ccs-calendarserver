@@ -55,7 +55,6 @@ class UploadOptions(Options):
         assert self['backend'] in ('filesystem', 'postgresql')
 
 
-
 def _upload(reactor, url, project, revision, revision_date, benchmark,
             executable, environment, result_value, result_date, std_dev,
             max_value, min_value):
@@ -75,8 +74,10 @@ def _upload(reactor, url, project, revision, revision_date, benchmark,
     print('uploading', data)
     agent = Agent(reactor)
     d = agent.request('POST', url, None, StringProducer(urlencode(data)))
+
     def check(response):
         d = readBody(response)
+
         def read(body):
             print('body', repr(body))
             if response.code != 200:
@@ -85,7 +86,6 @@ def _upload(reactor, url, project, revision, revision_date, benchmark,
         return d
     d.addCallback(check)
     return d
-
 
 
 def upload(reactor, url, project, revision, revision_date, benchmark, param, statistic, backend, environment, samples):
@@ -105,7 +105,6 @@ def upload(reactor, url, project, revision, revision_date, benchmark, param, sta
         min_value=min(samples))
     d.addErrback(err, "Upload failed")
     return d
-
 
 
 def main():

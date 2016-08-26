@@ -35,7 +35,6 @@ from txweb2.http_headers import MimeType
 import datetime
 
 
-
 future = DateTime.getNowUTC()
 future.offsetDay(1)
 future = future.getText()
@@ -227,7 +226,6 @@ END:VCALENDAR
 """.replace("\n", "\r\n") % (future,)
 
 
-
 ATTACHMENT_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Apple Inc.//iCal 4.0.1//EN
@@ -284,7 +282,6 @@ END:VCALENDAR
 """.replace("\n", "\r\n") % (past,)
 
 
-
 class PurgePrincipalTests(StoreTestCase):
     """
     Tests for purging the data belonging to a given principal
@@ -301,16 +298,16 @@ class PurgePrincipalTests(StoreTestCase):
     }
 
     requirements = {
-        uid : {
-            "calendar1" : {
-                "attachment.ics" : (ATTACHMENT_ICS, metadata,),
-                "organizer.ics" : (REPEATING_PUBLIC_EVENT_ORGANIZER_ICS, metadata,),
+        uid: {
+            "calendar1": {
+                "attachment.ics": (ATTACHMENT_ICS, metadata,),
+                "organizer.ics": (REPEATING_PUBLIC_EVENT_ORGANIZER_ICS, metadata,),
             },
             "inbox": {},
         },
-        uid2 : {
-            "calendar2" : {
-                "attendee.ics" : (REPEATING_PUBLIC_EVENT_ORGANIZER_ICS, metadata,),
+        uid2: {
+            "calendar2": {
+                "attendee.ics": (REPEATING_PUBLIC_EVENT_ORGANIZER_ICS, metadata,),
             },
             "inbox": {},
         },
@@ -360,12 +357,10 @@ class PurgePrincipalTests(StoreTestCase):
         self.patch(config.AutomaticPurging, "PurgeIntervalSeconds", 3)
         self.patch(config.AutomaticPurging, "HomePurgeDelaySeconds", 1)
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
-
 
     @inlineCallbacks
     def test_purgeUIDs(self):
@@ -386,7 +381,7 @@ class PurgePrincipalTests(StoreTestCase):
         count = (yield PurgePrincipalService.purgeUIDs(
             self.storeUnderTest(), self.directory,
             (self.uid,), verbose=False, proxies=False))
-        self.assertEquals(count, 2) # 2 events
+        self.assertEquals(count, 2)  # 2 events
 
         # Wait for queue to process
         while(True):
@@ -396,7 +391,7 @@ class PurgePrincipalTests(StoreTestCase):
             if len(work) == 0:
                 break
             d = Deferred()
-            reactor.callLater(1, lambda : d.callback(None))
+            reactor.callLater(1, lambda: d.callback(None))
             yield d
 
         # Now you don't
@@ -428,7 +423,6 @@ class PurgePrincipalTests(StoreTestCase):
         yield self.commit()
 
 
-
 class PurgePrincipalTestsWithWorkQueue(PurgePrincipalTests):
     """
     Same as L{PurgePrincipalTests} but with the work queue enabled.
@@ -443,7 +437,6 @@ class PurgePrincipalTestsWithWorkQueue(PurgePrincipalTests):
         self.patch(config.AutomaticPurging, "CheckStaggerSeconds", 1)
         self.patch(config.AutomaticPurging, "PurgeIntervalSeconds", 3)
         self.patch(config.AutomaticPurging, "HomePurgeDelaySeconds", 1)
-
 
     @inlineCallbacks
     def test_purgeUIDService(self):
@@ -485,7 +478,7 @@ class PurgePrincipalTestsWithWorkQueue(PurgePrincipalTests):
             if len(work1) + len(work2) + len(work3) + len(work4) == 0:
                 break
             d = Deferred()
-            reactor.callLater(1, lambda : d.callback(None))
+            reactor.callLater(1, lambda: d.callback(None))
             yield d
 
         # Now you don't

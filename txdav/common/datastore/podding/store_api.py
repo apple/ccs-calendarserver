@@ -51,7 +51,6 @@ class StoreAPIConduitMixin(object):
         response = yield self.sendRequest(txn, recipient, request)
         returnValue(response)
 
-
     @inlineCallbacks
     def recv_home_resource_id(self, txn, request):
         """
@@ -65,7 +64,6 @@ class StoreAPIConduitMixin(object):
         if home is None and request["migrating"]:
             home = yield txn.calendarHomeWithUID(request["ownerUID"], status=_HOME_STATUS_DISABLED)
         returnValue(home.id() if home is not None else None)
-
 
     @inlineCallbacks
     def send_freebusy(
@@ -93,7 +91,6 @@ class StoreAPIConduitMixin(object):
 
         response = yield self.sendRequestToServer(txn, server, request)
         returnValue((response["fbresults"], response["matchtotal"],))
-
 
     @inlineCallbacks
     def recv_freebusy(self, txn, request):
@@ -134,7 +131,6 @@ class StoreAPIConduitMixin(object):
             "matchtotal": matchtotal,
         })
 
-
     @inlineCallbacks
     def send_migrated_home(self, txn, ownerUID):
         """
@@ -155,7 +151,6 @@ class StoreAPIConduitMixin(object):
         }
         yield self.sendRequestToServer(txn, recipient.server(), request)
 
-
     @inlineCallbacks
     def recv_migrated_home(self, txn, request):
         """
@@ -167,14 +162,12 @@ class StoreAPIConduitMixin(object):
 
         yield txn.migratedHome(request["ownerUID"])
 
-
     @staticmethod
     def _to_serialize_pair_list(value):
         """
         Convert the value to the external (JSON-based) representation.
         """
         return [[a.serialize(), b.serialize(), ] for a, b in value]
-
 
     @staticmethod
     def _to_serialize_dict_value(value):
@@ -183,14 +176,12 @@ class StoreAPIConduitMixin(object):
         """
         return dict([(k, v.serialize(),) for k, v in value.items()])
 
-
     @staticmethod
     def _to_serialize_dict_list_serialized_value(value):
         """
         Convert the value to the external (JSON-based) representation.
         """
         return dict([(k, UtilityConduitMixin._to_serialize_list(v),) for k, v in value.items()])
-
 
     @staticmethod
     def _to_serialize_search_value(value):

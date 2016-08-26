@@ -255,12 +255,12 @@ ORGANIZER = "urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A"
 ATTENDEE = "mailto:attendee@example.com"
 ICALUID = "CFDD5E46-4F74-478A-9311-B3FF905449C3"
 
+
 class DummySMTPSender(object):
 
     def __init__(self):
         self.reset()
         self.shouldSucceed = True
-
 
     def reset(self):
         self.sendMessageCalled = False
@@ -269,7 +269,6 @@ class DummySMTPSender(object):
         self.msgId = None
         self.message = None
 
-
     def sendMessage(self, fromAddr, toAddr, msgId, message):
         self.sendMessageCalled = True
         self.fromAddr = fromAddr
@@ -277,7 +276,6 @@ class DummySMTPSender(object):
         self.msgId = msgId
         self.message = message
         return succeed(self.shouldSucceed)
-
 
 
 class OutboundTests(unittest.TestCase):
@@ -293,7 +291,6 @@ class OutboundTests(unittest.TestCase):
         def _getSender(ignored):
             return self.sender
         self.patch(IMIPInvitationWork, "getMailSender", _getSender)
-
 
     @inlineCallbacks
     def test_work(self):
@@ -320,7 +317,6 @@ class OutboundTests(unittest.TestCase):
         self.assertEquals(record.attendee, ATTENDEE)
         self.assertEquals(record.icaluid, ICALUID)
 
-
     @inlineCallbacks
     def test_workFailure(self):
         self.sender.smtpSender.shouldSucceed = False
@@ -334,7 +330,6 @@ class OutboundTests(unittest.TestCase):
         )
         yield txn.commit()
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
-
 
     def _interceptEmail(
         self, inviteState, calendar, orgEmail, orgCn,
@@ -354,7 +349,6 @@ class OutboundTests(unittest.TestCase):
             orgEmail, orgCn, attendees, fromAddress, replyToAddress, toAddress,
             language=language)
         return self.results
-
 
     @inlineCallbacks
     def test_outbound(self):
@@ -483,7 +477,7 @@ END:VCALENDAR
             self.assertEquals(self.toAddress, outputRecipient)
             self.assertEquals(msg["Subject"], outputSubject)
 
-            if UID: # The organizer is local, and server is sending to remote
+            if UID:  # The organizer is local, and server is sending to remote
                     # attendee
                 txn = self.store.newTransaction()
                 record = (yield txn.imipGetToken(inputOriginator, inputRecipient, UID))
@@ -501,7 +495,7 @@ END:VCALENDAR
                     self.calendar.getAttendeeProperty([orgValue]).value()
                 )
 
-            else: # Reply only -- the attendee is local, and server is sending reply to remote organizer
+            else:  # Reply only -- the attendee is local, and server is sending reply to remote organizer
 
                 self.assertEquals(msg["Reply-To"], self.fromAddress)
 
@@ -518,7 +512,6 @@ END:VCALENDAR
             )
             yield txn.commit()
             self.assertFalse(self.sender.smtpSender.sendMessageCalled)
-
 
     @inlineCallbacks
     def test_tokens(self):
@@ -549,7 +542,6 @@ END:VCALENDAR
         txn = self.store.newTransaction()
         self.assertEquals((yield txn.imipLookupByToken(record1.token)), [])
         yield txn.commit()
-
 
     @inlineCallbacks
     def test_mailtoTokens(self):
@@ -593,7 +585,6 @@ END:VCALENDAR
         yield txn.commit()
         self.assertEquals(record.token, origRecord.token)
 
-
     def generateSampleEmail(self, caltext=initialInviteText):
         """
         Invoke L{MailHandler.generateEmail} and parse the result.
@@ -613,7 +604,6 @@ END:VCALENDAR
         message = email.message_from_string(msgTxt)
         return msgID, message
 
-
     def test_generateEmail(self):
         """
         L{MailHandler.generateEmail} generates a MIME-formatted email with a
@@ -627,7 +617,6 @@ END:VCALENDAR
             if part.get_content_type().startswith("text/")
         ])
         self.assertEquals(actualTypes, expectedTypes)
-
 
     def test_generateEmail_noOrganizerCN(self):
         """
@@ -649,7 +638,6 @@ END:VCALENDAR
         message = email.message_from_string(msgTxt)
         self.assertTrue(message is not None)
 
-
     def test_generateEmail_noAttendeeCN(self):
         """
         L{MailHandler.generateEmail} generates a MIME-formatted email when
@@ -670,7 +658,6 @@ END:VCALENDAR
         message = email.message_from_string(msgTxt)
         self.assertTrue(message is not None)
 
-
     def test_messageID(self):
         """
         L{SMTPSender.betterMessageID} generates a Message-ID domain matching
@@ -680,7 +667,6 @@ END:VCALENDAR
         msgID, message = self.generateSampleEmail()
         self.assertEquals(message['Message-ID'], msgID)
         self.assertEqual(msgID[:-1].split("@")[1], config.ServerHostName)
-
 
     def test_alwaysIncludeTimezones(self):
         """
@@ -700,7 +686,6 @@ END:VCALENDAR
         caldata = calparts[0].get_payload(decode=True)
         self.assertTrue("BEGIN:VTIMEZONE" in caldata)
         self.assertTrue("TZID:America/New_York" in caldata)
-
 
     def test_emailEncoding(self):
         """
@@ -727,7 +712,6 @@ END:VCALENDAR
             u'<a href="mailto:user01@localhost">User Z\u00e9ro One</a>',
             htmlText)
 
-
     def test_emailQuoting(self):
         """
         L{MailHandler.generateEmail} will HTML-quote all relevant fields in the
@@ -741,7 +725,6 @@ END:VCALENDAR
 
         self.assertIn(expectedPlain, plainPart)
         self.assertIn(expectedHTML, htmlPart)
-
 
     def test_stringFormatTemplateLoader(self):
         """
@@ -768,7 +751,6 @@ END:VCALENDAR
             list(result),
             ["<test><alpha>hello</alpha>world</test>"]
         )
-
 
     def test_templateLoaderWithAttributes(self):
         """
@@ -799,7 +781,6 @@ END:VCALENDAR
             ]
         )
 
-
     def test_templateLoaderTagSoup(self):
         """
         L{StringFormatTemplateLoader.load} will convert a template with
@@ -826,12 +807,10 @@ END:VCALENDAR
                           ['<test><alpha beta="before hello after">'
                            'inner</alpha>world</test>'])
 
-
     def test_scrubHeader(self):
 
         self.assertEquals(self.sender._scrubHeader("ABC"), "ABC")
         self.assertEquals(self.sender._scrubHeader("ABC: 123\nXYZ: 456"), "ABC: 123 XYZ: 456")
-
 
 
 def partByType(message, contentType):

@@ -25,6 +25,7 @@
 from twisted.trial.unittest import SkipTest
 import txweb2.dav.test.util
 
+
 class LOCK_UNLOCK(txweb2.dav.test.util.TestCase):
     """
     LOCK, UNLOCK requests

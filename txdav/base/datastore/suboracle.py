@@ -29,7 +29,6 @@ from twisted.internet.defer import inlineCallbacks
 log = Logger()
 
 
-
 class OracleService(MultiService):
     """
     A service for connecting to a locally running Oracle DB VM. This is only used
@@ -63,14 +62,12 @@ class OracleService(MultiService):
 
         self._reactor = reactor
 
-
     @property
     def reactor(self):
         if self._reactor is None:
             from twisted.internet import reactor
             self._reactor = reactor
         return self._reactor
-
 
     def _connectorFor(self):
         kwargs = {
@@ -82,20 +79,17 @@ class OracleService(MultiService):
 
         return DBAPIConnector.connectorFor("oracle", **kwargs)
 
-
     def produceConnection(self, label="<unlabeled>"):
         """
         Produce a DB-API 2.0 connection pointed at this database.
         """
         return self._connectorFor().connect(label)
 
-
     def pauseMonitor(self):
         """
         Pause monitoring.
         """
         pass
-
 
     def unpauseMonitor(self):
         """
@@ -104,7 +98,6 @@ class OracleService(MultiService):
         @see: L{pauseMonitor}
         """
         pass
-
 
     def startService(self):
         MultiService.startService(self)
@@ -121,13 +114,11 @@ class OracleService(MultiService):
             self.produceConnection, self
         ).setServiceParent(self)
 
-
     def hardStop(self):
         """
         Stop quickly by sending it SIGQUIT
         """
         pass
-
 
 
 @inlineCallbacks

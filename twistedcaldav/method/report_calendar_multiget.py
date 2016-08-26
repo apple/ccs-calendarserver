@@ -28,6 +28,7 @@ from twistedcaldav.method.report_multiget_common import multiget_common
 
 log = Logger()
 
+
 def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multiget):
     """
     Generate a multiget REPORT.

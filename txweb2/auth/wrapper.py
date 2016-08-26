@@ -35,6 +35,7 @@ from txweb2 import http
 from txweb2 import iweb
 from txweb2.auth.interfaces import IAuthenticatedRequest
 
+
 class UnauthorizedResponse(http.StatusResponse):
     """A specialized response class for generating www-authenticate headers
     from the given L{CredentialFactory} instances
@@ -44,7 +45,6 @@ class UnauthorizedResponse(http.StatusResponse):
         super(UnauthorizedResponse, self).__init__(
             responsecode.UNAUTHORIZED,
             "You are not authorized to access this resource.")
-
 
     def _generateHeaders(self, factories, remoteAddr=None):
         """
@@ -58,11 +58,11 @@ class UnauthorizedResponse(http.StatusResponse):
         for factory in factories.itervalues():
             schemes.append(factory.scheme)
             challengeDs.append(factory.getChallenge(remoteAddr))
+
         def _setAuthHeader(challenges):
             authHeaders = zip(schemes, challenges)
             self.headers.setHeader('www-authenticate', authHeaders)
         return gatherResults(challengeDs).addCallback(_setAuthHeader)
-
 
     @classmethod
     def makeResponse(cls, factories, remoteAddr=None):
@@ -79,7 +79,6 @@ class UnauthorizedResponse(http.StatusResponse):
         d = response._generateHeaders(factories, remoteAddr)
         d.addCallback(lambda _: response)
         return d
-
 
 
 class HTTPAuthResource(object):
@@ -116,7 +115,6 @@ class HTTPAuthResource(object):
         self.portal = portal
         self.interfaces = interfaces
 
-
     def _loginSucceeded(self, avatar, request):
         """
         Callback for successful login.
@@ -144,6 +142,7 @@ class HTTPAuthResource(object):
                     d = UnauthorizedResponse.makeResponse(
                         self.credentialFactories,
                         request.remoteAddr)
+
                     def _respond(newResp):
                         response.headers.setHeader(
                             'www-authenticate',
@@ -159,7 +158,6 @@ class HTTPAuthResource(object):
         request.addResponseFilter(_addAuthenticateHeaders)
 
         return self.wrappedResource
-
 
     def _loginFailed(self, ignored, request):
         """
@@ -180,7 +178,6 @@ class HTTPAuthResource(object):
             return failure.Failure(http.HTTPError(response))
         return d.addCallback(_fail)
 
-
     def login(self, factory, response, request):
         """
         @param factory: An L{ICredentialFactory} that understands the given
@@ -194,13 +191,16 @@ class HTTPAuthResource(object):
             or a failure containing an L{UnauthorizedResponse}
         """
         d = factory.decode(response, request)
+
         def _decodeFailure(err):
             err.trap(error.LoginFailed)
             d = UnauthorizedResponse.makeResponse(self.credentialFactories,
                                                   request.remoteAddr)
+
             def _respond(response):
                 return failure.Failure(http.HTTPError(response))
             return d.addCallback(_respond)
+
         def _login(creds):
             return self.portal.login(creds, None, *self.interfaces
                                      ).addCallbacks(self._loginSucceeded,
@@ -208,7 +208,6 @@ class HTTPAuthResource(object):
                                                     (request,), None,
                                                     (request,), None)
         return d.addErrback(_decodeFailure).addCallback(_login)
-
 
     def authenticate(self, request):
         """
@@ -233,14 +232,12 @@ class HTTPAuthResource(object):
             return self.login(self.credentialFactories[authHeader[0]],
                               authHeader[1], request)
 
-
     def locateChild(self, request, seg):
         """
         Authenticate the request then return the C{self.wrappedResource}
         and the unmodified segments.
         """
         return self.authenticate(request), seg
-
 
     def renderHTTP(self, request):
         """

@@ -15,7 +15,6 @@ from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.test.util import TestCase
 
 
-
 class MemCacheTestCase(TestCase):
     """
     Test client protocol class L{MemCacheProtocol}.
@@ -55,7 +54,6 @@ class MemCacheTestCase(TestCase):
 
             return self.faked
 
-
     def setUp(self):
         """
         Create a memcache client, connect it to a string protocol, and make it
@@ -68,7 +66,6 @@ class MemCacheTestCase(TestCase):
         self.transport = StringTransportWithDisconnection()
         self.transport.protocol = self.proto
         self.proto.makeConnection(self.transport)
-
 
     def _test(self, d, send, recv, result):
         """
@@ -94,7 +91,6 @@ class MemCacheTestCase(TestCase):
         self.proto.dataReceived(recv)
         return d
 
-
     def test_get(self):
         """
         L{MemCacheProtocol.get} should return a L{Deferred} which is
@@ -114,7 +110,6 @@ class MemCacheTestCase(TestCase):
             "bar"
         )
 
-
     def test_set(self):
         """
         L{MemCacheProtocol.get} should return a L{Deferred} which is
@@ -130,7 +125,6 @@ class MemCacheTestCase(TestCase):
             "STORED\r\n",
             True
         )
-
 
     @inlineCallbacks
     def test_acquire(self):
@@ -150,7 +144,6 @@ class MemCacheTestCase(TestCase):
         )
         self.assertTrue(lock._hasLock)
 
-
     @inlineCallbacks
     def test_acquire_ok_timeout_0(self):
         """
@@ -168,7 +161,6 @@ class MemCacheTestCase(TestCase):
             True
         )
         self.assertTrue(lock._hasLock)
-
 
     @inlineCallbacks
     def test_acquire_fails_timeout_0(self):
@@ -199,7 +191,6 @@ class MemCacheTestCase(TestCase):
             self.fail("No timeout exception thrown")
         self.assertFalse(lock._hasLock)
 
-
     @inlineCallbacks
     def test_acquire_release(self):
         """
@@ -225,7 +216,6 @@ class MemCacheTestCase(TestCase):
         )
         self.assertFalse(lock._hasLock)
 
-
     @inlineCallbacks
     def test_acquire_clean(self):
         """
@@ -249,7 +239,6 @@ class MemCacheTestCase(TestCase):
             True
         )
 
-
     @inlineCallbacks
     def test_acquire_unicode(self):
         """
@@ -267,7 +256,6 @@ class MemCacheTestCase(TestCase):
             True
         )
         self.assertTrue(lock._hasLock)
-
 
     @inlineCallbacks
     def test_acquire_invalid_token1(self):

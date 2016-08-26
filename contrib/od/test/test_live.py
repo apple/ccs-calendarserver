@@ -27,7 +27,6 @@ from twisted.trial import unittest
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 
-
 try:
     from twext.who.opendirectory import DirectoryService
     moduleImported = True
@@ -49,7 +48,6 @@ if moduleImported:
     LOCAL_SHORTNAMES = "odtestalbert odtestbill odtestcarl odtestdavid odtestsubgroupa".split()
     NETWORK_SHORTNAMES = "odtestamanda odtestbetty odtestcarlene odtestdenise odtestsubgroupb odtestgrouptop".split()
 
-
     def onlyIfPopulated(func):
         """
         Only run the decorated test method if the "odtestamanda" record exists
@@ -64,7 +62,6 @@ if moduleImported:
                 print("OD not populated, skipping {}".format(func.func_name))
         return checkThenRun
 
-
     class LiveOpenDirectoryServiceTestCase(unittest.TestCase):
         """
         Live service tests for L{DirectoryService}.
@@ -76,7 +73,6 @@ if moduleImported:
         def tearDown(self):
             self.service._deletePool()
 
-
         def verifyResults(self, records, expected, unexpected):
             shortNames = []
             for record in records:
@@ -87,7 +83,6 @@ if moduleImported:
                 self.assertTrue(name in shortNames)
             for name in unexpected:
                 self.assertFalse(name in shortNames)
-
 
         @onlyIfPopulated
         @inlineCallbacks
@@ -104,7 +99,6 @@ if moduleImported:
                 ["anotherodtestamanda", "anotherodtestalbert"]
             )
 
-
         @onlyIfPopulated
         @inlineCallbacks
         def test_uid(self):
@@ -116,7 +110,6 @@ if moduleImported:
                 self.assertTrue(record is not None)
                 self.assertEquals(record.shortNames[0], name)
 
-
         @onlyIfPopulated
         @inlineCallbacks
         def test_guid(self):
@@ -127,7 +120,6 @@ if moduleImported:
                 record = yield self.service.recordWithGUID(guid)
                 self.assertTrue(record is not None)
                 self.assertEquals(record.shortNames[0], name)
-
 
         @onlyIfPopulated
         @inlineCallbacks
@@ -175,7 +167,6 @@ if moduleImported:
                 ["odtestamanda", "odtestbill", "odtestgroupa", "odtestgroupb"]
             )
 
-
         @onlyIfPopulated
         @inlineCallbacks
         def test_compoundWithExplicitRecordType(self):
@@ -220,7 +211,6 @@ if moduleImported:
                 ["odtestbetty", "odtestalbert", "anotherodtestalbert"],
                 ["odtestamanda", "odtestbill", "odtestgroupa", "odtestgroupb"]
             )
-
 
         @onlyIfPopulated
         @inlineCallbacks
@@ -273,7 +263,6 @@ if moduleImported:
                 ["odtestamanda", "odtestbill", "odtestgroupa", "odtestgroupb"]
             )
 
-
         @onlyIfPopulated
         @inlineCallbacks
         def test_recordsMatchingTokens(self):
@@ -287,7 +276,6 @@ if moduleImported:
                 ],
                 ["odtestamanda", "odtestbill", "odtestgroupa", "odtestgroupb"]
             )
-
 
         @onlyIfPopulated
         @inlineCallbacks
@@ -308,7 +296,6 @@ if moduleImported:
                 ]
             )
 
-
         @onlyIfPopulated
         @inlineCallbacks
         def test_recordsMatchingTokensWithContextGroup(self):
@@ -327,7 +314,6 @@ if moduleImported:
                     "odtestbetty", "odtestalbert", "anotherodtestalbert"
                 ]
             )
-
 
         @onlyIfPopulated
         @inlineCallbacks
@@ -351,7 +337,6 @@ if moduleImported:
                 ]
             )
 
-
         @onlyIfPopulated
         @inlineCallbacks
         def test_recordsMatchingSingleFieldNoRecordType(self):
@@ -373,7 +358,6 @@ if moduleImported:
                     "nobody",
                 ]
             )
-
 
         @onlyIfPopulated
         @inlineCallbacks

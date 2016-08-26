@@ -33,7 +33,6 @@ from twisted.python.constants import Names, NamedConstant
 from twext.who.idirectory import FieldName as BaseFieldName
 
 
-
 #
 # Data types
 #
@@ -78,7 +77,6 @@ class AutoScheduleMode(Names):
     acceptIfFreeDeclineIfBusy.description = u"accept if free, decline if busy"
 
 
-
 class RecordType(Names):
     """
     Constants for calendar and contacts directory record types.
@@ -102,7 +100,6 @@ class RecordType(Names):
 
     address = NamedConstant()
     address.description = u"physical address"
-
 
 
 class FieldName(Names):

@@ -36,7 +36,6 @@ from .eventsource import EventSourceResource, IEventDecoder
 from .resource import PageElement, TemplateResource
 
 
-
 class LogsPageElement(PageElement):
     """
     Logs page element.
@@ -45,12 +44,10 @@ class LogsPageElement(PageElement):
     def __init__(self):
         super(LogsPageElement, self).__init__(u"logs")
 
-
     def pageSlots(self):
         return {
             u"title": u"Server Logs",
         }
-
 
 
 class LogsResource(TemplateResource):
@@ -60,12 +57,10 @@ class LogsResource(TemplateResource):
 
     addSlash = True
 
-
     def __init__(self, principalCollections):
         super(LogsResource, self).__init__(LogsPageElement, principalCollections, isdir=False)
 
         self.putChild(u"events", LogEventsResource(principalCollections))
-
 
 
 class LogEventsResource(EventSourceResource):
@@ -85,7 +80,6 @@ class LogEventsResource(EventSourceResource):
             observer.start()
 
 
-
 class ServerLogObserver(FileLogObserver):
     """
     Log observer that sends events to an L{EventSourceResource} instead of
@@ -97,9 +91,9 @@ class ServerLogObserver(FileLogObserver):
 
     timeFormat = None
 
-
     def __init__(self, resource):
         class FooIO(object):
+
             def write(_, s):
                 self._lastMessage = s
 
@@ -111,16 +105,13 @@ class ServerLogObserver(FileLogObserver):
         self.lastMessage = None
         self._resource = resource
 
-
     def emit(self, event):
         self._resource.addEvents(((self, u"server", event),))
-
 
     def formatEvent(self, event):
         self._lastMessage = None
         FileLogObserver.emit(self, event)
         return self._lastMessage
-
 
 
 class AccessLogObserver(CommonAccessLoggingObserverExtensions):
@@ -137,14 +128,12 @@ class AccessLogObserver(CommonAccessLoggingObserverExtensions):
 
         self._resource = resource
 
-
     def logStats(self, event):
         # Only look at access log events
         if event[u"type"] != u"access-log":
             return
 
         self._resource.addEvents(((self, u"access", event),))
-
 
 
 @implementer(IEventDecoder)
@@ -158,12 +147,10 @@ class EventDecoder(object):
         _ignore_observer, _ignore_eventClass, logEvent = event
         return id(logEvent)
 
-
     @staticmethod
     def classForEvent(event):
         _ignore_observer, eventClass, _ignore_logEvent = event
         return eventClass
-
 
     @staticmethod
     def textForEvent(event):
@@ -180,7 +167,6 @@ class EventDecoder(object):
             text = u"*** Error while formatting event ***"
 
         return text
-
 
     @staticmethod
     def retryForEvent(event):

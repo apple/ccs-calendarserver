@@ -31,6 +31,7 @@ from txdav.xml import element as davxml
 
 import os
 
+
 class CalendarMultiget (StoreTestCase):
     """
     calendar-multiget REPORT
@@ -42,7 +43,6 @@ class CalendarMultiget (StoreTestCase):
     def setUp(self):
         yield StoreTestCase.setUp(self)
         self.authPrincipal = yield self.actualRoot.findPrincipalForAuthID("wsanchez")
-
 
     def test_multiget_some_events(self):
         """
@@ -56,7 +56,6 @@ class CalendarMultiget (StoreTestCase):
 
         return self.simple_event_multiget("/calendar_multiget_events/", okuids, baduids)
 
-
     def test_multiget_all_events(self):
         """
         All events.
@@ -68,7 +67,6 @@ class CalendarMultiget (StoreTestCase):
 
         return self.simple_event_multiget("/calendar_multiget_events/", okuids, baduids)
 
-
     def test_multiget_limited_with_data(self):
         """
         All events.
@@ -76,6 +74,7 @@ class CalendarMultiget (StoreTestCase):
         """
         oldValue = config.MaxMultigetWithDataHrefs
         config.MaxMultigetWithDataHrefs = 1
+
         def _restoreValueOK(f):
             config.MaxMultigetWithDataHrefs = oldValue
             self.fail("REPORT must fail with 403")
@@ -92,7 +91,6 @@ class CalendarMultiget (StoreTestCase):
         d.addCallbacks(_restoreValueOK, _restoreValueError)
         return d
 
-
     def test_multiget_limited_no_data(self):
         """
         All events.
@@ -100,6 +98,7 @@ class CalendarMultiget (StoreTestCase):
         """
         oldValue = config.MaxMultigetWithDataHrefs
         config.MaxMultigetWithDataHrefs = 1
+
         def _restoreValueOK(f):
             config.MaxMultigetWithDataHrefs = oldValue
             return None
@@ -113,7 +112,6 @@ class CalendarMultiget (StoreTestCase):
         baduids = ["12345%40example.com", "67890%40example.com"]
 
         return self.simple_event_multiget("/calendar_multiget_events/", okuids, baduids, withData=False)
-
 
     @todo("Remove: Does not work with new store")
     @inlineCallbacks
@@ -177,7 +175,6 @@ END:VCALENDAR
         okuids = ["good", ]
         baduids = ["bad", ]
         yield self.simple_event_multiget("/calendar_multiget_events/", okuids, baduids, data, no_init=True)
-
 
     def simple_event_multiget(self, cal_uri, okuids, baduids, data=None, no_init=False, withData=True):
 
@@ -265,7 +262,6 @@ END:VCALENDAR
                 self.fail("Some components were not returned: %r, %r" % (okuids, badhrefs))
 
         return self.calendar_query(cal_uri, query, got_xml, data, no_init)
-
 
     @inlineCallbacks
     def calendar_query(self, calendar_uri, query, got_xml, data, no_init):

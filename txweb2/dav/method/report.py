@@ -51,6 +51,7 @@ log = Logger()
 
 max_number_of_matches = 500
 
+
 class NumberOfMatchesWithinLimits(Exception):
 
     def __init__(self, limit):
@@ -58,10 +59,8 @@ class NumberOfMatchesWithinLimits(Exception):
         super(NumberOfMatchesWithinLimits, self).__init__()
         self.limit = limit
 
-
     def maxLimit(self):
         return self.limit
-
 
 
 def http_REPORT(self, request):

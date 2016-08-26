@@ -45,6 +45,6 @@ class CurrentUserPrincipal(WebDAVElement):
     name = "current-user-principal"
 
     allowed_children = {
-        (dav_namespace, "href")            : (0, 1),
-        (dav_namespace, "unauthenticated") : (0, 1),
+        (dav_namespace, "href"): (0, 1),
+        (dav_namespace, "unauthenticated"): (0, 1),
     }

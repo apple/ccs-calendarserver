@@ -40,11 +40,11 @@ __all__ = [
 
 log = Logger()
 
+
 class CalendarUser(object):
 
     def __init__(self, cuaddr):
         self.cuaddr = cuaddr
-
 
     def hosted(self):
         """
@@ -52,20 +52,17 @@ class CalendarUser(object):
         """
         return False
 
-
     def validOriginator(self):
         """
         Is this user able to originate scheduling messages.
         """
         return True
 
-
     def validRecipient(self):
         """
         Is this user able to receive scheduling messages.
         """
         return True
-
 
 
 class HostedCalendarUser(CalendarUser):
@@ -82,13 +79,11 @@ class HostedCalendarUser(CalendarUser):
         self.cuaddr = cuaddr
         self.record = record
 
-
     def hosted(self):
         """
         Is this user hosted on this service (this pod or any other)
         """
         return True
-
 
     def validOriginator(self):
         """
@@ -98,7 +93,6 @@ class HostedCalendarUser(CalendarUser):
         """
         return self.record.calendarsEnabled()
 
-
     def validRecipient(self):
         """
         Is this user able to receive scheduling messages.
@@ -106,14 +100,12 @@ class HostedCalendarUser(CalendarUser):
         """
         return self.record.calendarsEnabled() and not isinstance(self.record, TemporaryDirectoryRecord)
 
-
     def getCUType(self):
         """
         Is this user able to receive scheduling messages.
         A user with a temporary directory record cannot be scheduled with.
         """
         return self.record.getCUType()
-
 
 
 class LocalCalendarUser(HostedCalendarUser):
@@ -124,10 +116,8 @@ class LocalCalendarUser(HostedCalendarUser):
     def __init__(self, cuaddr, record):
         super(LocalCalendarUser, self).__init__(cuaddr, record)
 
-
     def __str__(self):
         return "Local calendar user: {}".format(self.cuaddr)
-
 
 
 class OtherServerCalendarUser(HostedCalendarUser):
@@ -138,10 +128,8 @@ class OtherServerCalendarUser(HostedCalendarUser):
     def __init__(self, cuaddr, record):
         super(OtherServerCalendarUser, self).__init__(cuaddr, record)
 
-
     def __str__(self):
         return "Other server calendar user: {}".format(self.cuaddr)
-
 
 
 class RemoteCalendarUser(CalendarUser):
@@ -153,10 +141,8 @@ class RemoteCalendarUser(CalendarUser):
         super(RemoteCalendarUser, self).__init__(cuaddr)
         self.extractDomain()
 
-
     def __str__(self):
         return "Remote calendar user: {}".format(self.cuaddr)
-
 
     def extractDomain(self):
         if self.cuaddr.startswith("mailto:"):
@@ -168,7 +154,6 @@ class RemoteCalendarUser(CalendarUser):
             self.domain = ""
 
 
-
 class EmailCalendarUser(CalendarUser):
     """
     User external to the entire system (set of pods). Used for iMIP.
@@ -177,10 +162,8 @@ class EmailCalendarUser(CalendarUser):
     def __init__(self, cuaddr):
         super(EmailCalendarUser, self).__init__(cuaddr)
 
-
     def __str__(self):
         return "Email/iMIP calendar user: {}".format(self.cuaddr)
-
 
 
 class InvalidCalendarUser(CalendarUser):
@@ -193,10 +176,8 @@ class InvalidCalendarUser(CalendarUser):
         self.cuaddr = cuaddr
         self.record = record
 
-
     def __str__(self):
         return "Invalid calendar user: {}".format(self.cuaddr)
-
 
     def hosted(self):
         """
@@ -204,13 +185,11 @@ class InvalidCalendarUser(CalendarUser):
         """
         return self.record is not None
 
-
     def validOriginator(self):
         """
         Is this user able to originate scheduling messages.
         """
         return False
-
 
     def validRecipient(self):
         """
@@ -218,14 +197,12 @@ class InvalidCalendarUser(CalendarUser):
         """
         return False
 
-
     def getCUType(self):
         """
         Is this user able to receive scheduling messages.
         A user with a temporary directory record cannot be scheduled with.
         """
         return self.record.getCUType() if self.record is not None else None
-
 
 
 @inlineCallbacks
@@ -243,7 +220,6 @@ def calendarUserFromCalendarUserAddress(cuaddr, txn):
 
     record = yield txn.directoryService().recordWithCalendarUserAddress(cuaddr)
     returnValue((yield _fromRecord(cuaddr, record, txn)))
-
 
 
 @inlineCallbacks
@@ -264,7 +240,6 @@ def calendarUserFromCalendarUserUID(uid, txn):
     returnValue((yield _fromRecord(cua, record, txn)))
 
 
-
 class RecordType(Names):
     """
     Constants for temporary directory record type.
@@ -275,7 +250,6 @@ class RecordType(Names):
 
     unknown = NamedConstant()
     unknown.description = u"unknown"
-
 
 
 @implementer(ICalendarStoreDirectoryRecord)
@@ -293,7 +267,6 @@ class TemporaryDirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin
         super(TemporaryDirectoryRecord, self).__init__(service, fields)
         self.fields[BaseFieldName.recordType] = RecordType.unknown
         self.fields[BaseFieldName.guid] = uid.decode("utf-8")
-
 
 
 @inlineCallbacks

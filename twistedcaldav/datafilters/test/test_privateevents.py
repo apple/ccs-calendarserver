@@ -19,6 +19,7 @@ import twistedcaldav.test.util
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.ical import Component
 
+
 class PrivateEventsTest (twistedcaldav.test.util.TestCase):
 
     def test_public_default(self):
@@ -41,7 +42,6 @@ END:VCALENDAR
             self.assertEqual(str(PrivateEventFilter(Component.ACCESS_PUBLIC, True).filter(item)), data)
             self.assertEqual(str(PrivateEventFilter(Component.ACCESS_PUBLIC, False).filter(item)), data)
 
-
     def test_public_none(self):
 
         data = """BEGIN:VCALENDAR
@@ -61,7 +61,6 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PrivateEventFilter(None, True).filter(item)), data)
             self.assertEqual(str(PrivateEventFilter(None, False).filter(item)), data)
-
 
     def test_public(self):
 
@@ -84,7 +83,6 @@ END:VCALENDAR
             self.assertEqual(str(PrivateEventFilter(Component.ACCESS_PUBLIC, True).filter(item)), data)
             self.assertEqual(str(PrivateEventFilter(Component.ACCESS_PUBLIC, False).filter(item)), data)
 
-
     def test_private(self):
 
         data = """BEGIN:VCALENDAR
@@ -106,7 +104,6 @@ END:VCALENDAR
             self.assertEqual(str(PrivateEventFilter(Component.ACCESS_PRIVATE, True).filter(item)), data)
             pfilter = PrivateEventFilter(Component.ACCESS_PRIVATE, False)
             self.assertRaises(HTTPError, pfilter.filter, item)
-
 
     def test_confidential(self):
 
@@ -143,7 +140,6 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PrivateEventFilter(Component.ACCESS_CONFIDENTIAL, True).filter(item)), data)
             self.assertEqual(str(PrivateEventFilter(Component.ACCESS_CONFIDENTIAL, False).filter(item)), filtered)
-
 
     def test_restricted(self):
 

@@ -28,6 +28,7 @@ from txdav.common.datastore.test.util import CommonCommonTests
 import txweb2.dav.test.util
 from twistedcaldav.ical import Component
 
+
 class TestiSchedule (unittest.TestCase):
     """
     txdav.caldav.datastore.scheduling.ischedule tests
@@ -40,7 +41,6 @@ class TestiSchedule (unittest.TestCase):
         """
         client.theResolver = None
         utils.DebugResolver = None
-
 
     @inlineCallbacks
     def test_matchCalendarUserAddress(self):
@@ -79,13 +79,13 @@ class TestiSchedule (unittest.TestCase):
         self.assertFalse(result)
 
 
-
 class TestIScheduleRequest (CommonCommonTests, txweb2.dav.test.util.TestCase):
     """
     txdav.caldav.datastore.scheduling.ischedule tests
     """
 
     class FakeScheduler(object):
+
         def __init__(self, txn, organizer, caldata=None):
             self.txn = txn
             self.organizer = CalendarUser(organizer)
@@ -93,12 +93,10 @@ class TestIScheduleRequest (CommonCommonTests, txweb2.dav.test.util.TestCase):
             self.isiTIPRequest = True
             self.isfreebusy = False
 
-
     @inlineCallbacks
     def setUp(self):
         yield super(TestIScheduleRequest, self).setUp()
         yield self.buildStoreAndDirectory()
-
 
     @inlineCallbacks
     def test_prepareHeaders_podding(self):
@@ -121,7 +119,6 @@ class TestIScheduleRequest (CommonCommonTests, txweb2.dav.test.util.TestCase):
         self.assertEqual(request.headers.getRawHeaders("Originator")[0], "urn:x-uid:user01")
         self.assertEqual(request.headers.getRawHeaders("Recipient")[0], "urn:x-uid:user02")
 
-
     @inlineCallbacks
     def test_prepareHeaders_podding_with_rewrite(self):
         """
@@ -143,7 +140,6 @@ class TestIScheduleRequest (CommonCommonTests, txweb2.dav.test.util.TestCase):
         self.assertEqual(request.headers.getRawHeaders("Originator")[0], "urn:uuid:user01")
         self.assertEqual(request.headers.getRawHeaders("Recipient")[0], "urn:uuid:user02")
 
-
     @inlineCallbacks
     def test_prepareHeaders_nopodding_with_rewrite(self):
         """
@@ -164,7 +160,6 @@ class TestIScheduleRequest (CommonCommonTests, txweb2.dav.test.util.TestCase):
 
         self.assertEqual(request.headers.getRawHeaders("Originator")[0], "mailto:user01@example.com")
         self.assertEqual(request.headers.getRawHeaders("Recipient")[0], "mailto:user02@example.com")
-
 
     @inlineCallbacks
     def test_prepareData_podding(self):
@@ -208,7 +203,6 @@ END:VCALENDAR
             set(("urn:x-uid:user01", "urn:x-uid:user02")),
         )
 
-
     @inlineCallbacks
     def test_prepareData_podding_with_rewrite(self):
         """
@@ -250,7 +244,6 @@ END:VCALENDAR
             set([attendee.value() for attendee in ical.getAllAttendeeProperties()]),
             set(("urn:uuid:user01", "urn:uuid:user02")),
         )
-
 
     @inlineCallbacks
     def test_prepareData_nopodding_with_rewrite(self):

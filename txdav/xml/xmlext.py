@@ -37,7 +37,6 @@ def Print(root, stream=sys.stdout, encoding='UTF-8'):
     return
 
 
-
 def PrettyPrint(root, stream=sys.stdout, encoding='UTF-8', indent='  ',
                 preserveElements=None):
     if not hasattr(root, "nodeType"):
@@ -54,7 +53,6 @@ def PrettyPrint(root, stream=sys.stdout, encoding='UTF-8', indent='  ',
     PrintWalker(visitor, root).run()
     stream.write('\n')
     return
-
 
 
 def GetAllNs(node):
@@ -81,7 +79,6 @@ def GetAllNs(node):
     return nss
 
 
-
 def SeekNss(node, nss=None):
     '''traverses the tree to seek an approximate set of defined namespaces'''
     nss = nss or {}
@@ -101,8 +98,8 @@ def SeekNss(node, nss=None):
     return nss
 
 
-
 class PrintVisitor:
+
     def __init__(self, stream, encoding, indent='', plainElements=None,
                  nsHints=None, isXhtml=0, force8bit=0):
         self.stream = stream
@@ -121,7 +118,6 @@ class PrintVisitor:
         self.force8bit = force8bit
         return
 
-
     def _write(self, text):
         if self.force8bit:
             obj = strobj_to_utf8str(text, self.encoding)
@@ -130,12 +126,10 @@ class PrintVisitor:
         self.stream.write(obj)
         return
 
-
     def _tryIndent(self):
         if not self._inText and self._indent:
             self._write('\n' + self._indent * self._depth)
         return
-
 
     def visit(self, node):
         if self._html is None:
@@ -181,19 +175,16 @@ class PrintVisitor:
         # It has a node type, but we don't know how to handle it
         raise Exception("Unknown node type: %s" % repr(node))
 
-
     def visitNodeList(self, node, exclude=None):
         for curr in node:
             if curr is not exclude:
                 self.visit(curr)
         return
 
-
     def visitNamedNodeMap(self, node):
         for item in node.values():
             self.visit(item)
         return
-
 
     def visitAttr(self, node):
         if node.namespaceURI == XMLNS_NAMESPACE:
@@ -207,7 +198,6 @@ class PrintVisitor:
             self.stream.write("=%s%s%s" % (delimiter, text, delimiter))
         return
 
-
     def visitProlog(self):
         self._write("<?xml version='1.0' encoding='%s'?>" % (
             self.encoding or 'utf-8'
@@ -215,18 +205,15 @@ class PrintVisitor:
         self._inText = 0
         return
 
-
     def visitDocument(self, node):
         not self._html and self.visitProlog()
         node.doctype and self.visitDocumentType(node.doctype)
         self.visitNodeList(node.childNodes, exclude=node.doctype)
         return
 
-
     def visitDocumentFragment(self, node):
         self.visitNodeList(node.childNodes)
         return
-
 
     def visitElement(self, node):
         self._namespaces.append(self._namespaces[-1].copy())
@@ -275,7 +262,6 @@ class PrintVisitor:
         self._inText = 0
         return
 
-
     def visitText(self, node):
         text = node.data
         if self._indent:
@@ -288,7 +274,6 @@ class PrintVisitor:
             self.stream.write(text)
             self._inText = 1
         return
-
 
     def visitDocumentType(self, doctype):
         if not doctype.systemId and not doctype.publicId:
@@ -323,7 +308,6 @@ class PrintVisitor:
         self._inText = 0
         return
 
-
     def visitEntity(self, node):
         """Visited from a NamedNodeMap in DocumentType"""
         self._tryIndent()
@@ -334,7 +318,6 @@ class PrintVisitor:
         self._write('>')
         return
 
-
     def visitNotation(self, node):
         """Visited from a NamedNodeMap in DocumentType"""
         self._tryIndent()
@@ -344,13 +327,11 @@ class PrintVisitor:
         self._write('>')
         return
 
-
     def visitCDATASection(self, node):
         self._tryIndent()
         self._write('<![CDATA[%s]]>' % (node.data))
         self._inText = 0
         return
-
 
     def visitComment(self, node):
         self._tryIndent()
@@ -358,12 +339,10 @@ class PrintVisitor:
         self._inText = 0
         return
 
-
     def visitEntityReference(self, node):
         self._write('&%s;' % node.nodeName)
         self._inText = 1
         return
-
 
     def visitProcessingInstruction(self, node):
         self._tryIndent()
@@ -372,19 +351,17 @@ class PrintVisitor:
         return
 
 
-
 class PrintWalker:
+
     def __init__(self, visitor, startNode):
         self.visitor = visitor
         self.start_node = startNode
         return
 
-
     def step(self):
         """There is really no step to printing.  It prints the whole thing"""
         self.visitor.visit(self.start_node)
         return
-
 
     def run(self):
         return self.step()
@@ -405,23 +382,23 @@ g_charToEntity = {
 
 # Slightly modified to not use types.Unicode
 import codecs
+
+
 def utf8_to_code(text, encoding):
-    encoder = codecs.lookup(encoding)[0] # encode,decode,reader,writer
+    encoder = codecs.lookup(encoding)[0]  # encode,decode,reader,writer
     if type(text) is not unicode:
         text = unicode(text, "utf-8")
-    return encoder(text)[0] # result,size
-
+    return encoder(text)[0]  # result,size
 
 
 def strobj_to_utf8str(text, encoding):
     if string.upper(encoding) not in ["UTF-8", "ISO-8859-1", "LATIN-1"]:
         raise ValueError("Invalid encoding: %s" % encoding)
-    encoder = codecs.lookup(encoding)[0] # encode,decode,reader,writer
+    encoder = codecs.lookup(encoding)[0]  # encode,decode,reader,writer
     if type(text) is not unicode:
         text = unicode(text, "utf-8")
     # FIXME
     return str(encoder(text)[0])
-
 
 
 def TranslateCdataAttr(characters):
@@ -440,7 +417,6 @@ def TranslateCdataAttr(characters):
     if "\n" in characters:
         new_chars = re.sub('\n', '&#10;', new_chars)
     return new_chars, delimiter
-
 
 
 # Note: Unicode object only for now
@@ -474,7 +450,6 @@ def TranslateCdata(characters, encoding='UTF-8', prev_chars='', markupSafe=0,
             new_string)[0]
     new_string = charsetHandler(new_string, encoding)
     return new_string
-
 
 
 def TranslateHtmlCdata(characters, encoding='UTF-8', prev_chars=''):
@@ -773,9 +748,9 @@ HTML_CHARACTER_ENTITIES = {
 
 g_htmlUniCharEntityPattern = re.compile('[\xa0-\xff]')
 
+
 def ConvertChar(m):
     return '&' + HTML_CHARACTER_ENTITIES[ord(m.group())] + ';'
-
 
 
 def UseHtmlCharEntities(text):

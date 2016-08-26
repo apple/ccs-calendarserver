@@ -55,26 +55,24 @@ class GroupAttendeeTestBase(CommonCommonTests, DateTimeSubstitutionsMixin, unitt
 
         self.paths = {}
 
-
     def configure(self):
         super(GroupAttendeeTestBase, self).configure()
         config.GroupAttendees.Enabled = True
         config.GroupAttendees.ReconciliationDelaySeconds = 0
         config.GroupAttendees.AutoUpdateSecondsFromNow = 0
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
 
     requirements = {
-        "user01" : None,
-        "user02" : None,
-        "user06" : None,
-        "user07" : None,
-        "user08" : None,
-        "user09" : None,
-        "user10" : None,
+        "user01": None,
+        "user02": None,
+        "user06": None,
+        "user07": None,
+        "user08": None,
+        "user09": None,
+        "user10": None,
 
     }
 
@@ -83,7 +81,6 @@ class GroupAttendeeTestBase(CommonCommonTests, DateTimeSubstitutionsMixin, unitt
         cal6 = yield self.calendarUnderTest(name="calendar", home=home)
         count = yield cal6.countObjectResources()
         self.assertEqual(count, expected_count)
-
 
     def _assertICalStrEqual(self, iCalStr1, iCalStr2):
 
@@ -108,7 +105,6 @@ class GroupAttendeeTestBase(CommonCommonTests, DateTimeSubstitutionsMixin, unitt
             orderAttendeePropAndMemberValues(Component.fromString(normalize_iCalStr(iCalStr1))),
             orderAttendeePropAndMemberValues(Component.fromString(normalize_iCalStr(iCalStr2)))
         )
-
 
 
 class GroupAttendeeTests(GroupAttendeeTestBase):
@@ -171,7 +167,6 @@ END:VCALENDAR
         yield self._verifyObjectResourceCount("user06", 1)
         yield self._verifyObjectResourceCount("user07", 1)
 
-
     @inlineCallbacks
     def test_unknownPUT(self):
         """
@@ -220,7 +215,6 @@ END:VCALENDAR
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
         vcalendar = yield cobj.component()
         self._assertICalStrEqual(vcalendar, data_get_1.format(**self.dtsubs))
-
 
     @inlineCallbacks
     def test_primaryAttendeeInGroupPUT(self):
@@ -271,7 +265,6 @@ END:VCALENDAR
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
         vcalendar = yield cobj.component()
         self._assertICalStrEqual(vcalendar, data_get_1.format(**self.dtsubs))
-
 
     @inlineCallbacks
     def test_nestedPUT(self):
@@ -339,7 +332,6 @@ END:VCALENDAR
         yield self._verifyObjectResourceCount("user09", 1)
         yield self._verifyObjectResourceCount("user10", 1)
 
-
     @inlineCallbacks
     def test_multiGroupPUT(self):
         """
@@ -406,7 +398,6 @@ END:VCALENDAR"""
         yield self._verifyObjectResourceCount("user08", 1)
         yield self._verifyObjectResourceCount("user09", 1)
 
-
     @inlineCallbacks
     def test_groupPutOldEvent(self):
         """
@@ -458,7 +449,7 @@ END:VCALENDAR
         self.assertEqual(len(groupsToRefresh), 0)
 
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "group01")
-        if len(wps): # This is needed because the test currently fails and does actually create job items we have to wait for
+        if len(wps):  # This is needed because the test currently fails and does actually create job items we have to wait for
             yield self.commit()
             yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
         self.assertEqual(len(wps), 0)
@@ -466,7 +457,6 @@ END:VCALENDAR
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
         vcalendar = yield cobj.component()
         self._assertICalStrEqual(vcalendar, data_get_1.format(**self.dtsubs))
-
 
 
 class GroupAttendeeReconciliationTests(GroupAttendeeTestBase):
@@ -609,7 +599,6 @@ END:VCALENDAR
         comp = yield cobjs[0].componentForUser()
         self.assertTrue("STATUS:CANCELLED" in str(comp))
 
-
     @inlineCallbacks
     def test_multieventGroupChange(self):
         """
@@ -702,7 +691,7 @@ END:VCALENDAR
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "group01")
         self.assertEqual(len(wps), 0)
 
-        userRange = range(6, 10) # have to be 1 diget and homes in requirements
+        userRange = range(6, 10)  # have to be 1 diget and homes in requirements
 
         for i in userRange:
             calendar = yield self.calendarUnderTest(name="calendar", home="user0{0}".format(i))
@@ -753,7 +742,6 @@ END:VCALENDAR
         for cobj in cobjs:
             comp = yield cobj.componentForUser()
             self.assertTrue("STATUS:CANCELLED" in str(comp))
-
 
     @inlineCallbacks
     def test_groupChangeOldEvent(self):
@@ -908,7 +896,6 @@ END:VCALENDAR
 
     test_groupChangeOldNoMasterEvent.todo = "Create test data"
 
-
     @inlineCallbacks
     def test_groupChangeOldRecurringEvent(self):
         """
@@ -1027,7 +1014,7 @@ END:VCALENDAR
         self._assertICalStrEqual(vcalendar, data_get_2.format(**self.dtsubs))
 
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "group01")
-        if len(wps): # This is needed because the test currently fails and does actually create job items we have to wait for
+        if len(wps):  # This is needed because the test currently fails and does actually create job items we have to wait for
             yield self.commit()
             yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
         self.assertEqual(len(wps), 0)
@@ -1050,7 +1037,6 @@ END:VCALENDAR
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
         vcalendar = yield cobj.component()
         self._assertICalStrEqual(vcalendar, data_get_2.format(**self.dtsubs))
-
 
     @inlineCallbacks
     def test_groupChangeSmallerSpanningEvent(self):
@@ -1260,7 +1246,6 @@ END:VCALENDAR
         comp = yield cobjs[0].componentForUser()
         self.assertTrue("METHOD:CANCEL" in str(comp))
 
-
     @inlineCallbacks
     def test_groupChangeLargerSpanningEvent(self):
         """
@@ -1359,7 +1344,6 @@ END:VEVENT
 END:VCALENDAR
 """
 
-
         @inlineCallbacks
         def expandedMembers(self, records=None, seen=None):
             yield None
@@ -1413,7 +1397,6 @@ END:VCALENDAR
         self.assertEqual(len(cobjs), 1)
         vcalendar = yield cobjs[0].componentForUser()
         self._assertICalStrEqual(vcalendar, data_get_2_user01.format(**props_orig))
-
 
     @inlineCallbacks
     def test_groupRemovalFromDirectory(self):
@@ -1593,7 +1576,6 @@ END:VCALENDAR"""
         self.assertFalse("STATUS:CANCELLED" in str(comp))
         yield self.commit()
 
-
     @inlineCallbacks
     def test_groupRemovalFromEvent(self):
         """
@@ -1742,7 +1724,6 @@ END:VCALENDAR
         self.assertTrue("STATUS:CANCELLED" in str(comp))
         yield self.commit()
 
-
     @inlineCallbacks
     def test_groupAttendeesWhenFullyInFutureEventInTrash(self):
         """
@@ -1843,7 +1824,6 @@ END:VCALENDAR
         rows = yield self.transactionUnderTest().execSQL("select * from group_attendee", [])
         self.assertEquals(len(rows), 1)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_groupAttendeesWhenSplitEventInTrash(self):

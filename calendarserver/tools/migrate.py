@@ -56,7 +56,6 @@ def usage(e=None):
         sys.exit(0)
 
 
-
 def main():
     try:
         (optargs, args) = getopt(

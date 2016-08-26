@@ -77,7 +77,6 @@ def utilityMain(
     if serviceMaker is None:
         serviceMaker = CalDAVServiceMaker
 
-
     # We want to validate that the actual service is always an instance of WorkerService, so wrap the
     # service maker callback inside a function that does that check
     def _makeValidService(store):
@@ -130,7 +129,6 @@ def utilityMain(
         if loadTimezones:
             TimezoneCache.create()
 
-
     except (ConfigurationError, OSError), e:
         sys.stderr.write("Error: %s\n" % (e,))
         return
@@ -138,12 +136,10 @@ def utilityMain(
     reactor.run()
 
 
-
 class WorkerService(Service):
 
     def __init__(self, store):
         self.store = store
-
 
     def rootResource(self):
         try:
@@ -167,7 +163,6 @@ class WorkerService(Service):
                 raise
         return rootResource
 
-
     @inlineCallbacks
     def startService(self):
 
@@ -187,7 +182,6 @@ class WorkerService(Service):
         finally:
             self.postStartService()
 
-
     def doWorkWithoutStore(self):
         """
         Subclasses can override doWorkWithoutStore if there is any work they
@@ -196,7 +190,6 @@ class WorkerService(Service):
         """
         sys.stderr.write("Error: Data store is not available\n")
         return succeed(None)
-
 
     def postStartService(self):
         """

@@ -37,6 +37,7 @@ import dateutil.tz
 
 import calendar
 
+
 def normalizeForIndex(dt):
     """
     Normalize a L{DateTime} object for use in the Index.
@@ -60,7 +61,6 @@ def normalizeForIndex(dt):
         return dt
 
 
-
 def normalizeToUTC(dt):
     """
     Normalize a L{DateTime} object to UTC.
@@ -82,7 +82,6 @@ def normalizeToUTC(dt):
         return dt
 
 
-
 def normalizeForExpand(dt):
     """
     Normalize a L{DateTime} object for use with the CalDAV expand option.
@@ -99,7 +98,6 @@ def normalizeForExpand(dt):
     else:
         dt.adjustToUTC()
         return dt
-
 
 
 def floatoffset(dt, pytz):
@@ -121,13 +119,11 @@ def floatoffset(dt, pytz):
     return dt
 
 
-
 def adjustFloatingToTimezone(dtadjust, dtcopyfrom, pytz=None):
 
     dtadjust = dtadjust.duplicate()
     dtadjust.setTimezone(pytz if pytz else dtcopyfrom.getTimezone())
     return dtadjust
-
 
 
 def compareDateTime(dt1, dt2, defaulttz=None):
@@ -140,7 +136,6 @@ def compareDateTime(dt1, dt2, defaulttz=None):
     return dt1.compareDateTime(dt2)
 
 
-
 def differenceDateTime(start, end, defaulttz=None):
 
     if start.floating() and not end.floating():
@@ -149,7 +144,6 @@ def differenceDateTime(start, end, defaulttz=None):
         end = adjustFloatingToTimezone(end, start, defaulttz)
 
     return end - start
-
 
 
 def timeRangesOverlap(start1, end1, start2, end2, defaulttz=None):
@@ -180,7 +174,6 @@ def timeRangesOverlap(start1, end1, start2, end2, defaulttz=None):
         return compareDateTime(end1, end2, defaulttz) < 0 and compareDateTime(end1, start2, defaulttz) > 0
     else:
         return False
-
 
 
 def normalizePeriodList(periods):
@@ -239,7 +232,6 @@ def normalizePeriodList(periods):
     periods[:] = [x for x in periods if x]
 
 
-
 def clipPeriod(period, clipPeriod):
     """
     Clip the start/end period so that it lies entirely within the clip period.
@@ -268,7 +260,6 @@ def clipPeriod(period, clipPeriod):
         return result
 
 
-
 def pyCalendarToSQLTimestamp(pydt):
 
     if pydt.isDateOnly():
@@ -283,7 +274,6 @@ def pyCalendarToSQLTimestamp(pydt):
             second=pydt.getSeconds(),
             tzinfo=None
         )
-
 
 
 def parseSQLTimestampToPyCalendar(ts, withTimezone=None):
@@ -318,7 +308,6 @@ def parseSQLTimestampToPyCalendar(ts, withTimezone=None):
         )
 
 
-
 def tupleFromDateTime(dt):
     """
     Convert a L{DateTime} into a L{tuple} of L{int}s that performs better when pickled.
@@ -333,7 +322,6 @@ def tupleFromDateTime(dt):
     return (
         dt.mYear, dt.mMonth, dt.mDay, dt.mHours, dt.mMinutes, dt.mSeconds
     )
-
 
 
 def tupleToDateTime(tp, withTimezone=None):
@@ -361,7 +349,6 @@ def tupleToDateTime(tp, withTimezone=None):
     )
 
 
-
 def parseSQLDateToPyCalendar(ts):
     """
     Parse an SQL formated date into a DateTime
@@ -384,7 +371,6 @@ def parseSQLDateToPyCalendar(ts):
             month=int(ts[5:7]),
             day=int(ts[8:10])
         )
-
 
 
 def datetimeMktime(dt):

@@ -29,14 +29,12 @@ from txdav.who.groups import GroupCacher, diffAssignments, GroupRefreshWork
 from txdav.who.test.support import TestRecord, CalendarInMemoryDirectoryService
 
 
-
 class GroupCacherTest(StoreTestCase):
 
     @inlineCallbacks
     def setUp(self):
         yield super(GroupCacherTest, self).setUp()
         self.groupCacher = GroupCacher(self.directory)
-
 
     @inlineCallbacks
     def test_multipleCalls(self):
@@ -52,7 +50,6 @@ class GroupCacherTest(StoreTestCase):
         yield txn.groupByUID(record.uid)
 
         yield txn.commit()
-
 
     @inlineCallbacks
     def test_refreshGroup(self):
@@ -97,7 +94,6 @@ class GroupCacherTest(StoreTestCase):
         self.assertEquals(set([u"__top_group_1__"]), groups)
 
         yield txn.commit()
-
 
     @inlineCallbacks
     def test_synchronizeMembers(self):
@@ -149,7 +145,6 @@ class GroupCacherTest(StoreTestCase):
 
         yield txn.commit()
 
-
     @inlineCallbacks
     def test_groupByID(self):
 
@@ -170,7 +165,6 @@ class GroupCacherTest(StoreTestCase):
         self.assertEqual(group.extant, True)
 
         yield txn.commit()
-
 
     @inlineCallbacks
     def test_externalAssignments(self):
@@ -375,7 +369,6 @@ class GroupCacherTest(StoreTestCase):
 
         yield txn.commit()
 
-
     def test_diffAssignments(self):
         """
         Ensure external proxy assignment diffing works
@@ -456,7 +449,6 @@ class GroupCacherTest(StoreTestCase):
             ))
         )
 
-
     @inlineCallbacks
     def test_recursiveGroup(self):
         """
@@ -476,7 +468,6 @@ class GroupCacherTest(StoreTestCase):
 
         yield txn.commit()
 
-
     @inlineCallbacks
     def test_groupChangeCacheNotification(self):
         """
@@ -486,6 +477,7 @@ class GroupCacherTest(StoreTestCase):
 
         class TestNotifier(object):
             changedTokens = []
+
             def changed(self, token):
                 self.changedTokens.append(token)
 
@@ -603,9 +595,7 @@ class GroupCacherTest(StoreTestCase):
         TestNotifier.changedTokens = []
 
 
-
 class DynamicGroupTest(StoreTestCase):
-
 
     @inlineCallbacks
     def setUp(self):
@@ -652,7 +642,6 @@ class DynamicGroupTest(StoreTestCase):
         members = yield self.directory.recordsWithRecordType(RecordType.user)
         yield group.setMembers(members)
 
-
         def doWork(self):
             self.transaction._groupCacher = groupCacher
             return unpatchedDoWork(self)
@@ -662,7 +651,6 @@ class DynamicGroupTest(StoreTestCase):
         self.patch(GroupRefreshWork, "doWork", doWork)
 
         config.AutomaticPurging.Enabled = True
-
 
     @inlineCallbacks
     def test_extant(self):
@@ -732,7 +720,6 @@ class DynamicGroupTest(StoreTestCase):
             yield txn.commit()
             self.assertEquals(len(members), 100 if uid == u"testgroup" else 0)
 
-
     @inlineCallbacks
     def test_update_delete_unused(self):
         """
@@ -801,7 +788,6 @@ class DynamicGroupTest(StoreTestCase):
 
         self.assertEqual(testGroup, None)
         self.assertNotEqual(emptyGroup, None)
-
 
     @inlineCallbacks
     def test_update_delete_old_nonextant(self):

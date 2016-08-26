@@ -69,10 +69,8 @@ class FreeBusyURLResource (ReadOnlyNoCopyResourceMixIn, CalDAVResource):
 
         self.parent = parent
 
-
     def __repr__(self):
         return "<%s (free-busy URL resource): %s>" % (self.__class__.__name__, joinURL(self.parent.url(), "freebusy"))
-
 
     def defaultAccessControlList(self):
         privs = (
@@ -103,26 +101,20 @@ class FreeBusyURLResource (ReadOnlyNoCopyResourceMixIn, CalDAVResource):
             )
         return succeed(davxml.ACL(*aces))
 
-
     def resourceType(self):
         return davxml.ResourceType.freebusyurl
-
 
     def contentType(self):
         return MimeType("text", "calendar", charset="utf-8")
 
-
     def isCollection(self):
         return False
-
 
     def isCalendarCollection(self):
         return False
 
-
     def isPseudoCalendarCollection(self):
         return False
-
 
     def render(self, request):
         output = """<html>
@@ -138,20 +130,17 @@ class FreeBusyURLResource (ReadOnlyNoCopyResourceMixIn, CalDAVResource):
         response.headers.setHeader("content-type", MimeType("text", "html"))
         return response
 
-
     def http_GET(self, request):
         """
         The free-busy URL POST method.
         """
         return self._processFBURL(request)
 
-
     def http_POST(self, request):
         """
         The free-busy URL POST method.
         """
         return self._processFBURL(request)
-
 
     @inlineCallbacks
     def _processFBURL(self, request):
@@ -282,7 +271,6 @@ class FreeBusyURLResource (ReadOnlyNoCopyResourceMixIn, CalDAVResource):
         response.headers.setHeader("content-type", MimeType.fromString("%s; charset=utf-8" % (self.format,)))
 
         returnValue(response)
-
 
     ##
     # ACL

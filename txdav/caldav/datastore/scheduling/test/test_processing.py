@@ -34,14 +34,11 @@ class FakeImplicitProcessor(ImplicitProcessor):
         self.batches = 0
         self.method = ""
 
-
     def _enqueueBatchRefresh(self, exclude_attendees):
         self.batches += 1
 
-
     def writeCalendarResource(self, collection, resource, calendar):
         return succeed(FakeResource())
-
 
 
 class FakePrincipal(object):
@@ -49,10 +46,8 @@ class FakePrincipal(object):
     def __init__(self, cuaddr):
         self.cuaddr = cuaddr
 
-
     def calendarUserAddresses(self):
         return (self.cuaddr,)
-
 
 
 class FakeResource(object):
@@ -60,18 +55,14 @@ class FakeResource(object):
     def parentCollection(self):
         return self
 
-
     def ownerHome(self):
         return self
-
 
     def uid(self):
         return None
 
-
     def id(self):
         return 1
-
 
 
 class BatchRefresh (unittest.TestCase):
@@ -85,7 +76,6 @@ class BatchRefresh (unittest.TestCase):
         config.Memcached.Pools.Default.ServerEnabled = False
         memcacher.Memcacher.allowTestCache = True
         memcacher.Memcacher.reset()
-
 
     @inlineCallbacks
     def test_queueAttendeeUpdate_no_refresh(self):
@@ -113,7 +103,6 @@ END:VCALENDAR
         yield processor.queueAttendeeUpdate(("urn:uuid:user02", "urn:uuid:user01",))
         self.assertEqual(processor.batches, 0)
 
-
     @inlineCallbacks
     def test_queueAttendeeUpdate_with_refresh(self):
 
@@ -140,7 +129,6 @@ END:VCALENDAR
         processor.recipient_calendar = calendar
         yield processor.queueAttendeeUpdate(("urn:uuid:user02", "urn:uuid:user01",))
         self.assertEqual(processor.batches, 1)
-
 
     @inlineCallbacks
     def test_queueAttendeeUpdate_count_suppressed(self):

@@ -28,6 +28,7 @@ certificate_name = "localhost"
 identity_file = "./twistedcaldav/test/data/server.pem"
 certificate_file = "./twistedcaldav/test/data/cert.pem"
 
+
 def identityExists():
     child = Popen(
         args=[
@@ -51,7 +52,6 @@ def identityExists():
             return True
 
 
-
 def identityCreate():
     child = Popen(
         args=[
@@ -68,7 +68,6 @@ def identityCreate():
     else:
         print("Created identity '{}' for certificate '{}'".format(identity_preference, certificate_name))
         return True
-
 
 
 def certificateExists():
@@ -90,7 +89,6 @@ def certificateExists():
         return True
 
 
-
 def certificateImport(importFile):
     child = Popen(
         args=[
@@ -108,7 +106,6 @@ def certificateImport(importFile):
     else:
         print("Imported certificate '{}'".format(certificate_name))
         return True
-
 
 
 def certificateTrust():
@@ -130,20 +127,19 @@ def certificateTrust():
         return True
 
 
-
 def checkCertificate():
 
         # Validate identity
-        error = OpenSSL.crypto.check_keychain_identity(identity_preference, allowInteraction=True)
-        if error:
-            raise RuntimeError(
-                "The configured TLS Keychain Identity ({cert}) cannot be used: {reason}".format(
-                    cert=identity_preference,
-                    reason=error
-                )
+    error = OpenSSL.crypto.check_keychain_identity(identity_preference, allowInteraction=True)
+    if error:
+        raise RuntimeError(
+            "The configured TLS Keychain Identity ({cert}) cannot be used: {reason}".format(
+                cert=identity_preference,
+                reason=error
             )
-        else:
-            print("Certificate/key can be used.")
+        )
+    else:
+        print("Certificate/key can be used.")
 
 
 if __name__ == '__main__':

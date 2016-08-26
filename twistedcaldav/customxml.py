@@ -102,7 +102,6 @@ class TwistedCalendarSupportedComponents (WebDAVTextElement):
         return str(self)
 
 
-
 @registerElement
 class TwistedCalendarAccessProperty (WebDAVTextElement):
     """
@@ -116,7 +115,6 @@ class TwistedCalendarAccessProperty (WebDAVTextElement):
         return str(self)
 
 
-
 @registerElement
 class TwistedSchedulingObjectResource (WebDAVTextElement):
     """
@@ -125,7 +123,6 @@ class TwistedSchedulingObjectResource (WebDAVTextElement):
     namespace = twisted_private_namespace
     name = "scheduling-object-resource"
     hidden = True
-
 
 
 @registerElement
@@ -138,7 +135,6 @@ class TwistedScheduleMatchETags(WebDAVElement):
     hidden = True
 
     allowed_children = {(dav_namespace, "getetag"): (0, None)}
-
 
 
 @registerElement
@@ -155,7 +151,6 @@ class TwistedCalendarHasPrivateCommentsProperty (WebDAVEmptyElement):
     hidden = True
 
 
-
 @registerElement
 class CalendarProxyRead (WebDAVEmptyElement):
     """
@@ -166,7 +161,6 @@ class CalendarProxyRead (WebDAVEmptyElement):
     name = "calendar-proxy-read"
 
 
-
 @registerElement
 class CalendarProxyWrite (WebDAVEmptyElement):
     """
@@ -175,7 +169,6 @@ class CalendarProxyWrite (WebDAVEmptyElement):
     """
     namespace = calendarserver_namespace
     name = "calendar-proxy-write"
-
 
 
 @registerElement
@@ -192,7 +185,6 @@ class CalendarProxyReadFor (WebDAVElement):
     allowed_children = {(dav_namespace, "href"): (0, None)}
 
 
-
 @registerElement
 class CalendarProxyWriteFor (WebDAVElement):
     """
@@ -207,7 +199,6 @@ class CalendarProxyWriteFor (WebDAVElement):
     allowed_children = {(dav_namespace, "href"): (0, None)}
 
 
-
 @registerElement
 class DropBoxHome (WebDAVEmptyElement):
     """
@@ -218,7 +209,6 @@ class DropBoxHome (WebDAVEmptyElement):
     name = "dropbox-home"
 
 
-
 @registerElement
 class DropBox (WebDAVEmptyElement):
     """
@@ -227,7 +217,6 @@ class DropBox (WebDAVEmptyElement):
     """
     namespace = calendarserver_namespace
     name = "dropbox"
-
 
 
 @registerElement
@@ -244,7 +233,6 @@ class DropBoxHomeURL (WebDAVElement):
     allowed_children = {(dav_namespace, "href"): (0, 1)}
 
 
-
 @registerElement
 class GETCTag (WebDAVTextElement):
     """
@@ -253,7 +241,6 @@ class GETCTag (WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "getctag"
     protected = True
-
 
 
 @registerElement
@@ -265,13 +252,11 @@ class CalendarAvailability (WebDAVTextElement):
     name = "calendar-availability"
     hidden = True
 
-
     def calendar(self):
         """
         Returns a calendar component derived from this element.
         """
         return iComponent.fromString(str(self))
-
 
     def valid(self):
         """
@@ -303,7 +288,6 @@ class CalendarAvailability (WebDAVTextElement):
         return found
 
 
-
 @registerElement
 class MaxCollections (WebDAVTextElement):
     """
@@ -313,7 +297,6 @@ class MaxCollections (WebDAVTextElement):
     name = "max-collections"
     hidden = True
     protected = True
-
 
 
 @registerElement
@@ -327,7 +310,6 @@ class MaxResources (WebDAVTextElement):
     protected = True
 
 
-
 @registerElement
 class Timezones (WebDAVEmptyElement):
     """
@@ -336,7 +318,6 @@ class Timezones (WebDAVEmptyElement):
     """
     namespace = calendarserver_namespace
     name = "timezones"
-
 
 
 @registerElement
@@ -349,7 +330,6 @@ class TZIDs (WebDAVElement):
     allowed_children = {(calendarserver_namespace, "tzid"): (0, None)}
 
 
-
 @registerElement
 class TZID (WebDAVTextElement):
     """
@@ -357,7 +337,6 @@ class TZID (WebDAVTextElement):
     """
     namespace = calendarserver_namespace
     name = "tzid"
-
 
 
 @registerElement
@@ -370,7 +349,6 @@ class TZData (WebDAVElement):
     allowed_children = {(calendarserver_namespace, "observance"): (0, None)}
 
 
-
 @registerElement
 class Observance (WebDAVElement):
     """
@@ -379,10 +357,9 @@ class Observance (WebDAVElement):
     namespace = calendarserver_namespace
     name = "observance"
     allowed_children = {
-        (calendarserver_namespace, "onset")     : (1, 1),
+        (calendarserver_namespace, "onset"): (1, 1),
         (calendarserver_namespace, "utc-offset"): (1, 1),
     }
-
 
 
 @registerElement
@@ -394,7 +371,6 @@ class Onset (WebDAVTextElement):
     name = "onset"
 
 
-
 @registerElement
 class UTCOffset (WebDAVTextElement):
     """
@@ -402,7 +378,6 @@ class UTCOffset (WebDAVTextElement):
     """
     namespace = calendarserver_namespace
     name = "utc-offset"
-
 
 
 @registerElement
@@ -416,9 +391,8 @@ class PubSubPushTransportsProperty (WebDAVTextElement):
     protected = True
     hidden = True
     allowed_children = {
-        (calendarserver_namespace, "transport") : (0, 1),
+        (calendarserver_namespace, "transport"): (0, 1),
     }
-
 
 
 @registerElement
@@ -428,14 +402,13 @@ class PubSubTransportProperty (WebDAVTextElement):
     protected = True
     hidden = True
     allowed_attributes = {
-        "type" : True,
+        "type": True,
     }
     allowed_children = {
-        (calendarserver_namespace, "subscription-url") : (1, 1),
-        (calendarserver_namespace, "apsbundleid") : (1, 1),
-        (calendarserver_namespace, "env") : (1, 1),
+        (calendarserver_namespace, "subscription-url"): (1, 1),
+        (calendarserver_namespace, "apsbundleid"): (1, 1),
+        (calendarserver_namespace, "env"): (1, 1),
     }
-
 
 
 @registerElement
@@ -447,14 +420,12 @@ class PubSubSubscriptionProperty (WebDAVTextElement):
     allowed_children = {(dav_namespace, "href"): (0, 1)}
 
 
-
 @registerElement
 class PubSubAPSBundleIDProperty (WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "apsbundleid"
     protected = True
     hidden = True
-
 
 
 @registerElement
@@ -465,7 +436,6 @@ class PubSubAPSEnvironmentProperty (WebDAVTextElement):
     hidden = True
 
 
-
 @registerElement
 class PubSubAPSRefreshIntervalProperty (WebDAVTextElement):
     namespace = calendarserver_namespace
@@ -474,14 +444,12 @@ class PubSubAPSRefreshIntervalProperty (WebDAVTextElement):
     hidden = True
 
 
-
 @registerElement
 class PubSubXMPPPushKeyProperty (WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "pushkey"
     protected = True
     hidden = True
-
 
 
 PrincipalPropertySearch.allowed_children[(calendarserver_namespace, "limit")] = (0, 1)
@@ -500,9 +468,8 @@ class Limit (WebDAVElement):
     namespace = calendarserver_namespace
     name = "limit"
     allowed_children = {
-        (calendarserver_namespace, "nresults")  : (1, 1),
+        (calendarserver_namespace, "nresults"): (1, 1),
     }
-
 
 
 @registerElement
@@ -512,7 +479,6 @@ class NResults (WebDAVTextElement):
     """
     namespace = calendarserver_namespace
     name = "nresults"
-
 
 
 @registerElement
@@ -526,7 +492,6 @@ class FirstNameProperty (WebDAVTextElement):
     hidden = True
 
 
-
 @registerElement
 class LastNameProperty (WebDAVTextElement):
     """
@@ -536,7 +501,6 @@ class LastNameProperty (WebDAVTextElement):
     name = "last-name"
     protected = True
     hidden = True
-
 
 
 @registerElement
@@ -550,7 +514,6 @@ class EmailAddressProperty (WebDAVTextElement):
     hidden = True
 
 
-
 @registerElement
 class EmailAddressSet (WebDAVElement):
     """
@@ -561,7 +524,6 @@ class EmailAddressSet (WebDAVElement):
     hidden = True
 
     allowed_children = {(calendarserver_namespace, "email-address"): (0, None)}
-
 
 
 @registerElement
@@ -577,7 +539,6 @@ class ExpandedGroupMemberSet (WebDAVElement):
     allowed_children = {(dav_namespace, "href"): (0, None)}
 
 
-
 @registerElement
 class ExpandedGroupMembership (WebDAVElement):
     """
@@ -591,7 +552,6 @@ class ExpandedGroupMembership (WebDAVElement):
     allowed_children = {(dav_namespace, "href"): (0, None)}
 
 
-
 @registerElement
 class IScheduleInbox (WebDAVEmptyElement):
     """
@@ -600,7 +560,6 @@ class IScheduleInbox (WebDAVEmptyElement):
     """
     namespace = calendarserver_namespace
     name = "ischedule-inbox"
-
 
 
 @registerElement
@@ -613,7 +572,6 @@ class FreeBusyURL (WebDAVEmptyElement):
     name = "free-busy-url"
 
 
-
 @registerElement
 class ScheduleChanges (WebDAVElement):
     """
@@ -624,10 +582,9 @@ class ScheduleChanges (WebDAVElement):
     protected = True
     hidden = True
     allowed_children = {
-        (calendarserver_namespace, "dtstamp")     : (0, 1), # Have to allow 0 as element is empty in PROPFIND requests
-        (calendarserver_namespace, "action")      : (0, 1), # Have to allow 0 as element is empty in PROPFIND requests
+        (calendarserver_namespace, "dtstamp"): (0, 1),  # Have to allow 0 as element is empty in PROPFIND requests
+        (calendarserver_namespace, "action"): (0, 1),  # Have to allow 0 as element is empty in PROPFIND requests
     }
-
 
 
 @registerElement
@@ -639,7 +596,6 @@ class ScheduleDefaultTasksURL (WebDAVElement):
     name = "schedule-default-tasks-URL"
 
     allowed_children = {(dav_namespace, "href"): (0, 1)}
-
 
 
 @registerElement
@@ -656,7 +612,6 @@ class DTStamp (WebDAVTextElement):
             self.children = (PCDATAElement(DateTime.getNowUTC().getText()),)
 
 
-
 @registerElement
 class Action (WebDAVElement):
     """
@@ -665,12 +620,11 @@ class Action (WebDAVElement):
     namespace = calendarserver_namespace
     name = "action"
     allowed_children = {
-        (calendarserver_namespace, "create") : (0, 1),
-        (calendarserver_namespace, "update") : (0, 1),
-        (calendarserver_namespace, "cancel") : (0, 1),
-        (calendarserver_namespace, "reply")  : (0, 1),
+        (calendarserver_namespace, "create"): (0, 1),
+        (calendarserver_namespace, "update"): (0, 1),
+        (calendarserver_namespace, "cancel"): (0, 1),
+        (calendarserver_namespace, "reply"): (0, 1),
     }
-
 
 
 @registerElement
@@ -682,7 +636,6 @@ class Create (WebDAVEmptyElement):
     name = "create"
 
 
-
 @registerElement
 class Update (WebDAVElement):
     """
@@ -691,9 +644,8 @@ class Update (WebDAVElement):
     namespace = calendarserver_namespace
     name = "update"
     allowed_children = {
-        (calendarserver_namespace, "recurrence") : (1, None),
+        (calendarserver_namespace, "recurrence"): (1, None),
     }
-
 
 
 @registerElement
@@ -704,9 +656,8 @@ class Cancel (WebDAVElement):
     namespace = calendarserver_namespace
     name = "cancel"
     allowed_children = {
-        (calendarserver_namespace, "recurrence") : (0, 1),
+        (calendarserver_namespace, "recurrence"): (0, 1),
     }
-
 
 
 @registerElement
@@ -717,10 +668,9 @@ class Reply (WebDAVElement):
     namespace = calendarserver_namespace
     name = "reply"
     allowed_children = {
-        (calendarserver_namespace, "attendee")        : (1, 1),
-        (calendarserver_namespace, "recurrence")      : (1, None),
+        (calendarserver_namespace, "attendee"): (1, 1),
+        (calendarserver_namespace, "recurrence"): (1, None),
     }
-
 
 
 @registerElement
@@ -731,11 +681,10 @@ class Recurrence (WebDAVElement):
     namespace = calendarserver_namespace
     name = "recurrence"
     allowed_children = {
-        (calendarserver_namespace, "master")       : (0, 1),
-        (calendarserver_namespace, "recurrenceid") : (0, None),
-        (calendarserver_namespace, "changes")      : (0, 1),
+        (calendarserver_namespace, "master"): (0, 1),
+        (calendarserver_namespace, "recurrenceid"): (0, None),
+        (calendarserver_namespace, "changes"): (0, 1),
     }
-
 
 
 @registerElement
@@ -747,7 +696,6 @@ class Master (WebDAVEmptyElement):
     name = "master"
 
 
-
 @registerElement
 class RecurrenceID (WebDAVTextElement):
     """
@@ -755,7 +703,6 @@ class RecurrenceID (WebDAVTextElement):
     """
     namespace = calendarserver_namespace
     name = "recurrenceid"
-
 
 
 @registerElement
@@ -766,9 +713,8 @@ class Changes (WebDAVElement):
     namespace = calendarserver_namespace
     name = "changes"
     allowed_children = {
-        (calendarserver_namespace, "changed-property")  : (0, None),
+        (calendarserver_namespace, "changed-property"): (0, None),
     }
-
 
 
 @registerElement
@@ -780,13 +726,12 @@ class ChangedProperty (WebDAVElement):
     name = "changed-property"
 
     allowed_children = {
-        (calendarserver_namespace, "changed-parameter")  : (0, None),
+        (calendarserver_namespace, "changed-parameter"): (0, None),
     }
 
     allowed_attributes = {
-        "name" : True,
+        "name": True,
     }
-
 
 
 @registerElement
@@ -798,9 +743,8 @@ class ChangedParameter (WebDAVEmptyElement):
     name = "changed-parameter"
 
     allowed_attributes = {
-        "name" : True,
+        "name": True,
     }
-
 
 
 @registerElement
@@ -810,7 +754,6 @@ class Attendee (WebDAVTextElement):
     """
     namespace = calendarserver_namespace
     name = "attendee"
-
 
 
 @registerElement
@@ -824,7 +767,6 @@ class RecordType (WebDAVTextElement):
     hidden = True
 
 
-
 @registerElement
 class AutoScheduleMode (WebDAVTextElement):
     """
@@ -832,7 +774,6 @@ class AutoScheduleMode (WebDAVTextElement):
     """
     namespace = calendarserver_namespace
     name = "auto-schedule-mode"
-
 
 
 ##
@@ -848,7 +789,6 @@ class ReadAccess (WebDAVEmptyElement):
     name = "read"
 
 
-
 @registerElement
 class ReadWriteAccess (WebDAVEmptyElement):
     """
@@ -858,19 +798,16 @@ class ReadWriteAccess (WebDAVEmptyElement):
     name = "read-write"
 
 
-
 @registerElement
 class UID (WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "uid"
 
 
-
 @registerElement
 class InReplyTo (WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "in-reply-to"
-
 
 
 @registerElement
@@ -882,7 +819,6 @@ class SharedOwner (WebDAVEmptyElement):
     name = "shared-owner"
 
 
-
 @registerElement
 class Shared (WebDAVEmptyElement):
     """
@@ -892,7 +828,6 @@ class Shared (WebDAVEmptyElement):
     name = "shared"
 
 
-
 @registerElement
 class Subscribed (WebDAVEmptyElement):
     """
@@ -900,7 +835,6 @@ class Subscribed (WebDAVEmptyElement):
     """
     namespace = calendarserver_namespace
     name = "subscribed"
-
 
 
 @registerElement
@@ -914,7 +848,6 @@ class SharedURL (WebDAVTextElement):
     hidden = True
 
 
-
 @registerElement
 class SharedAs (WebDAVElement):
     """
@@ -924,9 +857,8 @@ class SharedAs (WebDAVElement):
     name = "shared-as"
 
     allowed_children = {
-        (dav_namespace, "href")    : (1, 1),
+        (dav_namespace, "href"): (1, 1),
     }
-
 
 
 @registerElement
@@ -938,7 +870,6 @@ class SharedAcceptEmailNotification (WebDAVTextElement):
     name = "shared-accept-email-notification"
 
 
-
 @registerElement
 class Birthday (WebDAVEmptyElement):
     """
@@ -946,7 +877,6 @@ class Birthday (WebDAVEmptyElement):
     """
     namespace = calendarserver_namespace
     name = "birthday"
-
 
 
 @registerElement
@@ -957,10 +887,9 @@ class AllowedSharingModes (WebDAVElement):
     hidden = True
 
     allowed_children = {
-        (calendarserver_namespace, "can-be-shared")    : (0, 1),
-        (calendarserver_namespace, "can-be-published") : (0, 1),
+        (calendarserver_namespace, "can-be-shared"): (0, 1),
+        (calendarserver_namespace, "can-be-published"): (0, 1),
     }
-
 
 
 @registerElement
@@ -969,12 +898,10 @@ class CanBeShared (WebDAVEmptyElement):
     name = "can-be-shared"
 
 
-
 @registerElement
 class CanBePublished (WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "can-be-published"
-
 
 
 @registerElement
@@ -983,10 +910,9 @@ class InviteShare (WebDAVElement):
     name = "share"
 
     allowed_children = {
-        (calendarserver_namespace, "set")    : (0, None),
-        (calendarserver_namespace, "remove") : (0, None),
+        (calendarserver_namespace, "set"): (0, None),
+        (calendarserver_namespace, "remove"): (0, None),
     }
-
 
 
 @registerElement
@@ -995,14 +921,13 @@ class InviteSet (WebDAVElement):
     name = "set"
 
     allowed_children = {
-        (dav_namespace, "href")                           : (1, 1),
-        (calendarserver_namespace, "common-name")         : (0, 1),
-        (calendarserver_namespace, "summary")             : (0, 1),
-        (calendarserver_namespace, "read")                : (0, 1),
-        (calendarserver_namespace, "read-write")          : (0, 1),
-        (calendarserver_namespace, "read-write-schedule") : (0, 1),
+        (dav_namespace, "href"): (1, 1),
+        (calendarserver_namespace, "common-name"): (0, 1),
+        (calendarserver_namespace, "summary"): (0, 1),
+        (calendarserver_namespace, "read"): (0, 1),
+        (calendarserver_namespace, "read-write"): (0, 1),
+        (calendarserver_namespace, "read-write-schedule"): (0, 1),
     }
-
 
 
 @registerElement
@@ -1011,12 +936,11 @@ class InviteRemove (WebDAVElement):
     name = "remove"
 
     allowed_children = {
-        (dav_namespace, "href")                           : (1, 1),
-        (calendarserver_namespace, "read")                : (0, 1),
-        (calendarserver_namespace, "read-write")          : (0, 1),
-        (calendarserver_namespace, "read-write-schedule") : (0, 1),
+        (dav_namespace, "href"): (1, 1),
+        (calendarserver_namespace, "read"): (0, 1),
+        (calendarserver_namespace, "read-write"): (0, 1),
+        (calendarserver_namespace, "read-write-schedule"): (0, 1),
     }
-
 
 
 @registerElement
@@ -1025,18 +949,17 @@ class InviteUser (WebDAVElement):
     name = "user"
 
     allowed_children = {
-        (calendarserver_namespace, "uid")               : (0, 1),
-        (dav_namespace, "href")                         : (1, 1),
-        (calendarserver_namespace, "common-name")       : (0, 1),
-        (calendarserver_namespace, "invite-noresponse") : (0, 1),
-        (calendarserver_namespace, "invite-deleted")    : (0, 1),
-        (calendarserver_namespace, "invite-accepted")   : (0, 1),
-        (calendarserver_namespace, "invite-declined")   : (0, 1),
-        (calendarserver_namespace, "invite-invalid")    : (0, 1),
-        (calendarserver_namespace, "access")            : (1, 1),
-        (calendarserver_namespace, "summary")           : (0, 1),
+        (calendarserver_namespace, "uid"): (0, 1),
+        (dav_namespace, "href"): (1, 1),
+        (calendarserver_namespace, "common-name"): (0, 1),
+        (calendarserver_namespace, "invite-noresponse"): (0, 1),
+        (calendarserver_namespace, "invite-deleted"): (0, 1),
+        (calendarserver_namespace, "invite-accepted"): (0, 1),
+        (calendarserver_namespace, "invite-declined"): (0, 1),
+        (calendarserver_namespace, "invite-invalid"): (0, 1),
+        (calendarserver_namespace, "access"): (1, 1),
+        (calendarserver_namespace, "summary"): (0, 1),
     }
-
 
 
 @registerElement
@@ -1045,11 +968,10 @@ class InviteAccess (WebDAVElement):
     name = "access"
 
     allowed_children = {
-        (calendarserver_namespace, "read")                : (0, 1),
-        (calendarserver_namespace, "read-write")          : (0, 1),
-        (calendarserver_namespace, "read-write-schedule") : (0, 1),
+        (calendarserver_namespace, "read"): (0, 1),
+        (calendarserver_namespace, "read-write"): (0, 1),
+        (calendarserver_namespace, "read-write-schedule"): (0, 1),
     }
-
 
 
 @registerElement
@@ -1058,10 +980,9 @@ class Invite (WebDAVElement):
     name = "invite"
 
     allowed_children = {
-        (calendarserver_namespace, "organizer") : (0, 1),
-        (calendarserver_namespace, "user")      : (0, None),
+        (calendarserver_namespace, "organizer"): (0, 1),
+        (calendarserver_namespace, "user"): (0, None),
     }
-
 
 
 @registerElement
@@ -1070,12 +991,10 @@ class InviteSummary (WebDAVTextElement):
     name = "summary"
 
 
-
 @registerElement
 class InviteStatusNoResponse (WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "invite-noresponse"
-
 
 
 @registerElement
@@ -1084,12 +1003,10 @@ class InviteStatusDeleted (WebDAVEmptyElement):
     name = "invite-deleted"
 
 
-
 @registerElement
 class InviteStatusAccepted (WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "invite-accepted"
-
 
 
 @registerElement
@@ -1098,12 +1015,10 @@ class InviteStatusDeclined (WebDAVEmptyElement):
     name = "invite-declined"
 
 
-
 @registerElement
 class InviteStatusInvalid (WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "invite-invalid"
-
 
 
 @registerElement
@@ -1115,9 +1030,8 @@ class HostURL (WebDAVElement):
     name = "hosturl"
 
     allowed_children = {
-        (dav_namespace, "href") : (0, None)
+        (dav_namespace, "href"): (0, None)
     }
-
 
 
 @registerElement
@@ -1129,10 +1043,9 @@ class Organizer (WebDAVElement):
     name = "organizer"
 
     allowed_children = {
-        (dav_namespace, "href") : (0, None),
-        (calendarserver_namespace, "common-name")  : (0, 1)
+        (dav_namespace, "href"): (0, None),
+        (calendarserver_namespace, "common-name"): (0, 1)
     }
-
 
 
 @registerElement
@@ -1144,30 +1057,28 @@ class CommonName (WebDAVTextElement):
     name = "common-name"
 
 
-
 @registerElement
 class InviteNotification (WebDAVElement):
     namespace = calendarserver_namespace
     name = "invite-notification"
 
     allowed_children = {
-        (calendarserver_namespace, "uid")               : (0, 1),
-        (dav_namespace, "href")                         : (0, 1),
-        (calendarserver_namespace, "invite-noresponse") : (0, 1),
-        (calendarserver_namespace, "invite-deleted")    : (0, 1),
-        (calendarserver_namespace, "invite-accepted")   : (0, 1),
-        (calendarserver_namespace, "invite-declined")   : (0, 1),
-        (calendarserver_namespace, "access")            : (0, 1),
-        (calendarserver_namespace, "hosturl")           : (0, 1),
-        (calendarserver_namespace, "organizer")         : (0, 1),
-        (calendarserver_namespace, "summary")           : (0, 1),
-        (caldav_namespace, "supported-calendar-component-set") : (0, 1),
+        (calendarserver_namespace, "uid"): (0, 1),
+        (dav_namespace, "href"): (0, 1),
+        (calendarserver_namespace, "invite-noresponse"): (0, 1),
+        (calendarserver_namespace, "invite-deleted"): (0, 1),
+        (calendarserver_namespace, "invite-accepted"): (0, 1),
+        (calendarserver_namespace, "invite-declined"): (0, 1),
+        (calendarserver_namespace, "access"): (0, 1),
+        (calendarserver_namespace, "hosturl"): (0, 1),
+        (calendarserver_namespace, "organizer"): (0, 1),
+        (calendarserver_namespace, "summary"): (0, 1),
+        (caldav_namespace, "supported-calendar-component-set"): (0, 1),
     }
 
     allowed_attributes = {
-        "shared-type" : True,
+        "shared-type": True,
     }
-
 
 
 @registerElement
@@ -1176,17 +1087,16 @@ class InviteReply (WebDAVElement):
     name = "invite-reply"
 
     allowed_children = {
-        (dav_namespace, "href")                       : (0, 1),
-        (calendarserver_namespace, "common-name")     : (0, 1),
-        (calendarserver_namespace, "first-name")      : (0, 1),
-        (calendarserver_namespace, "last-name")       : (0, 1),
-        (calendarserver_namespace, "invite-accepted") : (0, 1),
-        (calendarserver_namespace, "invite-declined") : (0, 1),
-        (calendarserver_namespace, "hosturl")         : (0, 1),
-        (calendarserver_namespace, "in-reply-to")     : (0, 1),
-        (calendarserver_namespace, "summary")         : (0, 1),
+        (dav_namespace, "href"): (0, 1),
+        (calendarserver_namespace, "common-name"): (0, 1),
+        (calendarserver_namespace, "first-name"): (0, 1),
+        (calendarserver_namespace, "last-name"): (0, 1),
+        (calendarserver_namespace, "invite-accepted"): (0, 1),
+        (calendarserver_namespace, "invite-declined"): (0, 1),
+        (calendarserver_namespace, "hosturl"): (0, 1),
+        (calendarserver_namespace, "in-reply-to"): (0, 1),
+        (calendarserver_namespace, "summary"): (0, 1),
     }
-
 
 
 @registerElement
@@ -1195,13 +1105,12 @@ class ResourceUpdateNotification (WebDAVElement):
     name = "resource-update-notification"
 
     allowed_children = {
-        (dav_namespace, "href")                                     : (0, 1),
-        (calendarserver_namespace, "uid")                           : (0, 1),
-        (calendarserver_namespace, "resource-added-notification")   : (0, 1),
-        (calendarserver_namespace, "resource-updated-notification") : (0, 1),
-        (calendarserver_namespace, "resource-deleted-notification") : (0, 1),
+        (dav_namespace, "href"): (0, 1),
+        (calendarserver_namespace, "uid"): (0, 1),
+        (calendarserver_namespace, "resource-added-notification"): (0, 1),
+        (calendarserver_namespace, "resource-updated-notification"): (0, 1),
+        (calendarserver_namespace, "resource-deleted-notification"): (0, 1),
     }
-
 
 
 @registerElement
@@ -1210,12 +1119,10 @@ class ResourceUpdateAdded(WebDAVEmptyElement):
     name = "resource-added-notification"
 
 
-
 @registerElement
 class ResourceUpdateUpdated(WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "resource-updated-notification"
-
 
 
 @registerElement
@@ -1224,20 +1131,18 @@ class ResourceUpdateDeleted(WebDAVEmptyElement):
     name = "resource-deleted-notification"
 
 
-
 @registerElement
 class SharedCalendarUpdateNotification (WebDAVElement):
     namespace = calendarserver_namespace
     name = "shared-update-notification"
 
     allowed_children = {
-        (calendarserver_namespace, "hosturl")           : (0, 1), # The shared calendar url
-        (dav_namespace, "href")                         : (0, 1), # Email userid that was invited
-        (calendarserver_namespace, "invite-deleted")    : (0, 1), # What the user did...
-        (calendarserver_namespace, "invite-accepted")   : (0, 1),
-        (calendarserver_namespace, "invite-declined")   : (0, 1),
+        (calendarserver_namespace, "hosturl"): (0, 1),  # The shared calendar url
+        (dav_namespace, "href"): (0, 1),  # Email userid that was invited
+        (calendarserver_namespace, "invite-deleted"): (0, 1),  # What the user did...
+        (calendarserver_namespace, "invite-accepted"): (0, 1),
+        (calendarserver_namespace, "invite-declined"): (0, 1),
     }
-
 
 
 ##
@@ -1253,13 +1158,12 @@ class Notification (WebDAVElement):
     name = "notification"
 
     allowed_children = {
-        (calendarserver_namespace, "dtstamp")                       : (0, None),
-        (calendarserver_namespace, "invite-notification")           : (0, None),
-        (calendarserver_namespace, "invite-reply")                  : (0, None),
-        (calendarserver_namespace, "resource-update-notification")  : (0, None),
-        (calendarserver_namespace, "shared-update-notification")    : (0, None),
+        (calendarserver_namespace, "dtstamp"): (0, None),
+        (calendarserver_namespace, "invite-notification"): (0, None),
+        (calendarserver_namespace, "invite-reply"): (0, None),
+        (calendarserver_namespace, "resource-update-notification"): (0, None),
+        (calendarserver_namespace, "shared-update-notification"): (0, None),
     }
-
 
 
 @registerElement
@@ -1273,9 +1177,8 @@ class NotificationURL (WebDAVElement):
     protected = True
 
     allowed_children = {
-        (dav_namespace, "href") : (0, 1)
+        (dav_namespace, "href"): (0, 1)
     }
-
 
 
 @registerElement
@@ -1289,10 +1192,9 @@ class NotificationType (WebDAVElement):
     protected = True
 
     allowed_children = {
-        (calendarserver_namespace, "invite-notification")   : (0, None),
-        (calendarserver_namespace, "invite-reply")          : (0, None),
+        (calendarserver_namespace, "invite-notification"): (0, None),
+        (calendarserver_namespace, "invite-reply"): (0, None),
     }
-
 
 
 @registerElement
@@ -1306,15 +1208,15 @@ class Link (WebDAVEmptyElement):
 
 mm_namespace = "http://me.com/_namespace/"
 
+
 @registerElement
 class Multiput (WebDAVElement):
     namespace = mm_namespace
     name = "multiput"
 
     allowed_children = {
-        (mm_namespace, "resource")   : (1, None),
+        (mm_namespace, "resource"): (1, None),
     }
-
 
 
 @registerElement
@@ -1323,13 +1225,12 @@ class Resource (WebDAVElement):
     name = "resource"
 
     allowed_children = {
-        (dav_namespace, "href")     : (0, 1),
-        (mm_namespace, "if-match") : (0, 1),
-        (dav_namespace, "set")      : (0, 1),
-        (dav_namespace, "remove")   : (0, 1),
-        (mm_namespace, "delete")   : (0, 1),
+        (dav_namespace, "href"): (0, 1),
+        (mm_namespace, "if-match"): (0, 1),
+        (dav_namespace, "set"): (0, 1),
+        (dav_namespace, "remove"): (0, 1),
+        (mm_namespace, "delete"): (0, 1),
     }
-
 
 
 @registerElement
@@ -1338,16 +1239,14 @@ class IfMatch (WebDAVElement):
     name = "if-match"
 
     allowed_children = {
-        (dav_namespace, "getetag")   : (1, 1),
+        (dav_namespace, "getetag"): (1, 1),
     }
-
 
 
 @registerElement
 class Delete (WebDAVEmptyElement):
     namespace = mm_namespace
     name = "delete"
-
 
 
 @registerElement
@@ -1358,10 +1257,9 @@ class BulkRequests (WebDAVElement):
     protected = True
 
     allowed_children = {
-        (mm_namespace, "simple")   : (0, 1),
-        (mm_namespace, "crud")     : (0, 1),
+        (mm_namespace, "simple"): (0, 1),
+        (mm_namespace, "crud"): (0, 1),
     }
-
 
 
 @registerElement
@@ -1372,10 +1270,9 @@ class Simple (WebDAVElement):
     protected = True
 
     allowed_children = {
-        (mm_namespace, "max-resources")   : (1, 1),
-        (mm_namespace, "max-bytes")       : (1, 1),
+        (mm_namespace, "max-resources"): (1, 1),
+        (mm_namespace, "max-bytes"): (1, 1),
     }
-
 
 
 @registerElement
@@ -1386,10 +1283,9 @@ class CRUD (WebDAVElement):
     protected = True
 
     allowed_children = {
-        (mm_namespace, "max-resources")   : (1, 1),
-        (mm_namespace, "max-bytes")       : (1, 1),
+        (mm_namespace, "max-resources"): (1, 1),
+        (mm_namespace, "max-bytes"): (1, 1),
     }
-
 
 
 @registerElement
@@ -1398,12 +1294,10 @@ class MaxBulkResources (WebDAVTextElement):
     name = "max-resources"
 
 
-
 @registerElement
 class MaxBulkBytes (WebDAVTextElement):
     namespace = mm_namespace
     name = "max-bytes"
-
 
 
 #
@@ -1414,7 +1308,6 @@ class MaxBulkBytes (WebDAVTextElement):
 class CalendarColor(WebDAVTextElement):
     namespace = "http://apple.com/ns/ical/"
     name = "calendar-color"
-
 
 
 #
@@ -1428,7 +1321,6 @@ class CalendarServerPrincipalSearchToken (WebDAVTextElement):
     """
     namespace = calendarserver_namespace
     name = "search-token"
-
 
 
 @registerElement

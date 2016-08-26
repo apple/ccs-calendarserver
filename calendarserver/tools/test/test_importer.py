@@ -286,7 +286,6 @@ class ImportTests(StoreTestCase):
         self.patch(JobItem, "failureRescheduleInterval", 1)
         self.patch(JobItem, "lockRescheduleInterval", 1)
 
-
     @inlineCallbacks
     def test_ImportComponentMissingSource(self):
 
@@ -297,7 +296,6 @@ class ImportTests(StoreTestCase):
             pass
         else:
             self.fail("Did not raise ImportException")
-
 
     @inlineCallbacks
     def test_ImportComponentNoScheduling(self):
@@ -353,7 +351,6 @@ class ImportTests(StoreTestCase):
 
         yield txn.commit()
 
-
     @inlineCallbacks
     def test_ImportComponentOrganizer(self):
 
@@ -398,7 +395,6 @@ class ImportTests(StoreTestCase):
         self.assertEquals(len(objects), 1)
 
         yield txn.commit()
-
 
     @inlineCallbacks
     def test_ImportComponentAttendee(self):

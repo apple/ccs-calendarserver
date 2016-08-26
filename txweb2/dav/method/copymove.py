@@ -98,6 +98,7 @@ def http_COPY(self, request):
 
 http_COPY = deferredGenerator(http_COPY)
 
+
 def http_MOVE(self, request):
     """
     Respond to a MOVE request. (RFC 2518, section 8.9)
@@ -175,6 +176,7 @@ def http_MOVE(self, request):
 
 http_MOVE = deferredGenerator(http_MOVE)
 
+
 def prepareForCopy(self, request):
     #
     # Get the depth
@@ -213,7 +215,6 @@ def prepareForCopy(self, request):
     d.addCallback(_prepareForCopy, destination_uri, request, depth)
 
     return d
-
 
 
 def _prepareForCopy(destination, destination_uri, request, depth):

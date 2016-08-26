@@ -23,6 +23,7 @@ from txdav.common.datastore.sql_tables import schema
 Module that manages store-level metadata objects used during the migration process.
 """
 
+
 class CalendarMigrationRecord(Record, fromTable(schema.CALENDAR_MIGRATION)):
     """
     @DynamicAttrs
@@ -40,14 +41,12 @@ class CalendarMigrationRecord(Record, fromTable(schema.CALENDAR_MIGRATION)):
         ).on(txn, remotes=remotes)
 
 
-
 class CalendarObjectMigrationRecord(Record, fromTable(schema.CALENDAR_OBJECT_MIGRATION)):
     """
     @DynamicAttrs
     L{Record} for L{schema.CALENDAR_OBJECT_MIGRATION}.
     """
     pass
-
 
 
 class AttachmentMigrationRecord(Record, fromTable(schema.ATTACHMENT_MIGRATION)):

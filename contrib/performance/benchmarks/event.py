@@ -22,6 +22,7 @@ from itertools import count
 
 from contrib.performance._event_create import makeEvent, measure as _measure
 
+
 def measure(host, port, dtrace, attendeeCount, samples):
     calendar = "event-creation-benchmark"
     organizerSequence = 1

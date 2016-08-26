@@ -29,6 +29,7 @@ from txweb2.auth.interfaces import ICredentialFactory
 
 from zope.interface import implements
 
+
 class BasicCredentialFactory(object):
     """
     Credential Factory for HTTP Basic Authentication
@@ -41,13 +42,11 @@ class BasicCredentialFactory(object):
     def __init__(self, realm):
         self.realm = realm
 
-
     def getChallenge(self, peer):
         """
         @see L{ICredentialFactory.getChallenge}
         """
         return succeed({'realm': self.realm})
-
 
     def decode(self, response, request):
         """

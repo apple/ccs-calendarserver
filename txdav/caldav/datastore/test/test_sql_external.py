@@ -46,7 +46,6 @@ class BaseSharingTests(MultiStoreConduitTest):
         yield super(BaseSharingTests, self).setUp()
         yield self.populate()
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.theStoreUnderTest(0))
@@ -83,7 +82,7 @@ END:VCALENDAR
 """
 
     @classproperty(cache=False)
-    def requirements(cls): #@NoSelf
+    def requirements(cls):  # @NoSelf
         return {
             "user01": {
                 "calendar": {
@@ -107,7 +106,6 @@ END:VCALENDAR
         }
 
 
-
 class CalendarSharing(BaseSharingTests):
 
     @inlineCallbacks
@@ -116,7 +114,6 @@ class CalendarSharing(BaseSharingTests):
         for store in self.theStores:
             store._poddingFailure = None
             store._poddingError = None
-
 
     @inlineCallbacks
     def test_no_shares(self):
@@ -128,7 +125,6 @@ class CalendarSharing(BaseSharingTests):
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
         self.assertFalse(calendar.isSharedByOwner())
-
 
     @inlineCallbacks
     def test_invite_sharee(self):
@@ -189,7 +185,6 @@ class CalendarSharing(BaseSharingTests):
         self.assertTrue(calendar.isSharedByOwner())
         yield calendar.setShared(False)
         self.assertFalse(calendar.isSharedByOwner())
-
 
     @inlineCallbacks
     def test_accept_share(self):
@@ -256,7 +251,6 @@ class CalendarSharing(BaseSharingTests):
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         self.assertTrue(calendar.isSharedByOwner())
 
-
     @inlineCallbacks
     def test_decline_share(self):
         """
@@ -322,7 +316,6 @@ class CalendarSharing(BaseSharingTests):
 
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         self.assertTrue(calendar.isSharedByOwner())
-
 
     @inlineCallbacks
     def test_accept_decline_share(self):
@@ -391,7 +384,6 @@ class CalendarSharing(BaseSharingTests):
         calendar = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         self.assertTrue(calendar.isSharedByOwner())
 
-
     @inlineCallbacks
     def test_accept_remove_share(self):
         """
@@ -452,7 +444,6 @@ class CalendarSharing(BaseSharingTests):
         notifications = yield notifyHome.listNotificationObjects()
         self.assertEqual(notifications, [inviteUID + "-reply.xml", ])
 
-
     @inlineCallbacks
     def test_accept_remove_accept(self):
         yield self.createShare()
@@ -463,7 +454,6 @@ class CalendarSharing(BaseSharingTests):
         otherCal = yield self.calendarUnderTest(txn=txn2, home="puser02", name=shared_name)
         self.assertTrue(otherCal is not None)
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_accept_remove_accept_newcalendar(self):
@@ -503,7 +493,6 @@ class CalendarSharing(BaseSharingTests):
         self.assertTrue(otherCal is not None)
         yield self.commitTransaction(1)
 
-
     @inlineCallbacks
     def test_inviteProperties(self):
 
@@ -516,7 +505,6 @@ class CalendarSharing(BaseSharingTests):
         txn2 = self.theTransactionUnderTest(1)
         shared = yield self.calendarUnderTest(txn=txn2, home="puser02", name=shared_name)
         self.assertFalse(shared.isUsedForFreeBusy())
-
 
     @inlineCallbacks
     def test_direct_sharee(self):
@@ -584,7 +572,6 @@ class CalendarSharing(BaseSharingTests):
         calendar = yield home.calendarWithName(shared_name)
         self.assertEquals(calendar.notifierID(), ("CalDAV", "user01/calendar",))
 
-
     @inlineCallbacks
     def test_sharedWithTwo(self):
         shared_name1 = yield self.createShare(shareeGUID="puser02")
@@ -599,7 +586,6 @@ class CalendarSharing(BaseSharingTests):
         otherCal = yield self.calendarUnderTest(txn=txn2, home="puser03", name=shared_name2)
         self.assertTrue(otherCal is not None)
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_invite_sharee_failure(self):
@@ -617,7 +603,6 @@ class CalendarSharing(BaseSharingTests):
         self.assertFalse(calendar.isSharedByOwner())
 
         yield self.assertFailure(calendar.inviteUIDToShare("puser02", _BIND_MODE_READ, "summary"), FailedCrossPodRequestError)
-
 
     @inlineCallbacks
     def test_uninvite_sharee_failure(self):
@@ -693,7 +678,6 @@ class CalendarSharing(BaseSharingTests):
         self.assertTrue(calendar is None)
         yield self.commitTransaction(1)
 
-
     @inlineCallbacks
     def test_reply_sharee_failure(self):
         """
@@ -760,7 +744,6 @@ class CalendarSharing(BaseSharingTests):
         self.assertTrue(calendar is None)
         yield self.commitTransaction(1)
 
-
     @inlineCallbacks
     def test_shared_notifications(self):
         shared_name_puser02 = yield self.createShare()
@@ -809,7 +792,6 @@ class CalendarSharing(BaseSharingTests):
         _checkNotifications(priority=PushPriority.medium)
 
 
-
 class SharingRevisions(BaseSharingTests):
     """
     Test store-based sharing and interaction with revision table.
@@ -828,7 +810,6 @@ class SharingRevisions(BaseSharingTests):
         txn2 = self.theTransactionUnderTest(1)
         otherCal = yield self.calendarUnderTest(txn=txn2, home="puser02", name=sharedName)
         self.assertNotEqual(otherCal._bindRevision, 0)
-
 
     @inlineCallbacks
     def test_updateShareRevision(self):
@@ -866,7 +847,6 @@ class SharingRevisions(BaseSharingTests):
         txn2 = self.theTransactionUnderTest(1)
         otherCal = yield self.calendarUnderTest(txn=txn2, home="puser02", name=sharedName)
         self.assertNotEqual(otherCal._bindRevision, 0)
-
 
     @inlineCallbacks
     def test_sharedRevisions(self):

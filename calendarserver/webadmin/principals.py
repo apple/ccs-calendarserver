@@ -40,7 +40,6 @@ from txweb2.http_headers import MimeType
 from .resource import PageElement, TemplateResource
 
 
-
 class PrincipalsPageElement(PageElement):
     """
     Principal management page element.
@@ -51,12 +50,10 @@ class PrincipalsPageElement(PageElement):
 
         self._directory = directory
 
-
     def pageSlots(self):
         return {
             u"title": u"Principal Management",
         }
-
 
     @renderer
     def search_terms(self, request, tag):
@@ -69,7 +66,6 @@ class PrincipalsPageElement(PageElement):
         else:
             return tag
 
-
     @renderer
     def if_search_results(self, request, tag):
         """
@@ -79,7 +75,6 @@ class PrincipalsPageElement(PageElement):
             return tag
         else:
             return u""
-
 
     @renderer
     def search_results_row(self, request, tag):
@@ -93,7 +88,6 @@ class PrincipalsPageElement(PageElement):
         d.addCallback(rowsForRecords)
         return d
 
-
     @inlineCallbacks
     def recordsForSearchTerms(self, request):
         if not hasattr(request, "_search_result_records"):
@@ -104,14 +98,12 @@ class PrincipalsPageElement(PageElement):
         returnValue(request._search_result_records)
 
 
-
 class PrincipalsResource(TemplateResource):
     """
     Principal management page resource.
     """
 
     addSlash = True
-
 
     def __init__(self, directory, store, principalCollections):
         super(PrincipalsResource, self).__init__(
@@ -120,7 +112,6 @@ class PrincipalsResource(TemplateResource):
 
         self._directory = directory
         self._store = store
-
 
     @inlineCallbacks
     def getChild(self, name):
@@ -135,7 +126,6 @@ class PrincipalsResource(TemplateResource):
             returnValue(None)
 
 
-
 class PrincipalPageElement(PageElement):
     """
     Principal editing page element.
@@ -145,7 +135,6 @@ class PrincipalPageElement(PageElement):
         super(PrincipalPageElement, self).__init__(u"principals_edit")
 
         self._record = record
-
 
     def pageSlots(self):
         slots = slotsForRecord(self._record)
@@ -160,14 +149,12 @@ class PrincipalPageElement(PageElement):
         return slots
 
 
-
 class PrincipalResource(TemplateResource):
     """
     Principal editing resource.
     """
 
     addSlash = True
-
 
     def __init__(self, record, store, principalCollections):
         super(PrincipalResource, self).__init__(
@@ -177,14 +164,12 @@ class PrincipalResource(TemplateResource):
         self._record = record
         self._store = store
 
-
     def getChild(self, name):
         if name == "":
             return self
 
         if name == "calendars_combined":
             return PrincipalCalendarsExportResource(self._record, self._store, self._principalCollections)
-
 
 
 class PrincipalCalendarsExportResource(SimpleResource):
@@ -194,13 +179,11 @@ class PrincipalCalendarsExportResource(SimpleResource):
 
     addSlash = False
 
-
     def __init__(self, record, store, principalCollections):
         super(PrincipalCalendarsExportResource, self).__init__(principalCollections, isdir=False)
 
         self._record = record
         self._store = store
-
 
     @inlineCallbacks
     def calendarComponents(self):
@@ -226,7 +209,6 @@ class PrincipalCalendarsExportResource(SimpleResource):
             txn.abort()
 
         returnValue(calendarComponents)
-
 
     @inlineCallbacks
     def iCalendarZipArchiveData(self):
@@ -266,7 +248,6 @@ class PrincipalCalendarsExportResource(SimpleResource):
 
         returnValue(data)
 
-
     @inlineCallbacks
     def render(self, request):
         response = Response()
@@ -279,7 +260,6 @@ class PrincipalCalendarsExportResource(SimpleResource):
         )
 
         returnValue(response)
-
 
 
 def searchTerms(request):
@@ -302,7 +282,6 @@ def searchTerms(request):
     return request._search_terms
 
 
-
 #
 # This should work when we switch to twext.who
 #
@@ -318,7 +297,6 @@ def slotsForRecord(record):
                     return unicode(repr(obj))
                 except UnicodeDecodeError:
                     return u"(error rendering value)"
-
 
     def joinWithBR(elements):
         noValues = True

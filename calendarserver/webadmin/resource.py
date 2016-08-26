@@ -37,7 +37,6 @@ from txweb2.http import Response
 from txweb2.http_headers import MimeType
 
 
-
 class PageElement(Element):
     """
     Page element.
@@ -52,10 +51,8 @@ class PageElement(Element):
             )
         )
 
-
     def pageSlots(self):
         return {}
-
 
     @renderer
     def main(self, request, tag):
@@ -65,7 +62,6 @@ class PageElement(Element):
         tag.fillSlots(**self.pageSlots())
         return tag
 
-
     @renderer
     def stylesheet(self, request, tag):
         return tags.link(
@@ -74,7 +70,6 @@ class PageElement(Element):
             href=u"/style.css",
             type=u"text/css",
         )
-
 
 
 class TemplateResource(SimpleResource):
@@ -98,10 +93,8 @@ class TemplateResource(SimpleResource):
 
         self.elementClass = elementClass
 
-
     # def handleQueryArguments(self, request):
     #     return succeed(None)
-
 
     @inlineCallbacks
     def render(self, request):

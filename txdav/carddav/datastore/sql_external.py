@@ -27,6 +27,7 @@ from txdav.common.datastore.sql_external import CommonHomeExternal, CommonHomeCh
 
 log = Logger()
 
+
 class AddressBookHomeExternal(CommonHomeExternal, AddressBookHome):
 
     def __init__(self, transaction, homeData):
@@ -34,20 +35,17 @@ class AddressBookHomeExternal(CommonHomeExternal, AddressBookHome):
         AddressBookHome.__init__(self, transaction, homeData)
         CommonHomeExternal.__init__(self, transaction, homeData)
 
-
     def hasAddressBookResourceUIDSomewhereElse(self, uid, ok_object, mode):
         """
         No children.
         """
         raise AssertionError("CommonHomeExternal: not supported")
 
-
     def getAddressBookResourcesForUID(self, uid):
         """
         No children.
         """
         raise AssertionError("CommonHomeExternal: not supported")
-
 
     def addressbook(self):
         """
@@ -56,13 +54,11 @@ class AddressBookHomeExternal(CommonHomeExternal, AddressBookHome):
         raise AssertionError("CommonHomeExternal: not supported")
 
 
-
 class AddressBookExternal(CommonHomeChildExternal, AddressBook):
     """
     SQL-based implementation of L{IAddressBook}.
     """
     pass
-
 
 
 class AddressBookObjectExternal(CommonObjectResourceExternal, AddressBookObject):

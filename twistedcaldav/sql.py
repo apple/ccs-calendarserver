@@ -63,10 +63,8 @@ class AbstractSQLDatabase (object):
         self.persistent = persistent
         self.autocommit = autocommit
 
-
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.dbpath)
-
 
     def _db_version(self):
         """
@@ -74,13 +72,11 @@ class AbstractSQLDatabase (object):
         """
         raise NotImplementedError
 
-
     def _db_type(self):
         """
         @return: the collection type assigned to this index.
         """
         raise NotImplementedError
-
 
     def _db(self):
         """
@@ -151,14 +147,12 @@ class AbstractSQLDatabase (object):
                     q.close()
         return self._db_connection
 
-
     def _test_schema_table(self, q):
         q.execute("""
         select (1) from SQLITE_MASTER
          where TYPE = 'table' and NAME = 'CALDAV'
         """)
         return q.fetchone()
-
 
     def _get_schema_version(self, q):
         q.execute(
@@ -182,7 +176,6 @@ class AbstractSQLDatabase (object):
             dbtype = dbtype[0]
 
         return version, dbtype
-
 
     def _db_init(self, db_filename, q):
         """
@@ -212,7 +205,6 @@ class AbstractSQLDatabase (object):
             pass
 
         self._db_connection.isolation_level = old_isolation
-
 
     def _db_init_schema_table(self, q):
         """
@@ -244,7 +236,6 @@ class AbstractSQLDatabase (object):
             """, [self._db_type()]
         )
 
-
     def _db_init_data_tables(self, q):
         """
         Initialise the underlying database tables.
@@ -252,7 +243,6 @@ class AbstractSQLDatabase (object):
         @param q:           a database cursor to use.
         """
         raise NotImplementedError
-
 
     def _db_recreate(self, do_commit=True):
         """
@@ -263,11 +253,9 @@ class AbstractSQLDatabase (object):
         if do_commit:
             self._db_commit()
 
-
     def _db_can_upgrade(self, old_version):
 
         return self.persistent
-
 
     def _db_upgrade(self, old_version):
         """
@@ -297,7 +285,6 @@ class AbstractSQLDatabase (object):
 
         return self._db()
 
-
     def _db_upgrade_data_tables(self, q, old_version):
         """
         Upgrade the data from an older version of the DB.
@@ -305,7 +292,6 @@ class AbstractSQLDatabase (object):
         # Persistent DB's MUST override this method and do a proper upgrade. Their data
         # cannot be thrown away.
         raise NotImplementedError("Persistent databases MUST support an upgrade method.")
-
 
     def _db_upgrade_schema(self, q):
         """
@@ -318,12 +304,10 @@ class AbstractSQLDatabase (object):
             """, [self._db_version()]
         )
 
-
     def _db_close(self):
         if hasattr(self, "_db_connection"):
             self._db_connection.close()
             del self._db_connection
-
 
     def _db_values_for_sql(self, sql, *query_params):
         """
@@ -335,7 +319,6 @@ class AbstractSQLDatabase (object):
         @raise AssertionError: if the query yields multiple columns.
         """
         return (row[0] for row in self._db_execute(sql, *query_params))
-
 
     def _db_value_for_sql(self, sql, *query_params):
         """
@@ -351,7 +334,6 @@ class AbstractSQLDatabase (object):
             assert value is None, "Multiple values in DB for %s %s" % (sql, query_params)
             value = row
         return value
-
 
     def _db_execute(self, sql, *query_params):
         """
@@ -372,10 +354,8 @@ class AbstractSQLDatabase (object):
         finally:
             q.close()
 
-
     def _db_commit(self):
         self._db_connection.commit()
-
 
     def _db_rollback(self):
         self._db_connection.rollback()

@@ -42,7 +42,6 @@ from calendarserver.tap.caldav import CalDAVServiceMaker
 log = Logger()
 
 
-
 def usage(e=None):
     if e:
         print(e)
@@ -65,6 +64,7 @@ description = '\n'.join(
         int(os.environ.get('COLUMNS', '80'))
     )
 )
+
 
 class UpgradeOptions(Options):
     """
@@ -95,7 +95,6 @@ class UpgradeOptions(Options):
         self.outputName = '-'
         self.merge = False
 
-
     def opt_output(self, filename):
         """
         Specify output file path (default: '-', meaning stdout).
@@ -103,7 +102,6 @@ class UpgradeOptions(Options):
         self.outputName = filename
 
     opt_o = opt_output
-
 
     def opt_merge(self):
         """
@@ -114,7 +112,6 @@ class UpgradeOptions(Options):
 
     opt_m = opt_merge
 
-
     def openOutput(self):
         """
         Open the appropriate output file based on the '--output' option.
@@ -123,7 +120,6 @@ class UpgradeOptions(Options):
             return sys.stdout
         else:
             return open(self.outputName, 'wb')
-
 
 
 class UpgraderService(WorkerService, object):
@@ -140,7 +136,6 @@ class UpgraderService(WorkerService, object):
         self.reactor = reactor
         self.config = config
         self._directory = None
-
 
     def doWork(self):
         """
@@ -163,7 +158,6 @@ class UpgraderService(WorkerService, object):
         UpgraderService.started = True
         return succeed(None)
 
-
     def doWorkWithoutStore(self):
         """
         Immediately stop.  The upgrade will have been run before this and failed.
@@ -184,7 +178,6 @@ class UpgraderService(WorkerService, object):
         UpgraderService.started = True
         return succeed(None)
 
-
     def postStartService(self):
         """
         Quit right away
@@ -197,13 +190,11 @@ class UpgraderService(WorkerService, object):
             # I don't care.
             pass
 
-
     def stopService(self):
         """
         Stop the service.  Nothing to do; everything should be finished by this
         time.
         """
-
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
@@ -231,10 +222,8 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
             data.MergeUpgrades = True
         config.addPostUpdateHooks([setMerge])
 
-
     def makeService(store):
         return UpgraderService(store, options, output, reactor, config)
-
 
     def onlyUpgradeEvents(eventDict):
         text = formatEvent(eventDict)
@@ -248,12 +237,10 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
             [LogLevelFilterPredicate(defaultLogLevel=LogLevel.warn), ]
         ))
 
-
     def customServiceMaker():
         customService = CalDAVServiceMaker()
         customService.doPostImport = options["postprocess"]
         return customService
-
 
     def _patchConfig(config):
         config.FailIfUpgradeNeeded = options["status"] or options["check"]
@@ -262,7 +249,6 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
             config.UpgradeHomePrefix = options["prefix"]
         if not options["status"] and not options["check"]:
             config.DefaultLogLevel = "debug"
-
 
     def _onShutdown():
         if not UpgraderService.started:

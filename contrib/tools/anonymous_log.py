@@ -22,6 +22,7 @@ import os
 import sys
 import traceback
 
+
 class CalendarServerLogAnalyzer(object):
 
     def __init__(self):
@@ -34,7 +35,6 @@ class CalendarServerLogAnalyzer(object):
 
         self.resourceCtr = 1
         self.resources = {}
-
 
     def anonymizeLogFile(self, logFilePath):
 
@@ -57,7 +57,6 @@ class CalendarServerLogAnalyzer(object):
 
         finally:
             f.close()
-
 
     def anonymizeLine(self, line):
 
@@ -109,7 +108,6 @@ class CalendarServerLogAnalyzer(object):
                     line = line[:startPos] + "/".join(splits) + line[endPos:]
 
         return line
-
 
 
 def usage(error_msg=None):

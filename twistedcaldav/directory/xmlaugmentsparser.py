@@ -62,13 +62,14 @@ ELEMENT_AUGMENTRECORD_MAP = {
     ELEMENT_AUTOACCEPTGROUP: "autoAcceptGroup",
 }
 
+
 class XMLAugmentsParser(object):
     """
     XML augments configuration file parser.
     """
+
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.xmlFile)
-
 
     def __init__(self, xmlFile, items):
 
@@ -82,7 +83,6 @@ class XMLAugmentsParser(object):
             raise RuntimeError("XML parse error for '%s' because: %s" % (self.xmlFile, e,))
 
         self._parseXML(augments_node)
-
 
     def _parseXML(self, rootnode):
         """
@@ -128,7 +128,6 @@ class XMLAugmentsParser(object):
                     self.buildRecord(fields, i)
             else:
                 self.buildRecord(fields)
-
 
     def buildRecord(self, fields, count=None):
 

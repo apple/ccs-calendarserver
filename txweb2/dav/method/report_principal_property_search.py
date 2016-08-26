@@ -79,7 +79,6 @@ def report_DAV__principal_property_search(self, request, principal_property_sear
             match = child.childOfType(element.Match)
             propertySearches.append((props.children, str(match).lower()))
 
-
     def nodeMatch(node, match):
         """
         See if the content of the supplied node matches the supplied text.
@@ -98,7 +97,6 @@ def report_DAV__principal_property_search(self, request, principal_property_sear
                 return nodeMatch(child, match)
         else:
             return False
-
 
     def propertySearch(resource, request):
         """

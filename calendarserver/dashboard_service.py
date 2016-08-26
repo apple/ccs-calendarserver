@@ -72,7 +72,6 @@ class DashboardProtocol (LineReceiver):
         except (ValueError, KeyError):
             _write(self.bad_cmd)
 
-
     @inlineCallbacks
     def process_data(self, j):
         results = {}
@@ -88,7 +87,6 @@ class DashboardProtocol (LineReceiver):
 
         self.sendLine(json.dumps(results))
 
-
     def data_stats(self):
         """
         Return the logging protocol statistics.
@@ -97,7 +95,6 @@ class DashboardProtocol (LineReceiver):
         @rtype: L{str}
         """
         return succeed(self.factory.logger.getStats())
-
 
     def data_slots(self):
         """
@@ -114,7 +111,6 @@ class DashboardProtocol (LineReceiver):
             results.append(result)
         return succeed({"slots": results, "overloaded": self.factory.limiter.overloaded if self.factory.limiter is not None else False})
 
-
     def data_jobcount(self):
         """
         Return a count of job types.
@@ -124,7 +120,6 @@ class DashboardProtocol (LineReceiver):
         """
 
         return succeed(JobItem.numberOfWorkTypes())
-
 
     @inlineCallbacks
     def data_jobs(self):
@@ -144,7 +139,6 @@ class DashboardProtocol (LineReceiver):
 
         returnValue(records)
 
-
     def data_job_assignments(self):
         """
         Return a summary of the job assignments to workers.
@@ -162,7 +156,6 @@ class DashboardProtocol (LineReceiver):
             level = 0
 
         return succeed({"workers": loads, "level": level})
-
 
     @inlineCallbacks
     def data_test_work(self):
@@ -187,7 +180,6 @@ class DashboardProtocol (LineReceiver):
 
         returnValue(results)
 
-
     def data_directory(self):
         """
         Return a summary of directory service calls.
@@ -201,7 +193,6 @@ class DashboardProtocol (LineReceiver):
             return succeed({})
 
 
-
 class DashboardServer(Factory):
 
     protocol = DashboardProtocol
@@ -212,7 +203,6 @@ class DashboardServer(Factory):
         self.logger.limiter = self.limiter
         self.store = None
         self.directory = None
-
 
     def makeDirectoryProxyClient(self):
         self.directory = DirectoryProxyClientService(config.DirectoryRealmName)

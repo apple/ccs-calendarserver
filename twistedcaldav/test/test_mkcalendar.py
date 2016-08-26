@@ -28,7 +28,6 @@ from twistedcaldav import caldavxml
 from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
 
 
-
 class MKCALENDAR (StoreTestCase):
     """
     MKCALENDAR request
@@ -41,7 +40,6 @@ class MKCALENDAR (StoreTestCase):
     def setUp(self):
         yield StoreTestCase.setUp(self)
         self.authPrincipal = yield self.actualRoot.findPrincipalForAuthID("user01")
-
 
     def test_make_calendar(self):
         """
@@ -71,7 +69,6 @@ class MKCALENDAR (StoreTestCase):
                 self.fail("MKCALENDAR made non-calendar collection")
 
         return self.send(request, do_test)
-
 
     def test_make_calendar_with_props(self):
         """
@@ -123,7 +120,7 @@ class MKCALENDAR (StoreTestCase):
             davxml.Set(
                 davxml.PropertyContainer(
                     davxml.DisplayName("Lisa's Events"),
-                    caldavxml.CalendarDescription("Calendar restricted to events."), # FIXME: lang=en
+                    caldavxml.CalendarDescription("Calendar restricted to events."),  # FIXME: lang=en
                     caldavxml.SupportedCalendarComponentSet(caldavxml.CalendarComponent(name="VEVENT")),
                     caldavxml.CalendarTimeZone(
                         """BEGIN:VCALENDAR
@@ -158,7 +155,6 @@ END:VCALENDAR
         request.stream = MemoryStream(mk.toxml())
         return self.send(request, do_test)
 
-
     def test_make_calendar_on_collection(self):
         """
         Make calendar on existing collection
@@ -175,7 +171,6 @@ END:VCALENDAR
 
         request = SimpleStoreRequest(self, "MKCALENDAR", uri, authPrincipal=self.authPrincipal)
         return self.send(request, do_test)
-
 
     def test_make_calendar_in_calendar(self):
         """

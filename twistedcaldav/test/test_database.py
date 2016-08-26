@@ -22,6 +22,7 @@ from twisted.internet.defer import inlineCallbacks
 import os
 import time
 
+
 class Database (twistedcaldav.test.util.TestCase):
     """
     Test abstract SQL DB class
@@ -67,11 +68,11 @@ class Database (twistedcaldav.test.util.TestCase):
         def _db_remove_data_tables(self):
             return self._db_execute("drop table TESTTYPE")
 
-
     class TestDBRecreateUpgrade(TestDB):
 
         class RecreateDBException(Exception):
             pass
+
         class UpgradeDBException(Exception):
             pass
 
@@ -80,7 +81,6 @@ class Database (twistedcaldav.test.util.TestCase):
 
         def _db_recreate(self):
             raise self.RecreateDBException()
-
 
     class TestDBCreateIndexOnUpgrade(TestDB):
 
@@ -94,14 +94,12 @@ class Database (twistedcaldav.test.util.TestCase):
                 """
             )
 
-
     class TestDBPauseInInit(TestDB):
 
         def _db_init(self):
 
             time.sleep(1)
             super(Database.TestDBPauseInInit, self)._db_init()
-
 
     @inlineCallbacks
     def inlineCallbackRaises(self, exc, f, *args, **kwargs):
@@ -114,7 +112,6 @@ class Database (twistedcaldav.test.util.TestCase):
         else:
             self.fail("%s not raised" % (exc,))
 
-
     @inlineCallbacks
     def test_connect(self):
         """
@@ -126,7 +123,6 @@ class Database (twistedcaldav.test.util.TestCase):
         self.assertTrue(db.initialized)
         db.close()
 
-
     @inlineCallbacks
     def test_connectFailure(self):
         """
@@ -134,7 +130,7 @@ class Database (twistedcaldav.test.util.TestCase):
         """
         db = Database.TestDB(self.mktemp())
         # Make _db_init fail
-        db._db_init = lambda : 1 / 0
+        db._db_init = lambda: 1 / 0
         self.assertFalse(db.initialized)
         try:
             yield db.open()
@@ -142,7 +138,6 @@ class Database (twistedcaldav.test.util.TestCase):
             pass
         self.assertFalse(db.initialized)
         self.assertEquals(db.pool, None)
-
 
     @inlineCallbacks
     def test_readwrite(self):
@@ -157,7 +152,6 @@ class Database (twistedcaldav.test.util.TestCase):
         self.assertEqual(items, ("FOO",))
         db.close()
 
-
     @inlineCallbacks
     def test_close(self):
         """
@@ -169,7 +163,6 @@ class Database (twistedcaldav.test.util.TestCase):
         db.close()
         self.assertFalse(db.initialized)
         db.close()
-
 
     @inlineCallbacks
     def test_version_upgrade_nonpersistent(self):
@@ -192,7 +185,6 @@ class Database (twistedcaldav.test.util.TestCase):
         items = (yield db.query("SELECT * from TESTTYPE"))
         self.assertEqual(items, ())
         db.close()
-
 
     @inlineCallbacks
     def test_version_upgrade_persistent(self):
@@ -219,7 +211,6 @@ class Database (twistedcaldav.test.util.TestCase):
         items = (yield db.query("SELECT * from TESTTYPE"))
         self.assertEqual(items, (("FOO", "BAR"),))
         db.close()
-
 
     @inlineCallbacks
     def test_version_upgrade_persistent_add_index(self):

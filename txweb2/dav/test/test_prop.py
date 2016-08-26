@@ -50,7 +50,6 @@ class PROP(txweb2.dav.test.util.TestCase):
     def liveProperties(self):
         return [lookupElement(qname)() for qname in self.site.resource.liveProperties() if (qname[0] == dav_namespace) and qname not in dynamicLiveProperties]
 
-
     def test_PROPFIND_basic(self):
         """
         PROPFIND request
@@ -115,7 +114,6 @@ class PROP(txweb2.dav.test.util.TestCase):
         request.stream = MemoryStream(query.toxml())
 
         return self.send(request, check_result)
-
 
     def test_PROPFIND_list(self):
         """
@@ -198,7 +196,6 @@ class PROP(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work())
 
-
     def test_PROPPATCH_basic(self):
         """
         PROPPATCH
@@ -271,7 +268,6 @@ class PROP(txweb2.dav.test.util.TestCase):
         request.stream = MemoryStream(patch.toxml())
         return self.send(request, check_patch_response)
 
-
     def test_PROPPATCH_liveprop(self):
         """
         PROPPATCH on a live property
@@ -281,16 +277,14 @@ class PROP(txweb2.dav.test.util.TestCase):
 
         return self._simple_PROPPATCH(patch, prop, responsecode.FORBIDDEN, "edit of live property")
 
-
     def test_PROPPATCH_exists_not(self):
         """
         PROPPATCH remove a non-existant property
         """
-        prop = davxml.Timeout() # Timeout isn't a valid property, so it won't exist.
+        prop = davxml.Timeout()  # Timeout isn't a valid property, so it won't exist.
         patch = davxml.PropertyUpdate(davxml.Remove(davxml.PropertyContainer(prop)))
 
         return self._simple_PROPPATCH(patch, prop, responsecode.OK, "remove of non-existant property")
-
 
     def _simple_PROPPATCH(self, patch, prop, expected_code, what):
         def check_result(response):
@@ -325,7 +319,6 @@ class PROP(txweb2.dav.test.util.TestCase):
         request = SimpleRequest(self.site, "PROPPATCH", "/")
         request.stream = MemoryStream(patch.toxml())
         return self.send(request, check_result)
-
 
 
 class SpiffyProperty (davxml.WebDAVTextElement):

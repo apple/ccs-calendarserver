@@ -34,7 +34,6 @@ from txdav.caldav.datastore.scheduling.ischedule.dkim import RSA256, DKIMRequest
 log = Logger()
 
 
-
 def _doKeyGeneration(options):
 
     key = RSA.generate(options["key-size"])
@@ -63,7 +62,6 @@ def _doKeyGeneration(options):
         if lineBreak:
             print
         print(txt)
-
 
 
 @inlineCallbacks
@@ -113,7 +111,6 @@ def _doRequest(options):
     print(s.getvalue())
 
 
-
 @inlineCallbacks
 def _doVerify(options):
     # Parse the HTTP file
@@ -138,7 +135,6 @@ def _doVerify(options):
         print("Verification Failed: %s" % (e,))
     else:
         print("Verification Succeeded")
-
 
 
 def _parseRequest(request):
@@ -169,7 +165,6 @@ def _parseRequest(request):
     return method, uri, headers, stream
 
 
-
 def _writeRequest(request, f):
 
     f.write("%s %s HTTP/1.1\r\n" % (request.method, request.uri,))
@@ -178,7 +173,6 @@ def _writeRequest(request, f):
             f.write("%s: %s\r\n" % (name, value))
     f.write("\r\n")
     f.write(request.stream.read())
-
 
 
 class PublicKeyLookup_File(PublicKeyLookup):
@@ -193,7 +187,6 @@ class PublicKeyLookup_File(PublicKeyLookup):
         with open(self.pubkeyfile) as f:
             data = f.read()
         return RSA.importKey(data)
-
 
 
 def usage(e=None):
@@ -281,7 +274,6 @@ class DKIMToolOptions(Options):
         self.outputName = '-'
 
 
-
 @inlineCallbacks
 def _runInReactor(fn, options):
 
@@ -291,7 +283,6 @@ def _runInReactor(fn, options):
         print(e)
     finally:
         reactor.stop()
-
 
 
 def main(argv=sys.argv, stderr=sys.stderr):

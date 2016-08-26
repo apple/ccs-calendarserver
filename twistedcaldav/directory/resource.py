@@ -26,6 +26,7 @@ from twisted.internet.defer import succeed
 
 __all__ = ["DirectoryReverseProxyResource"]
 
+
 class DirectoryReverseProxyResource(ReverseProxyResource):
 
     def __init__(self, parent, record):
@@ -34,18 +35,14 @@ class DirectoryReverseProxyResource(ReverseProxyResource):
 
         super(DirectoryReverseProxyResource, self).__init__(self.record.serviceNodeUID)
 
-
     def url(self):
         return joinURL(self.parent.url(), self.record.uid)
-
 
     def hasQuota(self, request):
         return succeed(False)
 
-
     def hasQuotaRoot(self, request):
         return succeed(False)
-
 
     def quotaRootResource(self, request):
         """
@@ -56,13 +53,11 @@ class DirectoryReverseProxyResource(ReverseProxyResource):
 
         return succeed(None)
 
-
     def checkPrivileges(
         self, request, privileges, recurse=False,
         principal=None, inherited_aces=None
     ):
         return succeed(None)
-
 
     def hasProperty(self, property, request):
         return succeed(False)

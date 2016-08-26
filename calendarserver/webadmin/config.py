@@ -31,6 +31,7 @@ from .resource import PageElement, TemplateResource
 
 log = Logger()
 
+
 class ConfigurationPageElement(PageElement):
     """
     Configuration management page element.
@@ -40,7 +41,6 @@ class ConfigurationPageElement(PageElement):
         super(ConfigurationPageElement, self).__init__(u"config")
 
         self.configuration = configuration
-
 
     def pageSlots(self):
         slots = {
@@ -111,7 +111,6 @@ class ConfigurationPageElement(PageElement):
 
         return slots
 
-
     @renderer
     def settings_header(self, request, tag):
         return tag(
@@ -121,7 +120,6 @@ class ConfigurationPageElement(PageElement):
                 html.th(u"Note"),
             ),
         )
-
 
     @renderer
     def log_level_row(self, request, tag):
@@ -149,14 +147,12 @@ class ConfigurationPageElement(PageElement):
         return rowsForNamespaces(namespaces)
 
 
-
 class ConfigurationResource(TemplateResource):
     """
     Configuration management page resource.
     """
 
     addSlash = False
-
 
     def __init__(self, configuration, principalCollections):
         super(ConfigurationResource, self).__init__(

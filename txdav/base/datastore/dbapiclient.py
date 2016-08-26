@@ -54,7 +54,6 @@ except ImportError:
     cx_Oracle = None
 
 
-
 class DiagnosticCursorWrapper(object):
     """
     Diagnostic wrapper around a DB-API 2.0 cursor for debugging connection
@@ -65,16 +64,13 @@ class DiagnosticCursorWrapper(object):
         self.realCursor = realCursor
         self.connectionWrapper = connectionWrapper
 
-
     @property
     def rowcount(self):
         return self.realCursor.rowcount
 
-
     @property
     def description(self):
         return self.realCursor.description
-
 
     def execute(self, sql, args=()):
         self.connectionWrapper.state = 'executing %r' % (sql,)
@@ -85,10 +81,8 @@ class DiagnosticCursorWrapper(object):
         #        )
         self.realCursor.execute(sql, args)
 
-
     def close(self):
         self.realCursor.close()
-
 
     def fetchall(self):
         results = self.realCursor.fetchall()
@@ -98,7 +92,6 @@ class DiagnosticCursorWrapper(object):
         #            (results, thread.get_ident())
         #        )
         return results
-
 
 
 class OracleCursorWrapper(DiagnosticCursorWrapper):
@@ -116,7 +109,6 @@ class OracleCursorWrapper(DiagnosticCursorWrapper):
             accum.append(newRow)
         return accum
 
-
     def var(self, *args):
         """
         Create a cx_Oracle variable bound to this cursor.  (Forwarded in
@@ -125,7 +117,6 @@ class OracleCursorWrapper(DiagnosticCursorWrapper):
         layer.)
         """
         return self.realCursor.var(*args)
-
 
     def mapArgs(self, args):
         realArgs = []
@@ -164,21 +155,17 @@ class OracleCursorWrapper(DiagnosticCursorWrapper):
 
         return realArgs
 
-
     def execute(self, sql, args=()):
         realArgs = self.mapArgs(args)
         return super(OracleCursorWrapper, self).execute(sql, realArgs)
-
 
     def callproc(self, name, args=()):
         realArgs = self.mapArgs(args)
         return self.realCursor.callproc(name, realArgs)
 
-
     def callfunc(self, name, returnType, args=()):
         realArgs = self.mapArgs(args)
         return self.realCursor.callfunc(name, returnType, realArgs)
-
 
 
 class DiagnosticConnectionWrapper(object):
@@ -194,25 +181,20 @@ class DiagnosticConnectionWrapper(object):
         self.label = label
         self.state = 'idle (start)'
 
-
     def cursor(self):
         return self.wrapper(self.realConnection.cursor(), self)
-
 
     def close(self):
         self.realConnection.close()
         self.state = 'closed'
 
-
     def commit(self):
         self.realConnection.commit()
         self.state = 'idle (after commit)'
 
-
     def rollback(self):
         self.realConnection.rollback()
         self.state = 'idle (after rollback)'
-
 
 
 class DBAPIParameters(object):
@@ -254,7 +236,6 @@ class DBAPIParameters(object):
         self.ssl = ssl
 
 
-
 class DBAPIConnector(object):
     """
     A simple wrapper for DB-API connectors.
@@ -270,13 +251,11 @@ class DBAPIConnector(object):
         self.connectKw = connectKw
         self.preflight = preflight
 
-
     def connect(self, label="<unlabeled>"):
         connection = self.dbModule.connect(*self.connectArgs, **self.connectKw)
         w = self.wrapper(connection, label)
         self.preflight(w, **self.connectKw)
         return w
-
 
     @staticmethod
     def connectorFor(dbtype, **kwargs):
@@ -289,7 +268,6 @@ class DBAPIConnector(object):
                 "Unknown database type: {}".format(dbtype)
             )
 
-
     @staticmethod
     def _connectorFor_module(dbmodule, **kwargs):
         m = getattr(DBAPIConnector, "_connectorFor_{}".format(dbmodule.__name__), None)
@@ -299,7 +277,6 @@ class DBAPIConnector(object):
             )
 
         return m(dbmodule, **kwargs)
-
 
     @staticmethod
     def _connectorFor_pgdb(dbmodule, **kwargs):
@@ -316,7 +293,6 @@ class DBAPIConnector(object):
         if "txnTimeoutSeconds" in kwargs:
             dbkwargs["txnTimeoutSeconds"] = kwargs["txnTimeoutSeconds"]
         return DBAPIConnector(postgres, postgresPreflight, dsn, **dbkwargs)
-
 
     @staticmethod
     def _connectorFor_pg8000(dbmodule, **kwargs):
@@ -354,7 +330,6 @@ class DBAPIConnector(object):
             dbkwargs["txnTimeoutSeconds"] = kwargs["txnTimeoutSeconds"]
         return DBAPIConnector(dbmodule, pg8000Preflight, **dbkwargs)
 
-
     @staticmethod
     def _connectorFor_cx_Oracle(self, **kwargs):
         """
@@ -364,11 +339,9 @@ class DBAPIConnector(object):
         return OracleConnector(dsn)
 
 
-
 class OracleConnectionWrapper(DiagnosticConnectionWrapper):
 
     wrapper = OracleCursorWrapper
-
 
 
 class OracleConnector(DBAPIConnector):
@@ -387,7 +360,6 @@ class OracleConnector(DBAPIConnector):
             cx_Oracle, oraclePreflight, dsn, threaded=True)
 
 
-
 def oraclePreflight(connection, **kwargs):
     """
     Pre-flight function for Oracle connections: set the timestamp format to be
@@ -404,7 +376,6 @@ def oraclePreflight(connection, **kwargs):
     )
     connection.commit()
     c.close()
-
 
 
 def postgresPreflight(connection, **kwargs):
@@ -436,7 +407,6 @@ def postgresPreflight(connection, **kwargs):
     # connection can safely be pooled without executing anything on it.
     connection.commit()
     c.close()
-
 
 
 def pg8000Preflight(connection, **kwargs):

@@ -30,16 +30,20 @@ __all__ = [
 ]
 
 # FIXME: copied from resource.py to avoid circular dependency
+
+
 class CalDAVComplianceMixIn(object):
+
     def davComplianceClasses(self):
         return (
-            tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses())
-            + config.CalDAVComplianceClasses
+            tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses()) +
+            config.CalDAVComplianceClasses
         )
 
 """
 A resource that is a soft-link to another.
 """
+
 
 class LinkResource(CalDAVComplianceMixIn, WrapperResource):
     """
@@ -53,7 +57,6 @@ class LinkResource(CalDAVComplianceMixIn, WrapperResource):
         self.linkURL = link_url
         self.loopDetect = set()
         super(LinkResource, self).__init__(self.parent.principalCollections())
-
 
     @inlineCallbacks
     def linkedResource(self, request):
@@ -71,14 +74,11 @@ class LinkResource(CalDAVComplianceMixIn, WrapperResource):
 
         returnValue(self._linkedResource)
 
-
     def isCollection(self):
         return True if hasattr(self, "_linkedResource") else False
 
-
     def resourceType(self):
         return self._linkedResource.resourceType() if hasattr(self, "_linkedResource") else davxml.ResourceType.link
-
 
     def locateChild(self, request, segments):
 
@@ -91,7 +91,6 @@ class LinkResource(CalDAVComplianceMixIn, WrapperResource):
         d.addCallback(_defer)
         return d
 
-
     @inlineCallbacks
     def renderHTTP(self, request):
         linked_to = (yield self.linkedResource(request))
@@ -100,10 +99,8 @@ class LinkResource(CalDAVComplianceMixIn, WrapperResource):
         else:
             returnValue(http.StatusResponse(responsecode.OK, "Link resource with missing target: %s" % (self.linkURL,)))
 
-
     def getChild(self, name):
         return self._linkedResource.getChild(name) if hasattr(self, "_linkedResource") else None
-
 
     @inlineCallbacks
     def hasProperty(self, property, request):
@@ -111,20 +108,17 @@ class LinkResource(CalDAVComplianceMixIn, WrapperResource):
         result = (yield hosted.hasProperty(property, request)) if hosted else False
         returnValue(result)
 
-
     @inlineCallbacks
     def readProperty(self, property, request):
         hosted = (yield self.linkedResource(request))
         result = (yield hosted.readProperty(property, request)) if hosted else None
         returnValue(result)
 
-
     @inlineCallbacks
     def writeProperty(self, property, request):
         hosted = (yield self.linkedResource(request))
         result = (yield hosted.writeProperty(property, request)) if hosted else None
         returnValue(result)
-
 
 
 class LinkFollowerMixIn(object):

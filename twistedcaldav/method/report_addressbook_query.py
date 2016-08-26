@@ -40,6 +40,7 @@ import urllib
 
 log = Logger()
 
+
 @inlineCallbacks
 def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addressbook_query):
     """
@@ -107,7 +108,6 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
         if max_number_of_results[0] is None or clientLimit < max_number_of_results[0]:
             max_number_of_results[0] = clientLimit
 
-
     @inlineCallbacks
     def doQuery(addrresource, uri):
         """
@@ -121,7 +121,6 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
             matchcount[0] += 1
             if max_number_of_results[0] is not None and matchcount[0] > max_number_of_results[0]:
                 raise NumberOfMatchesWithinLimits(max_number_of_results[0])
-
 
         @inlineCallbacks
         def queryAddressBookObjectResource(resource, uri, name, vcard, query_ok=False):
@@ -151,7 +150,6 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                     # case, we ignore the now missing resource rather
                     # than raise an error for the entire report.
                     log.error("Missing resource during sync: {href}", href=href)
-
 
         @inlineCallbacks
         def queryDirectoryBackedAddressBook(directoryBackedAddressBook, addressBookFilter):
@@ -202,7 +200,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                     index_query_ok = True
                     try:
                         # Get list of children that match the search and have read access
-                        names = [name for name, ignore_uid in (yield addrresource.search(filter))] #@UnusedVariable
+                        names = [name for name, ignore_uid in (yield addrresource.search(filter))]  # @UnusedVariable
                     except IndexedSearchException:
                         names = yield addrresource.listChildren()
                         index_query_ok = False
@@ -246,7 +244,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
 
                     vCardFilter = carddavxml.Filter(*[carddavxml.PropertyFilter(
                         carddavxml.TextMatch.fromString(resource_name[:-4]),
-                        name="UID", # attributes
+                        name="UID",  # attributes
                     ), ])
                     vCardFilter = Filter(vCardFilter)
 

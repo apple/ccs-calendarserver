@@ -39,7 +39,6 @@ from twext.who.expression import MatchExpression, MatchType
 log = Logger()
 
 
-
 class RecordType(Names):
     """
     Constants for read-only delegates and read-write delegate groups
@@ -56,7 +55,6 @@ class RecordType(Names):
 
     writeDelegatorGroup = NamedConstant()
     writeDelegatorGroup.description = u"write-delegator-group"
-
 
 
 class DirectoryRecord(BaseDirectoryRecord):
@@ -99,10 +97,8 @@ class DirectoryRecord(BaseDirectoryRecord):
 
         returnValue(records)
 
-
     def expandedMembers(self):
         return self.members(expanded=True)
-
 
     @inlineCallbacks
     def setMembers(self, memberRecords):
@@ -138,7 +134,6 @@ class DirectoryRecord(BaseDirectoryRecord):
         )
 
 
-
 def recordTypeToProxyType(recordType):
     return {
         RecordType.readDelegateGroup: "calendar-proxy-read",
@@ -146,7 +141,6 @@ def recordTypeToProxyType(recordType):
         RecordType.readDelegatorGroup: "calendar-proxy-read-for",
         RecordType.writeDelegatorGroup: "calendar-proxy-write-for",
     }.get(recordType, None)
-
 
 
 def proxyTypeToRecordType(proxyType):
@@ -158,7 +152,6 @@ def proxyTypeToRecordType(proxyType):
     }.get(proxyType, None)
 
 
-
 class DirectoryService(BaseDirectoryService):
     """
     Delegate directory service
@@ -166,16 +159,13 @@ class DirectoryService(BaseDirectoryService):
 
     recordType = RecordType
 
-
     def __init__(self, realmName, store):
         BaseDirectoryService.__init__(self, realmName)
         self._store = store
         self._masterDirectory = None
 
-
     def setMasterDirectory(self, masterDirectory):
         self._masterDirectory = masterDirectory
-
 
     def recordWithShortName(self, recordType, shortName, timeoutSeconds=None):
         uid = shortName + "#" + recordTypeToProxyType(recordType)
@@ -187,7 +177,6 @@ class DirectoryService(BaseDirectoryService):
         })
         return succeed(record)
 
-
     def recordWithUID(self, uid, timeoutSeconds=None):
         if "#" not in uid:  # Not a delegate group uid
             return succeed(None)
@@ -198,7 +187,6 @@ class DirectoryService(BaseDirectoryService):
         return self.recordWithShortName(
             recordType, uid, timeoutSeconds=timeoutSeconds
         )
-
 
     @inlineCallbacks
     def recordsFromExpression(
@@ -225,7 +213,6 @@ class DirectoryService(BaseDirectoryService):
                     returnValue((record,))
 
         returnValue(())
-
 
 
 class CachingDelegates(object):
@@ -300,10 +287,8 @@ class CachingDelegates(object):
             """
             yield self.delete(self._membershipsKey(uid, readWrite))
 
-
     def __init__(self):
         self._memcacher = CachingDelegates.DelegatesMemcacher("DelegatesDB")
-
 
     @inlineCallbacks
     def setDelegates(self, txn, delegator, delegates, readWrite):
@@ -331,7 +316,6 @@ class CachingDelegates(object):
                 yield self.addDelegate(txn, delegator, delegate, readWrite)
         else:
             yield self._podSetDelegates(txn, delegator, delegates, readWrite)
-
 
     @inlineCallbacks
     def addDelegate(self, txn, delegator, delegate, readWrite):
@@ -372,7 +356,6 @@ class CachingDelegates(object):
         for uid in set(newDelegateUIDs) - set(existingDelegateUIDs):
             yield self._memcacher.deleteMembership(uid, readWrite)
 
-
     @inlineCallbacks
     def removeDelegate(self, txn, delegator, delegate, readWrite):
         """
@@ -412,7 +395,6 @@ class CachingDelegates(object):
         for uid in set(existingDelegateUIDs) - set(newDelegateUIDs):
             yield self._memcacher.deleteMembership(uid, readWrite)
 
-
     @inlineCallbacks
     def groupChanged(self, txn, groupID, addedUIDs, removedUIDs):
         """
@@ -441,7 +423,6 @@ class CachingDelegates(object):
             yield self._memcacher.deleteMembership(delegate, True)
             yield self._memcacher.deleteMembership(delegate, False)
 
-
     @inlineCallbacks
     def delegatesOf(self, txn, delegator, readWrite, expanded=False):
         """
@@ -466,7 +447,6 @@ class CachingDelegates(object):
                     records.append(record)
         returnValue(records)
 
-
     @inlineCallbacks
     def delegatedTo(self, txn, delegate, readWrite):
         """
@@ -490,7 +470,6 @@ class CachingDelegates(object):
                 if record is not None:
                     records.append(record)
         returnValue(records)
-
 
     @inlineCallbacks
     def _delegatesOfUIDs(self, txn, delegator, readWrite, expanded=False):
@@ -526,7 +505,6 @@ class CachingDelegates(object):
             delegateUIDs = yield self._podDelegates(txn, delegator, readWrite, expanded=expanded)
 
         returnValue(delegateUIDs)
-
 
     @inlineCallbacks
     def _delegatedToUIDs(self, txn, delegate, readWrite, onlyThisServer=False):
@@ -565,7 +543,6 @@ class CachingDelegates(object):
 
         returnValue(delegatorUIDs)
 
-
     def _podSetDelegates(self, txn, delegator, delegates, readWrite):
         """
         Sets the full set of delegates for a delegator.
@@ -585,7 +562,6 @@ class CachingDelegates(object):
         else:
             return txn.store().conduit.send_set_delegates(txn, delegator, delegates, readWrite)
 
-
     def _podDelegates(self, txn, delegator, readWrite, expanded=False):
         """
         Do a cross-pod request to get the delegates for this delegator.
@@ -603,7 +579,6 @@ class CachingDelegates(object):
             return succeed(set())
         else:
             return txn.store().conduit.send_get_delegates(txn, delegator, readWrite, expanded)
-
 
     @inlineCallbacks
     def _podDelegators(self, txn, delegate, readWrite):

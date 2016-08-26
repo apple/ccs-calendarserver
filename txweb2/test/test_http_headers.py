@@ -13,19 +13,20 @@ from txweb2 import http_headers
 from txweb2.http_headers import Cookie, HeaderHandler, quoteString, generateKeyValues
 from twisted.python import util
 
+
 class parsedvalue:
     """Marker class"""
+
     def __init__(self, raw):
         self.raw = raw
-
 
     def __eq__(self, other):
         return isinstance(other, parsedvalue) and other.raw == self.raw
 
 
-
 class HeadersAPITest(unittest.TestCase):
     """Make sure the public API exists and works."""
+
     def testRaw(self):
         rawvalue = ("value1", "value2")
         h = http_headers.Headers(handler=HeaderHandler(parsers={}, generators={}))
@@ -37,7 +38,6 @@ class HeadersAPITest(unittest.TestCase):
         self.assertEquals(h.getRawHeaders("foobar"), None)
         h.removeHeader("test")
         self.assertEquals(h.getRawHeaders("test"), None)
-
 
     def testParsed(self):
         parsed = parsedvalue(("value1", "value2"))
@@ -51,11 +51,9 @@ class HeadersAPITest(unittest.TestCase):
         h.removeHeader("test")
         self.assertEquals(h.getHeader("test"), None)
 
-
     def testParsedAndRaw(self):
         def parse(raw):
             return parsedvalue(raw)
-
 
         def generate(parsed):
             return parsed.raw
@@ -81,7 +79,6 @@ class HeadersAPITest(unittest.TestCase):
                                  handler=handler)
         self.assertEquals(h.getRawHeaders("test"), rawvalue2)
 
-
     def testImmutable(self):
         h = http_headers.Headers(handler=HeaderHandler(parsers={}, generators={}))
 
@@ -89,7 +86,6 @@ class HeadersAPITest(unittest.TestCase):
         self.assertRaises(AttributeError, h.setRawHeaders, "test", [1])
         self.assertRaises(AttributeError, h.setHeader, "test", 1)
         self.assertRaises(AttributeError, h.removeHeader, "test")
-
 
 
 class TokenizerTest(unittest.TestCase):
@@ -112,14 +108,11 @@ class TokenizerTest(unittest.TestCase):
         for test in raiseTests:
             self.assertRaises(ValueError, parser, test)
 
-
     def testGenerate(self):
         pass
 
-
     def testRoundtrip(self):
         pass
-
 
 
 def atSpecifiedTime(when, func):
@@ -133,24 +126,22 @@ def atSpecifiedTime(when, func):
     return util.mergeFunctionMetadata(func, inner)
 
 
-
 def parseHeader(name, val):
     head = http_headers.Headers(handler=http_headers.DefaultHTTPHandler)
     head.setRawHeaders(name, val)
     return head.getHeader(name)
-parseHeader = atSpecifiedTime(999999990, parseHeader) # Sun, 09 Sep 2001 01:46:30 GMT
-
+parseHeader = atSpecifiedTime(999999990, parseHeader)  # Sun, 09 Sep 2001 01:46:30 GMT
 
 
 def generateHeader(name, val):
     head = http_headers.Headers(handler=http_headers.DefaultHTTPHandler)
     head.setHeader(name, val)
     return head.getRawHeaders(name)
-generateHeader = atSpecifiedTime(999999990, generateHeader) # Sun, 09 Sep 2001 01:46:30 GMT
-
+generateHeader = atSpecifiedTime(999999990, generateHeader)  # Sun, 09 Sep 2001 01:46:30 GMT
 
 
 class HeaderParsingTestBase(unittest.TestCase):
+
     def runRoundtripTest(self, headername, table):
         """
         Perform some assertions about the behavior of parsing and
@@ -205,15 +196,14 @@ class HeaderParsingTestBase(unittest.TestCase):
             reparsed = parseHeader(headername, regeneratedHeaderValue)
             self.assertEquals(parsed, reparsed)
 
-
     def invalidParseTest(self, headername, values):
         for val in values:
             parsed = parseHeader(headername, val)
             self.assertEquals(parsed, None)
 
 
-
 class GeneralHeaderParsingTests(HeaderParsingTestBase):
+
     def testCacheControl(self):
         table = (
             ("no-cache",
@@ -247,14 +237,12 @@ class GeneralHeaderParsingTests(HeaderParsingTestBase):
         )
         self.runRoundtripTest("Cache-Control", table)
 
-
     def testConnection(self):
         table = (
             ("close", ['close', ]),
             ("close, foo-bar", ['close', 'foo-bar'])
         )
         self.runRoundtripTest("Connection", table)
-
 
     def testDate(self):
         # Don't need major tests since the datetime parser has its own tests
@@ -265,7 +253,6 @@ class GeneralHeaderParsingTests(HeaderParsingTestBase):
 
 #     def testTrailer(self):
 #         fail
-
 
     def testTransferEncoding(self):
         table = (
@@ -284,9 +271,9 @@ class GeneralHeaderParsingTests(HeaderParsingTestBase):
 #         fail
 
 
-
 class RequestHeaderParsingTests(HeaderParsingTestBase):
     # FIXME test ordering too.
+
     def testAccept(self):
         table = (
             ("audio/*;q=0.2, audio/basic",
@@ -315,7 +302,6 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
 
         self.runRoundtripTest("Accept", table)
 
-
     def testAcceptCharset(self):
         table = (
             ("iso-8859-5, unicode-1-1;q=0.8",
@@ -328,10 +314,9 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
              ["*;q=0.7"]),
             ("",
              {'iso-8859-1': 1.0},
-             ["iso-8859-1"]), # Yes this is an actual change -- we'll say that's okay. :)
+             ["iso-8859-1"]),  # Yes this is an actual change -- we'll say that's okay. :)
         )
         self.runRoundtripTest("Accept-Charset", table)
-
 
     def testAcceptEncoding(self):
         table = (
@@ -350,7 +335,6 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
         )
         self.runRoundtripTest("Accept-Encoding", table)
 
-
     def testAcceptLanguage(self):
         table = (
             ("da, en-gb;q=0.8, en;q=0.7",
@@ -359,7 +343,6 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
              {'*': 1}),
         )
         self.runRoundtripTest("Accept-Language", table)
-
 
     def testAuthorization(self):
         table = (
@@ -372,7 +355,6 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
         )
 
         self.runRoundtripTest("Authorization", table)
-
 
     def testCookie(self):
         table = (
@@ -419,7 +401,6 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
         for row in table3:
             self.assertEquals(generateHeader("Cookie", row[0]), [row[1], ])
 
-
     def testSetCookie(self):
         table = (
             ('name,"blah=value,; expires=Sun, 09 Sep 2001 01:46:40 GMT; path=/foo; domain=bar.baz; secure',
@@ -430,14 +411,12 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
         )
         self.runRoundtripTest("Set-Cookie", table)
 
-
     def testSetCookie2(self):
         table = (
             ('name="value"; Comment="YadaYada"; CommentURL="http://frobnotz/"; Discard; Domain="blah.blah"; Max-Age=10; Path="/foo"; Port="80,8080"; Secure; Version="1"',
              [Cookie("name", "value", comment="YadaYada", commenturl="http://frobnotz/", discard=True, domain="blah.blah", expires=1000000000, path="/foo", ports=(80, 8080), secure=True, version=1)]),
         )
         self.runRoundtripTest("Set-Cookie2", table)
-
 
     def testExpect(self):
         table = (
@@ -450,7 +429,6 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
         )
         self.runRoundtripTest("Expect", table)
 
-
     def testPrefer(self):
         table = (
             ("wait",
@@ -462,14 +440,11 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
         )
         self.runRoundtripTest("Prefer", table)
 
-
     def testFrom(self):
         self.runRoundtripTest("From", (("webmaster@w3.org", "webmaster@w3.org"),))
 
-
     def testHost(self):
         self.runRoundtripTest("Host", (("www.w3.org", "www.w3.org"),))
-
 
     def testIfMatch(self):
         table = (
@@ -481,7 +456,6 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
         )
         self.runRoundtripTest("If-Match", table)
 
-
     def testIfModifiedSince(self):
         # Don't need major tests since the datetime parser has its own test
         # Just test stupid ; length= brokenness.
@@ -491,7 +465,6 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
         )
 
         self.runRoundtripTest("If-Modified-Since", table)
-
 
     def testIfNoneMatch(self):
         table = (
@@ -506,7 +479,6 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
         )
         self.runRoundtripTest("If-None-Match", table)
 
-
     def testIfRange(self):
         table = (
             ('"xyzzy"', http_headers.ETag('xyzzy')),
@@ -516,10 +488,8 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
         )
         self.runRoundtripTest("If-Range", table)
 
-
     def testIfUnmodifiedSince(self):
         self.runRoundtripTest("If-Unmodified-Since", (("Sun, 09 Sep 2001 01:46:40 GMT", 1000000000),))
-
 
     def testMaxForwards(self):
         self.runRoundtripTest("Max-Forwards", (("15", 15),))
@@ -527,7 +497,6 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
 
 #     def testProxyAuthorize(self):
 #         fail
-
 
     def testRange(self):
         table = (
@@ -539,11 +508,9 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
         )
         self.runRoundtripTest("Range", table)
 
-
     def testReferer(self):
         self.runRoundtripTest("Referer", (("http://www.w3.org/hypertext/DataSources/Overview.html",
                                            "http://www.w3.org/hypertext/DataSources/Overview.html"),))
-
 
     def testTE(self):
         table = (
@@ -553,20 +520,17 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
         )
         self.runRoundtripTest("TE", table)
 
-
     def testUserAgent(self):
         self.runRoundtripTest("User-Agent", (("CERN-LineMode/2.15 libwww/2.17b3", "CERN-LineMode/2.15 libwww/2.17b3"),))
 
 
-
 class ResponseHeaderParsingTests(HeaderParsingTestBase):
+
     def testAcceptRanges(self):
         self.runRoundtripTest("Accept-Ranges", (("bytes", ["bytes"]), ("none", ["none"])))
 
-
     def testAge(self):
         self.runRoundtripTest("Age", (("15", 15),))
-
 
     def testETag(self):
         table = (
@@ -576,15 +540,13 @@ class ResponseHeaderParsingTests(HeaderParsingTestBase):
         )
         self.runRoundtripTest("ETag", table)
 
-
     def testLocation(self):
         self.runRoundtripTest("Location", (("http://www.w3.org/pub/WWW/People.htm",
-                                           "http://www.w3.org/pub/WWW/People.htm"),))
+                                            "http://www.w3.org/pub/WWW/People.htm"),))
 
 
 #     def testProxyAuthenticate(self):
 #         fail
-
 
     def testRetryAfter(self):
         # time() is always 999999990 when being tested.
@@ -594,10 +556,8 @@ class ResponseHeaderParsingTests(HeaderParsingTestBase):
         )
         self.runRoundtripTest("Retry-After", table)
 
-
     def testServer(self):
         self.runRoundtripTest("Server", (("CERN/3.0 libwww/2.17", "CERN/3.0 libwww/2.17"),))
-
 
     def testVary(self):
         table = (
@@ -605,7 +565,6 @@ class ResponseHeaderParsingTests(HeaderParsingTestBase):
             ("Accept, Accept-Encoding", ["accept", "accept-encoding"], ["accept", "accept-encoding"])
         )
         self.runRoundtripTest("Vary", table)
-
 
     def testWWWAuthenticate(self):
         digest = ('Digest realm="digest realm", nonce="bAr", qop="auth"',
@@ -680,8 +639,8 @@ class ResponseHeaderParsingTests(HeaderParsingTestBase):
         self.assertEquals(parsed, reparsed)
 
 
-
 class EntityHeaderParsingTests(HeaderParsingTestBase):
+
     def testAllow(self):
         # Allow is a silly case-sensitive header unlike all the rest
         table = (
@@ -690,13 +649,11 @@ class EntityHeaderParsingTests(HeaderParsingTestBase):
         )
         self.runRoundtripTest("Allow", table)
 
-
     def testContentEncoding(self):
         table = (
             ("gzip", ['gzip', ]),
         )
         self.runRoundtripTest("Content-Encoding", table)
-
 
     def testContentLanguage(self):
         table = (
@@ -705,22 +662,18 @@ class EntityHeaderParsingTests(HeaderParsingTestBase):
         )
         self.runRoundtripTest("Content-Language", table)
 
-
     def testContentLength(self):
         self.runRoundtripTest("Content-Length", (("15", 15),))
         self.invalidParseTest("Content-Length", ("asdf",))
-
 
     def testContentLocation(self):
         self.runRoundtripTest("Content-Location",
                               (("http://www.w3.org/pub/WWW/People.htm",
                                 "http://www.w3.org/pub/WWW/People.htm"),))
 
-
     def testContentMD5(self):
         self.runRoundtripTest("Content-MD5", (("Q2hlY2sgSW50ZWdyaXR5IQ==", "Check Integrity!"),))
         self.invalidParseTest("Content-MD5", ("sdlaksjdfhlkaj",))
-
 
     def testContentRange(self):
         table = (
@@ -734,14 +687,12 @@ class EntityHeaderParsingTests(HeaderParsingTestBase):
         )
         self.runRoundtripTest("Content-Range", table)
 
-
     def testContentType(self):
         table = (
             ("text/html;charset=iso-8859-4", http_headers.MimeType('text', 'html', (('charset', 'iso-8859-4'),))),
             ("text/html", http_headers.MimeType('text', 'html')),
         )
         self.runRoundtripTest("Content-Type", table)
-
 
     def testContentDisposition(self):
         table = (
@@ -750,18 +701,15 @@ class EntityHeaderParsingTests(HeaderParsingTestBase):
         )
         self.runRoundtripTest("Content-Disposition", table)
 
-
     def testExpires(self):
         self.runRoundtripTest("Expires", (("Sun, 09 Sep 2001 01:46:40 GMT", 1000000000),))
         # Invalid expires MUST return date in the past.
         self.assertEquals(parseHeader("Expires", ["0"]), 0)
         self.assertEquals(parseHeader("Expires", ["wejthnaljn"]), 0)
 
-
     def testLastModified(self):
         # Don't need major tests since the datetime parser has its own test
         self.runRoundtripTest("Last-Modified", (("Sun, 09 Sep 2001 01:46:40 GMT", 1000000000),))
-
 
 
 class DateTimeTest(unittest.TestCase):
@@ -794,10 +742,8 @@ class DateTimeTest(unittest.TestCase):
         self.assertEquals(http_headers.parseDateTime(
             'Monday, 11-Oct-2004 14:56:50 GMT'), 1097506610)
 
-
     def testGenerate(self):
         self.assertEquals(http_headers.generateDateTime(784111777), 'Sun, 06 Nov 1994 08:49:37 GMT')
-
 
     def testRoundtrip(self):
         for _ignore in range(2000):
@@ -805,7 +751,6 @@ class DateTimeTest(unittest.TestCase):
             timestr = http_headers.generateDateTime(randomTime)
             time2 = http_headers.parseDateTime(timestr)
             self.assertEquals(randomTime, time2)
-
 
 
 class TestMimeType(unittest.TestCase):
@@ -832,7 +777,6 @@ class TestMimeType(unittest.TestCase):
         self.assertEquals(kwargMime, stringMime)
 
 
-
 class TestMimeDisposition(unittest.TestCase):
 
     def testEquality(self):
@@ -851,12 +795,12 @@ class TestMimeDisposition(unittest.TestCase):
         self.assertEquals(kwargMime, stringMime)
 
 
-
 class FormattingUtilityTests(unittest.TestCase):
     """
     Tests for various string formatting functionality required to generate
     headers.
     """
+
     def test_quoteString(self):
         """
         L{quoteString} returns a string which when interpreted according to the
@@ -867,7 +811,6 @@ class FormattingUtilityTests(unittest.TestCase):
             quoteString('a\\b"c'),
             '"a\\\\b\\"c"')
 
-
     def test_generateKeyValues(self):
         """
         L{generateKeyValues} accepts an iterable of parameters and returns a
@@ -877,7 +820,6 @@ class FormattingUtilityTests(unittest.TestCase):
             generateKeyValues(iter([("foo", "bar"), ("baz", "quux")])),
             "foo=bar;baz=quux")
 
-
     def test_generateKeyValuesNone(self):
         """
         L{generateKeyValues} accepts C{None} as the 2nd element of a tuple and
@@ -886,7 +828,6 @@ class FormattingUtilityTests(unittest.TestCase):
         self.assertEqual(
             generateKeyValues([("foo", None), ("bar", "baz")]),
             "foo;bar=baz")
-
 
     def test_generateKeyValuesQuoting(self):
         """

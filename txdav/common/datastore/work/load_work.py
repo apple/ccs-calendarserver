@@ -59,7 +59,6 @@ class TestWork(WorkItem, fromTable(schema.TEST_WORK)):
 
         return store.inTransaction("TestWork.schedule", _enqueue)
 
-
     @inlineCallbacks
     def doWork(self):
         """
@@ -69,6 +68,7 @@ class TestWork(WorkItem, fromTable(schema.TEST_WORK)):
         log.debug("TestWork started: {jobid}", jobid=self.jobID)
         if self.delay != 0:
             wait = Deferred()
+
             def _timedDeferred():
                 wait.callback(True)
             reactor.callLater(self.delay / 1000.0, _timedDeferred)

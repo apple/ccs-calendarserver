@@ -23,6 +23,7 @@ from twext.python.log import Logger
 
 log = Logger()
 
+
 class SharingInvitesConduitMixin(object):
     """
     Defines the cross-pod API for sharing invites that will be mixed into the
@@ -87,7 +88,6 @@ class SharingInvitesConduitMixin(object):
 
         yield self.sendRequest(txn, recipient, request)
 
-
     @inlineCallbacks
     def recv_shareinvite(self, txn, request):
         """
@@ -116,7 +116,6 @@ class SharingInvitesConduitMixin(object):
             dict([(k, v.encode("utf-8")) for k, v in request["properties"].items()]),
             supported_components=request.get("supported-components")
         )
-
 
     @inlineCallbacks
     def send_shareuninvite(
@@ -156,7 +155,6 @@ class SharingInvitesConduitMixin(object):
 
         yield self.sendRequest(txn, recipient, request)
 
-
     @inlineCallbacks
     def recv_shareuninvite(self, txn, request):
         """
@@ -178,7 +176,6 @@ class SharingInvitesConduitMixin(object):
             request["bind_uid"],
             request["share_id"],
         )
-
 
     @inlineCallbacks
     def send_sharereply(
@@ -219,7 +216,6 @@ class SharingInvitesConduitMixin(object):
 
         yield self.sendRequest(txn, recipient, request)
 
-
     @inlineCallbacks
     def recv_sharereply(self, txn, request):
         """
@@ -243,7 +239,6 @@ class SharingInvitesConduitMixin(object):
             request["status"],
             summary=request.get("summary")
         )
-
 
     @inlineCallbacks
     def send_sharenotification(
@@ -295,7 +290,6 @@ class SharingInvitesConduitMixin(object):
             yield DeferredList(deferreds, consumeErrors=True)
         except Exception as ex:
             log.error("Failed to send sharenotification: {exc}", exc=ex)
-
 
     @inlineCallbacks
     def recv_sharenotification(self, txn, request):

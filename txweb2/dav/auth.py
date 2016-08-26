@@ -37,6 +37,7 @@ from txdav.xml.element import WebDAVTextElement
 
 
 class AuthenticationWrapper(WrapperResource):
+
     def __init__(
         self, resource, portal,
         wireEncryptedCredentialFactories, wireUnencryptedCredentialFactories,
@@ -73,13 +74,12 @@ class AuthenticationWrapper(WrapperResource):
         # FIXME: some unit tests access self.credentialFactories, so assigning here
         self.credentialFactories = self.wireEncryptedCredentialFactories
 
-
     def hook(self, req):
         req.portal = self.portal
         req.loginInterfaces = self.loginInterfaces
 
         # If not using SSL, use the factory list which excludes "Basic"
-        if getattr(req, "chanRequest", None) is None: # This is only None in unit tests
+        if getattr(req, "chanRequest", None) is None:  # This is only None in unit tests
             secureConnection = True
         else:
             ignored, secureConnection = req.chanRequest.getHostInfo()
@@ -90,10 +90,8 @@ class AuthenticationWrapper(WrapperResource):
         )
 
 
-
 class IPrincipal(Interface):
     pass
-
 
 
 class DavRealm(object):
@@ -107,10 +105,8 @@ class DavRealm(object):
         raise NotImplementedError("Only IPrincipal interface is supported")
 
 
-
 class IPrincipalCredentials(Interface):
     pass
-
 
 
 class PrincipalCredentials(object):
@@ -130,10 +126,8 @@ class PrincipalCredentials(object):
         self.authzPrincipal = authzPrincipal
         self.credentials = credentials
 
-
     def checkPassword(self, password):
         return self.credentials.checkPassword(password)
-
 
 
 class TwistedPropertyChecker(object):
@@ -148,7 +142,6 @@ class TwistedPropertyChecker(object):
         else:
             raise error.UnauthorizedLogin("Bad credentials for: %s" % (principalURIs[0],))
 
-
     def requestAvatarId(self, credentials):
         pcreds = IPrincipalCredentials(credentials)
         pswd = str(pcreds.authnPrincipal.readDeadProperty(TwistedPasswordProperty))
@@ -159,7 +152,6 @@ class TwistedPropertyChecker(object):
             pcreds.authzPrincipal,
         ))
         return d
-
 
 
 ##

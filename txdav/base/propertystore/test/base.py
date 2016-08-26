@@ -45,21 +45,22 @@ class NonePropertyStoreTest(unittest.TestCase):
         except BrokenMethodImplementation, e:
             self.fail(e)
 
-
     def test_delete_none(self):
         def doDelete():
             del self.propertyStore[propertyName("xyzzy")]
 
         self.assertRaises(KeyError, doDelete)
 
-
     def test_keyInPropertyName(self):
         def doGet():
             self.propertyStore["xyzzy"]
+
         def doSet():
             self.propertyStore["xyzzy"] = propertyValue("Hello, World!")
+
         def doDelete():
             del self.propertyStore["xyzzy"]
+
         def doContains():
             return "xyzzy" in self.propertyStore
 
@@ -69,17 +70,14 @@ class NonePropertyStoreTest(unittest.TestCase):
         self.assertRaises(TypeError, doContains)
 
 
-
 class PropertyStoreTest(NonePropertyStoreTest):
     # Subclass must define self.propertyStore in setUp().
 
     def _changed(self, store):
         store.flush()
 
-
     def _abort(self, store):
         store.abort()
-
 
     @inlineCallbacks
     def test_set_get_contains(self):
@@ -98,7 +96,6 @@ class PropertyStoreTest(NonePropertyStoreTest):
         self.propertyStore[name] = value
         self.assertEquals(self.propertyStore.get(name, None), value)
         self.failUnless(name in self.propertyStore)
-
 
     @inlineCallbacks
     def test_delete_get_contains(self):
@@ -127,7 +124,6 @@ class PropertyStoreTest(NonePropertyStoreTest):
 
         self.assertEquals(self.propertyStore.get(name, None), None)
         self.failIf(name in self.propertyStore)
-
 
     @inlineCallbacks
     def test_peruser(self):
@@ -179,7 +175,6 @@ class PropertyStoreTest(NonePropertyStoreTest):
         self.failIf(name in self.propertyStore2)
         self.failIf(name in self.propertyStore3)
         self.failIf(name in self.propertyStore4)
-
 
     @inlineCallbacks
     def test_peruserShadow(self):
@@ -238,7 +233,6 @@ class PropertyStoreTest(NonePropertyStoreTest):
         self.failIf(name in self.propertyStore3)
         self.failIf(name in self.propertyStore4)
 
-
     @inlineCallbacks
     def test_peruserShadow_delete(self):
         """
@@ -287,7 +281,6 @@ class PropertyStoreTest(NonePropertyStoreTest):
         self.failIf(name in self.propertyStore3)
         self.failIf(name in self.propertyStore4)
 
-
     @inlineCallbacks
     def test_peruser_global(self):
 
@@ -333,7 +326,6 @@ class PropertyStoreTest(NonePropertyStoreTest):
         self.failIf(name in self.propertyStore2)
         self.failIf(name in self.propertyStore3)
         self.failIf(name in self.propertyStore4)
-
 
     @inlineCallbacks
     def test_proxy(self):
@@ -385,7 +377,6 @@ class PropertyStoreTest(NonePropertyStoreTest):
         self.failIf(name in self.propertyStore2)
         self.failIf(name in self.propertyStore3)
         self.failIf(name in self.propertyStore4)
-
 
     @inlineCallbacks
     def test_proxyOverride(self):
@@ -443,7 +434,6 @@ class PropertyStoreTest(NonePropertyStoreTest):
         self.failIf(name in self.propertyStore2)
         self.failIf(name in self.propertyStore3)
         self.failIf(name in self.propertyStore4)
-
 
     @inlineCallbacks
     def test_proxyOverrideShadow(self):
@@ -548,7 +538,6 @@ class PropertyStoreTest(NonePropertyStoreTest):
         self.failIf(name in self.propertyStore3)
         self.failIf(name in self.propertyStore4)
 
-
     def test_iteration(self):
 
         value = propertyValue("Hello, World!")
@@ -560,7 +549,6 @@ class PropertyStoreTest(NonePropertyStoreTest):
 
         self.assertEquals(set(self.propertyStore.keys()), names)
         self.assertEquals(len(self.propertyStore), len(names))
-
 
     @inlineCallbacks
     def test_flush(self):
@@ -590,7 +578,6 @@ class PropertyStoreTest(NonePropertyStoreTest):
         self.assertEquals(self.propertyStore.get(name, None), None)
         self.assertEquals(len(self.propertyStore), 0)
 
-
     @inlineCallbacks
     def test_abort(self):
         name = propertyName("test")
@@ -603,7 +590,6 @@ class PropertyStoreTest(NonePropertyStoreTest):
         self.assertEquals(self.propertyStore.get(name, None), None)
         self.assertEquals(len(self.propertyStore), 0)
         self.flushLoggedErrors()
-
 
     @inlineCallbacks
     def test_peruser_keys(self):
@@ -621,10 +607,8 @@ class PropertyStoreTest(NonePropertyStoreTest):
         self.failUnless(name in self.propertyStore2.keys())
 
 
-
 def propertyName(name):
     return PropertyName("http://calendarserver.org/ns/test/", name)
-
 
 
 def propertyValue(value):

@@ -56,7 +56,6 @@ from zope.interface import implements
 log = Logger()
 
 
-
 class AgentRealm(object):
     """
     Only allow a specified list of avatar IDs to access the site
@@ -71,7 +70,6 @@ class AgentRealm(object):
         self.root = root
         self.allowedAvatarIds = allowedAvatarIds
 
-
     def requestAvatar(self, avatarId, mind, *interfaces):
         if IResource in interfaces:
             if avatarId.shortNames[0] in self.allowedAvatarIds:
@@ -80,7 +78,6 @@ class AgentRealm(object):
                 return (IResource, ForbiddenResource(), lambda: None)
 
         raise NotImplementedError()
-
 
 
 class AgentGatewayResource(Resource):
@@ -101,7 +98,6 @@ class AgentGatewayResource(Resource):
         self.store = store
         self.directory = directory
         self.inactivityDetector = inactivityDetector
-
 
     def render_POST(self, request):
         """
@@ -140,7 +136,6 @@ class AgentGatewayResource(Resource):
         d.addCallback(onSuccess, output)
         d.addErrback(onError)
         return NOT_DONE_YET
-
 
 
 def makeAgentService(store):
@@ -197,7 +192,6 @@ def makeAgentService(store):
     return StreamServerEndpointService(endpoint, site)
 
 
-
 class InactivityDetector(object):
     """
     If no 'activity' takes place for a specified amount of time, a method
@@ -222,14 +216,12 @@ class InactivityDetector(object):
                 self._inactivityThresholdReached
             )
 
-
     def _inactivityThresholdReached(self):
         """
         The delayed call has fired.  We're inactive.  Call the becameInactive
             method.
         """
         self._becameInactive()
-
 
     def activity(self):
         """
@@ -245,7 +237,6 @@ class InactivityDetector(object):
                     self._inactivityThresholdReached
                 )
 
-
     def stop(self):
         """
         Cancels the delayed call
@@ -253,7 +244,6 @@ class InactivityDetector(object):
         if self._timeoutSeconds > 0:
             if self._delayedCall.active():
                 self._delayedCall.cancel()
-
 
 
 #
@@ -266,7 +256,6 @@ class GatewayAMPCommand(amp.Command):
     """
     arguments = [('command', amp.String())]
     response = [('result', amp.String())]
-
 
 
 class GatewayAMPProtocol(amp.AMP):
@@ -283,7 +272,6 @@ class GatewayAMPProtocol(amp.AMP):
         amp.AMP.__init__(self)
         self.store = store
         self.directory = directory
-
 
     @GatewayAMPCommand.responder
     @inlineCallbacks
@@ -314,7 +302,6 @@ class GatewayAMPProtocol(amp.AMP):
         returnValue(dict(result=result))
 
 
-
 class GatewayAMPFactory(Factory):
     """
     Builds GatewayAMPProtocols
@@ -328,12 +315,10 @@ class GatewayAMPFactory(Factory):
         self.store = store
         self.directory = self.store.directoryService()
 
-
     def buildProtocol(self, addr):
         return GatewayAMPProtocol(
             self.store, self.davRootResource, self.directory
         )
-
 
 
 #

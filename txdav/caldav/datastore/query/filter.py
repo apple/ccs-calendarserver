@@ -46,10 +46,8 @@ class FilterBase(object):
     def serialize_register(cls, register):
         cls.deserialize_names[register.serialized_name] = register
 
-
     def __init__(self, xml_element):
         pass
-
 
     @classmethod
     def deserialize(cls, data):
@@ -60,13 +58,11 @@ class FilterBase(object):
         obj._deserialize(data)
         return obj
 
-
     def _deserialize(self, data):
         """
         Convert a JSON compatible serialization of this object into the actual object.
         """
         pass
-
 
     def serialize(self):
         """
@@ -76,14 +72,11 @@ class FilterBase(object):
             "type": self.serialized_name,
         }
 
-
     def match(self, item, access=None):
         raise NotImplementedError
 
-
     def valid(self, level=0):
         raise NotImplementedError
-
 
 
 class Filter(FilterBase):
@@ -105,13 +98,11 @@ class Filter(FilterBase):
 
         self.child = ComponentFilter(xml_element.children[0])
 
-
     def _deserialize(self, data):
         """
         Convert a JSON compatible serialization of this object into the actual object.
         """
         self.child = FilterBase.deserialize(data["child"])
-
 
     def serialize(self):
         """
@@ -122,7 +113,6 @@ class Filter(FilterBase):
             "child": self.child.serialize(),
         })
         return result
-
 
     def match(self, component, access=None):
         """
@@ -155,7 +145,6 @@ class Filter(FilterBase):
         # <filter> contains exactly one <comp-filter>
         return self.child.match(component, access)
 
-
     def valid(self):
         """
         Indicate whether this filter element's structure is valid wrt iCalendar
@@ -166,7 +155,6 @@ class Filter(FilterBase):
 
         # Must have one child element for VCALENDAR
         return self.child.valid(0)
-
 
     def settimezone(self, tzelement):
         """
@@ -187,14 +175,12 @@ class Filter(FilterBase):
         self.child.settzinfo(tz)
         return tz
 
-
     def getmaxtimerange(self):
         """
         Get the date farthest into the future in any time-range elements
         """
 
         return self.child.getmaxtimerange(None, False)
-
 
     def getmintimerange(self):
         """
@@ -205,7 +191,6 @@ class Filter(FilterBase):
         return self.child.getmintimerange(None, False)
 
 FilterBase.serialize_register(Filter)
-
 
 
 class FilterChildBase(FilterBase):
@@ -264,7 +249,6 @@ class FilterChildBase(FilterBase):
             raise ValueError("Test must be only one of anyof, allof")
         self.filter_test = filter_test
 
-
     def _deserialize(self, data):
         """
         Convert a JSON compatible serialization of this object into the actual object.
@@ -274,7 +258,6 @@ class FilterChildBase(FilterBase):
         self.filter_name = data["filter_name"]
         self.defined = data["defined"]
         self.filter_test = data["filter_test"]
-
 
     def serialize(self):
         """
@@ -289,7 +272,6 @@ class FilterChildBase(FilterBase):
             "filter_test": self.filter_test,
         })
         return result
-
 
     def match(self, item, access=None):
         """
@@ -313,7 +295,6 @@ class FilterChildBase(FilterBase):
             return allof
         else:
             return True
-
 
 
 class ComponentFilter (FilterChildBase):
@@ -348,7 +329,6 @@ class ComponentFilter (FilterChildBase):
         else:
             return True
 
-
     def _match(self, component, access):
         # At least one subcomponent must match (or is-not-defined is set)
         for subcomponent in component.subcomponents():
@@ -370,7 +350,6 @@ class ComponentFilter (FilterChildBase):
             return not self.defined
         return self.defined
 
-
     def setInstances(self, instances):
         """
         Give the list of instances to each comp-filter element.
@@ -379,7 +358,6 @@ class ComponentFilter (FilterChildBase):
         self.instances = instances
         for compfilter in [x for x in self.filters if isinstance(x, ComponentFilter)]:
             compfilter.setInstances(instances)
-
 
     def valid(self, level):
         """
@@ -441,7 +419,6 @@ class ComponentFilter (FilterChildBase):
 
         return True
 
-
     def settzinfo(self, tzinfo):
         """
         Set the default timezone to use with this query.
@@ -455,7 +432,6 @@ class ComponentFilter (FilterChildBase):
         # Pass down to sub components/properties
         for x in self.filters:
             x.settzinfo(tzinfo)
-
 
     def getmaxtimerange(self, currentMaximum, currentIsStartTime):
         """
@@ -480,7 +456,6 @@ class ComponentFilter (FilterChildBase):
 
         return currentMaximum, currentIsStartTime
 
-
     def getmintimerange(self, currentMinimum, currentIsEndTime):
         """
         Get the date farthest into the past in any time-range elements. That is either
@@ -503,7 +478,6 @@ class ComponentFilter (FilterChildBase):
         return currentMinimum, currentIsEndTime
 
 FilterBase.serialize_register(ComponentFilter)
-
 
 
 class PropertyFilter (FilterChildBase):
@@ -534,7 +508,6 @@ class PropertyFilter (FilterChildBase):
             return not self.defined
         return self.defined
 
-
     def valid(self):
         """
         Indicate whether this filter element's structure is valid wrt iCalendar
@@ -559,7 +532,6 @@ class PropertyFilter (FilterChildBase):
         # No other tests
         return True
 
-
     def settzinfo(self, tzinfo):
         """
         Set the default timezone to use with this query.
@@ -569,7 +541,6 @@ class PropertyFilter (FilterChildBase):
         # Give tzinfo to any TimeRange we have
         if isinstance(self.qualifier, TimeRange):
             self.qualifier.settzinfo(tzinfo)
-
 
     def getmaxtimerange(self, currentMaximum, currentIsStartTime):
         """
@@ -589,7 +560,6 @@ class PropertyFilter (FilterChildBase):
                 currentIsStartTime = isStartTime
 
         return currentMaximum, currentIsStartTime
-
 
     def getmintimerange(self, currentMinimum, currentIsEndTime):
         """
@@ -611,7 +581,6 @@ class PropertyFilter (FilterChildBase):
 FilterBase.serialize_register(PropertyFilter)
 
 
-
 class ParameterFilter (FilterChildBase):
     """
     Limits a search to specific parameters.
@@ -631,7 +600,6 @@ class ParameterFilter (FilterChildBase):
         return result
 
 FilterBase.serialize_register(ParameterFilter)
-
 
 
 class IsNotDefined (FilterBase):
@@ -695,7 +663,6 @@ class TextMatch (FilterBase):
         else:
             self.match_type = "contains"
 
-
     def _deserialize(self, data):
         """
         Convert a JSON compatible serialization of this object into the actual object.
@@ -704,7 +671,6 @@ class TextMatch (FilterBase):
         self.caseless = data["caseless"]
         self.negate = data["negate"]
         self.match_type = data["match_type"]
-
 
     def serialize(self):
         """
@@ -718,7 +684,6 @@ class TextMatch (FilterBase):
             "match_type": self.match_type,
         })
         return result
-
 
     def match(self, item, access):
         """
@@ -769,7 +734,6 @@ class TextMatch (FilterBase):
 FilterBase.serialize_register(TextMatch)
 
 
-
 class TimeRange (FilterBase):
     """
     Specifies a time for testing components against.
@@ -791,7 +755,6 @@ class TimeRange (FilterBase):
         self.end = DateTime.parseText(xml_element.attributes["end"]) if "end" in xml_element.attributes else None
         self.tzinfo = None
 
-
     def _deserialize(self, data):
         """
         Convert a JSON compatible serialization of this object into the actual object.
@@ -799,7 +762,6 @@ class TimeRange (FilterBase):
         self.start = DateTime.parseText(data["start"]) if data["start"] else None
         self.end = DateTime.parseText(data["end"]) if data["end"] else None
         self.tzinfo = Timezone(tzid=data["tzinfo"]) if data["tzinfo"] else None
-
 
     def serialize(self):
         """
@@ -813,7 +775,6 @@ class TimeRange (FilterBase):
         })
         return result
 
-
     def settzinfo(self, tzinfo):
         """
         Set the default timezone to use with this query.
@@ -822,7 +783,6 @@ class TimeRange (FilterBase):
 
         # Give tzinfo to any TimeRange we have
         self.tzinfo = tzinfo
-
 
     def valid(self, level=0):
         """
@@ -847,7 +807,6 @@ class TimeRange (FilterBase):
         # No other tests
         return True
 
-
     def match(self, property, access=None):
         """
         NB This is only called when doing a time-range match on a property.
@@ -856,7 +815,6 @@ class TimeRange (FilterBase):
             return False
         else:
             return property.containsTimeRange(self.start, self.end, self.tzinfo)
-
 
     def matchinstance(self, component, instances):
         """

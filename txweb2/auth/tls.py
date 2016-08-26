@@ -53,10 +53,8 @@ class TLSCredentials(object):
         else:
             self.username = username
 
-
     def getSubject(self):
         return self.certificate.getSubject()
-
 
 
 class TLSCredentialsFactory(object):
@@ -80,7 +78,6 @@ class TLSCredentialsFactory(object):
         self.dn = dn
         self.sha256 = sha256
 
-
     def getChallenge(self, _ignore_peer):
         challenge = {}
         if self.realm:
@@ -91,10 +88,8 @@ class TLSCredentialsFactory(object):
             challenge['sha-256'] = self.sha256
         return succeed(challenge)
 
-
     def decode(self, credentials, request):
         return succeed(credentials)
-
 
 
 class TLSCredentialsChecker(object):

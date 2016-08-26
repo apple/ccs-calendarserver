@@ -31,12 +31,12 @@ __all__ = ["http_LOCK", "http_UNLOCK"]
 
 from txweb2 import responsecode
 
+
 def http_LOCK(self, request):
     """
     Respond to a LOCK request. (RFC 2518, section 8.10)
     """
     return responsecode.NOT_IMPLEMENTED
-
 
 
 def http_UNLOCK(self, request):

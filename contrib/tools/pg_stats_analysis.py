@@ -24,9 +24,9 @@ import textwrap
 import sys
 import getopt
 
+
 def safePercent(x, y, multiplier=100):
     return ((multiplier * x) / y) if y else 0
-
 
 
 def _is_literal(token):
@@ -35,7 +35,6 @@ def _is_literal(token):
     if token.ttype == sqlparse.tokens.Keyword and token.value in (u'True', u'False'):
         return True
     return False
-
 
 
 def _substitute(expression, replacement):
@@ -51,7 +50,6 @@ def _substitute(expression, replacement):
             expression.tokens[i] = sqlparse.sql.Token('Whitespace', ' ')
         else:
             _substitute(token, replacement)
-
 
 
 def sqlnormalize(sql):
@@ -78,6 +76,7 @@ COLUMN_local_blks_read = 10
 COLUMN_local_blks_written = 11
 COLUMN_temp_blks_read = 12
 COLUMN_temp_blks_written = 13
+
 
 def sqlStatementsReport(entries):
 
@@ -146,7 +145,6 @@ def sqlStatementsReport(entries):
         print("")
 
 
-
 def parseStats(logFilePath, donormlize=True, verbose=False):
 
     fpath = os.path.expanduser(logFilePath)
@@ -194,7 +192,6 @@ def parseStats(logFilePath, donormlize=True, verbose=False):
         print("Read %d entries" % (len(entries,)))
 
     sqlStatementsReport(entries)
-
 
 
 def usage(error_msg=None):

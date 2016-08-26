@@ -35,6 +35,7 @@ from benchlib import initialize, sample
 
 from _event_create import makeEvent
 
+
 @inlineCallbacks
 def measure(host, port, dtrace, attendeeCount, samples, fieldName,
             replacer, eventPerSample=False):
@@ -68,7 +69,6 @@ def measure(host, port, dtrace, attendeeCount, samples, fieldName,
     returnValue(data)
 
 
-
 @inlineCallbacks
 def _selfish_sample(dtrace, replacer, agent, host, port, user, calendar, fieldName, attendeeCount, samples):
     url = 'http://%s:%s/calendars/__uids__/%s/%s/%s-change-%%d.ics' % (
@@ -93,7 +93,6 @@ def _selfish_sample(dtrace, replacer, agent, host, port, user, calendar, fieldNa
                 in enumerate(events)).next,
         NO_CONTENT)
     returnValue(samples)
-
 
 
 @inlineCallbacks

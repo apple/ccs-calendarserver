@@ -31,7 +31,6 @@ else:
         def __init__(self, shortName):
             self.shortNames = [shortName]
 
-
     class AgentTestCase(TestCase):
 
         def test_AgentRealm(self):
@@ -56,7 +55,6 @@ else:
                 pass
             else:
                 self.fail("Didn't raise NotImplementedError")
-
 
     class InactivityDectectorTestCase(TestCase):
 
@@ -89,12 +87,10 @@ else:
             id = InactivityDetector(clock, 0, becameInactive)
             self.assertEquals(clock.getDelayedCalls(), [])
 
-
     class FakeRequest(object):
 
         def getClientIP(self):
             return "127.0.0.1"
-
 
     class FakeOpenDirectory(object):
 
@@ -113,7 +109,6 @@ else:
             return self.authResponse
 
         ODNSerror = "Error"
-
 
     class FakeCredentials(object):
 

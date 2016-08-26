@@ -33,7 +33,6 @@ class MailGatewayTokenDBTests(unittest.TestCase):
         self.store = yield buildStore(self, None)
         self.directory = self.store.directoryService()
 
-
     @inlineCallbacks
     def test_migrate(self):
         self.path = self.mktemp()

@@ -25,7 +25,6 @@ import time
 import uuid
 
 
-
 log = Logger()
 
 
@@ -40,11 +39,9 @@ class SubscribeToID(amp.Command):
     response = [('status', amp.String())]
 
 
-
 class UnsubscribeFromID(amp.Command):
     arguments = [('id', amp.String())]
     response = [('status', amp.String())]
-
 
 
 # AMP Commands sent to client (and forwarded to Master)
@@ -56,7 +53,6 @@ class NotificationForID(amp.Command):
     response = [('status', amp.String())]
 
 
-
 # Server classes
 
 class AMPPushForwardingFactory(Factory):
@@ -65,12 +61,10 @@ class AMPPushForwardingFactory(Factory):
     def __init__(self, forwarder):
         self.forwarder = forwarder
 
-
     def buildProtocol(self, addr):
         protocol = amp.AMP()
         self.forwarder.protocols.append(protocol)
         return protocol
-
 
 
 class AMPPushForwarder(object):
@@ -82,7 +76,6 @@ class AMPPushForwarder(object):
     def __init__(self, controlSocket):
         self.protocols = []
         controlSocket.addFactory(PUSH_ROUTE, AMPPushForwardingFactory(self))
-
 
     @inlineCallbacks
     def enqueue(
@@ -98,7 +91,6 @@ class AMPPushForwarder(object):
                 priority=priority.value)
 
 
-
 class AMPPushMasterListeningProtocol(amp.AMP):
     """
     Listens for notifications coming in over AMP from the slaves
@@ -108,7 +100,6 @@ class AMPPushMasterListeningProtocol(amp.AMP):
     def __init__(self, master):
         super(AMPPushMasterListeningProtocol, self).__init__()
         self.master = master
-
 
     @NotificationForID.responder
     def enqueueFromWorker(
@@ -120,8 +111,7 @@ class AMPPushMasterListeningProtocol(amp.AMP):
         self.master.enqueue(
             None, id, dataChangedTimestamp=dataChangedTimestamp,
             priority=PushPriority.lookupByValue(priority))
-        return {"status" : "OK"}
-
+        return {"status": "OK"}
 
 
 class AMPPushMasterListenerFactory(Factory):
@@ -130,11 +120,9 @@ class AMPPushMasterListenerFactory(Factory):
     def __init__(self, master):
         self.master = master
 
-
     def buildProtocol(self, addr):
         protocol = AMPPushMasterListeningProtocol(self.master)
         return protocol
-
 
 
 class AMPPushMaster(object):
@@ -174,16 +162,13 @@ class AMPPushMaster(object):
         else:
             self.scheduler = None
 
-
     def addSubscriber(self, p):
         self.log.debug("Added subscriber")
         self.subscribers.append(p)
 
-
     def removeSubscriber(self, p):
         self.log.debug("Removed subscriber")
         self.subscribers.remove(p)
-
 
     def enqueue(
         self, transaction, pushKey, dataChangedTimestamp=None,
@@ -217,7 +202,6 @@ class AMPPushMaster(object):
                 tokens, pushKey,
                 dataChangedTimestamp, priority)
 
-
     @inlineCallbacks
     def sendNotification(self, token, id, dataChangedTimestamp, priority):
         for subscriber in self.subscribers:
@@ -225,7 +209,6 @@ class AMPPushMaster(object):
                 yield subscriber.notify(
                     token, id, dataChangedTimestamp,
                     priority)
-
 
     @inlineCallbacks
     def scheduleNotifications(self, tokens, id, dataChangedTimestamp, priority):
@@ -238,7 +221,6 @@ class AMPPushMaster(object):
                     priority)
 
 
-
 class AMPPushNotifierProtocol(amp.AMP):
     log = Logger()
 
@@ -248,13 +230,12 @@ class AMPPushNotifierProtocol(amp.AMP):
         self.subscriptions = {}
         self.any = None
 
-
     def subscribe(self, token, id):
         if id == "any":
             self.any = token
         else:
             self.subscriptions[id] = token
-        return {"status" : "OK"}
+        return {"status": "OK"}
     SubscribeToID.responder(subscribe)
 
     def unsubscribe(self, id):
@@ -262,7 +243,7 @@ class AMPPushNotifierProtocol(amp.AMP):
             del self.subscriptions[id]
         except KeyError:
             pass
-        return {"status" : "OK"}
+        return {"status": "OK"}
     UnsubscribeFromID.responder(unsubscribe)
 
     def notify(self, token, id, dataChangedTimestamp, priority):
@@ -273,16 +254,13 @@ class AMPPushNotifierProtocol(amp.AMP):
                 dataChangedTimestamp=dataChangedTimestamp,
                 priority=priority.value)
 
-
     def subscribedToID(self, id):
         if self.any is not None:
             return self.any
         return self.subscriptions.get(id, None)
 
-
     def connectionLost(self, reason=None):
         self.service.removeSubscriber(self)
-
 
 
 class AMPPushNotifierFactory(ServerFactory):
@@ -293,13 +271,11 @@ class AMPPushNotifierFactory(ServerFactory):
     def __init__(self, service):
         self.service = service
 
-
     def buildProtocol(self, addr):
         p = self.protocol(self.service)
         self.service.addSubscriber(p)
         p.service = self.service
         return p
-
 
 
 # Client classes
@@ -315,14 +291,12 @@ class AMPPushClientProtocol(amp.AMP):
         super(AMPPushClientProtocol, self).__init__()
         self.callback = callback
 
-
     @inlineCallbacks
     def notificationForID(self, id, dataChangedTimestamp, priority):
         yield self.callback(id, dataChangedTimestamp, PushPriority.lookupByValue(priority))
-        returnValue({"status" : "OK"})
+        returnValue({"status": "OK"})
 
     NotificationForID.responder(notificationForID)
-
 
 
 class AMPPushClientFactory(Factory):
@@ -333,11 +307,9 @@ class AMPPushClientFactory(Factory):
     def __init__(self, callback):
         self.callback = callback
 
-
     def buildProtocol(self, addr):
         p = self.protocol(self.callback)
         return p
-
 
 
 # Client helper methods

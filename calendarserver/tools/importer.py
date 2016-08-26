@@ -50,7 +50,6 @@ from txdav.xml import element as davxml
 log = Logger()
 
 
-
 def usage(e=None):
     if e:
         print(e)
@@ -75,12 +74,10 @@ description = '\n'.join(
 )
 
 
-
 class ImportException(Exception):
     """
     An error occurred during import
     """
-
 
 
 class ImportOptions(Options):
@@ -103,7 +100,6 @@ class ImportOptions(Options):
         self.inputName = '-'
         self.inputDirectoryName = None
 
-
     def opt_directory(self, dirname):
         """
         Specify input directory path.
@@ -112,7 +108,6 @@ class ImportOptions(Options):
 
     opt_d = opt_directory
 
-
     def opt_input(self, filename):
         """
         Specify input file path (default: '-', meaning stdin).
@@ -120,7 +115,6 @@ class ImportOptions(Options):
         self.inputName = filename
 
     opt_i = opt_input
-
 
     def openInput(self):
         """
@@ -132,7 +126,6 @@ class ImportOptions(Options):
             return open(self.inputName, 'r')
 
 
-
 # These could probably live on the collection class:
 
 def setCollectionPropertyValue(collection, element, value):
@@ -142,7 +135,6 @@ def setCollectionPropertyValue(collection, element, value):
     )
 
 
-
 def getCollectionPropertyValue(collection, element):
     collectionProperties = collection.properties()
     name = PropertyName.fromElement(element)
@@ -150,7 +142,6 @@ def getCollectionPropertyValue(collection, element):
         return str(collectionProperties[name])
     else:
         return None
-
 
 
 @inlineCallbacks
@@ -289,7 +280,6 @@ def importCollectionComponent(store, component):
                 yield txn.commit()
 
 
-
 @inlineCallbacks
 def storeComponentInHomeAndCalendar(
     store, component, homeUID, collectionResourceName, objectResourceName,
@@ -330,7 +320,6 @@ def storeComponentInHomeAndCalendar(
     yield txn.commit()
 
 
-
 class ImporterService(WorkerService, object):
     """
     Service which runs, imports the data, then stops the reactor.
@@ -344,7 +333,6 @@ class ImporterService(WorkerService, object):
         self._directory = self.store.directoryService()
 
         TimezoneCache.create()
-
 
     @inlineCallbacks
     def doWork(self):
@@ -381,13 +369,11 @@ class ImporterService(WorkerService, object):
         except:
             log.failure("doWork()")
 
-
     def directoryService(self):
         """
         Get an appropriate directory service.
         """
         return self._directory
-
 
     def stopService(self):
         """
@@ -398,7 +384,6 @@ class ImporterService(WorkerService, object):
         # loop, but this is not implemented because nothing will actually do it
         # except hitting ^C (which also calls reactor.stop(), so that will exit
         # anyway).
-
 
 
 def main(argv=sys.argv, reactor=None):
@@ -413,7 +398,6 @@ def main(argv=sys.argv, reactor=None):
         options.parseOptions(argv[1:])
     except UsageError, e:
         usage(e)
-
 
     def makeService(store):
         from twistedcaldav.config import config

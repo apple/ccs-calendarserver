@@ -46,8 +46,8 @@ from calendarserver.tools.cmdline import utilityMain, WorkerService
 log = Logger()
 
 
-
 VERSION = "1"
+
 
 def usage(e=None):
     if e:
@@ -74,10 +74,8 @@ description = ''.join(
 description += "\nVersion: %s" % (VERSION,)
 
 
-
 class ConfigError(Exception):
     pass
-
 
 
 class ObliterateOptions(Options):
@@ -100,11 +98,9 @@ class ObliterateOptions(Options):
         ['uuid', 'u', "", "Obliterate this user's data."],
     ]
 
-
     def __init__(self):
         super(ObliterateOptions, self).__init__()
         self.outputName = '-'
-
 
     def opt_output(self, filename):
         """
@@ -113,7 +109,6 @@ class ObliterateOptions(Options):
         self.outputName = filename
 
     opt_o = opt_output
-
 
     def openOutput(self):
         """
@@ -125,7 +120,6 @@ class ObliterateOptions(Options):
             return open(self.outputName, 'wb')
 
 
-
 # Need to patch this in if not present in actual server code
 def NotIn(self, subselect):
     # Can't be Select.__contains__ because __contains__ gets __nonzero__
@@ -134,7 +128,6 @@ def NotIn(self, subselect):
 
 if not hasattr(ExpressionSyntax, "NotIn"):
     ExpressionSyntax.NotIn = NotIn
-
 
 
 class ObliterateService(WorkerService, object):
@@ -156,7 +149,6 @@ class ObliterateService(WorkerService, object):
         self.totalResources = 0
         self.attachments = set()
 
-
     @inlineCallbacks
     def doWork(self):
         """
@@ -177,7 +169,6 @@ class ObliterateService(WorkerService, object):
             pass
         except:
             log.failure("doWork()")
-
 
     @inlineCallbacks
     def obliterateOrphanedProperties(self):
@@ -258,7 +249,6 @@ class ObliterateService(WorkerService, object):
 
         self.output.write("Obliteration time: %.1fs\n" % (time.time() - t,))
 
-
     @inlineCallbacks
     def obliterateUUIDs(self):
         """
@@ -301,13 +291,12 @@ class ObliterateService(WorkerService, object):
             #     self.output.write("    %s\n" % (attachment,))
         self.output.write("Obliteration time: %.1fs\n" % (time.time() - t,))
 
-
     @inlineCallbacks
     def processUUID(self, uuid):
 
         # Get the resource-id for the home
         ch = schema.CALENDAR_HOME
-        kwds = {"UUID" : uuid}
+        kwds = {"UUID": uuid}
         rows = (yield Select(
             [ch.RESOURCE_ID, ],
             From=ch,
@@ -351,13 +340,12 @@ class ObliterateService(WorkerService, object):
             (", %d attachmensts" % (attachmentCount,)) if attachmentCount else "",
         ))
 
-
     @inlineCallbacks
     def countResources(self, uuid):
         ch = schema.CALENDAR_HOME
         cb = schema.CALENDAR_BIND
         co = schema.CALENDAR_OBJECT
-        kwds = {"UUID" : uuid}
+        kwds = {"UUID": uuid}
         rows = (yield Select(
             [
                 Count(co.RESOURCE_ID),
@@ -373,13 +361,12 @@ class ObliterateService(WorkerService, object):
 
         returnValue(rows[0][0] if rows else 0)
 
-
     @inlineCallbacks
     def deleteCalendars(self, homeID):
 
         # Get list of binds and bind mode
         cb = schema.CALENDAR_BIND
-        kwds = {"resourceID" : homeID}
+        kwds = {"resourceID": homeID}
         rows = (yield Select(
             [cb.CALENDAR_RESOURCE_ID, cb.BIND_MODE, ],
             From=cb,
@@ -398,7 +385,6 @@ class ObliterateService(WorkerService, object):
 
         returnValue(len(rows))
 
-
     @inlineCallbacks
     def deleteCalendar(self, resourceID):
 
@@ -409,7 +395,7 @@ class ObliterateService(WorkerService, object):
         if not self.options["dry-run"]:
             ca = schema.CALENDAR
             kwds = {
-                "ResourceID" : resourceID,
+                "ResourceID": resourceID,
             }
             yield Delete(
                 From=ca,
@@ -421,14 +407,13 @@ class ObliterateService(WorkerService, object):
         # Remove properties
         yield self.removePropertiesForResourceID(resourceID)
 
-
     @inlineCallbacks
     def deleteBind(self, homeID, resourceID):
         if not self.options["dry-run"]:
             cb = schema.CALENDAR_BIND
             kwds = {
-                "HomeID" : homeID,
-                "ResourceID" : resourceID,
+                "HomeID": homeID,
+                "ResourceID": resourceID,
             }
             yield Delete(
                 From=cb,
@@ -438,12 +423,11 @@ class ObliterateService(WorkerService, object):
                 ),
             ).on(self.txn, **kwds)
 
-
     @inlineCallbacks
     def removeRevisionsForHomeResourceID(self, resourceID):
         if not self.options["dry-run"]:
             rev = schema.CALENDAR_OBJECT_REVISIONS
-            kwds = {"ResourceID" : resourceID}
+            kwds = {"ResourceID": resourceID}
             yield Delete(
                 From=rev,
                 Where=(
@@ -451,12 +435,11 @@ class ObliterateService(WorkerService, object):
                 ),
             ).on(self.txn, **kwds)
 
-
     @inlineCallbacks
     def removeRevisionsForCalendarResourceID(self, resourceID):
         if not self.options["dry-run"]:
             rev = schema.CALENDAR_OBJECT_REVISIONS
-            kwds = {"ResourceID" : resourceID}
+            kwds = {"ResourceID": resourceID}
             yield Delete(
                 From=rev,
                 Where=(
@@ -464,12 +447,11 @@ class ObliterateService(WorkerService, object):
                 ),
             ).on(self.txn, **kwds)
 
-
     @inlineCallbacks
     def removePropertiesForResourceID(self, resourceID):
         if not self.options["dry-run"]:
             props = schema.RESOURCE_PROPERTY
-            kwds = {"ResourceID" : resourceID}
+            kwds = {"ResourceID": resourceID}
             yield Delete(
                 From=props,
                 Where=(
@@ -477,13 +459,12 @@ class ObliterateService(WorkerService, object):
                 ),
             ).on(self.txn, **kwds)
 
-
     @inlineCallbacks
     def removeNotificationsForUUID(self, uuid):
 
         # Get NOTIFICATION_HOME.RESOURCE_ID
         nh = schema.NOTIFICATION_HOME
-        kwds = {"UUID" : uuid}
+        kwds = {"UUID": uuid}
         rows = (yield Select(
             [nh.RESOURCE_ID, ],
             From=nh,
@@ -498,7 +479,7 @@ class ObliterateService(WorkerService, object):
             # Delete NOTIFICATION rows
             if not self.options["dry-run"]:
                 no = schema.NOTIFICATION
-                kwds = {"ResourceID" : resourceID}
+                kwds = {"ResourceID": resourceID}
                 yield Delete(
                     From=no,
                     Where=(
@@ -508,7 +489,7 @@ class ObliterateService(WorkerService, object):
 
             # Delete NOTIFICATION_HOME (will cascade to NOTIFICATION_OBJECT_REVISIONS)
             if not self.options["dry-run"]:
-                kwds = {"UUID" : uuid}
+                kwds = {"UUID": uuid}
                 yield Delete(
                     From=nh,
                     Where=(
@@ -516,13 +497,12 @@ class ObliterateService(WorkerService, object):
                     ),
                 ).on(self.txn, **kwds)
 
-
     @inlineCallbacks
     def removeAttachments(self, resourceID):
 
         # Get ATTACHMENT paths
         at = schema.ATTACHMENT
-        kwds = {"resourceID" : resourceID}
+        kwds = {"resourceID": resourceID}
         rows = (yield Select(
             [at.PATH, ],
             From=at,
@@ -537,7 +517,7 @@ class ObliterateService(WorkerService, object):
             # Delete ATTACHMENT rows
             if not self.options["dry-run"]:
                 at = schema.ATTACHMENT
-                kwds = {"resourceID" : resourceID}
+                kwds = {"resourceID": resourceID}
                 yield Delete(
                     From=at,
                     Where=(
@@ -547,12 +527,11 @@ class ObliterateService(WorkerService, object):
 
         returnValue(len(rows) if rows else 0)
 
-
     @inlineCallbacks
     def removeHomeForResourceID(self, resourceID):
         if not self.options["dry-run"]:
             ch = schema.CALENDAR_HOME
-            kwds = {"ResourceID" : resourceID}
+            kwds = {"ResourceID": resourceID}
             yield Delete(
                 From=ch,
                 Where=(
@@ -560,13 +539,11 @@ class ObliterateService(WorkerService, object):
                 ),
             ).on(self.txn, **kwds)
 
-
     def stopService(self):
         """
         Stop the service.  Nothing to do; everything should be finished by this
         time.
         """
-
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
@@ -582,7 +559,6 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     except IOError, e:
         stderr.write("Unable to open output file for writing: %s\n" % (e))
         sys.exit(1)
-
 
     def makeService(store):
         from twistedcaldav.config import config

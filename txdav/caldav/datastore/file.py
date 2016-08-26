@@ -79,7 +79,6 @@ CalendarStoreTransaction = CommonStoreTransaction
 IGNORE_NAMES = ('dropbox', 'notification', 'freebusy')
 
 
-
 class CalendarHome(CommonHome):
     implements(ICalendarHome)
 
@@ -102,7 +101,6 @@ class CalendarHome(CommonHome):
     createCalendarWithName = CommonHome.createChildWithName
     removeCalendarWithName = CommonHome.removeChildWithName
 
-
     def childWithName(self, name):
         if name in IGNORE_NAMES:
             # "dropbox" is a file storage area, not a calendar.
@@ -111,7 +109,6 @@ class CalendarHome(CommonHome):
             return super(CalendarHome, self).childWithName(name)
 
     calendarWithName = childWithName
-
 
     def children(self):
         """
@@ -134,7 +131,6 @@ class CalendarHome(CommonHome):
     listCalendars = listChildren
     loadCalendars = CommonHome.loadChildren
 
-
     @inlineCallbacks
     def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, type):
 
@@ -148,13 +144,11 @@ class CalendarHome(CommonHome):
 
         returnValue(None)
 
-
     @inlineCallbacks
     def getCalendarResourcesForUID(self, uid):
 
         results = (yield self.objectResourcesWithUID(uid, ("inbox",)))
         returnValue(results)
-
 
     @inlineCallbacks
     def calendarObjectWithDropboxID(self, dropboxID):
@@ -165,7 +159,6 @@ class CalendarHome(CommonHome):
             for calendarObject in calendar.calendarObjects():
                 if dropboxID == (yield calendarObject.dropboxID()):
                     returnValue(calendarObject)
-
 
     @inlineCallbacks
     def getAllDropboxIDs(self):
@@ -181,11 +174,9 @@ class CalendarHome(CommonHome):
                     dropboxIDs.append(dropboxID)
         returnValue(dropboxIDs)
 
-
     @property
     def _calendarStore(self):
         return self._dataStore
-
 
     def createdHome(self):
 
@@ -203,7 +194,6 @@ class CalendarHome(CommonHome):
             cal = self.createCalendarWithName("calendar")
 
         self.createCalendarWithName("inbox")
-
 
     def ensureDefaultCalendarsExist(self):
         """
@@ -234,7 +224,6 @@ class CalendarHome(CommonHome):
             _requireCalendarWithType("VTODO", "tasks")
 
 
-
 class Calendar(CommonHomeChild):
     """
     File-based implementation of L{ICalendar}.
@@ -261,7 +250,6 @@ class Calendar(CommonHomeChild):
         self._index = Index(self)
         self._objectResourceClass = CalendarObject
 
-
     @property
     def _calendarHome(self):
         return self._home
@@ -275,14 +263,11 @@ class Calendar(CommonHomeChild):
     createCalendarObjectWithName = CommonHomeChild.createObjectResourceWithName
     calendarObjectsSinceToken = CommonHomeChild.objectResourcesSinceToken
 
-
     def _createCalendarObjectWithNameInternal(self, name, component, internal_state, options=None):
         return self.createCalendarObjectWithName(name, component, options)
 
-
     def calendarObjectsInTimeRange(self, start, end, timeZone):
         raise NotImplementedError()
-
 
     def setSupportedComponents(self, supported_components):
         """
@@ -296,11 +281,9 @@ class Calendar(CommonHomeChild):
         elif pname in self.properties():
             del self.properties()[pname]
 
-
     def getSupportedComponents(self):
         result = str(self.properties().get(PropertyName.fromElement(customxml.TwistedCalendarSupportedComponents), ""))
         return result if result else None
-
 
     def isSupportedComponent(self, componentType):
         supported = self.getSupportedComponents()
@@ -308,7 +291,6 @@ class Calendar(CommonHomeChild):
             return componentType.upper() in supported.split(",")
         else:
             return True
-
 
     def initPropertyStore(self, props):
         # Setup peruser special properties
@@ -324,13 +306,11 @@ class Calendar(CommonHomeChild):
             (),
         )
 
-
     def contentType(self):
         """
         The content type of Calendar objects is text/calendar.
         """
         return MimeType.fromString("text/calendar; charset=utf-8")
-
 
     def splitCollectionByComponentTypes(self):
         """
@@ -342,7 +322,6 @@ class Calendar(CommonHomeChild):
         # TODO: implement this for filestore
         pass
 
-
     def _countComponentTypes(self):
         """
         Count each component type in this calendar.
@@ -353,7 +332,6 @@ class Calendar(CommonHomeChild):
         rows = self._index._oldIndex.componentTypeCounts()
         result = tuple([(componentType, componentCount) for componentType, componentCount in sorted(rows, key=lambda x:x[0])])
         return result
-
 
     def _splitComponentType(self, component):
         """
@@ -367,7 +345,6 @@ class Calendar(CommonHomeChild):
         # TODO: implement this for filestore
         pass
 
-
     def _transferSharingDetails(self, newcalendar, component):
         """
         If the current calendar is shared, make the new calendar shared in the same way, but tweak the name.
@@ -376,7 +353,6 @@ class Calendar(CommonHomeChild):
         # TODO: implement this for filestore
         pass
 
-
     def _transferCalendarObjects(self, newcalendar, component):
         """
         Move all calendar components of the specified type to the specified calendar.
@@ -384,7 +360,6 @@ class Calendar(CommonHomeChild):
 
         # TODO: implement this for filestore
         pass
-
 
 
 class CalendarObject(CommonObjectResource, CalendarObjectBase):
@@ -406,15 +381,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             self.scheduleEtags = metadata.get("scheduleEtags", "")
             self.hasPrivateComment = metadata.get("hasPrivateComment", False)
 
-
     @property
     def _calendar(self):
         return self._parentCollection
 
-
     def calendar(self):
         return self._calendar
-
 
     @writeOperation
     def setComponent(self, component, inserting=False):
@@ -462,7 +434,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         self._calendar.notifyChanged()
 
-
     def component(self):
         """
         Read calendar data and validate/fix it. Do not raise a store error here if there are unfixable
@@ -491,7 +462,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         return component
 
-
     def componentForUser(self, user_uuid=None):
         """
         Return the iCalendar component filtered for the specified user's per-user data.
@@ -506,7 +476,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         if user_uuid is None:
             user_uuid = self._parentCollection.viewerHome().uid()
         return PerUserDataFilter(user_uuid).filter(self.component().duplicate())
-
 
     def _text(self):
         if self._objectText is not None:
@@ -545,22 +514,18 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         self._objectText = text
         return text
 
-
     def uid(self):
         if not hasattr(self, "_uid"):
             self._uid = self.component().resourceUID()
         return self._uid
-
 
     def componentType(self):
         if not hasattr(self, "_componentType"):
             self._componentType = self.component().mainType()
         return self._componentType
 
-
     def organizer(self):
         return self.component().getOrganizer()
-
 
     def getMetadata(self):
         metadata = {}
@@ -571,10 +536,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         metadata["hasPrivateComment"] = self.hasPrivateComment
         return metadata
 
-
     def _get_accessMode(self):
         return str(self.properties().get(PropertyName.fromElement(customxml.TwistedCalendarAccessProperty), ""))
-
 
     def _set_accessMode(self, value):
         pname = PropertyName.fromElement(customxml.TwistedCalendarAccessProperty)
@@ -595,7 +558,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             prop = str(prop) == "true"
         return prop
 
-
     def _set_isScheduleObject(self, value):
         pname = PropertyName.fromElement(customxml.TwistedSchedulingObjectResource)
         if value is not None:
@@ -608,7 +570,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     def _get_scheduleTag(self):
         return str(self.properties().get(PropertyName.fromElement(caldavxml.ScheduleTag), ""))
 
-
     def _set_scheduleTag(self, value):
         pname = PropertyName.fromElement(caldavxml.ScheduleTag)
         if value:
@@ -620,7 +581,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
     def _get_scheduleEtags(self):
         return tuple([str(etag) for etag in self.properties().get(PropertyName.fromElement(customxml.TwistedScheduleMatchETags), customxml.TwistedScheduleMatchETags()).children])
-
 
     def _set_scheduleEtags(self, value):
         if value:
@@ -637,7 +597,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     def _get_hasPrivateComment(self):
         return PropertyName.fromElement(customxml.TwistedCalendarHasPrivateCommentsProperty) in self.properties()
 
-
     def _set_hasPrivateComment(self, value):
         pname = PropertyName.fromElement(customxml.TwistedCalendarHasPrivateCommentsProperty)
         if value:
@@ -647,18 +606,14 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
     hasPrivateComment = property(_get_hasPrivateComment, _set_hasPrivateComment)
 
-
     def addAttachment(self, pathpattern, rids, content_type, filename, stream):
         raise NotImplementedError
-
 
     def updateAttachment(self, pathpattern, managed_id, content_type, filename, stream):
         raise NotImplementedError
 
-
     def removeAttachment(self, rids, managed_id):
         raise NotImplementedError
-
 
     @inlineCallbacks
     def createAttachmentWithName(self, name):
@@ -670,7 +625,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         attachment = Attachment(self, name, dropboxPath)
         self._attachments[name] = attachment
         returnValue(attachment)
-
 
     @inlineCallbacks
     def removeAttachmentWithName(self, name):
@@ -689,7 +643,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # Adjust quota
         self._calendar._home.adjustQuotaUsedBytes(-oldSize)
 
-
     @inlineCallbacks
     def attachmentWithName(self, name):
         # Attachments can be local or remote, but right now we only care about
@@ -707,15 +660,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # FIXME: test for non-existent attachment.
             returnValue(None)
 
-
     def attendeesCanManageAttachments(self):
         return self.component().hasPropertyInAnyComponent("X-APPLE-DROPBOX")
-
 
     def dropboxID(self):
         # NB: Deferred
         return dropboxIDFromCalendarObject(self)
-
 
     @inlineCallbacks
     def _dropboxPath(self):
@@ -726,7 +676,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             dropboxPath.makedirs()
         returnValue(dropboxPath)
 
-
     @inlineCallbacks
     def attachments(self):
         # See comment on attachmentWithName.
@@ -736,7 +685,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
              for name in dropboxPath.listdir()
              if not name.startswith(".")]
         )
-
 
     def initPropertyStore(self, props):
         # Setup peruser special properties
@@ -754,14 +702,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             (),
         )
 
-
     # IDataStoreObject
     def contentType(self):
         """
         The content type of Calendar objects is text/calendar.
         """
         return MimeType.fromString("text/calendar; charset=utf-8")
-
 
 
 class AttachmentStorageTransport(StorageTransportBase):
@@ -781,11 +727,9 @@ class AttachmentStorageTransport(StorageTransportBase):
 
         self._txn.postAbort(self.aborted)
 
-
     @property
     def _txn(self):
         return self._attachment._txn
-
 
     def aborted(self):
         """
@@ -794,12 +738,10 @@ class AttachmentStorageTransport(StorageTransportBase):
         if self._path.exists():
             self._path.remove()
 
-
     def write(self, data):
         # FIXME: multiple chunks
         self._file.write(data)
         return super(AttachmentStorageTransport, self).write(data)
-
 
     def loseConnection(self):
         home = self._attachment._calendarObject._calendar._home
@@ -815,8 +757,7 @@ class AttachmentStorageTransport(StorageTransportBase):
 
         # Check overall user quota
         allowed = home.quotaAllowedBytes()
-        if allowed is not None and allowed < (home.quotaUsedBytes()
-                                              + (newSize - oldSize)):
+        if allowed is not None and allowed < (home.quotaUsedBytes() + (newSize - oldSize)):
             self._path.remove()
             return fail(QuotaExceeded())
 
@@ -833,7 +774,6 @@ class AttachmentStorageTransport(StorageTransportBase):
         home.adjustQuotaUsedBytes(newSize - oldSize)
         props.flush()
         return succeed(None)
-
 
 
 class Attachment(FileMetaDataMixin):
@@ -853,15 +793,12 @@ class Attachment(FileMetaDataMixin):
         self._name = name
         self._dropboxPath = dropboxPath
 
-
     @property
     def _txn(self):
         return self._calendarObject._txn
 
-
     def name(self):
         return self._name
-
 
     def properties(self):
         home = self._calendarObject._parentCollection._home
@@ -869,19 +806,15 @@ class Attachment(FileMetaDataMixin):
         propStoreClass = home._dataStore._propertyStoreClass
         return propStoreClass(uid, lambda: self._path)
 
-
     def store(self, contentType, dispositionName=None):
         return AttachmentStorageTransport(self, contentType, dispositionName)
-
 
     def retrieve(self, protocol):
         return AttachmentRetrievalTransport(self._path).start(protocol)
 
-
     @property
     def _path(self):
         return self._dropboxPath.child(self.name())
-
 
 
 class CalendarStubResource(CommonStubResource):
@@ -892,11 +825,11 @@ class CalendarStubResource(CommonStubResource):
     def isCalendarCollection(self):
         return True
 
-
     def getChild(self, name):
         calendarObject = self.resource.calendarObjectWithName(name)
         if calendarObject:
             class ChildResource(object):
+
                 def __init__(self, calendarObject):
                     self.calendarObject = calendarObject
 
@@ -908,12 +841,12 @@ class CalendarStubResource(CommonStubResource):
             return None
 
 
-
 class Index(object):
     #
     # OK, here's where we get ugly.
     # The index code needs to be rewritten also, but in the meantime...
     #
+
     def __init__(self, calendar):
         self.calendar = calendar
         stubResource = CalendarStubResource(calendar)
@@ -922,7 +855,6 @@ class Index(object):
         else:
             indexClass = OldIndex
         self._oldIndex = indexClass(stubResource)
-
 
     def calendarObjects(self):
         calendar = self.calendar

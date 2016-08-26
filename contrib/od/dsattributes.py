@@ -1626,7 +1626,6 @@ kDSNAttrURLForNSL = "dsAttrTypeStandard:URLForNSL"
 kDSNAttrVFSOpts = "dsAttrTypeStandard:VFSOpts"
 
 
-
 # Other Attribute Type Constants
 
 

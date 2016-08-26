@@ -18,6 +18,7 @@
 from twisted.trial.unittest import TestCase
 from contrib.performance.loadtest.webadmin import LoadSimAdminResource
 
+
 class WebAdminTests(TestCase):
     """
     Tests for L{LoadSimAdminResource}.
@@ -28,7 +29,6 @@ class WebAdminTests(TestCase):
         def generateReport(self, output):
             output.write("FakeReporter")
 
-
     class FakeReactor(object):
 
         def __init__(self):
@@ -36,7 +36,6 @@ class WebAdminTests(TestCase):
 
         def stop(self):
             self.running = False
-
 
     class FakeLoadSim(object):
 
@@ -48,12 +47,10 @@ class WebAdminTests(TestCase):
         def stop(self):
             self.running = False
 
-
     class FakeRequest(object):
 
         def __init__(self, **kwargs):
             self.args = kwargs
-
 
     def test_resourceGET(self):
         """
@@ -66,7 +63,6 @@ class WebAdminTests(TestCase):
         response = resource.render_GET(WebAdminTests.FakeRequest())
         self.assertTrue(response.startswith("<html>"))
         self.assertTrue(response.find(resource.token) != -1)
-
 
     def test_resourcePOST_Stop(self):
         """
@@ -86,7 +82,6 @@ class WebAdminTests(TestCase):
         self.assertTrue(response.find("FakeReporter") != -1)
         self.assertFalse(loadsim.running)
 
-
     def test_resourcePOST_Stop_BadToken(self):
         """
         Test render_POST when Stop button is clicked but token is wrong
@@ -105,7 +100,6 @@ class WebAdminTests(TestCase):
         self.assertTrue(response.find("FakeReporter") == -1)
         self.assertTrue(loadsim.running)
 
-
     def test_resourcePOST_Results(self):
         """
         Test render_POST when Results button is clicked
@@ -123,7 +117,6 @@ class WebAdminTests(TestCase):
         self.assertTrue(response.find(resource.token) != -1)
         self.assertTrue(response.find("FakeReporter") != -1)
         self.assertTrue(loadsim.running)
-
 
     def test_resourcePOST_Results_BadToken(self):
         """

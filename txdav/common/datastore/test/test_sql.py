@@ -39,7 +39,6 @@ from txdav.common.icommondatastore import AllRetriesFailed
 from txdav.xml import element as davxml
 
 
-
 exampleUID = UUID("a" * 32)
 denormalizedUID = unicode(exampleUID)
 normalizedUID = denormalizedUID.upper()
@@ -59,7 +58,6 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         yield self.buildStoreAndDirectory(
             extraUids=(denormalizedUID, normalizedUID, u"uid")
         )
-
 
     @inlineCallbacks
     def test_logging(self):
@@ -82,7 +80,6 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         self.assertNotEqual(version, None)
         self.assertEqual(len(version), 1)
         self.assertEqual(len(version[0]), 1)
-
 
     def test_logWaits(self):
         """
@@ -107,7 +104,6 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         c.advance(2)
         self.assertNotEqual(ctr[0], 0)
         txn.abort()
-
 
     def test_txnTimeout(self):
         """
@@ -134,7 +130,6 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         self.assertNotEqual(ctr[0], 0)
         self.assertTrue(txn._sqlTxn._completed)
         self.assertTrue(txn.timedout)
-
 
     def test_logWaitsAndTxnTimeout(self):
         """
@@ -166,7 +161,6 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         self.assertNotEqual(ctr[1], 0)
         self.assertTrue(txn._sqlTxn._completed)
 
-
     @inlineCallbacks
     def test_subtransactionOK(self):
         """
@@ -187,7 +181,6 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
 
         (yield txn.subtransaction(_test, retries=0))[0][0]
         self.assertEqual(ctr[0], 1)
-
 
     @inlineCallbacks
     def test_subtransactionOKAfterRetry(self):
@@ -211,7 +204,6 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
 
         (yield txn.subtransaction(_test, retries=1))[0][0]
         self.assertEqual(ctr[0], 2)
-
 
     @inlineCallbacks
     def test_subtransactionFailNoRetry(self):
@@ -239,7 +231,6 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         else:
             self.fail("AllRetriesFailed not raised")
         self.assertEqual(ctr[0], 1)
-
 
     @inlineCallbacks
     def test_subtransactionFailSomeRetries(self):
@@ -269,7 +260,6 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
             self.fail("AllRetriesFailed not raised")
         self.assertEqual(ctr[0], 3)
 
-
     @inlineCallbacks
     def test_subtransactionAbortOuterTransaction(self):
         """
@@ -298,7 +288,6 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         else:
             self.fail("AllRetriesFailed not raised, %r returned instead" %
                       (result,))
-
 
     @inlineCallbacks
     def test_changeRevision(self):
@@ -355,7 +344,6 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
 
         yield txn.abort()
 
-
     @inlineCallbacks
     def test_normalizeColumnUUIDs(self):
         """
@@ -397,7 +385,6 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
             ]
         )
 
-
     @inlineCallbacks
     def allHomeUIDs(self, table=schema.CALENDAR_HOME):
         """
@@ -407,7 +394,6 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
                          .on(self.transactionUnderTest()))
         yield self.commit()
         returnValue(results)
-
 
     @inlineCallbacks
     def test_fixUUIDNormalization_lowerToUpper(self):
@@ -425,7 +411,6 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
             [[normalizedUID]]
         )
 
-
     @inlineCallbacks
     def test_fixUUIDNormalization_lowerToUpper_notification(self):
         """
@@ -442,7 +427,6 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
             [[normalizedUID]]
         )
 
-
     @inlineCallbacks
     def test_fixUUIDNormalization_lowerToUpper_addressbook(self):
         """
@@ -458,7 +442,6 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
             map(list, (yield self.allHomeUIDs(schema.ADDRESSBOOK_HOME))),
             [[normalizedUID]]
         )
-
 
     @inlineCallbacks
     def test_inTransaction(self):
@@ -492,18 +475,15 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         self.assertEquals(self.txn.label, "bad")
 
 
-
 class StubTransaction(object):
 
     def __init__(self, label):
         self.label = label
         self.action = None
 
-
     def commit(self):
         self.action = "committed"
         return succeed(None)
-
 
     def abort(self):
         self.action = "aborted"

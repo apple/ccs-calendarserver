@@ -61,7 +61,6 @@ def analyze(fname):
     return results
 
 
-
 def parseTableMissing(line):
     splits = line.split("|")
     organizer = splits[1].strip()
@@ -69,7 +68,6 @@ def parseTableMissing(line):
     uid = splits[3].strip()
     resid = splits[4].strip()
     return (organizer, attendee, uid, resid,)
-
 
 
 def parseTableMismatch(line):
@@ -80,7 +78,6 @@ def parseTableMismatch(line):
     organizer_resid = splits[4].strip()
     attendee_resid = splits[7].strip()
     return (organizer, attendee, uid, organizer_resid, attendee_resid,)
-
 
 
 def diff(results1, results2):
@@ -98,7 +95,6 @@ def diff(results1, results2):
     diffSets(results1["table4"], results2["table4"])
 
 
-
 def diffSets(results1, results2):
 
     s1 = set(results1)
@@ -113,7 +109,6 @@ def diffSets(results1, results2):
     print("\nIn second, not in first: (%d)" % (len(d),))
     for i in sorted(d):
         print(i)
-
 
 
 def usage(error_msg=None):

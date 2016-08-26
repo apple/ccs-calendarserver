@@ -28,12 +28,12 @@ class BenchmarkOptionsTests(TestCase):
     """
     Tests for L{benchmark.BenchmarkOptions}.
     """
+
     def setUp(self):
         """
         Create a L{BenchmarkOptions} instance to test.
         """
         self.options = BenchmarkOptions()
-
 
     def test_parameters(self):
         """
@@ -45,7 +45,6 @@ class BenchmarkOptionsTests(TestCase):
         self.assertEquals(
             self.options['parameters'], {"foo": [1, 10, 100]})
 
-
     def test_filterBenchmarksWithoutDistribution(self):
         """
         If neither I{--hosts-count} nor I{--host-index} are supplied,
@@ -54,7 +53,6 @@ class BenchmarkOptionsTests(TestCase):
         """
         self.options.parseOptions(["foo", "bar", "baz"])
         self.assertEquals(self.options['benchmarks'], ["foo", "bar", "baz"])
-
 
     def test_hostsCountWithoutIndex(self):
         """
@@ -68,7 +66,6 @@ class BenchmarkOptionsTests(TestCase):
             str(exc),
             "Specify neither or both of hosts-count and host-index")
 
-
     def test_hostIndexWithoutCount(self):
         """
         If I{--host-index} is provided by I{--hosts-count} is not, a
@@ -80,7 +77,6 @@ class BenchmarkOptionsTests(TestCase):
         self.assertEquals(
             str(exc),
             "Specify neither or both of hosts-count and host-index")
-
 
     def test_negativeHostsCount(self):
         """
@@ -95,7 +91,6 @@ class BenchmarkOptionsTests(TestCase):
             str(exc),
             "Specify a positive integer for hosts-count")
 
-
     def test_nonIntegerHostsCount(self):
         """
         If a string which cannot be converted to an integer is
@@ -108,7 +103,6 @@ class BenchmarkOptionsTests(TestCase):
         self.assertEquals(
             str(exc),
             "Parameter type enforcement failed: invalid literal for int() with base 10: 'hello'")
-
 
     def test_negativeHostIndex(self):
         """
@@ -123,7 +117,6 @@ class BenchmarkOptionsTests(TestCase):
             str(exc),
             "Specify a positive integer for host-index")
 
-
     def test_nonIntegerHostIndex(self):
         """
         If a string which cannot be converted to an integer is
@@ -136,7 +129,6 @@ class BenchmarkOptionsTests(TestCase):
         self.assertEquals(
             str(exc),
             "Parameter type enforcement failed: invalid literal for int() with base 10: 'hello'")
-
 
     def test_largeHostIndex(self):
         """
@@ -151,7 +143,6 @@ class BenchmarkOptionsTests(TestCase):
         self.assertEquals(
             str(exc),
             "host-index must be less than hosts-count")
-
 
     def test_hostIndexAndCount(self):
         """

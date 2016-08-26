@@ -66,7 +66,6 @@ def _doPrimaryActions(action, tzpath, xmlfile, changed, tzvers):
         usage("Invalid action: %s" % (action,))
 
 
-
 def _doRefresh(tzpath, xmlfile, tzdb, tzvers):
     """
     Refresh data from IANA.
@@ -138,7 +137,6 @@ def _doRefresh(tzpath, xmlfile, tzdb, tzvers):
         f.write(TimezoneCache.IANA_VERSION_PREFIX + tzvers)
 
 
-
 def _doCreate(xmlfile, tzdb):
     """
     Create new xml file.
@@ -147,7 +145,6 @@ def _doCreate(xmlfile, tzdb):
     print("Creating new XML file at: %s" % (xmlfile,))
     tzdb.createNewDatabase()
     print("Current total: %d" % (len(tzdb.timezones),))
-
 
 
 def _doUpdate(xmlfile, tzdb):
@@ -166,7 +163,6 @@ def _doUpdate(xmlfile, tzdb):
             print("  %s" % (k,))
 
 
-
 def _doList(xmlfile, tzdb):
     """
     List current timezones from xml file.
@@ -178,7 +174,6 @@ def _doList(xmlfile, tzdb):
     print("Timezones:")
     for k in sorted(tzdb.timezones.keys()):
         print("  %s" % (k,))
-
 
 
 def _doChanged(xmlfile, changed, tzdb):
@@ -198,7 +193,6 @@ def _doChanged(xmlfile, changed, tzdb):
             print("  %s" % (k,))
 
 
-
 @inlineCallbacks
 def _runInReactor(tzdb):
 
@@ -211,7 +205,6 @@ def _runInReactor(tzdb):
         print("Could not sync with server: %s" % (str(e),))
     finally:
         reactor.stop()
-
 
 
 def _doSecondaryActions(action, tzpath, xmlfile, url):
@@ -231,7 +224,6 @@ def _doSecondaryActions(action, tzpath, xmlfile, url):
         reactor.run()
     else:
         usage("Invalid action: %s" % (action,))
-
 
 
 def usage(error_msg=None):
@@ -273,7 +265,6 @@ Description:
         raise ValueError(error_msg)
     else:
         sys.exit(0)
-
 
 
 def main():
@@ -363,7 +354,7 @@ def main():
             except ImportError:
                 tzpath = os.path.join(os.path.dirname(__file__), "zoneinfo")
             else:
-                tzpath = pkg_resources.resource_filename("twistedcaldav", "zoneinfo") #@UndefinedVariable
+                tzpath = pkg_resources.resource_filename("twistedcaldav", "zoneinfo")  # @UndefinedVariable
         else:
             # Setup the correct zoneinfo path based on the config
             tzpath = TimezoneCache.getDBPath()

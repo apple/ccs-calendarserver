@@ -40,6 +40,7 @@ Also adds an sqlite-based credentials cache that is multi-process safe.
 
 """
 
+
 class IDigestCredentialsDatabase(Interface):
     """
     An interface to a digest credentials database that is used to hold per-client digest credentials so that fast
@@ -57,7 +58,6 @@ class IDigestCredentialsDatabase(Interface):
         """
         pass
 
-
     def set(self, key, value):
         """
         Store per-client credential information the first time a nonce is generated and used.
@@ -68,7 +68,6 @@ class IDigestCredentialsDatabase(Interface):
         @type value:       any.
         """
         pass
-
 
     def get(self, key):
         """
@@ -82,7 +81,6 @@ class IDigestCredentialsDatabase(Interface):
         """
         pass
 
-
     def delete(self, key):
         """
         Remove the record associated with the supplied key.
@@ -91,7 +89,6 @@ class IDigestCredentialsDatabase(Interface):
         @type key:         C{str}
         """
         pass
-
 
 
 class DigestCredentialsMemcache(Memcacher):
@@ -106,7 +103,6 @@ class DigestCredentialsMemcache(Memcacher):
             pickle=True,
         )
 
-
     def has_key(self, key):
         """
         See IDigestCredentialsDatabase.
@@ -114,7 +110,6 @@ class DigestCredentialsMemcache(Memcacher):
         d = self.get(key)
         d.addCallback(lambda value: value is not None)
         return d
-
 
     def set(self, key, value):
         """
@@ -125,7 +120,6 @@ class DigestCredentialsMemcache(Memcacher):
             value,
             expireTime=self.CHALLENGE_MAXTIME_SECS
         )
-
 
 
 class QopDigestCredentialFactory(DigestCredentialFactory):
@@ -153,7 +147,6 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         self.qop = qop
         self.db = DigestCredentialsMemcache(namespace)
 
-
     @inlineCallbacks
     def getChallenge(self, peer):
         """
@@ -171,7 +164,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         c = challenge['nonce']
 
         # Make sure it is not a duplicate
-        result = (yield self.db.has_key(c)) #@IgnorePep8
+        result = (yield self.db.has_key(c))  # @IgnorePep8
         if result:
             raise AssertionError("nonce value already cached in credentials database: %s" % (c,))
 
@@ -188,7 +181,6 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
             challenge['stale'] = 'true'
 
         returnValue(challenge)
-
 
     @inlineCallbacks
     def decode(self, response, request):
@@ -252,7 +244,6 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         else:
             raise error.LoginFailed('Invalid nonce/cnonce values')
 
-
     @inlineCallbacks
     def _validate(self, auth, request):
         """
@@ -311,7 +302,6 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
             raise error.LoginFailed('Digest credentials expired')
 
         returnValue(True)
-
 
     def _invalidate(self, nonce):
         """

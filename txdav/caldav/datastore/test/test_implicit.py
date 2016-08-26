@@ -44,15 +44,13 @@ class ImplicitRequests (CommonCommonTests, TestCase):
         yield self.buildStoreAndDirectory()
         yield self.populate()
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
 
-
     @classproperty(cache=False)
-    def requirements(cls): #@NoSelf
+    def requirements(cls):  # @NoSelf
         return {
             "user01": {
                 "calendar_1": {
@@ -68,13 +66,11 @@ class ImplicitRequests (CommonCommonTests, TestCase):
             },
         }
 
-
     def storeUnderTest(self):
         """
         Create and return a L{CalendarStore} for testing.
         """
         return self._sqlCalendarStore
-
 
     @inlineCallbacks
     def test_doCreateResource(self):
@@ -109,7 +105,6 @@ END:VCALENDAR
         self.assertTrue("urn:x-uid:user02" in calendar1)
         self.assertTrue("CN=" in calendar1)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_validation_maxResourceSize(self):
@@ -160,7 +155,6 @@ END:VCALENDAR
         yield self.failUnlessFailure(calendar_resource.setComponent(calendar2), ObjectResourceTooBigError)
         yield self.commit()
 
-
     @inlineCallbacks
     def test_validation_validCalendarDataCheck(self):
         """
@@ -203,7 +197,6 @@ END:VCALENDAR
             yield self.failUnlessFailure(calendar_collection.createCalendarObjectWithName("test.ics", calendar), InvalidObjectResourceError, InvalidComponentForStoreError)
             yield self.commit()
 
-
     @inlineCallbacks
     def test_validation_validSupportedComponentType(self):
         """
@@ -227,7 +220,6 @@ END:VCALENDAR
         calendar = Component.fromString(data1)
         yield self.failUnlessFailure(calendar_collection.createCalendarObjectWithName("test.ics", calendar), InvalidComponentTypeError)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_validation_validAttendeeListSizeCheck(self):
@@ -259,7 +251,6 @@ END:VCALENDAR
         yield self.failUnlessFailure(calendar_collection.createCalendarObjectWithName("test.ics", calendar), TooManyAttendeesError)
         yield self.commit()
 
-
     @inlineCallbacks
     def test_validation_validAccess_invalidValue(self):
         """
@@ -284,7 +275,6 @@ END:VCALENDAR
         calendar = Component.fromString(data1)
         yield self.failUnlessFailure(calendar_collection.createCalendarObjectWithName("test.ics", calendar), InvalidCalendarAccessError)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_validation_validAccess_authzChangeNotAllowed(self):
@@ -349,7 +339,6 @@ END:VCALENDAR
         self.assertTrue("SUMMARY:Changed" in calendar1)
         yield self.commit()
 
-
     @inlineCallbacks
     def test_validation_overwriteUID(self):
         """
@@ -390,7 +379,6 @@ END:VCALENDAR
         calendar = Component.fromString(data2)
         yield self.failUnlessFailure(calendar_resource.setComponent(calendar), InvalidUIDError)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_validation_duplicateUIDSameCalendar(self):
@@ -434,7 +422,6 @@ END:VCALENDAR
         yield self.failUnlessFailure(calendar_collection.createCalendarObjectWithName("test2.ics", calendar), UIDExistsError)
         yield self.commit()
 
-
     @inlineCallbacks
     def test_validation_duplicateUIDDifferentCalendar(self):
         """
@@ -477,7 +464,6 @@ END:VCALENDAR
         calendar = Component.fromString(data2)
         yield self.failUnlessFailure(calendar_collection_2.createCalendarObjectWithName("test2.ics", calendar), UIDExistsElsewhereError)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_validation_noPreservePrivateComments(self):
@@ -530,7 +516,6 @@ END:VCALENDAR
         self.assertTrue("SUMMARY:Changed" in calendar1)
         yield self.commit()
 
-
     @inlineCallbacks
     def test_validation_preserveOrganizerPrivateComments(self):
         """
@@ -582,7 +567,6 @@ END:VCALENDAR
         self.assertTrue("X-CALENDARSERVER-ATTENDEE-COMMENT;X-CALENDARSERVER-ATTENDEE-REF=\"urn:x-uid:user01\";X-CALENDARSERVER-DTSTAMP=20131101T100000Z:Someone else's comment" in calendar1)
         self.assertTrue("SUMMARY:Changed" in calendar1)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_validation_replaceMissingToDoProperties_OrganizerAttendee(self):
@@ -637,7 +621,6 @@ END:VCALENDAR
         self.assertTrue("ATTENDEE" in calendar1)
         self.assertTrue("SUMMARY:Changed" in calendar1)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_validation_replaceMissingToDoProperties_Completed(self):
@@ -698,7 +681,6 @@ END:VCALENDAR
         self.assertTrue("PARTSTAT=COMPLETED" in calendar1)
         yield self.commit()
 
-
     @inlineCallbacks
     def test_validation_dropboxPathNormalization(self):
         """
@@ -737,7 +719,6 @@ END:VCALENDAR
         self.assertTrue("ATTACH:https://example.com/calendars/__uids__/user01/dropbox/123.dropbox/1.txt" in calendar1)
         self.assertTrue("ATTACH:https://example.org/attachments/2.txt" in calendar1)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_validation_processAlarms_DuplicateRemoval(self):
@@ -804,7 +785,6 @@ END:VCALENDAR
         self.assertTrue("SUMMARY:Changed" in calendar1)
         yield self.commit()
 
-
     @inlineCallbacks
     def test_validation_processAlarms_AddDefault(self):
         """
@@ -846,7 +826,6 @@ END:VCALENDAR
         calendar1 = str(calendar1).replace("\r\n ", "")
         self.assertEqual(calendar1.count("BEGIN:VALARM"), 1)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_validation_processAlarms_NoDefaultShared(self):
@@ -897,7 +876,6 @@ END:VCALENDAR
         calendar1 = str(calendar1).replace("\r\n ", "")
         self.assertEqual(calendar1.count("BEGIN:VALARM"), 0)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_validation_mergePerUserData(self):
@@ -1008,7 +986,6 @@ END:VCALENDAR
 
         yield self.commit()
 
-
     @inlineCallbacks
     def test_validation_processScheduleTags(self):
         """
@@ -1099,7 +1076,6 @@ END:VCALENDAR
         self.assertEqual(calendar_resource.scheduleTag, schedule_tag)
         yield self.commit()
 
-
     @inlineCallbacks
     def test_validation_duplicatePrivateCommentsOKWIthiTIP(self):
         """
@@ -1179,7 +1155,6 @@ END:VCALENDAR
         calendar = Component.fromString(data3)
         yield self.failUnlessFailure(calendar_resource.setComponent(calendar), DuplicatePrivateCommentsError)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_validation_deleteWithDuplicatePrivateComments(self):

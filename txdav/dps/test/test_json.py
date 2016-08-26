@@ -61,7 +61,6 @@ class SerializationTests(unittest.TestCase):
 
         self.assertEquals(json, expected)
 
-
     def test_matchExpressionAsJSON_types(
         self, serialize=matchExpressionAsJSON
     ):
@@ -89,7 +88,6 @@ class SerializationTests(unittest.TestCase):
             }
 
             self.assertEquals(json, expected)
-
 
     def test_matchExpressionAsJSON_flags(
         self, serialize=matchExpressionAsJSON
@@ -130,7 +128,6 @@ class SerializationTests(unittest.TestCase):
 
             self.assertEquals(json, expected)
 
-
     def test_compoundExpressionAsJSON_expressions(
         self, serialize=compoundExpressionAsJSON
     ):
@@ -158,7 +155,6 @@ class SerializationTests(unittest.TestCase):
 
             self.assertEquals(json, expected)
 
-
     def test_compoundExpressionAsJSON_operands(
         self, serialize=compoundExpressionAsJSON
     ):
@@ -180,7 +176,6 @@ class SerializationTests(unittest.TestCase):
 
             self.assertEquals(json, expected)
 
-
     def test_expressionAsJSON_matchExpression(self):
         """
         L{expressionAsJSON} with match expression.
@@ -189,7 +184,6 @@ class SerializationTests(unittest.TestCase):
         self.test_matchExpressionAsJSON_types(expressionAsJSON)
         self.test_matchExpressionAsJSON_flags(expressionAsJSON)
 
-
     def test_expressionAsJSON_compoundExpression(self):
         """
         L{expressionAsJSON} with compound expression.
@@ -197,13 +191,11 @@ class SerializationTests(unittest.TestCase):
         self.test_compoundExpressionAsJSON_expressions(expressionAsJSON)
         self.test_compoundExpressionAsJSON_operands(expressionAsJSON)
 
-
     def test_expressionAsJSON_unknown(self):
         """
         L{expressionAsJSON} with compound expression.
         """
         self.assertRaises(TypeError, expressionAsJSON, object())
-
 
     def test_expressionAsJSONText(self):
         """
@@ -224,7 +216,6 @@ class SerializationTests(unittest.TestCase):
         self.assertEquals(json.loads(jsonText), expected)
 
 
-
 class DeserializationTests(unittest.TestCase):
     """
     Tests for deserialization from JSON.
@@ -232,7 +223,6 @@ class DeserializationTests(unittest.TestCase):
 
     def service(self, subClass=None, xmlData=None):
         return xmlService(self.mktemp())
-
 
     def test_matchExpressionFromJSON_basic(self):
         """
@@ -255,7 +245,6 @@ class DeserializationTests(unittest.TestCase):
         expression = matchExpressionFromJSON(service, json)
 
         self.assertEquals(expression, expected)
-
 
     def test_matchExpressionFromJSON_types(self):
         """
@@ -286,7 +275,6 @@ class DeserializationTests(unittest.TestCase):
             expression = matchExpressionFromJSON(service, json)
 
             self.assertEquals(expression, expected)
-
 
     def test_matchExpressionFromJSON_flags(self):
         """

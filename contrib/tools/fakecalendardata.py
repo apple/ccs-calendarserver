@@ -86,15 +86,16 @@ rrules_template = (
     "RRULE:FREQ=YEARLY\n",
 )
 
+
 def makeVEVENT(recurring, atendees, date, hour, count):
 
     subs = {
         "UID": str(uuid.uuid4()),
-        "START" : "",
-        "RRULE" : "",
-        "ORGANIZER" : "",
-        "ATTENDEES" : "",
-        "SUMMARY"   : summary_template % (count,)
+        "START": "",
+        "RRULE": "",
+        "ORGANIZER": "",
+        "ATTENDEES": "",
+        "SUMMARY": summary_template % (count,)
     }
 
     if recurring:
@@ -110,13 +111,11 @@ def makeVEVENT(recurring, atendees, date, hour, count):
     return vevent_template % subs
 
 
-
 def argPath(path):
     fpath = os.path.expanduser(path)
     if not fpath.startswith("/"):
         fpath = os.path.join(pwd, fpath)
     return fpath
-
 
 
 def usage(error_msg=None):
@@ -214,4 +213,4 @@ if __name__ == "__main__":
         # print(recurring, attendees, date, hour)
         vevents.append(makeVEVENT(recurring, attendees, date, hour, count + 1))
 
-    print(calendar_template % {"VEVENTS" : "".join(vevents)})
+    print(calendar_template % {"VEVENTS": "".join(vevents)})

@@ -51,7 +51,6 @@ class Table(object):
             self.justify = justify
             self.span = span
 
-
     def __init__(self, table=None):
 
         self.headers = []
@@ -66,7 +65,6 @@ class Table(object):
         if table:
             self.setData(table)
 
-
     def setData(self, table):
 
         self.hasTitles = True
@@ -74,16 +72,13 @@ class Table(object):
         self.rows = table[1:]
         self._getMaxColumnCount()
 
-
     def setDefaultColumnFormats(self, columnFormats):
 
         self.defaultColumnFormats = columnFormats
 
-
     def addDefaultColumnFormat(self, columnFormat):
 
         self.defaultColumnFormats.append(columnFormat)
-
 
     def setHeaders(self, rows, columnFormats=None):
 
@@ -91,19 +86,16 @@ class Table(object):
         self.headerColumnFormats = columnFormats if columnFormats else [None, ] * len(self.headers)
         self._getMaxColumnCount()
 
-
     def addHeader(self, row, columnFormats=None):
 
         self.headers.append(row)
         self.headerColumnFormats.append(columnFormats)
         self._getMaxColumnCount()
 
-
     def addHeaderDivider(self, skipColumns=()):
 
         self.headers.append((None, skipColumns,))
         self.headerColumnFormats.append(None)
-
 
     def setFooters(self, row, columnFormats=None):
 
@@ -111,13 +103,11 @@ class Table(object):
         self.footerColumnFormats = columnFormats if columnFormats else [None, ] * len(self.footers)
         self._getMaxColumnCount()
 
-
     def addFooter(self, row, columnFormats=None):
 
         self.footers.append(row)
         self.footerColumnFormats.append(columnFormats)
         self._getMaxColumnCount()
-
 
     def addRow(self, row=None, columnFormats=None):
 
@@ -126,18 +116,15 @@ class Table(object):
             self.columnFormatsByRow[len(self.rows) - 1] = columnFormats
         self._getMaxColumnCount()
 
-
     def addDivider(self, skipColumns=()):
 
         self.rows.append((None, skipColumns,))
-
 
     def toString(self):
 
         output = StringIO()
         self.printTable(os=output)
         return output.getvalue()
-
 
     def printTable(self, os=stdout):
 
@@ -155,7 +142,6 @@ class Table(object):
             for footer, format in zip(self.footers, self.footerColumnFormats):
                 self.printRow(os, footer, self._getFooterColumnFormat(format), maxWidths)
         self.printDivider(os, maxWidths, False)
-
 
     def printRow(self, os, row, format, maxWidths):
 
@@ -180,7 +166,6 @@ class Table(object):
             t += "\n"
             os.write(t)
 
-
     def printDivider(self, os, maxWidths, intermediate=True, double=False, skipColumns=()):
         t = "|" if intermediate else "+"
         for widthctr, width in enumerate(maxWidths):
@@ -192,7 +177,6 @@ class Table(object):
             t += "+" if widthctr < len(maxWidths) - 1 else ("|" if intermediate else "+")
         t += "\n"
         os.write(t)
-
 
     def printTabDelimitedData(self, os=stdout, footer=True):
 
@@ -208,7 +192,6 @@ class Table(object):
             for footer in self.footers:
                 self.printTabDelimitedRow(os, footer, self._getFooterColumnFormat(self.footerColumnFormats[0]))
 
-
     def printTabDelimitedRow(self, os, row, format):
 
         if row is None:
@@ -221,7 +204,6 @@ class Table(object):
         textItems = [self._columnText(row, ctr, format) for ctr in xrange((len(row)))]
         os.write("\t".join(textItems) + "\n")
 
-
     def _getMaxColumnCount(self):
 
         self.columnCount = 0
@@ -233,7 +215,6 @@ class Table(object):
         if self.footers:
             for footer in self.footers:
                 self.columnCount = max(self.columnCount, len(footer) if footer else 0)
-
 
     def _getMaxWidths(self):
 
@@ -252,7 +233,6 @@ class Table(object):
 
         return maxWidths
 
-
     def _updateMaxWidthsFromRow(self, row, format, maxWidths):
 
         if row and (type(row) is not tuple or row[0] is not None):
@@ -265,7 +245,6 @@ class Table(object):
                     maxWidths[ctr] = max(maxWidths[ctr], len(text) / (format[startCtr].span if format else 1))
                     ctr += 1
 
-
     def _getHeaderColumnFormat(self, format):
 
         if format:
@@ -274,7 +253,6 @@ class Table(object):
             justify = Table.ColumnFormat.CENTER_JUSTIFY if len(self.headers) == 1 else Table.ColumnFormat.LEFT_JUSTIFY
             return [Table.ColumnFormat(justify=justify)] * self.columnCount
 
-
     def _getFooterColumnFormat(self, format):
 
         if format:
@@ -282,14 +260,12 @@ class Table(object):
         else:
             return self.defaultColumnFormats
 
-
     def _getColumnFormatForRow(self, ctr):
 
         if ctr in self.columnFormatsByRow:
             return self.columnFormatsByRow[ctr]
         else:
             return self.defaultColumnFormats
-
 
     def _columnText(self, row, column, format, width=0):
 

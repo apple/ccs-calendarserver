@@ -54,14 +54,12 @@ class GroupCacherPollingWork(
         else:
             return succeed(None)
 
-
     def regenerateInterval(self):
         """
         Return the interval in seconds between regenerating instances.
         """
         groupCacher = getattr(self.transaction, "_groupCacher", None)
         return groupCacher.updateSeconds if groupCacher else 10
-
 
     @inlineCallbacks
     def doWork(self):
@@ -82,7 +80,6 @@ class GroupCacherPollingWork(
                 "GroupCacher polling took {duration:0.2f} seconds",
                 duration=(endTime - startTime)
             )
-
 
 
 class GroupRefreshWork(AggregatedWorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
@@ -113,7 +110,6 @@ class GroupRefreshWork(AggregatedWorkItem, fromTable(schema.GROUP_REFRESH_WORK))
             yield self.reschedule(self.transaction, 10, groupUID=self.groupUID)
 
 
-
 class GroupDelegateChangesWork(AggregatedWorkItem, fromTable(schema.GROUP_DELEGATE_CHANGES_WORK)):
 
     group = property(lambda self: (self.table.DELEGATOR_UID == self.delegatorUID))
@@ -137,7 +133,6 @@ class GroupDelegateChangesWork(AggregatedWorkItem, fromTable(schema.GROUP_DELEGA
                 )
 
 
-
 class GroupAttendeeReconciliationWork(
     AggregatedWorkItem, fromTable(schema.GROUP_ATTENDEE_RECONCILE_WORK)
 ):
@@ -145,7 +140,6 @@ class GroupAttendeeReconciliationWork(
     group = property(
         lambda self: (self.table.RESOURCE_ID == self.resourceID)
     )
-
 
     @inlineCallbacks
     def doWork(self):
@@ -159,7 +153,6 @@ class GroupAttendeeReconciliationWork(
         yield calendarObject.groupAttendeeChanged(self.groupID)
 
 
-
 class GroupShareeReconciliationWork(
     AggregatedWorkItem, fromTable(schema.GROUP_SHAREE_RECONCILE_WORK)
 ):
@@ -167,7 +160,6 @@ class GroupShareeReconciliationWork(
     group = property(
         lambda self: (self.table.CALENDAR_ID == self.calendarID)
     )
-
 
     @inlineCallbacks
     def doWork(self):
@@ -188,7 +180,6 @@ class GroupShareeReconciliationWork(
             if calendar is not None:
                 group = (yield self.transaction.groupByID(self.groupID))
                 yield calendar.reconcileGroupSharee(group.groupUID)
-
 
 
 def diffAssignments(old, new):
@@ -222,10 +213,8 @@ def diffAssignments(old, new):
     return changed, removed
 
 
-
 class GroupCacher(object):
     log = Logger()
-
 
     def __init__(
         self, directory,
@@ -247,7 +236,6 @@ class GroupCacher(object):
         self.initialSchedulingDelaySeconds = initialSchedulingDelaySeconds
         self.batchSize = batchSize
         self.batchSchedulingIntervalSeconds = batchSchedulingIntervalSeconds
-
 
     @inlineCallbacks
     def update(self, txn):
@@ -327,7 +315,6 @@ class GroupCacher(object):
                 i = 0
                 futureSeconds += self.batchSchedulingIntervalSeconds
 
-
     @inlineCallbacks
     def scheduleExternalAssignments(
         self, txn, newAssignments, immediately=False
@@ -378,7 +365,6 @@ class GroupCacher(object):
                         readDelegateUID="", writeDelegateUID=""
                     )
 
-
     @inlineCallbacks
     def applyExternalAssignments(
         self, txn, delegatorUID, readDelegateUID, writeDelegateUID
@@ -409,7 +395,6 @@ class GroupCacher(object):
             delegatorUID, readDelegateGroupID, writeDelegateGroupID,
             readDelegateUID, writeDelegateUID
         )
-
 
     @inlineCallbacks
     def refreshGroup(self, txn, groupUID):
@@ -462,10 +447,8 @@ class GroupCacher(object):
 
         returnValue(tuple())
 
-
     def synchronizeMembers(self, txn, groupID, newMemberUIDs):
         return txn.synchronizeMembers(groupID, newMemberUIDs)
-
 
     def cachedMembers(self, txn, groupID):
         """
@@ -473,13 +456,11 @@ class GroupCacher(object):
         """
         return txn.groupMembers(groupID)
 
-
     def cachedGroupsFor(self, txn, uid):
         """
         The UIDs of the groups the uid is a member of
         """
         return txn.groupUIDsFor(uid)
-
 
     @inlineCallbacks
     def scheduleGroupAttendeeReconciliations(self, txn, groupID):
@@ -501,7 +482,6 @@ class GroupCacher(object):
             )
             workItems.append(work)
         returnValue(tuple(workItems))
-
 
     @inlineCallbacks
     def scheduleGroupShareeReconciliations(self, txn, groupID):
@@ -527,7 +507,6 @@ class GroupCacher(object):
             )
             workItems.append(work)
         returnValue(tuple(workItems))
-
 
     @inlineCallbacks
     def groupsToRefresh(self, txn):

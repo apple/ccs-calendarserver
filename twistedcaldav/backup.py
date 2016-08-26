@@ -33,7 +33,9 @@ SERVERADMIN = "/Applications/Server.app/Contents/ServerRoot/usr/sbin/serveradmin
 
 SBSCONF = "/private/etc/sbs_backup"
 
+
 class Options(dict):
+
     def parseOpts(self, argv):
         for x in xrange(0, len(argv)):
             opt = argv[x]
@@ -41,17 +43,14 @@ class Options(dict):
                 self[opt.strip('-')] = argv[x + 1]
 
 
-
 def debug(string):
     if VERBOSE:
         print("DEBUG:", string)
 
 
-
 def funclog(string):
     if FUNCLOG:
         print("FUNCLOG:", string)
-
 
 
 def logFuncCall(func):
@@ -63,14 +62,12 @@ def logFuncCall(func):
 
         return ''.join(a).strip(', ')
 
-
     def printKwargs(kwargs):
         a = []
         for kwarg, value in kwargs:
             a.append('%s=%r, ' % (kwarg, value))
 
         return ''.join(a).strip(', ')
-
 
     def _(*args, **kwargs):
         funclog("%s(%s)" % (func.func_name,
@@ -86,7 +83,6 @@ def logFuncCall(func):
     return _
 
 
-
 @logFuncCall
 def readConfig(configFile):
     config = readPlist(configFile + '.default')
@@ -97,12 +93,10 @@ def readConfig(configFile):
     return config
 
 
-
 @logFuncCall
 def mkroot(path):
     root = '/'.join(path.rstrip('/').split('/')[:-1])
     os.makedirs(root)
-
 
 
 @logFuncCall
@@ -119,7 +113,6 @@ def serveradmin(action, service):
         debug("C: %s" % (line,))
 
     return status
-
 
 
 @logFuncCall
@@ -145,11 +138,9 @@ def isRunning(service):
         return False
 
 
-
 @logFuncCall
 def copy(src, dst):
     shutil.copytree(src, dst)
-
 
 
 @logFuncCall
@@ -157,11 +148,9 @@ def move(src, dst):
     os.rename(src, dst)
 
 
-
 @logFuncCall
 def remove(dst):
     shutil.rmtree(dst)
-
 
 
 @logFuncCall

@@ -25,6 +25,7 @@ import datetime
 dataset = []
 initialDate = None
 
+
 def analyze(fpath, noweekends, startDate=None, endDate=None, title=None):
 
     print("Analyzing data for %s" % (fpath,))
@@ -97,7 +98,6 @@ def analyze(fpath, noweekends, startDate=None, endDate=None, title=None):
     print("Stored %d data points" % (len(data),))
 
 
-
 def plotListenQBands(data, first, last, xlim, ylim):
 
     x1 = []
@@ -129,7 +129,6 @@ def plotListenQBands(data, first, last, xlim, ylim):
     plt.ylabel("Av. Response Time (ms)")
     plt.xlim(0, xlim)
     plt.ylim(0, ylim)
-
 
 
 def plotCPUBands(data, first, last, xlim, ylim):
@@ -169,7 +168,6 @@ def plotCPUBands(data, first, last, xlim, ylim):
     plt.ylim(0, ylim)
 
 
-
 def plot(figure, noshow, nosave, pngDir, xlim, ylim):
 
     print("Plotting data")
@@ -194,7 +192,6 @@ def plot(figure, noshow, nosave, pngDir, xlim, ylim):
         plt.title("CPU %s" % (title,))
 
 
-
 def argPath(path):
     fpath = os.path.expanduser(path)
     if not fpath.startswith("/"):
@@ -202,10 +199,8 @@ def argPath(path):
     return fpath
 
 
-
 def expandDate(date):
     return "%s/%s/%s" % (date[0:4], date[4:6], date[6:8],)
-
 
 
 def usage(error_msg=None):

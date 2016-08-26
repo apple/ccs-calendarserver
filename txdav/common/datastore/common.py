@@ -40,7 +40,6 @@ class HomeChildBase(object):
         else:
             return name.toString()
 
-
     def setDisplayName(self, name):
         if name is None:
             del self.properties()[PropertyName.fromElement(DisplayName)]

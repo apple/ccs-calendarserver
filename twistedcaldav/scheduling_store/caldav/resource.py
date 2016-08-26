@@ -31,7 +31,7 @@ from twistedcaldav.config import config
 # following line is wrong because _schedulePrivilegeSet won't actually use the
 # config file, it will pick up stdconfig whenever it is imported, so this works
 # around that for now.
-__import__("twistedcaldav.stdconfig") # FIXME
+__import__("twistedcaldav.stdconfig")  # FIXME
 
 from txweb2 import responsecode
 from txweb2.dav.http import ErrorResponse, MultiStatusResponse
@@ -53,6 +53,7 @@ from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
 from txdav.caldav.icalendarstore import InvalidDefaultCalendar
 from txdav.xml import element as davxml
 from txdav.xml.rfc2518 import HRef
+
 
 def _schedulePrivilegeSet(deliver):
     edited = False
@@ -91,6 +92,7 @@ def _schedulePrivilegeSet(deliver):
 deliverSchedulePrivilegeSet = _schedulePrivilegeSet(True)
 sendSchedulePrivilegeSet = _schedulePrivilegeSet(False)
 
+
 class CalendarSchedulingCollectionResource (CalDAVResource):
     """
     CalDAV principal resource.
@@ -98,6 +100,7 @@ class CalendarSchedulingCollectionResource (CalDAVResource):
     Extends L{DAVResource} to provide CalDAV scheduling collection
     functionality.
     """
+
     def __init__(self, parent):
         """
         @param parent: the parent resource of this one.
@@ -108,18 +111,14 @@ class CalendarSchedulingCollectionResource (CalDAVResource):
 
         self.parent = parent
 
-
     def isCollection(self):
         return True
-
 
     def isCalendarCollection(self):
         return False
 
-
     def isPseudoCalendarCollection(self):
         return True
-
 
     def supportedReports(self):
         result = super(CalDAVResource, self).supportedReports()
@@ -130,7 +129,6 @@ class CalendarSchedulingCollectionResource (CalDAVResource):
             # Only allowed on calendar/inbox/addressbook collections
             result.append(davxml.Report(davxml.SyncCollection(),))
         return result
-
 
 
 class ScheduleInboxResource (CalendarSchedulingCollectionResource):
@@ -148,16 +146,13 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
             customxml.ScheduleDefaultTasksURL.qname(),
         )
 
-
     def dynamicProperties(self):
         return super(ScheduleInboxResource, self).dynamicProperties() + (
             customxml.CalendarAvailability.qname(),
         )
 
-
     def resourceType(self):
         return davxml.ResourceType.scheduleInbox
-
 
     def hasProperty(self, property, request):
         """
@@ -178,7 +173,6 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
 
         else:
             return super(ScheduleInboxResource, self).hasProperty(property, request)
-
 
     @inlineCallbacks
     def readProperty(self, property, request):
@@ -206,7 +200,6 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
 
         result = (yield super(ScheduleInboxResource, self).readProperty(property, request))
         returnValue(result)
-
 
     @inlineCallbacks
     def writeProperty(self, property, request):
@@ -266,7 +259,6 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
 
         yield super(ScheduleInboxResource, self).writeProperty(property, request)
 
-
     @inlineCallbacks
     def removeProperty(self, property, request):
         if type(property) is tuple:
@@ -280,7 +272,6 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
 
         result = (yield super(ScheduleInboxResource, self).removeProperty(property, request))
         returnValue(result)
-
 
     @inlineCallbacks
     def readDefaultCalendarProperty(self, request, qname):
@@ -299,7 +290,6 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         else:
             defaultURL = joinURL(self.parent.url(), default.name())
             returnValue(prop_to_set(davxml.HRef(defaultURL)))
-
 
     @inlineCallbacks
     def writeDefaultCalendarProperty(self, request, property):
@@ -345,7 +335,6 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                 str(e),
             ))
 
-
     @inlineCallbacks
     def defaultCalendar(self, request, componentType):
         """
@@ -362,14 +351,12 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
 
         returnValue(default)
 
-
     ##
     # ACL
     ##
 
     def supportedPrivileges(self, request):
         return succeed(deliverSchedulePrivilegeSet)
-
 
     def defaultAccessControlList(self):
 
@@ -390,7 +377,6 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         )
 
 
-
 class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
     """
     CalDAV schedule Outbox resource.
@@ -401,12 +387,10 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
     def resourceType(self):
         return davxml.ResourceType.scheduleOutbox
 
-
     def getSupportedComponentSet(self):
         return caldavxml.SupportedCalendarComponentSet(
             *[caldavxml.CalendarComponent(name=item) for item in allowedSchedulingComponents]
         )
-
 
     @inlineCallbacks
     def http_POST(self, request):
@@ -436,7 +420,6 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         result = (yield scheduler.doSchedulingViaPOST(originator, recipients, calendar))
         returnValue(result.response(format=format))
 
-
     def determineType(self, content_type):
         """
         Determine if the supplied content-type is valid for storing and return the matching PyCalendar type.
@@ -445,7 +428,6 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         if content_type is not None:
             format = "%s/%s" % (content_type.mediaType, content_type.mediaSubtype,)
         return format if format in Component.allowedTypes() else None
-
 
     @inlineCallbacks
     def loadCalendarFromRequest(self, request):
@@ -474,7 +456,6 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
 
         returnValue((calendar, format,))
 
-
     @inlineCallbacks
     def loadOriginatorFromRequestDetails(self, request):
         # The originator is the owner of the Outbox. We will have checked prior to this
@@ -494,7 +475,6 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
             ))
         else:
             returnValue(originator)
-
 
     def loadRecipientsFromCalendarData(self, calendar):
 
@@ -516,14 +496,12 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         else:
             return(list(attendees))
 
-
     ##
     # ACL
     ##
 
     def supportedPrivileges(self, request):
         return succeed(sendSchedulePrivilegeSet)
-
 
     @inlineCallbacks
     def defaultAccessControlList(self):
@@ -550,10 +528,8 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
             result = yield super(ScheduleOutboxResource, self).defaultAccessControlList()
             returnValue(result)
 
-
     def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_query):
         return succeed(MultiStatusResponse(()))
-
 
     def report_urn_ietf_params_xml_ns_caldav_calendar_multiget(self, request, multiget):
         responses = [davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)) for href in multiget.resources]

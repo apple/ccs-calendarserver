@@ -39,11 +39,11 @@ class StubConnectionPool(object):
         status is C{'free'}, C{'busy'} or C{'gone'} and client is the protocol
         instance that made the call.
     """
+
     def __init__(self):
         self.calls = []
         self.shutdown_deferred = None
         self.shutdown_requested = False
-
 
     def clientFree(self, client):
         """
@@ -51,20 +51,17 @@ class StubConnectionPool(object):
         """
         self.calls.append(('free', client))
 
-
     def clientBusy(self, client):
         """
         Record a C{'busy'} call for C{client}.
         """
         self.calls.append(('busy', client))
 
-
     def clientGone(self, client):
         """
         Record a C{'gone'} call for C{client}
         """
         self.calls.append(('gone', client))
-
 
 
 class StubConnector(object):
@@ -84,7 +81,6 @@ class StubConnector(object):
         """
 
 
-
 class StubReactor(object):
     """
     A stub L{IReactorTCP} that records the calls to connectTCP.
@@ -96,21 +92,19 @@ class StubReactor(object):
     def __init__(self):
         self.calls = []
 
-
     def connectTCP(self, *args, **kwargs):
         self.calls.append((args, kwargs))
         return StubConnector()
 
-
     def addSystemEventTrigger(self, *args, **kwds):
         pass
-
 
 
 class PooledMemCacheProtocolTests(TestCase):
     """
     Tests for the L{PooledMemCacheProtocol}
     """
+
     def test_connectionMadeFiresDeferred(self):
         """
         Test that L{PooledMemCacheProtocol.connectionMade} fires the factory's
@@ -126,7 +120,6 @@ class PooledMemCacheProtocolTests(TestCase):
         return d
 
 
-
 class MemCacheClientFactoryTests(TestCase):
     """
     Tests for the L{MemCacheClientFactory}
@@ -138,6 +131,7 @@ class MemCacheClientFactoryTests(TestCase):
     @ivar pool: The L{StubConnectionPool} attached to C{self.factory} and
         C{self.protocol}.
     """
+
     def setUp(self):
         """
         Create a L{MemCacheClientFactory} instance and and give it a
@@ -149,7 +143,6 @@ class MemCacheClientFactoryTests(TestCase):
         self.factory.connectionPool = self.pool
         self.protocol = self.factory.buildProtocol(None)
 
-
     def test_clientConnectionFailedNotifiesPool(self):
         """
         Test that L{MemCacheClientFactory.clientConnectionFailed} notifies
@@ -159,7 +152,6 @@ class MemCacheClientFactoryTests(TestCase):
         self.assertEquals(self.factory.connectionPool.calls,
                           [('busy', self.protocol)])
 
-
     def test_clientConnectionLostNotifiesPool(self):
         """
         Test that L{MemCacheClientFactory.clientConnectionLost} notifies
@@ -168,7 +160,6 @@ class MemCacheClientFactoryTests(TestCase):
         self.factory.clientConnectionLost(StubConnector(), None)
         self.assertEquals(self.factory.connectionPool.calls,
                           [('busy', self.protocol)])
-
 
     def test_buildProtocolRemovesExistingClient(self):
         """
@@ -182,14 +173,12 @@ class MemCacheClientFactoryTests(TestCase):
         self.assertEquals(self.factory.connectionPool.calls,
                           [('gone', self.protocol)])
 
-
     def tearDown(self):
         """
         Make sure the L{MemCacheClientFactory} isn't trying to reconnect
         anymore.
         """
         self.factory.stopTrying()
-
 
 
 class MemCachePoolTests(TestCase):
@@ -199,6 +188,7 @@ class MemCachePoolTests(TestCase):
     @ivar reactor: A L{StubReactor} instance.
     @ivar pool: A L{MemCachePool} for testing.
     """
+
     def setUp(self):
         """
         Create a L{MemCachePool}.
@@ -211,12 +201,12 @@ class MemCachePoolTests(TestCase):
         )
         realClientFactory = self.pool.clientFactory
         self.clientFactories = []
+
         def capturingClientFactory(*a, **k):
             cf = realClientFactory(*a, **k)
             self.clientFactories.append(cf)
             return cf
         self.pool.clientFactory = capturingClientFactory
-
 
     def test_clientFreeAddsNewClient(self):
         """
@@ -226,7 +216,6 @@ class MemCachePoolTests(TestCase):
         self.pool.clientFree(p)
 
         self.assertEquals(self.pool._freeClients, set([p]))
-
 
     def test_clientFreeAddsBusyClient(self):
         """
@@ -240,7 +229,6 @@ class MemCachePoolTests(TestCase):
         self.assertEquals(self.pool._freeClients, set([p]))
         self.assertEquals(self.pool._busyClients, set([]))
 
-
     def test_clientBusyAddsNewClient(self):
         """
         Test that a client not in the free set gets added to the busy set.
@@ -249,7 +237,6 @@ class MemCachePoolTests(TestCase):
         self.pool.clientBusy(p)
 
         self.assertEquals(self.pool._busyClients, set([p]))
-
 
     def test_clientBusyAddsFreeClient(self):
         """
@@ -262,7 +249,6 @@ class MemCachePoolTests(TestCase):
 
         self.assertEquals(self.pool._busyClients, set([p]))
         self.assertEquals(self.pool._freeClients, set([]))
-
 
     def test_clientGoneRemovesFreeClient(self):
         """
@@ -277,7 +263,6 @@ class MemCachePoolTests(TestCase):
         self.pool.clientGone(p)
         self.assertEquals(self.pool._freeClients, set([]))
 
-
     def test_clientGoneRemovesBusyClient(self):
         """
         Test that a client in the busy set gets removed when
@@ -290,7 +275,6 @@ class MemCachePoolTests(TestCase):
 
         self.pool.clientGone(p)
         self.assertEquals(self.pool._busyClients, set([]))
-
 
     def test_performRequestCreatesConnection(self):
         """
@@ -311,7 +295,6 @@ class MemCachePoolTests(TestCase):
         self.clientFactories[-1].deferred.callback(p)
         self.assertEquals(results, [(0, 'bar')])
 
-
     def test_performRequestUsesFreeConnection(self):
         """
         Test that L{MemCachePool.performRequest} doesn't create a new connection
@@ -329,7 +312,6 @@ class MemCachePoolTests(TestCase):
         d = self.pool.performRequest('get', 'foo')
         d.addCallback(_checkResult)
         return d
-
 
     def test_performRequestMaxBusyQueuesRequest(self):
         """
@@ -358,7 +340,6 @@ class MemCachePoolTests(TestCase):
 
         return d
 
-
     def test_performRequestCreatesConnectionsUntilMaxBusy(self):
         """
         Test that L{MemCachePool.performRequest} will create new connections
@@ -382,7 +363,6 @@ class MemCachePoolTests(TestCase):
         args, _ignore_kwargs = self.reactor.calls.pop()
 
         self.assertEquals(args[:2], (MC_ADDRESS.host, MC_ADDRESS.port))
-
 
     def test_pendingConnectionsCountAgainstMaxClients(self):
         """

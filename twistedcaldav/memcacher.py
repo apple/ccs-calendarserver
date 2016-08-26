@@ -25,6 +25,7 @@ from twext.python.log import Logger
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 from twistedcaldav.config import config
 
+
 class Memcacher(CachePoolUserMixIn):
     log = Logger()
 
@@ -32,7 +33,7 @@ class Memcacher(CachePoolUserMixIn):
     NAMESPACE_MAX_LENGTH = 32     # max size of namespace we will allow
     HASH_LENGTH = 32              # length of hash we will generate
     TRUNCATED_KEY_LENGTH = MEMCACHE_KEY_LIMIT - NAMESPACE_MAX_LENGTH - HASH_LENGTH - 2  # 2 accounts for delimiters
-    MEMCACHE_VALUE_LIMIT = 1024 * 1024 # the memcached default value length limit
+    MEMCACHE_VALUE_LIMIT = 1024 * 1024  # the memcached default value length limit
 
     # Translation table: all ctrls (0x00 - 0x1F) and space and 0x7F mapped to _
     keyNormalizeTranslateTable = string.maketrans("".join([chr(i) for i in range(33)]) + chr(0x7F), "_" * 33 + "_")
@@ -52,7 +53,7 @@ class Memcacher(CachePoolUserMixIn):
         """
 
         def __init__(self, pickle=False):
-            self._cache = {} # (value, expireTime, check-and-set identifier)
+            self._cache = {}  # (value, expireTime, check-and-set identifier)
             self._clock = 0
             self._pickle = pickle
 
@@ -182,7 +183,6 @@ class Memcacher(CachePoolUserMixIn):
         def advanceClock(self, seconds):
             self._clock += seconds
 
-
     # TODO: an sqlite based cacher that can be used for multiple instance servers
     # in the absence of memcached. This is not ideal and we may want to not implement
     # this, but it is being documented for completeness.
@@ -218,7 +218,6 @@ class Memcacher(CachePoolUserMixIn):
         def flushAll(self):
             return succeed(True)
 
-
     def __init__(self, namespace, pickle=False, no_invalidation=False, key_normalization=True):
         """
         @param namespace: a unique namespace for this cache's keys
@@ -244,7 +243,6 @@ class Memcacher(CachePoolUserMixIn):
         self._noInvalidation = no_invalidation
         self._key_normalization = key_normalization
 
-
     def _getMemcacheProtocol(self):
         if self._memcacheProtocol is not None:
             return self._memcacheProtocol
@@ -266,7 +264,6 @@ class Memcacher(CachePoolUserMixIn):
 
         return self._memcacheProtocol
 
-
     def _normalizeKey(self, key):
 
         if isinstance(key, unicode):
@@ -280,7 +277,6 @@ class Memcacher(CachePoolUserMixIn):
         else:
             return key
 
-
     def add(self, key, value, expireTime=0):
 
         proto = self._getMemcacheProtocol()
@@ -290,7 +286,6 @@ class Memcacher(CachePoolUserMixIn):
             my_value = cPickle.dumps(value)
         self.log.debug("Adding Cache Token for {k!r}", k=key)
         return proto.add('%s:%s' % (self._namespace, self._normalizeKey(key)), my_value, expireTime=expireTime)
-
 
     def set(self, key, value, expireTime=0):
 
@@ -302,7 +297,6 @@ class Memcacher(CachePoolUserMixIn):
         self.log.debug("Setting Cache Token for {k!r}", k=key)
         return proto.set('%s:%s' % (self._namespace, self._normalizeKey(key)), my_value, expireTime=expireTime)
 
-
     def checkAndSet(self, key, value, cas, flags=0, expireTime=0):
 
         proto = self._getMemcacheProtocol()
@@ -312,7 +306,6 @@ class Memcacher(CachePoolUserMixIn):
             my_value = cPickle.dumps(value)
         self.log.debug("Setting Cache Token for {k!r}", k=key)
         return proto.checkAndSet('%s:%s' % (self._namespace, self._normalizeKey(key)), my_value, cas, expireTime=expireTime)
-
 
     def get(self, key, withIdentifier=False):
         def _gotit(result, withIdentifier):
@@ -331,26 +324,21 @@ class Memcacher(CachePoolUserMixIn):
         d.addCallback(_gotit, withIdentifier)
         return d
 
-
     def delete(self, key):
         self.log.debug("Deleting Cache Token for {k!r}", k=key)
         return self._getMemcacheProtocol().delete('%s:%s' % (self._namespace, self._normalizeKey(key)))
-
 
     def incr(self, key, delta=1):
         self.log.debug("Incrementing Cache Token for {k!r}", k=key)
         return self._getMemcacheProtocol().incr('%s:%s' % (self._namespace, self._normalizeKey(key)), delta)
 
-
     def decr(self, key, delta=1):
         self.log.debug("Decrementing Cache Token for {k!r}", k=key)
         return self._getMemcacheProtocol().incr('%s:%s' % (self._namespace, self._normalizeKey(key)), delta)
 
-
     def flushAll(self):
         self.log.debug("Flushing All Cache Tokens")
         return self._getMemcacheProtocol().flushAll()
-
 
     @classmethod
     def reset(cls):

@@ -41,7 +41,6 @@ class QueryResult (WebDAVElement):
     }
 
 
-
 @registerElement
 class Capabilities (WebDAVElement):
     namespace = ischedule_namespace
@@ -63,12 +62,10 @@ class Capabilities (WebDAVElement):
     }
 
 
-
 @registerElement
 class SerialNumber (WebDAVTextElement):
     namespace = ischedule_namespace
     name = "serial-number"
-
 
 
 @registerElement
@@ -81,12 +78,10 @@ class Versions (WebDAVElement):
     }
 
 
-
 @registerElement
 class Version (WebDAVTextElement):
     namespace = ischedule_namespace
     name = "version"
-
 
 
 @registerElement
@@ -97,7 +92,6 @@ class SchedulingMessages (WebDAVElement):
     allowed_children = {
         (ischedule_namespace, "component"): (1, None),
     }
-
 
 
 @registerElement
@@ -111,14 +105,12 @@ class Component (WebDAVElement):
     allowed_attributes = {"name": True}
 
 
-
 @registerElement
 class Method (WebDAVEmptyElement):
     namespace = ischedule_namespace
     name = "method"
 
     allowed_attributes = {"name": True}
-
 
 
 @registerElement
@@ -129,7 +121,6 @@ class CalendarDataTypes (WebDAVElement):
     allowed_children = {
         (ischedule_namespace, "calendar-data-type"): (1, None),
     }
-
 
 
 @registerElement
@@ -143,7 +134,6 @@ class CalendarDataType (WebDAVTextElement):
     }
 
 
-
 @registerElement
 class Attachments (WebDAVElement):
     namespace = ischedule_namespace
@@ -155,12 +145,10 @@ class Attachments (WebDAVElement):
     }
 
 
-
 @registerElement
 class Inline (WebDAVEmptyElement):
     namespace = ischedule_namespace
     name = "inline"
-
 
 
 @registerElement
@@ -169,12 +157,10 @@ class External (WebDAVEmptyElement):
     name = "external"
 
 
-
 @registerElement
 class MaxContentLength (WebDAVTextElement):
     namespace = ischedule_namespace
     name = "max-content-length"
-
 
 
 @registerElement
@@ -183,12 +169,10 @@ class MinDateTime (WebDAVTextElement):
     name = "min-date-time"
 
 
-
 @registerElement
 class MaxDateTime (WebDAVTextElement):
     namespace = ischedule_namespace
     name = "max-date-time"
-
 
 
 @registerElement
@@ -197,19 +181,16 @@ class MaxInstances (WebDAVTextElement):
     name = "max-instances"
 
 
-
 @registerElement
 class MaxRecipients (WebDAVTextElement):
     namespace = ischedule_namespace
     name = "max-recipients"
 
 
-
 @registerElement
 class Administrator (WebDAVTextElement):
     namespace = ischedule_namespace
     name = "administrator"
-
 
 
 @registerElement
@@ -220,7 +201,6 @@ class ScheduleResponse (WebDAVTextElement):
     allowed_children = {
         (ischedule_namespace, "response"): (0, None),
     }
-
 
 
 @registerElement
@@ -237,12 +217,10 @@ class Response (WebDAVElement):
     }
 
 
-
 @registerElement
 class Recipient (WebDAVTextElement):
     namespace = ischedule_namespace
     name = "recipient"
-
 
 
 @registerElement
@@ -251,12 +229,10 @@ class RequestStatus (WebDAVTextElement):
     name = "request-status"
 
 
-
 @registerElement
 class CalendarData (WebDAVTextElement):
     namespace = ischedule_namespace
     name = "calendar-data"
-
 
     @classmethod
     def fromCalendar(clazz, calendar, format=None):
@@ -277,14 +253,12 @@ class CalendarData (WebDAVTextElement):
     fromTextData = fromCalendar
 
 
-
 @registerElement
 class Error (WebDAVElement):
     namespace = ischedule_namespace
     name = "error"
 
     allowed_children = {WebDAVElement: (0, None)}
-
 
 
 @registerElement

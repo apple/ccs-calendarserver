@@ -36,7 +36,6 @@ from twext.who.expression import (
 )
 
 
-
 def matchExpressionAsJSON(expression):
     return dict(
         type=expression.__class__.__name__,
@@ -47,13 +46,11 @@ def matchExpressionAsJSON(expression):
     )
 
 
-
 def existsExpressionAsJSON(expression):
     return dict(
         type=expression.__class__.__name__,
         field=expression.fieldName.name,
     )
-
 
 
 def booleanExpressionAsJSON(expression):
@@ -63,14 +60,12 @@ def booleanExpressionAsJSON(expression):
     )
 
 
-
 def compoundExpressionAsJSON(expression):
     return dict(
         type=expression.__class__.__name__,
         operand=expression.operand.name,
         expressions=[expressionAsJSON(e) for e in expression.expressions],
     )
-
 
 
 def expressionAsJSON(expression):
@@ -91,16 +86,13 @@ def expressionAsJSON(expression):
     )
 
 
-
 def expressionAsJSONText(expression):
     json = expressionAsJSON(expression)
     return to_json_text(json)
 
 
-
 def matchTypeFromJSON(json):
     return MatchType.lookupByName(json)
-
 
 
 def matchFlagsFromJSON(json):
@@ -116,7 +108,6 @@ def matchFlagsFromJSON(json):
         return flags
 
     return MatchFlags.lookupByName(json)
-
 
 
 def matchExpressionFromJSON(service, json):
@@ -139,7 +130,6 @@ def matchExpressionFromJSON(service, json):
     )
 
 
-
 def existsExpressionFromJSON(service, json):
     try:
         jsonField = json["field"]
@@ -151,7 +141,6 @@ def existsExpressionFromJSON(service, json):
     fieldName = service.fieldName.lookupByName(jsonField)
 
     return ExistsExpression(fieldName)
-
 
 
 def booleanExpressionFromJSON(service, json):
@@ -167,7 +156,6 @@ def booleanExpressionFromJSON(service, json):
     return BooleanExpression(fieldName)
 
 
-
 def compoundExpressionFromJSON(json):
     try:
         expressions_json = json["expressions"]
@@ -181,7 +169,6 @@ def compoundExpressionFromJSON(json):
     operand = Operand.lookupByName(operand_json)
 
     return CompoundExpression(expressions, operand)
-
 
 
 def expressionFromJSON(json):
@@ -210,11 +197,9 @@ def expressionFromJSON(json):
     )
 
 
-
 def expressionFromJSONText(jsonText):
     json = from_json_text(jsonText)
     return expressionFromJSON(json)
-
 
 
 def to_json_text(obj):

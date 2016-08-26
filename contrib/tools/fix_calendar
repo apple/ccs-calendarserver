@@ -25,6 +25,7 @@ import xattr
 Fix xattrs on calendar collections and calendar object resources
 """
 
+
 def usage():
     print """Usage: xattr_fix CALENDARS
 Options:
@@ -39,7 +40,6 @@ iCal Server.
 It can be used to fix xattrs lost as a result of restoring an iCal Server document
 root without properly preserving the xattrs.
 """
-
 
 
 def fixCalendar(path):

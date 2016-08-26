@@ -28,7 +28,6 @@ from txweb2.iweb import IResponse
 from txweb2.stream import MemoryStream, FileStream
 
 
-
 class CollectionContents(StoreTestCase):
     """
     PUT request
@@ -59,7 +58,6 @@ class CollectionContents(StoreTestCase):
         # like a calendar home'
         return super(CollectionContents, self).setUp()
 
-
     @inlineCallbacks
     def test_collection_in_calendar(self):
         """
@@ -82,7 +80,6 @@ class CollectionContents(StoreTestCase):
             if response.code != responsecode.FORBIDDEN:
                 self.fail("Incorrect response to nested MKCOL: %s" % (response.code,))
 
-
     def test_bogus_file(self):
         """
         Bogus file in calendar collection
@@ -94,7 +91,6 @@ class CollectionContents(StoreTestCase):
         self.addCleanup(dst_file.close)
         stream = FileStream(dst_file)
         return self._test_file_in_calendar("bogus file in calendar", (stream, responsecode.FORBIDDEN))
-
 
     def openHolidays(self):
         """
@@ -108,7 +104,6 @@ class CollectionContents(StoreTestCase):
         self.addCleanup(f.close)
         return f
 
-
     def test_monolithic_ical(self):
         """
         Monolithic iCalendar file in calendar collection
@@ -117,7 +112,6 @@ class CollectionContents(StoreTestCase):
         dst_file = self.openHolidays()
         stream = FileStream(dst_file)
         return self._test_file_in_calendar("monolithic iCalendar file in calendar", (stream, responsecode.FORBIDDEN))
-
 
     def test_single_events(self):
         """
@@ -138,7 +132,6 @@ class CollectionContents(StoreTestCase):
 
         return self._test_file_in_calendar("single event in calendar", *work)
 
-
     def test_duplicate_uids(self):
         """
         Mutiple resources with the same UID.
@@ -156,7 +149,6 @@ class CollectionContents(StoreTestCase):
             (MemoryStream(calendar), responsecode.CREATED),
             (MemoryStream(calendar), responsecode.FORBIDDEN),
         )
-
 
     @inlineCallbacks
     def _test_file_in_calendar(self, what, *work):
@@ -188,7 +180,6 @@ class CollectionContents(StoreTestCase):
                 self.fail("Incorrect response to %s: %s (!= %s)" % (what, response.code, response_code))
 
             c += 1
-
 
     @inlineCallbacks
     def test_fail_dot_file_put_in_calendar(self):

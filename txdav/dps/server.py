@@ -84,7 +84,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         # it can ask for the remaining results later.
         self._continuations = {}
 
-
     def _storeContinuation(self, things, kind):
         """
         Store an iterable of records and generate an opaque token we can
@@ -101,7 +100,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         self._continuations[token] = (datetime.datetime.now(), things, kind)
         return token
 
-
     def _retrieveContinuation(self, token):
         """
         Retrieve the previously stored iterable of records associated with
@@ -117,7 +115,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
             things = None
             kind = None
         return things, kind
-
 
     @ContinuationCommand.responder
     def continuation(self, continuation):
@@ -138,7 +135,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
             response = {}
         # log.debug("Responding with: {response}", response=response)
         return response
-
 
     def _recordsToResponse(self, records):
         """
@@ -177,7 +173,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
 
         return response
 
-
     def _itemsToResponse(self, items):
         """
         Craft an AMP response containing as many items as will fit within
@@ -214,7 +209,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
 
         return response
 
-
     def recordToDict(self, record):
         """
         Turn a record in a dictionary of fields which can be reconstituted
@@ -240,7 +234,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
                     fields[field.name] = value.name if value else None
         return fields
 
-
     @RecordWithShortNameCommand.responder
     @inlineCallbacks
     def recordWithShortName(self, recordType, shortName, timeoutSeconds=None):
@@ -257,7 +250,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         }
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
-
 
     @RecordWithUIDCommand.responder
     @inlineCallbacks
@@ -278,7 +270,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
-
     @RecordWithGUIDCommand.responder
     @inlineCallbacks
     def recordWithGUID(self, guid, timeoutSeconds=None):
@@ -293,7 +284,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         }
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
-
 
     @RecordsWithRecordTypeCommand.responder
     @inlineCallbacks
@@ -310,7 +300,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
-
     @RecordsWithEmailAddressCommand.responder
     @inlineCallbacks
     def recordsWithEmailAddress(
@@ -326,7 +315,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
-
     @RecordsMatchingTokensCommand.responder
     @inlineCallbacks
     def recordsMatchingTokens(
@@ -341,7 +329,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         response = self._recordsToResponse(records)
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
-
 
     @RecordsMatchingFieldsCommand.responder
     @inlineCallbacks
@@ -386,7 +373,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
-
     @MembersCommand.responder
     @inlineCallbacks
     def members(self, uid):
@@ -406,7 +392,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
-
     @ExpandedMembersCommand.responder
     @inlineCallbacks
     def expandedMembers(self, uid):
@@ -425,7 +410,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         response = self._recordsToResponse(records)
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
-
 
     @AddMembersCommand.responder
     @inlineCallbacks
@@ -456,7 +440,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
-
     @RemoveMembersCommand.responder
     @inlineCallbacks
     def removeMembers(self, uid, memberUIDs):
@@ -485,7 +468,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         }
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
-
 
     @SetMembersCommand.responder
     @inlineCallbacks
@@ -516,7 +498,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
-
     @UpdateRecordsCommand.responder
     @inlineCallbacks
     def updateRecords(self, uids, create):
@@ -541,7 +522,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
-
     @SetAutoScheduleModeCommand.responder
     @inlineCallbacks
     def setAutoScheduleMode(self, uid, autoScheduleMode):
@@ -554,7 +534,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
             "success": True
         }
         returnValue(response)
-
 
     @GroupsCommand.responder
     @inlineCallbacks
@@ -574,7 +553,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
-
     @ExpandedMemberUIDsCommand.responder
     @inlineCallbacks
     def expandedMemberUIDs(self, uid):
@@ -590,7 +568,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         response = self._itemsToResponse([u.encode("utf-8") for u in uids])
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
-
 
     @VerifyPlaintextPasswordCommand.responder
     @inlineCallbacks
@@ -616,7 +593,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         }
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
-
 
     @VerifyHTTPDigestCommand.responder
     @inlineCallbacks
@@ -651,7 +627,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
-
     @WikiAccessForUIDCommand.responder
     @inlineCallbacks
     def wikiAccessForUID(self, wikiUID, uid):
@@ -672,7 +647,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
-
     @FlushCommand.responder
     @inlineCallbacks
     def flush(self):
@@ -682,7 +656,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         }
         returnValue(response)
 
-
     @StatsCommand.responder
     @inlineCallbacks
     def stats(self):
@@ -691,7 +664,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
             "stats": pickle.dumps(stats),
         }
         returnValue(response)
-
 
     @ExternalDelegatesCommand.responder
     @inlineCallbacks
@@ -703,20 +675,16 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         returnValue(response)
 
 
-
 class DirectoryProxyAMPFactory(Factory):
     """
     """
     protocol = DirectoryProxyAMPProtocol
 
-
     def __init__(self, directory):
         self._directory = directory
 
-
     def buildProtocol(self, addr):
         return DirectoryProxyAMPProtocol(self._directory)
-
 
 
 class DirectoryProxyOptions(Options):
@@ -724,12 +692,10 @@ class DirectoryProxyOptions(Options):
         "config", "f", DEFAULT_CONFIG_FILE, "Path to configuration file."
     ]]
 
-
     def __init__(self, *args, **kwargs):
         super(DirectoryProxyOptions, self).__init__(*args, **kwargs)
 
         self.overrides = {}
-
 
     def _coerceOption(self, configDict, key, value):
         """
@@ -755,7 +721,6 @@ class DirectoryProxyOptions(Options):
 
         return value
 
-
     def _setOverride(self, configDict, path, value, overrideDict):
         """
         Set the value at path in configDict
@@ -779,7 +744,6 @@ class DirectoryProxyOptions(Options):
                 configDict[key], path[1:],
                 value, overrideDict[key]
             )
-
 
     def opt_option(self, option):
         """
@@ -808,14 +772,12 @@ class DirectoryProxyOptions(Options):
         self.parent['pidfile'] = None
 
 
-
 @implementer(IPlugin, service.IServiceMaker)
 class DirectoryProxyServiceMaker(object):
 
     tapname = "caldav_directoryproxy"
     description = "Directory Proxy Service"
     options = DirectoryProxyOptions
-
 
     def makeService(self, options):
         """
@@ -838,7 +800,6 @@ class DirectoryProxyServiceMaker(object):
         except Exception as e:
             log.error("Failed to create directory service", error=e)
             raise
-
 
         #
         # Configure Memcached Client Pool

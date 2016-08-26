@@ -34,6 +34,7 @@ Data upgrade from database version 3 to 4
 UPGRADE_TO_VERSION = 4
 BATCH_SIZE = 100
 
+
 @inlineCallbacks
 def doUpgrade(sqlStore):
     """
@@ -49,7 +50,6 @@ def doUpgrade(sqlStore):
         yield updateCalendarDataVersion(sqlStore, UPGRADE_TO_VERSION)
 
 
-
 @inlineCallbacks
 def updateCalendarHomes(sqlStore, prefix=None):
     """
@@ -57,7 +57,6 @@ def updateCalendarHomes(sqlStore, prefix=None):
     """
 
     yield doToEachHomeNotAtVersion(sqlStore, schema.CALENDAR_HOME, UPGRADE_TO_VERSION, updateCalendarHome, "Update Calendar Home", filterOwnerUID=prefix)
-
 
 
 @inlineCallbacks
@@ -73,7 +72,6 @@ def updateCalendarHome(txn, homeResourceID):
     yield cleanPropertyStore()
 
 
-
 @inlineCallbacks
 def moveDefaultCalendarProperties(home):
     """
@@ -84,7 +82,6 @@ def moveDefaultCalendarProperties(home):
 
     yield _processDefaultCalendarProperty(home, caldavxml.ScheduleDefaultCalendarURL)
     yield _processDefaultCalendarProperty(home, customxml.ScheduleDefaultTasksURL)
-
 
 
 @inlineCallbacks
@@ -122,7 +119,6 @@ def _processDefaultCalendarProperty(home, propname):
             del inbox.properties()[PropertyName.fromElement(propname)]
 
 
-
 @inlineCallbacks
 def moveCalendarTranspProperties(home):
     """
@@ -142,7 +138,6 @@ def moveCalendarTranspProperties(home):
         if prop is not None:
             yield calendar.setUsedForFreeBusy(prop == caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
             del calendar.properties()[PropertyName.fromElement(caldavxml.ScheduleCalendarTransp)]
-
 
 
 @inlineCallbacks
@@ -179,7 +174,6 @@ def moveDefaultAlarmProperties(home):
     )
 
 
-
 @inlineCallbacks
 def _processDefaultAlarmProperty(home, propname, vevent, timed):
     """
@@ -205,7 +199,6 @@ def _processDefaultAlarmProperty(home, propname, vevent, timed):
             alarm = str(prop.children[0]) if prop.children and prop.children[0] else "empty"
             yield calendar.setDefaultAlarm(alarm, vevent, timed)
             del calendar.properties()[PropertyName.fromElement(propname)]
-
 
 
 @inlineCallbacks

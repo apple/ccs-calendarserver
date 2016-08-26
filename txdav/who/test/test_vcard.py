@@ -26,7 +26,6 @@ import os
 from twistedcaldav.config import config
 
 
-
 class TestVCard(CommonCommonTests, unittest.TestCase):
     """
     Tests for L{twext.who.vcard}.
@@ -45,16 +44,14 @@ class TestVCard(CommonCommonTests, unittest.TestCase):
 
         yield self.populate()
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         yield populateAddressBooksFrom(self.requirements, self.storeUnderTest())
 
     requirements = {
-        "id1" : None,
+        "id1": None,
     }
-
 
     @inlineCallbacks
     def test_basicVcard(self):
@@ -71,7 +68,6 @@ END:VCARD
         record = yield self.directory.recordWithUID("id1")
         vcard = yield vCardFromRecord(record)
         self.assertEqual(str(vcard), vcard_result)
-
 
     @inlineCallbacks
     def test_parentURI(self):
@@ -94,7 +90,6 @@ END:VCARD
         vcard = yield vCardFromRecord(record, parentURI="/contacts")
         self.assertEqual(str(vcard), vcard_result)
 
-
     @inlineCallbacks
     def test_forceKind(self):
         vcard_result = """BEGIN:VCARD
@@ -110,7 +105,6 @@ END:VCARD
         record = yield self.directory.recordWithUID("id1")
         vcard = yield vCardFromRecord(record, forceKind="foobar")
         self.assertEqual(str(vcard), vcard_result)
-
 
     @inlineCallbacks
     def test_addProps(self):
@@ -129,7 +123,6 @@ END:VCARD
         vcard = yield vCardFromRecord(record, addProps={"KEY": "private"})
         self.assertEqual(str(vcard), vcard_result)
 
-
     @inlineCallbacks
     def test_email(self):
         vcard_result = """BEGIN:VCARD
@@ -146,7 +139,6 @@ END:VCARD
         record = yield self.directory.recordWithUID("id2")
         vcard = yield vCardFromRecord(record)
         self.assertEqual(str(vcard), vcard_result)
-
 
     @inlineCallbacks
     def test_multipleemail(self):
@@ -165,7 +157,6 @@ END:VCARD
         record = yield self.directory.recordWithUID("id3")
         vcard = yield vCardFromRecord(record)
         self.assertEqual(str(vcard), vcard_result)
-
 
     @inlineCallbacks
     def test_adr(self):

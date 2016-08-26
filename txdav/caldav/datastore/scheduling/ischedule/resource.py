@@ -45,6 +45,7 @@ __all__ = [
     "IScheduleInboxResource",
 ]
 
+
 class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMixin, DAVResource):
     """
     iSchedule Inbox resource.
@@ -64,40 +65,31 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         self._newStore = store
         self._podding = podding
 
-
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = NonePropertyStore(self)
         return self._dead_properties
 
-
     def etag(self):
         return succeed(None)
-
 
     def checkPreconditions(self, request):
         return None
 
-
     def resourceType(self):
         return davxml.ResourceType.ischeduleinbox
-
 
     def contentType(self):
         return MimeType.fromString("text/html; charset=utf-8")
 
-
     def isCollection(self):
         return False
-
 
     def isCalendarCollection(self):
         return False
 
-
     def isPseudoCalendarCollection(self):
         return False
-
 
     @inlineCallbacks
     def principalForCalendarUserAddress(self, address):
@@ -106,7 +98,6 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
             if principal is not None:
                 returnValue(principal)
         returnValue(None)
-
 
     def render(self, request):
         output = """<html>
@@ -121,7 +112,6 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         response = Response(200, {}, output)
         response.headers.setHeader("content-type", MimeType("text", "html"))
         return response
-
 
     def http_GET(self, request):
         """
@@ -141,7 +131,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         action = action[0]
 
         action = {
-            "capabilities"  : self.doCapabilities,
+            "capabilities": self.doCapabilities,
         }.get(action, None)
 
         if action is None:
@@ -151,7 +141,6 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
             ))
 
         return action(request)
-
 
     def doCapabilities(self, request):
         """
@@ -224,7 +213,6 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         response.headers.addRawHeader(ISCHEDULE_CAPABILITIES, str(config.Scheduling.iSchedule.SerialNumber))
         return response
 
-
     @inlineCallbacks
     def http_POST(self, request):
         """
@@ -273,7 +261,6 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
             response.headers.addRawHeader(ISCHEDULE_CAPABILITIES, str(config.Scheduling.iSchedule.SerialNumber))
         returnValue(response)
 
-
     def determineType(self, content_type):
         """
         Determine if the supplied content-type is valid for storing and return the matching PyCalendar type.
@@ -282,7 +269,6 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         if content_type is not None:
             format = "{}/{}".format(content_type.mediaType, content_type.mediaSubtype,)
         return format if format in Component.allowedTypes() else None
-
 
     def loadOriginatorFromRequestHeaders(self, request):
         # Must have Originator header
@@ -297,7 +283,6 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         else:
             originator = originator[0]
         return originator
-
 
     def loadRecipientsFromRequestHeaders(self, request):
         # Get list of Recipient headers
@@ -322,7 +307,6 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
                     recipients.append(r)
 
         return recipients
-
 
     @inlineCallbacks
     def loadCalendarFromRequest(self, request):
@@ -356,14 +340,12 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
 
         returnValue(calendar)
 
-
     ##
     # ACL
     ##
 
     def supportedPrivileges(self, request):
         return succeed(deliverSchedulePrivilegeSet)
-
 
     def defaultAccessControlList(self):
         privs = (

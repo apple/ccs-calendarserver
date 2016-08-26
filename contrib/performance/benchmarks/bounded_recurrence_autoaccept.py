@@ -44,7 +44,6 @@ def makeEvent(i, organizerSequence, attendeeCount):
         uuid4(), start, end, rrule, organizerSequence, attendees)
 
 
-
 def measure(host, port, dtrace, attendeeCount, samples):
     calendar = "bounded-recurrence-autoaccept"
     organizerSequence = 1

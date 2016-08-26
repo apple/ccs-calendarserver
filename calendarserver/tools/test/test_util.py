@@ -20,6 +20,7 @@ from twistedcaldav.test.util import TestCase
 from twistedcaldav.config import ConfigurationError
 from calendarserver.tools.util import loadConfig, checkDirectory
 
+
 class UtilTestCase(TestCase):
 
     def test_loadConfig(self):
@@ -28,7 +29,6 @@ class UtilTestCase(TestCase):
         config = loadConfig(configPath)
         self.assertEquals(config.EnableCalDAV, True)
         self.assertEquals(config.EnableCardDAV, True)
-
 
     def test_checkDirectory(self):
         tmpDir = tempfile.mkdtemp()

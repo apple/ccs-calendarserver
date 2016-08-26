@@ -31,19 +31,18 @@ from txdav.caldav.datastore.scheduling.imip.outbound import IMIPInvitationWork
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
 
 
-
 __all__ = [
     "ScheduleViaIMip",
 ]
 
 log = Logger()
 
+
 class ScheduleViaIMip(DeliveryService):
 
     @classmethod
     def serviceType(cls):
         return DeliveryService.serviceType_imip
-
 
     @inlineCallbacks
     def generateSchedulingResponses(self):

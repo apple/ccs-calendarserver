@@ -55,7 +55,6 @@ from txdav.xml import element as davxml
 log = Logger()
 
 
-
 def usage(e=None):
     if e:
         print(e)
@@ -105,14 +104,12 @@ class ExportOptions(Options):
         self.outputName = '-'
         self.outputDirectoryName = None
 
-
     def opt_uid(self, uid):
         """
         Add a calendar home directly by its UID (which is usually a directory
         service's GUID).
         """
         self.exporters.append(UIDExporter(uid))
-
 
     def opt_record(self, recordName):
         """
@@ -122,7 +119,6 @@ class ExportOptions(Options):
         self.exporters.append(DirectoryExporter(recordType, shortName))
 
     opt_r = opt_record
-
 
     def opt_collection(self, collectionName):
         """
@@ -135,7 +131,6 @@ class ExportOptions(Options):
 
     opt_c = opt_collection
 
-
     def opt_directory(self, dirname):
         """
         Specify output directory path.
@@ -143,7 +138,6 @@ class ExportOptions(Options):
         self.outputDirectoryName = dirname
 
     opt_d = opt_directory
-
 
     def opt_output(self, filename):
         """
@@ -153,7 +147,6 @@ class ExportOptions(Options):
 
     opt_o = opt_output
 
-
     def opt_user(self, user):
         """
         Add a user's calendar home (shorthand for '-r users:shortName').
@@ -161,7 +154,6 @@ class ExportOptions(Options):
         self.opt_record("users:" + user)
 
     opt_u = opt_user
-
 
     def openOutput(self):
         """
@@ -171,7 +163,6 @@ class ExportOptions(Options):
             return sys.stdout
         else:
             return open(self.outputName, 'wb')
-
 
 
 class _ExporterBase(object):
@@ -188,13 +179,11 @@ class _ExporterBase(object):
     def __init__(self):
         self.collections = []
 
-
     def getHomeUID(self, exportService):
         """
         Subclasses must implement this.
         """
         raise NotImplementedError()
-
 
     @inlineCallbacks
     def listCalendars(self, txn, exportService):
@@ -215,7 +204,6 @@ class _ExporterBase(object):
         returnValue(result)
 
 
-
 class UIDExporter(_ExporterBase):
     """
     An exporter that constructs a list of calendars based on the UID of the
@@ -230,10 +218,8 @@ class UIDExporter(_ExporterBase):
         super(UIDExporter, self).__init__()
         self.uid = uid
 
-
     def getHomeUID(self, exportService):
         return succeed(self.uid)
-
 
 
 class DirectoryExporter(_ExporterBase):
@@ -257,7 +243,6 @@ class DirectoryExporter(_ExporterBase):
         self.recordType = recordType
         self.shortName = shortName
 
-
     @inlineCallbacks
     def getHomeUID(self, exportService):
         """
@@ -269,7 +254,6 @@ class DirectoryExporter(_ExporterBase):
             self.shortName
         )
         returnValue(record.uid)
-
 
 
 @inlineCallbacks
@@ -301,7 +285,6 @@ def exportToFile(calendars, fileobj):
                     comp.addComponent(sub)
 
     fileobj.write(comp.getTextWithTimezones(True))
-
 
 
 @inlineCallbacks
@@ -350,7 +333,6 @@ def exportToDirectory(calendars, dirname):
             fileobj.write(comp.getTextWithTimezones(True))
 
 
-
 class ExporterService(WorkerService, object):
     """
     Service which runs, exports the appropriate records, then stops the reactor.
@@ -363,7 +345,6 @@ class ExporterService(WorkerService, object):
         self.reactor = reactor
         self.config = config
         self._directory = self.store.directoryService()
-
 
     @inlineCallbacks
     def doWork(self):
@@ -395,13 +376,11 @@ class ExporterService(WorkerService, object):
         except:
             log.failure("doWork()")
 
-
     def directoryService(self):
         """
         Get an appropriate directory service.
         """
         return self._directory
-
 
     def stopService(self):
         """
@@ -412,7 +391,6 @@ class ExporterService(WorkerService, object):
         # loop, but this is not implemented because nothing will actually do it
         # except hitting ^C (which also calls reactor.stop(), so that will exit
         # anyway).
-
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
@@ -438,7 +416,6 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
                 "Unable to open output file for writing: %s\n" % (e)
             )
             sys.exit(1)
-
 
     def makeService(store):
         from twistedcaldav.config import config

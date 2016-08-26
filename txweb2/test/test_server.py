@@ -16,7 +16,6 @@ from twisted.trial import unittest
 from twisted.internet import reactor, defer, address
 
 
-
 class NotResource(object):
     """
     Class which does not implement IResource.
@@ -25,7 +24,6 @@ class NotResource(object):
     if an object which does not provide IResource is adapted to IResource
     and there is an adapter to IResource registered, that adapter is used.
     """
-
 
 
 @implementer(iweb.IResource)
@@ -44,7 +42,6 @@ class ResourceAdapter(object):
 components.registerAdapter(ResourceAdapter, NotResource, iweb.IResource)
 
 
-
 class NotOldResource(object):
     """
     Class which does not implement IOldNevowResource or IResource.
@@ -55,7 +52,6 @@ class NotOldResource(object):
     registered, first that adapter is used, then the included adapter from
     IOldNevowResource to IResource is used.
     """
-
 
 
 @implementer(iweb.IOldNevowResource)
@@ -74,7 +70,6 @@ class OldResourceAdapter(object):
 components.registerAdapter(OldResourceAdapter, NotOldResource, iweb.IOldNevowResource)
 
 
-
 class AdaptionTestCase(unittest.TestCase):
     """
     Test the adaption of various objects to IResource.
@@ -82,6 +77,7 @@ class AdaptionTestCase(unittest.TestCase):
     Necessary due to the special implementation of __call__ on IResource
     which extends the behavior provided by the base Interface.__call__.
     """
+
     def test_unadaptable(self):
         """
         Test that attempting to adapt to IResource an object not adaptable
@@ -94,7 +90,6 @@ class AdaptionTestCase(unittest.TestCase):
         alternate = object()
         self.assertIdentical(iweb.IResource(Unadaptable(), alternate), alternate)
 
-
     def test_redundant(self):
         """
         Test that the adaption to IResource of an object which provides
@@ -106,7 +101,6 @@ class AdaptionTestCase(unittest.TestCase):
         resource = Resource()
         self.assertIdentical(iweb.IResource(resource), resource)
 
-
     def test_registered(self):
         """
         Test that if an adapter exists which can provide IResource for an
@@ -116,14 +110,12 @@ class AdaptionTestCase(unittest.TestCase):
         self.failUnless(isinstance(iweb.IResource(notResource), ResourceAdapter))
 
 
-
 @implementer(iweb.IChanRequest)
 class TestChanRequest:
 
     hostInfo = address.IPv4Address('TCP', 'host', 80), False
     remoteHost = address.IPv4Address('TCP', 'remotehost', 34567)
     finished = False
-
 
     def __init__(self, site, method, prepath, uri, length=None,
                  headers=None, version=(1, 1), content=None):
@@ -155,47 +147,37 @@ class TestChanRequest:
         self.data = ''
         self.deferredFinish = defer.Deferred()
 
-
     def writeIntermediateResponse(code, headers=None):
         pass
-
 
     def writeHeaders(self, code, headers):
         self.responseHeaders = headers
         self.code = code
 
-
     def write(self, data):
         self.data += data
-
 
     def finish(self, failed=False):
         result = self.code, self.responseHeaders, self.data, failed
         self.finished = True
         self.deferredFinish.callback(result)
 
-
     def abortConnection(self):
         self.finish(failed=True)
-
 
     def registerProducer(self, producer, streaming):
         if self.producer is not None:
             raise ValueError("Producer still set: " + repr(self.producer))
         self.producer = producer
 
-
     def unregisterProducer(self):
         self.producer = None
-
 
     def getHostInfo(self):
         return self.hostInfo
 
-
     def getRemoteHost(self):
         return self.remoteHost
-
 
 
 class BaseTestResource(resource.Resource):
@@ -212,20 +194,16 @@ class BaseTestResource(resource.Resource):
         for i in children:
             self.putChild(i[0], i[1])
 
-
     def render(self, req):
         return http.Response(self.responseCode, headers=self.responseHeaders,
                              stream=self.responseStream())
-
 
     def responseStream(self):
         return stream.MemoryStream(self.responseText)
 
 
-
 class MyRenderError(Exception):
     ""
-
 
 
 class ErrorWithProducerResource(BaseTestResource):
@@ -236,13 +214,13 @@ class ErrorWithProducerResource(BaseTestResource):
         req.chanRequest.registerProducer(object(), None)
         return defer.fail(MyRenderError())
 
-
     def child_(self, request):
         return self
 
 
-
 _unset = object()
+
+
 class BaseCase(unittest.TestCase):
     """
     Base class for test cases that involve testing the result
@@ -256,7 +234,6 @@ class BaseCase(unittest.TestCase):
     def chanrequest(self, root, uri, length, headers, method, version, prepath, content):
         site = server.Site(root)
         return TestChanRequest(site, method, prepath, uri, length, headers, version, content)
-
 
     def getResponseFor(self, root, uri, headers={},
                        method=None, version=None, prepath='', content=None, length=_unset):
@@ -277,7 +254,6 @@ class BaseCase(unittest.TestCase):
         cr.request.process()
         return cr.deferredFinish
 
-
     def assertResponse(self, request_data, expected_response, failure=False):
         """
         @type request_data: C{tuple}
@@ -294,7 +270,6 @@ class BaseCase(unittest.TestCase):
 
         return d
 
-
     def _cbGotResponse(self, (code, headers, data, failed), expected_response, expectedfailure=False):
         expected_code, expected_headers, expected_data = expected_response
         self.assertEquals(code, expected_code)
@@ -305,7 +280,6 @@ class BaseCase(unittest.TestCase):
             test2 = sorted(value)
             self.assertEquals(test1, test2)
         self.assertEquals(failed, expectedfailure)
-
 
 
 class ErrorHandlingTest(BaseCase):
@@ -336,10 +310,11 @@ class ErrorHandlingTest(BaseCase):
         self.assertEquals(tcr.finished, True)
 
 
-
 class SampleWebTest(BaseCase):
+
     class SampleTestResource(BaseTestResource):
         addSlash = True
+
         def child_validChild(self, req):
             f = BaseTestResource()
             f.responseCode = 200
@@ -358,37 +333,32 @@ class SampleWebTest(BaseCase):
             f.responseText = 'Remote Addr: %r' % req.remoteAddr.host
             return f
 
-
     def setUp(self):
         self.root = self.SampleTestResource()
-
 
     def test_root(self):
         return self.assertResponse(
             (self.root, 'http://host/'),
             (200, {}, 'This is a fake resource.'))
 
-
     def test_validChild(self):
         return self.assertResponse(
             (self.root, 'http://host/validChild'),
             (200, {}, 'This is a valid child resource.'))
-
 
     def test_invalidChild(self):
         return self.assertResponse(
             (self.root, 'http://host/invalidChild'),
             (404, {}, None))
 
-
     def test_remoteAddrExposure(self):
         return self.assertResponse(
             (self.root, 'http://host/remoteAddr'),
             (200, {}, "Remote Addr: 'remotehost'"))
 
-
     def test_leafresource(self):
         class TestResource(resource.LeafResource):
+
             def render(self, req):
                 return http.Response(stream="prepath:%s postpath:%s" % (
                     req.prepath,
@@ -397,7 +367,6 @@ class SampleWebTest(BaseCase):
         return self.assertResponse(
             (TestResource(), 'http://host/consumed/path/segments'),
             (200, {}, "prepath:[] postpath:['consumed', 'path', 'segments']"))
-
 
     def test_redirectResource(self):
         """
@@ -412,7 +381,6 @@ class SampleWebTest(BaseCase):
         return self.assertResponse(
             (redirectResource, 'http://localhost/'),
             (301, {'location': 'https://localhost/foo?bar=baz'}, None))
-
 
     def test_redirectResourceWithSchemeRemapping(self):
         """
@@ -435,7 +403,6 @@ class SampleWebTest(BaseCase):
             (redirectResource, 'http://localhost:8443/'),
             (301, {'location': 'https://localhost:8443/foo'}, None))
 
-
     def test_redirectResourceWithoutSchemeRemapping(self):
         """
         Make sure a redirect response has the correct status and Location header, when
@@ -456,7 +423,6 @@ class SampleWebTest(BaseCase):
         return self.assertResponse(
             (redirectResource, 'http://localhost:8008/'),
             (301, {'location': 'http://localhost:8008/foo'}, None))
-
 
     def test_redirectResourceWithoutSSLSchemeRemapping(self):
         """
@@ -480,28 +446,25 @@ class SampleWebTest(BaseCase):
             (301, {'location': 'http://localhost:8443/foo'}, None))
 
 
-
 class URLParsingTest(BaseCase):
+
     class TestResource(resource.LeafResource):
+
         def render(self, req):
             return http.Response(stream="Host:%s, Path:%s" % (req.host, req.path))
 
-
     def setUp(self):
         self.root = self.TestResource()
-
 
     def test_normal(self):
         return self.assertResponse(
             (self.root, '/path', {'Host': 'host'}),
             (200, {}, 'Host:host, Path:/path'))
 
-
     def test_fullurl(self):
         return self.assertResponse(
             (self.root, 'http://host/path'),
             (200, {}, 'Host:host, Path:/path'))
-
 
     def test_strangepath(self):
         # Ensure that the double slashes don't confuse it
@@ -509,18 +472,18 @@ class URLParsingTest(BaseCase):
             (self.root, '//path', {'Host': 'host'}),
             (200, {}, 'Host:host, Path://path'))
 
-
     def test_strangepathfull(self):
         return self.assertResponse(
             (self.root, 'http://host//path'),
             (200, {}, 'Host:host, Path://path'))
 
 
-
 class TestDeferredRendering(BaseCase):
+
     class ResourceWithDeferreds(BaseTestResource):
         addSlash = True
         responseText = 'I should be wrapped in a Deferred.'
+
         def render(self, req):
             d = defer.Deferred()
             reactor.callLater(
@@ -532,12 +495,10 @@ class TestDeferredRendering(BaseCase):
             reactor.callLater(0, d.callback, BaseTestResource())
             return d
 
-
     def test_deferredRootResource(self):
         return self.assertResponse(
             (self.ResourceWithDeferreds(), 'http://host/'),
             (200, {}, 'I should be wrapped in a Deferred.'))
-
 
     def test_deferredChild(self):
         return self.assertResponse(
@@ -545,8 +506,8 @@ class TestDeferredRendering(BaseCase):
             (200, {}, 'This is a fake resource.'))
 
 
-
 class RedirectResourceTest(BaseCase):
+
     def html(url):
         return "<html><head><title>Moved Permanently</title></head><body><h1>Moved Permanently</h1><p>Document moved to %s.</p></body></html>" % (url,)
     html = staticmethod(html)
@@ -561,7 +522,6 @@ class RedirectResourceTest(BaseCase):
             ))
         return defer.DeferredList(ds, fireOnOneErrback=True)
 
-
     def test_hostRedirect(self):
         ds = []
         for url1, url2 in (
@@ -573,7 +533,6 @@ class RedirectResourceTest(BaseCase):
                 (301, {"location": url2}, self.html(url2))
             ))
         return defer.DeferredList(ds, fireOnOneErrback=True)
-
 
     def test_pathRedirect(self):
         root = BaseTestResource()
@@ -592,22 +551,21 @@ class RedirectResourceTest(BaseCase):
         return defer.DeferredList(ds, fireOnOneErrback=True)
 
 
-
 class EmptyResource(resource.Resource):
+
     def __init__(self, test):
         self.test = test
-
 
     def render(self, request):
         self.test.assertEquals(request.urlForResource(self), self.expectedURI)
         return 201
 
 
-
 class RememberURIs(BaseCase):
     """
     Tests for URI memory and lookup mechanism in server.Request.
     """
+
     def test_requestedResource(self):
         """
         Test urlForResource() on deeply nested resource looked up via
@@ -638,7 +596,6 @@ class RememberURIs(BaseCase):
 
         return defer.DeferredList(ds, fireOnOneErrback=True)
 
-
     def test_urlEncoding(self):
         """
         Test to make sure that URL encoding is working.
@@ -655,7 +612,6 @@ class RememberURIs(BaseCase):
             (root, child.expectedURI, {'Host': 'host'}),
             (201, {}, None)
         )
-
 
     def test_locateResource(self):
         """
@@ -674,7 +630,6 @@ class RememberURIs(BaseCase):
         d.addCallback(gotResource)
         return d
 
-
     def test_unknownResource(self):
         """
         Test urlForResource() on unknown resource.
@@ -684,7 +639,6 @@ class RememberURIs(BaseCase):
         request = SimpleRequest(server.Site(root), "GET", "/")
 
         self.assertRaises(server.NoURLForResourceError, request.urlForResource, child)
-
 
     def test_locateChildResource(self):
         """
@@ -724,12 +678,12 @@ class RememberURIs(BaseCase):
         d.addCallback(gotResource)
         return d
 
-
     def test_deferredLocateChild(self):
         """
         Test deferred value from locateChild()
         """
         class DeferredLocateChild(resource.Resource):
+
             def locateChild(self, req, segments):
                 return defer.maybeDeferred(
                     super(DeferredLocateChild, self).locateChild,
@@ -750,7 +704,6 @@ class RememberURIs(BaseCase):
         return d
 
 
-
 class ParsePostDataTests(unittest.TestCase):
     """
     Tests for L{server.parsePOSTData}.
@@ -763,11 +716,11 @@ class ParsePostDataTests(unittest.TestCase):
         """
         root = resource.Resource()
         request = SimpleRequest(server.Site(root), "GET", "/")
+
         def cb(ign):
             self.assertEquals(request.args, {})
             self.assertEquals(request.files, {})
         return server.parsePOSTData(request).addCallback(cb)
-
 
     def test_noContentType(self):
         """
@@ -776,11 +729,11 @@ class ParsePostDataTests(unittest.TestCase):
         """
         root = resource.Resource()
         request = SimpleRequest(server.Site(root), "GET", "/", content="foo")
+
         def cb(ign):
             self.assertEquals(request.args, {})
             self.assertEquals(request.files, {})
         return server.parsePOSTData(request).addCallback(cb)
-
 
     def test_urlencoded(self):
         """
@@ -793,13 +746,13 @@ class ParsePostDataTests(unittest.TestCase):
         request = SimpleRequest(
             server.Site(root), "GET", "/",
             http_headers.Headers({'content-type': ctype}), content)
+
         def cb(ign):
             self.assertEquals(request.files, {})
             self.assertEquals(
                 request.args,
                 {'multiple': ['two words', 'more words'], 'key': ['value']})
         return server.parsePOSTData(request).addCallback(cb)
-
 
     def test_multipart(self):
         """
@@ -819,6 +772,7 @@ my great content wooo\r
         request = SimpleRequest(
             server.Site(root), "GET", "/",
             http_headers.Headers({'content-type': ctype}), content)
+
         def cb(ign):
             self.assertEquals(request.args, {})
             self.assertEquals(request.files.keys(), ['FileNameOne'])
@@ -828,7 +782,6 @@ my great content wooo\r
             f = request.files.values()[0][0][2]
             self.assertEquals(f.read(), "my great content wooo")
         return server.parsePOSTData(request).addCallback(cb)
-
 
     def test_multipartWithNoBoundary(self):
         """
@@ -849,7 +802,6 @@ my great content wooo\r
             http_headers.Headers({'content-type': ctype}), content)
         return self.assertFailure(server.parsePOSTData(request), http.HTTPError)
 
-
     def test_wrongContentType(self):
         """
         Check that a content-type not handled raise a C{http.HTTPError}.
@@ -861,7 +813,6 @@ my great content wooo\r
             server.Site(root), "GET", "/",
             http_headers.Headers({'content-type': ctype}), content)
         return self.assertFailure(server.parsePOSTData(request), http.HTTPError)
-
 
     def test_mimeParsingError(self):
         """
@@ -884,7 +835,6 @@ my great content wooo\r
             http_headers.Headers({'content-type': ctype}), content)
         return self.assertFailure(server.parsePOSTData(request), http.HTTPError)
 
-
     def test_multipartMaxMem(self):
         """
         Check that the C{maxMem} parameter makes the parsing raise an
@@ -904,6 +854,7 @@ and even more and more\r
         request = SimpleRequest(
             server.Site(root), "GET", "/",
             http_headers.Headers({'content-type': ctype}), content)
+
         def cb(res):
             self.assertEquals(
                 res.response.description,
@@ -911,7 +862,6 @@ and even more and more\r
         return self.assertFailure(
             server.parsePOSTData(request, maxMem=10),
             http.HTTPError).addCallback(cb)
-
 
     def test_multipartMaxSize(self):
         """
@@ -932,6 +882,7 @@ and even more and more\r
         request = SimpleRequest(
             server.Site(root), "GET", "/",
             http_headers.Headers({'content-type': ctype}), content)
+
         def cb(res):
             self.assertEquals(
                 res.response.description,
@@ -939,7 +890,6 @@ and even more and more\r
         return self.assertFailure(
             server.parsePOSTData(request, maxSize=10),
             http.HTTPError).addCallback(cb)
-
 
     def test_maxFields(self):
         """
@@ -972,6 +922,7 @@ bleh\r
         request = SimpleRequest(
             server.Site(root), "GET", "/",
             http_headers.Headers({'content-type': ctype}), content)
+
         def cb(res):
             self.assertEquals(
                 res.response.description,
@@ -979,7 +930,6 @@ bleh\r
         return self.assertFailure(
             server.parsePOSTData(request, maxFields=3),
             http.HTTPError).addCallback(cb)
-
 
     def test_otherErrors(self):
         """

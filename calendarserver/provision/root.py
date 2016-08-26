@@ -103,7 +103,6 @@ class RootResource(
             from txweb2.filter import gzip
             self.contentFilters.append((gzip.gzipfilter, True))
 
-
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             # Get the property store from super
@@ -119,10 +118,8 @@ class RootResource(
 
         return self._dead_properties
 
-
     def defaultAccessControlList(self):
         return succeed(config.RootResourceACL)
-
 
     @inlineCallbacks
     def checkSACL(self, request):
@@ -189,7 +186,6 @@ class RootResource(
             user=username, sacl=saclServices
         )
         raise HTTPError(responsecode.FORBIDDEN)
-
 
     @inlineCallbacks
     def locateChild(self, request, segments):
@@ -404,7 +400,6 @@ class RootResource(
         )
         returnValue(child)
 
-
     @inlineCallbacks
     def principalForUID(self, request, uid):
         principal = None
@@ -423,14 +418,11 @@ class RootResource(
 
         returnValue(principal)
 
-
     def http_COPY(self, request):
         return responsecode.FORBIDDEN
 
-
     def http_MOVE(self, request):
         return responsecode.FORBIDDEN
-
 
     def http_DELETE(self, request):
         return responsecode.FORBIDDEN

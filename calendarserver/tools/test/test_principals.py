@@ -32,7 +32,6 @@ from twistedcaldav.test.util import (
 )
 
 
-
 class ManagePrincipalsTestCase(TestCase):
 
     def setUp(self):
@@ -93,7 +92,6 @@ class ManagePrincipalsTestCase(TestCase):
         reactor.callLater(0, d.callback, True)
         return d
 
-
     @inlineCallbacks
     def runCommand(self, *additional):
         """
@@ -111,12 +109,10 @@ class ManagePrincipalsTestCase(TestCase):
         output = yield deferred
         returnValue(output)
 
-
     @inlineCallbacks
     def test_help(self):
         results = yield self.runCommand("--help")
         self.assertTrue(results.startswith("usage:"))
-
 
     @inlineCallbacks
     def test_principalTypes(self):
@@ -127,13 +123,11 @@ class ManagePrincipalsTestCase(TestCase):
         self.assertTrue("resources" in results)
         self.assertTrue("addresses" in results)
 
-
     @inlineCallbacks
     def test_listPrincipals(self):
         results = yield self.runCommand("--list-principals=users")
         for i in xrange(1, 10):
             self.assertTrue("user%02d" % (i,) in results)
-
 
     @inlineCallbacks
     def test_search(self):
@@ -156,7 +150,6 @@ class ManagePrincipalsTestCase(TestCase):
         self.assertTrue("testuser1" in results)
         self.assertTrue("group2" in results)
         self.assertTrue("group3" in results)
-
 
     @inlineCallbacks
     def test_addRemove(self):
@@ -197,14 +190,12 @@ class ManagePrincipalsTestCase(TestCase):
         results = yield self.runCommand("--list-principals=resources")
         self.assertFalse("newresource" in results)
 
-
     def test_parseCreationArgs(self):
 
         self.assertEquals(
             ("full name", "short name", "uid"),
             parseCreationArgs(("full name", "short name", "uid"))
         )
-
 
     def test_matchStrings(self):
         self.assertEquals("abc", matchStrings("a", ("abc", "def")))
@@ -213,7 +204,6 @@ class ManagePrincipalsTestCase(TestCase):
             ValueError,
             matchStrings, "foo", ("abc", "def")
         )
-
 
     @inlineCallbacks
     def test_modifyWriteProxies(self):
@@ -240,7 +230,6 @@ class ManagePrincipalsTestCase(TestCase):
             'No write proxies for "Room 01" location01 (location) location01' in results
         )
 
-
     @inlineCallbacks
     def test_modifyReadProxies(self):
         results = yield self.runCommand(
@@ -265,7 +254,6 @@ class ManagePrincipalsTestCase(TestCase):
         self.assertTrue(
             'No read proxies for "Room 01" location01 (location) location01' in results
         )
-
 
     @inlineCallbacks
     def test_autoScheduleMode(self):
@@ -305,7 +293,6 @@ class ManagePrincipalsTestCase(TestCase):
             pass
         else:
             self.fail("Expected command failure")
-
 
     @inlineCallbacks
     def test_groupChanges(self):
@@ -364,7 +351,6 @@ class ManagePrincipalsTestCase(TestCase):
         self.assertTrue("Removed" not in results)
         self.assertTrue("Missing" in results)
         self.assertTrue("Invalid" not in results)
-
 
 
 class SetProxiesTestCase(StoreTestCase):

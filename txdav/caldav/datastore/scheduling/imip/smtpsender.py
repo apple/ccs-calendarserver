@@ -30,6 +30,7 @@ from twistedcaldav.config import config
 
 log = Logger()
 
+
 class SMTPSender(object):
 
     def __init__(self, username, password, useSSL, server, port):
@@ -39,10 +40,10 @@ class SMTPSender(object):
         self.server = server
         self.port = port
 
-
     def sendMessage(self, fromAddr, toAddr, msgId, message):
 
         log.debug("Sending: {msg}", msg=message)
+
         def _success(result, msgId, fromAddr, toAddr):
             log.info(
                 "Sent IMIP message {id} from {fr} to {to}",
@@ -87,7 +88,6 @@ class SMTPSender(object):
         deferred.addCallback(_success, msgId, fromAddr, toAddr)
         deferred.addErrback(_failure, msgId, fromAddr, toAddr)
         return deferred
-
 
     @staticmethod
     def betterMessageID():

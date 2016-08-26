@@ -45,7 +45,6 @@ from txdav.xml.base import dav_namespace
 log = Logger()
 
 
-
 def storeResource(
     request,
     source=None, source_uri=None, data=None,
@@ -84,7 +83,6 @@ def storeResource(
         log.error("depth=%s\n" % (depth,))
         raise
 
-
     class RollbackState(object):
         """
         This class encapsulates the state needed to rollback the entire PUT/COPY/MOVE
@@ -98,7 +96,6 @@ def storeResource(
             self.destination_copy = None
             self.destination_created = False
             self.source_deleted = False
-
 
         def Rollback(self):
             """

@@ -33,6 +33,7 @@ from contrib.performance.httpclient import StringProducer
 from contrib.performance.benchlib import initialize, sample
 from contrib.performance.benchmarks.event import makeEvent
 
+
 @inlineCallbacks
 def measure(host, port, dtrace, attendeeCount, samples):
     organizerSequence = 1

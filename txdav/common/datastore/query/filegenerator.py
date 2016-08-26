@@ -26,6 +26,7 @@ __all__ = [
 
 import cStringIO as StringIO
 
+
 class sqllitegenerator(object):
 
     FROM = " from "
@@ -77,7 +78,6 @@ class sqllitegenerator(object):
         self.freebusy = freebusy
         self.usedtimespan = False
 
-
     def generate(self):
         """
         Generate the actual SQL 'where ...' expression from the passed in expression tree.
@@ -123,7 +123,6 @@ class sqllitegenerator(object):
         select = select % tuple(self.substitutions)
 
         return select, self.arguments
-
 
     def generateExpression(self, expr):
         """
@@ -258,7 +257,6 @@ class sqllitegenerator(object):
                 self.addArgument(item)
             self.sout.write(")")
 
-
     def generateSubExpression(self, expression):
         """
         Generate an SQL expression possibly in parenthesis if its a compound expression.
@@ -273,7 +271,6 @@ class sqllitegenerator(object):
         if expression.multi():
             self.sout.write(")")
 
-
     def addArgument(self, arg):
         """
 
@@ -284,7 +281,6 @@ class sqllitegenerator(object):
         self.arguments.append(arg)
         self.substitutions.append(":" + str(len(self.arguments)))
         self.sout.write("%s")
-
 
     def setArgument(self, arg):
         """
@@ -297,7 +293,6 @@ class sqllitegenerator(object):
         self.arguments.append(arg)
         self.substitutions.append(":" + str(len(self.arguments)))
 
-
     def frontArgument(self, arg):
         """
 
@@ -309,14 +304,11 @@ class sqllitegenerator(object):
         self.arguments.insert(0, arg)
         self.substitutions.append(":" + str(len(self.arguments)))
 
-
     def containsArgument(self, arg):
         return "*%s*" % (arg,)
 
-
     def startswithArgument(self, arg):
         return "%s*" % (arg,)
-
 
     def endswithArgument(self, arg):
         return "*%s" % (arg,)

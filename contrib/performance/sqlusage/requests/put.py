@@ -52,6 +52,7 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
 
+
 class PutTest(HTTPTestBase):
     """
     A PUT operation (non-invite)
@@ -65,7 +66,6 @@ class PutTest(HTTPTestBase):
         now = DateTime.getNowUTC()
         href = joinURL(self.sessions[0].calendarHref, "put.ics")
         self.sessions[0].writeData(URL(path=href), ICAL % (now.getYear() + 1,), "text/calendar")
-
 
     def cleanup(self):
         """

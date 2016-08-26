@@ -48,7 +48,6 @@ class AttachmentMigrationModeTests(CommonStoreTests):
         # store in each test
         yield TestCase.setUp(self)
 
-
     @inlineCallbacks
     def _initStore(self, enableManagedAttachments=True):
         """
@@ -72,7 +71,6 @@ class AttachmentMigrationModeTests(CommonStoreTests):
 
         returnValue(store)
 
-
     @inlineCallbacks
     def test_upgradeFromEmptyDropbox(self):
         """
@@ -80,6 +78,7 @@ class AttachmentMigrationModeTests(CommonStoreTests):
         """
 
         didUpgrade = [False, ]
+
         def _hasDropboxAttachments(_self, txn):
             return succeed(False)
         self.patch(CalendarStoreFeatures, "hasDropboxAttachments", _hasDropboxAttachments)
@@ -100,7 +99,6 @@ class AttachmentMigrationModeTests(CommonStoreTests):
         yield txn.commit()
         self.assertNotEqual(managed, None)
 
-
     @inlineCallbacks
     def test_upgradeFromDropboxOK(self):
         """
@@ -108,6 +106,7 @@ class AttachmentMigrationModeTests(CommonStoreTests):
         """
 
         didUpgrade = [False, ]
+
         def _hasDropboxAttachments(_self, txn):
             return succeed(True)
         self.patch(CalendarStoreFeatures, "hasDropboxAttachments", _hasDropboxAttachments)
@@ -128,7 +127,6 @@ class AttachmentMigrationModeTests(CommonStoreTests):
         yield txn.commit()
         self.assertNotEqual(managed, None)
 
-
     @inlineCallbacks
     def test_upgradeAlreadyDone(self):
         """
@@ -136,6 +134,7 @@ class AttachmentMigrationModeTests(CommonStoreTests):
         """
 
         didUpgrade = [False, ]
+
         def _hasDropboxAttachments(_self, txn):
             return succeed(True)
         self.patch(CalendarStoreFeatures, "hasDropboxAttachments", _hasDropboxAttachments)
@@ -159,7 +158,6 @@ class AttachmentMigrationModeTests(CommonStoreTests):
         yield txn.commit()
         self.assertNotEqual(managed, None)
 
-
     @inlineCallbacks
     def test_upgradeNotEnabled(self):
         """
@@ -167,6 +165,7 @@ class AttachmentMigrationModeTests(CommonStoreTests):
         """
 
         didUpgrade = [False, ]
+
         def _hasDropboxAttachments(_self, txn):
             return succeed(True)
         self.patch(CalendarStoreFeatures, "hasDropboxAttachments", _hasDropboxAttachments)
@@ -186,7 +185,6 @@ class AttachmentMigrationModeTests(CommonStoreTests):
         managed = (yield txn.calendarserverValue("MANAGED-ATTACHMENTS", raiseIfMissing=False))
         yield txn.commit()
         self.assertEqual(managed, None)
-
 
 
 class AttachmentMigrationTests(CommonStoreTests):
@@ -209,7 +207,6 @@ class AttachmentMigrationTests(CommonStoreTests):
             Where=cs.NAME == "MANAGED-ATTACHMENTS"
         ).on(txn)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_upgradeOrphanedAttachment(self):

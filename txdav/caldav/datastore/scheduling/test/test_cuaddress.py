@@ -31,17 +31,17 @@ class CalendarUser(CommonCommonTests, unittest.TestCase):
     """
 
     requirements = {
-        "user01" : {
-            "calendar1" : {},
-            "inbox" : {},
+        "user01": {
+            "calendar1": {},
+            "inbox": {},
         },
-        "user02" : {
-            "calendar2" : {},
-            "inbox" : {},
+        "user02": {
+            "calendar2": {},
+            "inbox": {},
         },
-        "user03" : {
-            "calendar3" : {},
-            "inbox" : {},
+        "user03": {
+            "calendar3": {},
+            "inbox": {},
         }
     }
 
@@ -53,12 +53,10 @@ class CalendarUser(CommonCommonTests, unittest.TestCase):
         yield self.populate()
         yield self.removeRecord(u"user03")
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
-
 
     @inlineCallbacks
     def test_lookup(self):

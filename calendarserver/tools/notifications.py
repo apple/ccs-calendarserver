@@ -72,7 +72,6 @@ def usage(e=None):
         sys.exit(0)
 
 
-
 def main():
     try:
         (optargs, args) = getopt(
@@ -157,7 +156,6 @@ def main():
     reactor.run()
 
 
-
 class PubSubClientFactory(xmlstream.XmlStreamFactory):
     """
     An XMPP pubsub client that subscribes to nodes and prints a message
@@ -200,20 +198,17 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
         if sigint:
             signal.signal(signal.SIGINT, self.sigint_handler)
 
-
     @inlineCallbacks
     def sigint_handler(self, num, frame):
         print(" Shutting down...")
         yield self.unsubscribeAll()
         reactor.stop()
 
-
     @inlineCallbacks
     def unsubscribeAll(self):
         if self.xmlStream is not None:
             for node, (_ignore_url, name, kind) in self.nodes.iteritems():
                 yield self.unsubscribe(node, name, kind)
-
 
     def connected(self, xmlStream):
         self.xmlStream = xmlStream
@@ -224,7 +219,6 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
         xmlStream.addObserver("/message/event/items",
                               self.handleMessageEventItems)
 
-
     def disconnected(self, xmlStream):
         self.xmlStream = None
         if self.presenceCall is not None:
@@ -233,12 +227,10 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
         if self.verbose:
             print("XMPP disconnected")
 
-
     def initFailed(self, failure):
         self.xmlStream = None
         print("XMPP connection failure: %s" % (failure,))
         reactor.stop()
-
 
     @inlineCallbacks
     def authenticated(self, xmlStream):
@@ -250,11 +242,9 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
 
         print("Awaiting notifications (hit Control-C to end)")
 
-
     def authFailed(self, e):
         print("XMPP authentication failed")
         reactor.stop()
-
 
     def sendPresence(self):
         if self.doKeepAlive and self.xmlStream is not None:
@@ -263,7 +253,6 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
             self.presenceCall = reactor.callLater(
                 self.presenceSeconds,
                 self.sendPresence)
-
 
     def handleMessageEventItems(self, iq):
         item = iq.firstChildElement().firstChildElement()
@@ -277,7 +266,6 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
                 if self.verbose:
                     print(" node = %s" % (node,))
                     print(" url = %s" % (url,))
-
 
     @inlineCallbacks
     def subscribe(self, node, name, kind):
@@ -295,7 +283,6 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
         except Exception, e:
             print("Subscription failure: %s %s" % (node, e))
 
-
     @inlineCallbacks
     def unsubscribe(self, node, name, kind):
         iq = IQ(self.xmlStream)
@@ -312,7 +299,6 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
         except Exception, e:
             print("Unsubscription failure: %s %s" % (node, e))
 
-
     @inlineCallbacks
     def retrieveSubscriptions(self):
         # This isn't supported by Apple's pubsub service
@@ -325,19 +311,15 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
         except Exception, e:
             print("Subscription list failure: %s" % (e,))
 
-
     def rawDataIn(self, buf):
         print("RECV: %s" % unicode(buf, 'utf-8').encode('ascii', 'replace'))
-
 
     def rawDataOut(self, buf):
         print("SEND: %s" % unicode(buf, 'utf-8').encode('ascii', 'replace'))
 
 
-
 class PropfindRequestor(AuthorizedHTTPGetter):
     handleStatus_207 = lambda self: self.handleStatus_200
-
 
 
 class PushMonitorService(Service):
@@ -360,7 +342,6 @@ class PushMonitorService(Service):
         self.username = username
         self.password = password
         self.verbose = verbose
-
 
     @inlineCallbacks
     def startService(self):
@@ -405,7 +386,6 @@ class PushMonitorService(Service):
             print("Error:", e)
             reactor.stop()
 
-
     @inlineCallbacks
     def getPrincipalDetails(self, path, includeCardDAV=True):
         """
@@ -417,7 +397,7 @@ class PushMonitorService(Service):
         homes = []
 
         headers = {
-            "Depth" : "0",
+            "Depth": "0",
         }
         body = """<?xml version="1.0" encoding="UTF-8"?>
             <A:propfind xmlns:A="DAV:"
@@ -473,7 +453,6 @@ class PushMonitorService(Service):
 
         returnValue((name, homes))
 
-
     @inlineCallbacks
     def getProxyFor(self):
         """
@@ -484,7 +463,7 @@ class PushMonitorService(Service):
         proxies = set()
 
         headers = {
-            "Depth" : "0",
+            "Depth": "0",
         }
         body = """<?xml version="1.0" encoding="UTF-8"?>
             <A:propfind xmlns:A="DAV:">
@@ -530,7 +509,6 @@ class PushMonitorService(Service):
 
         returnValue(proxies)
 
-
     @inlineCallbacks
     def getPushInfo(self, path):
         """
@@ -540,7 +518,7 @@ class PushMonitorService(Service):
         """
 
         headers = {
-            "Depth" : "1",
+            "Depth": "1",
         }
         body = """<?xml version="1.0" encoding="UTF-8"?>
             <A:propfind xmlns:A="DAV:">
@@ -626,7 +604,6 @@ class PushMonitorService(Service):
 
         returnValue((host, port, nodes))
 
-
     def startMonitoring(self, host, port, nodes):
         service = "pubsub.%s" % (host,)
         jid = "%s@%s" % (self.authname, host)
@@ -635,7 +612,6 @@ class PushMonitorService(Service):
             jid, self.password, service, nodes,
             self.verbose)
         connect(GAIEndpoint(reactor, host, port), pubsubFactory)
-
 
     def makeRequest(self, path, method, headers, body):
         scheme = "https:" if self.useSSL else "http:"

@@ -33,6 +33,7 @@ from txdav.common.datastore.test.util import CommonCommonTests
 
 from twext.enterprise.jobs.jobitem import JobItem
 
+
 class iMIPProcessing (CommonCommonTests, unittest.TestCase):
     """
     iCalendar support tests
@@ -44,13 +45,11 @@ class iMIPProcessing (CommonCommonTests, unittest.TestCase):
 
         yield self.buildStoreAndDirectory()
 
-
     class FakeSchedule(object):
 
         def __init__(self, originator, calendar):
             self.originator = originator
             self.calendar = calendar
-
 
     @inlineCallbacks
     def test_no_freebusy(self):
@@ -83,7 +82,6 @@ END:VCALENDAR
         self.assertEqual(len(responses.responses), 1)
         self.assertEqual(str(responses.responses[0].reqstatus), iTIPRequestStatus.SERVICE_UNAVAILABLE)
 
-
     @inlineCallbacks
     def test_iMIP_delivery(self):
 
@@ -103,7 +101,9 @@ END:VCALENDAR
 """
 
         results = []
+
         class FakeSender(object):
+
             def outbound(self, txn, fromAddr, toAddr, calendar):
                 results.append((fromAddr, toAddr))
                 return succeed(None)
@@ -127,7 +127,6 @@ END:VCALENDAR
 
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0], ("mailto:user1@example.com", "mailto:user2@example.org",))
-
 
     @inlineCallbacks
     def test_matchCalendarUserAddress(self):

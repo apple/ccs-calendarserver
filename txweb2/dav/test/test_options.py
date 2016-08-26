@@ -27,16 +27,17 @@ from txweb2.iweb import IResponse
 import txweb2.dav.test.util
 from txweb2.test.test_server import SimpleRequest
 
+
 class OPTIONS(txweb2.dav.test.util.TestCase):
     """
     OPTIONS request
     """
+
     def test_DAV1(self):
         """
         DAV level 1
         """
         return self._test_level("1")
-
 
     def test_DAV2(self):
         """
@@ -51,7 +52,6 @@ class OPTIONS(txweb2.dav.test.util.TestCase):
         DAV ACL
         """
         return self._test_level("access-control")
-
 
     def _test_level(self, level):
         def doTest(response):

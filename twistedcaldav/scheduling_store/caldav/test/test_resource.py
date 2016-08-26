@@ -24,6 +24,7 @@ from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
 from txdav.xml import element as davxml
 from txweb2.http import HTTPError
 
+
 class Properties (StoreTestCase):
     """
     CalDAV properties
@@ -55,7 +56,6 @@ class Properties (StoreTestCase):
         yield request._newStoreTransaction.commit()
         calendar = yield request.locateResource("/calendars/__uids__/user01/calendar/")
         self.assertTrue(calendar._newStoreObject.isUsedForFreeBusy())
-
 
     @inlineCallbacks
     def test_free_busy_set_different(self):
@@ -101,7 +101,6 @@ class Properties (StoreTestCase):
         calendar = yield request.locateResource("/calendars/__uids__/user01/calendar/")
         self.assertFalse(calendar._newStoreObject.isUsedForFreeBusy())
 
-
     @inlineCallbacks
     def test_free_busy_set_tasks(self):
         """
@@ -135,7 +134,6 @@ class Properties (StoreTestCase):
         calendar = yield request.locateResource("/calendars/__uids__/user01/calendar/")
         self.assertFalse(calendar._newStoreObject.isUsedForFreeBusy())
 
-
     @inlineCallbacks
     def test_free_busy_set_invalid_url(self):
         """
@@ -155,7 +153,6 @@ class Properties (StoreTestCase):
         yield self.failUnlessFailure(inbox.writeProperty(newset, request), HTTPError)
 
 
-
 class DefaultCalendar (StoreTestCase):
 
     @inlineCallbacks
@@ -173,7 +170,6 @@ class DefaultCalendar (StoreTestCase):
 
         yield self.abort()
 
-
     @inlineCallbacks
     def test_pick_default_vtodo_calendar(self):
         """
@@ -187,7 +183,6 @@ class DefaultCalendar (StoreTestCase):
         self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/tasks")
 
         yield self.abort()
-
 
     @inlineCallbacks
     def test_missing_default_vevent_calendar(self):
@@ -214,7 +209,6 @@ class DefaultCalendar (StoreTestCase):
 
         yield self.abort()
 
-
     @inlineCallbacks
     def test_missing_default_vtodo_calendar(self):
         """
@@ -239,7 +233,6 @@ class DefaultCalendar (StoreTestCase):
         self.assertEqual(len(default.children), 0)
 
         yield self.abort()
-
 
     @inlineCallbacks
     def test_pick_default_other(self):
@@ -272,7 +265,6 @@ class DefaultCalendar (StoreTestCase):
 
         yield self.abort()
 
-
     @inlineCallbacks
     def test_set_default_vevent_other(self):
         """
@@ -300,7 +292,6 @@ class DefaultCalendar (StoreTestCase):
         self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newcalendar")
 
         yield self.commit()
-
 
     @inlineCallbacks
     def test_is_default_calendar(self):

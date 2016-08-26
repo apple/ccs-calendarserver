@@ -49,6 +49,7 @@ DEFAULTVALUE_MAP_ORACLE = {
     "null": None,
 }
 
+
 def dumpSchema(txn, title, schemaname="public"):
     """
     Generate the L{Schema}.
@@ -58,7 +59,6 @@ def dumpSchema(txn, title, schemaname="public"):
         return dumpSchema_postgres(txn, title, schemaname)
     elif txn.dbtype.dialect == ORACLE_DIALECT:
         return dumpSchema_oracle(txn, title, schemaname)
-
 
 
 @inlineCallbacks
@@ -140,7 +140,6 @@ def dumpSchema_postgres(txn, title, schemaname="public"):
         Function(schema, name)
 
     returnValue(schema)
-
 
 
 @inlineCallbacks

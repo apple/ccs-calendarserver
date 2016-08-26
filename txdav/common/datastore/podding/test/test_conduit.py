@@ -56,7 +56,6 @@ class TestConduit (CommonCommonTests, txweb2.dav.test.util.TestCase):
                 "more": "bits",
             })
 
-
     @inlineCallbacks
     def setUp(self):
         yield super(TestConduit, self).setUp()
@@ -71,15 +70,13 @@ class TestConduit (CommonCommonTests, txweb2.dav.test.util.TestCase):
 
         yield self.populate()
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
 
-
     @classproperty(cache=False)
-    def requirements(cls): #@NoSelf
+    def requirements(cls):  # @NoSelf
         return {
             "user01": {
                 "calendar_1": {
@@ -100,7 +97,6 @@ class TestConduit (CommonCommonTests, txweb2.dav.test.util.TestCase):
                 },
             },
         }
-
 
     @inlineCallbacks
     def test_validRequest(self):
@@ -129,7 +125,6 @@ class TestConduit (CommonCommonTests, txweb2.dav.test.util.TestCase):
         )
 
 
-
 class TestConduitToConduit(MultiStoreConduitTest):
 
     class FakeConduit(PoddingConduit):
@@ -145,13 +140,11 @@ class TestConduitToConduit(MultiStoreConduitTest):
             result = yield self.sendRequest(txn, sharee, action)
             returnValue(result)
 
-
         def recv_fake(self, txn, j):
             return succeed({
                 "back2u": j["echo"],
                 "more": "bits",
             })
-
 
     def makeConduit(self, store):
         """
@@ -160,7 +153,6 @@ class TestConduitToConduit(MultiStoreConduitTest):
         conduit = self.FakeConduit(store)
         conduit.conduitRequestClass = FakeConduitRequest
         return conduit
-
 
     @inlineCallbacks
     def test_fake_action(self):
@@ -177,7 +169,6 @@ class TestConduitToConduit(MultiStoreConduitTest):
         response = yield store.conduit.send_fake(self.theTransactionUnderTest(1), "puser01", "user01")
         self.assertEqual(response, {"back2u": "bravo", "more": "bits"})
         yield self.commitTransaction(1)
-
 
 
 class TestConduitAPI(MultiStoreConduitTest):
@@ -277,7 +268,6 @@ END:VCALENDAR
         self.assertTrue(shared is None)
         yield self.commitTransaction(1)
 
-
     @inlineCallbacks
     def test_countobjects(self):
         """
@@ -313,7 +303,6 @@ END:VCALENDAR
         count = yield shared.countObjectResources()
         self.assertEqual(count, 0)
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_listobjects(self):
@@ -351,7 +340,6 @@ END:VCALENDAR
         objects = yield shared.listObjectResources()
         self.assertEqual(set(objects), set(("2.ics",)))
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_synctoken(self):
@@ -404,7 +392,6 @@ END:VCALENDAR
         self.assertNotEqual(token1_1, token1_3)
         self.assertNotEqual(token1_2, token1_3)
         self.assertEqual(token1_3, token2_3)
-
 
     @inlineCallbacks
     def test_resourcenamessincerevision(self):
@@ -467,7 +454,6 @@ END:VCALENDAR
         self.assertEqual(names2, ([], [], [],))
         yield self.commitTransaction(1)
 
-
     @inlineCallbacks
     def test_resourceuidforname(self):
         """
@@ -494,7 +480,6 @@ END:VCALENDAR
         self.assertTrue(uid is None)
         yield self.commitTransaction(1)
 
-
     @inlineCallbacks
     def test_resourcenameforuid(self):
         """
@@ -520,7 +505,6 @@ END:VCALENDAR
         name = yield shared.resourceNameForUID("uid2")
         self.assertTrue(name is None)
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_search(self):
@@ -553,7 +537,6 @@ END:VCALENDAR
         names = [item[0] for item in (yield shared.search(filter))]
         self.assertEqual(names, ["1.ics", ])
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_loadallobjects(self):
@@ -629,7 +612,6 @@ END:VCALENDAR
         resource = yield shared.objectResourceWithID(0)
         self.assertTrue(resource is None)
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_loadallobjectswithnames(self):
@@ -712,7 +694,6 @@ END:VCALENDAR
         self.assertTrue(resource is None)
         yield self.commitTransaction(1)
 
-
     @inlineCallbacks
     def test_objectwith(self):
         """
@@ -778,7 +759,6 @@ END:VCALENDAR
         self.assertTrue(resource is None)
         yield self.commitTransaction(1)
 
-
     @inlineCallbacks
     def test_create(self):
         """
@@ -811,7 +791,6 @@ END:VCALENDAR
         self.assertEqual(object1.id(), resource_id)
         yield self.commitTransaction(0)
 
-
     @inlineCallbacks
     def test_create_exception(self):
         """
@@ -831,7 +810,6 @@ END:VCALENDAR
         shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         yield self.failUnlessFailure(shared.createCalendarObjectWithName(".2.ics", Component.fromString(self.caldata2)), ObjectResourceNameNotAllowedError)
         yield self.abortTransaction(1)
-
 
     @inlineCallbacks
     def test_setcomponent(self):
@@ -865,7 +843,6 @@ END:VCALENDAR
         self.assertEqual(normalize_iCalStr(str(ical)), normalize_iCalStr(self.caldata1_changed))
         yield self.commitTransaction(0)
 
-
     @inlineCallbacks
     def test_component(self):
         """
@@ -883,7 +860,6 @@ END:VCALENDAR
         self.assertTrue(isinstance(ical, Component))
         self.assertEqual(normalize_iCalStr(str(ical)), normalize_iCalStr(self.caldata1))
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_remove(self):
@@ -908,7 +884,6 @@ END:VCALENDAR
         object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
         self.assertTrue(object1 is None)
         yield self.commitTransaction(0)
-
 
     @inlineCallbacks
     def test_freebusy(self):
@@ -940,7 +915,6 @@ END:VCALENDAR
         self.assertEqual(len(fbinfo[2]), 0)
         yield self.commitTransaction(1)
 
-
     def attachmentToString(self, attachment):
         """
         Convenience to convert an L{IAttachment} to a string.
@@ -954,7 +928,6 @@ END:VCALENDAR
         capture = CaptureProtocol()
         attachment.retrieve(capture)
         return capture.deferred
-
 
     @inlineCallbacks
     def test_add_attachment(self):
@@ -986,7 +959,6 @@ END:VCALENDAR
         data = yield self.attachmentToString(attachment)
         self.assertEqual(data, "Here is some text.")
         yield self.commitTransaction(0)
-
 
     @inlineCallbacks
     def test_update_attachment(self):
@@ -1024,7 +996,6 @@ END:VCALENDAR
         self.assertEqual(data, "Here is some more text.")
         yield self.commitTransaction(0)
 
-
     @inlineCallbacks
     def test_remove_attachment(self):
         """
@@ -1053,7 +1024,6 @@ END:VCALENDAR
         self.assertTrue(attachment is None)
         yield self.commitTransaction(0)
 
-
     @inlineCallbacks
     def test_get_all_attachments(self):
         """
@@ -1077,7 +1047,6 @@ END:VCALENDAR
         self.assertEqual(attachments[0].contentType(), MimeType.fromString("text/plain"))
         self.assertEqual(attachments[0].name(), "test.txt")
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_get_attachment_data(self):
@@ -1103,7 +1072,6 @@ END:VCALENDAR
         attachment._name = "test.txt"
         yield shared_object.ownerHome().readAttachmentData(remote_id, attachment)
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_get_attachment_links(self):

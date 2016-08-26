@@ -26,7 +26,6 @@ __all__ = [
 ]
 
 
-
 # SQL Index column (field) names
 
 def buildExpression(filter, fields):
@@ -45,7 +44,6 @@ def buildExpression(filter, fields):
         return expression.allExpression()
 
 
-
 def propfilterListExpression(propfilters, fields):
     """
     Create an expression for a list of prop-filter elements.
@@ -58,7 +56,6 @@ def propfilterListExpression(propfilters, fields):
         return propfilterExpression(propfilters[0], fields)
     else:
         return expression.orExpression([propfilterExpression(c, fields) for c in propfilters])
-
 
 
 def propfilterExpression(propfilter, fields):

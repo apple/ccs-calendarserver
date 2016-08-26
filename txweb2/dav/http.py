@@ -51,7 +51,6 @@ from txdav.xml import element
 log = Logger()
 
 
-
 class ErrorResponse(Response):
     """
     A L{Response} object which contains a status code and a L{element.Error}
@@ -92,7 +91,6 @@ class ErrorResponse(Response):
 
         self.error = error
 
-
     def __repr__(self):
         return (
             "<%s %s %s>"
@@ -100,8 +98,8 @@ class ErrorResponse(Response):
         )
 
 
-
 class NeedPrivilegesResponse(ErrorResponse):
+
     def __init__(self, base_uri, errors):
         """
         An error response which is due to unsufficient privileges, as
@@ -129,12 +127,12 @@ class NeedPrivilegesResponse(ErrorResponse):
         )
 
 
-
 class MultiStatusResponse(Response):
     """
     Multi-status L{Response} object.
     Renders itself as a DAV:multi-status XML document.
     """
+
     def __init__(self, xml_responses):
         """
         @param xml_responses: an interable of element.Response objects.
@@ -145,12 +143,12 @@ class MultiStatusResponse(Response):
         self.headers.setHeader("content-type", MimeType("text", "xml"))
 
 
-
 class ResponseQueue(object):
     """
     Stores a list of (typically error) responses for use in a
     L{MultiStatusResponse}.
     """
+
     def __init__(self, path_basename, method, success_response):
         """
         @param path_basename: the base path for all responses to be added to
@@ -167,7 +165,6 @@ class ResponseQueue(object):
         self.path_basename_len = len(path_basename)
         self.method = method
         self.success_response = success_response
-
 
     def add(self, path, what):
         """
@@ -206,7 +203,6 @@ class ResponseQueue(object):
             children.append(element.ResponseDescription(message))
         self.responses.append(element.StatusResponse(*children))
 
-
     def response(self):
         """
         Generate a L{MultiStatusResponse} with the responses contained in the
@@ -220,12 +216,12 @@ class ResponseQueue(object):
             return self.success_response
 
 
-
 class PropertyStatusResponseQueue(object):
     """
     Stores a list of propstat elements for use in a L{Response}
     in a L{MultiStatusResponse}.
     """
+
     def __init__(self, method, uri, success_response):
         """
         @param method: the name of the method generating the queue.
@@ -237,7 +233,6 @@ class PropertyStatusResponseQueue(object):
         self.uri = uri
         self.propstats = []
         self.success_response = success_response
-
 
     def add(self, what, property):
         """
@@ -277,7 +272,6 @@ class PropertyStatusResponseQueue(object):
             children.append(element.ResponseDescription(message))
         self.propstats.append(element.PropertyStatus(*children))
 
-
     def error(self):
         """
         Convert any 2xx codes in the propstat responses to 424 Failed
@@ -298,7 +292,6 @@ class PropertyStatusResponseQueue(object):
                     newchildren.append(child)
             self.propstats[index] = element.PropertyStatus(*newchildren)
 
-
     def response(self):
         """
         Generate a response from the responses contained in the queue or, if
@@ -316,7 +309,6 @@ class PropertyStatusResponseQueue(object):
                 element.HRef(self.uri),
                 element.Status.fromResponseCode(self.success_response)
             )
-
 
 
 ##
@@ -361,13 +353,11 @@ def statusForFailure(failure, what=None):
         failure.raiseException()
 
 
-
 def errorForFailure(failure):
     if failure.check(HTTPError) and isinstance(failure.value.response, ErrorResponse):
         return element.Error(failure.value.response.error)
     else:
         return None
-
 
 
 def messageForFailure(failure):

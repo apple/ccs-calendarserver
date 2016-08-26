@@ -45,20 +45,16 @@ class StubCollection(object):
         for childName in childNames:
             self.children[childName] = StubResource(self, path, childName)
 
-
     def listChildren(self):
         return self.children.iterkeys()
 
-
     def getChild(self, childName):
         return self.children[childName]
-
 
     def propertyCollection(self):
         if not hasattr(self, "_propertyCollection"):
             self._propertyCollection = MemcachePropertyCollection(self)
         return self._propertyCollection
-
 
 
 class StubResource(object):
@@ -67,12 +63,10 @@ class StubResource(object):
         self.parent = parent
         self.fp = StubFP(os.path.join(path, name))
 
-
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = self.parent.propertyCollection().propertyStoreForChild(self, InMemoryPropertyStore())
         return self._dead_properties
-
 
 
 class StubFP(object):
@@ -80,17 +74,15 @@ class StubFP(object):
     def __init__(self, path):
         self.path = path
 
-
     def child(self, childName):
         class _Child(object):
+
             def __init__(self, path):
                 self.path = path
         return _Child(os.path.join(self.path, childName))
 
-
     def basename(self):
         return os.path.basename(self.path)
-
 
 
 class StubProperty(object):
@@ -100,14 +92,11 @@ class StubProperty(object):
         self.name = name
         self.value = value
 
-
     def qname(self):
         return self.ns, self.name
 
-
     def __repr__(self):
         return "%s = %s" % (encodeXMLName(self.ns, self.name), self.value)
-
 
 
 class MemcachePropertyCollectionTestCase(TestCase):
@@ -117,7 +106,6 @@ class MemcachePropertyCollectionTestCase(TestCase):
 
     def getColl(self):
         return StubCollection("calendars", ["a", "b", "c"])
-
 
     def test_setget(self):
 
@@ -137,7 +125,6 @@ class MemcachePropertyCollectionTestCase(TestCase):
         self.assertEquals(
             child1.deadProperties().get(("ns1:", "prop1")).value,
             "val2")
-
 
     def test_merge(self):
         child1 = self.getColl().getChild("a")
@@ -183,7 +170,6 @@ class MemcachePropertyCollectionTestCase(TestCase):
             child1.deadProperties().get(("ns1:", "prop3")).value,
             "val3")
 
-
     def test_delete(self):
         child1 = self.getColl().getChild("a")
         child2 = self.getColl().getChild("a")
@@ -225,7 +211,6 @@ class MemcachePropertyCollectionTestCase(TestCase):
             child2.deadProperties().get(("ns1:", "prop3")).value,
             "val0")
 
-
     def test_setget_uids(self):
 
         for uid in (None, "123", "456"):
@@ -245,7 +230,6 @@ class MemcachePropertyCollectionTestCase(TestCase):
             self.assertEquals(
                 child1.deadProperties().get(("ns1:", "prop1"), uid=uid).value,
                 "val2%s" % (uid if uid else "",))
-
 
     def test_merge_uids(self):
 
@@ -293,7 +277,6 @@ class MemcachePropertyCollectionTestCase(TestCase):
                 child1.deadProperties().get(("ns1:", "prop3"), uid=uid).value,
                 "val3%s" % (uid if uid else "",))
 
-
     def test_delete_uids(self):
 
         for uid in (None, "123", "456"):
@@ -337,13 +320,11 @@ class MemcachePropertyCollectionTestCase(TestCase):
                 child2.deadProperties().get(("ns1:", "prop3"), uid=uid).value,
                 "val0%s" % (uid if uid else "",))
 
-
     def _stub_set_multi(self, values, time=None):
 
         self.callCount += 1
         for key, value in values.iteritems():
             self.results[key] = value
-
 
     def test_splitSetMulti(self):
 
@@ -360,7 +341,6 @@ class MemcachePropertyCollectionTestCase(TestCase):
         self.assertEquals(self.callCount, 3)
         self.assertEquals(self.results, values)
 
-
     def test_splitSetMultiWithChunksize(self):
 
         self.callCount = 0
@@ -376,7 +356,6 @@ class MemcachePropertyCollectionTestCase(TestCase):
         self.assertEquals(self.callCount, 5)
         self.assertEquals(self.results, values)
 
-
     def _stub_gets_multi(self, keys):
 
         self.callCount += 1
@@ -384,7 +363,6 @@ class MemcachePropertyCollectionTestCase(TestCase):
         for key in keys:
             result[key] = self.expected[key]
         return result
-
 
     def test_splitGetsMulti(self):
 
@@ -400,7 +378,6 @@ class MemcachePropertyCollectionTestCase(TestCase):
 
         self.assertEquals(self.callCount, 3)
         self.assertEquals(self.expected, result)
-
 
     def test_splitGetsMultiWithChunksize(self):
 

@@ -30,6 +30,7 @@ from txdav.xml.parser import WebDAVDocument
 
 from xml.etree.cElementTree import XML
 
+
 class UnicodeProperty(WebDAVElement):
     """
     An element with a unicode name.
@@ -40,7 +41,6 @@ class UnicodeProperty(WebDAVElement):
     allowed_children = {}
 
 
-
 class StrProperty(WebDAVElement):
     """
     An element with a unicode name.
@@ -49,7 +49,6 @@ class StrProperty(WebDAVElement):
     name = 'str'
 
     allowed_children = {}
-
 
 
 class SimpleFakeRequest(object):
@@ -63,14 +62,12 @@ class SimpleFakeRequest(object):
     def __init__(self, path):
         self.path = path
 
-
     def urlForResource(self, resource):
         """
         @return: this L{SimpleFakeRequest}'s 'path' attribute, since this
             request can render only one thing.
         """
         return self.path
-
 
 
 def browserHTML2ETree(htmlString):
@@ -95,7 +92,6 @@ def browserHTML2ETree(htmlString):
     @return: an object implementing the standard library ElementTree interface.
     """
     return XML(parseString(htmlString, beExtremelyLenient=True).toxml())
-
 
 
 nonASCIIFilename = u"アニメ.txt"
@@ -128,7 +124,6 @@ class DirectoryListingTest(TestCase):
                      for element in responseXML.findall(".//a")])
         self.assertEquals(set(expectedNames), names)
 
-
     def test_simpleList(self):
         """
         Rendering a L{DAVFile} that is backed by a directory will produce an
@@ -136,14 +131,12 @@ class DirectoryListingTest(TestCase):
         """
         return self.doDirectoryTest([u'gamma.txt', u'beta.html', u'alpha.xml'])
 
-
     def test_emptyList(self):
         """
         Listing a directory with no files in it will produce an index with no
         links.
         """
         return self.doDirectoryTest([])
-
 
     def test_nonASCIIList(self):
         """
@@ -154,7 +147,6 @@ class DirectoryListingTest(TestCase):
         """
         return self.doDirectoryTest([nonASCIIFilename.encode("utf-8")])
 
-
     @inlineCallbacks
     def test_nonASCIIListMixedChildren(self):
         """
@@ -163,6 +155,7 @@ class DirectoryListingTest(TestCase):
         contains the names of both entities.
         """
         unicodeChildName = "test"
+
         def addUnicodeChild(davFile):
             m = MetaDataMixin()
             m.contentType = lambda: MimeType.fromString('text/plain')
@@ -171,7 +164,6 @@ class DirectoryListingTest(TestCase):
             davFile.putChild(unicodeChildName, m)
         yield self.doDirectoryTest([nonASCIIFilename], addUnicodeChild,
                                    [nonASCIIFilename.encode("utf-8"), unicodeChildName])
-
 
     @inlineCallbacks
     def test_nonASCIIListMixedProperties(self):
@@ -186,7 +178,6 @@ class DirectoryListingTest(TestCase):
         yield self.doDirectoryTest([nonASCIIFilename], addUnicodeChild,
                                    [nonASCIIFilename.encode("utf-8")])
 
-
     def test_quotedCharacters(self):
         """
         Filenames might contain < or > characters, which need to be quoted in
@@ -196,21 +187,26 @@ class DirectoryListingTest(TestCase):
                                      u'<style>.xml'])
 
 
-
 class ChildTraversalTests(TestCase):
+
     def test_makeChildDeferred(self):
         """
         If L{DAVResourceWithChildrenMixin.makeChild} returns a L{Deferred},
         L{DAVResourceWithChildrenMixin.locateChild} will return a L{Deferred}.
         """
         class FakeChild(object):
+
             def __init__(self, name):
                 self.name = name
+
         class SmellsLikeDAVResource(object):
+
             def __init__(self, **kw):
                 pass
+
         class ResourceWithCheese(DAVResourceWithChildrenMixin,
                                  SmellsLikeDAVResource):
+
             def makeChild(self, name):
                 return succeed(FakeChild(name))
         d = ResourceWithCheese().locateChild(None, ['cheese', 'burger'])
@@ -224,8 +220,8 @@ class ChildTraversalTests(TestCase):
         self.assertEquals(result[1], ['burger'])
 
 
-
 class CalendarServerPrincipalSearchTests(TestCase):
+
     def test_extractCalendarServerPrincipalSearchData(self):
         """
         Exercise the parser for calendarserver-principal-search documents
@@ -265,7 +261,6 @@ class CalendarServerPrincipalSearchTests(TestCase):
         self.assertEquals(context, None)
         self.assertTrue(applyTo)
         self.assertEquals(clientLimit, 42)
-
 
     def test_validateTokens(self):
         """

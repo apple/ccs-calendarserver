@@ -41,6 +41,7 @@ from urllib import unquote
 
 log = Logger()
 
+
 @inlineCallbacks
 def multiget_common(self, request, multiget, collection_type):
     """
@@ -250,10 +251,10 @@ def multiget_common(self, request, multiget, collection_type):
                     if self._isChildURI(request, resource_uri) and resource_name.endswith(".vcf") and len(resource_name) > 4:
                         valid_hrefs.append(href)
                         textMatchElement = carddavxml.TextMatch.fromString(resource_name[:-4])
-                        textMatchElement.attributes["match-type"] = "equals" # do equals compare. Default is "contains"
+                        textMatchElement.attributes["match-type"] = "equals"  # do equals compare. Default is "contains"
                         vCardFilters.append(carddavxml.PropertyFilter(
                             textMatchElement,
-                            name="UID", # attributes
+                            name="UID",  # attributes
                         ))
                     else:
                         responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
@@ -279,7 +280,7 @@ def multiget_common(self, request, multiget, collection_type):
                 for href in valid_hrefs:
                     matchingResource = None
                     for vCardResource in results:
-                        if href == vCardResource.hRef(): # might need to compare urls instead - also case sens ok?
+                        if href == vCardResource.hRef():  # might need to compare urls instead - also case sens ok?
                             matchingResource = vCardResource
                             break
 

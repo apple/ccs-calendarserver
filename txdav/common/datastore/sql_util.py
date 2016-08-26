@@ -34,19 +34,17 @@ log = Logger()
 Classes and methods for the SQL store.
 """
 
+
 class _EmptyCacher(object):
 
     def set(self, key, value):
         return succeed(True)
 
-
     def get(self, key, withIdentifier=False):
         return succeed(None)
 
-
     def delete(self, key):
         return succeed(True)
-
 
 
 class _SharedSyncLogic(object):
@@ -65,7 +63,6 @@ class _SharedSyncLogic(object):
         return Select([Max(rev.REVISION)], From=rev,
                       Where=rev.RESOURCE_ID == Parameter("resourceID"))
 
-
     @classmethod
     def _revisionsForResourceIDs(cls, resourceIDs):
         rev = cls._revisionsSchema
@@ -77,7 +74,6 @@ class _SharedSyncLogic(object):
             GroupBy=rev.RESOURCE_ID
         )
 
-
     def revisionFromToken(self, token):
         if token is None:
             return 0
@@ -87,13 +83,11 @@ class _SharedSyncLogic(object):
         else:
             return token
 
-
     @inlineCallbacks
     def syncToken(self):
         if self._syncTokenRevision is None:
             self._syncTokenRevision = yield self.syncTokenRevision()
         returnValue(("%s_%s" % (self._resourceID, self._syncTokenRevision,)))
-
 
     @inlineCallbacks
     def syncTokenRevision(self):
@@ -101,7 +95,6 @@ class _SharedSyncLogic(object):
         if revision is None:
             revision = int((yield self._txn.calendarserverValue("MIN-VALID-REVISION")))
         returnValue(revision)
-
 
     @classmethod
     @inlineCallbacks
@@ -117,10 +110,8 @@ class _SharedSyncLogic(object):
                 revisions[resourceID] = min_revision
         returnValue(revisions)
 
-
     def objectResourcesSinceToken(self, token):
         raise NotImplementedError()
-
 
     @classmethod
     def _objectNamesSinceRevisionQuery(cls, deleted=True):
@@ -137,7 +128,6 @@ class _SharedSyncLogic(object):
             Where=where,
         )
 
-
     def resourceNamesSinceToken(self, token):
         """
         Return the changed and deleted resources since a particular sync-token. This simply extracts
@@ -148,7 +138,6 @@ class _SharedSyncLogic(object):
         """
 
         return self.resourceNamesSinceRevision(self.revisionFromToken(token))
-
 
     @inlineCallbacks
     def resourceNamesSinceRevision(self, revision):
@@ -185,14 +174,12 @@ class _SharedSyncLogic(object):
 
         returnValue((changed, deleted, invalid))
 
-
     @classproperty
     def _removeDeletedRevision(cls):
         rev = cls._revisionsSchema
         return Delete(From=rev,
                       Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
                           rev.COLLECTION_NAME == Parameter("collectionName")))
-
 
     @classproperty
     def _addNewRevision(cls):
@@ -210,7 +197,6 @@ class _SharedSyncLogic(object):
             Return=[rev.REVISION]
         )
 
-
     @inlineCallbacks
     def _initSyncToken(self):
         yield self._removeDeletedRevision.on(
@@ -221,7 +207,6 @@ class _SharedSyncLogic(object):
                                     resourceID=self._resourceID,
                                     collectionName=self._name)))[0][0]
         self._txn.bumpRevisionForObject(self)
-
 
     @classproperty
     def _renameSyncTokenQuery(cls):
@@ -241,7 +226,6 @@ class _SharedSyncLogic(object):
             Return=rev.REVISION
         )
 
-
     @inlineCallbacks
     def _renameSyncToken(self):
         rows = yield self._renameSyncTokenQuery.on(
@@ -251,7 +235,6 @@ class _SharedSyncLogic(object):
             self._txn.bumpRevisionForObject(self)
         else:
             yield self._initSyncToken()
-
 
     @classproperty
     def _bumpSyncTokenQuery(cls):
@@ -269,7 +252,6 @@ class _SharedSyncLogic(object):
                   (rev.RESOURCE_NAME == None)
         )
 
-
     @inlineCallbacks
     def _bumpSyncToken(self):
 
@@ -280,7 +262,6 @@ class _SharedSyncLogic(object):
                 resourceID=self._resourceID,
             )
             self._syncTokenRevision = None
-
 
     @classproperty
     def _deleteSyncTokenQuery(cls):
@@ -295,7 +276,6 @@ class _SharedSyncLogic(object):
                   (rev.RESOURCE_ID == Parameter("resourceID")).And
                   (rev.COLLECTION_NAME == None)
         )
-
 
     @classproperty
     def _sharedRemovalQuery(cls):
@@ -315,7 +295,6 @@ class _SharedSyncLogic(object):
                 rev.RESOURCE_NAME == None)
         )
 
-
     @classproperty
     def _unsharedRemovalQuery(cls):
         """
@@ -332,7 +311,6 @@ class _SharedSyncLogic(object):
             Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
                 rev.RESOURCE_NAME == None),
         )
-
 
     @inlineCallbacks
     def _deletedSyncToken(self, sharedRemoval=False):
@@ -362,18 +340,14 @@ class _SharedSyncLogic(object):
                                                 resourceID=self._resourceID)
         self._syncTokenRevision = None
 
-
     def _insertRevision(self, name):
         return self._changeRevision("insert", name)
-
 
     def _updateRevision(self, name):
         return self._changeRevision("update", name)
 
-
     def _deleteRevision(self, name):
         return self._changeRevision("delete", name)
-
 
     @classproperty
     def _deleteBumpTokenQuery(cls):
@@ -389,7 +363,6 @@ class _SharedSyncLogic(object):
             Return=rev.REVISION
         )
 
-
     @classproperty
     def _updateBumpTokenQuery(cls):
         rev = cls._revisionsSchema
@@ -403,7 +376,6 @@ class _SharedSyncLogic(object):
             Return=rev.REVISION
         )
 
-
     @classproperty
     def _insertFindPreviouslyNamedQuery(cls):
         rev = cls._revisionsSchema
@@ -413,7 +385,6 @@ class _SharedSyncLogic(object):
             Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
                 rev.RESOURCE_NAME == Parameter("name"))
         )
-
 
     @classproperty
     def _updatePreviouslyNamedQuery(cls):
@@ -429,7 +400,6 @@ class _SharedSyncLogic(object):
             Return=rev.REVISION
         )
 
-
     @classproperty
     def _completelyNewRevisionQuery(cls):
         rev = cls._revisionsSchema
@@ -444,7 +414,6 @@ class _SharedSyncLogic(object):
             Return=rev.REVISION
         )
 
-
     @classproperty
     def _completelyNewDeletedRevisionQuery(cls):
         rev = cls._revisionsSchema
@@ -458,7 +427,6 @@ class _SharedSyncLogic(object):
             },
             Return=rev.REVISION
         )
-
 
     @inlineCallbacks
     def _changeRevision(self, action, name):
@@ -515,13 +483,11 @@ class _SharedSyncLogic(object):
         yield self._maybeNotify()
         returnValue(self._syncTokenRevision)
 
-
     def _maybeNotify(self):
         """
         Maybe notify changed.  (Overridden in NotificationCollection.)
         """
         return succeed(None)
-
 
 
 def determineNewest(uid, homeType):
@@ -562,7 +528,6 @@ def determineNewest(uid, homeType):
             obj, on=obj.PARENT_RESOURCE_ID == child.RESOURCE_ID),
         Where=(bind.BIND_MODE == 0).And(home.OWNER_UID == uid)
     )
-
 
 
 @inlineCallbacks
@@ -623,7 +588,6 @@ def mergeHomes(sqlTxn, one, other, homeType):
     yield returnValue(newer)
 
 
-
 def _renameHome(txn, table, oldUID, newUID):
     """
     Rename a calendar, addressbook, or notification home.  Note that this
@@ -650,14 +614,12 @@ def _renameHome(txn, table, oldUID, newUID):
                   Where=table.OWNER_UID == oldUID).on(txn)
 
 
-
 def _dontBotherWithNotifications(older, newer, merge):
     """
     Notifications are more transient and can be easily worked around; don't
     bother to migrate all of them when there is a UUID case mismatch.
     """
     pass
-
 
 
 @inlineCallbacks
@@ -746,7 +708,6 @@ def _normalizeHomeUUIDsIn(t, homeType):
     returnValue(None)
 
 
-
 def _getHome(txn, homeType, uid):
     """
     Like L{CommonHome.homeWithUID} but also honoring ENOTIFICATIONTYPE which
@@ -768,7 +729,6 @@ def _getHome(txn, homeType, uid):
         return txn.notificationsWithUID(uid)
     else:
         return txn.homeWithUID(homeType, uid)
-
 
 
 @inlineCallbacks
@@ -804,7 +764,6 @@ def _normalizeColumnUUIDs(txn, column):
             yield Update({column: after}, Where=where).on(txn)
 
 
-
 class _AndNothing(object):
     """
     Simple placeholder for iteratively generating a 'Where' clause; the 'And'
@@ -816,7 +775,6 @@ class _AndNothing(object):
         Return the argument.
         """
         return self
-
 
 
 @inlineCallbacks
@@ -840,7 +798,6 @@ def _needsNormalizationUpgrade(txn):
                 if normalizeUUIDOrNot(uid) != uid:
                     returnValue(True)
     returnValue(False)
-
 
 
 @inlineCallbacks

@@ -31,6 +31,7 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 import os
 import sys
 
+
 def usage(e=None):
     if e:
         print(e)
@@ -54,6 +55,7 @@ description = '\n'.join(
     )
 )
 
+
 class ValidOptions(Options):
     """
     Command-line options for 'validcalendardata'
@@ -71,12 +73,10 @@ class ValidOptions(Options):
         ['config', 'f', DEFAULT_CONFIG_FILE, "Specify caldavd.plist configuration path."],
     ]
 
-
     def __init__(self):
         super(ValidOptions, self).__init__()
         self.outputName = '-'
         self.inputName = '-'
-
 
     def opt_output(self, filename):
         """
@@ -85,7 +85,6 @@ class ValidOptions(Options):
         self.outputName = filename
 
     opt_o = opt_output
-
 
     def openOutput(self):
         """
@@ -96,7 +95,6 @@ class ValidOptions(Options):
         else:
             return open(self.outputName, "wb")
 
-
     def opt_input(self, filename):
         """
         Specify output file path (default: '-', meaning stdin).
@@ -104,7 +102,6 @@ class ValidOptions(Options):
         self.inputName = filename
 
     opt_i = opt_input
-
 
     def openInput(self):
         """
@@ -116,8 +113,8 @@ class ValidOptions(Options):
             return open(os.path.expanduser(self.inputName), "rb")
 
 
-
 errorPrefix = "Calendar data had unfixable problems:\n  "
+
 
 class ValidService(WorkerService, object):
     """
@@ -132,7 +129,6 @@ class ValidService(WorkerService, object):
         self.reactor = reactor
         self.config = config
         self._directory = None
-
 
     def doWork(self):
         """
@@ -149,7 +145,6 @@ class ValidService(WorkerService, object):
         else:
             print(message)
         return succeed(None)
-
 
     def parseCalendarData(self):
         """
@@ -177,7 +172,6 @@ class ValidService(WorkerService, object):
 
         return (result, message,)
 
-
     def validCalendarData(self):
         """
         Check the calendar data for valid iCalendar data.
@@ -204,7 +198,6 @@ class ValidService(WorkerService, object):
         return (result, message,)
 
 
-
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     """
     Do the export.
@@ -224,12 +217,10 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         stderr.write("Unable to open input file for reading: %s\n" % (e))
         sys.exit(1)
 
-
     def makeService(store):
         return ValidService(store, options, output, input, reactor, config)
 
     utilityMain(options["config"], makeService, reactor, verbose=options["debug"])
-
 
 
 if __name__ == "__main__":

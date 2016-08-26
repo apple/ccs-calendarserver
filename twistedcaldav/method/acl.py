@@ -34,6 +34,7 @@ from twistedcaldav.resource import isAddressBookCollectionResource,\
 
 log = Logger()
 
+
 @inlineCallbacks
 def http_ACL(self, request):
     #

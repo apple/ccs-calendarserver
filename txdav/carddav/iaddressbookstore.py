@@ -35,12 +35,10 @@ __all__ = [
 ]
 
 
-
 class GroupWithUnsharedAddressNotAllowedError(CommonStoreError):
     """
     Sharee cannot add unshared group members.
     """
-
 
 
 class KindChangeNotAllowedError(CommonStoreError):
@@ -49,13 +47,12 @@ class KindChangeNotAllowedError(CommonStoreError):
     """
 
 
-
 class IAddressBookTransaction(ICommonTransaction):
     """
     Transaction interface that addressbook stores must provide.
     """
 
-    def addressbookHomeWithUID(uid, create=False): #@NoSelf
+    def addressbookHomeWithUID(uid, create=False):  # @NoSelf
         """
         Retrieve the addressbook home for the principal with the given C{uid}.
 
@@ -71,7 +68,6 @@ class IAddressBookTransaction(ICommonTransaction):
 #
 
 
-
 class IAddressBookHome(INotifier, IDataStoreObject):
     """
     AddressBook home
@@ -82,28 +78,28 @@ class IAddressBookHome(INotifier, IDataStoreObject):
     addressbooks that have been shared with and accepts by the principal.
     """
 
-    def uid(): #@NoSelf
+    def uid():  # @NoSelf
         """
         Retrieve the unique identifier for this addressbook home.
 
         @return: a string.
         """
 
-    def addressbooks(): #@NoSelf
+    def addressbooks():  # @NoSelf
         """
         Retrieve addressbooks contained in this addressbook home.
 
         @return: an iterable of L{IAddressBook}s.
         """
 
-    def loadAddressbooks(): #@NoSelf
+    def loadAddressbooks():  # @NoSelf
         """
         Pre-load all addressbooks Depth:1.
 
         @return: an iterable of L{IAddressBook}s.
         """
 
-    def addressbookWithName(name): #@NoSelf
+    def addressbookWithName(name):  # @NoSelf
         """
         Retrieve the addressbook with the given C{name} contained in this
         addressbook home.
@@ -113,7 +109,7 @@ class IAddressBookHome(INotifier, IDataStoreObject):
             exists.
         """
 
-    def createAddressBookWithName(name): #@NoSelf
+    def createAddressBookWithName(name):  # @NoSelf
         """
         Create an addressbook with the given C{name} in this addressbook
         home.
@@ -123,7 +119,7 @@ class IAddressBookHome(INotifier, IDataStoreObject):
             given C{name} already exists.
         """
 
-    def removeAddressBookWithName(name): #@NoSelf
+    def removeAddressBookWithName(name):  # @NoSelf
         """
         Remove the addressbook with the given C{name} from this addressbook
         home.  If this addressbook home owns the addressbook, also remove
@@ -132,7 +128,6 @@ class IAddressBookHome(INotifier, IDataStoreObject):
         @param name: a string.
         @raise NoSuchAddressBookObjectError: if no such addressbook exists.
         """
-
 
 
 class IAddressBook(INotifier, IShareableCollection, IDataStoreObject):
@@ -145,12 +140,12 @@ class IAddressBook(INotifier, IShareableCollection, IDataStoreObject):
     read/write access.
     """
 
-    def rename(name): #@NoSelf
+    def rename(name):  # @NoSelf
         """
         Change the name of this addressbook.
         """
 
-    def ownerAddressBookHome(): #@NoSelf
+    def ownerAddressBookHome():  # @NoSelf
         """
         Retrieve the addressbook home for the owner of this addressbook.
         AddressBooks may be shared from one (the owner's) addressbook home
@@ -159,14 +154,14 @@ class IAddressBook(INotifier, IShareableCollection, IDataStoreObject):
         @return: an L{IAddressBookHome}.
         """
 
-    def addressbookObjects(): #@NoSelf
+    def addressbookObjects():  # @NoSelf
         """
         Retrieve the addressbook objects contained in this addressbook.
 
         @return: an iterable of L{IAddressBookObject}s.
         """
 
-    def addressbookObjectWithName(name): #@NoSelf
+    def addressbookObjectWithName(name):  # @NoSelf
         """
         Retrieve the addressbook object with the given C{name} contained
         in this addressbook.
@@ -177,7 +172,7 @@ class IAddressBook(INotifier, IShareableCollection, IDataStoreObject):
             C{None} if no such addressbook object exists.
         """
 
-    def addressbookObjectWithUID(uid): #@NoSelf
+    def addressbookObjectWithUID(uid):  # @NoSelf
         """
         Retrieve the addressbook object with the given C{uid} contained
         in this addressbook.
@@ -187,7 +182,7 @@ class IAddressBook(INotifier, IShareableCollection, IDataStoreObject):
             object exists.
         """
 
-    def createAddressBookObjectWithName(name, component): #@NoSelf
+    def createAddressBookObjectWithName(name, component):  # @NoSelf
         """
         Create an addressbook component with the given C{name} in this
         addressbook from the given C{component}.
@@ -204,14 +199,14 @@ class IAddressBook(INotifier, IShareableCollection, IDataStoreObject):
             an addressbook object.
         """
 
-    def syncToken(): #@NoSelf
+    def syncToken():  # @NoSelf
         """
         Retrieve the current sync token for this addressbook.
 
         @return: a string containing a sync token.
         """
 
-    def addressbookObjectsSinceToken(token): #@NoSelf
+    def addressbookObjectsSinceToken(token):  # @NoSelf
         """
         Retrieve all addressbook objects in this addressbook that have
         changed since the given C{token} was last valid.
@@ -223,7 +218,6 @@ class IAddressBook(INotifier, IShareableCollection, IDataStoreObject):
         """
 
 
-
 class IAddressBookObject(IDataStoreObject):
     """
     AddressBook object
@@ -231,13 +225,13 @@ class IAddressBookObject(IDataStoreObject):
     An addressbook object describes a contact (vCard).
     """
 
-    def addressbook(): #@NoSelf
+    def addressbook():  # @NoSelf
         """
         @return: The address book which this address book object is a part of.
         @rtype: L{IAddressBook}
         """
 
-    def setComponent(component): #@NoSelf
+    def setComponent(component):  # @NoSelf
         """
         Rewrite this addressbook object to match the given C{component}.
         C{component} must have the same UID and KIND as this addressbook object.
@@ -248,7 +242,7 @@ class IAddressBookObject(IDataStoreObject):
             an addressbook object.
         """
 
-    def component(): #@NoSelf
+    def component():  # @NoSelf
         """
         Retrieve the addressbook component for this addressbook object.
 
@@ -259,7 +253,7 @@ class IAddressBookObject(IDataStoreObject):
         @return: a C{VCARD} L{VComponent}.
         """
 
-    def uid(): #@NoSelf
+    def uid():  # @NoSelf
         """
         Retrieve the UID for this addressbook object.
 

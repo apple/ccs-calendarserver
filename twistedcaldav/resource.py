@@ -103,6 +103,7 @@ shareAcceptStatesByXML["ACCEPTED"] = customxml.InviteStatusAccepted()
 shareAcceptStatesByXML["DECLINED"] = customxml.InviteStatusDeclined()
 shareAcceptStatesByXML["DELETED"] = customxml.InviteStatusDeleted()
 
+
 def requiresPermissions(*permissions, **kw):
     """
     A decorator to wrap http_ methods in, to indicate that they should not be
@@ -111,6 +112,7 @@ def requiresPermissions(*permissions, **kw):
     """
     fromParent = kw.get('fromParent')
     # FIXME: direct unit tests
+
     def wrap(thunk):
         def authAndContinue(self, request, *args, **kwargs):
             if permissions:
@@ -131,14 +133,13 @@ def requiresPermissions(*permissions, **kw):
     return wrap
 
 
-
 class CalDAVComplianceMixIn(object):
+
     def davComplianceClasses(self):
         return (
-            tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses())
-            + config.CalDAVComplianceClasses
+            tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses()) +
+            config.CalDAVComplianceClasses
         )
-
 
 
 class ReadOnlyResourceMixIn (object):
@@ -149,30 +150,23 @@ class ReadOnlyResourceMixIn (object):
     def writeProperty(self, property, request):
         raise HTTPError(self.readOnlyResponse)
 
-
     def http_ACL(self, request):
         return responsecode.FORBIDDEN
-
 
     def http_DELETE(self, request):
         return responsecode.FORBIDDEN
 
-
     def http_MKCOL(self, request):
         return responsecode.FORBIDDEN
-
 
     def http_MOVE(self, request):
         return responsecode.FORBIDDEN
 
-
     def http_PROPPATCH(self, request):
         return responsecode.FORBIDDEN
 
-
     def http_PUT(self, request):
         return responsecode.FORBIDDEN
-
 
     def http_MKCALENDAR(self, request):
         return ErrorResponse(
@@ -182,7 +176,6 @@ class ReadOnlyResourceMixIn (object):
         )
 
 
-
 class ReadOnlyNoCopyResourceMixIn (ReadOnlyResourceMixIn):
     """
     Read only resource that disallows COPY.
@@ -190,7 +183,6 @@ class ReadOnlyNoCopyResourceMixIn (ReadOnlyResourceMixIn):
 
     def http_COPY(self, request):
         return responsecode.FORBIDDEN
-
 
 
 def _calendarPrivilegeSet():
@@ -317,7 +309,6 @@ class CalDAVResource (
         # got one (resources associated with a transaction are not reusable)
         self._associatedTransaction = transaction
 
-
     def propagateTransaction(self, otherResource):
         """
         Propagate the transaction associated with this resource to another
@@ -332,7 +323,6 @@ class CalDAVResource (
             raise RuntimeError("No associated transaction to propagate")
         otherResource.associateWithTransaction(self._associatedTransaction)
 
-
     def methodRaisedException(self, failure):
         """
         An C{http_METHOD} method raised an exception.  Any type of exception,
@@ -341,7 +331,6 @@ class CalDAVResource (
         """
         self._transactionError = True
         return super(CalDAVResource, self).methodRaisedException(failure)
-
 
     @inlineCallbacks
     def renderHTTP(self, request, transaction=None):
@@ -397,7 +386,6 @@ class CalDAVResource (
                     response.headers.setHeader("last-modified", self.lastModified())
         returnValue(response)
 
-
     @inlineCallbacks
     def handleMissingTrailingSlash(self, request):
         try:
@@ -422,7 +410,6 @@ class CalDAVResource (
             )
             returnValue(response)
 
-
     # Begin transitional new-store resource interface:
 
     def copyDeadPropertiesTo(self, other):
@@ -435,7 +422,6 @@ class CalDAVResource (
         """
         self.newStoreProperties().update(other.newStoreProperties())
 
-
     def newStoreProperties(self):
         """
         Return an L{IMapping} that represents properties.  Only available on
@@ -444,14 +430,12 @@ class CalDAVResource (
         raise NotImplementedError("%s does not implement newStoreProperties" %
                                   (self,))
 
-
     def storeRemove(self, *a, **kw):
         """
         Remove this resource from storage.
         """
         raise NotImplementedError("%s does not implement storeRemove" %
                                   (self,))
-
 
     def storeStream(self, stream, format):
         """
@@ -467,14 +451,13 @@ class CalDAVResource (
 
     # End transitional new-store interface
 
-
     ##
     # WebDAV
     ##
 
     def liveProperties(self):
         baseProperties = (
-            element.Owner.qname(), # Private Events needs this but it is also OK to return empty
+            element.Owner.qname(),  # Private Events needs this but it is also OK to return empty
         )
 
         if self.isPseudoCalendarCollection():
@@ -567,9 +550,7 @@ class CalDAVResource (
                     customxml.AllowedSharingModes.qname(),
                 )
 
-
         return super(CalDAVResource, self).liveProperties() + baseProperties
-
 
     @inlineCallbacks
     def readProperty(self, property, request):
@@ -627,14 +608,14 @@ class CalDAVResource (
             dataTypes.append(
                 caldavxml.CalendarData(**{
                     "content-type": "text/calendar",
-                    "version"     : "2.0",
+                    "version": "2.0",
                 }),
             )
             if config.EnableJSONData:
                 dataTypes.append(
                     caldavxml.CalendarData(**{
                         "content-type": "application/calendar+json",
-                        "version"     : "2.0",
+                        "version": "2.0",
                     }),
                 )
             returnValue(caldavxml.SupportedCalendarData(*dataTypes))
@@ -673,14 +654,14 @@ class CalDAVResource (
             dataTypes.append(
                 carddavxml.AddressDataType(**{
                     "content-type": "text/vcard",
-                    "version"     : "3.0",
+                    "version": "3.0",
                 }),
             )
             if config.EnableJSONData:
                 dataTypes.append(
                     carddavxml.AddressDataType(**{
                         "content-type": "application/vcard+json",
-                        "version"     : "3.0",
+                        "version": "3.0",
                     }),
                 )
             returnValue(carddavxml.SupportedAddressData(*dataTypes))
@@ -718,10 +699,8 @@ class CalDAVResource (
             else:
                 returnValue(None)
 
-
         result = (yield super(CalDAVResource, self).readProperty(property, request))
         returnValue(result)
-
 
     @inlineCallbacks
     def writeProperty(self, property, request):
@@ -771,7 +750,6 @@ class CalDAVResource (
         result = (yield super(CalDAVResource, self).writeProperty(property, request))
         returnValue(result)
 
-
     ##
     # ACL
     ##
@@ -782,7 +760,6 @@ class CalDAVResource (
         determination on the generic CalDAVResource for now.
         """
         return ""
-
 
     def _set_accessMode(self, value):
         raise NotImplementedError
@@ -843,7 +820,6 @@ class CalDAVResource (
 
         returnValue(acls)
 
-
     @inlineCallbacks
     def owner(self, request):
         """
@@ -865,7 +841,6 @@ class CalDAVResource (
         else:
             returnValue(None)
 
-
     @inlineCallbacks
     def ownerPrincipal(self, request):
         """
@@ -885,7 +860,6 @@ class CalDAVResource (
         else:
             returnValue(None)
 
-
     @inlineCallbacks
     def resourceOwnerPrincipal(self, request):
         """
@@ -901,7 +875,6 @@ class CalDAVResource (
         else:
             returnValue(None)
 
-
     @inlineCallbacks
     def isOwner(self, request):
         """
@@ -916,7 +889,6 @@ class CalDAVResource (
             returnValue(True)
         returnValue(False)
 
-
     ##
     # DAVResource
     ##
@@ -930,14 +902,11 @@ class CalDAVResource (
 
         return super(DAVResource, self).displayName()
 
-
     def name(self):
         return None
 
-
     def resourceID(self):
         return None
-
 
     ##
     # CalDAV
@@ -949,13 +918,11 @@ class CalDAVResource (
         """
         return self.isSpecialCollection(caldavxml.Calendar)
 
-
     def isAddressBookCollection(self):
         """
         See L{ICalDAVResource.isAddressBookCollection}.
         """
         return self.isSpecialCollection(carddavxml.AddressBook)
-
 
     def isNotificationCollection(self):
         """
@@ -963,10 +930,8 @@ class CalDAVResource (
         """
         return self.isSpecialCollection(customxml.Notification)
 
-
     def isDirectoryBackedAddressBookCollection(self):       # ATM - temporary fix? (this one worked)
         return False
-
 
     def isSpecialCollection(self, collectiontype):
         """
@@ -984,21 +949,17 @@ class CalDAVResource (
             return False
         return bool(resourcetype.childrenOfType(collectiontype))
 
-
     def isPseudoCalendarCollection(self):
         """
         See L{ICalDAVResource.isPseudoCalendarCollection}.
         """
         return self.isCalendarCollection()
 
-
     def findCalendarCollections(self, depth, request, callback, privileges=None):
         return self.findSpecialCollections(caldavxml.Calendar, depth, request, callback, privileges)
 
-
     def findAddressBookCollections(self, depth, request, callback, privileges=None):
         return self.findSpecialCollections(carddavxml.AddressBook, depth, request, callback, privileges)
-
 
     @inlineCallbacks
     def findSpecialCollectionsFaster(self, type, depth, request, callback, privileges=None):
@@ -1033,7 +994,6 @@ class CalDAVResource (
 
         return self._newStoreParentHome.isDefaultCalendar(self._newStoreObject)
 
-
     def iCalendarAddressDoNormalization(self, ical):
         """
         Normalize calendar user addresses in the supplied iCalendar object into their
@@ -1048,7 +1008,6 @@ class CalDAVResource (
             self.record.service.recordWithCalendarUserAddress
         )
 
-
     @inlineCallbacks
     def principalForCalendarUserAddress(self, address):
         for principalCollection in self.principalCollections():
@@ -1057,7 +1016,6 @@ class CalDAVResource (
                 returnValue(principal)
         returnValue(None)
 
-
     @inlineCallbacks
     def principalForUID(self, principalUID):
         for principalCollection in self.principalCollections():
@@ -1065,7 +1023,6 @@ class CalDAVResource (
             if principal is not None:
                 returnValue(principal)
         returnValue(None)
-
 
     @inlineCallbacks
     def movedAddressBook(self, request, defaultAddressBook, destination, destination_uri):
@@ -1079,7 +1036,6 @@ class CalDAVResource (
             home = (yield principal.addressBookHome(request))
             (_ignore_scheme, _ignore_host, destination_path, _ignore_query, _ignore_fragment) = urlsplit(normalizeURL(destination_uri))
             yield home.writeProperty(carddavxml.DefaultAddressBookURL(element.HRef(destination_path)), request)
-
 
     @inlineCallbacks
     def isDefaultAddressBook(self, request):
@@ -1096,7 +1052,6 @@ class CalDAVResource (
             returnValue(defaultURL == myURL)
 
         returnValue(False)
-
 
     @inlineCallbacks
     def vCard(self):
@@ -1123,7 +1078,6 @@ class CalDAVResource (
         except ValueError:
             returnValue(None)
 
-
     def supportedReports(self):
         result = super(CalDAVResource, self).supportedReports()
         if config.EnableCalDAV:
@@ -1143,7 +1097,6 @@ class CalDAVResource (
             # Only allowed on calendar/inbox/addressbook/notification collections
             result.append(element.Report(element.SyncCollection(),))
         return result
-
 
     def writeNewACEs(self, newaces):
         """
@@ -1172,7 +1125,6 @@ class CalDAVResource (
         # Do inherited with possibly modified set of aces
         super(CalDAVResource, self).writeNewACEs(edited_aces)
 
-
     ##
     # Utilities
     ##
@@ -1184,7 +1136,6 @@ class CalDAVResource (
         @param uri: the URI whose parent resource is desired.
         """
         return request.locateResource(parentForURL(uri))
-
 
     @inlineCallbacks
     def canonicalURL(self, request):
@@ -1204,7 +1155,6 @@ class CalDAVResource (
 
         returnValue(self._canonical_url)
 
-
     ##
     # Quota
     ##
@@ -1215,13 +1165,11 @@ class CalDAVResource (
         """
         return False
 
-
     def quotaRoot(self, request):
         """
         Quota root only ever set on calendar homes.
         """
         return None
-
 
     @inlineCallbacks
     def quotaRootResource(self, request):
@@ -1249,7 +1197,6 @@ class CalDAVResource (
             result = (yield super(CalDAVResource, self).quotaRootResource(request))
 
         returnValue(result)
-
 
     # Collection sync stuff
 
@@ -1313,11 +1260,9 @@ class CalDAVResource (
 
         returnValue((changed, removed, notallowed, current_token, resourceChanged))
 
-
     def _indexWhatChanged(self, revision, depth):
         # Now handled directly by newstore
         raise NotImplementedError
-
 
     @inlineCallbacks
     def getSyncToken(self):
@@ -1330,13 +1275,11 @@ class CalDAVResource (
         token = config.joinToken(internal_token)
         returnValue(token)
 
-
     def getInternalSyncToken(self):
         """
         Return current internal sync-token value.
         """
         raise HTTPError(StatusResponse(responsecode.NOT_FOUND, "Property not supported"))
-
 
     #
     # Stuff from CalDAVFile
@@ -1391,7 +1334,6 @@ class CalDAVResource (
         result = (yield super(CalDAVResource, self).checkPreconditions(request))
         returnValue(result)
 
-
     @inlineCallbacks
     def createCalendar(self, request):
         """
@@ -1433,7 +1375,7 @@ class CalDAVResource (
         # Check for any quota limits
         if config.MaxCollectionsPerHome:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
-            if (yield parent.countOwnedChildren()) >= config.MaxCollectionsPerHome: # NB this ignores shares
+            if (yield parent.countOwnedChildren()) >= config.MaxCollectionsPerHome:  # NB this ignores shares
                 self.log.error("Cannot create a calendar collection because there are too many already present in {p!r}", p=parent)
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
@@ -1442,7 +1384,6 @@ class CalDAVResource (
                 ))
 
         returnValue((yield self.createCalendarCollection()))
-
 
     def createCalendarCollection(self):
         """
@@ -1453,13 +1394,11 @@ class CalDAVResource (
         """
         return fail(NotImplementedError())
 
-
     def iCalendarRolledup(self, request):
         """
         Only implemented by calendar collections; see storebridge.
         """
         raise HTTPError(responsecode.NOT_ALLOWED)
-
 
     @inlineCallbacks
     def iCalendarFiltered(self, isowner):
@@ -1470,11 +1409,9 @@ class CalDAVResource (
         caldata = PrivateEventFilter(self.accessMode, isowner).filter(caldata)
         returnValue(caldata)
 
-
     def component(self):
         # storebridge handles this method
         raise NotImplementedError()
-
 
     @inlineCallbacks
     def createAddressBook(self, request):
@@ -1521,7 +1458,7 @@ class CalDAVResource (
         # Check for any quota limits
         if config.MaxCollectionsPerHome:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
-            if (yield parent.countOwnedChildren()) >= config.MaxCollectionsPerHome: # NB this ignores shares
+            if (yield parent.countOwnedChildren()) >= config.MaxCollectionsPerHome:  # NB this ignores shares
                 self.log.error("Cannot create a calendar collection because there are too many already present in {p!r}", p=parent)
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
@@ -1530,7 +1467,6 @@ class CalDAVResource (
                 ))
 
         returnValue((yield self.createAddressBookCollection()))
-
 
     def createAddressBookCollection(self):
         """
@@ -1541,12 +1477,10 @@ class CalDAVResource (
         """
         return fail(NotImplementedError())
 
-
     @inlineCallbacks
     def vCardRolledup(self, request):
         # TODO: just catenate all the vCards together
         yield fail(HTTPError((ErrorResponse(responsecode.BAD_REQUEST))))
-
 
     @inlineCallbacks
     def vCardText(self, name=None):
@@ -1562,7 +1496,6 @@ class CalDAVResource (
                 raise AssertionError("name must be None for non-collection vcard resource")
         # FIXME: StoreBridge handles this case
         raise NotImplementedError
-
 
     def supportedPrivileges(self, request):
         # read-free-busy support on calendar collection and calendar object resources
@@ -1580,7 +1513,6 @@ class CalDAVResource (
             return d
 
         return super(CalDAVResource, self).supportedPrivileges(request)
-
 
     ##
     # Quota
@@ -1628,7 +1560,6 @@ class CalDAVResource (
 #            return succeed(self.fp.getsize())
         return succeed(0)
 
-
     ##
     # Utilities
     ##
@@ -1650,7 +1581,7 @@ class CalDAVResource (
         # Parse the URI
         #
 
-        (scheme, host, path, query, fragment) = urlsplit(uri) #@UnusedVariable
+        (scheme, host, path, query, fragment) = urlsplit(uri)  # @UnusedVariable
 
         # Request hostname and child uri hostname have to be the same.
         if host and host != request.headers.getHeader("host"):
@@ -1662,7 +1593,6 @@ class CalDAVResource (
             parent += "/"
 
         return path.startswith(parent) and (len(path) > len(parent)) and (not immediateChild or (path.find("/", len(parent)) == -1))
-
 
     @inlineCallbacks
     def _checkParents(self, request, test):
@@ -1687,7 +1617,6 @@ class CalDAVResource (
                 returnValue(parent)
 
 
-
 class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDAVResource):
     """
     CalDAV principal collection.
@@ -1697,22 +1626,17 @@ class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDA
     def isCollection(self):
         return True
 
-
     def isCalendarCollection(self):
         return False
-
 
     def isAddressBookCollection(self):
         return False
 
-
     def isDirectoryBackedAddressBookCollection(self):
         return False
 
-
     def principalForCalendarUserAddress(self, address):
         return None
-
 
     def supportedReports(self):
         """
@@ -1722,7 +1646,6 @@ class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDA
         result = super(CalendarPrincipalCollectionResource, self).supportedReports()
         result.append(element.Report(element.PrincipalSearchPropertySet(),))
         return result
-
 
     def principalSearchPropertySet(self):
         return element.PrincipalSearchPropertySet(
@@ -1745,7 +1668,6 @@ class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDA
                 ),
             ),
         )
-
 
 
 class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenMixin, DAVPrincipalResource):
@@ -1785,10 +1707,8 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
 
         return super(CalendarPrincipalResource, self).liveProperties() + baseProperties
 
-
     def isCollection(self):
         return True
-
 
     @inlineCallbacks
     def handleMissingTrailingSlash(self, request):
@@ -1814,18 +1734,14 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
             )
             returnValue(response)
 
-
     def calendarsEnabled(self):
         return config.EnableCalDAV
-
 
     def addressBooksEnabled(self):
         return config.EnableCardDAV
 
-
     def directoryAddressBookEnabled(self):
         return config.DirectoryAddressBook.Enabled and config.EnableSearchAddressBook
-
 
     @inlineCallbacks
     def readProperty(self, property, request):
@@ -1908,7 +1824,6 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
         result = (yield super(CalendarPrincipalResource, self).readProperty(property, request))
         returnValue(result)
 
-
     def calendarFreeBusyURIs(self, request):
         def gotInbox(inbox):
             if inbox is None:
@@ -1933,13 +1848,11 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
         d.addCallback(gotInbox)
         return d
 
-
     def scheduleInbox(self, request):
         """
         @return: the deferred schedule inbox for this principal.
         """
         return request.locateResource(self.scheduleInboxURL())
-
 
     ##
     # Quota
@@ -1951,13 +1864,11 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
         """
         return False
 
-
     def quotaRoot(self, request):
         """
         Quota root only ever set on calendar homes.
         """
         return None
-
 
 
 class DefaultAlarmPropertyMixin(object):
@@ -2005,7 +1916,6 @@ class DefaultAlarmPropertyMixin(object):
 
         return DefaultAlarmPropertyMixin.ALARM_PROPERTY_CLASSES[propname](alarm) if alarm else None
 
-
     @inlineCallbacks
     def setDefaultAlarmProperty(self, prop):
 
@@ -2017,7 +1927,6 @@ class DefaultAlarmPropertyMixin(object):
         else:
             yield self._newStoreHome.setDefaultAlarm(alarm if alarm else "empty", vevent, timed)
 
-
     @inlineCallbacks
     def removeDefaultAlarmProperty(self, propname):
 
@@ -2027,7 +1936,6 @@ class DefaultAlarmPropertyMixin(object):
             yield self._newStoreObject.setDefaultAlarm(None, vevent, timed)
         else:
             yield self._newStoreHome.setDefaultAlarm(None, vevent, timed)
-
 
 
 class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
@@ -2059,7 +1967,6 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
             self._newStoreHome.properties()
         )
 
-
     @classmethod
     @inlineCallbacks
     def createHomeResource(cls, parent, name, transaction):
@@ -2067,7 +1974,6 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
             transaction, name)
         resource = cls(parent, name, transaction, home)
         returnValue(resource)
-
 
     @classmethod
     def homeFromTransaction(cls, transaction, uid):
@@ -2081,10 +1987,8 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         """
         raise NotImplementedError("Subclasses must implement.")
 
-
     def _setupProvisions(self):
         pass
-
 
     def liveProperties(self):
 
@@ -2098,28 +2002,22 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
         return props
 
-
     def url(self):
         return joinURL(self.parent.url(), self.name, "/")
 
-
     def canonicalURL(self, request):
         return succeed(self.url())
-
 
     def exists(self):
         # FIXME: tests
         return True
 
-
     def isCollection(self):
         return True
-
 
     def quotaSize(self, request):
         # FIXME: tests, workingness
         return succeed(0)
-
 
     def hasQuotaRoot(self, request):
         """
@@ -2130,7 +2028,6 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         """
         return self._newStoreHome.quotaAllowedBytes() is not None
 
-
     def quotaRoot(self, request):
         """
         Retrieve the number of total allowed bytes from the backend.
@@ -2140,13 +2037,11 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         """
         return self._newStoreHome.quotaAllowedBytes()
 
-
     def currentQuotaUse(self, request):
         """
         Get the quota use value
         """
         return maybeDeferred(self._newStoreHome.quotaUsedBytes)
-
 
     def supportedReports(self):
         result = super(CommonHomeResource, self).supportedReports()
@@ -2154,7 +2049,6 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
             # Allowed on any home
             result.append(element.Report(element.SyncCollection(),))
         return result
-
 
     def _mergeSyncTokens(self, hometoken, notificationtoken):
         """
@@ -2180,10 +2074,8 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
         return hometoken
 
-
     def canShare(self):
         raise NotImplementedError
-
 
     @inlineCallbacks
     def findChildrenFaster(
@@ -2202,7 +2094,6 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         ))
 
         returnValue(result)
-
 
     @inlineCallbacks
     def makeChild(self, name):
@@ -2232,7 +2123,6 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
         returnValue(child)
 
-
     @inlineCallbacks
     def createNotificationsCollection(self):
         txn = self._associatedTransaction
@@ -2248,10 +2138,8 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         self.propagateTransaction(similar)
         returnValue(similar)
 
-
     def makeRegularChild(self, name):
         raise NotImplementedError
-
 
     @inlineCallbacks
     def listChildren(self):
@@ -2263,14 +2151,12 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         children.update((yield self._newStoreHome.listChildren()))
         returnValue(children)
 
-
     @inlineCallbacks
     def countOwnedChildren(self):
         """
         @return: the number of children (not shared ones).
         """
         returnValue(len(list((yield self._newStoreHome.listChildren()))))
-
 
     @inlineCallbacks
     def readProperty(self, property, request):
@@ -2331,7 +2217,6 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
         returnValue((yield super(CommonHomeResource, self).readProperty(property, request)))
 
-
     ##
     # ACL
     ##
@@ -2341,14 +2226,11 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         principal = yield self.principalForRecord()
         returnValue(element.HRef(principal.principalURL()))
 
-
     def ownerPrincipal(self, request):
         return self.principalForRecord()
 
-
     def resourceOwnerPrincipal(self, request):
         return self.principalForRecord()
-
 
     @inlineCallbacks
     def defaultAccessControlList(self):
@@ -2381,19 +2263,15 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
         returnValue(element.ACL(*aces))
 
-
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
         # Permissions here are fixed, and are not subject to inheritance rules, etc.
         return self.defaultAccessControlList()
 
-
     def principalCollections(self):
         return self.parent.principalCollections()
 
-
     def principalForRecord(self):
         raise NotImplementedError("Subclass must implement principalForRecord()")
-
 
     @inlineCallbacks
     def etag(self):
@@ -2409,26 +2287,20 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         else:
             returnValue(None)
 
-
     def resourceID(self):
         return uuid.uuid5(self.uuid_namespace, str(self._newStoreHome.id())).urn
-
 
     def lastModified(self):
         return self._newStoreHome.modified() if self._newStoreHome else None
 
-
     def creationDate(self):
         return self._newStoreHome.created() if self._newStoreHome else None
-
 
     def notifierID(self):
         return "%s/%s" % self._newStoreHome.notifierID()
 
-
     def notifyChanged(self):
         return self._newStoreHome.notifyChanged()
-
 
     def http_PUT(self, request):
         """
@@ -2436,12 +2308,10 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         """
         return responsecode.FORBIDDEN
 
-
     # Methods not supported
     http_ACL = None
     http_COPY = None
     http_MOVE = None
-
 
 
 class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
@@ -2459,7 +2329,6 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
             storeHome = yield transaction.calendarHomeWithUID(uid, create=True)
             created = True
         returnValue((storeHome, created))
-
 
     def liveProperties(self):
 
@@ -2489,12 +2358,10 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
 
         return existing
 
-
     def dynamicProperties(self):
         return super(CalendarHomeResource, self).dynamicProperties() + tuple(
             DefaultAlarmPropertyMixin.ALARM_PROPERTIES.keys()
         )
-
 
     def hasProperty(self, property, request):
         if type(property) is tuple:
@@ -2508,7 +2375,6 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
 
         else:
             return super(CalendarHomeResource, self).hasProperty(property, request)
-
 
     @inlineCallbacks
     def readProperty(self, property, request):
@@ -2551,7 +2417,6 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         result = (yield super(CalendarHomeResource, self).readProperty(property, request))
         returnValue(result)
 
-
     @inlineCallbacks
     def writeProperty(self, property, request):
 
@@ -2568,7 +2433,6 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         result = (yield super(CalendarHomeResource, self).writeProperty(property, request))
         returnValue(result)
 
-
     @inlineCallbacks
     def removeProperty(self, property, request):
         if type(property) is tuple:
@@ -2582,7 +2446,6 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
 
         result = (yield super(CalendarHomeResource, self).removeProperty(property, request))
         returnValue(result)
-
 
     def _setupProvisions(self):
 
@@ -2609,10 +2472,8 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
             from twistedcaldav.notifications import NotificationCollectionResource
             self._provisionedChildren["notification"] = NotificationCollectionResource
 
-
     def canShare(self):
         return config.Sharing.Enabled and config.Sharing.Calendars.Enabled and self.exists()
-
 
     @inlineCallbacks
     def _otherPrincipalHomeURL(self, otherUID):
@@ -2621,7 +2482,6 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
             returnValue(ownerPrincipal.calendarHomeURLs()[0])
         else:
             returnValue(None)
-
 
     @inlineCallbacks
     def makeRegularChild(self, name):
@@ -2637,7 +2497,6 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         self.propagateTransaction(similar)
         returnValue(similar)
 
-
     def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, mode):
         """
         Test if there are other child object resources with the specified UID.
@@ -2645,7 +2504,6 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         Pass through direct to store.
         """
         return self._newStoreHome.hasCalendarResourceUIDSomewhereElse(uid, ok_object._newStoreObject, mode)
-
 
     @inlineCallbacks
     def defaultAccessControlList(self):
@@ -2720,7 +2578,6 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
 
         returnValue(element.ACL(*aces))
 
-
     @inlineCallbacks
     def getInternalSyncToken(self):
         # The newstore implementation supports this directly
@@ -2733,7 +2590,6 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
             caltoken = self._mergeSyncTokens(caltoken, notificationtoken)
 
         returnValue(caltoken)
-
 
     @inlineCallbacks
     def _indexWhatChanged(self, revision, depth):
@@ -2768,7 +2624,6 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
                 notallowed.extend([joinURL("notification", name) for name in noti_notallowed])
 
         returnValue((changed, deleted, notallowed))
-
 
     @requiresPermissions(element.WriteContent())
     @inlineCallbacks
@@ -2823,7 +2678,6 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
                 "The action parameter in the request-URI is not valid",
             ))
 
-
     def _ok(self, status, description, result=None):
         if result is None:
             result = {}
@@ -2833,7 +2687,6 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
             responsecode.OK,
             result,
         )
-
 
 
 class AddressBookHomeResource (CommonHomeResource):
@@ -2847,7 +2700,6 @@ class AddressBookHomeResource (CommonHomeResource):
         self.http_MKCOL = None
         self.http_MKCALENDAR = None
 
-
     @classmethod
     @inlineCallbacks
     def homeFromTransaction(cls, transaction, uid):
@@ -2859,13 +2711,11 @@ class AddressBookHomeResource (CommonHomeResource):
             created = True
         returnValue((storeHome, created))
 
-
     def liveProperties(self):
 
         return super(AddressBookHomeResource, self).liveProperties() + (
             carddavxml.DefaultAddressBookURL.qname(),
         )
-
 
     @inlineCallbacks
     def readProperty(self, property, request):
@@ -2892,7 +2742,6 @@ class AddressBookHomeResource (CommonHomeResource):
 
         result = (yield super(AddressBookHomeResource, self).readProperty(property, request))
         returnValue(result)
-
 
     @inlineCallbacks
     def writeProperty(self, property, request):
@@ -2922,7 +2771,6 @@ class AddressBookHomeResource (CommonHomeResource):
 
         yield super(AddressBookHomeResource, self).writeProperty(property, request)
 
-
     def _setupProvisions(self):
 
         # Cache children which must be of a specific type
@@ -2930,20 +2778,16 @@ class AddressBookHomeResource (CommonHomeResource):
             from twistedcaldav.notifications import NotificationCollectionResource
             self._provisionedChildren["notification"] = NotificationCollectionResource
 
-
     def makeNewStore(self):
         return self._associatedTransaction.addressbookHomeWithUID(self.name, create=True), False     # Don't care about created
 
-
     def canShare(self):
         return config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and self.exists()
-
 
     @inlineCallbacks
     def _otherPrincipalHomeURL(self, otherUID):
         ownerPrincipal = (yield self.principalForUID(otherUID))
         returnValue(ownerPrincipal.addressBookHomeURLs()[0] if ownerPrincipal else None)
-
 
     @inlineCallbacks
     def makeRegularChild(self, name):
@@ -2962,7 +2806,6 @@ class AddressBookHomeResource (CommonHomeResource):
         )
         self.propagateTransaction(similar)
         returnValue(similar)
-
 
     @inlineCallbacks
     def pickNewDefaultAddressBook(self, request):
@@ -3001,7 +2844,6 @@ class AddressBookHomeResource (CommonHomeResource):
             element.HRef(defaultAddressBookURL))
         )
 
-
     @inlineCallbacks
     def getInternalSyncToken(self):
         # The newstore implementation supports this directly
@@ -3017,7 +2859,6 @@ class AddressBookHomeResource (CommonHomeResource):
                 adbktoken = "%s_%s" % (adbkkey, notrev,)
 
         returnValue(adbktoken)
-
 
     @inlineCallbacks
     def _indexWhatChanged(self, revision, depth):
@@ -3040,7 +2881,6 @@ class AddressBookHomeResource (CommonHomeResource):
             notallowed.extend([joinURL("notification", name) for name in noti_notallowed])
 
         returnValue((changed, deleted, notallowed))
-
 
 
 class AuthenticationWrapper(SuperAuthenticationWrapper):
@@ -3070,7 +2910,6 @@ class AuthenticationWrapper(SuperAuthenticationWrapper):
                     ]
                 )
 
-
     def hook(self, req):
         """ Uses the default credentialFactories unless the request is for
             one of the overridden paths """
@@ -3082,7 +2921,6 @@ class AuthenticationWrapper(SuperAuthenticationWrapper):
             req.credentialFactories
         )
         req.credentialFactories = factories
-
 
 
 ##
@@ -3098,7 +2936,6 @@ def isCalendarCollectionResource(resource):
         return resource.isCalendarCollection()
 
 
-
 def isPseudoCalendarCollectionResource(resource):
     try:
         resource = ICalDAVResource(resource)
@@ -3106,7 +2943,6 @@ def isPseudoCalendarCollectionResource(resource):
         return False
     else:
         return resource.isPseudoCalendarCollection()
-
 
 
 def isAddressBookCollectionResource(resource):

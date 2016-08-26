@@ -18,6 +18,7 @@ from twistedcaldav.datafilters.hiddeninstance import HiddenInstanceFilter
 from twistedcaldav.ical import Component
 import twistedcaldav.test.util
 
+
 class HiddenInstanceFilterTest (twistedcaldav.test.util.TestCase):
 
     def test_public_default(self):

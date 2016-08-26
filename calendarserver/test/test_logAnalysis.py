@@ -18,6 +18,7 @@ from twisted.trial.unittest import TestCase
 from calendarserver.logAnalysis import getAdjustedMethodName, \
     getAdjustedClientName
 
+
 class LogAnalysis(TestCase):
 
     def test_getAdjustedMethodName(self):
@@ -66,7 +67,6 @@ class LogAnalysis(TestCase):
             extras["method"] = method
             extras["uri"] = uri
             self.assertEqual(getAdjustedMethodName(extras), result, "Failed getAdjustedMethodName: %s" % (result,))
-
 
     def test_getAdjustedClientName(self):
         """

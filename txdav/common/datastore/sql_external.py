@@ -35,6 +35,7 @@ from txdav.idav import ChangeCategory
 
 log = Logger()
 
+
 class CommonHomeExternal(CommonHome):
     """
     A CommonHome for a user not hosted on this system, but on another pod. This is needed to provide a
@@ -64,10 +65,8 @@ class CommonHomeExternal(CommonHome):
         result._childClass = result._childClass._externalClass
         return result
 
-
     def __init__(self, transaction, homeData):
         super(CommonHomeExternal, self).__init__(transaction, homeData)
-
 
     def initFromStore(self):
         """
@@ -80,7 +79,6 @@ class CommonHomeExternal(CommonHome):
 
         return succeed(self)
 
-
     @inlineCallbacks
     def readMetaData(self):
         """
@@ -89,10 +87,8 @@ class CommonHomeExternal(CommonHome):
         mapping = yield self._txn.store().conduit.send_home_metadata(self)
         self.deserialize(mapping)
 
-
     def setStatus(self, newStatus):
         return self._txn.store().conduit.send_home_set_status(self, newStatus)
-
 
     def setLocalStatus(self, newStatus):
         """
@@ -103,7 +99,6 @@ class CommonHomeExternal(CommonHome):
         """
         return super(CommonHomeExternal, self).setStatus(newStatus)
 
-
     def external(self):
         """
         Is this an external home.
@@ -112,20 +107,17 @@ class CommonHomeExternal(CommonHome):
         """
         return True
 
-
     def objectWithShareUID(self, shareUID):
         """
         No children.
         """
         raise AssertionError("CommonHomeExternal: not supported")
 
-
     def invitedObjectWithShareUID(self, shareUID):
         """
         No children.
         """
         raise AssertionError("CommonHomeExternal: not supported")
-
 
     @inlineCallbacks
     def createChildWithName(self, name, bindUID=None):
@@ -137,13 +129,11 @@ class CommonHomeExternal(CommonHome):
         child = yield super(CommonHomeExternal, self).createChildWithName(name, bindUID)
         returnValue(child)
 
-
     def removeChildWithName(self, name, useTrash=True):
         """
         No children.
         """
         raise AssertionError("CommonHomeExternal: not supported")
-
 
     @inlineCallbacks
     def removeExternalChild(self, child):
@@ -155,20 +145,17 @@ class CommonHomeExternal(CommonHome):
             raise AssertionError("CommonHomeExternal: not supported")
         yield super(CommonHomeExternal, self).removeChildWithName(child.name(), useTrash=False)
 
-
     def syncToken(self):
         """
         No children.
         """
         raise AssertionError("CommonHomeExternal: not supported")
 
-
     def resourceNamesSinceRevision(self, revision, depth):
         """
         No children.
         """
         raise AssertionError("CommonHomeExternal: not supported")
-
 
     @inlineCallbacks
     def _loadPropertyStore(self):
@@ -185,10 +172,8 @@ class CommonHomeExternal(CommonHome):
         )
         self._propertyStore = props
 
-
     def properties(self):
         return self._propertyStore
-
 
     def objectResourcesWithUID(self, uid, ignore_children=[], allowShared=True):
         """
@@ -196,13 +181,11 @@ class CommonHomeExternal(CommonHome):
         """
         raise AssertionError("CommonHomeExternal: not supported")
 
-
     def objectResourceWithID(self, rid):
         """
         No children.
         """
         raise AssertionError("CommonHomeExternal: not supported")
-
 
     def notifyChanged(self, category=ChangeCategory.default):
         """
@@ -210,20 +193,17 @@ class CommonHomeExternal(CommonHome):
         """
         return succeed(None)
 
-
     def bumpModified(self):
         """
         No changes recorded for external homes - make this a no-op.
         """
         return succeed(None)
 
-
     def removeUnacceptedShares(self):
         """
         No children.
         """
         raise AssertionError("CommonHomeExternal: not supported")
-
 
     @inlineCallbacks
     def sharedToBindRecords(self):
@@ -236,7 +216,6 @@ class CommonHomeExternal(CommonHome):
                 self._childClass._metadataRecordClass.deserialize(v[2]),
             ),
         ) for k, v in results.items()]))
-
 
 
 class CommonHomeChildExternal(CommonHomeChild):
@@ -255,7 +234,6 @@ class CommonHomeChildExternal(CommonHomeChild):
 
         return home._txn.store().conduit.send_homechild_listobjects(home)
 
-
     @classmethod
     @inlineCallbacks
     def loadAllObjects(cls, home):
@@ -266,7 +244,6 @@ class CommonHomeChildExternal(CommonHomeChild):
             child = yield cls.deserialize(home, mapping)
             results.append(child)
         returnValue(results)
-
 
     @classmethod
     @inlineCallbacks
@@ -279,7 +256,6 @@ class CommonHomeChildExternal(CommonHomeChild):
         else:
             returnValue(None)
 
-
     def external(self):
         """
         Is this an external home.
@@ -287,7 +263,6 @@ class CommonHomeChildExternal(CommonHomeChild):
         @return: a string.
         """
         return True
-
 
     @inlineCallbacks
     def fixNonExistentExternalShare(self):
@@ -300,7 +275,6 @@ class CommonHomeChildExternal(CommonHomeChild):
         yield ownerView.removeShare(self)
         yield ownerView.cleanExternalShare()
 
-
     @inlineCallbacks
     def remove(self):
         """
@@ -312,7 +286,6 @@ class CommonHomeChildExternal(CommonHomeChild):
         else:
             raise AssertionError("CommonHomeChildExternal: not supported")
 
-
     @inlineCallbacks
     def moveObjectResource(self, child, newparent, newname=None):
         """
@@ -323,7 +296,6 @@ class CommonHomeChildExternal(CommonHomeChild):
         pod. The best bet here is to treat the move as a delete/create.
         """
         raise NotImplementedError("TODO: external resource")
-
 
     @inlineCallbacks
     def moveObjectResourceHere(self, name, component):
@@ -344,7 +316,6 @@ class CommonHomeChildExternal(CommonHomeChild):
             raise ExternalShareFailed("External share does not exist")
         returnValue(result)
 
-
     @inlineCallbacks
     def moveObjectResourceAway(self, rid, child=None):
         """
@@ -364,7 +335,6 @@ class CommonHomeChildExternal(CommonHomeChild):
             raise ExternalShareFailed("External share does not exist")
         returnValue(result)
 
-
     @inlineCallbacks
     def syncTokenRevision(self):
         if self._syncTokenRevision is None:
@@ -374,7 +344,6 @@ class CommonHomeChildExternal(CommonHomeChild):
                 yield self.fixNonExistentExternalShare()
                 raise ExternalShareFailed("External share does not exist")
         returnValue(revision)
-
 
     @inlineCallbacks
     def resourceNamesSinceRevision(self, revision):
@@ -386,7 +355,6 @@ class CommonHomeChildExternal(CommonHomeChild):
 
         returnValue(names)
 
-
     @inlineCallbacks
     def search(self, filter, **kwargs):
         try:
@@ -397,16 +365,13 @@ class CommonHomeChildExternal(CommonHomeChild):
 
         returnValue(results)
 
-
     @inlineCallbacks
     def sharingBindRecords(self):
         results = yield self._txn.store().conduit.send_homechild_sharing_records(self)
         returnValue(dict([(k, self._bindRecordClass.deserialize(v),) for k, v in results.items()]))
 
-
     def migrateBindRecords(self, bindUID):
         return self._txn.store().conduit.send_homechild_migrate_sharing_records(self, bindUID)
-
 
 
 class CommonObjectResourceExternal(CommonObjectResource):
@@ -427,7 +392,6 @@ class CommonObjectResourceExternal(CommonObjectResource):
                 results.append(child)
         returnValue(results)
 
-
     @classmethod
     @inlineCallbacks
     def loadAllObjectsWithNames(cls, parent, names):
@@ -440,16 +404,13 @@ class CommonObjectResourceExternal(CommonObjectResource):
                 results.append(child)
         returnValue(results)
 
-
     @classmethod
     def listObjects(cls, parent):
         return parent._txn.store().conduit.send_objectresource_listobjects(parent)
 
-
     @classmethod
     def countObjects(cls, parent):
         return parent._txn.store().conduit.send_objectresource_countobjects(parent)
-
 
     @classmethod
     @inlineCallbacks
@@ -462,16 +423,13 @@ class CommonObjectResourceExternal(CommonObjectResource):
         else:
             returnValue(None)
 
-
     @classmethod
     def resourceNameForUID(cls, parent, uid):
         return parent._txn.store().conduit.send_objectresource_resourcenameforuid(parent, uid)
 
-
     @classmethod
     def resourceUIDForName(cls, parent, name):
         return parent._txn.store().conduit.send_objectresource_resourceuidforname(parent, name)
-
 
     @classmethod
     @inlineCallbacks
@@ -484,13 +442,11 @@ class CommonObjectResourceExternal(CommonObjectResource):
         else:
             returnValue(None)
 
-
     @inlineCallbacks
     def setComponent(self, component, **kwargs):
         self._componentChanged = yield self._txn.store().conduit.send_objectresource_setcomponent(self, str(component), **kwargs)
         self._cachedComponent = None
         returnValue(self._componentChanged)
-
 
     @inlineCallbacks
     def component(self):
@@ -500,10 +456,8 @@ class CommonObjectResourceExternal(CommonObjectResource):
 
         returnValue(self._cachedComponent)
 
-
     def remove(self):
         return self._txn.store().conduit.send_objectresource_remove(self)
-
 
 
 class NotificationCollectionExternal(NotificationCollection):
@@ -516,23 +470,19 @@ class NotificationCollectionExternal(NotificationCollection):
     def notificationsWithUID(cls, txn, uid, create=False):
         return super(NotificationCollectionExternal, cls).notificationsWithUID(txn, uid, status=_HOME_STATUS_EXTERNAL, create=create)
 
-
     def initFromStore(self):
         """
         NoOp for an external share as there are no properties.
         """
         return succeed(self)
 
-
     @inlineCallbacks
     def notificationObjectRecords(self):
         results = yield self._txn.store().conduit.send_notification_all_records(self)
         returnValue(map(NotificationObjectRecord.deserialize, results))
 
-
     def setStatus(self, newStatus):
         return self._txn.store().conduit.send_notification_set_status(self, newStatus)
-
 
     def setLocalStatus(self, newStatus):
         """

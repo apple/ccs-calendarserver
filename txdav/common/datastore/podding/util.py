@@ -106,7 +106,6 @@ class UtilityConduitMixin(object):
 
         returnValue((txn, result, recipient.server(),))
 
-
     @inlineCallbacks
     def _getStoreObjectForRequest(self, txn, request):
         """
@@ -162,7 +161,6 @@ class UtilityConduitMixin(object):
 
         returnValue((returnObject, classObject,))
 
-
     #
     # We can simplify code generation for simple calls by dynamically generating the appropriate class methods.
     #
@@ -194,7 +192,6 @@ class UtilityConduitMixin(object):
         response = yield self.sendRequestToServer(txn, server, request)
         returnValue(transform(response) if transform is not None else response)
 
-
     @inlineCallbacks
     def _simple_object_recv(self, txn, actionName, request, method, transform=None):
         """
@@ -219,7 +216,6 @@ class UtilityConduitMixin(object):
 
         returnValue(transform(value) if transform is not None else value)
 
-
     #
     # Factory methods for binding actions to the conduit class
     #
@@ -238,7 +234,6 @@ class UtilityConduitMixin(object):
                 self._simple_object_recv(txn, action, message, method, transform=transform_recv_result)
         )
 
-
     #
     # Transforms for returned data
     #
@@ -249,7 +244,6 @@ class UtilityConduitMixin(object):
         """
         return value.serialize() if value is not None else None
 
-
     @staticmethod
     def _to_serialize_list(value):
         """
@@ -257,11 +251,9 @@ class UtilityConduitMixin(object):
         """
         return [v.serialize() for v in value]
 
-
     @staticmethod
     def _to_string(value):
         return str(value)
-
 
     @staticmethod
     def _to_tuple(value):

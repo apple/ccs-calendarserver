@@ -93,22 +93,19 @@ class AttachmentTests(CommonCommonTests, unittest.TestCase):
         "hasPrivateComment": False,
     }
 
-
     @inlineCallbacks
     def setUp(self):
         yield super(AttachmentTests, self).setUp()
         yield self.buildStoreAndDirectory()
         yield self.populate()
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
 
-
     @classproperty(cache=False)
-    def requirements(cls): #@NoSelf
+    def requirements(cls):  # @NoSelf
         metadata1 = cls.metadata1.copy()
         metadata2 = cls.metadata2.copy()
         metadata3 = cls.metadata3.copy()
@@ -124,13 +121,11 @@ class AttachmentTests(CommonCommonTests, unittest.TestCase):
             },
         }
 
-
     def storeUnderTest(self):
         """
         Create and return a L{CalendarStore} for testing.
         """
         return self._sqlCalendarStore
-
 
 
 class DropBoxAttachmentTests(AttachmentTests):
@@ -173,7 +168,6 @@ END:VEVENT
 END:VCALENDAR
     """.strip().split("\n"))
 
-
     @inlineCallbacks
     def setUp(self):
         yield super(DropBoxAttachmentTests, self).setUp()
@@ -190,7 +184,6 @@ END:VCALENDAR
             Where=cs.NAME == "MANAGED-ATTACHMENTS"
         ).on(txn)
         yield txn.commit()
-
 
     @inlineCallbacks
     def createAttachmentTest(self, refresh):
@@ -220,7 +213,6 @@ END:VCALENDAR
             ['new.attachment']
         )
 
-
     @inlineCallbacks
     def stringToAttachment(self, obj, name, contents,
                            mimeType=MimeType("text", "x-fixture")):
@@ -249,7 +241,6 @@ END:VCALENDAR
         yield t.loseConnection()
         returnValue(att)
 
-
     def attachmentToString(self, attachment):
         """
         Convenience to convert an L{IAttachment} to a string.
@@ -263,7 +254,6 @@ END:VCALENDAR
         capture = CaptureProtocol()
         attachment.retrieve(capture)
         return capture.deferred
-
 
     @inlineCallbacks
     def test_attachmentPath(self):
@@ -283,7 +273,6 @@ END:VCALENDAR
                 "new.attachment")
         self.assertTrue(attachmentPath.isfile())
 
-
     @inlineCallbacks
     def test_dropboxID(self):
         """
@@ -296,7 +285,6 @@ END:VCALENDAR
         ))
         obj = yield cal.calendarObjectWithName("drop.ics")
         self.assertEquals((yield obj.dropboxID()), "some-dropbox-id")
-
 
     @inlineCallbacks
     def test_dropboxIDs(self):
@@ -313,7 +301,6 @@ END:VCALENDAR
         ])
         self.assertEquals(set((yield home.getAllDropboxIDs())),
                           allDropboxIDs)
-
 
     @inlineCallbacks
     def test_indexByDropboxProperty(self):
@@ -336,7 +323,6 @@ END:VCALENDAR
         fromDropbox = yield home.calendarObjectWithDropboxID("some-dropbox-id")
         self.assertEquals(fromName, fromDropbox)
 
-
     @inlineCallbacks
     def test_twoAttachmentsWithTheSameName(self):
         """
@@ -354,7 +340,6 @@ END:VCALENDAR
         self.assertEquals(data1, "test data 1")
         self.assertEquals(data2, "test data 2")
 
-
     def test_createAttachment(self):
         """
         L{ICalendarObject.createAttachmentWithName} will store an
@@ -362,7 +347,6 @@ END:VCALENDAR
         L{ICalendarObject.attachmentWithName}.
         """
         return self.createAttachmentTest(lambda x: x)
-
 
     def test_createAttachmentCommit(self):
         """
@@ -376,7 +360,6 @@ END:VCALENDAR
             result = yield self.calendarObjectUnderTest()
             returnValue(result)
         return self.createAttachmentTest(refresh)
-
 
     @inlineCallbacks
     def test_attachmentTemporaryFileCleanup(self):
@@ -408,7 +391,6 @@ END:VCALENDAR
 
         self.assertFalse(os.path.exists(temp))
 
-
     @inlineCallbacks
     def test_quotaAllowedBytes(self):
         """
@@ -419,7 +401,6 @@ END:VCALENDAR
         home = yield self.homeUnderTest()
         actual = home.quotaAllowedBytes()
         self.assertEquals(expected, actual)
-
 
     @withSpecialQuota(None)
     @inlineCallbacks
@@ -432,7 +413,6 @@ END:VCALENDAR
         allowed = home.quotaAllowedBytes()
         self.assertIdentical(allowed, None)
         yield self.test_createAttachment()
-
 
     @inlineCallbacks
     def test_quotaTransportAddress(self):
@@ -450,7 +430,6 @@ END:VCALENDAR
         self.assertIdentical(host.attachment, attachment)
         self.assertIn(name, repr(peer))
         self.assertIn(name, repr(host))
-
 
     @inlineCallbacks
     def exceedQuotaTest(self, getit):
@@ -472,7 +451,6 @@ END:VCALENDAR
         d = t.loseConnection()
         yield self.failUnlessFailure(d, QuotaExceeded)
 
-
     @inlineCallbacks
     def test_exceedQuotaNew(self):
         """
@@ -487,7 +465,6 @@ END:VCALENDAR
         yield self.commit()
         obj = yield self.calendarObjectUnderTest()
         self.assertEquals((yield obj.attachments()), [])
-
 
     @inlineCallbacks
     def test_exceedQuotaReplace(self):
@@ -504,6 +481,7 @@ END:VCALENDAR
         t.write(sampleData)
         yield t.loseConnection()
         yield self.exceedQuotaTest(get)
+
         @inlineCallbacks
         def checkOriginal():
             actual = yield self.attachmentToString(attachment)
@@ -519,7 +497,6 @@ END:VCALENDAR
         obj = yield self.calendarObjectUnderTest()
         attachment = yield get()
         yield checkOriginal()
-
 
     @inlineCallbacks
     def exceedSizeTest(self, getit):
@@ -540,7 +517,6 @@ END:VCALENDAR
         d = t.loseConnection()
         yield self.failUnlessFailure(d, AttachmentSizeTooLarge)
 
-
     @inlineCallbacks
     def test_exceedSizeNew(self):
         """
@@ -558,7 +534,6 @@ END:VCALENDAR
         obj = yield self.calendarObjectUnderTest()
         self.assertEquals((yield obj.attachments()), [])
 
-
     @inlineCallbacks
     def test_exceedSizeReplace(self):
         """
@@ -575,6 +550,7 @@ END:VCALENDAR
         t.write(sampleData)
         yield t.loseConnection()
         yield self.exceedSizeTest(get)
+
         @inlineCallbacks
         def checkOriginal():
             actual = yield self.attachmentToString(attachment)
@@ -590,7 +566,6 @@ END:VCALENDAR
         obj = yield self.calendarObjectUnderTest()
         attachment = yield get()
         yield checkOriginal()
-
 
     def test_removeAttachmentWithName(self, refresh=lambda x: x):
         """
@@ -608,7 +583,6 @@ END:VCALENDAR
             self.assertEquals(list((yield obj.attachments())), [])
         return self.test_createAttachmentCommit().addCallback(deleteIt)
 
-
     def test_removeAttachmentWithNameCommit(self):
         """
         L{ICalendarObject.removeAttachmentWithName} will remove the calendar
@@ -620,7 +594,6 @@ END:VCALENDAR
             result = yield self.calendarObjectUnderTest()
             returnValue(result)
         return self.test_removeAttachmentWithName(refresh)
-
 
     @inlineCallbacks
     def test_noDropboxCalendar(self):
@@ -643,7 +616,6 @@ END:VCALENDAR
         self.assertEquals(
             set([n.name() for n in calendars]),
             set(home1_calendarNames))
-
 
     @inlineCallbacks
     def test_cleanupAttachments(self):
@@ -698,7 +670,6 @@ END:VCALENDAR
         yield self.commit()
         self.assertEqual(quota, 0)
 
-
     @inlineCallbacks
     def test_cleanupMultipleAttachments(self):
         """
@@ -750,7 +721,6 @@ END:VCALENDAR
         quota = (yield home.quotaUsedBytes())
         yield self.commit()
         self.assertEqual(quota, 0)
-
 
     @inlineCallbacks
     def test_cleanupAttachmentsOnMultipleResources(self):
@@ -858,7 +828,6 @@ END:VCALENDAR
         self.assertEqual(quota, 0)
 
 
-
 class ManagedAttachmentTests(AttachmentTests):
 
     @inlineCallbacks
@@ -874,7 +843,6 @@ class ManagedAttachmentTests(AttachmentTests):
         if (yield self.transactionUnderTest().calendarserverValue("MANAGED-ATTACHMENTS", raiseIfMissing=False)) is None:
             yield self.transactionUnderTest().setCalendarserverValue("MANAGED-ATTACHMENTS", "1")
         yield self.commit()
-
 
     @inlineCallbacks
     def createAttachmentTest(self, refresh):
@@ -905,7 +873,6 @@ class ManagedAttachmentTests(AttachmentTests):
 
         returnValue(mid)
 
-
     @inlineCallbacks
     def stringToAttachment(self, obj, name, contents,
                            mimeType=MimeType("text", "x-fixture")):
@@ -934,7 +901,6 @@ class ManagedAttachmentTests(AttachmentTests):
         yield t.loseConnection()
         returnValue(att)
 
-
     def attachmentToString(self, attachment):
         """
         Convenience to convert an L{IAttachment} to a string.
@@ -948,7 +914,6 @@ class ManagedAttachmentTests(AttachmentTests):
         capture = CaptureProtocol()
         attachment.retrieve(capture)
         return capture.deferred
-
 
     @inlineCallbacks
     def test_attachmentPath(self):
@@ -970,7 +935,6 @@ class ManagedAttachmentTests(AttachmentTests):
             hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid)
         self.assertTrue(attachmentPath.isfile())
 
-
     @inlineCallbacks
     def test_twoAttachmentsWithTheSameName(self):
         """
@@ -988,7 +952,6 @@ class ManagedAttachmentTests(AttachmentTests):
         self.assertEquals(data1, "test data 1")
         self.assertEquals(data2, "test data 2")
 
-
     @inlineCallbacks
     def test_dropboxIDs(self):
         """
@@ -1005,7 +968,6 @@ class ManagedAttachmentTests(AttachmentTests):
         self.assertEquals(set((yield home.getAllDropboxIDs())),
                           allDropboxIDs)
 
-
     def test_createAttachment(self):
         """
         L{ICalendarObject.createManagedAttachment} will store an
@@ -1013,7 +975,6 @@ class ManagedAttachmentTests(AttachmentTests):
         L{ICalendarObject.attachmentWithManagedID}.
         """
         return self.createAttachmentTest(lambda x: x)
-
 
     def test_createAttachmentCommit(self):
         """
@@ -1027,7 +988,6 @@ class ManagedAttachmentTests(AttachmentTests):
             result = yield self.calendarObjectUnderTest()
             returnValue(result)
         return self.createAttachmentTest(refresh)
-
 
     @inlineCallbacks
     def test_attachmentTemporaryFileCleanup(self):
@@ -1055,7 +1015,6 @@ class ManagedAttachmentTests(AttachmentTests):
 
         self.assertFalse(os.path.exists(temp))
 
-
     @inlineCallbacks
     def test_quotaAllowedBytes(self):
         """
@@ -1066,7 +1025,6 @@ class ManagedAttachmentTests(AttachmentTests):
         home = yield self.homeUnderTest()
         actual = home.quotaAllowedBytes()
         self.assertEquals(expected, actual)
-
 
     @withSpecialQuota(None)
     @inlineCallbacks
@@ -1079,7 +1037,6 @@ class ManagedAttachmentTests(AttachmentTests):
         allowed = home.quotaAllowedBytes()
         self.assertIdentical(allowed, None)
         yield self.test_createAttachment()
-
 
     @inlineCallbacks
     def test_quotaTransportAddress(self):
@@ -1097,7 +1054,6 @@ class ManagedAttachmentTests(AttachmentTests):
         self.assertIdentical(host.attachment, attachment)
         self.assertIn(name, repr(peer))
         self.assertIn(name, repr(host))
-
 
     @inlineCallbacks
     def exceedQuotaTest(self, getit, name):
@@ -1119,7 +1075,6 @@ class ManagedAttachmentTests(AttachmentTests):
         d = t.loseConnection()
         yield self.failUnlessFailure(d, QuotaExceeded)
 
-
     @inlineCallbacks
     def test_exceedQuotaNew(self):
         """
@@ -1134,7 +1089,6 @@ class ManagedAttachmentTests(AttachmentTests):
         yield self.commit()
         obj = yield self.calendarObjectUnderTest()
         self.assertEquals((yield obj.managedAttachmentList()), [])
-
 
     @inlineCallbacks
     def test_exceedQuotaReplace(self):
@@ -1151,6 +1105,7 @@ class ManagedAttachmentTests(AttachmentTests):
         t.write(sampleData)
         yield t.loseConnection()
         yield self.exceedQuotaTest(get, "exists.attachment")
+
         @inlineCallbacks
         def checkOriginal():
             actual = yield self.attachmentToString(attachment)
@@ -1166,7 +1121,6 @@ class ManagedAttachmentTests(AttachmentTests):
         obj = yield self.calendarObjectUnderTest()
         attachment = yield get()
         yield checkOriginal()
-
 
     @inlineCallbacks
     def exceedSizeTest(self, getit, name):
@@ -1187,7 +1141,6 @@ class ManagedAttachmentTests(AttachmentTests):
         d = t.loseConnection()
         yield self.failUnlessFailure(d, AttachmentSizeTooLarge)
 
-
     @inlineCallbacks
     def test_exceedSizeNew(self):
         """
@@ -1203,7 +1156,6 @@ class ManagedAttachmentTests(AttachmentTests):
         yield self.commit()
         obj = yield self.calendarObjectUnderTest()
         self.assertEquals((yield obj.managedAttachmentList()), [])
-
 
     @inlineCallbacks
     def test_exceedSizeReplace(self):
@@ -1221,6 +1173,7 @@ class ManagedAttachmentTests(AttachmentTests):
         t.write(sampleData)
         yield t.loseConnection()
         yield self.exceedSizeTest(get, "exists.attachment")
+
         @inlineCallbacks
         def checkOriginal():
             actual = yield self.attachmentToString(attachment)
@@ -1236,7 +1189,6 @@ class ManagedAttachmentTests(AttachmentTests):
         obj = yield self.calendarObjectUnderTest()
         attachment = yield get()
         yield checkOriginal()
-
 
     def test_removeManagedAttachmentWithID(self, refresh=lambda x: x):
         """
@@ -1254,7 +1206,6 @@ class ManagedAttachmentTests(AttachmentTests):
             self.assertEquals(list((yield obj.managedAttachmentList())), [])
         return self.test_createAttachmentCommit().addCallback(deleteIt)
 
-
     def test_removeManagedAttachmentWithIDCommit(self):
         """
         L{ICalendarObject.removeManagedAttachmentWithID} will remove the calendar
@@ -1266,7 +1217,6 @@ class ManagedAttachmentTests(AttachmentTests):
             result = yield self.calendarObjectUnderTest()
             returnValue(result)
         return self.test_removeManagedAttachmentWithID(refresh)
-
 
     @inlineCallbacks
     def test_noDropboxCalendar(self):
@@ -1287,7 +1237,6 @@ class ManagedAttachmentTests(AttachmentTests):
         self.assertEquals(
             set([n.name() for n in calendars]),
             set(home1_calendarNames))
-
 
     @inlineCallbacks
     def test_cleanupAttachments(self):
@@ -1340,7 +1289,6 @@ class ManagedAttachmentTests(AttachmentTests):
         yield self.commit()
         self.assertEqual(quota, 0)
 
-
     @inlineCallbacks
     def test_cleanupMultipleAttachments(self):
         """
@@ -1387,7 +1335,6 @@ class ManagedAttachmentTests(AttachmentTests):
         quota = (yield home.quotaUsedBytes())
         yield self.commit()
         self.assertEqual(quota, 0)
-
 
     @inlineCallbacks
     def test_cleanupAttachmentsOnMultipleResources(self):
@@ -1438,7 +1385,6 @@ class ManagedAttachmentTests(AttachmentTests):
         quota = (yield home.quotaUsedBytes())
         yield self.commit()
         self.assertEqual(quota, 0)
-
 
     @inlineCallbacks
     def test_resourceCheckAttachments_clientRemovesParameters(self):
@@ -1493,7 +1439,6 @@ class ManagedAttachmentTests(AttachmentTests):
         attachment = yield obj.attachmentWithManagedID(managed_id2)
         data = yield self.attachmentToString(attachment)
         self.assertEquals(data, "new attachment text")
-
 
     @inlineCallbacks
     def test_validFilename(self):
@@ -1660,25 +1605,25 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
     }
 
     requirements = {
-        u"home1" : {
-            "calendar1" : {
-                "1.1.ics" : (PLAIN_ICS % {"year": now, "uid": "1.1", }, metadata,),
-                "1.2.ics" : (ATTACHMENT_ICS % {"year": now, "uid": "1.2", "userid": "user01", "dropboxid": "1.2"}, metadata,),
-                "1.3.ics" : (ATTACHMENT_ICS % {"year": now, "uid": "1.3", "userid": "user01", "dropboxid": "1.3"}, metadata,),
-                "1.4.ics" : (ATTACHMENT_ICS % {"year": now, "uid": "1.4", "userid": "user01", "dropboxid": "1.4"}, metadata,),
-                "1.5.ics" : (ATTACHMENT_ICS % {"year": now, "uid": "1.5", "userid": "user01", "dropboxid": "1.4"}, metadata,),
+        u"home1": {
+            "calendar1": {
+                "1.1.ics": (PLAIN_ICS % {"year": now, "uid": "1.1", }, metadata,),
+                "1.2.ics": (ATTACHMENT_ICS % {"year": now, "uid": "1.2", "userid": "user01", "dropboxid": "1.2"}, metadata,),
+                "1.3.ics": (ATTACHMENT_ICS % {"year": now, "uid": "1.3", "userid": "user01", "dropboxid": "1.3"}, metadata,),
+                "1.4.ics": (ATTACHMENT_ICS % {"year": now, "uid": "1.4", "userid": "user01", "dropboxid": "1.4"}, metadata,),
+                "1.5.ics": (ATTACHMENT_ICS % {"year": now, "uid": "1.5", "userid": "user01", "dropboxid": "1.4"}, metadata,),
             }
         },
-        u"home2" : {
-            "calendar2" : {
-                "2-2.1.ics" : (PLAIN_ICS % {"year": now, "uid": "2-2.1", }, metadata,),
-                "2-2.2.ics" : (ATTACHMENT_ICS % {"year": now, "uid": "2-2.2", "userid": "user02", "dropboxid": "2.2"}, metadata,),
-                "2-2.3.ics" : (ATTACHMENT_ICS % {"year": now, "uid": "1.3", "userid": "user01", "dropboxid": "1.3"}, metadata,),
+        u"home2": {
+            "calendar2": {
+                "2-2.1.ics": (PLAIN_ICS % {"year": now, "uid": "2-2.1", }, metadata,),
+                "2-2.2.ics": (ATTACHMENT_ICS % {"year": now, "uid": "2-2.2", "userid": "user02", "dropboxid": "2.2"}, metadata,),
+                "2-2.3.ics": (ATTACHMENT_ICS % {"year": now, "uid": "1.3", "userid": "user01", "dropboxid": "1.3"}, metadata,),
             },
-            "calendar3" : {
-                "2-3.1.ics" : (PLAIN_ICS % {"year": now, "uid": "2-3.1", }, metadata,),
-                "2-3.2.ics" : (ATTACHMENT_ICS % {"year": now, "uid": "1.4", "userid": "user01", "dropboxid": "1.4"}, metadata,),
-                "2-3.3.ics" : (ATTACHMENT_ICS % {"year": now, "uid": "1.5", "userid": "user01", "dropboxid": "1.4"}, metadata,),
+            "calendar3": {
+                "2-3.1.ics": (PLAIN_ICS % {"year": now, "uid": "2-3.1", }, metadata,),
+                "2-3.2.ics": (ATTACHMENT_ICS % {"year": now, "uid": "1.4", "userid": "user01", "dropboxid": "1.4"}, metadata,),
+                "2-3.3.ics": (ATTACHMENT_ICS % {"year": now, "uid": "1.5", "userid": "user01", "dropboxid": "1.4"}, metadata,),
             }
         }
     }
@@ -1697,7 +1642,6 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         yield self.populate()
 
         self.paths = {}
-
 
     @inlineCallbacks
     def populate(self):
@@ -1721,7 +1665,6 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         ).on(txn)
 
         yield txn.commit()
-
 
     @inlineCallbacks
     def _addAttachment(self, home, calendar, event, dropboxid, name):
@@ -1753,7 +1696,6 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
 
         returnValue(attachment)
 
-
     @inlineCallbacks
     def _addAttachmentProperty(self, home, calendar, event, dropboxid, owner_home, name):
 
@@ -1773,7 +1715,6 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         yield event.setComponent(cal)
         yield txn.commit()
 
-
     @inlineCallbacks
     def _addAllAttachments(self):
         """
@@ -1789,7 +1730,6 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         yield self._addAttachmentProperty(u"home2", "calendar2", "2-2.3.ics", "1.3", "home1", "attach_1_3.txt")
         yield self._addAttachmentProperty(u"home2", "calendar3", "2-3.2.ics", "1.4", "home1", "attach_1_4.txt")
         yield self._addAttachmentProperty(u"home2", "calendar3", "2-3.3.ics", "1.4", "home1", "attach_1_4.txt")
-
 
     @inlineCallbacks
     def _verifyConversion(self, home, calendar, event, filenames):
@@ -1820,7 +1760,6 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         self.assertEqual(dropbox_count, 0)
         yield txn.commit()
 
-
     @inlineCallbacks
     def _verifyNoConversion(self, home, calendar, event, filenames):
         """
@@ -1850,7 +1789,6 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         self.assertEqual(dropbox_count, len(filenames))
         yield txn.commit()
 
-
     @inlineCallbacks
     def test_loadCalendarObjectsForDropboxID(self):
         """
@@ -1870,7 +1808,6 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
             self.assertEqual(len(cobjs), result_count, "Failed count with dropbox id: %s" % (dropbox_id,))
             names = set([cobj.name() for cobj in cobjs])
             self.assertEqual(names, set(result_names), "Failed names with dropbox id: %s" % (dropbox_id,))
-
 
     @inlineCallbacks
     def test_convertToManaged(self):
@@ -1902,7 +1839,6 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         self.assertNotEqual(mattachment2, None)
         self.assertTrue(mattachment2.isManaged())
         yield txn.commit()
-
 
     @inlineCallbacks
     def test_newReference(self):
@@ -1950,7 +1886,6 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         self.assertTrue(mtest5.isManaged())
         self.assertEqual(mtest5._objectResourceID, event5._resourceID)
         yield txn.commit()
-
 
     @inlineCallbacks
     def test_convertAttachments(self):
@@ -2038,7 +1973,6 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         self.assertEqual(dropbox_count, 0)
         yield txn.commit()
 
-
     @inlineCallbacks
     def test_upgradeDropbox_oneEvent(self):
         """
@@ -2061,7 +1995,6 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         yield self._verifyNoConversion(u"home2", "calendar2", "2-2.3.ics", ("attach_1_3.txt",))
         yield self._verifyNoConversion(u"home2", "calendar3", "2-3.2.ics", ("attach_1_4.txt",))
         yield self._verifyNoConversion(u"home2", "calendar3", "2-3.3.ics", ("attach_1_4.txt",))
-
 
     @inlineCallbacks
     def test_upgradeDropbox_oneEventTwoHomes(self):
@@ -2086,7 +2019,6 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         yield self._verifyNoConversion(u"home2", "calendar3", "2-3.2.ics", ("attach_1_4.txt",))
         yield self._verifyNoConversion(u"home2", "calendar3", "2-3.3.ics", ("attach_1_4.txt",))
 
-
     @inlineCallbacks
     def test_upgradeDropbox_twoEventsTwoHomes(self):
         """
@@ -2109,7 +2041,6 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         yield self._verifyNoConversion(u"home2", "calendar2", "2-2.3.ics", ("attach_1_3.txt",))
         yield self._verifyConversion(u"home2", "calendar3", "2-3.2.ics", ("attach_1_4.txt",))
         yield self._verifyConversion(u"home2", "calendar3", "2-3.3.ics", ("attach_1_4.txt",))
-
 
     @inlineCallbacks
     def test_upgradeToManagedAttachments(self):

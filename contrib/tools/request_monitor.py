@@ -72,6 +72,7 @@ sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 filenames = ["/var/log/caldavd/access.log", ]
 debug = False
 
+
 def listenq():
     child = Popen(
         args=[
@@ -90,6 +91,7 @@ def listenq():
 
 _listenQueueHistory = []
 
+
 def listenQueueHistory():
     global _listenQueueHistory
     latest, ssl, nonssl = listenq()
@@ -100,13 +102,13 @@ def listenQueueHistory():
 
 _idleHistory = []
 
+
 def idleHistory():
     global _idleHistory
     latest = cpuidle()
     _idleHistory.insert(0, latest)
     del _idleHistory[12:]
     return _idleHistory
-
 
 
 def tail(filenames, n):
@@ -123,7 +125,6 @@ def tail(filenames, n):
     return results
 
 
-
 def range(filenames, start, end):
     results = collections.defaultdict(list)
     for filename in filenames:
@@ -134,7 +135,6 @@ def range(filenames, start, end):
                 if count > end:
                     break
     return results
-
 
 
 def cpuPerDaemon():
@@ -160,7 +160,6 @@ def cpuPerDaemon():
     return ", ".join([v for _ignore_k, v in sorted(a.items(), key=lambda i:i[0])])
 
 
-
 def cpuidle():
     if OS == "OS X":
         child = Popen(
@@ -180,7 +179,6 @@ def cpuidle():
         )
         output, _ignore_ = child.communicate()
         return output.splitlines()[-2].split()[5]
-
 
 
 def freemem():
@@ -219,7 +217,6 @@ def freemem():
             print("freemem failure", e)
             print(traceback.print_exc())
         return "error"
-
 
 
 def parseLine(line):
@@ -283,11 +280,9 @@ def parseLine(line):
     return userId, logTime, method, uri, status, bytes, referer, client, extended
 
 
-
 def safePercent(value, total):
 
     return value * 100.0 / total if total else 0.0
-
 
 
 def usage():
@@ -473,7 +468,7 @@ while True:
                     pass
 
                 if userId != "-":
-                    userStat = users.get(userId, {'count' : 0, 'clients' : {}})
+                    userStat = users.get(userId, {'count': 0, 'clients': {}})
                     userStat['count'] += 1
                     clientCount = userStat['clients'].get(client, 0)
                     userStat['clients'][client] = clientCount + 1

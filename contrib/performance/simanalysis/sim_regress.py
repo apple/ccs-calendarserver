@@ -39,7 +39,6 @@ class SimRegress(object):
         self.cwd = os.getcwd()
         self.results = []
 
-
     def run(self):
 
         # Get the actual SVN revisions we want to use
@@ -75,7 +74,6 @@ class SimRegress(object):
             qos = "{:.4f}".format(qos) if qos is not None else "-"
             print("{}\t{}".format(rev, qos))
 
-
     def getRevisions(self):
 
         if self.stopRev is None:
@@ -87,7 +85,6 @@ class SimRegress(object):
                 print("Using HEAD revision: {}".format(self.stopRev))
 
         return range(self.startRev, self.stopRev, self.stepRev) + [self.stopRev]
-
 
     def checkRevision(self):
         # Create the tmp dir and do initial checkout
@@ -107,7 +104,6 @@ class SimRegress(object):
                 # Upgrade from older revision to what we want
                 self.updateRevision()
 
-
     def checkoutInitialRevision(self):
         print("Checking out revision: {}".format(self.startRev))
         subprocess.call(
@@ -115,13 +111,11 @@ class SimRegress(object):
             stdout=self.log, stderr=self.log,
         )
 
-
     def currentRevision(self):
         print("Checking current revision")
         out = subprocess.check_output("svn info".split())
         rev = filter(lambda line: line.startswith("Revision: "), out.splitlines())
         return int(rev[0][len("Revision: "):]) if rev else None
-
 
     def updateRevision(self):
         print("Updating to revision: {}".format(self.currentRev))
@@ -129,7 +123,6 @@ class SimRegress(object):
             "svn up -r {rev} .".format(rev=self.currentRev).split(),
             stdout=self.log, stderr=self.log,
         )
-
 
     def patchConfig(self, configPath):
         """
@@ -143,11 +136,9 @@ class SimRegress(object):
         f['Authentication']['Kerberos']['Enabled'] = False
         plistlib.writePlist(f, configPath)
 
-
     def buildServer(self):
         print("Building revision: {}".format(self.currentRev))
         subprocess.call("./bin/develop".split(), stdout=self.log, stderr=self.log)
-
 
     def runServer(self):
         print("Running revision: {}".format(self.currentRev))
@@ -164,11 +155,9 @@ class SimRegress(object):
                 time.sleep(10)
                 break
 
-
     def stopServer(self):
         print("Stopping revision: {}".format(self.currentRev))
         subprocess.call("./bin/run -k".split(), stdout=self.log, stderr=self.log)
-
 
     def runSim(self):
         print("Running sim")
@@ -180,7 +169,6 @@ class SimRegress(object):
             config=os.path.join(self.cwd, "contrib/performance/loadtest/config-old.plist"),
             clients=os.path.join(self.cwd, "contrib/performance/loadtest/clients-old.plist"),
         ).split(), stdout=self.log, stderr=self.log)
-
 
 
 if __name__ == '__main__':

@@ -64,11 +64,11 @@ def defaultHeadersFilter(request, response):
     return response
 defaultHeadersFilter.handleErrors = True
 
+
 def preconditionfilter(request, response):
     if request.method in ("GET", "HEAD"):
         http.checkPreconditions(request, response)
     return response
-
 
 
 def doTrace(request):
@@ -86,7 +86,6 @@ def doTrace(request):
         responsecode.OK,
         {'content-type': http_headers.MimeType('message', 'http')},
         txt)
-
 
 
 def parsePOSTData(request, maxMem=100 * 1024, maxFields=1024,
@@ -115,17 +114,14 @@ def parsePOSTData(request, maxMem=100 * 1024, maxFields=1024,
     if ctype is None:
         return defer.succeed(None)
 
-
     def updateArgs(data):
         args = data
         request.args.update(args)
-
 
     def updateArgsAndFiles(data):
         args, files = data
         request.args.update(args)
         request.files.update(files)
-
 
     def error(f):
         f.trap(fileupload.MimeFormatError)
@@ -133,14 +129,14 @@ def parsePOSTData(request, maxMem=100 * 1024, maxFields=1024,
             http.StatusResponse(responsecode.BAD_REQUEST, str(f.value)))
 
     if (
-        ctype.mediaType == 'application'
-        and ctype.mediaSubtype == 'x-www-form-urlencoded'
+        ctype.mediaType == 'application' and
+        ctype.mediaSubtype == 'x-www-form-urlencoded'
     ):
         d = fileupload.parse_urlencoded(request.stream)
         d.addCallbacks(updateArgs, error)
         return d
-    elif (ctype.mediaType == 'multipart'
-          and ctype.mediaSubtype == 'form-data'):
+    elif (ctype.mediaType == 'multipart' and
+          ctype.mediaSubtype == 'form-data'):
         boundary = ctype.params.get('boundary')
         if boundary is None:
             return defer.fail(http.HTTPError(
@@ -159,14 +155,12 @@ def parsePOSTData(request, maxMem=100 * 1024, maxFields=1024,
                     ctype.mediaType, ctype.mediaSubtype))))
 
 
-
 class StopTraversal(object):
     """
     Indicates to Request._handleSegment that it should stop handling
     path segments.
     """
     pass
-
 
 
 class Request(http.Request):
@@ -227,17 +221,14 @@ class Request(http.Request):
         except AttributeError:
             self.serverInstance = "Unknown"
 
-
     def timeStamp(self, tag):
         self.timeStamps.append((tag, time.time(),))
-
 
     def clientCredentials(self):
         try:
             return self.chanRequest.channel.peerCredentials
         except AttributeError:
             return None
-
 
     def addResponseFilter(self, filter, atEnd=False, onlyOnce=False):
         """
@@ -256,7 +247,6 @@ class Request(http.Request):
             self.responseFilters.append(filter)
         else:
             self.responseFilters.insert(0, filter)
-
 
     def unparseURL(self, scheme=None, host=None, port=None,
                    path=None, params=None, querystring=None, fragment=None):
@@ -288,7 +278,6 @@ class Request(http.Request):
         return urlparse.urlunparse((
             scheme, hostport, path,
             params, querystring, fragment))
-
 
     def _parseURL(self):
         if self.uri[0] == '/':
@@ -330,7 +319,6 @@ class Request(http.Request):
             self.postpath = path
         # print("_parseURL", self.uri, (self.uri, self.scheme, self.host, self.path, self.params, self.querystring))
 
-
     def _schemeFromPort(self, port):
         """
         Try to determine the scheme matching the supplied server port. This is needed in case
@@ -358,7 +346,6 @@ class Request(http.Request):
 
         return False
 
-
     def _fixupURLParts(self):
         hostaddr, secure = self.chanRequest.getHostInfo()
         if not self.scheme:
@@ -381,7 +368,6 @@ class Request(http.Request):
                     raise http.HTTPError(responsecode.BAD_REQUEST)
                 self.host = hostaddr.host
                 self.port = hostaddr.port
-
 
     def process(self):
         "Process a request."
@@ -414,11 +400,9 @@ class Request(http.Request):
         d.callback(None)
         return d
 
-
     def _processTimeStamp(self, res):
         self.timeStamp("t-req-proc")
         return res
-
 
     def preprocessRequest(self):
         """Do any request processing that doesn't follow the normal
@@ -443,7 +427,6 @@ class Request(http.Request):
         # This is where CONNECT would go if we wanted it
         return None
 
-
     def _getChild(self, _, res, path, updatepaths=True):
         """Call res.locateChild, and pass the result on to _handleSegment."""
 
@@ -457,7 +440,6 @@ class Request(http.Request):
             return result.addCallback(self._handleSegment, res, path, updatepaths)
         else:
             return self._handleSegment(result, res, path, updatepaths)
-
 
     def _handleSegment(self, result, res, path, updatepaths):
         """Handle the result of a locateChild call done in _getChild."""
@@ -483,7 +465,7 @@ class Request(http.Request):
         if newpath is StopTraversal:
             # We need to rethink how to do this.
             # if newres is res:
-                return res
+            return res
             # else:
             #    raise ValueError("locateChild must not return StopTraversal with a resource other than self.")
 
@@ -512,7 +494,6 @@ class Request(http.Request):
 
     _urlsByResource = weakref.WeakKeyDictionary()
 
-
     def _rememberResource(self, resource, url):
         """
         Remember the URL of a visited resource.
@@ -521,14 +502,12 @@ class Request(http.Request):
         self._urlsByResource[resource] = url
         return resource
 
-
     def _forgetResource(self, resource, url):
         """
         Remember the URL of a visited resource.
         """
         del self._resourcesByURL[url]
         del self._urlsByResource[resource]
-
 
     def urlForResource(self, resource):
         """
@@ -552,7 +531,6 @@ class Request(http.Request):
         if url is None:
             raise NoURLForResourceError(resource)
         return url
-
 
     def locateResource(self, url):
         """
@@ -616,7 +594,6 @@ class Request(http.Request):
         d.addErrback(notFound)
         return d
 
-
     def locateChildResource(self, parent, childName):
         """
         Looks up the child resource with the given name given the parent
@@ -655,7 +632,6 @@ class Request(http.Request):
         d.addErrback(notFound)
         return d
 
-
     def _processingFailed(self, reason):
         if reason.check(http.HTTPError) is not None:
             # If the exception was an HTTPError, leave it alone
@@ -671,7 +647,6 @@ class Request(http.Request):
         d.addCallback(self._cbFinishRender)
         d.addErrback(self._processingReallyFailed, reason)
         return d
-
 
     def _processingReallyFailed(self, reason, origReason):
         """
@@ -705,7 +680,6 @@ class Request(http.Request):
             )
             self.chanRequest.abortConnection()
 
-
     def _cbFinishRender(self, result):
         def filterit(response, f):
             if (
@@ -734,7 +708,6 @@ class Request(http.Request):
 
         raise TypeError("html is not a resource or a response")
 
-
     def renderHTTP_exception(self, req, reason):
         log.failure("Exception rendering request: {request}", reason, request=req)
 
@@ -747,20 +720,19 @@ class Request(http.Request):
             body)
 
 
-
 class Site(object):
+
     def __init__(self, resource):
         """Initialize.
         """
         self.resource = iweb.IResource(resource)
 
-
     def __call__(self, *args, **kwargs):
         return Request(site=self, *args, **kwargs)
 
 
-
 class NoURLForResourceError(RuntimeError):
+
     def __init__(self, resource):
         RuntimeError.__init__(self, "Resource %r has no URL in this request." % (resource,))
         self.resource = resource

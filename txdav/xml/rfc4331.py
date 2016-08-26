@@ -51,7 +51,6 @@ class QuotaAvailableBytes (WebDAVTextElement):
     protected = True
 
 
-
 @registerElement
 @registerElementClass
 class QuotaUsedBytes (WebDAVTextElement):

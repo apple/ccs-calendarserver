@@ -39,6 +39,7 @@ from twistedcaldav.resource import isPseudoCalendarCollectionResource, \
     CalDAVResource
 from twistedcaldav.util import bestAcceptType
 
+
 @inlineCallbacks
 def http_GET(self, request):
 
@@ -58,7 +59,7 @@ def http_GET(self, request):
                 action = action[0]
 
                 dispatch = {
-                    "share"   : self.directShare,
+                    "share": self.directShare,
                 }.get(action, None)
 
                 if dispatch is None:

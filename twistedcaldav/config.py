@@ -26,11 +26,11 @@ import copy
 import hashlib
 import os
 
+
 class ConfigurationError(RuntimeError):
     """
     Invalid server configuration.
     """
-
 
 
 class ConfigDict(dict):
@@ -41,15 +41,14 @@ class ConfigDict(dict):
     instead of:
       C{config["Thingo"]["Tiny"]["Tweak"]}
     """
+
     def __init__(self, mapping=None):
         if mapping is not None:
             for key, value in mapping.iteritems():
                 self[key] = value
 
-
     def __repr__(self):
         return "*" + dict.__repr__(self)
-
 
     def __setitem__(self, key, value):
         if key.startswith("_"):
@@ -61,13 +60,11 @@ class ConfigDict(dict):
         else:
             dict.__setitem__(self, key, value)
 
-
     def __setattr__(self, attr, value):
         if attr.startswith("_"):
             dict.__setattr__(self, attr, value)
         else:
             self[attr] = value
-
 
     def __getattr__(self, attr):
         if not attr.startswith("_") and attr in self:
@@ -75,13 +72,11 @@ class ConfigDict(dict):
         else:
             return dict.__getattribute__(self, attr)
 
-
     def __delattr__(self, attr):
         if not attr.startswith("_") and attr in self:
             del self[attr]
         else:
             dict.__delattr__(self, attr)
-
 
 
 class ConfigProvider(object):
@@ -102,13 +97,11 @@ class ConfigProvider(object):
         self.includedFiles = []
         self.missingFiles = []
 
-
     def getDefaults(self):
         """
         Return defaults.
         """
         return self._defaults
-
 
     def setDefaults(self, defaults):
         """
@@ -116,13 +109,11 @@ class ConfigProvider(object):
         """
         self._defaults = ConfigDict(copy.deepcopy(defaults))
 
-
     def getConfigFileName(self):
         """
         Return current configuration file path and name.
         """
         return self._configFileName
-
 
     def setConfigFileName(self, configFileName):
         """
@@ -132,13 +123,11 @@ class ConfigProvider(object):
         if self._configFileName:
             self._configFileName = os.path.abspath(configFileName)
 
-
     def hasErrors(self):
         """
         Return true if last load operation encountered any errors.
         """
         return False
-
 
     def loadConfig(self):
         """
@@ -147,8 +136,8 @@ class ConfigProvider(object):
         return self._defaults
 
 
-
 class Config(object):
+
     def __init__(self, provider=None):
         if not provider:
             self._provider = ConfigProvider()
@@ -160,7 +149,6 @@ class Config(object):
         self._preUpdateHooks = []
         self._postUpdateHooks = []
         self.reset()
-
 
     def __setattr__(self, attr, value):
         if "_data" in self.__dict__ and attr in self.__dict__["_data"]:
@@ -175,6 +163,7 @@ class Config(object):
 
     _dirty = False
     _data = ()
+
     def __getattr__(self, attr):
         if self._dirty:
             self.update()
@@ -183,14 +172,11 @@ class Config(object):
             return self._data[attr]
         raise AttributeError(attr)
 
-
     def __hasattr__(self, attr):
         return attr in self._data
 
-
     def __str__(self):
         return str(self._data)
-
 
     def get(self, attr, defaultValue):
         parts = attr.split(".")
@@ -207,7 +193,6 @@ class Config(object):
             lastDict[configItem] = defaultValue
             return defaultValue
 
-
     def addResetHooks(self, before, after):
         """
         Hooks for preserving config across reload( ) + reset( )
@@ -218,33 +203,26 @@ class Config(object):
         self._beforeResetHook = before
         self._afterResetHook = after
 
-
     def addPreUpdateHooks(self, hooks):
         self._preUpdateHooks.extend(hooks)
-
 
     def addPostUpdateHooks(self, hooks):
         self._postUpdateHooks.extend(hooks)
 
-
     def getProvider(self):
         return self._provider
-
 
     def setProvider(self, provider):
         self._provider = provider
         self.reset()
 
-
     def setDefaults(self, defaults):
         self._provider.setDefaults(defaults)
         self.reset()
 
-
     def updateDefaults(self, items):
         mergeData(self._provider.getDefaults(), items)
         self.update(items)
-
 
     def update(self, items=None, reloading=False):
         if self._updating:
@@ -265,7 +243,6 @@ class Config(object):
         self._dirty = False
         self._cachedSyncToken = None
 
-
     def load(self, configFile):
         self._provider.setConfigFileName(configFile)
         configDict = self._provider.loadConfig()
@@ -274,7 +251,6 @@ class Config(object):
         else:
             raise ConfigurationError("Invalid configuration in %s"
                                      % (self._provider.getConfigFileName(),))
-
 
     def reload(self):
         configDict = self._provider.loadConfig()
@@ -295,13 +271,11 @@ class Config(object):
                 "Invalid configuration in %s"
                 % (self._provider.getConfigFileName(), ))
 
-
     def reset(self):
         self._data = ConfigDict(copy.deepcopy(self._provider.getDefaults()))
         self._dirty = True
         self._syncTokenKeys = []
         self._cachedSyncToken = None
-
 
     def getKeyPath(self, keyPath):
         """
@@ -324,7 +298,6 @@ class Config(object):
             parent = child
         return parent.get(parts[-1], None)
 
-
     def addSyncTokenKey(self, keyPath):
         """
         Indicates the specified key should be taken into account when generating
@@ -337,7 +310,6 @@ class Config(object):
         if keyPath not in self._syncTokenKeys:
             self._syncTokenKeys.append(keyPath)
         self._cachedSyncToken = None
-
 
     def syncToken(self):
         """
@@ -361,13 +333,11 @@ class Config(object):
             self._cachedSyncToken = hashlib.md5(whole).hexdigest()
         return self._cachedSyncToken
 
-
     def invalidateSyncToken(self):
         """
         Invalidates the cached copy of the sync token.
         """
         self._cachedSyncToken = None
-
 
     def joinToken(self, dataToken):
         """
@@ -379,7 +349,6 @@ class Config(object):
             return "{}/{}".format(dataToken, configToken)
         else:
             return dataToken
-
 
 
 def mergeData(oldData, newData):
@@ -401,7 +370,6 @@ def mergeData(oldData, newData):
             mergeData(oldData[key], value)
         else:
             oldData[key] = value
-
 
 
 def fullServerPath(base, path):

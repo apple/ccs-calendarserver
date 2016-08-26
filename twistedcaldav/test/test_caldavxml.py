@@ -19,13 +19,12 @@ from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import CalendarData
 from twistedcaldav.ical import normalize_iCalStr, Component
 
+
 def normalizeJSON(j):
     return "".join(map(str.strip, j.splitlines())).replace(", ", ",").replace(": ", ":")
 
 
-
 class CustomXML (twistedcaldav.test.util.TestCase):
-
 
     def test_TimeRange(self):
 
@@ -57,7 +56,6 @@ class CustomXML (twistedcaldav.test.util.TestCase):
 
         tr = caldavxml.CalDAVTimeRangeElement(start="20110201T120000Z", end="20110202")
         self.assertFalse(tr.valid())
-
 
     def test_CalendarDataTextAndJSON(self):
         """

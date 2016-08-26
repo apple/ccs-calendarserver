@@ -19,9 +19,9 @@ from txweb2.resource import RenderMixin, LeafResource
 from txweb2.server import Site, StopTraversal
 from txweb2.test.test_server import SimpleRequest
 
+
 class PreconditionError (Exception):
     "Precondition Failure"
-
 
 
 class TestResource (RenderMixin):
@@ -40,14 +40,11 @@ class TestResource (RenderMixin):
     def preconditions_BLEARGH(self, request):
         raise PreconditionError()
 
-
     def precondition_HUCKHUCKBLORP(self, request):
         return fail(None)
 
-
     def preconditions_SWEETHOOKUPS(self, request):
         return None
-
 
     def preconditions_HOOKUPS(self, request):
         return succeed(None)
@@ -60,12 +57,10 @@ class TestResource (RenderMixin):
         return response
 
 
-
 def generateResponse(method):
     resource = TestResource()
     method = getattr(resource, "http_" + method)
     return method(SimpleRequest(Site(resource), method, "/"))
-
 
 
 class RenderMixInTestCase (unittest.TestCase):
@@ -87,7 +82,6 @@ class RenderMixInTestCase (unittest.TestCase):
             self._my_allowed_methods
         )
 
-
     @inlineCallbacks
     def test_checkPreconditions_raises(self):
         """
@@ -107,7 +101,6 @@ class RenderMixInTestCase (unittest.TestCase):
             resource.renderHTTP(request), PreconditionError
         )
 
-
     @inlineCallbacks
     def test_checkPreconditions_none(self):
         """
@@ -122,7 +115,6 @@ class RenderMixInTestCase (unittest.TestCase):
             (yield resource.renderHTTP(request)),
             responsecode.NO_CONTENT
         )
-
 
     def test_checkPreconditions_deferred(self):
         """
@@ -139,7 +131,6 @@ class RenderMixInTestCase (unittest.TestCase):
         d = resource.renderHTTP(request)
         d.addCallback(checkResponse)
 
-
     def test_OPTIONS_status(self):
         """
         RenderMixin.http_OPTIONS()
@@ -147,7 +138,6 @@ class RenderMixInTestCase (unittest.TestCase):
         """
         response = generateResponse("OPTIONS")
         self.assertEquals(response.code, responsecode.OK)
-
 
     def test_OPTIONS_allow(self):
         """
@@ -160,7 +150,6 @@ class RenderMixInTestCase (unittest.TestCase):
             self._my_allowed_methods
         )
 
-
     def test_TRACE_status(self):
         """
         RenderMixin.http_TRACE()
@@ -170,7 +159,6 @@ class RenderMixInTestCase (unittest.TestCase):
         self.assertEquals(response.code, responsecode.OK)
 
     test_TRACE_status.skip = "TRACE is disabled now."
-
 
     def test_TRACE_body(self):
         """
@@ -188,7 +176,6 @@ class RenderMixInTestCase (unittest.TestCase):
         """
         response = generateResponse("HEAD")
         self.assertEquals(response.code, responsecode.OK)
-
 
     def test_HEAD_body(self):
         """
@@ -211,7 +198,6 @@ class RenderMixInTestCase (unittest.TestCase):
         response = generateResponse("GET")
         self.assertEquals(response.code, responsecode.OK)
 
-
     def test_GET_body(self):
         """
         RenderMixin.http_GET()
@@ -224,11 +210,11 @@ class RenderMixInTestCase (unittest.TestCase):
         )
 
 
-
 class ResourceTestCase (unittest.TestCase):
     """
     Test Resource.
     """
+
     def test_addSlash(self):
         # I think this would include a test of http_GET()
         raise NotImplementedError()
@@ -243,21 +229,21 @@ class ResourceTestCase (unittest.TestCase):
     test_child_nonsense.todo = "Someone should write this test"
 
 
-
 class PostableResourceTestCase (unittest.TestCase):
     """
     Test PostableResource.
     """
+
     def test_POST(self):
         raise NotImplementedError()
     test_POST.todo = "Someone should write this test"
-
 
 
 class LeafResourceTestCase (unittest.TestCase):
     """
     Test LeafResource.
     """
+
     def test_locateChild(self):
         resource = LeafResource()
         child, segments = (
@@ -270,11 +256,11 @@ class LeafResourceTestCase (unittest.TestCase):
         self.assertEquals(segments, StopTraversal)
 
 
-
 class WrapperResourceTestCase (unittest.TestCase):
     """
     Test WrapperResource.
     """
+
     def test_hook(self):
         raise NotImplementedError()
     test_hook.todo = "Someone should write this test"

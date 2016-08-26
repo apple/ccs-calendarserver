@@ -44,7 +44,6 @@ class CacheTest(StoreTestCase):
         )
         self.storeUnderTest().setDirectoryService(self.cachingDirectory)
 
-
     @inlineCallbacks
     def test_cachingPassThrough(self):
         """
@@ -73,7 +72,6 @@ class CacheTest(StoreTestCase):
 
         record = yield dir.recordWithCalendarUserAddress(u"mailto:cache-user-2@example.com")
         self.assertEquals(record.uid, u"cache-uid-2")
-
 
     @inlineCallbacks
     def test_cachingHitsAndMisses(self):
@@ -116,7 +114,6 @@ class CacheTest(StoreTestCase):
         self.assertEquals(record.uid, u"cache-uid-1")
         self.assertEquals(dir._hitCount, 4)
         self.assertEquals(dir._requestCount, 5)
-
 
         dir.resetCache()
 
@@ -162,7 +159,6 @@ class CacheTest(StoreTestCase):
         self.assertEquals(dir._hitCount, 0)
         self.assertEquals(dir._requestCount, 3)
 
-
     @inlineCallbacks
     def test_cachingByCUA(self):
         """
@@ -191,7 +187,6 @@ class CacheTest(StoreTestCase):
         self.assertEquals(record.uid, u"cache-uid-1")
         self.assertEquals(dir._hitCount, 1)
         self.assertEquals(dir._requestCount, 2)
-
 
     @inlineCallbacks
     def test_cachingExpiration(self):
@@ -228,7 +223,6 @@ class CacheTest(StoreTestCase):
         self.assertEquals(record.uid, u"cache-uid-1")
         self.assertEquals(dir._hitCount, 1)
         self.assertEquals(dir._requestCount, 4)
-
 
     @inlineCallbacks
     def test_cachePurging(self):

@@ -35,6 +35,7 @@ from txdav.caldav.datastore.util import dropboxIDFromCalendarObject, \
 
 from txdav.common.icommondatastore import HomeChildNameAlreadyExistsError
 
+
 class DropboxIDTests(TestCase):
     """
     Test dropbox ID extraction from calendar data.
@@ -55,7 +56,6 @@ class DropboxIDTests(TestCase):
         def uid(self):
             return self.ical.resourceUID()
 
-
     @inlineCallbacks
     def test_noAttachOrXdash(self):
         resource = DropboxIDTests.FakeCalendarResource("""BEGIN:VCALENDAR
@@ -73,7 +73,6 @@ END:VCALENDAR
             (yield dropboxIDFromCalendarObject(resource)),
             "12345-67890.dropbox"
         )
-
 
     @inlineCallbacks
     def test_okXdash(self):
@@ -95,7 +94,6 @@ END:VCALENDAR
             "12345-67890X.dropbox"
         )
 
-
     @inlineCallbacks
     def test_emptyXdash(self):
         resource = DropboxIDTests.FakeCalendarResource("""BEGIN:VCALENDAR
@@ -111,7 +109,6 @@ END:VCALENDAR
 """)
 
         self.assertEquals((yield dropboxIDFromCalendarObject(resource)), "12345-67890.dropbox")
-
 
     @inlineCallbacks
     def test_okAttach(self):
@@ -133,7 +130,6 @@ END:VCALENDAR
             "12345-67890Y.dropbox"
         )
 
-
     @inlineCallbacks
     def test_badAttach(self):
 
@@ -154,7 +150,6 @@ END:VCALENDAR
             "12345-67890.dropbox"
         )
 
-
     @inlineCallbacks
     def test_inlineAttach(self):
 
@@ -174,7 +169,6 @@ END:VCALENDAR
             (yield dropboxIDFromCalendarObject(resource)),
             "12345-67890.dropbox"
         )
-
 
     @inlineCallbacks
     def test_multipleAttach(self):
@@ -197,7 +191,6 @@ END:VCALENDAR
             (yield dropboxIDFromCalendarObject(resource)),
             "12345-67890Z.dropbox"
         )
-
 
     @inlineCallbacks
     def test_okAttachRecurring(self):
@@ -227,7 +220,6 @@ END:VCALENDAR
             "12345-67890Y.dropbox"
         )
 
-
     @inlineCallbacks
     def test_okAttachAlarm(self):
 
@@ -252,7 +244,6 @@ END:VCALENDAR
             (yield dropboxIDFromCalendarObject(resource)),
             "12345-67890.dropbox"
         )
-
 
     @inlineCallbacks
     def test_UIDbadPath(self):
@@ -281,7 +272,6 @@ END:VCALENDAR
                 (yield dropboxIDFromCalendarObject(resource)),
                 "%s.dropbox" % (result,),
             )
-
 
 
 class StorageTransportTests(TestCase):
@@ -313,7 +303,6 @@ class StorageTransportTests(TestCase):
             self.assertEquals(item._dispositionName, filename)
 
 
-
 class HomeMigrationTests(CommonCommonTests, BaseTestCase):
     """
     Tests for L{migrateHome}.
@@ -330,7 +319,6 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
                 u"non_empty_home",
             )
         )
-
 
     @inlineCallbacks
     def test_migrateEmptyHome(self):
@@ -369,7 +357,6 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
         self.assertNotIdentical((yield nonEmpty.calendarWithName("inbox")), None)
         self.assertNotIdentical((yield nonEmpty.calendarWithName("other-default-calendar")), None)
 
-
     @staticmethod
     def sampleEvent(uid, summary=None):
         """
@@ -399,7 +386,6 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
             """.replace("\n", "\r\n").format(uid=uid, summary=summary)
         ), {}
 
-
     @inlineCallbacks
     def createConflicted(self, c1=None, c2=None):
         """
@@ -416,6 +402,7 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
         if c2 is None:
             c2 = {"2.ics": self.sampleEvent("uid2")}
         defaults = {"calendar": {}, "inbox": {}, "tasks": {}, "polls": {}}
+
         def conflicted(caldata):
             d = defaults.copy()
             d.update(conflicted=caldata)
@@ -424,7 +411,6 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
             "conflict1": conflicted(c1),
             "conflict2": conflicted(c2),
         }, self.storeUnderTest())
-
 
     @inlineCallbacks
     def test_migrateConflict(self):
@@ -444,7 +430,6 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
         else:
             self.fail("No exception raised.")
 
-
     @inlineCallbacks
     def test_migrateMergeCalendars(self):
         """
@@ -456,6 +441,7 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
         yield self.createConflicted()
         from txdav.base.propertystore.base import PropertyName
         from txdav.xml import element as davxml
+
         class StubConflictingElement(davxml.WebDAVTextElement):
             namespace = "http://example.com/ns/stub-conflict"
             name = "conflict"
@@ -478,7 +464,6 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
         # just a really cursory check to make sure they're really there.
         self.assertEquals(obj1.uid(), "uid1")
         self.assertEquals(obj2.uid(), "uid2")
-
 
     @inlineCallbacks
     def test_migrateMergeConflictingObjects(self):
@@ -555,7 +540,6 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
         yield self.checkSummary("no-conflict", "okay", targetCal)
         yield self.checkSummary("oc", "target calendar", otherCal)
 
-
     @inlineCallbacks
     def checkSummary(self, name, summary, cal):
         """
@@ -570,7 +554,6 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
             txt = ((yield obj.component()).mainComponent()
                    .getProperty("SUMMARY").value())
             self.assertEquals(txt, summary)
-
 
     @inlineCallbacks
     def test_migrateMergeDontDeleteDefault(self):

@@ -6,6 +6,7 @@ from txweb2 import stream
 # TODO: ungzip (can any browsers actually generate gzipped
 # upload data?) But it's necessary for client anyways.
 
+
 def gzipStream(input, compressLevel=6):
     crc, size = zlib.crc32(''), 0
     # magic header, compression method, no flags
@@ -32,6 +33,7 @@ def gzipStream(input, compressLevel=6):
     yield struct.pack('<LL', crc & 0xFFFFFFFFL, size & 0xFFFFFFFFL)
 gzipStream = stream.generatorToStream(gzipStream)
 
+
 def deflateStream(input, compressLevel=6):
     # NOTE: this produces RFC-conformant but some-browser-incompatible output.
     # The RFC says that you're supposed to output zlib-format data, but many
@@ -47,6 +49,7 @@ def deflateStream(input, compressLevel=6):
 
     yield compress.flush()
 deflateStream = stream.generatorToStream(deflateStream)
+
 
 def gzipfilter(request, response):
     if response.stream is None or response.headers.getHeader('content-encoding'):

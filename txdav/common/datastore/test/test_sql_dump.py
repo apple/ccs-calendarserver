@@ -28,6 +28,7 @@ from txdav.common.datastore.sql_dump import dumpSchema
 from txdav.common.datastore.test.util import StubNotifierFactory, SQLStoreBuilder,\
     DB_TYPE, theStoreBuilder
 
+
 class SQLDump(TestCase):
     """
     Tests for L{sql_dump}.
@@ -40,7 +41,6 @@ class SQLDump(TestCase):
         else:
             self.testStoreBuilder = SQLStoreBuilder(dsnUser="test_dbUpgrades", noCleanup=True)
 
-
     @inlineCallbacks
     def setUp(self):
         TestCase.setUp(self)
@@ -48,7 +48,6 @@ class SQLDump(TestCase):
         self.store = yield self.testStoreBuilder.buildStore(
             self, {"push": StubNotifierFactory()}, enableJobProcessing=False
         )
-
 
     @inlineCallbacks
     def cleanUp(self):
@@ -60,7 +59,6 @@ class SQLDump(TestCase):
             yield cleanDatabase(startTxn)
 
         yield startTxn.commit()
-
 
     @inlineCallbacks
     def _loadSchema(self, schema):
@@ -77,7 +75,6 @@ class SQLDump(TestCase):
 
         self.addCleanup(self.cleanUp)
 
-
     @inlineCallbacks
     def _schemaCheck(self, schema, schema_bad):
 
@@ -93,7 +90,6 @@ class SQLDump(TestCase):
 
         parsed_bad = schemaFromString(schema_bad)
         self.assertNotEqual(parsed_bad.compare(dumped), [])
-
 
     @inlineCallbacks
     def test_pkey_column(self):
@@ -113,7 +109,6 @@ CREATE TABLE FOO (
 """
 
         yield self._schemaCheck(schema, schema_bad)
-
 
     @inlineCallbacks
     def test_pkey_table(self):
@@ -137,7 +132,6 @@ CREATE TABLE FOO (
 """
 
         yield self._schemaCheck(schema, schema_bad)
-
 
     @inlineCallbacks
     def test_multiple_pkey_table(self):
@@ -164,7 +158,6 @@ CREATE TABLE FOO (
 
         yield self._schemaCheck(schema, schema_bad)
 
-
     @inlineCallbacks
     def test_unique_column(self):
 
@@ -183,7 +176,6 @@ CREATE TABLE FOO (
 """
 
         yield self._schemaCheck(schema, schema_bad)
-
 
     @inlineCallbacks
     def test_unique_table(self):
@@ -207,7 +199,6 @@ CREATE TABLE FOO (
 """
 
         yield self._schemaCheck(schema, schema_bad)
-
 
     @inlineCallbacks
     def test_multiple_unique_table(self):
@@ -234,7 +225,6 @@ CREATE TABLE FOO (
 
         yield self._schemaCheck(schema, schema_bad)
 
-
     @inlineCallbacks
     def test_timestamp_table(self):
 
@@ -258,7 +248,6 @@ CREATE TABLE FOO (
 """
 
         yield self._schemaCheck(schema, schema_bad)
-
 
     @inlineCallbacks
     def test_references_table(self):
@@ -307,7 +296,6 @@ CREATE TABLE BAZ (
 
         yield self._schemaCheck(schema, schema_bad)
 
-
     @inlineCallbacks
     def test_index_table(self):
 
@@ -333,7 +321,6 @@ create index FOOINDEX on FOO (ID2, ID1);
 """
 
         yield self._schemaCheck(schema, schema_bad)
-
 
     @inlineCallbacks
     def test_unique_index_table(self):

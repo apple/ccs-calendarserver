@@ -105,7 +105,6 @@ class Upgrade_from_5_to_6(CommonStoreTests):
 
         returnValue((detailshome, detailscalendar, detailsshared, shared_name2, shared_name3,))
 
-
     @inlineCallbacks
     def _upgrade_alarms_check(self, detailshome, detailscalendar, detailsshared, shared_name2, shared_name3):
 
@@ -141,7 +140,6 @@ class Upgrade_from_5_to_6(CommonStoreTests):
         version = yield self.transactionUnderTest().calendarserverValue("CALENDAR-DATAVERSION")
         self.assertEqual(int(version), 6)
 
-
     @inlineCallbacks
     def _upgrade_inbox_check(self, detailshome, detailscalendar, detailsshared, shared_name2, shared_name3):
 
@@ -159,13 +157,11 @@ class Upgrade_from_5_to_6(CommonStoreTests):
         self.assertTrue(len(rows) != 0)
         self.assertTrue(all([row[0] for row in rows]))
 
-
     @inlineCallbacks
     def test_defaultAlarmUpgrade(self):
         detailshome, detailscalendar, detailsshared, shared_name2, shared_name3 = (yield self._upgrade_setup())
         yield doUpgrade(self._sqlCalendarStore)
         yield self._upgrade_alarms_check(detailshome, detailscalendar, detailsshared, shared_name2, shared_name3)
-
 
     @inlineCallbacks
     def test_inboxTranspUpgrade(self):

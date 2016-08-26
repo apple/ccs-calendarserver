@@ -33,6 +33,7 @@ from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE, schema
 from txdav.common.datastore.upgrade.sql.upgrades.calendar_upgrade_from_4_to_5 import updateCalendarHomes, doUpgrade
 from txdav.xml import element
 
+
 class Upgrade_from_4_to_5(CommonStoreTests):
     """
     Tests for L{DefaultCalendarPropertyUpgrade}.
@@ -98,7 +99,6 @@ class Upgrade_from_4_to_5(CommonStoreTests):
 
         returnValue(user_details)
 
-
     @inlineCallbacks
     def _calendarTimezoneUpgrade_check(self, changed_users, unchanged_users, user_details):
 
@@ -122,20 +122,17 @@ class Upgrade_from_4_to_5(CommonStoreTests):
                 else:
                     self.assertTrue(PropertyName.fromElement(caldavxml.CalendarTimeZone) not in calendar.properties())
 
-
     @inlineCallbacks
     def test_calendarTimezoneUpgrade(self):
         user_details = yield self._calendarTimezoneUpgrade_setup()
         yield updateCalendarHomes(self._sqlCalendarStore)
         yield self._calendarTimezoneUpgrade_check(("user01", "user02", "user03",), (), user_details)
 
-
     @inlineCallbacks
     def test_partialCalendarTimezoneUpgrade(self):
         user_details = yield self._calendarTimezoneUpgrade_setup()
         yield updateCalendarHomes(self._sqlCalendarStore, "user01")
         yield self._calendarTimezoneUpgrade_check(("user01",), ("user02", "user03",), user_details)
-
 
     @inlineCallbacks
     def _calendarAvailabilityUpgrade_setup(self):
@@ -212,7 +209,6 @@ END:VCALENDAR
 
         returnValue(user_details)
 
-
     @inlineCallbacks
     def _calendarAvailabilityUpgrade_check(self, changed_users, unchanged_users, user_details):
 
@@ -236,20 +232,17 @@ END:VCALENDAR
                 else:
                     self.assertTrue(PropertyName.fromElement(customxml.CalendarAvailability) not in calendar.properties())
 
-
     @inlineCallbacks
     def test_calendarAvailabilityUpgrade(self):
         user_details = yield self._calendarAvailabilityUpgrade_setup()
         yield updateCalendarHomes(self._sqlCalendarStore)
         yield self._calendarAvailabilityUpgrade_check(("user01", "user02", "user03",), (), user_details)
 
-
     @inlineCallbacks
     def test_partialCalendarAvailabilityUpgrade(self):
         user_details = yield self._calendarAvailabilityUpgrade_setup()
         yield updateCalendarHomes(self._sqlCalendarStore, "user01")
         yield self._calendarAvailabilityUpgrade_check(("user01",), ("user02", "user03",), user_details)
-
 
     @inlineCallbacks
     def test_combinedUpgrade(self):
@@ -259,7 +252,6 @@ END:VCALENDAR
         yield self._calendarTimezoneUpgrade_check(("user01", "user02", "user03",), (), user_details1)
         yield self._calendarAvailabilityUpgrade_check(("user01", "user02", "user03",), (), user_details2)
 
-
     @inlineCallbacks
     def test_partialCombinedUpgrade(self):
         user_details1 = yield self._calendarTimezoneUpgrade_setup()
@@ -267,7 +259,6 @@ END:VCALENDAR
         yield updateCalendarHomes(self._sqlCalendarStore, "user01")
         yield self._calendarTimezoneUpgrade_check(("user01",), ("user02", "user03",), user_details1)
         yield self._calendarAvailabilityUpgrade_check(("user01",), ("user02", "user03",), user_details2)
-
 
     @inlineCallbacks
     def _removeOtherPropertiesUpgrade_setup(self):
@@ -286,7 +277,6 @@ END:VCALENDAR
 
         yield self.commit()
 
-
     @inlineCallbacks
     def _removeOtherPropertiesUpgrade_check(self, full=True):
 
@@ -303,13 +293,11 @@ END:VCALENDAR
                 version = yield self.transactionUnderTest().calendarserverValue("CALENDAR-DATAVERSION")
                 self.assertEqual(int(version), 4)
 
-
     @inlineCallbacks
     def test_removeOtherPropertiesUpgrade(self):
         yield self._removeOtherPropertiesUpgrade_setup()
         yield doUpgrade(self._sqlCalendarStore)
         yield self._removeOtherPropertiesUpgrade_check()
-
 
     @inlineCallbacks
     def test_fullUpgrade(self):
@@ -321,7 +309,6 @@ END:VCALENDAR
         yield self._calendarTimezoneUpgrade_check(("user01", "user02", "user03",), (), user_details1)
         yield self._calendarAvailabilityUpgrade_check(("user01", "user02", "user03",), (), user_details2)
         yield self._removeOtherPropertiesUpgrade_check()
-
 
     @inlineCallbacks
     def test_partialFullUpgrade(self):

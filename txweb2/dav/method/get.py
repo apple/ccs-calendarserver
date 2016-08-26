@@ -34,11 +34,11 @@ from txdav.xml import element as davxml
 from txweb2.dav.resource import DAVResource
 from txweb2.dav.util import parentForURL
 
+
 def http_OPTIONS(self, request):
     d = authorize(self, request)
     d.addCallback(lambda _: super(DAVResource, self).http_OPTIONS(request))
     return d
-
 
 
 def http_HEAD(self, request):
@@ -47,12 +47,10 @@ def http_HEAD(self, request):
     return d
 
 
-
 def http_GET(self, request):
     d = authorize(self, request)
     d.addCallback(lambda _: super(DAVResource, self).http_GET(request))
     return d
-
 
 
 def authorize(self, request):

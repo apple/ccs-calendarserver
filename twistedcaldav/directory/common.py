@@ -61,7 +61,6 @@ class CommonUIDProvisioningResource(object):
         self.directory = parent.directory
         self.parent = parent
 
-
     @inlineCallbacks
     def homeResourceForRecord(self, record, request):
 
@@ -89,7 +88,6 @@ class CommonUIDProvisioningResource(object):
 
         returnValue(child)
 
-
     @inlineCallbacks
     def locateChild(self, request, segments):
         name = segments[0]
@@ -105,11 +103,9 @@ class CommonUIDProvisioningResource(object):
         child = yield self.homeResourceForRecord(record, request)
         returnValue((child, segments[1:]))
 
-
     def listChildren(self):
         # Not a listable collection
         raise HTTPError(responsecode.FORBIDDEN)
-
 
     ##
     # ACL
@@ -118,10 +114,8 @@ class CommonUIDProvisioningResource(object):
     def principalCollections(self):
         return self.parent.principalCollections()
 
-
     def principalForRecord(self, record):
         return self.parent.principalForRecord(record)
-
 
     ##
     # DAV
@@ -130,19 +124,15 @@ class CommonUIDProvisioningResource(object):
     def isCollection(self):
         return True
 
-
     def getChild(self, name, record=None):
         raise NotImplementedError(self.__class__.__name__ +
                                   ".getChild no longer exists.")
 
-
     def displayName(self):
         return uidsResourceName
 
-
     def url(self):
         return joinURL(self.parent.url(), uidsResourceName)
-
 
 
 class CommonHomeTypeProvisioningResource(object):

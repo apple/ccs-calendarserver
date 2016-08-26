@@ -40,6 +40,7 @@ __all__ = [
     "notinExpression",
 ]
 
+
 class baseExpression(object):
     """
     The base class for all types of expression.
@@ -47,7 +48,6 @@ class baseExpression(object):
 
     def __init__(self):
         pass
-
 
     def multi(self):
         """
@@ -59,10 +59,8 @@ class baseExpression(object):
 
         return False
 
-
     def _collapsedExpression(self):
         return self
-
 
     def andWith(self, other):
         if isinstance(other, andExpression):
@@ -70,13 +68,11 @@ class baseExpression(object):
         else:
             return andExpression((self._collapsedExpression(), other._collapsedExpression(),))
 
-
     def orWith(self, other):
         if isinstance(other, orExpression):
             return orExpression((self._collapsedExpression(),) + tuple(other.expressions))
         else:
             return orExpression((self._collapsedExpression(), other._collapsedExpression(),))
-
 
 
 class allExpression(baseExpression):
@@ -88,7 +84,6 @@ class allExpression(baseExpression):
         pass
 
 
-
 class logicExpression(baseExpression):
     """
     An expression representing a logical operation (boolean).
@@ -96,7 +91,6 @@ class logicExpression(baseExpression):
 
     def __init__(self, expressions):
         self.expressions = expressions
-
 
     def __str__(self):
         """
@@ -114,7 +108,6 @@ class logicExpression(baseExpression):
             result = "(" + result + ")"
         return result
 
-
     def multi(self):
         """
         Indicate whether this expression is composed of multiple expressions.
@@ -125,13 +118,11 @@ class logicExpression(baseExpression):
 
         return True
 
-
     def _collapsedExpression(self):
         if self.multi() and len(self.expressions) == 1:
             return self.expressions[0]._collapsedExpression()
         else:
             return self
-
 
 
 class notExpression(logicExpression):
@@ -142,15 +133,12 @@ class notExpression(logicExpression):
     def __init__(self, expression):
         super(notExpression, self).__init__([expression])
 
-
     def operator(self):
         return "NOT"
-
 
     def __str__(self):
         result = self.operator() + " " + str(self.expressions[0])
         return result
-
 
     def multi(self):
         """
@@ -163,7 +151,6 @@ class notExpression(logicExpression):
         return False
 
 
-
 class andExpression(logicExpression):
     """
     Logical AND operation.
@@ -172,15 +159,12 @@ class andExpression(logicExpression):
     def __init__(self, expressions):
         super(andExpression, self).__init__(expressions)
 
-
     def operator(self):
         return "AND"
-
 
     def andWith(self, other):
         self.expressions = tuple(self.expressions) + (other._collapsedExpression(),)
         return self
-
 
 
 class orExpression(logicExpression):
@@ -191,15 +175,12 @@ class orExpression(logicExpression):
     def __init__(self, expressions):
         super(orExpression, self).__init__(expressions)
 
-
     def operator(self):
         return "OR"
-
 
     def orWith(self, other):
         self.expressions = tuple(self.expressions) + (other._collapsedExpression(),)
         return self
-
 
 
 class timerangeExpression(baseExpression):
@@ -213,10 +194,8 @@ class timerangeExpression(baseExpression):
         self.startfloat = startfloat
         self.endfloat = endfloat
 
-
     def __str__(self):
         return "timerange(" + str(self.start) + ", " + str(self.end) + ")"
-
 
 
 class textcompareExpression(baseExpression):
@@ -229,10 +208,8 @@ class textcompareExpression(baseExpression):
         self.text = text
         self.caseless = caseless
 
-
     def __str__(self):
         return self.operator() + "(" + self.field + ", " + self.text + ", " + str(self.caseless) + ")"
-
 
 
 class containsExpression(textcompareExpression):
@@ -243,10 +220,8 @@ class containsExpression(textcompareExpression):
     def __init__(self, field, text, caseless):
         super(containsExpression, self).__init__(field, text, caseless)
 
-
     def operator(self):
         return "contains"
-
 
 
 class notcontainsExpression(textcompareExpression):
@@ -257,10 +232,8 @@ class notcontainsExpression(textcompareExpression):
     def __init__(self, field, text, caseless):
         super(notcontainsExpression, self).__init__(field, text, caseless)
 
-
     def operator(self):
         return "does not contain"
-
 
 
 class isExpression(textcompareExpression):
@@ -271,10 +244,8 @@ class isExpression(textcompareExpression):
     def __init__(self, field, text, caseless):
         super(isExpression, self).__init__(field, text, caseless)
 
-
     def operator(self):
         return "is"
-
 
 
 class isnotExpression(textcompareExpression):
@@ -285,10 +256,8 @@ class isnotExpression(textcompareExpression):
     def __init__(self, field, text, caseless):
         super(isnotExpression, self).__init__(field, text, caseless)
 
-
     def operator(self):
         return "is not"
-
 
 
 class startswithExpression(textcompareExpression):
@@ -299,10 +268,8 @@ class startswithExpression(textcompareExpression):
     def __init__(self, field, text, caseless):
         super(startswithExpression, self).__init__(field, text, caseless)
 
-
     def operator(self):
         return "starts with"
-
 
 
 class notstartswithExpression(textcompareExpression):
@@ -313,10 +280,8 @@ class notstartswithExpression(textcompareExpression):
     def __init__(self, field, text, caseless):
         super(notstartswithExpression, self).__init__(field, text, caseless)
 
-
     def operator(self):
         return "does not start with"
-
 
 
 class endswithExpression(textcompareExpression):
@@ -327,10 +292,8 @@ class endswithExpression(textcompareExpression):
     def __init__(self, field, text, caseless):
         super(endswithExpression, self).__init__(field, text, caseless)
 
-
     def operator(self):
         return "ends with"
-
 
 
 class notendswithExpression(textcompareExpression):
@@ -341,10 +304,8 @@ class notendswithExpression(textcompareExpression):
     def __init__(self, field, text, caseless):
         super(notendswithExpression, self).__init__(field, text, caseless)
 
-
     def operator(self):
         return "does not end with"
-
 
 
 class inExpression(textcompareExpression):
@@ -355,14 +316,11 @@ class inExpression(textcompareExpression):
     def __init__(self, field, text_list, caseless):
         super(inExpression, self).__init__(field, text_list, caseless)
 
-
     def operator(self):
         return "in"
 
-
     def __str__(self):
         return self.operator() + "(" + self.field + ", " + str(self.text) + ", " + str(self.caseless) + ")"
-
 
 
 class notinExpression(textcompareExpression):
@@ -373,10 +331,8 @@ class notinExpression(textcompareExpression):
     def __init__(self, field, text, caseless):
         super(notinExpression, self).__init__(field, text, caseless)
 
-
     def operator(self):
         return "not in"
-
 
     def __str__(self):
         return self.operator() + "(" + self.field + ", " + str(self.text) + ", " + str(self.caseless) + ")"

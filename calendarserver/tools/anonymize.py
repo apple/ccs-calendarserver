@@ -68,7 +68,6 @@ def usage(e=None):
         sys.exit(0)
 
 
-
 def main():
 
     try:
@@ -105,7 +104,6 @@ def main():
     directoryMap.printStats()
 
     directoryMap.dumpDsImports(os.path.join(destDirectory, "dsimports"))
-
 
 
 def anonymizeRoot(directoryMap, sourceDirectory, destDirectory):
@@ -281,7 +279,6 @@ def anonymizeRoot(directoryMap, sourceDirectory, destDirectory):
     print("")
 
 
-
 def anonymizeData(directoryMap, data):
     try:
         pyobj = Calendar.parseText(data)
@@ -347,31 +344,30 @@ def anonymizeData(directoryMap, data):
     return pyobj.getText(includeTimezones=Calendar.ALL_TIMEZONES)
 
 
-
 class DirectoryMap(object):
 
     def __init__(self, node):
 
         self.map = {}
         self.byType = {
-            'users' : [],
-            'groups' : [],
-            'locations' : [],
-            'resources' : [],
+            'users': [],
+            'groups': [],
+            'locations': [],
+            'resources': [],
         }
         self.counts = {
-            'users' : 0,
-            'groups' : 0,
-            'locations' : 0,
-            'resources' : 0,
-            'unknown' : 0,
+            'users': 0,
+            'groups': 0,
+            'locations': 0,
+            'resources': 0,
+            'unknown': 0,
         }
 
         self.strings = {
-            'users' : ('Users', 'user'),
-            'groups' : ('Groups', 'group'),
-            'locations' : ('Places', 'location'),
-            'resources' : ('Resources', 'resource'),
+            'users': ('Users', 'user'),
+            'groups': ('Groups', 'group'),
+            'locations': ('Places', 'location'),
+            'resources': ('Resources', 'resource'),
         }
 
         print("Fetching records from directory: %s" % (node,))
@@ -392,7 +388,7 @@ class DirectoryMap(object):
                 raise DirectoryError(error)
             else:
                 records = readPlistFromString(output)
-                random.shuffle(records) # so we don't go alphabetically
+                random.shuffle(records)  # so we don't go alphabetically
 
                 for record in records:
                     origGUID = record.get('dsAttrTypeStandard:GeneratedUID', [None])[0]
@@ -408,7 +404,6 @@ class DirectoryMap(object):
 
         print("Done.")
         print("")
-
 
     def addRecord(
         self, internalType="users", guid=None, names=None,
@@ -428,15 +423,15 @@ class DirectoryMap(object):
             namePrefix = randomName(6)
             typeStr = self.strings[internalType][1]
             record = {
-                'guid' : str(uuid.uuid4()).upper(),
-                'name' : "%s %s%d" % (namePrefix, typeStr, count,),
-                'first' : namePrefix,
-                'last' : "%s%d" % (typeStr, count,),
-                'recordName' : "%s%d" % (typeStr, count,),
-                'email' : ("%s%d@example.com" % (typeStr, count,)),
-                'type' : self.strings[internalType][0],
-                'cua' : cua,
-                'members' : members,
+                'guid': str(uuid.uuid4()).upper(),
+                'name': "%s %s%d" % (namePrefix, typeStr, count,),
+                'first': namePrefix,
+                'last': "%s%d" % (typeStr, count,),
+                'recordName': "%s%d" % (typeStr, count,),
+                'email': ("%s%d@example.com" % (typeStr, count,)),
+                'type': self.strings[internalType][0],
+                'cua': cua,
+                'members': members,
             }
             for key in keys:
                 self.map[key] = record
@@ -444,7 +439,6 @@ class DirectoryMap(object):
             return record
         else:
             return None
-
 
     def getKeys(self, guid, names, emails):
         keys = []
@@ -465,7 +459,6 @@ class DirectoryMap(object):
                 keys.append(email)
         return keys
 
-
     def cua2key(self, cua):
         key = cua.lower()
 
@@ -481,7 +474,6 @@ class DirectoryMap(object):
 
         return key
 
-
     def lookupCUA(self, cua):
         key = self.cua2key(cua)
 
@@ -489,7 +481,6 @@ class DirectoryMap(object):
             return self.map[key]
         else:
             return None
-
 
     def printStats(self):
         print("Directory totals:")
@@ -499,7 +490,6 @@ class DirectoryMap(object):
         unknown = self.counts['unknown']
         if unknown:
             print(" Principals not found in directory: %d" % (unknown,))
-
 
     def dumpDsImports(self, dirPath):
         if not os.path.exists(dirPath):
@@ -513,10 +503,10 @@ class DirectoryMap(object):
                 fields = []
                 fields.append(record['recordName'])
                 fields.append("dsAuthMethodStandard\\:dsAuthClearText")
-                fields.append("test") # password
+                fields.append("test")  # password
                 fields.append(str(uid))
                 fields.append(record['guid'])
-                fields.append("20") # primary group id
+                fields.append("20")  # primary group id
                 fields.append(record['name'])
                 fields.append(record['first'])
                 fields.append(record['last'])
@@ -542,7 +532,7 @@ class DirectoryMap(object):
                     memberRec = self.lookupCUA("urn:uuid:%s" % (member,))
                     if memberRec:
                         anonMembers.append(memberRec['guid'])
-                if anonMembers: # skip empty groups
+                if anonMembers:  # skip empty groups
                     fields.append(",".join(anonMembers))
                     out.write(":".join(fields))
                     out.write("\n")
@@ -571,19 +561,16 @@ class DirectoryMap(object):
                 out.write("\n")
 
 
-
 class DirectoryError(Exception):
     """
     Error trying to access dscl
     """
 
 
-
 class DatabaseError(Exception):
     """
     Error trying to access sqlite3
     """
-
 
 
 def anonymize(text):
@@ -605,14 +592,14 @@ def anonymize(text):
     return (h * ((l / 32) + 1))[:-(32 - (l % 32))]
 
 
-
 nameChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
 def randomName(length):
     l = []
     for _ignore in xrange(length):
         l.append(random.choice(nameChars))
     return "".join(l)
-
 
 
 if __name__ == "__main__":

@@ -56,7 +56,6 @@ class TestCompleteMigrationCycle(MultiStoreConduitTest):
         super(TestCompleteMigrationCycle, self).__init__(methodName)
         self.stash = {}
 
-
     @inlineCallbacks
     def setUp(self):
         @inlineCallbacks
@@ -72,7 +71,6 @@ class TestCompleteMigrationCycle(MultiStoreConduitTest):
             ))
             returnValue(response)
 
-
         self.patch(IScheduleRequest, "_submitRequest", _fakeSubmitRequest)
         self.accounts = FilePath(__file__).sibling("accounts").child("groupAccounts.xml")
         self.augments = FilePath(__file__).sibling("accounts").child("augments.xml")
@@ -84,7 +82,6 @@ class TestCompleteMigrationCycle(MultiStoreConduitTest):
         self.patch(HomeCleanupWork, "notBeforeDelay", 1)
         self.patch(MigratedHomeCleanupWork, "notBeforeDelay", 1)
 
-
     def configure(self):
         super(TestCompleteMigrationCycle, self).configure()
         config.GroupAttendees.Enabled = True
@@ -93,38 +90,36 @@ class TestCompleteMigrationCycle(MultiStoreConduitTest):
         config.AccountingCategories.migration = True
         config.AccountingPrincipals = ["*"]
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements0, self.theStoreUnderTest(0))
         yield populateCalendarsFrom(self.requirements1, self.theStoreUnderTest(1))
 
     requirements0 = {
-        "user01" : None,
-        "user02" : None,
-        "user03" : None,
-        "user04" : None,
-        "user05" : None,
-        "user06" : None,
-        "user07" : None,
-        "user08" : None,
-        "user09" : None,
-        "user10" : None,
+        "user01": None,
+        "user02": None,
+        "user03": None,
+        "user04": None,
+        "user05": None,
+        "user06": None,
+        "user07": None,
+        "user08": None,
+        "user09": None,
+        "user10": None,
     }
 
     requirements1 = {
-        "puser01" : None,
-        "puser02" : None,
-        "puser03" : None,
-        "puser04" : None,
-        "puser05" : None,
-        "puser06" : None,
-        "puser07" : None,
-        "puser08" : None,
-        "puser09" : None,
-        "puser10" : None,
+        "puser01": None,
+        "puser02": None,
+        "puser03": None,
+        "puser04": None,
+        "puser05": None,
+        "puser06": None,
+        "puser07": None,
+        "puser08": None,
+        "puser09": None,
+        "puser10": None,
     }
-
 
     @inlineCallbacks
     def _createShare(self, shareFrom, shareTo, accept=True):
@@ -148,7 +143,6 @@ class TestCompleteMigrationCycle(MultiStoreConduitTest):
 
         returnValue(sharedName)
 
-
     def attachmentToString(self, attachment):
         """
         Convenience to convert an L{IAttachment} to a string.
@@ -162,7 +156,6 @@ class TestCompleteMigrationCycle(MultiStoreConduitTest):
         capture = CaptureProtocol()
         attachment.retrieve(capture)
         return capture.deferred
-
 
     now = {
         "now": DateTime.getToday().getYear(),
@@ -343,7 +336,6 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n").format(**now)
 
-
     @inlineCallbacks
     def preCheck(self):
         """
@@ -362,7 +354,6 @@ END:VCALENDAR
             self.assertEqual(record.serviceNodeUID, "B")
             self.assertEqual(record.thisServer(), i == 1)
             yield self.commitTransaction(i)
-
 
     @inlineCallbacks
     def initialState(self):
@@ -439,7 +430,6 @@ END:VCALENDAR
 
         yield self.waitAllEmpty()
 
-
     @inlineCallbacks
     def secondState(self):
         """
@@ -459,7 +449,6 @@ END:VCALENDAR
 
         yield self.waitAllEmpty()
 
-
     @inlineCallbacks
     def finalState(self):
         """
@@ -475,7 +464,6 @@ END:VCALENDAR
         yield self.commitTransaction(1)
 
         yield self.waitAllEmpty()
-
 
     @inlineCallbacks
     def switchAccounts(self):
@@ -501,7 +489,6 @@ END:VCALENDAR
             self.assertEqual(record.serviceNodeUID, "B")
             self.assertEqual(record.thisServer(), i == 1)
             yield self.commitTransaction(i)
-
 
     @inlineCallbacks
     def postCheck(self):
@@ -707,7 +694,6 @@ END:VCALENDAR
         for workType in allScheduleWork:
             records = yield workType.query(txn, workType.homeResourceID == self.stash["user01_pod0_home_id"])
             self.assertEqual(len(records), 0, msg=workType.__name__)
-
 
     @inlineCallbacks
     def test_migration(self):

@@ -62,6 +62,7 @@ def responseForHref(request, responses, href, resource, propertiesForResource, p
 
 responseForHref = deferredGenerator(responseForHref)
 
+
 def propertyListForResource(request, prop, resource):
     """
     Return the specified properties on the specified resource.
@@ -74,7 +75,6 @@ def propertyListForResource(request, prop, resource):
     return _namedPropertiesForResource(request, prop.children, resource)
 
 
-
 def _namedPropertiesForResource(request, props, resource):
     """
     Return the specified properties on the specified resource.
@@ -84,8 +84,8 @@ def _namedPropertiesForResource(request, props, resource):
     @return: a map of OK and NOT FOUND property values.
     """
     properties_by_status = {
-        responsecode.OK        : [],
-        responsecode.NOT_FOUND : [],
+        responsecode.OK: [],
+        responsecode.NOT_FOUND: [],
     }
 
     for property in props:

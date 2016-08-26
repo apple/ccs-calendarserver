@@ -25,6 +25,7 @@
 
 from zope.interface import Interface
 
+
 class IHTTPClientManager(Interface):
     """I coordinate between multiple L{HTTPClientProtocol} objects connected to a
     single server to facilite request queuing and pipelining.
@@ -39,7 +40,6 @@ class IHTTPClientManager(Interface):
         """
         pass
 
-
     def clientIdle(proto):
         """Called when an L{HTTPClientProtocol} is able to accept more requests.
 
@@ -47,7 +47,6 @@ class IHTTPClientManager(Interface):
         @type proto: L{HTTPClientProtocol}
         """
         pass
-
 
     def clientPipelining(proto):
         """Called when the L{HTTPClientProtocol} determines that it is able to
@@ -57,7 +56,6 @@ class IHTTPClientManager(Interface):
         @type proto: L{HTTPClientProtocol}
         """
         pass
-
 
     def clientGone(proto):
         """Called when the L{HTTPClientProtocol} disconnects from the server.

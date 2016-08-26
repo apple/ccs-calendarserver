@@ -90,8 +90,8 @@ def report_DAV__expand_property(self, request, expand_property):
     # Generate the expanded responses status for each top-level property
     #
     properties_by_status = {
-        responsecode.OK        : [],
-        responsecode.NOT_FOUND : [],
+        responsecode.OK: [],
+        responsecode.NOT_FOUND: [],
     }
 
     filteredaces = None

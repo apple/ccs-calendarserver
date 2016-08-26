@@ -25,18 +25,16 @@ from twisted.internet.interfaces import IConsumer
 
 
 class _BufferReader(Protocol):
+
     def __init__(self, finished):
         self.finished = finished
         self.received = StringIO()
 
-
     def dataReceived(self, bytes):
         self.received.write(bytes)
 
-
     def connectionLost(self, reason):
         self.finished.callback(self.received.getvalue())
-
 
 
 def readBody(response):
@@ -45,7 +43,6 @@ def readBody(response):
     finished = Deferred()
     response.deliverBody(_BufferReader(finished))
     return finished
-
 
 
 class StringProducer(object):
@@ -58,23 +55,18 @@ class StringProducer(object):
         self._body = body
         self.length = len(self._body)
 
-
     def startProducing(self, consumer):
         consumer.write(self._body)
         return succeed(None)
 
-
     def stopProducing(self):
         pass
-
 
     def resumeProducing(self):
         pass
 
-
     def pauseProducing(self):
         pass
-
 
 
 class MemoryConsumer(object):
@@ -83,10 +75,8 @@ class MemoryConsumer(object):
     def __init__(self):
         self._buffer = []
 
-
     def write(self, bytes):
         self._buffer.append(bytes)
-
 
     def value(self):
         if len(self._buffer) > 1:

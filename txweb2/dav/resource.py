@@ -149,22 +149,21 @@ class DAVPropertyMixIn (MetaDataMixin):
             (dav_namespace, "creationdate"),
             (dav_namespace, "displayname"),
             (dav_namespace, "supportedlock"),
-            (dav_namespace, "supported-report-set"), # RFC 3253, section 3.1.5
+            (dav_namespace, "supported-report-set"),  # RFC 3253, section 3.1.5
             # (dav_namespace, "owner"                     ), # RFC 3744, section 5.1
             # (dav_namespace, "group"                     ), # RFC 3744, section 5.2
-            (dav_namespace, "supported-privilege-set"), # RFC 3744, section 5.3
-            (dav_namespace, "current-user-privilege-set"), # RFC 3744, section 5.4
-            (dav_namespace, "current-user-principal"), # RFC 5397, Section 3
-            (dav_namespace, "acl"), # RFC 3744, section 5.5
-            (dav_namespace, "acl-restrictions"), # RFC 3744, section 5.6
-            (dav_namespace, "inherited-acl-set"), # RFC 3744, section 5.7
-            (dav_namespace, "principal-collection-set"), # RFC 3744, section 5.8
-            (dav_namespace, "quota-available-bytes"), # RFC 4331, section 3
-            (dav_namespace, "quota-used-bytes"), # RFC 4331, section 4
+            (dav_namespace, "supported-privilege-set"),  # RFC 3744, section 5.3
+            (dav_namespace, "current-user-privilege-set"),  # RFC 3744, section 5.4
+            (dav_namespace, "current-user-principal"),  # RFC 5397, Section 3
+            (dav_namespace, "acl"),  # RFC 3744, section 5.5
+            (dav_namespace, "acl-restrictions"),  # RFC 3744, section 5.6
+            (dav_namespace, "inherited-acl-set"),  # RFC 3744, section 5.7
+            (dav_namespace, "principal-collection-set"),  # RFC 3744, section 5.8
+            (dav_namespace, "quota-available-bytes"),  # RFC 4331, section 3
+            (dav_namespace, "quota-used-bytes"),  # RFC 4331, section 4
 
             (twisted_dav_namespace, "resource-class"),
         )
-
 
     def dynamicProperties(self):
         """
@@ -176,7 +175,6 @@ class DAVPropertyMixIn (MetaDataMixin):
             (dav_namespace, "quota-available-bytes"),
             (dav_namespace, "quota-used-bytes"),
         )
-
 
     def deadProperties(self):
         """
@@ -200,7 +198,6 @@ class DAVPropertyMixIn (MetaDataMixin):
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = NonePropertyStore(self)
         return self._dead_properties
-
 
     def hasProperty(self, property, request):
         """
@@ -227,7 +224,6 @@ class DAVPropertyMixIn (MetaDataMixin):
             self.deadProperties().contains(qname)
         )
 
-
     def readProperty(self, property, request):
         """
         See L{IDAVResource.readProperty}.
@@ -249,8 +245,8 @@ class DAVPropertyMixIn (MetaDataMixin):
                     if self.deadProperties().contains(qname):
                         returnValue(self.deadProperties().get(qname))
                     if self.isCollection():
-                        returnValue(element.ResourceType.collection) #@UndefinedVariable
-                    returnValue(element.ResourceType.empty) #@UndefinedVariable
+                        returnValue(element.ResourceType.collection)  # @UndefinedVariable
+                    returnValue(element.ResourceType.empty)  # @UndefinedVariable
 
                 if name == "getetag":
                     etag = (yield self.etag())
@@ -295,12 +291,12 @@ class DAVPropertyMixIn (MetaDataMixin):
                 if name == "supportedlock":
                     returnValue(element.SupportedLock(
                         element.LockEntry(
-                            element.LockScope.exclusive, #@UndefinedVariable
-                            element.LockType.write #@UndefinedVariable
+                            element.LockScope.exclusive,  # @UndefinedVariable
+                            element.LockType.write  # @UndefinedVariable
                         ),
                         element.LockEntry(
-                            element.LockScope.shared, #@UndefinedVariable
-                            element.LockType.write #@UndefinedVariable
+                            element.LockScope.shared,  # @UndefinedVariable
+                            element.LockType.write  # @UndefinedVariable
                         ),
                     ))
 
@@ -400,7 +396,6 @@ class DAVPropertyMixIn (MetaDataMixin):
 
         return defer()
 
-
     def writeProperty(self, property, request):
         """
         See L{IDAVResource.writeProperty}.
@@ -427,7 +422,6 @@ class DAVPropertyMixIn (MetaDataMixin):
             return self.deadProperties().set(property)
 
         return maybeDeferred(defer)
-
 
     def removeProperty(self, property, request):
         """
@@ -458,7 +452,6 @@ class DAVPropertyMixIn (MetaDataMixin):
 
         return maybeDeferred(defer)
 
-
     @inlineCallbacks
     def listProperties(self, request):
         """
@@ -483,7 +476,6 @@ class DAVPropertyMixIn (MetaDataMixin):
                 qnames.add(qname)
 
         returnValue(qnames)
-
 
     def listAllprop(self, request):
         """
@@ -514,7 +506,6 @@ class DAVPropertyMixIn (MetaDataMixin):
         d.addCallback(doList)
         return d
 
-
     def hasDeadProperty(self, property):
         """
         Same as L{hasProperty}, but bypasses the live property store
@@ -527,7 +518,6 @@ class DAVPropertyMixIn (MetaDataMixin):
 
         return self.deadProperties().contains(qname)
 
-
     def readDeadProperty(self, property):
         """
         Same as L{readProperty}, but bypasses the live property store
@@ -539,7 +529,6 @@ class DAVPropertyMixIn (MetaDataMixin):
             qname = property.qname()
 
         return self.deadProperties().get(qname)
-
 
     def writeDeadProperty(self, property):
         """
@@ -554,7 +543,6 @@ class DAVPropertyMixIn (MetaDataMixin):
         """
         self.deadProperties().set(property)
 
-
     def removeDeadProperty(self, property):
         """
         Same as L{removeProperty}, but bypasses the live property
@@ -568,7 +556,6 @@ class DAVPropertyMixIn (MetaDataMixin):
 
             self.deadProperties().delete(qname)
 
-
     #
     # Overrides some methods in MetaDataMixin in order to allow DAV properties
     # to override the values of some HTTP metadata.
@@ -581,7 +568,6 @@ class DAVPropertyMixIn (MetaDataMixin):
         else:
             return super(DAVPropertyMixIn, self).contentType()
 
-
     def displayName(self):
         if self.hasDeadProperty((element.dav_namespace, "displayname")):
             return str(self.readDeadProperty(
@@ -589,7 +575,6 @@ class DAVPropertyMixIn (MetaDataMixin):
             ))
         else:
             return super(DAVPropertyMixIn, self).displayName()
-
 
 
 class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
@@ -610,7 +595,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 for principalCollection in principalCollections
             ])
 
-
     ##
     # DAV
     ##
@@ -624,7 +608,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         unimplemented(self)
 
-
     def isCollection(self):
         """
         See L{IDAVResource.isCollection}.
@@ -633,7 +616,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         must override this method.
         """
         unimplemented(self)
-
 
     def findChildren(
         self, depth, request, callback,
@@ -709,7 +691,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         maybeDeferred(self.listChildren).addCallback(gotChildren).addErrback(completionDeferred.errback)
 
         return completionDeferred
-
 
     @inlineCallbacks
     def findChildrenFaster(
@@ -831,7 +812,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         returnValue(None)
 
-
     @inlineCallbacks
     def checkACLPrivilege(
         self, request, acl, privyset, privileges, inherited_aces
@@ -877,7 +857,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         returnValue(len(denied) + len(pending) == 0)
 
-
     def fullAccessControlList(self, acl, inherited_aces):
         """
         See L{IDAVResource.accessControlList}.
@@ -915,7 +894,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         return acl
 
-
     def supportedReports(self):
         """
         See L{IDAVResource.supportedReports}.
@@ -930,7 +908,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         result.append(element.Report(element.ExpandProperty(),))
         result.append(element.Report(customxml.CalendarServerPrincipalSearch(),))
         return result
-
 
     ##
     # Authentication
@@ -970,7 +947,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         d = self.authenticate(request)
         d.addCallback(whenAuthenticated)
         return d
-
 
     def authenticate(self, request):
         """
@@ -1015,7 +991,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             request.authnUser = None
             request.authzUser = None
             return succeed((request.authnUser, request.authzUser))
-
 
         # Check for native TLS client cert
         if request.clientCredentials() is not None:
@@ -1118,7 +1093,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             request.authzUser = None
             return succeed((request.authnUser, request.authzUser))
 
-
     ##
     # ACL
     ##
@@ -1134,7 +1108,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         else:
             return unauthenticatedPrincipal
 
-
     def principalCollections(self):
         """
         See L{IDAVResource.principalCollections}.
@@ -1143,7 +1116,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             return self._principalCollections
         else:
             return ()
-
 
     def defaultRootAccessControlList(self):
         """
@@ -1157,7 +1129,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         #
         return readonlyACL
 
-
     def defaultAccessControlList(self):
         """
         @return: the L{element.ACL} element containing the default
@@ -1169,7 +1140,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         #
         return succeed(element.ACL())
 
-
     def setAccessControlList(self, acl):
         """
         See L{IDAVResource.setAccessControlList}.
@@ -1178,7 +1148,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         C{(L{twisted_private_namespace}, "acl")}.
         """
         self.writeDeadProperty(acl)
-
 
     @inlineCallbacks
     def mergeAccessControlList(self, new_acl, request):
@@ -1225,6 +1194,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         # Need to get list of supported privileges
         supported = []
+
         def addSupportedPrivilege(sp):
             """
             Add the element in any DAV:Privilege to our list
@@ -1345,7 +1315,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         yield self.writeNewACEs(new_set)
         returnValue(None)
 
-
     def writeNewACEs(self, new_aces):
         """
         Write a new ACL to the resource's property store.  This is a
@@ -1356,7 +1325,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         return self.setAccessControlList(element.ACL(*new_aces))
 
-
     def matchPrivilege(self, privilege, ace_privileges, supportedPrivileges):
         for ace_privilege in ace_privileges:
             if (
@@ -1366,7 +1334,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 return True
 
         return False
-
 
     @inlineCallbacks
     def checkPrivileges(
@@ -1453,7 +1420,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                     if not ace.allow:
                         denied.append(privilege)
 
-            denied += pending # If no matching ACE, then denied
+            denied += pending  # If no matching ACE, then denied
 
             if denied:
                 errors.append((uri, denied))
@@ -1462,7 +1429,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             raise AccessDeniedError(errors,)
 
         returnValue(None)
-
 
     def supportedPrivileges(self, request):
         """
@@ -1473,7 +1439,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         return succeed(davPrivilegeSet)
 
-
     def currentPrivileges(self, request):
         """
         See L{IDAVResource.currentPrivileges}.
@@ -1483,7 +1448,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         """
         current = self.currentPrincipal(request)
         return self.privilegesForPrincipal(current, request)
-
 
     @inlineCallbacks
     def accessControlList(
@@ -1598,7 +1562,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         returnValue(acl)
 
-
     def inheritedACEsforChildren(self, request):
         """
         Do some optimisation of access control calculation by
@@ -1640,7 +1603,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         d.addCallback(gotACL)
         return d
 
-
     def inheritedACLSet(self):
         """
         @return: a sequence of L{element.HRef}s from which ACLs are
@@ -1649,7 +1611,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         This implementation returns an empty set.
         """
         return []
-
 
     @inlineCallbacks
     def principalsForAuthID(self, request, authid):
@@ -1679,7 +1640,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         authzPrincipal = yield self.authorizationPrincipal(request, authid, authnPrincipal)
         returnValue((authnPrincipal, authzPrincipal))
 
-
     @inlineCallbacks
     def findPrincipalForAuthID(self, authid):
         """
@@ -1701,7 +1661,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 returnValue(principal)
         returnValue(None)
 
-
     def authorizationPrincipal(self, request, authid, authnPrincipal):
         """
         Determine the authorization principal for the given request
@@ -1719,7 +1678,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             and URI respectively.
         """
         return succeed(authnPrincipal)
-
 
     def samePrincipal(self, principal1, principal2):
         """
@@ -1750,7 +1708,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 return True
         else:
             return False
-
 
     def matchPrincipal(self, principal1, principal2, request):
         """
@@ -1827,7 +1784,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         d.addCallback(cache)
         return d
 
-
     @inlineCallbacks
     def principalIsGroupMember(self, principal1, principal2, request):
         """
@@ -1847,7 +1803,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             isContained = yield resource2.containsPrincipal(resource1)
             returnValue(isContained)
         returnValue(False)
-
 
     def validPrincipal(self, ace_principal, request):
         """
@@ -1882,7 +1837,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         return maybeDeferred(defer)
 
-
     def validHrefPrincipal(self, href_principal, request):
         """
         Check whether the supplied principal (in the form of an Href)
@@ -1909,7 +1863,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         d = request.locateResource(str(href_principal))
         d.addCallback(_matchPrincipalURL)
         return d
-
 
     def resolvePrincipal(self, principal, request):
         """
@@ -2002,7 +1955,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         return succeed(None)
 
-
     @inlineCallbacks
     def privilegesForPrincipal(self, principal, request):
         """
@@ -2046,7 +1998,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         returnValue(allowed)
 
-
     def matchACEinACL(self, acl, ace):
         """
         Find an ACE in the ACL that matches the supplied ACE's principal.
@@ -2059,7 +2010,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 return a
 
         return None
-
 
     def principalSearchPropertySet(self):
         """
@@ -2138,7 +2088,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         d.addCallback(gotQuotaRootResource)
         return d
 
-
     def hasQuota(self, request):
         """
         Check whether this resource is under quota control by checking
@@ -2155,13 +2104,11 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         d.addCallback(gotQuotaRootResource)
         return d
 
-
     def hasQuotaRoot(self, request):
         """
         @return: a C{True} if this resource has quota root, C{False} otherwise.
         """
         return self.hasDeadProperty(TwistedQuotaRootProperty)
-
 
     def quotaRoot(self, request):
         """
@@ -2173,7 +2120,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             return int(str(self.readDeadProperty(TwistedQuotaRootProperty)))
         else:
             return None
-
 
     @inlineCallbacks
     def quotaRootResource(self, request):
@@ -2203,7 +2149,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         returnValue(None)
 
-
     def setQuotaRoot(self, request, maxsize):
         """
         @param maxsize: a C{int} containing the maximum allowed bytes
@@ -2222,7 +2167,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             self.removeDeadProperty(TwistedQuotaRootProperty)
             self.removeDeadProperty(TwistedQuotaUsedProperty)
 
-
     def quotaSize(self, request):
         """
         Get the size of this resource (if its a collection get total
@@ -2232,7 +2176,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         @return: a C{int} containing the size of the resource.
         """
         unimplemented(self)
-
 
     def checkQuota(self, request, available):
         """
@@ -2261,7 +2204,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         d.addCallback(_defer)
         return d
 
-
     def quotaSizeAdjust(self, request, adjust):
         """
         Update the quota used value on all quota root parents of this
@@ -2280,7 +2222,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         d = self.quotaRootResource(request)
         d.addCallback(_defer)
         return d
-
 
     def currentQuotaUse(self, request):
         """
@@ -2310,7 +2251,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             d = self.quotaSize(request)
             d.addCallback(_defer)
             return d
-
 
     def updateQuotaUse(self, request, adjust):
         """
@@ -2344,7 +2284,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         d = self.currentQuotaUse(request)
         d.addCallback(_defer)
         return d
-
 
     ##
     # HTTP
@@ -2390,7 +2329,6 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         d = maybeDeferred(super(DAVResource, self).renderHTTP, request)
         return d.addCallbacks(setHeaders, onError)
 
-
     def handleMissingTrailingSlash(self, request):
         return RedirectResponse(
             request.unparseURL(
@@ -2401,17 +2339,16 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         )
 
 
-
 class DAVLeafResource (DAVResource, LeafResource):
     """
     DAV resource with no children.
     """
+
     def findChildren(
         self, depth, request, callback,
         privileges=None, inherited_aces=None
     ):
         return succeed(None)
-
 
 
 class DAVPrincipalResource (DAVResource):
@@ -2433,14 +2370,11 @@ class DAVPrincipalResource (DAVResource):
             (dav_namespace, "group-membership"),
         )
 
-
     def davComplianceClasses(self):
         return ("1", "access-control",)
 
-
     def isCollection(self):
         return False
-
 
     def readProperty(self, property, request):
         def defer():
@@ -2499,7 +2433,6 @@ class DAVPrincipalResource (DAVResource):
 
         return maybeDeferred(defer)
 
-
     ##
     # ACL
     ##
@@ -2514,7 +2447,6 @@ class DAVPrincipalResource (DAVResource):
         """
         return ()
 
-
     def principalURL(self):
         """
         See L{IDAVPrincipalResource.principalURL}.
@@ -2525,7 +2457,6 @@ class DAVPrincipalResource (DAVResource):
         """
         unimplemented(self)
 
-
     def principalElement(self):
         """
         See L{IDAVPrincipalResource.principalURL}.
@@ -2535,7 +2466,6 @@ class DAVPrincipalResource (DAVResource):
         this resource.
         """
         return element.Principal(element.HRef.fromString(self.principalURL()))
-
 
     def groupMembers(self):
         """
@@ -2548,7 +2478,6 @@ class DAVPrincipalResource (DAVResource):
         """
         return succeed(())
 
-
     def expandedGroupMembers(self):
         """
         This implementation returns a Deferred which fires with C{()},
@@ -2560,7 +2489,6 @@ class DAVPrincipalResource (DAVResource):
         """
         return succeed(())
 
-
     def groupMemberships(self):
         """
         See L{IDAVPrincipalResource.groupMemberships}.
@@ -2570,7 +2498,6 @@ class DAVPrincipalResource (DAVResource):
         resource.
         """
         unimplemented(self)
-
 
     def principalMatch(self, href):
         """
@@ -2590,7 +2517,6 @@ class DAVPrincipalResource (DAVResource):
             )
             return d
 
-
     @inlineCallbacks
     def containsPrincipal(self, principal):
         """
@@ -2603,7 +2529,6 @@ class DAVPrincipalResource (DAVResource):
         """
         members = yield self.expandedGroupMembers()
         returnValue(principal in members)
-
 
 
 class DAVPrincipalCollectionResource (DAVResource):
@@ -2625,13 +2550,11 @@ class DAVPrincipalCollectionResource (DAVResource):
         assert url.endswith("/"), "Collection URL must end in '/'"
         self._url = url
 
-
     def principalCollectionURL(self):
         """
         Return the URL for this principal collection.
         """
         return self._url
-
 
     def principalForUser(self, user):
         """
@@ -2644,7 +2567,6 @@ class DAVPrincipalCollectionResource (DAVResource):
         raise NotImplementedError(
             "%s did not implement principalForUser" % (self.__class__)
         )
-
 
 
 class AccessDeniedError(Exception):
@@ -2666,7 +2588,6 @@ class AccessDeniedError(Exception):
         self.errors = errors
 
 
-
 ##
 # Utilities
 ##
@@ -2680,7 +2601,6 @@ def isPrincipalResource(resource):
         return True
 
 
-
 class TwistedACLInheritable (WebDAVEmptyElement):
     """
     When set on an ACE, this indicates that the ACE privileges should
@@ -2692,6 +2612,7 @@ class TwistedACLInheritable (WebDAVEmptyElement):
 
 registerElement(TwistedACLInheritable)
 element.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
+
 
 class TwistedGETContentMD5 (WebDAVTextElement):
     """
@@ -2715,6 +2636,7 @@ class TwistedQuotaRootProperty (WebDAVTextElement):
     name = "quota-root"
 
 registerElement(TwistedQuotaRootProperty)
+
 
 class TwistedQuotaUsedProperty (WebDAVTextElement):
     """

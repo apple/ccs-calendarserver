@@ -24,6 +24,7 @@ from twisted.python.failure import Failure
 
 log = Logger()
 
+
 @inlineCallbacks
 def rowsForProperty(txn, propelement, with_uid=False, batch=None):
     pname = PropertyName.fromElement(propelement)
@@ -42,7 +43,6 @@ def rowsForProperty(txn, propelement, with_uid=False, batch=None):
     returnValue(rows)
 
 
-
 @inlineCallbacks
 def countProperty(txn, propelement):
     pname = PropertyName.fromElement(propelement)
@@ -57,7 +57,6 @@ def countProperty(txn, propelement):
     returnValue(count)
 
 
-
 @inlineCallbacks
 def cleanPropertyStore():
     """
@@ -65,7 +64,6 @@ def cleanPropertyStore():
     mechanism. We need to clear out the cache.
     """
     yield PropertyStore._cacher.flushAll()
-
 
 
 @inlineCallbacks
@@ -77,7 +75,6 @@ def removeProperty(txn, propelement):
         From=rp,
         Where=rp.NAME == pname.toString(),
     ).on(txn)
-
 
 
 @inlineCallbacks
@@ -92,7 +89,6 @@ def updateAllCalendarHomeDataVersions(store, version):
     yield txn.commit()
 
 
-
 @inlineCallbacks
 def updateAllAddressBookHomeDataVersions(store, version):
 
@@ -102,7 +98,6 @@ def updateAllAddressBookHomeDataVersions(store, version):
         {ah.DATAVERSION: version},
     ).on(txn)
     yield txn.commit()
-
 
 
 @inlineCallbacks
@@ -117,20 +112,16 @@ def _updateDataVersion(store, key, version):
     yield txn.commit()
 
 
-
 def updateCalendarDataVersion(store, version):
     return _updateDataVersion(store, "CALENDAR-DATAVERSION", version)
-
 
 
 def updateAddressBookDataVersion(store, version):
     return _updateDataVersion(store, "ADDRESSBOOK-DATAVERSION", version)
 
 
-
 def updateNotificationDataVersion(store, version):
     return _updateDataVersion(store, "NOTIFICATION-DATAVERSION", version)
-
 
 
 @inlineCallbacks
@@ -196,7 +187,6 @@ def doToEachHomeNotAtVersion(store, homeSchema, version, doIt, logStr, filterOwn
         count += 1
 
 
-
 def logUpgradeStatus(title, count=None, total=None):
     if total is None:
         log.info("Database upgrade {title}", title=title)
@@ -204,7 +194,6 @@ def logUpgradeStatus(title, count=None, total=None):
         divisor = 1000 if total > 1000 else 100
         if (divmod(count, divisor)[1] == 0) or (count == total):
             log.info("Database upgrade {title}: {count} of {total}", title=title, count=count, total=total)
-
 
 
 def logUpgradeError(title, details):
