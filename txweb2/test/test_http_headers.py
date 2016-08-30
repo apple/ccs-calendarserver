@@ -526,6 +526,13 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
 
 class ResponseHeaderParsingTests(HeaderParsingTestBase):
 
+    def testAcceptPatch(self):
+        table = (
+            ("text/html", [http_headers.MimeType('text', 'html'), ]),
+            ("text/html, text/plain", [http_headers.MimeType('text', 'html'), http_headers.MimeType('text', 'plain')]),
+        )
+        self.runRoundtripTest("Accept-Patch", table)
+
     def testAcceptRanges(self):
         self.runRoundtripTest("Accept-Ranges", (("bytes", ["bytes"]), ("none", ["none"])))
 

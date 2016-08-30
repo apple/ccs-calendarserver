@@ -1687,6 +1687,7 @@ generator_request_headers = {
 }
 
 parser_response_headers = {
+    'Accept-Patch': (tokenize, listParser(parseContentType), list),
     'Accept-Ranges': (tokenize, filterTokens),
     'Age': (last, int),
     'ETag': (tokenize, ETag.parse),
@@ -1702,6 +1703,7 @@ parser_response_headers = {
 }
 
 generator_response_headers = {
+    'Accept-Patch': (listGenerator(generateContentType), singleHeader),
     'Accept-Ranges': (generateList, singleHeader),
     'Age': (str, singleHeader),
     'ETag': (ETag.generate, singleHeader),
