@@ -154,6 +154,7 @@ Cuba	America/Havana
 Dateline Standard Time	Etc/GMT+12
 E. Africa Standard Time	Africa/Nairobi
 E. Australia Standard Time	Australia/Brisbane
+E. Europe Standard Time	Europe/Chisinau
 E. South America Standard Time	America/Sao_Paulo
 Eastern Standard Time	America/New_York
 Eastern Standard Time (Mexico)	America/Cancun
@@ -239,10 +240,10 @@ New Zealand Standard Time	Pacific/Auckland
 Newfoundland Standard Time	America/St_Johns
 North Asia East Standard Time	Asia/Irkutsk
 North Asia Standard Time	Asia/Krasnoyarsk
+North Korea Standard Time	Asia/Pyongyang
 PRC	Asia/Shanghai
 Pacific SA Standard Time	America/Santiago
 Pacific Standard Time	America/Los_Angeles
-Pacific Standard Time (Mexico)	America/Santa_Isabel
 Pacific/Johnston	Pacific/Honolulu
 Pacific/Midway	Pacific/Pago_Pago
 Pacific/Ponape	Pacific/Pohnpei
