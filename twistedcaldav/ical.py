@@ -54,6 +54,7 @@ from pycalendar.icalendar import definitions
 from pycalendar.parameter import Parameter
 from pycalendar.icalendar.calendar import Calendar
 from pycalendar.icalendar.component import Component as PyComponent
+from pycalendar.icalendar.patch import PatchDocument
 from pycalendar.componentbase import ComponentBase
 from pycalendar.datetime import DateTime
 from pycalendar.duration import Duration
@@ -173,6 +174,18 @@ maxDateTime = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone.UTCTimezone)
 
 class InvalidICalendarDataError(ValueError):
     pass
+
+
+class InvalidPatchDataError(ValueError):
+    """
+    Raised when a VPATCH cannot be parsed or validated.
+    """
+
+
+class InvalidPatchApplyError(ValueError):
+    """
+    Raised when a VPATCH cannot be applied correctly.
+    """
 
 
 class Property (object):
@@ -394,6 +407,16 @@ class Component (object):
             if config.EnableJSONData:
                 cls.allowedTypesList.append("application/calendar+json")
         return cls.allowedTypesList
+
+    allowedPatchTypesList = None
+
+    @classmethod
+    def allowedPatchTypes(cls):
+        if cls.allowedPatchTypesList is None:
+            cls.allowedPatchTypesList = ["application/calendar-patch"]
+            # if config.EnableJSONData:
+            #    cls.allowedPatchTypesList.append("application/calendar+json")
+        return cls.allowedPatchTypesList
 
     @classmethod
     def allFromString(clazz, string, format=None):
@@ -3653,6 +3676,23 @@ END:VCALENDAR
             for prop in tuple(self.properties(ATTENDEE_COMMENT)):
                 if not prop.hasParameter(DTSTAMP_PARAM):
                     prop.setParameter(DTSTAMP_PARAM, DateTime.getNowUTC().getText())
+
+    def applyPatch(self, component):
+
+        try:
+            patcher = PatchDocument(self._pycalendar)
+        except ValueError as e:
+            log.debug("Invalid iCalendar patch: {}".format(str(e)))
+            raise InvalidPatchDataError("Can't parse/validate calendar patch data: {}".format(str(e),))
+
+        new_component = component._pycalendar.duplicate()
+        try:
+            patcher.applyPatch(new_component)
+        except ValueError as e:
+            log.debug("Could not apply iCalendar patch: {}".format(str(e)))
+            raise InvalidPatchApplyError("Could not apply iCalendar patch: {}".format(str(e)))
+
+        return Component(None, pycalendar=new_component)
 
 
 # #

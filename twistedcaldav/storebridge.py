@@ -35,7 +35,8 @@ from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import (
     Component as VCalendar, Property as VProperty,
-    iCalendarProductID, Component
+    iCalendarProductID, Component,
+    InvalidPatchDataError, InvalidPatchApplyError,
 )
 from twistedcaldav.instance import (
     InvalidOverriddenInstanceError, TooManyInstancesError
@@ -2230,6 +2231,15 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, _CommonStoreExceptionHa
             format = "%s/%s" % (content_type.mediaType, content_type.mediaSubtype,)
         return format if format in self.allowedTypes() else None
 
+    def determinePatchType(self, content_type):
+        """
+        Determine if the supplied content-type is valid for storing and return the matching PyCalendar type.
+        """
+        format = None
+        if content_type is not None:
+            format = "%s/%s" % (content_type.mediaType, content_type.mediaSubtype,)
+        return "text/calendar" if format in self.allowedPatchTypes() else None
+
     @inlineCallbacks
     def render(self, request):
         if not self.exists():
@@ -2508,6 +2518,12 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         """
         return Component.allowedTypes()
 
+    def allowedPatchTypes(self):
+        """
+        Return a tuple of allowed MIME types for patching.
+        """
+        return Component.allowedPatchTypes()
+
     @inlineCallbacks
     def inNewTransaction(self, request, label=""):
         """
@@ -2693,6 +2709,17 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         return False
 
     @inlineCallbacks
+    def http_OPTIONS(self, request):
+        """
+        Respond to a OPTIONS request.
+        @param request: the request to process.
+        @return: an object adaptable to L{iweb.IResponse}.
+        """
+        response = yield super(CalendarObjectResource, self).http_OPTIONS(request)
+        if config.Patch.EnableCalendarObject:
+            response.headers.setHeader("Accept-Patch", [MimeType.fromString(mtype) for mtype in self.allowedPatchTypes()])
+        returnValue(response)
+
     def http_PUT(self, request):
 
         # Content-type check
@@ -2705,6 +2732,41 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 (caldav_namespace, "supported-calendar-data"),
                 "Invalid MIME type for calendar collection",
             ))
+
+        return self.putOrPatch(request, format)
+
+    def http_PATCH(self, request):
+
+        # Must be supported
+        if not config.Patch.EnableCalendarObject:
+            raise HTTPError(StatusResponse(
+                responsecode.NOT_ALLOWED,
+                "PATCH method not allowed on this resource",
+            ))
+
+        # Cannot patch non-existent resource
+        if not self.exists():
+            log.debug("Resource not found: {s!r}", s=self)
+            raise HTTPError(StatusResponse(
+                responsecode.NOT_FOUND,
+                "PATCH method not allowed on non-existent resource",
+            ))
+
+        # Content-type check
+        content_type = request.headers.getHeader("content-type")
+        format = self.determinePatchType(content_type)
+        if format is None:
+            log.error("MIME type {content_type} not allowed in calendar collection", content_type=content_type)
+            raise HTTPError(ErrorResponse(
+                responsecode.UNSUPPORTED_MEDIA_TYPE,
+                (caldav_namespace, "supported-calendar-data"),
+                "Invalid MIME type for calendar collection",
+            ))
+
+        return self.putOrPatch(request, format)
+
+    @inlineCallbacks
+    def putOrPatch(self, request, format):
 
         # Do schedule tag check
         try:
@@ -2741,6 +2803,25 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                     (caldav_namespace, "valid-calendar-data"),
                     "Can't parse calendar data: %s" % (str(e),)
                 ))
+
+            # Check for PUT or PATCH
+            if request.method == "PATCH":
+                # Get old component and apply this patch
+                old_component = yield self.componentForUser()
+                try:
+                    component = component.applyPatch(old_component)
+                except InvalidPatchDataError as e:
+                    raise HTTPError(ErrorResponse(
+                        responsecode.BAD_REQUEST,
+                        (caldav_namespace, "valid-calendar-data"),
+                        str(e),
+                    ))
+                except InvalidPatchApplyError as e:
+                    raise HTTPError(ErrorResponse(
+                        responsecode.UNPROCESSABLE_ENTITY,
+                        (caldav_namespace, "valid-calendar-data"),
+                        str(e),
+                    ))
 
             # Look for client fixes
             ua = request.headers.getHeader("User-Agent")

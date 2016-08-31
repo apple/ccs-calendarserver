@@ -12132,3 +12132,63 @@ END:VCALENDAR
         cal.repairMissingDatestampsFromComments()
         for prop in list(cal.mainComponent().properties("X-CALENDARSERVER-ATTENDEE-COMMENT")):
             self.assertTrue(prop.hasParameter("X-CALENDARSERVER-DTSTAMP"))
+
+    def test_patch(self):
+        """
+        Verify attendee comments missing date stamps are repaired
+        """
+
+        data_before = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//example.com//Example v0.1//EN
+BEGIN:VEVENT
+UID:C3184A66-1ED0-11D9-A5E0-000A958A3252
+DTSTART;VALUE=DATE:20020101
+DTEND;VALUE=DATE:20020102
+DTSTAMP:20020101T000000Z
+RRULE:FREQ=YEARLY
+SUMMARY:New Year's Day
+END:VEVENT
+END:VCALENDAR
+"""
+        data_after = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//example.com//Example v0.1//EN
+BEGIN:VEVENT
+UID:C3184A66-1ED0-11D9-A5E0-000A958A3252
+DTSTART;VALUE=DATE:20020101
+DTEND;VALUE=DATE:20020102
+DTSTAMP:20020101T000000Z
+RRULE:FREQ=YEARLY
+SUMMARY:New Year's Day
+END:VEVENT
+BEGIN:VEVENT
+UID:C3184A66-1ED0-11D9-A5E0-000A958A3252
+RECURRENCE-ID;VALUE=DATE:20020102
+DTSTART;VALUE=DATE:20020102
+DTEND;VALUE=DATE:20020103
+DTSTAMP:20020101T000000Z
+SUMMARY:New Year's Day - party time
+END:VEVENT
+END:VCALENDAR
+"""
+        data_patch = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//example.com//Example v0.1//EN
+BEGIN:VPATCH
+UID:77CA7115-B195-49FF-8AB9-01A1F3AC4F5C
+DTSTAMP:20160831T102600Z
+BEGIN:UPDATE
+TARGET:/VCALENDAR/VEVENT[UID=C3184A66-1ED0-11D9-A5E0-000A958A3252][RID=20020102]#SUMMARY
+SUMMARY:New Year's Day - party time
+END:UPDATE
+END:VPATCH
+END:VCALENDAR
+"""
+
+        patch = Component.fromString(data_patch)
+        new_component = patch.applyPatch(Component.fromString(data_before))
+        self.assertEqual(normalize_iCalStr(new_component), normalize_iCalStr(data_after), msg="{}:{}".format("Failed", diff_iCalStrs(new_component, data_after)))

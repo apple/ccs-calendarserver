@@ -538,6 +538,10 @@ DEFAULT_CONFIG = {
 
     "EnableServerInfo": False,  # server-info document
 
+    "Patch": {
+        "EnableCalendarObject": True,  # HTTP PATCH for calendar object resources
+    },
+
     #
     # Generic CalDAV/CardDAV extensions
     #

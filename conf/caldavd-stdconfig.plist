@@ -860,6 +860,13 @@
 	<key>EnableServerInfo</key>
 	<false/>
 
+	<key>Patch</key>
+	<dict>
+		<!-- HTTP PATCH for calendar object resources -->
+		<key>EnableCalendarObject</key>
+		<true/>
+	</dict>
+
 	<!-- Generic CalDAV/CardDAV extensions -->
 
 	<!-- Allow clients to send/receive JSON jCal and jCard format data -->
