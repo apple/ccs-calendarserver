@@ -30,7 +30,7 @@
 
     --editable git+https://github.com/apple/ccs-pykerberos.git#egg=kerberos
 
-    --editable git+https://github.com/apple/ccs-pycalendar.git#egg=pycalendar
+    --editable git+https://github.com/apple/ccs-pycalendar.git@users/cdaboo/patch#egg=pycalendar
     python-dateutil==2.5.3
     pytz==2016.4
 
