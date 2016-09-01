@@ -31,7 +31,7 @@ You will need to choose a directory service to use to populate your server's pri
 
 * XMLDirectoryService: this service is configurable via an XML file that contains principal information. The file conf/auth/accounts.xml provides an example principals configuration.
 
-* OpenDirectoryService: this service uses Apple's OpenDirectory client, the bulk of the configuration for which is handled external to Calendar and Contacts Server (e.g. System Preferences --> Users & Groups --> Login Options --> Network Account Server).
+* OpenDirectoryService: this service uses Apple's OpenDirectory client, the bulk of the configuration for which is handled external to Calendar and Contacts Server (e.g. System Preferences &rarr; Users & Groups &rarr; Login Options &rarr; Network Account Server).
 
 * LdapDirectoryService: a highly flexible LDAP client that can leverage existing LDAP servers. See twistedcaldav/stdconfig.py for the available LdapDirectoryService options and their defaults.
 The caldavd-test.plist configuration uses XMLDirectoryService by default, set up to use conf/auth/accounts-test.xml. This is a generally useful configuration for development and testing.
