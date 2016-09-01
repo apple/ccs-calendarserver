@@ -32,7 +32,7 @@ Start a local web server by running:
 
     bundle exec jekyll serve --baseurl ''
 
-Now you can access <http://127.0.0.1:4000> in your web browser to see the web site. When you make changes to your clone, your local site will automatically update. When done testing, press <kbd>Ctrl-C</kbd> to stop the local web server.
+Now you can access <http://127.0.0.1:4000> in your web browser to see the web site. When you make changes to your clone, your local site will automatically update. When done testing, press <kbd>Ctrl</kbd> + <kbd>C</kbd> to stop the local web server.
 
 Changes to \_config.yml are not automatically reflected. If you change \_config.yml, stop and start the local web server to see those changes take effect.
 
