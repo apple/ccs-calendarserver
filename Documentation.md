@@ -2,9 +2,6 @@
 title: Documentation
 ---
 
-CalendarServer Documentation
-============================
-
 Documentation for CalendarServer can be found on this wiki, and in the source code GIT repository.
 
 The GIT repository documentation is [here](https://github.com/apple/ccs-calendarserver/tree/master/doc), and is comprised of the following areas:

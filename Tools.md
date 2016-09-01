@@ -2,9 +2,6 @@
 title: Tools
 ---
 
-Tools
-=====
-
 CalendarServer has a number of tools to help manage the service. These are stored in the `calendarserver` Python module and typically accessible via `calendarserver_XYW` shell scripts (where `XYZ` is the name of the tool). Here are the important ones - click the links to see details.
 
 * ampnotifications

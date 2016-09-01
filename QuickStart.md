@@ -2,9 +2,6 @@
 title: QuickStart
 ---
 
-QuickStart
-==========
-
 **WARNING** these instructions are for running a server from the source tree, which is useful for development. These are not the correct steps for running the server in deployment or as part of an OS install. You should not be using the run script in system startup files (eg. /etc/init.d); it does things (like download software) that you don't want to happen in that context.
 
 Begin by creating a directory to contain Calendar and Contacts Server and all its dependencies:

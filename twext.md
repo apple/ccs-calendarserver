@@ -2,9 +2,6 @@
 title: twext Library
 ---
 
-twext Library
-==================
-
 This is a python module consisting of extensions to the [Twisted Framework](http://twistedmatrix.com/).
 
 ## GETTING IT

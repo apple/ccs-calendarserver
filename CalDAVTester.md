@@ -2,9 +2,6 @@
 title: CalDAVTester
 ---
 
-CalDAVTester
-============
-
 CalDAVTester is a test and performance application designed to work with CalDAV and / or CardDAV servers and tests various aspects of their protocol handling as well as performance.
 
 CalDAVTester basically executes HTTP requests against a server and verifies the responses returned by the server. Suites of tests are defined in xml configuration files, and an additional xml configuration file is used to define variables used whilst running (e.g., server address, user accounts to use etc).

@@ -1,9 +1,6 @@
 ---
-title: FAQ
+title: Frequently Asked Questions
 ---
-
-Frequently Asked Questions
-==========================
 
 ## Scheduling over Email (iMIP)
 

@@ -2,9 +2,6 @@
 title: PyCalendar Library
 ---
 
-PyCalendar Library
-==================
-
 PyCalendar is an iCalendar [RFC 5545](http://www.ietf.org/rfc/rfc5545.txt) parser/generator library written in Python and used by CalendarServer for all its iCalendar operations. In addition, PyCalendar supports parsing IANA time zone database files to generate iCalendar **VTIMEZONE** data.
 
 ## GETTING IT

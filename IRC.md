@@ -2,9 +2,6 @@
 title: IRC
 ---
 
-IRC
-===
-
 IRC - ​[Internet Relay Chat](http://en.wikipedia.org/wiki/Internet_Relay_Chat) is a text-based group communication tool. It is a useful way for a group of people to gather around and discuss a topic, and popular with groups of open source developers.
 
 ## Getting connected

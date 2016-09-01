@@ -2,9 +2,6 @@
 title: CalDAVClientLibrary
 ---
 
-CalDAVClientLibrary
-===================
-
 ## INTRODUCTION
 
 CalDAVClientLibrary is a Python library and tool for CalDAV. It is comprised of four main modules:

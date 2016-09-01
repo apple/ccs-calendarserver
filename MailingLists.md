@@ -2,9 +2,6 @@
 title: Mailing Lists
 ---
 
-Mailing Lists
-=============
-
 We have the following mailing lists set up:
 
 

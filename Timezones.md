@@ -1,9 +1,6 @@
 ---
-title: Time zones
+title: Time Zones
 ---
-
-Time Zones
-==========
 
 CalendarServer makes use of [IANA standard time zone data](https://www.iana.org/time-zones) for processing iCalendar data. CalendarServer itself ships with a set of time zones stored in the `twistedcaldav/zoneinfo` directory. However, that data is not always the most recent available. So, by default, CalendarServer actually uses time zone data stored in `data/zoneinfo` (where `data` is the config.DataRoot directory). When CalendarServer starts up, it does the following:
 
