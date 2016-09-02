@@ -54,7 +54,7 @@ from pycalendar.icalendar import definitions
 from pycalendar.parameter import Parameter
 from pycalendar.icalendar.calendar import Calendar
 from pycalendar.icalendar.component import Component as PyComponent
-from pycalendar.icalendar.patch import PatchDocument
+from pycalendar.icalendar.patchprocessing import PatchDocument
 from pycalendar.componentbase import ComponentBase
 from pycalendar.datetime import DateTime
 from pycalendar.duration import Duration
