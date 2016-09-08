@@ -2235,10 +2235,10 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, _CommonStoreExceptionHa
         """
         Determine if the supplied content-type is valid for storing and return the matching PyCalendar type.
         """
-        format = None
         if content_type is not None:
-            format = "%s/%s" % (content_type.mediaType, content_type.mediaSubtype,)
-        return "text/calendar" if format in self.allowedPatchTypes() else None
+            if "charset" not in content_type.params:
+                content_type = MimeType(content_type.mediaType, content_type.subtype, params=content_type.params, charset="utf-8")
+        return "text/calendar" if content_type in self.allowedPatchTypes() else None
 
     @inlineCallbacks
     def render(self, request):
@@ -2717,7 +2717,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         """
         response = yield super(CalendarObjectResource, self).http_OPTIONS(request)
         if config.Patch.EnableCalendarObject:
-            response.headers.setHeader("Accept-Patch", [MimeType.fromString(mtype) for mtype in self.allowedPatchTypes()])
+            response.headers.setHeader("Accept-Patch", self.allowedPatchTypes())
         returnValue(response)
 
     def http_PUT(self, request):

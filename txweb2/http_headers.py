@@ -936,14 +936,14 @@ def generateRetryAfter(when):
 def generateContentType(mimeType):
     out = "%s/%s" % (mimeType.mediaType, mimeType.mediaSubtype)
     if mimeType.params:
-        out += ';' + generateKeyValues(mimeType.params.iteritems())
+        out += '; ' + generateKeyValues(sorted(mimeType.params.iteritems(), key=lambda x: x[0]))
     return out
 
 
 def generateContentDisposition(disposition):
     out = disposition.dispositionType
     if disposition.params:
-        out += ';' + generateKeyValues(disposition.params.iteritems())
+        out += '; ' + generateKeyValues(sorted(disposition.params.iteritems(), key=lambda x: x[0]))
     return out
 
 

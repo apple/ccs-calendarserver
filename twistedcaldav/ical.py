@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from txweb2.http_headers import MimeType
 
 """
 iCalendar Utilities
@@ -413,7 +414,7 @@ class Component (object):
     @classmethod
     def allowedPatchTypes(cls):
         if cls.allowedPatchTypesList is None:
-            cls.allowedPatchTypesList = ["application/calendar-patch"]
+            cls.allowedPatchTypesList = [MimeType("text", "calendar", params={"component": "VPATCH", "optinfo": "PATCH-VERSION:1", "charset": "utf-8"})]
             # if config.EnableJSONData:
             #    cls.allowedPatchTypesList.append("application/calendar+json")
         return cls.allowedPatchTypesList
