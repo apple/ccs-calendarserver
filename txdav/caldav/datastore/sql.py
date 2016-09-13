@@ -106,6 +106,8 @@ from txdav.idav import ChangeCategory
 
 from pycalendar.datetime import DateTime
 from pycalendar.duration import Duration
+from pycalendar.icalendar.instanceprocessing import InstanceExpander,\
+    InstanceCompactor
 from pycalendar.timezone import Timezone
 from pycalendar.value import Value
 
@@ -3980,6 +3982,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                             self._attachment = _ATTACHMENTS_MODE_READ
                             self._dropboxID = (yield self.dropboxID())
 
+            # Compact into VINSTANCE
+            compact = component.duplicate()
+            InstanceCompactor.compact(compact._pycalendar)
+            compact = Component(None, pycalendar=compact._pycalendar)
+            componentText = str(compact)
+
             values = {
                 co.CALENDAR_RESOURCE_ID: self._calendar._resourceID,
                 co.RESOURCE_NAME: self._name,
@@ -4189,6 +4197,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                         e, self._resourceID
                     )
                 )
+
+            # Expand VINSTANCE
+            InstanceExpander.expand(component._pycalendar)
+            component = Component(None, pycalendar=component._pycalendar)
 
             # Fix any bogus data we can
             fixed, unfixed = component.validCalendarData(doFix=True, doRaise=False)
