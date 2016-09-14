@@ -2,7 +2,7 @@
 <!DOCTYPE timezones SYSTEM "timezones.dtd">
 
 <timezones>
-  <dtstamp>2016-08-30T14:08:24Z</dtstamp>
+  <dtstamp>2016-09-13T23:59:21Z</dtstamp>
   <timezone>
     <tzid>AUS Central Standard Time</tzid>
     <dtstamp>2014-08-25T14:48:40Z</dtstamp>
@@ -2356,145 +2356,173 @@
   <timezone>
     <tzid>Etc/GMT+0</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT+0000</alias>
     <md5>31ae129ddb11ee36d193f9a3ed6fbbf5</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+1</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT+0100</alias>
     <md5>ad1164edd3afc437582b0c21ddb606d8</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+10</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT+1000</alias>
     <md5>e7cf511156c742301ae9bbe08e28f0f1</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+11</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>UTC-11</alias>
+    <alias>GMT+1100</alias>
     <md5>e9f05290e38fd9ed728763e4b9e5439d</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+12</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Dateline Standard Time</alias>
+    <alias>GMT+1200</alias>
     <md5>aba6f221c1ac0cb8d72aea5956a7ef5d</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+2</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>UTC-02</alias>
+    <alias>GMT+0200</alias>
     <md5>a9135520a98c2e3d61629c16e58e6017</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+3</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT+0300</alias>
     <md5>d7fde3e7da31297ae97b445d1ef7e988</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+4</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT+0400</alias>
     <md5>407acba91437208e0c78f7b42f403227</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+5</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT+0500</alias>
     <md5>4b48f011dc987087dcb8d4346a567888</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+6</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT+0600</alias>
     <md5>d396d35ab185928620e0e4bbfda60f0c</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+7</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT+0700</alias>
     <md5>e4d4cfbf1cd6026b8955c0314e2816ec</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+8</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT+0800</alias>
     <md5>59d50ed00acda4bb3d5fc6bc572f0ab2</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+9</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT+0900</alias>
     <md5>4362eb31ba80786261b4edf00f962ecf</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-0</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT-0000</alias>
     <md5>744c1800ff66f96718354844f1e7f822</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-1</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT-0100</alias>
     <md5>24af656c7462bda0079f141819b3f2e4</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-10</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT-1000</alias>
     <md5>3015128d09b28b9b61af7b2d2f079387</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-11</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT-1100</alias>
     <md5>d05697c24a8f26f513b0aa47d0e2647f</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-12</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>UTC+12</alias>
+    <alias>GMT-1200</alias>
     <md5>24e457e75e5a2ca8b4d5699a3b16a0c1</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-13</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT-1300</alias>
     <md5>34225980f61b23b0550e21d2b4d60eef</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-14</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT-1400</alias>
     <md5>46389ea78726bbb63bbb8095da03d086</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-2</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT-0200</alias>
     <md5>af46d7d274fc8c305026a00e1255f3b4</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-3</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT-0300</alias>
     <md5>e38758c514f3283fad317074adc8b4a9</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-4</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT-0400</alias>
     <md5>d611bddf444a4e898c1bcfc0321f9b20</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-5</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT-0500</alias>
     <md5>30b26f9ae0dc2fb80dc6906d80b3a369</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-6</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT-0600</alias>
     <md5>78bb41c2b0709dbe08ad4e6cebae4cb1</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-7</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT-0700</alias>
     <md5>1e039799bd225c5baf1d7d615bb87ebe</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-8</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT-0800</alias>
     <md5>9369469235996de1914e60d39bec2c2b</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-9</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>GMT-0900</alias>
     <md5>5c38c2f0daf2e5c09d98e4dd24c6efc4</md5>
   </timezone>
   <timezone>
@@ -2918,9 +2946,149 @@
     <md5>ce675f57f78b3a1e213c8ad399205020</md5>
   </timezone>
   <timezone>
+    <tzid>GMT+0000</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>62fe207f07453666c6796a5291ff8e2e</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT+0100</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>2c361c91bfe93815af75ea39aade1ee9</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT+0200</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>8c5dee691dfdadb16c420dbedfdc913f</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT+0300</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>e0d32f308f0baebcfcfa52d0e6921521</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT+0400</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>3b03891f1f0083425fe3806e1aa71e72</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT+0500</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>74d933a8af8b49f44483c3907a8ddfb0</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT+0600</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>1581da94597a1afb857c84356f27b5e3</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT+0700</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>b449f46faa7baa0bc96b7ce98bd4391b</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT+0800</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>2232cb23c6f9f419ed271a507feb5824</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT+0900</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>22bd2579f696eab319cfa13dfe0bd5e2</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT+1000</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>8e0fa8e659553fb9162adbe549a0836f</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT+1100</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>4cdda03036ee092cee43197386f8ac65</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT+1200</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>65e333c448164281cd85d63d3f38fe21</md5>
+  </timezone>
+  <timezone>
     <tzid>GMT-0</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <md5>bab3cfab355f4a23a6101500cc0ad9e0</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT-0000</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>470df4adc8c066202e7f9467737c008c</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT-0100</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>96b89c0a3df3b6b5aaa732031fb01b5b</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT-0200</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>ce0062ffcc42a4a4e32fd40be8ecca63</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT-0300</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>fd94545c0d64be7ed5818a5b39d89d49</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT-0400</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>942c396b201a5b3581210bbd0c50d462</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT-0500</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>ddc6b307e7dacdf2b9b23fb85f909f48</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT-0600</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>65519c6ac6232f91416a1cf3fbb4fcee</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT-0700</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>bcc6f41f1407dd927a2a86d9a6c859c2</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT-0800</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>9c09a4e07ad0e3b336c09259c31cff27</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT-0900</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>48931c2f30cc4a821729135a080c5d2e</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT-1000</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>ed64bc68c35da019292ac36795e50d66</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT-1100</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>5785a71a263b8b7721c2d82eae8bc420</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT-1200</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>8d379a1c19543a2b2291a0873445c00c</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT-1300</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>81223559e937a44d602c6f4166214ac8</md5>
+  </timezone>
+  <timezone>
+    <tzid>GMT-1400</tzid>
+    <dtstamp>2016-09-13T23:59:21Z</dtstamp>
+    <md5>9d67e6d32dffb25037fdddad91ddbab9</md5>
   </timezone>
   <timezone>
     <tzid>GMT0</tzid>

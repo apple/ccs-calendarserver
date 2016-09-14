@@ -203,6 +203,13 @@ END:VCALENDAR
             self.assertEqual(end, DateTime(2007, 12, 25, 06, 0, 0, Timezone.UTCTimezone))
             break
 
+    def test_getTZExtrasPath(self):
+        """
+        Make sure TimezoneCache._getTZExtrasPath returns a valid file.
+        """
+        extras = TimezoneCache._getTZExtrasPath()
+        self.assertTrue(os.path.isfile(extras))
+
 
 class TimezonePackageTest (twistedcaldav.test.util.TestCase):
     """

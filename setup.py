@@ -391,6 +391,7 @@ def doSetup():
         package_data={
             "twistedcaldav": [
                 "*.html",
+                "*.txt",
                 "zoneinfo/*.ics",
                 "zoneinfo/*.txt",
                 "zoneinfo/*.xml",

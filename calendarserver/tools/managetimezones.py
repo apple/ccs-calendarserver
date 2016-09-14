@@ -63,7 +63,7 @@ def _doPrimaryActions(action, tzpath, xmlfile, changed, tzvers):
         _doChanged(xmlfile, changed, tzdb)
 
     else:
-        usage("Invalid action: %s" % (action,))
+        usage("Invalid action: {}".format(action,))
 
 
 def _doRefresh(tzpath, xmlfile, tzdb, tzvers):
@@ -73,11 +73,11 @@ def _doRefresh(tzpath, xmlfile, tzdb, tzvers):
 
     print("Downloading latest data from IANA")
     if tzvers:
-        path = "https://www.iana.org/time-zones/repository/releases/tzdata%s.tar.gz" % (tzvers,)
+        path = "https://www.iana.org/time-zones/repository/releases/tzdata{}.tar.gz".format(tzvers,)
     else:
         path = "https://www.iana.org/time-zones/repository/tzdata-latest.tar.gz"
     data = urllib.urlretrieve(path)
-    print("Extract data at: %s" % (data[0]))
+    print("Extract data at: {}".format(data[0]))
     rootdir = tempfile.mkdtemp()
     zonedir = os.path.join(rootdir, "tzdata")
     os.mkdir(zonedir)
@@ -98,7 +98,7 @@ def _doRefresh(tzpath, xmlfile, tzdb, tzvers):
 
     if not tzvers:
         tzvers = DateTime.getToday().getText()
-    print("Converting data (version: %s) at: %s" % (tzvers, zonedir,))
+    print("Converting data (version: {}) at: {}".format(tzvers, zonedir,))
     startYear = 1800
     endYear = DateTime.getToday().getYear() + 10
     Calendar.sProdID = "-//calendarserver.org//Zonal//EN"
@@ -106,6 +106,14 @@ def _doRefresh(tzpath, xmlfile, tzdb, tzvers):
     parser = tzconvert()
     for file in zonefiles:
         parser.parse(os.path.join(zonedir, file))
+
+    # Try tzextras
+    extras = TimezoneCache._getTZExtrasPath()
+    if os.path.exists(extras):
+        print("Converting extra data at: {}".format(extras,))
+        parser.parse(extras)
+    else:
+        print("No extra data to convert")
 
     # Check for windows aliases
     print("Downloading latest data from unicode.org")
@@ -117,22 +125,22 @@ def _doRefresh(tzpath, xmlfile, tzdb, tzvers):
     print("Generating iCalendar data")
     parser.generateZoneinfoFiles(os.path.join(rootdir, "zoneinfo"), startYear, endYear, windowsAliases=wpath, filterzones=())
 
-    print("Copy new zoneinfo to destination: %s" % (tzpath,))
+    print("Copy new zoneinfo to destination: {}".format(tzpath,))
     z = FilePath(os.path.join(rootdir, "zoneinfo"))
     tz = FilePath(tzpath)
     z.copyTo(tz)
-    print("Updating XML file at: %s" % (xmlfile,))
+    print("Updating XML file at: {}".format(xmlfile,))
     tzdb.readDatabase()
     tzdb.updateDatabase()
-    print("Current total: %d" % (len(tzdb.timezones),))
-    print("Total Changed: %d" % (tzdb.changeCount,))
+    print("Current total: {}".format(len(tzdb.timezones),))
+    print("Total Changed: {}".format(tzdb.changeCount,))
     if tzdb.changeCount:
         print("Changed:")
         for k in sorted(tzdb.changed):
-            print("  %s" % (k,))
+            print("  {}".format(k,))
 
     versfile = os.path.join(os.path.dirname(xmlfile), "version.txt")
-    print("Updating version file at: %s" % (versfile,))
+    print("Updating version file at: {}".format(versfile,))
     with open(versfile, "w") as f:
         f.write(TimezoneCache.IANA_VERSION_PREFIX + tzvers)
 
@@ -142,9 +150,9 @@ def _doCreate(xmlfile, tzdb):
     Create new xml file.
     """
 
-    print("Creating new XML file at: %s" % (xmlfile,))
+    print("Creating new XML file at: {}".format(xmlfile,))
     tzdb.createNewDatabase()
-    print("Current total: %d" % (len(tzdb.timezones),))
+    print("Current total: {}".format(len(tzdb.timezones),))
 
 
 def _doUpdate(xmlfile, tzdb):
@@ -152,15 +160,15 @@ def _doUpdate(xmlfile, tzdb):
     Update xml file.
     """
 
-    print("Updating XML file at: %s" % (xmlfile,))
+    print("Updating XML file at: {}".format(xmlfile,))
     tzdb.readDatabase()
     tzdb.updateDatabase()
-    print("Current total: %d" % (len(tzdb.timezones),))
-    print("Total Changed: %d" % (tzdb.changeCount,))
+    print("Current total: {}".format(len(tzdb.timezones),))
+    print("Total Changed: {}".format(tzdb.changeCount,))
     if tzdb.changeCount:
         print("Changed:")
         for k in sorted(tzdb.changed):
-            print("  %s" % (k,))
+            print("  {}".format(k,))
 
 
 def _doList(xmlfile, tzdb):
@@ -168,12 +176,12 @@ def _doList(xmlfile, tzdb):
     List current timezones from xml file.
     """
 
-    print("Listing XML file at: %s" % (xmlfile,))
+    print("Listing XML file at: {}".format(xmlfile,))
     tzdb.readDatabase()
-    print("Current timestamp: %s" % (tzdb.dtstamp,))
+    print("Current timestamp: {}".format(tzdb.dtstamp,))
     print("Timezones:")
     for k in sorted(tzdb.timezones.keys()):
-        print("  %s" % (k,))
+        print("  {}".format(k,))
 
 
 def _doChanged(xmlfile, changed, tzdb):
@@ -181,16 +189,16 @@ def _doChanged(xmlfile, changed, tzdb):
     Check for local timezone changes.
     """
 
-    print("Changes from XML file at: %s" % (xmlfile,))
+    print("Changes from XML file at: {}".format(xmlfile,))
     tzdb.readDatabase()
-    print("Check timestamp: %s" % (changed,))
-    print("Current timestamp: %s" % (tzdb.dtstamp,))
+    print("Check timestamp: {}".format(changed,))
+    print("Current timestamp: {}".format(tzdb.dtstamp,))
     results = [k for k, v in tzdb.timezones.items() if v.dtstamp > changed]
-    print("Total Changed: %d" % (len(results),))
+    print("Total Changed: {}".format(len(results),))
     if results:
         print("Changed:")
         for k in sorted(results):
-            print("  %s" % (k,))
+            print("  {}".format(k,))
 
 
 @inlineCallbacks
@@ -198,11 +206,11 @@ def _runInReactor(tzdb):
 
     try:
         new, changed = yield tzdb.syncWithServer()
-        print("New:           %d" % (new,))
-        print("Changed:       %d" % (changed,))
-        print("Current total: %d" % (len(tzdb.timezones),))
+        print("New:           {}".format(new,))
+        print("Changed:       {}".format(changed,))
+        print("Current total: {}".format(len(tzdb.timezones),))
     except Exception, e:
-        print("Could not sync with server: %s" % (str(e),))
+        print("Could not sync with server: {}".format(str(e),))
     finally:
         reactor.stop()
 
@@ -215,7 +223,7 @@ def _doSecondaryActions(action, tzpath, xmlfile, url):
     except:
         pass
     if action == "cache":
-        print("Caching from secondary server: %s" % (url,))
+        print("Caching from secondary server: {}".format(url,))
 
         observer = FileLogObserver(sys.stdout, lambda event: formatEventAsClassicLogText(event))
         Logger.beginLoggingTo([observer], redirectStandardIO=False)
@@ -223,7 +231,7 @@ def _doSecondaryActions(action, tzpath, xmlfile, url):
         reactor.callLater(0, _runInReactor, tzdb)
         reactor.run()
     else:
-        usage("Invalid action: %s" % (action,))
+        usage("Invalid action: {}".format(action,))
 
 
 def usage(error_msg=None):
@@ -334,14 +342,14 @@ def main():
         elif option == "--tzvers":
             tzvers = value
         else:
-            usage("Unrecognized option: %s" % (option,))
+            usage("Unrecognized option: {}".format(option,))
 
     if configFileName is None:
         usage("A configuration file must be specified")
     try:
         loadConfig(configFileName)
     except ConfigurationError, e:
-        sys.stdout.write("%s\n" % (e,))
+        sys.stdout.write("{}\n".format(e,))
         sys.exit(1)
 
     if action is None:
@@ -363,9 +371,9 @@ def main():
         xmlfile = os.path.join(tzpath, "timezones.xml")
 
     if primary and not os.path.isdir(tzpath):
-        usage("Invalid zoneinfo path: %s" % (tzpath,))
+        usage("Invalid zoneinfo path: {}".format(tzpath,))
     if primary and not os.path.isfile(xmlfile) and action != "create":
-        usage("Invalid XML file path: %s" % (xmlfile,))
+        usage("Invalid XML file path: {}".format(xmlfile,))
 
     if primary and secondary:
         usage("Cannot use primary and secondary options together")

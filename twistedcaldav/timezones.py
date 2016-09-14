@@ -68,6 +68,15 @@ class TimezoneCache(object):
             return pkg_resources.resource_filename("twistedcaldav", "zoneinfo")  # @UndefinedVariable
 
     @staticmethod
+    def _getTZExtrasPath():
+        try:
+            import pkg_resources
+        except ImportError:
+            return os.path.join(os.path.dirname(__file__), "tzextras.txt")
+        else:
+            return pkg_resources.resource_filename("twistedcaldav", "tzextras.txt")  # @UndefinedVariable
+
+    @staticmethod
     def getDBPath():
         if TimezoneCache.dirName is None:
             if config.TimezoneService.Enabled and config.TimezoneService.BasePath:
