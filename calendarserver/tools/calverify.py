@@ -419,9 +419,14 @@ class CalVerifyService(WorkerService, object):
 
         try:
             yield self.doAction()
-            self.output.close()
+        except Exception as e:
+            self.output.write("CalVerify Failure: %s\n" % (str(e),))
+            log.failure("CalVerify Failure")
         except:
-            log.failure("doWork()")
+            self.output.write("CalVerify Failure: unknown exception\n")
+            log.failure("CalVerify Failure")
+        finally:
+            self.output.close()
 
     def directoryService(self):
         """
