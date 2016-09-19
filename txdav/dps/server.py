@@ -840,7 +840,6 @@ class DirectoryProxyServiceMaker(object):
                         "store": store,
                         "directory": store.directoryService(),
                     },
-                    "passwd": config.Manhole.PasswordFilePath,
                 })
                 manholeService.setServiceParent(multiService)
                 # Using print(because logging isn't ready at this point)

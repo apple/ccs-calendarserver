@@ -641,7 +641,7 @@ HTML_CHARACTER_ENTITIES = {
     8242: 'prime',     # prime (minutes/feet)
     8243: 'Prime',     # double prime (seconds/inches)
     8254: 'oline',     # overline (spacing overscore)
-    8250: 'frasl',     # fractional slash
+    8260: 'frasl',     # fractional slash
     # Letterlike Symbols
     8472: 'weierp',    # script capital P (power set/Weierstrass p)
     8465: 'image',     # blackletter capital I (imaginary part)
