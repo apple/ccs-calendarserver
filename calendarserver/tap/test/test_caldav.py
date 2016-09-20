@@ -309,9 +309,14 @@ def inServiceHierarchy(svc, predicate):
 
 def determineAppropriateGroupID():
     """
-    Determine a secondary group ID which can be used for testing.
+    Determine a secondary group ID which can be used for testing, or None
+    if the executing user has no additional unix group memberships.
     """
-    return os.getgroups()[1]
+    currentGroups = os.getgroups()
+    if len(currentGroups) < 2:
+        return None
+    else:
+        return currentGroups[1]
 
 
 class SocketGroupOwnership(StoreTestCase):
@@ -325,6 +330,11 @@ class SocketGroupOwnership(StoreTestCase):
         its socket.
         """
         alternateGroup = determineAppropriateGroupID()
+        if alternateGroup is None:
+            self.skipTest ((
+            "This test requires that the user running it is a member of at"
+            " least two unix groups."
+            ))
         socketName = self.mktemp()
         gous = GroupOwnedUNIXServer(alternateGroup, socketName, ServerFactory(), mode=0660)
         gous.privilegedStartService()
@@ -389,6 +399,10 @@ class ModesOnUNIXSocketsTests(CalDAVServiceMakerTestBase):
         config.ProcessType = "Combined"
         config.HTTPPort = 0
         self.alternateGroup = determineAppropriateGroupID()
+        # If the current user isn't a member of >1 unix groups,
+        # this test should proceed anyway, so use the primary group ID
+        if self.alternateGroup is None:
+            self.alternateGroup = os.getgroups()[0]
         config.GroupName = grp.getgrgid(self.alternateGroup).gr_name
         config.Stats.EnableUnixStatsSocket = True
 
