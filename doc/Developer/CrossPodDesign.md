@@ -1,26 +1,23 @@
 Cross Pod API Design (Conduit)
 ==============================
 
+# Introduction
+
 This document described the key design features of the cross-pod API that allows each server in a pod (multi-store, single directory cluster) to communicate with each other.
 
 The cross-pod API needs to handle the following behaviors:
 
-1) Sharing - allow users on one pod to share calendars with users on another.
-
-2) Managed attachments - allow users on one pod to add attachments to events hosted on another.
-
-3) Delegate assignments - allow delegate assignments to users on other pods to correctly allow those other users to see the assignments on their own principal resources.
-
-4) Migration - allow user data to be moved from one pod to another, together with all sharing and delegate assignments.
+1. Sharing - allow users on one pod to share calendars with users on another.
+2. Managed attachments - allow users on one pod to add attachments to events hosted on another.
+3. Delegate assignments - allow delegate assignments to users on other pods to correctly allow those other users to see the assignments on their own principal resources.
+4. Migration - allow user data to be moved from one pod to another, together with all sharing and delegate assignments.
 
 Some other key requirements:
 
-1) Must support pods using different versions of the software.
+1. Must support pods using different versions of the software.
+2. Must support load balancing of requests to pods with multiple hosts.
 
-2) Must support load balancing of requests to pods with multiple hosts.
-
-Basic Design
-============
+# Basic Design
 
 The cross-pod code is located in the txdav.common.datastore.podding package.
 
@@ -32,8 +29,7 @@ The L{PoddingConduit} JSON request object contains an "action" member that is th
 
 The L{PoddingConduit} JSON response object contains a "result" member that indicates whether the request succeeded (when set to the value "ok") or failed (when set to the value "exception"). When set to "ok", there will be a "value" member present with the result of the RPC call. When set to "exception" there will be a "class" member (whose name matches the class of the exception object raised) and a "details" member (whose value is the string representation of the raised exception). If an exception is returned as the response, the conduit on the sender's side will raise the named exception.
 
-External Store API
-==================
+# External Store API
 
 A L{CommonDataStore} makes use of the following key classes: L{CommonHome}, L{CommonHomeChild}, L{CommonObjectResource}. Each of those make calls to the store's underlying database (SQL) to store and retrieve their associated data.
 
@@ -47,27 +43,25 @@ The external store API is handled by the L{StoreAPIConduitMixin} which defines a
 
 The L{StoreAPIConduitMixin} also contains specialized "send_XXX" and "recv_XXX" methods for some specific API calls that either don't use store objects directly or have more complex requirements. Other mixin classes add additional RPC calls for specific behaviors.
 
-Sharing API
-===========
+# Sharing API
 
 When sharing a collection, the collection is identified via an ownerHome and a viewerHome. The owner is the sharer and the viewer is the sharee (when both are the same then the collection is the owner's own view of it). A BIND table is used to map a collection to a specific viewer home. There will always be one such entry for the viewer == owner case. When a sharee is added, there will be a new BIND entry for them.
 
 For cross-pod sharing, we want to replicate the BIND table entries across pods so that each pod can quickly identify that shared collections from another pod exist, without the need to initiate cross-pod calls to all pods to query for possible shared collections. The owner and sharee of a collection are identifiable on each pod:
 
-	(a) Owners pod:
-		- A HOME table entry for the sharee marked as status-external
-		- A BIND table entry for the shared calendar referencing the sharee HOME entry
-	
-	(b) Sharee's pod:
-		- A HOME table entry for the owner marked as status-external
-		- A BIND table entry for the owner's calendar referencing the owner HOME
+  1. Owners pod:
+	- A HOME table entry for the sharee marked as status-external
+	- A BIND table entry for the shared calendar referencing the sharee HOME entry
+  2. Sharee's pod:
+	- A HOME table entry for the owner marked as status-external
+	- A BIND table entry for the owner's calendar referencing the owner HOME
 		
 Cross-pod sharing can then be split into two functional areas:
 
-	(a) Management of sharing invites (i.e., creating, updating, removing BIND rows, and handling notifications)
-	(b) Sharee accessing owner data (object resources, sync tokens etc)
+  1. Management of sharing invites (i.e., creating, updating, removing BIND rows, and handling notifications)
+  2. Sharee accessing owner data (object resources, sync tokens etc)
 	
-For (a) a set of "invite" specific conduit APIs exist in the L{SharingInvitesConduitMixin}. The existing store classes are modified to spot when a viewer or owner home is "external" and in such cases will send a cross-pod request to the relevant pod.
+For (1) a set of "invite" specific conduit APIs exist in the L{SharingInvitesConduitMixin}. The existing store classes are modified to spot when a viewer or owner home is "external" and in such cases will send a cross-pod request to the relevant pod.
 
-For (b), the sharee's pod needs to direct store data requests to the owner pod for specific operations (anything that needs to access the owner data). Basically any request where the ownerHome() of the collection refers to an external home needs to be directed to the owner's pod. i.e., the server chosen for a cross-pod request must be based on the owner's server and not the viewer's server (since the request originates on the viewer's server).
+For (2), the sharee's pod needs to direct store data requests to the owner pod for specific operations (anything that needs to access the owner data). Basically any request where the ownerHome() of the collection refers to an external home needs to be directed to the owner's pod. i.e., the server chosen for a cross-pod request must be based on the owner's server and not the viewer's server (since the request originates on the viewer's server).
 
