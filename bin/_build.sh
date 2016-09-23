@@ -468,7 +468,7 @@ c_dependencies () {
 
   # The OpenSSL version number is special. Our strategy is to get the integer
   # value of OPENSSL_VERSION_NUBMER for use in inequality comparison.
-  if [ ${use_openssl} == "true" ]; then
+  if [ "${use_openssl}" = "true" ]; then
     ruler;
 
     local min_ssl_version="268443791";  # OpenSSL 1.0.2h
@@ -559,7 +559,7 @@ c_dependencies () {
     local p="${n}-${v}";
 
 	local configure_openssl="--enable-openssl=yes";
-    if [ ${use_openssl} == "false" ]; then
+    if [ "${use_openssl}" = "false" ]; then
 	  local configure_openssl="--enable-openssl=no";
 	fi;
 
