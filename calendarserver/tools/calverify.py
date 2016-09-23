@@ -16,6 +16,7 @@
 # limitations under the License.
 ##
 from __future__ import print_function
+import itertools
 
 
 """
@@ -2939,6 +2940,10 @@ class UpgradeDataService(CalVerifyService):
     Service which scans calendar data.
     """
 
+    USE_FAST_MODE = True
+    OLD_CUADDR_PREFIX = "urn:uuid:"
+    NEW_CUADDR_PREFIX = "urn:x-uid:"
+
     def title(self):
         return "Upgrade Data Service"
 
@@ -3008,9 +3013,28 @@ class UpgradeDataService(CalVerifyService):
                 calendarObj = yield CalendarStoreFeatures(self.txn._store).calendarObjectWithID(self.txn, resid)
                 if calendarObj._dataversion < calendarObj._currentDataVersion:
                     upgradelen += 1
-                    text = yield calendarObj._text()
-                    component = Component.fromString(text)
-                    yield calendarObj.upgradeData(component, True)
+
+                    if UpgradeDataService.USE_FAST_MODE:
+                        # Read data from calendar object and manually upgrade the calendar user
+                        # addresses only
+                        text = yield calendarObj._text()
+                        component = Component.fromString(text)
+
+                        for subcomponent in component.subcomponents(ignore=True):
+                            for prop in itertools.chain(
+                                subcomponent.properties("ORGANIZER"),
+                                subcomponent.properties("ATTENDEE"),
+                            ):
+                                cuaddr = prop.value()
+                                if cuaddr.startswith(UpgradeDataService.OLD_CUADDR_PREFIX):
+                                    prop.setValue(cuaddr.replace(UpgradeDataService.OLD_CUADDR_PREFIX, UpgradeDataService.NEW_CUADDR_PREFIX))
+
+                        # Do the update right now
+                        calendarObj._dataversion = calendarObj._currentDataVersion
+                        yield calendarObj.updateDatabase(component)
+                    else:
+                        # Read component and force and update if needed
+                        yield calendarObj.component(doUpdate=True)
 
                 result = True
             except Exception, e:
