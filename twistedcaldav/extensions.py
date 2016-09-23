@@ -71,7 +71,6 @@ from txdav.who.directory import CalendarDirectoryRecordMixin
 from twext.who.expression import Operand, MatchType, MatchFlags
 
 
-
 thisModule = getModule(__name__)
 
 log = Logger()
@@ -91,7 +90,6 @@ class WebDAVServerInfoMixIn(object):
             return response
         request.addResponseFilter(_addServerInfoURL, onlyOnce=True)
         return super(WebDAVServerInfoMixIn, self).renderHTTP(request)
-
 
 
 class DirectoryPrincipalPropertySearchMixIn(object):
@@ -297,7 +295,6 @@ class DirectoryPrincipalPropertySearchMixIn(object):
             ))
         returnValue(MultiStatusResponse(responses))
 
-
     @inlineCallbacks
     def report_http___calendarserver_org_ns__calendarserver_principal_search(
         self, request,
@@ -404,7 +401,6 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         returnValue(MultiStatusResponse(responses))
 
 
-
 class DirectoryElement(Element):
     """
     A L{DirectoryElement} is an L{Element} for rendering the contents of a
@@ -423,7 +419,6 @@ class DirectoryElement(Element):
         super(DirectoryElement, self).__init__()
         self.resource = resource
 
-
     @renderer
     def resourceDetail(self, request, tag):
         """
@@ -431,7 +426,6 @@ class DirectoryElement(Element):
         Subclasses should override.
         """
         return ''
-
 
     @renderer
     def children(self, request, tag):
@@ -448,6 +442,7 @@ class DirectoryElement(Element):
                 .addCallback(lambda children: zip(children, names))
             )
         )
+
         @whenChildren.addCallback
         def gotChildren(children):
             for even, [child, name] in zip(cycle(["odd", "even"]), children):
@@ -461,7 +456,6 @@ class DirectoryElement(Element):
                 )
         return whenChildren
 
-
     @renderer
     def main(self, request, tag):
         """
@@ -469,13 +463,13 @@ class DirectoryElement(Element):
         """
         return tag.fillSlots(name=request.path)
 
-
     @renderer
     def properties(self, request, tag):
         """
         Renderer which yields all properties as table row tags.
         """
         whenPropertiesListed = self.resource.listProperties(request)
+
         @whenPropertiesListed.addCallback
         def gotProperties(qnames):
             accessDeniedValue = object()
@@ -516,7 +510,6 @@ class DirectoryElement(Element):
         return whenPropertiesListed
 
 
-
 class DirectoryRenderingMixIn(object):
 
     def renderDirectory(self, request):
@@ -533,14 +526,12 @@ class DirectoryRenderingMixIn(object):
             return response
         return flattenString(request, self.htmlElement()).addCallback(gotBody)
 
-
     def htmlElement(self):
         """
         Create a L{DirectoryElement} or appropriate subclass for rendering this
         resource.
         """
         return DirectoryElement(self)
-
 
     def getChildDirectoryEntry(self, child, name, request):
         def orNone(value, default="?", f=None):
@@ -602,7 +593,6 @@ class DirectoryRenderingMixIn(object):
         )
 
 
-
 class DAVResource (
     WebDAVServerInfoMixIn,
     DirectoryPrincipalPropertySearchMixIn,
@@ -621,8 +611,7 @@ class DAVResource (
     http_REPORT = http_REPORT
 
     def davComplianceClasses(self):
-        return ("1", "access-control") # Add "2" when we have locking
-
+        return ("1", "access-control")  # Add "2" when we have locking
 
     def render(self, request):
         if not self.exists():
@@ -632,17 +621,14 @@ class DAVResource (
             return self.renderDirectory(request)
         return super(DAVResource, self).render(request)
 
-
     def resourceType(self):
         # Allow live property to be overridden by dead property
         if self.deadProperties().contains((dav_namespace, "resourcetype")):
             return self.deadProperties().get((dav_namespace, "resourcetype"))
         return element.ResourceType(element.Collection()) if self.isCollection() else element.ResourceType()
 
-
     def contentType(self):
         return MimeType("httpd", "unix-directory") if self.isCollection() else None
-
 
 
 class DAVResourceWithChildrenMixin (object):
@@ -654,7 +640,6 @@ class DAVResourceWithChildrenMixin (object):
         self.putChildren = {}
         super(DAVResourceWithChildrenMixin, self).__init__(principalCollections=principalCollections)
 
-
     def putChild(self, name, child):
         """
         Register a child with the given name with this resource.
@@ -662,7 +647,6 @@ class DAVResourceWithChildrenMixin (object):
         @param child: the child to register
         """
         self.putChildren[name] = child
-
 
     def getChild(self, name):
         """
@@ -679,7 +663,6 @@ class DAVResourceWithChildrenMixin (object):
             result = self.makeChild(name)
         return result
 
-
     def makeChild(self, name):
         """
         Called by L{DAVResourceWithChildrenMixin.getChild} to dynamically
@@ -687,20 +670,17 @@ class DAVResourceWithChildrenMixin (object):
         """
         return None
 
-
     def listChildren(self):
         """
         @return: a sequence of the names of all known children of this resource.
         """
         return self.putChildren.keys()
 
-
     def countChildren(self):
         """
         @return: the number of all known children of this resource.
         """
         return len(self.putChildren.keys())
-
 
     def locateChild(self, req, segments):
         """
@@ -713,7 +693,6 @@ class DAVResourceWithChildrenMixin (object):
         )
 
 
-
 class DAVResourceWithoutChildrenMixin (object):
     """
     Bits needed from txweb2.static
@@ -723,17 +702,14 @@ class DAVResourceWithoutChildrenMixin (object):
         self.putChildren = {}
         super(DAVResourceWithChildrenMixin, self).__init__(principalCollections=principalCollections)
 
-
     def findChildren(
         self, depth, request, callback,
         privileges=None, inherited_aces=None
     ):
         return succeed(None)
 
-
     def locateChild(self, request, segments):
         return self, server.StopTraversal
-
 
 
 class DAVPrincipalResource (
@@ -763,7 +739,6 @@ class DAVPrincipalResource (
         if self.isCollection():
             return self.renderDirectory(request)
         return super(DAVResource, self).render(request)
-
 
     @inlineCallbacks
     def readProperty(self, property, request):
@@ -810,22 +785,17 @@ class DAVPrincipalResource (
         result = (yield super(DAVPrincipalResource, self).readProperty(property, request))
         returnValue(result)
 
-
     def groupMembers(self):
         return succeed(())
-
 
     def expandedGroupMembers(self):
         return succeed(())
 
-
     def groupMemberships(self):
         return succeed(())
 
-
     def expandedGroupMemberships(self):
         return succeed(())
-
 
     def resourceType(self):
         # Allow live property to be overridden by dead property
@@ -835,7 +805,6 @@ class DAVPrincipalResource (
             return element.ResourceType(element.Principal(), element.Collection())
         else:
             return element.ResourceType(element.Principal())
-
 
 
 class DAVFile (WebDAVServerInfoMixIn, SuperDAVFile, DirectoryRenderingMixIn):
@@ -849,9 +818,8 @@ class DAVFile (WebDAVServerInfoMixIn, SuperDAVFile, DirectoryRenderingMixIn):
         if self.deadProperties().contains((dav_namespace, "resourcetype")):
             return self.deadProperties().get((dav_namespace, "resourcetype"))
         if self.isCollection():
-            return element.ResourceType.collection #@UndefinedVariable
-        return element.ResourceType.empty #@UndefinedVariable
-
+            return element.ResourceType.collection  # @UndefinedVariable
+        return element.ResourceType.empty  # @UndefinedVariable
 
     def render(self, request):
         if not self.fp.exists():
@@ -893,7 +861,6 @@ class DAVFile (WebDAVServerInfoMixIn, SuperDAVFile, DirectoryRenderingMixIn):
         return response
 
 
-
 class ReadOnlyWritePropertiesResourceMixIn (object):
     """
     Read only that will allow writing of properties resource.
@@ -911,7 +878,6 @@ class ReadOnlyWritePropertiesResourceMixIn (object):
     http_PUT = _forbidden
 
 
-
 class ReadOnlyResourceMixIn (ReadOnlyWritePropertiesResourceMixIn):
     """
     Read only resource.
@@ -921,7 +887,6 @@ class ReadOnlyResourceMixIn (ReadOnlyWritePropertiesResourceMixIn):
     def writeProperty(self, property, request):
         raise HTTPError(self.readOnlyResponse)
 
-
     def accessControlList(
         self, request, inheritance=True, expanding=False, inherited_aces=None
     ):
@@ -930,8 +895,8 @@ class ReadOnlyResourceMixIn (ReadOnlyWritePropertiesResourceMixIn):
         return self.defaultAccessControlList()
 
 
-
 class PropertyNotFoundError (HTTPError):
+
     def __init__(self, qname):
         HTTPError.__init__(
             self,
@@ -940,7 +905,6 @@ class PropertyNotFoundError (HTTPError):
                 "No such property: %s" % encodeXMLName(*qname)
             )
         )
-
 
 
 class CachingPropertyStore (object):
@@ -953,7 +917,6 @@ class CachingPropertyStore (object):
     def __init__(self, propertyStore):
         self.propertyStore = propertyStore
         self.resource = propertyStore.resource
-
 
     def get(self, qname, uid=None):
         # self.log.debug("Get: {p}, {n}", p=self.resource.fp.path, n=qname)
@@ -977,7 +940,6 @@ class CachingPropertyStore (object):
         else:
             raise PropertyNotFoundError(qname)
 
-
     def set(self, property, uid=None):
         # self.log.debug("Set: {p}, {prop!r}", p=self.resource.fp.path, prop=property)
 
@@ -988,7 +950,6 @@ class CachingPropertyStore (object):
         cache[cachedQname] = None
         self.propertyStore.set(property, uid)
         cache[cachedQname] = property
-
 
     def contains(self, qname, uid=None):
         # self.log.debug("Contains: {p}, {n}", p=self.resource.fp.path, n=qname)
@@ -1009,7 +970,6 @@ class CachingPropertyStore (object):
         else:
             return False
 
-
     def delete(self, qname, uid=None):
         # self.log.debug("Delete: {p}, {n}", p=self.resource.fp.path, n=qname)
 
@@ -1019,7 +979,6 @@ class CachingPropertyStore (object):
             del self._data[cachedQname]
 
         self.propertyStore.delete(qname, uid)
-
 
     def list(self, uid=None, filterByUID=True):
         # self.log.debug("List: {p}", p=self.resource.fp.path)
@@ -1033,7 +992,6 @@ class CachingPropertyStore (object):
         else:
             return keys
 
-
     def _cache(self):
         if not hasattr(self, "_data"):
             # self.log.debug("Cache init: {p}", p=self.resource.fp.path)
@@ -1042,7 +1000,6 @@ class CachingPropertyStore (object):
                 for name in self.propertyStore.list(filterByUID=False)
             )
         return self._data
-
 
 
 def extractCalendarServerPrincipalSearchData(doc):
@@ -1086,7 +1043,6 @@ def extractCalendarServerPrincipalSearchData(doc):
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
 
     return tokens, context, applyTo, clientLimit, propElement
-
 
 
 def validateTokens(tokens):

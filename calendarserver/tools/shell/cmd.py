@@ -44,31 +44,29 @@ from calendarserver.tools.shell.directory import findRecords, summarizeRecords, 
 log = Logger()
 
 
-
 class UsageError(Exception):
     """
     Usage error.
     """
 
 
-
 class UnknownArguments(UsageError):
     """
     Unknown arguments.
     """
+
     def __init__(self, arguments):
         UsageError.__init__(self, "Unknown arguments: %s" % (arguments,))
         self.arguments = arguments
-
 
 
 class InsufficientArguments(UsageError):
     """
     Insufficient arguments.
     """
+
     def __init__(self):
         UsageError.__init__(self, "Insufficient arguments.")
-
 
 
 class CommandsBase(object):
@@ -78,11 +76,11 @@ class CommandsBase(object):
     @ivar protocol: a protocol for parsing the incoming command line.
     @type protocol: L{calendarserver.tools.shell.terminal.ShellProtocol}
     """
+
     def __init__(self, protocol):
         self.protocol = protocol
 
         self.wd = RootFolder(protocol.service)
-
 
     @property
     def terminal(self):
@@ -91,7 +89,6 @@ class CommandsBase(object):
     #
     # Utilities
     #
-
 
     def documentationForCommand(self, command):
         """
@@ -123,7 +120,6 @@ class CommandsBase(object):
         else:
             raise NotFoundError("Unknown command: %s" % (command,))
 
-
     def getTarget(self, tokens, wdFallback=False):
         """
         Pop's the first token from tokens and locates the File
@@ -137,7 +133,6 @@ class CommandsBase(object):
                 return succeed(self.wd)
             else:
                 return succeed(None)
-
 
     @inlineCallbacks
     def getTargets(self, tokens, wdFallback=False):
@@ -161,7 +156,6 @@ class CommandsBase(object):
                 returnValue((self.wd,))
             else:
                 returnValue(())
-
 
     @inlineCallbacks
     def directoryRecordWithID(self, id):
@@ -187,7 +181,6 @@ class CommandsBase(object):
 
         returnValue(record)
 
-
     def commands(self, showHidden=False):
         """
         @return: an iterable of C{(name, method)} tuples, where
@@ -199,7 +192,6 @@ class CommandsBase(object):
                 m = getattr(self, attr)
                 if showHidden or not hasattr(m, "hidden"):
                     yield (attr[4:], m)
-
 
     @staticmethod
     def complete(word, items):
@@ -219,7 +211,6 @@ class CommandsBase(object):
             if item.startswith(word):
                 yield item[len(word):]
 
-
     def complete_commands(self, word):
         """
         @return: an iterable of command name completions.
@@ -237,7 +228,6 @@ class CommandsBase(object):
             completions = complete(True)
 
         return completions
-
 
     @inlineCallbacks
     def complete_files(self, tokens, filter=None):
@@ -275,7 +265,6 @@ class CommandsBase(object):
             returnValue(self.complete(word, files))
 
 
-
 class Commands(CommandsBase):
     """
     Data store commands.
@@ -295,7 +284,6 @@ class Commands(CommandsBase):
             raise UnknownArguments(tokens)
 
         self.protocol.exit()
-
 
     def cmd_help(self, tokens):
         """
@@ -339,7 +327,6 @@ class Commands(CommandsBase):
             for info in sorted(result):
                 self.terminal.write(format % (info))
 
-
     def complete_help(self, tokens):
         if len(tokens) == 0:
             return (name for name, method in self.commands())
@@ -347,7 +334,6 @@ class Commands(CommandsBase):
             return self.complete_commands(tokens[0])
         else:
             return ()
-
 
     def cmd_emulate(self, tokens):
         """
@@ -391,7 +377,6 @@ class Commands(CommandsBase):
         else:
             return ()
 
-
     def cmd_log(self, tokens):
         """
         Enable logging.
@@ -423,7 +408,6 @@ class Commands(CommandsBase):
 
     cmd_log.hidden = "debug tool"
 
-
     def cmd_version(self, tokens):
         """
         Print version.
@@ -434,7 +418,6 @@ class Commands(CommandsBase):
             raise UnknownArguments(tokens)
 
         self.terminal.write("%s\n" % (version,))
-
 
     #
     # Filesystem tools
@@ -450,7 +433,6 @@ class Commands(CommandsBase):
             raise UnknownArguments(tokens)
 
         self.terminal.write("%s\n" % (self.wd,))
-
 
     @inlineCallbacks
     def cmd_cd(self, tokens):
@@ -475,14 +457,12 @@ class Commands(CommandsBase):
         # log.info("wd -> {wd}", wd=wd)
         self.wd = wd
 
-
     @inlineCallbacks
     def complete_cd(self, tokens):
         returnValue((yield self.complete_files(
             tokens,
-            filter=lambda item: True #issubclass(item[0], Folder)
+            filter=lambda item: True  # issubclass(item[0], Folder)
         )))
-
 
     @inlineCallbacks
     def cmd_ls(self, tokens):
@@ -512,7 +492,6 @@ class Commands(CommandsBase):
 
     complete_ls = CommandsBase.complete_files
 
-
     @inlineCallbacks
     def cmd_info(self, tokens):
         """
@@ -530,7 +509,6 @@ class Commands(CommandsBase):
         self.terminal.nextLine()
 
     complete_info = CommandsBase.complete_files
-
 
     @inlineCallbacks
     def cmd_cat(self, tokens):
@@ -550,7 +528,6 @@ class Commands(CommandsBase):
                 self.terminal.write(text)
 
     complete_cat = CommandsBase.complete_files
-
 
     @inlineCallbacks
     def cmd_rm(self, tokens):
@@ -585,7 +562,6 @@ class Commands(CommandsBase):
 
     complete_rm = CommandsBase.complete_files
 
-
     #
     # Principal tools
     #
@@ -610,7 +586,6 @@ class Commands(CommandsBase):
             self.terminal.write("No matching principals found.")
 
         self.terminal.nextLine()
-
 
     @inlineCallbacks
     def cmd_print_principal(self, tokens):
@@ -637,7 +612,6 @@ class Commands(CommandsBase):
             self.terminal.write("No such principal.")
 
         self.terminal.nextLine()
-
 
     #
     # Data purge tools
@@ -767,7 +741,7 @@ class Commands(CommandsBase):
 
             class Handler(object):
 
-                def addOutput(innerSelf, bytes, async=False): #@NoSelf
+                def addOutput(innerSelf, bytes, async=False):  # @NoSelf
                     """
                     This is a delegate method, called by ManholeInterpreter.
                     """
@@ -805,7 +779,6 @@ class Commands(CommandsBase):
 
     cmd_python.hidden = "debug tool"
 
-
     #
     # SQL prompt, for not as winning
     #
@@ -822,7 +795,6 @@ class Commands(CommandsBase):
         raise NotImplementedError("Command not implemented")
 
     cmd_sql.hidden = "not implemented"
-
 
     #
     # Test tools

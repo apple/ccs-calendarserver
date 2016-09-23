@@ -111,7 +111,6 @@ def usage(e=None):
         sys.exit(0)
 
 
-
 class PrincipalService(WorkerService):
     """
     Executes principals-related functions in a context which has access to the store
@@ -136,7 +135,6 @@ class PrincipalService(WorkerService):
 
         if self.function is not None:
             yield self.function(self.store, *self.params)
-
 
 
 def main():
@@ -398,13 +396,11 @@ def main():
     utilityMain(configFileName, PrincipalService, verbose=verbose)
 
 
-
 def runListPrincipalTypes(service, store):
     directory = store.directoryService()
     for recordType in directory.recordTypes():
         print(directory.recordTypeToOldName(recordType))
     return succeed(None)
-
 
 
 @inlineCallbacks
@@ -420,7 +416,6 @@ def runListPrincipals(service, store, listPrincipals):
     except InvalidDirectoryRecordError, e:
         usage(e)
     returnValue(None)
-
 
 
 @inlineCallbacks
@@ -441,7 +436,6 @@ def runPrincipalActions(service, store, principalIDs, actions):
         for action in actions:
             (yield action[0](store, record, *action[1:]))
             print("")
-
 
 
 @inlineCallbacks
@@ -491,7 +485,6 @@ def runSearch(service, store, tokens, context=None):
     print("")
 
 
-
 @inlineCallbacks
 def runAddPrincipal(service, store, addType, uid, shortNames, fullNames):
     directory = store.directoryService()
@@ -523,7 +516,6 @@ def runAddPrincipal(service, store, addType, uid, shortNames, fullNames):
     print("Added '{name}'".format(name=fullNames[0]))
 
 
-
 @inlineCallbacks
 def action_removePrincipal(store, record):
     directory = store.directoryService()
@@ -536,7 +528,6 @@ def action_removePrincipal(store, record):
             full=fullName, shorts=shortNames, uid=record.uid
         )
     )
-
 
 
 @inlineCallbacks
@@ -563,7 +554,6 @@ def action_listProxies(store, record, *proxyTypes):
             print("")
         else:
             print("No %s proxies for %s" % (proxyType, prettyRecord(record)))
-
 
 
 @inlineCallbacks
@@ -602,7 +592,6 @@ def action_listProxyFor(store, record, *proxyTypes):
             )
 
 
-
 @inlineCallbacks
 def action_listGroupMembers(store, record):
     members = yield record.members()
@@ -614,7 +603,6 @@ def action_listGroupMembers(store, record):
         print("")
     else:
         print("No group members for %s" % (prettyRecord(record),))
-
 
 
 @inlineCallbacks
@@ -644,7 +632,6 @@ def action_addGroupMember(store, record, *memberIDs):
         yield record.service.updateRecords([record], create=False)
 
 
-
 @inlineCallbacks
 def action_removeGroupMember(store, record, *memberIDs):
     directory = store.directoryService()
@@ -670,7 +657,6 @@ def action_removeGroupMember(store, record, *memberIDs):
                 )
             )
         yield record.service.updateRecords([record], create=False)
-
 
 
 @inlineCallbacks
@@ -716,7 +702,6 @@ def printGroupCacherInfo(service, store, principalIDs):
     yield txn.commit()
 
 
-
 @inlineCallbacks
 def scheduleGroupRefreshJob(service, store):
     """
@@ -726,7 +711,6 @@ def scheduleGroupRefreshJob(service, store):
     print("Scheduling a group refresh")
     yield GroupCacherPollingWork.reschedule(txn, 0, force=True)
     yield txn.commit()
-
 
 
 def action_getAutoScheduleMode(store, record):
@@ -739,7 +723,6 @@ def action_getAutoScheduleMode(store, record):
             )
         )
     )
-
 
 
 @inlineCallbacks
@@ -770,7 +753,6 @@ def action_setAutoScheduleMode(store, record, autoScheduleMode):
         )
 
         yield record.setAutoScheduleMode(autoScheduleMode)
-
 
 
 @inlineCallbacks
@@ -812,7 +794,6 @@ def action_setAutoAcceptGroup(store, record, autoAcceptGroup):
             yield record.service.updateRecords([updatedRecord], create=False)
 
 
-
 @inlineCallbacks
 def action_getAutoAcceptGroup(store, record):
     if record.autoAcceptGroup:
@@ -840,7 +821,6 @@ def action_getAutoAcceptGroup(store, record):
         )
 
 
-
 @inlineCallbacks
 def action_setValue(store, record, name, value):
     print(
@@ -856,7 +836,6 @@ def action_setValue(store, record, name, value):
 
     updatedRecord = DirectoryRecord(record.service, newFields)
     yield record.service.updateRecords([updatedRecord], create=False)
-
 
 
 def action_getValue(store, record, name):
@@ -875,7 +854,6 @@ def action_getValue(store, record, name):
         )
 
 
-
 def abort(msg, status=1):
     sys.stdout.write("%s\n" % (msg,))
     try:
@@ -883,7 +861,6 @@ def abort(msg, status=1):
     except RuntimeError:
         pass
     sys.exit(status)
-
 
 
 def parseCreationArgs(args):
@@ -919,7 +896,6 @@ def parseCreationArgs(args):
     return fullName, shortName, uid
 
 
-
 def isUUID(value):
     try:
         uuid.UUID(value)
@@ -928,14 +904,12 @@ def isUUID(value):
         return False
 
 
-
 def matchStrings(value, validValues):
     for validValue in validValues:
         if validValue.startswith(value):
             return validValue
 
     raise ValueError("'%s' is not a recognized value" % (value,))
-
 
 
 def printRecordList(records):
@@ -955,7 +929,6 @@ def printRecordList(records):
     print(format % ("---------", "----", "---", "-----------"))
     for fullName, recordType, uid, shortNames in results:
         print(format % (fullName, recordType, uid, u", ".join(shortNames)))
-
 
 
 if __name__ == "__main__":

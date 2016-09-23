@@ -110,7 +110,6 @@ END:VCALENDAR
             home._childClass = home._childClass._externalClass
         returnValue(home)
 
-
     @inlineCallbacks
     def test_remote_home(self):
         """
@@ -125,7 +124,6 @@ END:VCALENDAR
         self.assertTrue(home is not None)
         self.assertEqual(home.id(), home01.id())
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_homechild_listobjects(self):
@@ -144,7 +142,6 @@ END:VCALENDAR
         children = yield home.listChildren()
         self.assertEqual(set(children), set(children01))
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_homechild_loadallobjects(self):
@@ -169,7 +166,6 @@ END:VCALENDAR
         self.assertEqual(set(ids), set(ids01))
         yield self.commitTransaction(1)
 
-
     @inlineCallbacks
     def test_homechild_objectwith(self):
         """
@@ -186,7 +182,6 @@ END:VCALENDAR
         calendar = yield home.childWithName("calendar")
         self.assertEqual(calendar.id(), calendar01.id())
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_objectresource_loadallobjects(self):
@@ -207,7 +202,6 @@ END:VCALENDAR
         self.assertEqual(len(objects), 1)
         self.assertEqual(objects[0].name(), "1.ics")
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_objectresource_loadallobjectswithnames(self):
@@ -230,7 +224,6 @@ END:VCALENDAR
         self.assertEqual(objects[0].name(), "2.ics")
         yield self.commitTransaction(1)
 
-
     @inlineCallbacks
     def test_objectresource_listobjects(self):
         """
@@ -251,7 +244,6 @@ END:VCALENDAR
         self.assertEqual(set(names), set(("1.ics", "2.ics",)))
         yield self.commitTransaction(1)
 
-
     @inlineCallbacks
     def test_objectresource_countobjects(self):
         """
@@ -271,7 +263,6 @@ END:VCALENDAR
         count = yield calendar.countObjectResources()
         self.assertEqual(count, 2)
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_objectresource_objectwith(self):
@@ -310,7 +301,6 @@ END:VCALENDAR
 
         yield self.commitTransaction(1)
 
-
     @inlineCallbacks
     def test_objectresource_resourcenameforuid(self):
         """
@@ -339,7 +329,6 @@ END:VCALENDAR
 
         yield self.commitTransaction(1)
 
-
     @inlineCallbacks
     def test_objectresource_resourceuidforname(self):
         """
@@ -367,7 +356,6 @@ END:VCALENDAR
         self.assertEqual(uid, None)
 
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_objectresource_create(self):
@@ -413,7 +401,6 @@ END:VCALENDAR
         )
         yield self.abortTransaction(1)
 
-
     @inlineCallbacks
     def test_objectresource_setcomponent(self):
         """
@@ -455,7 +442,6 @@ END:VCALENDAR
         )
         yield self.commitTransaction(1)
 
-
     @inlineCallbacks
     def test_objectresource_component(self):
         """
@@ -482,7 +468,6 @@ END:VCALENDAR
         self.assertEqual(str(caldata), self.caldata2)
 
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_objectresource_remove(self):

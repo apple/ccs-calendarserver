@@ -21,10 +21,12 @@ from twistedcaldav.stdconfig import _updateClientFixes
 from twistedcaldav.util import bestAcceptType, userAgentProductTokens, matchClientFixes
 import twistedcaldav.test.util
 
+
 class AcceptType(twistedcaldav.test.util.TestCase):
     """
     L{bestAcceptType} tests
     """
+
     def test_bestAcceptType(self):
 
         data = (
@@ -145,7 +147,6 @@ class AcceptType(twistedcaldav.test.util.TestCase):
             check = bestAcceptType(hdrs.getHeader("accept"), allowedTypes)
             self.assertEqual(check, result, msg="Failed %s" % (title,))
 
-
     def test_userAgentProductTokens(self):
         """
         Test that L{userAgentProductTokens} correctly parses a User-Agent header.
@@ -164,7 +165,6 @@ class AcceptType(twistedcaldav.test.util.TestCase):
             ("Client/1.0 commentary here) FooBar/2", ["Client/1.0", "commentary", "here)", "FooBar/2", ]),
         ):
             self.assertEqual(userAgentProductTokens(hdr), result, msg="Mismatch: {}".format(hdr))
-
 
     def test_matchClientFixes(self):
         """

@@ -77,13 +77,11 @@ class CalDAVElement (WebDAVElement):
     namespace = caldav_namespace
 
 
-
 class CalDAVEmptyElement (WebDAVEmptyElement):
     """
     CalDAV element with no contents.
     """
     namespace = caldav_namespace
-
 
 
 class CalDAVTextElement (WebDAVTextElement):
@@ -93,14 +91,13 @@ class CalDAVTextElement (WebDAVTextElement):
     namespace = caldav_namespace
 
 
-
 class CalDAVTimeRangeElement (CalDAVEmptyElement):
     """
     CalDAV element containing a time range.
     """
     allowed_attributes = {
         "start": False,
-        "end"  : False,
+        "end": False,
     }
 
     def __init__(self, *children, **attributes):
@@ -112,7 +109,6 @@ class CalDAVTimeRangeElement (CalDAVEmptyElement):
 
         self.start = DateTime.parseText(attributes["start"]) if "start" in attributes else None
         self.end = DateTime.parseText(attributes["end"]) if "end" in attributes else None
-
 
     def valid(self, level=0):
         """
@@ -138,7 +134,6 @@ class CalDAVTimeRangeElement (CalDAVEmptyElement):
         return True
 
 
-
 class CalDAVDataMixin(object):
     """
     A mixin to support accept/returning data in various formats.
@@ -158,7 +153,6 @@ class CalDAVDataMixin(object):
 
         super(CalDAVDataMixin, self).__init__(*children, **attributes)
 
-
     def verifyTypeVersion(self):
         """
         Make sure any content-type and version matches at least one supported set.
@@ -174,7 +168,6 @@ class CalDAVDataMixin(object):
                 return True
 
         return False
-
 
     @classmethod
     def fromCalendar(clazz, calendar, format=None):
@@ -207,7 +200,6 @@ class CalDAVDataMixin(object):
 
     generateComponent = calendar
 
-
     def calendarData(self):
         """
         Returns the calendar data derived from this element.
@@ -223,7 +215,6 @@ class CalDAVDataMixin(object):
         return str(data)
 
     textData = calendarData
-
 
 
 class CalDAVTimeZoneElement (CalDAVDataMixin, CalDAVTextElement):
@@ -245,7 +236,6 @@ class CalDAVTimeZoneElement (CalDAVDataMixin, CalDAVTextElement):
 
         # Default to using utc tzinfo
         return Timezone.UTCTimezone
-
 
     def valid(self):
         """
@@ -275,7 +265,6 @@ class CalDAVTimeZoneElement (CalDAVDataMixin, CalDAVTextElement):
         return found
 
 
-
 @registerElement
 class CalendarHomeSet (CalDAVElement):
     """
@@ -286,7 +275,6 @@ class CalendarHomeSet (CalDAVElement):
     hidden = True
 
     allowed_children = {(dav_namespace, "href"): (0, None)}
-
 
 
 @registerElement
@@ -301,7 +289,6 @@ class CalendarDescription (CalDAVTextElement):
     # May be protected; but we'll let the client set this if they like.
 
 
-
 @registerElement
 class CalendarTimeZone (CalDAVTimeZoneElement):
     """
@@ -313,9 +300,8 @@ class CalendarTimeZone (CalDAVTimeZoneElement):
 
     allowed_attributes = {
         "content-type": False,
-        "version"     : False,
+        "version": False,
     }
-
 
 
 @registerElement
@@ -326,7 +312,6 @@ class CalendarTimeZoneID (CalDAVTextElement):
     """
     name = "calendar-timezone-id"
     hidden = True
-
 
 
 @registerElement
@@ -343,7 +328,6 @@ class SupportedCalendarComponentSets (CalDAVElement):
     allowed_children = {(caldav_namespace, "supported-calendar-component-set"): (0, None)}
 
 
-
 @registerElement
 class SupportedCalendarComponentSet (CalDAVElement):
     """
@@ -355,7 +339,6 @@ class SupportedCalendarComponentSet (CalDAVElement):
     protected = True
 
     allowed_children = {(caldav_namespace, "comp"): (0, None)}
-
 
 
 @registerElement
@@ -371,7 +354,6 @@ class SupportedCalendarData (CalDAVElement):
     allowed_children = {(caldav_namespace, "calendar-data"): (0, None)}
 
 
-
 @registerElement
 class MaxResourceSize (CalDAVTextElement):
     """
@@ -381,7 +363,6 @@ class MaxResourceSize (CalDAVTextElement):
     name = "max-resource-size"
     hidden = True
     protected = True
-
 
 
 @registerElement
@@ -395,7 +376,6 @@ class MinDateTime (CalDAVTextElement):
     protected = True
 
 
-
 @registerElement
 class MaxDateTime (CalDAVTextElement):
     """
@@ -405,7 +385,6 @@ class MaxDateTime (CalDAVTextElement):
     name = "max-date-time"
     hidden = True
     protected = True
-
 
 
 @registerElement
@@ -419,7 +398,6 @@ class MaxInstances (CalDAVTextElement):
     protected = True
 
 
-
 @registerElement
 class MaxAttendeesPerInstance (CalDAVTextElement):
     """
@@ -431,7 +409,6 @@ class MaxAttendeesPerInstance (CalDAVTextElement):
     protected = True
 
 
-
 @registerElement
 class Calendar (CalDAVEmptyElement):
     """
@@ -439,7 +416,6 @@ class Calendar (CalDAVEmptyElement):
     (CalDAV-access, RFC 4791 sections 4.2 & 9.1)
     """
     name = "calendar"
-
 
 
 @registerElement
@@ -455,7 +431,6 @@ class MakeCalendar (CalDAVElement):
     child_types = {"WebDAVUnknownElement": (0, None)}
 
 
-
 @registerElement
 class MakeCalendarResponse (CalDAVElement):
     """
@@ -465,7 +440,6 @@ class MakeCalendarResponse (CalDAVElement):
     name = "mkcalendar-response"
 
     allowed_children = {WebDAVElement: (0, None)}
-
 
 
 @registerElement
@@ -482,9 +456,8 @@ class CalendarQuery (CalDAVElement):
         (dav_namespace, "prop"): (0, None),
         (caldav_namespace, "timezone"): (0, 1),
         (caldav_namespace, "timezone-id"): (0, 1),
-        (caldav_namespace, "filter"): (0, 1), # Actually (1, 1) unless element is empty
+        (caldav_namespace, "filter"): (0, 1),  # Actually (1, 1) unless element is empty
     }
-
 
     def __init__(self, *children, **attributes):
         super(CalendarQuery, self).__init__(*children, **attributes)
@@ -532,7 +505,6 @@ class CalendarQuery (CalDAVElement):
         self.timezone_id = timezone_id
 
 
-
 @registerElement
 class CalendarData (CalDAVDataMixin, CalDAVElement):
     """
@@ -551,7 +523,7 @@ class CalendarData (CalDAVDataMixin, CalDAVElement):
     }
     allowed_attributes = {
         "content-type": False,
-        "version"     : False,
+        "version": False,
     }
 
     def __init__(self, *children, **attributes):
@@ -607,7 +579,6 @@ class CalendarData (CalDAVDataMixin, CalDAVElement):
                 self.children = (data,)
 
 
-
 @registerElement
 class CalendarComponent (CalDAVElement):
     """
@@ -623,7 +594,6 @@ class CalendarComponent (CalDAVElement):
         (caldav_namespace, "prop"): (0, None),
     }
     allowed_attributes = {"name": True}
-
 
     def __init__(self, *children, **attributes):
         super(CalendarComponent, self).__init__(*children, **attributes)
@@ -671,7 +641,6 @@ class CalendarComponent (CalDAVElement):
         self.properties = properties
         self.type = self.attributes["name"]
 
-
     def getFromICalendar(self, component):
         """
         Returns a calendar component object containing the data in the given
@@ -714,7 +683,6 @@ class CalendarComponent (CalDAVElement):
         return result
 
 
-
 @registerElement
 class AllComponents (CalDAVEmptyElement):
     """
@@ -722,7 +690,6 @@ class AllComponents (CalDAVEmptyElement):
     (CalDAV-access, RFC 4791 section 9.6.2)
     """
     name = "allcomp"
-
 
 
 @registerElement
@@ -734,7 +701,6 @@ class AllProperties (CalDAVEmptyElement):
     name = "allprop"
 
 
-
 @registerElement
 class Property (CalDAVEmptyElement):
     """
@@ -744,10 +710,9 @@ class Property (CalDAVEmptyElement):
     name = "prop"
 
     allowed_attributes = {
-        "name"   : True,
+        "name": True,
         "novalue": False,
     }
-
 
     def __init__(self, *children, **attributes):
         super(Property, self).__init__(*children, **attributes)
@@ -766,7 +731,6 @@ class Property (CalDAVEmptyElement):
             self.novalue = False
 
 
-
 @registerElement
 class Expand (CalDAVTimeRangeElement):
     """
@@ -775,7 +739,6 @@ class Expand (CalDAVTimeRangeElement):
     (CalDAV-access, RFC 4791 section 9.6.5)
     """
     name = "expand"
-
 
 
 @registerElement
@@ -788,7 +751,6 @@ class LimitRecurrenceSet (CalDAVTimeRangeElement):
     name = "limit-recurrence-set"
 
 
-
 @registerElement
 class LimitFreeBusySet (CalDAVTimeRangeElement):
     """
@@ -797,7 +759,6 @@ class LimitFreeBusySet (CalDAVTimeRangeElement):
     (CalDAV-access, RFC 4791 section 9.6.7)
     """
     name = "limit-freebusy-set"
-
 
 
 @registerElement
@@ -809,7 +770,6 @@ class Filter (CalDAVElement):
     name = "filter"
 
     allowed_children = {(caldav_namespace, "comp-filter"): (1, 1)}
-
 
 
 @registerElement
@@ -832,7 +792,6 @@ class ComponentFilter (CalDAVElement):
     }
 
 
-
 @registerElement
 class PropertyFilter (CalDAVElement):
     """
@@ -853,7 +812,6 @@ class PropertyFilter (CalDAVElement):
     }
 
 
-
 @registerElement
 class ParameterFilter (CalDAVElement):
     """
@@ -869,7 +827,6 @@ class ParameterFilter (CalDAVElement):
     allowed_attributes = {"name": True}
 
 
-
 @registerElement
 class IsNotDefined (CalDAVEmptyElement):
     """
@@ -877,7 +834,6 @@ class IsNotDefined (CalDAVEmptyElement):
     (CalDAV-access, RFC 4791 section 9.7.4)
     """
     name = "is-not-defined"
-
 
 
 @registerElement
@@ -888,8 +844,7 @@ class TextMatch (CalDAVTextElement):
     """
     name = "text-match"
 
-
-    def fromString(clazz, string, caseless=False): #@NoSelf
+    def fromString(clazz, string, caseless=False):  # @NoSelf
         if caseless:
             caseless = "yes"
         else:
@@ -911,7 +866,6 @@ class TextMatch (CalDAVTextElement):
     }
 
 
-
 @registerElement
 class TimeZone (CalDAVTimeZoneElement):
     """
@@ -922,9 +876,8 @@ class TimeZone (CalDAVTimeZoneElement):
 
     allowed_attributes = {
         "content-type": False,
-        "version"     : False,
+        "version": False,
     }
-
 
 
 @registerElement
@@ -936,7 +889,6 @@ class TimeZoneID (CalDAVTextElement):
     name = "timezone-id"
 
 
-
 @registerElement
 class TimeRange (CalDAVTimeRangeElement):
     """
@@ -944,7 +896,6 @@ class TimeRange (CalDAVTimeRangeElement):
     (CalDAV-access, RFC 4791 section 9.9)
     """
     name = "time-range"
-
 
 
 @registerElement
@@ -962,9 +913,8 @@ class CalendarMultiGet (CalDAVElement):
         (dav_namespace, "allprop"): (0, 1),
         (dav_namespace, "propname"): (0, 1),
         (dav_namespace, "prop"): (0, 1),
-        (dav_namespace, "href"): (0, None), # Actually ought to be (1, None)
+        (dav_namespace, "href"): (0, None),  # Actually ought to be (1, None)
     }
-
 
     def __init__(self, *children, **attributes):
         super(CalendarMultiGet, self).__init__(*children, **attributes)
@@ -991,7 +941,6 @@ class CalendarMultiGet (CalDAVElement):
         self.resources = resources
 
 
-
 @registerElement
 class FreeBusyQuery (CalDAVElement):
     """
@@ -1003,8 +952,7 @@ class FreeBusyQuery (CalDAVElement):
 
     # To allow for an empty element in a supported-report-set property we need
     # to relax the child restrictions
-    allowed_children = {(caldav_namespace, "time-range"): (0, 1)} # Actually ought to be (1, 1)
-
+    allowed_children = {(caldav_namespace, "time-range"): (0, 1)}  # Actually ought to be (1, 1)
 
     def __init__(self, *children, **attributes):
         super(FreeBusyQuery, self).__init__(*children, **attributes)
@@ -1024,7 +972,6 @@ class FreeBusyQuery (CalDAVElement):
         self.timerange = timerange
 
 
-
 @registerElement
 class ReadFreeBusy(CalDAVEmptyElement):
     """
@@ -1032,7 +979,6 @@ class ReadFreeBusy(CalDAVEmptyElement):
     (CalDAV-access, RFC 4791 section 6.1.1)
     """
     name = "read-free-busy"
-
 
 
 @registerElement
@@ -1044,7 +990,6 @@ class NoUIDConflict(CalDAVElement):
     name = "no-uid-conflict"
 
     allowed_children = {(dav_namespace, "href"): (1, 1)}
-
 
 
 @registerElement
@@ -1067,7 +1012,6 @@ class SupportedFilter(CalDAVElement):
 #
 
 
-
 @registerElement
 class CalendarUserAddressSet (CalDAVElement):
     """
@@ -1078,7 +1022,6 @@ class CalendarUserAddressSet (CalDAVElement):
     hidden = True
 
     allowed_children = {(dav_namespace, "href"): (0, None)}
-
 
 
 @registerElement
@@ -1094,7 +1037,6 @@ class CalendarFreeBusySet (CalDAVElement):
     allowed_children = {(dav_namespace, "href"): (0, None)}
 
 
-
 @registerElement
 class ScheduleCalendarTransp (CalDAVElement):
     """
@@ -1108,14 +1050,12 @@ class ScheduleCalendarTransp (CalDAVElement):
     }
 
 
-
 @registerElement
 class Opaque (CalDAVEmptyElement):
     """
     Indicates that a calendar is used in freebusy lookups.
     """
     name = "opaque"
-
 
 
 @registerElement
@@ -1126,7 +1066,6 @@ class Transparent (CalDAVEmptyElement):
     name = "transparent"
 
 
-
 @registerElement
 class ScheduleDefaultCalendarURL (CalDAVElement):
     """
@@ -1135,7 +1074,6 @@ class ScheduleDefaultCalendarURL (CalDAVElement):
     name = "schedule-default-calendar-URL"
 
     allowed_children = {(dav_namespace, "href"): (0, 1)}
-
 
 
 @registerElement
@@ -1151,7 +1089,6 @@ class ScheduleInboxURL (CalDAVElement):
     allowed_children = {(dav_namespace, "href"): (0, 1)}
 
 
-
 @registerElement
 class ScheduleOutboxURL (CalDAVElement):
     """
@@ -1165,7 +1102,6 @@ class ScheduleOutboxURL (CalDAVElement):
     allowed_children = {(dav_namespace, "href"): (0, 1)}
 
 
-
 @registerElement
 class ScheduleTag (CalDAVTextElement):
     """
@@ -1177,7 +1113,6 @@ class ScheduleTag (CalDAVTextElement):
     protected = True
 
 
-
 @registerElement
 class ScheduleInbox (CalDAVEmptyElement):
     """
@@ -1185,7 +1120,6 @@ class ScheduleInbox (CalDAVEmptyElement):
     (CalDAV-schedule-xx, section x.x.x)
     """
     name = "schedule-inbox"
-
 
 
 @registerElement
@@ -1197,14 +1131,12 @@ class ScheduleOutbox (CalDAVEmptyElement):
     name = "schedule-outbox"
 
 
-
 @registerElement
 class Trash (CalDAVEmptyElement):
     """
     Denotes the resource type of a trash collection.
     """
     name = "trash"
-
 
 
 @registerElement
@@ -1216,7 +1148,6 @@ class ScheduleResponse (CalDAVElement):
     name = "schedule-response"
 
     allowed_children = {(caldav_namespace, "response"): (0, None)}
-
 
 
 @registerElement
@@ -1231,10 +1162,9 @@ class Response (CalDAVElement):
         (caldav_namespace, "recipient"): (1, 1),
         (caldav_namespace, "request-status"): (1, 1),
         (caldav_namespace, "calendar-data"): (0, 1),
-        (dav_namespace, "error"): (0, 1), # 2518bis
+        (dav_namespace, "error"): (0, 1),  # 2518bis
         (dav_namespace, "responsedescription"): (0, 1)
     }
-
 
 
 @registerElement
@@ -1245,8 +1175,7 @@ class Recipient (CalDAVElement):
     """
     name = "recipient"
 
-    allowed_children = {(dav_namespace, "href"): (0, None)} # NB Minimum is zero because this is a property name
-
+    allowed_children = {(dav_namespace, "href"): (0, None)}  # NB Minimum is zero because this is a property name
 
 
 @registerElement
@@ -1258,7 +1187,6 @@ class RequestStatus (CalDAVTextElement):
     name = "request-status"
 
 
-
 @registerElement
 class Schedule (CalDAVEmptyElement):
     """
@@ -1266,7 +1194,6 @@ class Schedule (CalDAVEmptyElement):
     (CalDAV-schedule, section x.x.x)
     """
     name = "schedule"
-
 
 
 @registerElement
@@ -1278,7 +1205,6 @@ class ScheduleDeliver (CalDAVEmptyElement):
     name = "schedule-deliver"
 
 
-
 @registerElement
 class ScheduleSend (CalDAVEmptyElement):
     """
@@ -1286,7 +1212,6 @@ class ScheduleSend (CalDAVEmptyElement):
     (CalDAV-schedule, section x.x.x)
     """
     name = "schedule-send"
-
 
 
 @registerElement
@@ -1314,7 +1239,6 @@ class DefaultAlarmBase (CalDAVTextElement):
 
     calendartxt = None
 
-
     def calendar(self):
         """
         Returns a calendar component derived from this element, which contains
@@ -1322,7 +1246,6 @@ class DefaultAlarmBase (CalDAVTextElement):
         """
         valarm = str(self)
         return iComponent.fromString(self.calendartxt % str(self)) if valarm else None
-
 
     def valid(self):
         """
@@ -1350,7 +1273,6 @@ class DefaultAlarmBase (CalDAVTextElement):
         return True
 
 
-
 @registerElement
 class DefaultAlarmVEventDateTime (DefaultAlarmBase):
     name = "default-alarm-vevent-datetime"
@@ -1367,7 +1289,6 @@ SUMMARY:bogus
 %sEND:VEVENT
 END:VCALENDAR
 """
-
 
 
 @registerElement
@@ -1388,7 +1309,6 @@ END:VCALENDAR
 """
 
 
-
 @registerElement
 class DefaultAlarmVToDoDateTime (DefaultAlarmBase):
     name = "default-alarm-vtodo-datetime"
@@ -1404,7 +1324,6 @@ SUMMARY:bogus
 %sEND:VTODO
 END:VCALENDAR
 """
-
 
 
 @registerElement
@@ -1424,7 +1343,6 @@ END:VCALENDAR
 """
 
 
-
 #
 # draft-daboo-caldav-attachments
 #
@@ -1432,7 +1350,6 @@ END:VCALENDAR
 caldav_managed_attachments_compliance = (
     "calendar-managed-attachments",
 )
-
 
 
 @registerElement
@@ -1454,7 +1371,6 @@ caldav_timezone_service_set_compliance = (
 )
 
 
-
 @registerElement
 class TimezoneServiceSet (CalDAVElement):
     """
@@ -1463,7 +1379,6 @@ class TimezoneServiceSet (CalDAVElement):
     name = "timezone-service-set"
 
     allowed_children = {(dav_namespace, "href"): (0, 1)}
-
 
 
 #

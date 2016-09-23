@@ -51,7 +51,6 @@ def find_packages():
     return modules
 
 
-
 def git_info(wc_path):
     """
     Look up info on a GIT working copy.
@@ -107,7 +106,6 @@ def git_info(wc_path):
     )
 
 
-
 def version():
     """
     Compute the version number.
@@ -132,14 +130,14 @@ def version():
         except ValueError:
             project = project_version
             version = "Unknown"
-        assert project == project_name, (
-            "Tagged project {!r} != {!r}".format(project, project_name)
-        )
-        assert version == base_version, (
-            "Tagged version {!r} != {!r}".format(version, base_version)
-        )
-        # This is a correctly tagged release of this project.
-        return base_version
+
+        # Only process tags with our project name prefix
+        if project == project_name:
+            assert version == base_version, (
+                "Tagged version {!r} != {!r}".format(version, base_version)
+            )
+            # This is a correctly tagged release of this project.
+            return base_version
 
     if info["branch"].startswith("release/"):
         project_version = info["branch"][len("release/"):]
@@ -168,7 +166,6 @@ def version():
         info["revision"],
         info["branch"].replace("/", ".").replace("-", ".").lower(),
     )
-
 
 
 #
@@ -204,7 +201,6 @@ author_email = "calendarserver-dev@lists.macosforge.org"
 license = "Apache License, Version 2.0"
 
 platforms = ["all"]
-
 
 
 #
@@ -301,7 +297,6 @@ for tool, (module, function) in script_entry_points.iteritems():
     )
 
 
-
 #
 # Dependencies
 #
@@ -396,6 +391,7 @@ def doSetup():
         package_data={
             "twistedcaldav": [
                 "*.html",
+                "*.txt",
                 "zoneinfo/*.ics",
                 "zoneinfo/*.txt",
                 "zoneinfo/*.xml",

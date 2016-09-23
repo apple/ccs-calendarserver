@@ -38,7 +38,6 @@ class Capabilities (WebDAVElement):
     }
 
 
-
 @registerElement
 class Operation (WebDAVElement):
     namespace = timezone_namespace
@@ -50,19 +49,16 @@ class Operation (WebDAVElement):
     }
 
 
-
 @registerElement
 class Action (WebDAVTextElement):
     namespace = timezone_namespace
     name = "action"
 
 
-
 @registerElement
 class Description (WebDAVTextElement):
     namespace = timezone_namespace
     name = "description"
-
 
 
 @registerElement
@@ -78,12 +74,10 @@ class AcceptParameter (WebDAVElement):
     }
 
 
-
 @registerElement
 class Name (WebDAVTextElement):
     namespace = timezone_namespace
     name = "name"
-
 
 
 @registerElement
@@ -92,19 +86,16 @@ class Required (WebDAVTextElement):
     name = "required"
 
 
-
 @registerElement
 class Multi (WebDAVTextElement):
     namespace = timezone_namespace
     name = "multi"
 
 
-
 @registerElement
 class Value (WebDAVTextElement):
     namespace = timezone_namespace
     name = "value"
-
 
 
 @registerElement
@@ -117,12 +108,10 @@ class TimezoneList (WebDAVElement):
     }
 
 
-
 @registerElement
 class Dtstamp (WebDAVTextElement):
     namespace = timezone_namespace
     name = "dtstamp"
-
 
 
 @registerElement
@@ -138,12 +127,10 @@ class Summary (WebDAVElement):
     }
 
 
-
 @registerElement
 class Tzid (WebDAVTextElement):
     namespace = timezone_namespace
     name = "tzid"
-
 
 
 @registerElement
@@ -152,12 +139,10 @@ class LastModified (WebDAVTextElement):
     name = "last-modified"
 
 
-
 @registerElement
 class LocalName (WebDAVTextElement):
     namespace = timezone_namespace
     name = "local-name"
-
 
 
 @registerElement
@@ -166,12 +151,10 @@ class Alias (WebDAVTextElement):
     name = "alias"
 
 
-
 @registerElement
 class Inactive (WebDAVEmptyElement):
     namespace = timezone_namespace
     name = "inactive"
-
 
 
 @registerElement
@@ -182,7 +165,6 @@ class Timezones (WebDAVElement):
         (timezone_namespace, "dtstamp"): (1, 1),
         (timezone_namespace, "tzdata"): (0, None),
     }
-
 
 
 @registerElement
@@ -196,12 +178,10 @@ class Tzdata (WebDAVElement):
     }
 
 
-
 @registerElement
 class Calscale (WebDAVTextElement):
     namespace = timezone_namespace
     name = "calscale"
-
 
 
 @registerElement
@@ -217,19 +197,16 @@ class Observance (WebDAVElement):
     }
 
 
-
 @registerElement
 class Onset (WebDAVTextElement):
     namespace = timezone_namespace
     name = "onset"
 
 
-
 @registerElement
 class UTCOffsetFrom (WebDAVTextElement):
     namespace = timezone_namespace
     name = "utc-offset-from"
-
 
 
 @registerElement

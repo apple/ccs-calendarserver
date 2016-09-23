@@ -47,7 +47,6 @@ from twisted.python.constants import Values, ValueConstant
 log = Logger()
 
 
-
 class ApplePushPriority(Values):
     """
     Maps calendarserver.push.util.PushPriority values to APNS-specific values
@@ -55,7 +54,6 @@ class ApplePushPriority(Values):
     low = ValueConstant(PushPriority.low.value)
     medium = ValueConstant(PushPriority.medium.value)
     high = ValueConstant(PushPriority.high.value)
-
 
 
 class ApplePushNotifierService(service.MultiService):
@@ -156,7 +154,6 @@ class ApplePushNotifierService(service.MultiService):
 
         return service
 
-
     def startService(self):
         """
         In addition to starting the provider and feedback sub-services, start a
@@ -168,7 +165,6 @@ class ApplePushNotifierService(service.MultiService):
 
         service.MultiService.startService(self)
 
-
     def stopService(self):
         """
         In addition to stopping the provider and feedback sub-services, stop the
@@ -176,7 +172,6 @@ class ApplePushNotifierService(service.MultiService):
         """
         self.log.debug("ApplePushNotifierService stopService")
         service.MultiService.stopService(self)
-
 
     @inlineCallbacks
     def enqueue(
@@ -230,7 +225,6 @@ class ApplePushNotifierService(service.MultiService):
                         dataChangedTimestamp, priority)
 
 
-
 class APNProviderProtocol(Protocol):
     """
     Implements the Provider portion of APNS
@@ -245,16 +239,16 @@ class APNProviderProtocol(Protocol):
 
     # Returned only for an error.  Successful notifications get no response.
     STATUS_CODES = {
-        0   : "No errors encountered",
-        1   : "Processing error",
-        2   : "Missing device token",
-        3   : "Missing topic",
-        4   : "Missing payload",
-        5   : "Invalid token size",
-        6   : "Invalid topic size",
-        7   : "Invalid payload size",
-        8   : "Invalid token",
-        255 : "None (unknown)",
+        0: "No errors encountered",
+        1: "Processing error",
+        2: "Missing device token",
+        3: "Missing topic",
+        4: "Missing payload",
+        5: "Invalid token size",
+        6: "Invalid topic size",
+        7: "Invalid payload size",
+        8: "Invalid token",
+        255: "None (unknown)",
     }
 
     # If error code comes back as one of these, remove the associated device
@@ -268,7 +262,6 @@ class APNProviderProtocol(Protocol):
         self.log.debug("ProviderProtocol makeConnection")
         Protocol.makeConnection(self, transport)
 
-
     def connectionMade(self):
         self.log.debug("ProviderProtocol connectionMade")
         self.buffer = ""
@@ -277,12 +270,10 @@ class APNProviderProtocol(Protocol):
         self.factory.connection = self
         self.factory.clientConnectionMade()
 
-
     def connectionLost(self, reason=None):
         # self.log.debug("ProviderProtocol connectionLost: {reason}", reason=reason)
         # Clear the reference to us from the factory
         self.factory.connection = None
-
 
     @inlineCallbacks
     def dataReceived(self, data, fn=None):
@@ -310,7 +301,6 @@ class APNProviderProtocol(Protocol):
                     "ProviderProtocol could not process error: {code} ({ex})",
                     code=message.encode("hex"), ex=e
                 )
-
 
     @inlineCallbacks
     def processError(self, status, identifier):
@@ -345,7 +335,6 @@ class APNProviderProtocol(Protocol):
                     yield txn.removeAPNSubscription(token, record.resourceKey)
                 yield txn.commit()
 
-
     def sendNotification(self, token, key, dataChangedTimestamp, priority):
         """
         Sends a push notification message for the key to the device associated
@@ -373,9 +362,9 @@ class APNProviderProtocol(Protocol):
         apnsPriority = ApplePushPriority.lookupByValue(priority.value).value
         payload = json.dumps(
             {
-                "key" : key,
-                "dataChangedTimestamp" : dataChangedTimestamp,
-                "pushRequestSubmittedTimestamp" : int(time.time()),
+                "key": key,
+                "dataChangedTimestamp": dataChangedTimestamp,
+                "pushRequestSubmittedTimestamp": int(time.time()),
             }
         )
         payloadLength = len(payload)
@@ -399,26 +388,26 @@ class APNProviderProtocol(Protocol):
 
         # Frame struct.pack format                ! Network byte order
         command = self.COMMAND_PROVIDER             # B
-        frameLength = (# I
+        frameLength = (  # I
             # Item 1 (Device token)
-            1 + # Item number                       # B
-            2 + # Item length                       # H
-            32 + # device token                     # 32s
+            1 +  # Item number                       # B
+            2 +  # Item length                       # H
+            32 +  # device token                     # 32s
             # Item 2 (Payload)
-            1 + # Item number                       # B
-            2 + # Item length                       # H
-            payloadLength + # the JSON payload      # %d s
+            1 +  # Item number                       # B
+            2 +  # Item length                       # H
+            payloadLength +  # the JSON payload      # %d s
             # Item 3 (Notification ID)
-            1 + # Item number                       # B
-            2 + # Item length                       # H
-            4 + # Notification ID                   # I
+            1 +  # Item number                       # B
+            2 +  # Item length                       # H
+            4 +  # Notification ID                   # I
             # Item 4 (Expiration)
-            1 + # Item number                       # B
-            2 + # Item length                       # H
-            4 + # Expiration seconds since epoch    # I
+            1 +  # Item number                       # B
+            2 +  # Item length                       # H
+            4 +  # Expiration seconds since epoch    # I
             # Item 5 (Priority)
-            1 + # Item number                       # B
-            2 + # Item length                       # H
+            1 +  # Item number                       # B
+            2 +  # Item length                       # H
             1    # Priority                         # B
         )
 
@@ -443,7 +432,7 @@ class APNProviderProtocol(Protocol):
 
                 4,                               # Item 4 (Expiration)
                 4,                               # Expiration length
-                int(time.time()) + 72 * 60 * 60, # Expires in 72 hours
+                int(time.time()) + 72 * 60 * 60,  # Expires in 72 hours
 
                 5,                               # Item 5 (Priority)
                 1,                               # Priority length
@@ -451,7 +440,6 @@ class APNProviderProtocol(Protocol):
 
             )
         )
-
 
 
 class APNProviderFactory(ReconnectingClientFactory):
@@ -463,15 +451,13 @@ class APNProviderFactory(ReconnectingClientFactory):
         self.service = service
         self.store = store
         self.noisy = True
-        self.maxDelay = 30 # max seconds between connection attempts
+        self.maxDelay = 30  # max seconds between connection attempts
         self.shuttingDown = False
-
 
     def clientConnectionMade(self):
         self.log.info("Connection to APN server made")
         self.service.clientConnectionMade()
         self.delay = 1.0
-
 
     def clientConnectionLost(self, connector, reason):
         if not self.shuttingDown:
@@ -482,7 +468,6 @@ class APNProviderFactory(ReconnectingClientFactory):
                 ReconnectingClientFactory.stopTrying(self)
         ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
 
-
     def clientConnectionFailed(self, connector, reason):
         self.log.error("Unable to connect to APN server: {reason}", reason=reason)
         self.connected = False
@@ -490,16 +475,13 @@ class APNProviderFactory(ReconnectingClientFactory):
             self, connector,
             reason)
 
-
     def retry(self, connector=None):
         self.log.info("Reconnecting to APN server")
         ReconnectingClientFactory.retry(self, connector)
 
-
     def stopTrying(self):
         self.shuttingDown = True
         ReconnectingClientFactory.stopTrying(self)
-
 
 
 class APNConnectionService(service.Service):
@@ -525,14 +507,13 @@ class APNConnectionService(service.Service):
             from twisted.internet import reactor
         self.reactor = reactor
 
-
     def connect(self, factory):
         if self.testConnector is not None:
             # For testing purposes
             self.testConnector.connect(self, factory)
         else:
             if self.passphrase:
-                passwdCallback = lambda *ignored : self.passphrase
+                passwdCallback = lambda *ignored: self.passphrase
             else:
                 passwdCallback = None
             context = ChainingOpenSSLContextFactory(
@@ -546,7 +527,6 @@ class APNConnectionService(service.Service):
             )
             connect(GAIEndpoint(self.reactor, self.host, self.port, context),
                     factory)
-
 
 
 class APNProviderService(APNConnectionService):
@@ -574,12 +554,10 @@ class APNProviderService(APNConnectionService):
         else:
             self.scheduler = None
 
-
     def startService(self):
         self.log.debug("APNProviderService startService")
         self.factory = APNProviderFactory(self, self.store)
         self.reactor.callWhenRunning(self.connect, self.factory)
-
 
     def stopService(self):
         self.log.debug("APNProviderService stopService")
@@ -587,7 +565,6 @@ class APNProviderService(APNConnectionService):
             self.factory.stopTrying()
         if self.scheduler is not None:
             self.scheduler.stop()
-
 
     def clientConnectionMade(self):
         # Service the queue
@@ -601,7 +578,6 @@ class APNProviderService(APNConnectionService):
                     self.sendNotification(
                         token, key, dataChangedTimestamp,
                         priority)
-
 
     def scheduleNotifications(self, tokens, key, dataChangedTimestamp, priority):
         """
@@ -629,7 +605,6 @@ class APNProviderService(APNConnectionService):
         else:
             self._saveForWhenConnected(tokens, key, dataChangedTimestamp, priority)
 
-
     def _saveForWhenConnected(self, tokens, key, dataChangedTimestamp, priority):
         """
         Called in order to save notifications that can't be sent now because there
@@ -649,11 +624,10 @@ class APNProviderService(APNConnectionService):
             for existingPair, _ignore_timstamp, priority in self.queue:
                 if tokenKeyPair == existingPair:
                     self.log.debug("APNProviderService has no connection; skipping duplicate: {token} {key}", token=token, key=key)
-                    break # Already scheduled
+                    break  # Already scheduled
             else:
                 self.log.debug("APNProviderService has no connection; queuing: {token} {key}", token=token, key=key)
                 self.queue.append(((token, key), dataChangedTimestamp, priority))
-
 
     def sendNotification(self, token, key, dataChangedTimestamp, priority):
         """
@@ -679,7 +653,6 @@ class APNProviderService(APNConnectionService):
             connection.sendNotification(token, key, dataChangedTimestamp, priority)
 
 
-
 class APNFeedbackProtocol(Protocol):
     """
     Implements the Feedback portion of APNS
@@ -691,7 +664,6 @@ class APNFeedbackProtocol(Protocol):
     def connectionMade(self):
         self.log.debug("FeedbackProtocol connectionMade")
         self.buffer = ""
-
 
     @inlineCallbacks
     def dataReceived(self, data, fn=None):
@@ -721,7 +693,6 @@ class APNFeedbackProtocol(Protocol):
                     "FeedbackProtocol could not process message: {code} ({ex})",
                     code=message.encode("hex"), ex=e
                 )
-
 
     @inlineCallbacks
     def processFeedback(self, timestamp, token):
@@ -755,7 +726,6 @@ class APNFeedbackProtocol(Protocol):
         yield txn.commit()
 
 
-
 class APNFeedbackFactory(ClientFactory):
     log = Logger()
 
@@ -764,7 +734,6 @@ class APNFeedbackFactory(ClientFactory):
     def __init__(self, store):
         self.store = store
 
-
     def clientConnectionFailed(self, connector, reason):
         self.log.error(
             "Unable to connect to APN feedback server: {reason}",
@@ -772,7 +741,6 @@ class APNFeedbackFactory(ClientFactory):
         )
         self.connected = False
         ClientFactory.clientConnectionFailed(self, connector, reason)
-
 
 
 class APNFeedbackService(APNConnectionService):
@@ -793,18 +761,15 @@ class APNFeedbackService(APNConnectionService):
         self.store = store
         self.updateSeconds = updateSeconds
 
-
     def startService(self):
         self.log.debug("APNFeedbackService startService")
         self.factory = APNFeedbackFactory(self.store)
         self.reactor.callWhenRunning(self.checkForFeedback)
 
-
     def stopService(self):
         self.log.debug("APNFeedbackService stopService")
         if self.nextCheck is not None:
             self.nextCheck.cancel()
-
 
     def checkForFeedback(self):
         self.nextCheck = None
@@ -813,7 +778,6 @@ class APNFeedbackService(APNConnectionService):
         self.nextCheck = self.reactor.callLater(
             self.updateSeconds,
             self.checkForFeedback)
-
 
 
 class APNSubscriptionResource(
@@ -837,20 +801,16 @@ class APNSubscriptionResource(
         self.parent = parent
         self.store = store
 
-
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = NonePropertyStore(self)
         return self._dead_properties
 
-
     def etag(self):
         return succeed(None)
 
-
     def checkPreconditions(self, request):
         return None
-
 
     def defaultAccessControlList(self):
         return succeed(
@@ -874,26 +834,20 @@ class APNSubscriptionResource(
             )
         )
 
-
     def contentType(self):
         return MimeType.fromString("text/html; charset=utf-8")
-
 
     def resourceType(self):
         return None
 
-
     def isCollection(self):
         return False
-
 
     def isCalendarCollection(self):
         return False
 
-
     def isPseudoCalendarCollection(self):
         return False
-
 
     @inlineCallbacks
     def http_POST(self, request):
@@ -943,7 +897,6 @@ class APNSubscriptionResource(
 
         returnValue((code, msg))
 
-
     @inlineCallbacks
     def addSubscription(self, token, key, uid, userAgent, host):
         """
@@ -964,11 +917,10 @@ class APNSubscriptionResource(
         @param host: The host requesting the subscription
         @type key: C{str}
         """
-        now = int(time.time()) # epoch seconds
+        now = int(time.time())  # epoch seconds
         txn = self.store.newTransaction(label="APNSubscriptionResource.addSubscription")
         yield txn.addAPNSubscription(token, key, now, uid, userAgent, host)
         yield txn.commit()
-
 
     def renderResponse(self, code, body=None):
         response = Response(code, {}, body)
@@ -976,12 +928,11 @@ class APNSubscriptionResource(
         return response
 
 
-
 class APNPurgingWork(RegeneratingWorkItem, fromTable(schema.APN_PURGING_WORK)):
 
     group = "apn_purging"
-    purgeIntervalSeconds = 12 * 60 * 60 # 12 hours by default
-    purgeSeconds = 14 * 24 * 60 * 60 # 14 days by default
+    purgeIntervalSeconds = 12 * 60 * 60  # 12 hours by default
+    purgeSeconds = 14 * 24 * 60 * 60  # 14 days by default
 
     @classmethod
     def initialSchedule(cls, store, seconds):
@@ -990,13 +941,11 @@ class APNPurgingWork(RegeneratingWorkItem, fromTable(schema.APN_PURGING_WORK)):
 
         return store.inTransaction("APNPurgingWork.initialSchedule", _enqueue)
 
-
     def regenerateInterval(self):
         """
         Return the interval in seconds between regenerating instances.
         """
         return self.purgeIntervalSeconds
-
 
     def doWork(self):
         return self.transaction.purgeOldAPNSubscriptions(

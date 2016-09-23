@@ -45,7 +45,6 @@ from txdav.caldav.datastore.scheduling.imip.smtpsender import SMTPSender
 from txdav.common.datastore.sql_tables import schema
 
 
-
 log = Logger()
 
 
@@ -88,7 +87,6 @@ class IMIPInvitationWork(WorkItem, fromTable(schema.IMIP_INVITATION_WORK)):
                     settings.Address,
                     settings.SuppressionDays, smtpSender, getLanguage(config))
         return cls.mailSender
-
 
     @inlineCallbacks
     def doWork(self):
@@ -169,6 +167,7 @@ htmlInviteTemplate = u"""<html>
     </p>
     """.encode("utf-8")
 
+
 def _visit(document, node):
     if isinstance(node, DOMText):
         idx = node.parentNode.childNodes.index(node)
@@ -199,12 +198,10 @@ def _visit(document, node):
                 node.appendChild(elem)
 
 
-
 def _walk(document, n):
     _visit(document, n)
     for subn in n.childNodes:
         _walk(document, subn)
-
 
 
 def _fixup(data, rendererName):
@@ -224,11 +221,11 @@ def _fixup(data, rendererName):
     return result
 
 
-
 class StringFormatTemplateLoader(object):
     """
     Loader for twisted.web.template that converts a template with %()s slots.
     """
+
     def __init__(self, fileFactory, rendererName):
         """
         @param fileFactory: a 1-argument callable which returns a file-like
@@ -241,11 +238,9 @@ class StringFormatTemplateLoader(object):
         self.fileFactory = fileFactory
         self.rendererName = rendererName
 
-
     def load(self):
         html = _fixup(self.fileFactory().read(), self.rendererName)
         return XMLString(html).load()
-
 
 
 def localizedLabels(language, canceled, inviteState):
@@ -303,7 +298,6 @@ def localizedLabels(language, canceled, inviteState):
     return subjectFormatString.decode("utf-8"), labels
 
 
-
 class MailSender(object):
     """
     Generates outbound IMIP messages and sends them.
@@ -315,7 +309,6 @@ class MailSender(object):
         self.suppressionDays = suppressionDays
         self.smtpSender = smtpSender
         self.language = language
-
 
     @inlineCallbacks
     def outbound(self, txn, originator, recipient, calendar, onlyAfter=None):
@@ -437,7 +430,7 @@ class MailSender(object):
 
             # Reply-to address will be the server+token address
 
-        else: # REPLY
+        else:  # REPLY
             inviteState = "reply"
 
             # Look up the attendee property corresponding to the originator
@@ -496,7 +489,6 @@ class MailSender(object):
             self.log.error("Failed to send IMIP message ({ex})", ex=str(e))
             returnValue(False)
 
-
     def _scrubHeader(self, value):
         """
         Check for what would be considered "embedded headers" and, if present,
@@ -505,7 +497,6 @@ class MailSender(object):
         if EMBEDDED_HEADER_CHECK.search(value) is not None:
             value = value.replace("\n", " ")
         return value
-
 
     def generateEmail(self, inviteState, calendar, orgEmail, orgCN,
                       attendees, fromAddress, replyToAddress, toAddress,
@@ -563,7 +554,7 @@ class MailSender(object):
         subjectFormat, labels = localizedLabels(language, canceled, inviteState)
         details.update(labels)
 
-        details['subject'] = subjectFormat % {'summary' : details['summary']}
+        details['subject'] = subjectFormat % {'summary': details['summary']}
 
         plainText = self.renderPlainText(details, (orgCN, orgEmail),
                                          attendees, canceled)
@@ -613,7 +604,6 @@ class MailSender(object):
 
         return msgId, msg.as_string()
 
-
     def renderPlainText(self, details, (orgCN, orgEmail), attendees, canceled):
         """
         Render text/plain message part based on invitation details and a flag
@@ -645,7 +635,6 @@ class MailSender(object):
             plainTemplate = plainInviteTemplate
 
         return (plainTemplate % details).encode("UTF-8")
-
 
     def renderHTML(self, details, organizer, attendees, canceled):
         """
@@ -698,13 +687,13 @@ class MailSender(object):
                 htmlTemplate = htmlCancelTemplate
             else:
                 htmlTemplate = htmlInviteTemplate
-        else: # HTML template file exists
+        else:  # HTML template file exists
 
             with open(templatePath) as templateFile:
                 htmlTemplate = templateFile.read()
 
         class EmailElement(Element):
-            loader = StringFormatTemplateLoader(lambda : StringIO(htmlTemplate),
+            loader = StringFormatTemplateLoader(lambda: StringIO(htmlTemplate),
                                                 "email")
 
             @renderer
@@ -715,7 +704,6 @@ class MailSender(object):
         flattenString(None, EmailElement()).addCallback(textCollector.append)
         htmlText = textCollector[0]
         return htmlText
-
 
     def getEventDetails(self, calendar, language='en'):
         """

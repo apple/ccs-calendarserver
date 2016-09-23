@@ -30,18 +30,16 @@ from twistedcaldav.test.util import StoreTestCase
 
 
 class CapturingCacheNotifier(object):
+
     def __init__(self, *args, **kwargs):
         self.history = []
-
 
     def changed(self, url=None):
         self.history.append(url)
         return succeed(None)
 
-
     def clear(self):
         self.history = []
-
 
 
 class DelegationTest(StoreTestCase):
@@ -54,7 +52,6 @@ class DelegationTest(StoreTestCase):
 
         yield Delegates._memcacher.flushAll()
 
-
     @inlineCallbacks
     def test_recordCreation(self):
         """
@@ -66,7 +63,6 @@ class DelegationTest(StoreTestCase):
             "foo"
         )
         self.assertEquals(record.shortNames[0], "foo")
-
 
     @inlineCallbacks
     def test_directDelegation(self):
@@ -181,7 +177,6 @@ class DelegationTest(StoreTestCase):
         )
         yield txn.commit()
 
-
     @inlineCallbacks
     def test_indirectDelegation(self):
         txn = self.store.newTransaction(label="test_indirectDelegation")
@@ -256,7 +251,6 @@ class DelegationTest(StoreTestCase):
         )
         yield txn.commit()
 
-
     @inlineCallbacks
     def test_noDuplication(self):
         """
@@ -306,7 +300,6 @@ class DelegationTest(StoreTestCase):
         self.assertEquals(["__top_group_1__", ], [record.groupUID for record in results])
 
 
-
 class DelegationCachingTest(StoreTestCase):
 
     @inlineCallbacks
@@ -319,7 +312,6 @@ class DelegationCachingTest(StoreTestCase):
 
         self.patch(CachingDelegates, "cacheNotifier", CapturingCacheNotifier())
 
-
     @inlineCallbacks
     def _memcacherMemberResults(self, delegate, readWrite, expanded, results):
         delegateUIDs = yield Delegates._memcacher.getMembers(delegate.uid, readWrite, expanded)
@@ -328,7 +320,6 @@ class DelegationCachingTest(StoreTestCase):
             set([result.uid for result in results]) if results is not None else None,
             msg="uid:{}, rw={}, expanded={}".format(delegate.uid, readWrite, expanded)
         )
-
 
     @inlineCallbacks
     def _memcacherAllMemberResults(self, delegate, results1, results2, results3, results4):
@@ -340,7 +331,6 @@ class DelegationCachingTest(StoreTestCase):
         ):
             yield self._memcacherMemberResults(delegate, readWrite, expanded, results)
 
-
     @inlineCallbacks
     def _memcacherMembershipResults(self, delegate, readWrite, results):
         delegatorUIDs = yield Delegates._memcacher.getMemberships(delegate.uid, readWrite)
@@ -350,7 +340,6 @@ class DelegationCachingTest(StoreTestCase):
             msg="uid:{}, rw={}".format(delegate.uid, readWrite)
         )
 
-
     @inlineCallbacks
     def _memcacherAllMembershipResults(self, delegate, results1, results2):
         for readWrite, results in (
@@ -358,7 +347,6 @@ class DelegationCachingTest(StoreTestCase):
             (False, results2),
         ):
             yield self._memcacherMembershipResults(delegate, readWrite, results)
-
 
     @inlineCallbacks
     def _delegatesOfResults(self, delegator, readWrite, expanded, results):
@@ -368,7 +356,6 @@ class DelegationCachingTest(StoreTestCase):
             set([delegate.uid for delegate in results]),
             msg="uid:{}, rw={}, expanded={}".format(delegator.uid, readWrite, expanded)
         )
-
 
     @inlineCallbacks
     def _delegatesOfAllResults(self, delegator, results1, results2, results3, results4):
@@ -380,7 +367,6 @@ class DelegationCachingTest(StoreTestCase):
         ):
             yield self._delegatesOfResults(delegator, readWrite, expanded, results)
 
-
     @inlineCallbacks
     def _delegatedToResults(self, delegate, readWrite, results):
         delegators = (yield Delegates.delegatedTo(self.transactionUnderTest(), delegate, readWrite))
@@ -390,7 +376,6 @@ class DelegationCachingTest(StoreTestCase):
             msg="uid:{}, rw={}".format(delegate.uid, readWrite)
         )
 
-
     @inlineCallbacks
     def _delegatedToAllResults(self, delegator, results1, results2):
         for readWrite, results in (
@@ -398,7 +383,6 @@ class DelegationCachingTest(StoreTestCase):
             (False, results2),
         ):
             yield self._delegatedToResults(delegator, readWrite, results)
-
 
     @inlineCallbacks
     def test_cacheUsed(self):
@@ -409,6 +393,7 @@ class DelegationCachingTest(StoreTestCase):
         # Patch transaction so we can monitor whether cache is being used
         original_delegates = CommonStoreTransaction.delegates
         delegates_query = [0]
+
         def _delegates(self, delegator, readWrite, expanded=False):
             delegates_query[0] += 1
             return original_delegates(self, delegator, readWrite, expanded)
@@ -416,6 +401,7 @@ class DelegationCachingTest(StoreTestCase):
 
         original_delegators = CommonStoreTransaction.delegators
         delegators_query = [0]
+
         def _delegators(self, delegate, readWrite):
             delegators_query[0] += 1
             return original_delegators(self, delegate, readWrite)
@@ -453,7 +439,6 @@ class DelegationCachingTest(StoreTestCase):
         yield Delegates.delegatedTo(self.transactionUnderTest(), delegate1, False)
         self.assertEqual(delegators_query[0], 2)
 
-
     @inlineCallbacks
     def test_addRemoveDelegation(self):
 
@@ -466,8 +451,8 @@ class DelegationCachingTest(StoreTestCase):
         yield self.commit()
 
         # Notifications
-        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sagen1__/",))) #@UndefinedVariable
-        Delegates.cacheNotifier.clear() #@UndefinedVariable
+        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sagen1__/",)))  # @UndefinedVariable
+        Delegates.cacheNotifier.clear()  # @UndefinedVariable
 
         # Some cache entries invalid
         yield self._memcacherAllMemberResults(delegator, None, [delegate1], None, None)
@@ -522,8 +507,8 @@ class DelegationCachingTest(StoreTestCase):
         yield self.commit()
 
         # Notifications
-        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sagen1__/",))) #@UndefinedVariable
-        Delegates.cacheNotifier.clear() #@UndefinedVariable
+        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sagen1__/",)))  # @UndefinedVariable
+        Delegates.cacheNotifier.clear()  # @UndefinedVariable
 
         # Some cache entries invalid
         yield self._memcacherAllMemberResults(delegator, None, [], [], [])
@@ -573,7 +558,6 @@ class DelegationCachingTest(StoreTestCase):
             yield self._memcacherAllMembershipResults(delegate1, [], [])
             yield self._memcacherAllMembershipResults(delegate2, [], [])
 
-
     @inlineCallbacks
     def test_setDelegation(self):
 
@@ -589,8 +573,8 @@ class DelegationCachingTest(StoreTestCase):
         yield self.commit()
 
         # Notifications
-        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sagen1__/", u"/principals/__uids__/__cdaboo1__/",))) #@UndefinedVariable
-        Delegates.cacheNotifier.clear() #@UndefinedVariable
+        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sagen1__/", u"/principals/__uids__/__cdaboo1__/",)))  # @UndefinedVariable
+        Delegates.cacheNotifier.clear()  # @UndefinedVariable
 
         # Some cache entries invalid
         yield self._memcacherAllMemberResults(delegator, None, [delegates[0], delegates[1]], None, None)
@@ -624,8 +608,8 @@ class DelegationCachingTest(StoreTestCase):
         yield self.commit()
 
         # Notifications
-        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sagen1__/", u"/principals/__uids__/__dre1__/"))) #@UndefinedVariable
-        Delegates.cacheNotifier.clear() #@UndefinedVariable
+        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sagen1__/", u"/principals/__uids__/__dre1__/")))  # @UndefinedVariable
+        Delegates.cacheNotifier.clear()  # @UndefinedVariable
 
         # Some cache entries invalid
         yield self._memcacherAllMemberResults(delegator, None, [delegates[1], delegates[2]], [], [])
@@ -661,8 +645,8 @@ class DelegationCachingTest(StoreTestCase):
         yield self.commit()
 
         # Notifications
-        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sagen1__/"))) #@UndefinedVariable
-        Delegates.cacheNotifier.clear() #@UndefinedVariable
+        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sagen1__/")))  # @UndefinedVariable
+        Delegates.cacheNotifier.clear()  # @UndefinedVariable
 
         # Some cache entries invalid
         yield self._memcacherAllMemberResults(delegator, [delegates[1], delegates[2]], [delegates[1], delegates[2]], None, [delegates[0]])
@@ -693,7 +677,6 @@ class DelegationCachingTest(StoreTestCase):
             yield self._memcacherAllMembershipResults(delegates[1], [delegator], [])
             yield self._memcacherAllMembershipResults(delegates[2], [delegator], [])
 
-
     @inlineCallbacks
     def test_setGroupDelegation(self):
 
@@ -718,8 +701,8 @@ class DelegationCachingTest(StoreTestCase):
         yield self.commit()
 
         # Notifications
-        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__top_group_1__/",))) #@UndefinedVariable
-        Delegates.cacheNotifier.clear() #@UndefinedVariable
+        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__top_group_1__/",)))  # @UndefinedVariable
+        Delegates.cacheNotifier.clear()  # @UndefinedVariable
 
         # Some cache entries invalid
         yield self._memcacherAllMemberResults(delegator, None, delegateMatch(0, 1, 2), None, None)
@@ -755,8 +738,8 @@ class DelegationCachingTest(StoreTestCase):
         yield self.commit()
 
         # Notifications
-        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__dre1__/"))) #@UndefinedVariable
-        Delegates.cacheNotifier.clear() #@UndefinedVariable
+        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__dre1__/")))  # @UndefinedVariable
+        Delegates.cacheNotifier.clear()  # @UndefinedVariable
 
         # Some cache entries invalid
         yield self._memcacherAllMemberResults(delegator, None, delegateMatch(0, 1, 2, 3), [], [])
@@ -795,8 +778,8 @@ class DelegationCachingTest(StoreTestCase):
         yield self.commit()
 
         # Notifications
-        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__top_group_1__/", u"/principals/__uids__/__sub_group_1__/"))) #@UndefinedVariable
-        Delegates.cacheNotifier.clear() #@UndefinedVariable
+        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__top_group_1__/", u"/principals/__uids__/__sub_group_1__/")))  # @UndefinedVariable
+        Delegates.cacheNotifier.clear()  # @UndefinedVariable
 
         # Some cache entries invalid
         yield self._memcacherAllMemberResults(delegator, None, delegateMatch(0, 1, 3), [], [])
@@ -835,8 +818,8 @@ class DelegationCachingTest(StoreTestCase):
         yield self.commit()
 
         # Notifications
-        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sagen1__/"))) #@UndefinedVariable
-        Delegates.cacheNotifier.clear() #@UndefinedVariable
+        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sagen1__/")))  # @UndefinedVariable
+        Delegates.cacheNotifier.clear()  # @UndefinedVariable
 
         # Some cache entries invalid
         yield self._memcacherAllMemberResults(delegator, None, delegateMatch(0, 1, 3), [], [])
@@ -875,8 +858,8 @@ class DelegationCachingTest(StoreTestCase):
         yield self.commit()
 
         # Notifications
-        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sub_group_1__/"))) #@UndefinedVariable
-        Delegates.cacheNotifier.clear() #@UndefinedVariable
+        self.assertEqual(set(Delegates.cacheNotifier.history), set((u"/principals/__uids__/__wsanchez1__/", u"/principals/__uids__/__sub_group_1__/")))  # @UndefinedVariable
+        Delegates.cacheNotifier.clear()  # @UndefinedVariable
 
         # Some cache entries invalid
         yield self._memcacherAllMemberResults(delegator, None, delegateMatch(0, 3), [], [])

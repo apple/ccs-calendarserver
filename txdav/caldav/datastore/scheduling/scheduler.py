@@ -116,11 +116,12 @@ __all__ = [
 
 log = Logger()
 
+
 class Scheduler(object):
 
     scheduleResponse = None
 
-    errorResponse = None # The class used for generating an HTTP XML error response
+    errorResponse = None  # The class used for generating an HTTP XML error response
 
     errorElements = {
         "originator-missing": (),
@@ -156,7 +157,6 @@ class Scheduler(object):
         self.method = "Unknown"
         self.internal_request = False
 
-
     @inlineCallbacks
     def doSchedulingViaPOST(self, originator, recipients, calendar):
         """
@@ -186,13 +186,11 @@ class Scheduler(object):
 
         returnValue(result)
 
-
     def doSchedulingViaPUT(self, originator, recipients, calendar, internal_request=False, suppress_refresh=False):
         """
         The implicit scheduling PUT operation.
         """
         return self.doSchedulingDirectly("PUT", originator, recipients, calendar, internal_request, suppress_refresh)
-
 
     def doSchedulingDirectly(self, descriptor, originator, recipients, calendar, internal_request=False, suppress_refresh=False):
         """
@@ -212,7 +210,6 @@ class Scheduler(object):
         self.checkAuthorization()
 
         return self.doScheduling()
-
 
     @inlineCallbacks
     def doScheduling(self):
@@ -242,7 +239,6 @@ class Scheduler(object):
 
         returnValue(result)
 
-
     def preProcessCalendarData(self):
         """
         After loading calendar data from the request, do some optional processing of it. This method will be
@@ -250,30 +246,23 @@ class Scheduler(object):
         """
         pass
 
-
     def checkAuthorization(self):
         raise NotImplementedError
-
 
     def checkOriginator(self):
         raise NotImplementedError
 
-
     def checkRecipients(self):
         raise NotImplementedError
-
 
     def checkOrganizer(self):
         raise NotImplementedError
 
-
     def checkOrganizerAsOriginator(self):
         raise NotImplementedError
 
-
     def checkAttendeeAsOriginator(self):
         raise NotImplementedError
-
 
     def checkCalendarData(self):
 
@@ -368,7 +357,6 @@ class Scheduler(object):
                 description=msg
             ))
 
-
     def checkForFreeBusy(self):
         if not hasattr(self, "isfreebusy"):
             if (self.calendar.propertyValue("METHOD") == "REQUEST") and (self.calendar.mainType() == "VFREEBUSY"):
@@ -422,10 +410,8 @@ class Scheduler(object):
 
         return self.isfreebusy
 
-
     def securityChecks(self):
         raise NotImplementedError
-
 
     def doAccounting(self):
         #
@@ -450,13 +436,11 @@ class Scheduler(object):
                     )
                 )
 
-
     def finalChecks(self):
         """
         Final checks before doing the actual scheduling.
         """
         pass
-
 
     @inlineCallbacks
     def generateSchedulingResponse(self):
@@ -535,7 +519,6 @@ class Scheduler(object):
         # Return with final response if we are done
         returnValue(responses)
 
-
     def generateLocalSchedulingResponses(self, recipients, responses, freebusy):
         """
         Generate scheduling responses for CalDAV recipients.
@@ -544,7 +527,6 @@ class Scheduler(object):
         # Create the scheduler and run it.
         requestor = ScheduleViaCalDAV(self, recipients, responses, freebusy)
         return requestor.generateSchedulingResponses()
-
 
     def generateRemoteSchedulingResponses(self, recipients, responses, freebusy, refreshOnly=False):
         """
@@ -555,7 +537,6 @@ class Scheduler(object):
         requestor = ScheduleViaISchedule(self, recipients, responses, freebusy)
         return requestor.generateSchedulingResponses(refreshOnly)
 
-
     def generateIMIPSchedulingResponses(self, recipients, responses, freebusy):
         """
         Generate scheduling responses for iMIP recipients.
@@ -565,10 +546,8 @@ class Scheduler(object):
         requestor = ScheduleViaIMip(self, recipients, responses, freebusy)
         return requestor.generateSchedulingResponses()
 
-
     def mapRecipientAddress(self, cuaddr):
         return self.recipientsNormalizationMap.get(cuaddr, cuaddr)
-
 
 
 class RemoteScheduler(Scheduler):
@@ -578,7 +557,6 @@ class RemoteScheduler(Scheduler):
         Delay ORGANIZER check until we know what their role is.
         """
         pass
-
 
     @inlineCallbacks
     def checkRecipients(self):
@@ -632,7 +610,6 @@ class RemoteScheduler(Scheduler):
         self.recipients = results
 
 
-
 class DirectScheduler(Scheduler):
     """ An implicit scheduler meant for use by local processes which don't
         need to go through all these checks. """
@@ -642,30 +619,23 @@ class DirectScheduler(Scheduler):
     def checkAuthorization(self):
         pass
 
-
     def checkOrganizer(self):
         pass
-
 
     def checkOrganizerAsOriginator(self):
         pass
 
-
     def checkAttendeeAsOriginator(self):
         pass
-
 
     def securityChecks(self):
         pass
 
-
     def checkOriginator(self):
         pass
 
-
     def checkRecipients(self):
         pass
-
 
 
 class ScheduleResponseResponse (Response):
@@ -673,6 +643,7 @@ class ScheduleResponseResponse (Response):
     ScheduleResponse L{Response} object.
     Renders itself as a CalDAV:schedule-response XML document.
     """
+
     def __init__(self, schedule_response_element, xml_responses, location=None):
         """
         @param xml_responses: an iterable of davxml.Response objects.
@@ -687,7 +658,6 @@ class ScheduleResponseResponse (Response):
 
         if location is not None:
             self.headers.setHeader("location", location)
-
 
 
 class ScheduleResponseQueue (object):
@@ -723,14 +693,12 @@ class ScheduleResponseQueue (object):
         self.recipient_mapper = recipient_mapper
         self.location = None
 
-
     def setLocation(self, location):
         """
         @param location:      the value of the location header to return in the response,
             or None.
         """
         self.location = location
-
 
     def add(self, recipient, what, reqstatus=None, calendar=None, suppressErrorLog=False):
         """
@@ -757,7 +725,7 @@ class ScheduleResponseQueue (object):
         if self.recipient_mapper is not None:
             recipient = self.recipient_mapper(recipient)
 
-        if not suppressErrorLog and code > 400: # Error codes only
+        if not suppressErrorLog and code > 400:  # Error codes only
             self.log.error(
                 "Error during {method} for {r}: {msg}",
                 method=self.method,
@@ -774,13 +742,11 @@ class ScheduleResponseQueue (object):
         )
         self.responses.append(details)
 
-
     def errorForFailure(self, failure):
         if failure.check(HTTPError) and isinstance(failure.value.response, ErrorResponse):
             return self.error_element(failure.value.response.error)
         else:
             return None
-
 
     def clone(self, recipient, request_status, calendar_data, error, desc):
         """
@@ -796,7 +762,6 @@ class ScheduleResponseQueue (object):
             self.response_description_element.fromString(desc) if desc is not None else None,
         )
         self.responses.append(details)
-
 
     def response(self, format=None):
         """

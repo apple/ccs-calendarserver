@@ -26,8 +26,8 @@ from twisted.python.failure import Failure
 from twisted.internet.error import ConnectionRefusedError
 from twext.enterprise.jobs.jobitem import JobItem
 
-class TestCrossPodScheduling (MultiStoreConduitTest):
 
+class TestCrossPodScheduling (MultiStoreConduitTest):
 
     now = {
         "now": DateTime.getToday().getYear(),
@@ -60,7 +60,6 @@ class TestCrossPodScheduling (MultiStoreConduitTest):
         self.patch(IScheduleRequest, "_submitRequest", _fakeSubmitRequest)
         yield super(TestCrossPodScheduling, self).setUp()
 
-
     def configure(self):
         super(TestCrossPodScheduling, self).configure()
 
@@ -70,7 +69,6 @@ class TestCrossPodScheduling (MultiStoreConduitTest):
         self.patch(self.config.Scheduling.Options.WorkQueues, "ReplyDelaySeconds", 0.1)
         self.patch(self.config.Scheduling.Options.WorkQueues, "AttendeeRefreshBatchDelaySeconds", 0.1)
         self.patch(self.config.Scheduling.Options.WorkQueues, "TemporaryFailureDelay", 5)
-
 
     @inlineCallbacks
     def test_simpleInvite(self):
@@ -116,7 +114,6 @@ END:VCALENDAR
         self.assertEqual(len(cobjs), 1)
         self.assertEqual(cobjs[0].uid(), "uid_data")
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_connectionRefusedForOrganizer(self):
@@ -181,7 +178,6 @@ END:VCALENDAR
         self.assertEqual(len(cobjs), 1)
         self.assertEqual(cobjs[0].uid(), "uid_data")
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_connectionRefusedForAttendee(self):

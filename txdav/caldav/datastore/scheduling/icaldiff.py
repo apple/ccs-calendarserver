@@ -33,6 +33,7 @@ __all__ = [
 
 log = Logger()
 
+
 class iCalDiff(object):
     """
     This object is used for doing comparisons between two calendar objects to
@@ -60,7 +61,6 @@ class iCalDiff(object):
         self.newcalendar = newcalendar
         self.smart_merge = smart_merge
         self.forceTRANSP = forceTRANSP
-
 
     def organizerDiff(self):
         """
@@ -97,14 +97,12 @@ class iCalDiff(object):
         result = oldcalendar_norm == newcalendar_norm
         return result
 
-
     def _organizerMerge(self):
         """
         Merge changes to ATTENDEE properties in oldcalendar into newcalendar.
         """
         organizer = normalizeCUAddr(self.newcalendar.masterComponent().propertyValue("ORGANIZER"))
         self._doSmartMerge(organizer, True)
-
 
     def _doSmartMerge(self, ignore_attendee, is_organizer):
         """
@@ -172,11 +170,9 @@ class iCalDiff(object):
                     # Ignore as we have no state for the new instance
                     pass
 
-
     def _tryComponentMerge(self, old_comp, new_comp, ignore_attendee_value, is_organizer):
         if not is_organizer or not self._organizerChangePreventsMerge(old_comp, new_comp):
             self._transferAttendees(old_comp, new_comp, ignore_attendee_value)
-
 
     def _organizerChangePreventsMerge(self, old_comp, new_comp):
         """
@@ -201,7 +197,6 @@ class iCalDiff(object):
                 return True
 
         return False
-
 
     def _transferAttendees(self, old_comp, new_comp, ignore_attendee_value):
         """
@@ -238,7 +233,6 @@ class iCalDiff(object):
                 self._transferParameter(old_attendee, new_attendee, "RSVP")
                 self._transferParameter(old_attendee, new_attendee, "SCHEDULE-STATUS")
 
-
     def _transferParameter(self, old_property, new_property, parameter):
         paramvalue = old_property.parameterValue(parameter)
         if paramvalue is None:
@@ -248,7 +242,6 @@ class iCalDiff(object):
                 pass
         else:
             new_property.setParameter(parameter, paramvalue)
-
 
     def attendeeMerge(self, attendee):
         """
@@ -464,7 +457,6 @@ class iCalDiff(object):
 
         return True, changeCausesReply, changedRids, returnCalendar
 
-
     def _checkVCALENDARProperties(self, serverData, clientData):
 
         self._transferProperty("X-CALENDARSERVER-ACCESS", serverData, clientData)
@@ -480,7 +472,6 @@ class iCalDiff(object):
         if not result:
             log.debug("VCALENDAR properties differ: {diff}", diff=propdiff)
         return result
-
 
     def _transferAttendeeData(self, serverComponent, clientComponent, declines):
 
@@ -566,7 +557,6 @@ class iCalDiff(object):
 
         return True, replyNeeded
 
-
     def _transferDropBoxData(self, serverComponent, clientComponent):
 
         serverDropbox = serverComponent.propertyValue("X-APPLE-DROPBOX")
@@ -602,7 +592,6 @@ class iCalDiff(object):
                         serverComponent.addProperty(attachment)
 
             return True
-
 
     def _transferVPOLLData(self, serverComponent, clientComponent):
 
@@ -644,7 +633,6 @@ class iCalDiff(object):
 
         return changed
 
-
     def _checkInvalidChanges(self, serverComponent, clientComponent, declines):
 
         # Properties we care about: DTSTART, DTEND, DURATION, RRULE, RDATE, EXDATE
@@ -669,7 +657,6 @@ class iCalDiff(object):
             return True
         else:
             return True
-
 
     def _getNormalizedDateTimeProperties(self, component):
 
@@ -731,7 +718,6 @@ class iCalDiff(object):
 
         return timeRange.getStart(), timeRange.getEnd(), newdue, newrrules, newrdates, newexdates
 
-
     def _transferProperty(self, propName, serverComponent, clientComponent):
 
         changed = False
@@ -744,7 +730,6 @@ class iCalDiff(object):
                 serverComponent.removeProperty(serverProp)
             changed = True
         return changed
-
 
     def _attendeeDecline(self, component):
         """
@@ -769,7 +754,6 @@ class iCalDiff(object):
             component.removeProperty(prop)
         component.replaceProperty(Property("TRANSP", "TRANSPARENT"))
         return partstatChanged
-
 
     def whatIsDifferent(self, timeRangeCheck=False):
         """
@@ -827,7 +811,6 @@ class iCalDiff(object):
 
         return (rids, needs_action_changes,)
 
-
     TRPROPS = frozenset((
         "DTSTART",
         "DTEND",
@@ -862,7 +845,6 @@ class iCalDiff(object):
                 return True
         else:
             return False
-
 
     def attendeeNeedsAction(self, diffs):
         """
@@ -934,7 +916,6 @@ class iCalDiff(object):
 
         return (date_changed_rids, recurrence_reschedule,)
 
-
     def _componentDuplicateAndNormalize(self, comp, timeRangeCheck=False):
         comp = comp.duplicate()
         comp.normalizePropertyValueLists("EXDATE")
@@ -947,7 +928,6 @@ class iCalDiff(object):
             comp.removePropertyParameters("VOTER", ("SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND",))
             iTipGenerator.prepareSchedulingMessage(comp, reply=True)
         return comp
-
 
     def _diffComponents(self, comp1, comp2, rids, needs_action_rids, timeRangeCheck=False):
 
@@ -997,7 +977,6 @@ class iCalDiff(object):
         if attendeeChanges:
             self._diffNeedsAction(comp1, comp2, needs_action_rids)
 
-
     def _diffNeedsAction(self, comp1, comp2, needs_action_rids):
 
         rid = comp1.getRecurrenceIDUTC()
@@ -1016,7 +995,6 @@ class iCalDiff(object):
                 attendees1ByValue[attendee].parameterValue("PARTSTAT", "NEEDS-ACTION") != "NEEDS-ACTION"
             ):
                 needs_action_rids.setdefault(rid, set()).add(attendee)
-
 
     def _logDiffError(self, title):
 

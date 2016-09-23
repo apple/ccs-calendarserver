@@ -96,10 +96,8 @@ class ErrorResponse(Response):
 
         self.error = error
 
-
     def __repr__(self):
         return "<{} {} {}>".format(self.__class__.__name__, self.code, self.error.sname())
-
 
 
 class IScheduleResponseQueue (ScheduleResponseQueue):
@@ -116,7 +114,6 @@ class IScheduleResponseQueue (ScheduleResponseQueue):
     error_element = xml.Error
     response_description_element = xml.ResponseDescription
     calendar_data_element = xml.CalendarData
-
 
 
 class IScheduleScheduler(RemoteScheduler):
@@ -145,7 +142,6 @@ class IScheduleScheduler(RemoteScheduler):
     def __init__(self, txn, originator_uid, logItems=None, noAttendeeRefresh=False, podding=False):
         super(IScheduleScheduler, self).__init__(txn, originator_uid, logItems=logItems, noAttendeeRefresh=noAttendeeRefresh)
         self._podding = podding
-
 
     @inlineCallbacks
     def doSchedulingViaPOST(self, remoteAddr, headers, body, calendar, originator, recipients):
@@ -195,7 +191,6 @@ class IScheduleScheduler(RemoteScheduler):
         result = (yield super(IScheduleScheduler, self).doSchedulingViaPOST(originator, recipients, calendar))
         returnValue(result)
 
-
     def preProcessCalendarData(self):
         """
         For data coming in from outside we need to normalize the calendar user addresses so that later iTIP
@@ -207,7 +202,6 @@ class IScheduleScheduler(RemoteScheduler):
             # Need to normalize the calendar data and recipient values to keep those in sync,
             # as we might later try to match them
             return self.calendar.normalizeCalendarUserAddresses(normalizationLookup, self.txn.directoryService().recordWithCalendarUserAddress)
-
 
     def checkAuthorization(self):
         # Must have an unauthenticated user
@@ -221,7 +215,6 @@ class IScheduleScheduler(RemoteScheduler):
                 self.errorElements["originator-denied"],
                 "Authentication not allowed",
             ))
-
 
     @inlineCallbacks
     def checkOriginator(self):
@@ -285,7 +278,6 @@ class IScheduleScheduler(RemoteScheduler):
             else:
                 self.originator = RemoteCalendarUser(self.originator)
                 self._validiScheduleServer()
-
 
     def _validiScheduleServer(self):
         """
@@ -361,7 +353,6 @@ class IScheduleScheduler(RemoteScheduler):
                     "Originator not allowed to send to this server",
                 ))
 
-
     def _validAlternateServer(self, cuuser):
         """
         Check the validity of the podded host.
@@ -425,7 +416,6 @@ class IScheduleScheduler(RemoteScheduler):
                 "Originator not allowed to send to this server",
             ))
 
-
     @inlineCallbacks
     def checkOrganizerAsOriginator(self):
         """
@@ -486,7 +476,6 @@ class IScheduleScheduler(RemoteScheduler):
                 "No organizer in calendar data",
             ))
 
-
     @inlineCallbacks
     def checkAttendeeAsOriginator(self):
         """
@@ -533,7 +522,6 @@ class IScheduleScheduler(RemoteScheduler):
                 ))
 
         # TODO: in this case we should check that the ORGANIZER is the sole recipient.
-
 
     @inlineCallbacks
     def securityChecks(self):

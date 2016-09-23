@@ -79,6 +79,7 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
 
+
 class SQLUsageSession(CalDAVSession):
 
     def __init__(self, server, port=None, ssl=False, afunix=None, user="", pswd="", principal=None, root=None, calendar="calendar", logging=False):
@@ -88,7 +89,6 @@ class SQLUsageSession(CalDAVSession):
         self.calendarHref = "/calendars/users/%s/%s/" % (self.user, calendar,)
         self.inboxHref = "/calendars/users/%s/inbox/" % (self.user,)
         self.notificationHref = "/calendars/users/%s/notification/" % (self.user,)
-
 
 
 class EventSQLUsage(object):
@@ -103,7 +103,6 @@ class EventSQLUsage(object):
         self.requestLabels = []
         self.results = {}
         self.currentCount = 0
-
 
     def runLoop(self, event_counts):
 
@@ -151,13 +150,11 @@ class EventSQLUsage(object):
                 result[request.label] = request.execute(count)
             self.results[count] = result
 
-
     def report(self):
 
         self._printReport("SQL Statement Count", "count", "%d")
         self._printReport("SQL Rows Returned", "rows", "%d")
         self._printReport("SQL Time", "timing", "%.1f")
-
 
     def _printReport(self, title, attr, colFormat):
         table = tables.Table()
@@ -176,7 +173,6 @@ class EventSQLUsage(object):
         print(os.getvalue())
         print("")
 
-
     def ensureEvents(self, session, calendarhref, n):
         """
         Make sure the required number of events are present in the calendar.
@@ -193,7 +189,6 @@ class EventSQLUsage(object):
         self.currentCount = n
 
 
-
 class SharerSQLUsage(object):
 
     def __init__(self, server, port, users, pswds, logFilePath, compact):
@@ -206,7 +201,6 @@ class SharerSQLUsage(object):
         self.requestLabels = []
         self.results = {}
         self.currentCount = 0
-
 
     def runLoop(self, sharee_counts):
 
@@ -248,13 +242,11 @@ class SharerSQLUsage(object):
                 result[request.label] = request.execute(count)
             self.results[count] = result
 
-
     def report(self):
 
         self._printReport("SQL Statement Count", "count", "%d")
         self._printReport("SQL Rows Returned", "rows", "%d")
         self._printReport("SQL Time", "timing", "%.1f")
-
 
     def _printReport(self, title, attr, colFormat):
         table = tables.Table()
@@ -272,7 +264,6 @@ class SharerSQLUsage(object):
         table.printTable(os=os)
         print(os.getvalue())
         print("")
-
 
     def ensureSharees(self, session, calendarhref, n):
         """
@@ -298,7 +289,6 @@ class SharerSQLUsage(object):
             acceptor.processNotification(principal, notifications[0], True)
 
         self.currentCount = n
-
 
 
 def usage(error_msg=None):

@@ -29,6 +29,7 @@ import os
 
 hasattr(config, "Scheduling")   # Quell pyflakes
 
+
 class iTIPProcessing (unittest.TestCase):
     """
     iCalendar support tests
@@ -68,7 +69,6 @@ class iTIPProcessing (unittest.TestCase):
             "X-TEST-ALL-PARAM4",
             "X-TEST-ALL-PARAM5",
         ])
-
 
     def test_processRequest(self):
         """
@@ -361,7 +361,6 @@ END:VCALENDAR
             self.assertEqual(len(rids), changed_rid_count, msg="Rids mismatch: %s" % (title,))
             self.assertEqual(result, changed, msg="Calendar mismatch: %s" % (title,))
 
-
     def test_processRequest_mergeAttendeePartstat(self):
         """
         Test iTIPProcessing.processRequest properly preserves attendee PARTSTAT when there is no date change
@@ -632,7 +631,6 @@ END:VCALENDAR
             result, _ignore = iTipProcessing.processRequest(itip, calendar, "mailto:user02@example.com")
             self.assertEqual(result, changed, msg="Calendar mismatch: %s" % (title,))
 
-
     def test_processRequest_scheduleAgentChange(self):
         """
         Test iTIPProcessing.processRequest properly replaces a SCHEDULE-AGENT=CLIENT component with a
@@ -699,7 +697,6 @@ END:VCALENDAR
             result, rids = iTipProcessing.processRequest(itip, calendar, "mailto:user02@example.com")
             self.assertEqual(len(rids), 0)
             self.assertEqual(result, changed, msg="Calendar mismatch: %s" % (title,))
-
 
     def test_processRequest_overrideOfEXDATE(self):
         """
@@ -991,7 +988,6 @@ END:VCALENDAR
             result, _ignore = iTipProcessing.processRequest(itip, calendar, "mailto:user02@example.com")
             self.assertEqual(result, changed, msg="Calendar mismatch: %s" % (title,))
 
-
     def test_processRequest_propertyLeakage(self):
         """
         Test iTIPProcessing.processRequest properly ignores properties from organizer that need to be overridden by
@@ -1275,7 +1271,6 @@ END:VCALENDAR
 
             result, _ignore = iTipProcessing.processRequest(itip, calendar, "mailto:user02@example.com")
             self.assertEqual(result, changed, msg="Calendar mismatch: %s" % (title,))
-
 
     def test_processReply(self):
         """
@@ -2385,7 +2380,6 @@ END:VCALENDAR
             if processed is not None:
                 self.assertEqual(result_processed, processed, msg="Process mismatch: %s" % (title,))
 
-
     def test_processPollStatus(self):
         """
         Test iTIPProcessing.processPollStatus
@@ -2718,7 +2712,6 @@ END:VCALENDAR
 
             result = iTipProcessing.processPollStatus(itip, calendar, "mailto:user2@example.com")
             self.assertEqual(normalize_iCalStr(result), normalize_iCalStr(changed_txt), msg="Calendar mismatch: %s" % (title,))
-
 
     def test_update_attendee_partstat(self):
 
@@ -3600,7 +3593,6 @@ END:VCALENDAR
                     msg=description
                 )
 
-
     def test_processReply_XDash(self):
         """
         Test iTIPProcessing.processReply with X- property and parameter changes
@@ -4257,7 +4249,6 @@ END:VCALENDAR
                 msg=title
             )
 
-
     def test_sequenceComparison(self):
         """
         Test iTIPProcessing.sequenceComparison
@@ -4753,7 +4744,6 @@ END:VCALENDAR
             self.assertEqual(result, expected, msg="Result mismatch: %s" % (title,))
 
 
-
 class iTIPGenerator (unittest.TestCase):
     """
     iCalendar support tests
@@ -4794,7 +4784,6 @@ class iTIPGenerator (unittest.TestCase):
             "X-TEST-ALL-PARAM4",
             "X-TEST-ALL-PARAM5",
         ])
-
 
     def test_request(self):
 
@@ -5108,7 +5097,6 @@ END:VCALENDAR
             itipped = "".join([line for line in itipped.splitlines(True) if not line.startswith("DTSTAMP:")])
             self.assertEqual(filtered, itipped)
 
-
     def test_cancel(self):
 
         data = (
@@ -5321,7 +5309,6 @@ END:VCALENDAR
             itipped = "".join([line for line in itipped.splitlines(True) if not line.startswith("DTSTAMP:")])
             self.assertEqual(filtered, itipped)
 
-
     def test_missingAttendee(self):
         """
         When generating a reply, remove all components that are missing
@@ -5425,7 +5412,6 @@ END:VCALENDAR
         itipped = str(itipped).replace("\r", "")
         itipped = "".join([line for line in itipped.splitlines(True) if not line.startswith("DTSTAMP:")])
         self.assertEqual(filtered, itipped)
-
 
     def test_prepareSchedulingMessage(self):
         """

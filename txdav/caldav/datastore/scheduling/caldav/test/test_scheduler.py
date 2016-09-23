@@ -33,7 +33,6 @@ def normalizeiCalendarText(data):
     return "\r\n".join(data) + "\r\n"
 
 
-
 class SchedulerFreeBusyRequest(CommonCommonTests, TestCase):
     """
     Test txdav.caldav.datastore.scheduling.scheduler.doScheduleingViaPOST
@@ -57,15 +56,13 @@ class SchedulerFreeBusyRequest(CommonCommonTests, TestCase):
         self.now_1D = self.now.duplicate()
         self.now_1D.offsetDay(1)
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
 
-
     @classproperty(cache=False)
-    def requirements(cls): #@NoSelf
+    def requirements(cls):  # @NoSelf
         return {
             "user01": {
                 "calendar_1": {
@@ -87,13 +84,11 @@ class SchedulerFreeBusyRequest(CommonCommonTests, TestCase):
             },
         }
 
-
     def storeUnderTest(self):
         """
         Create and return a L{CalendarStore} for testing.
         """
         return self._sqlCalendarStore
-
 
     @inlineCallbacks
     def _createCalendarObject(self, data, user, name):
@@ -101,14 +96,12 @@ class SchedulerFreeBusyRequest(CommonCommonTests, TestCase):
         yield calendar_collection.createCalendarObjectWithName("test.ics", Component.fromString(data))
         yield self.commit()
 
-
     @inlineCallbacks
     def _listCalendarObjects(self, user, collection_name="calendar_1"):
         collection = (yield self.calendarUnderTest(name=collection_name, home=user))
         items = (yield collection.listCalendarObjects())
         yield self.commit()
         returnValue(items)
-
 
     @inlineCallbacks
     def _getCalendarData(self, user, name=None):
@@ -121,7 +114,6 @@ class SchedulerFreeBusyRequest(CommonCommonTests, TestCase):
         yield self.commit()
         returnValue(str(calendar).replace("\r\n ", ""))
 
-
     @inlineCallbacks
     def _setCalendarData(self, data, user, name=None):
         if name is None:
@@ -131,7 +123,6 @@ class SchedulerFreeBusyRequest(CommonCommonTests, TestCase):
         calendar_resource = (yield self.calendarObjectUnderTest(name=name, home=user))
         yield calendar_resource.setComponent(Component.fromString(data))
         yield self.commit()
-
 
     @inlineCallbacks
     def test_no_events(self):
@@ -173,7 +164,6 @@ END:VCALENDAR
         self.assertEqual(str(result.responses[0].recipient.children[0]), "mailto:user01@example.com")
         self.assertTrue(str(result.responses[0].reqstatus).startswith("2"))
         self.assertEqual(normalizeiCalendarText(str(result.responses[0].calendar)), data_reply.replace("\n", "\r\n"))
-
 
     @inlineCallbacks
     def test_one_event(self):
@@ -230,7 +220,6 @@ END:VCALENDAR
         self.assertEqual(str(result.responses[0].recipient.children[0]), "mailto:user01@example.com")
         self.assertTrue(str(result.responses[0].reqstatus).startswith("2"))
         self.assertEqual(normalizeiCalendarText(str(result.responses[0].calendar)), data_reply.replace("\n", "\r\n"))
-
 
     @inlineCallbacks
     def test_one_event_event_details(self):

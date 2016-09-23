@@ -36,6 +36,7 @@ from UserDict import DictMixin
 
 from zope.interface import implements
 
+
 class PropertyName(object):
     """
     Property name.
@@ -53,16 +54,13 @@ class PropertyName(object):
 
         return PropertyName(sname[1:index], sname[index + 1:])
 
-
     @staticmethod
     def fromElement(element):
         return PropertyName(element.namespace, element.name)
 
-
     def __init__(self, namespace, name):
         self.namespace = namespace
         self.name = name
-
 
     def _cmpval(self):
         """
@@ -70,23 +68,19 @@ class PropertyName(object):
         """
         return (self.namespace, self.name)
 
-
     # FIXME: need direct tests for presence-in-dictionary
     def __hash__(self):
         return hash(self._cmpval())
-
 
     def __eq__(self, other):
         if not isinstance(other, PropertyName):
             return NotImplemented
         return self._cmpval() == other._cmpval()
 
-
     def __ne__(self, other):
         if not isinstance(other, PropertyName):
             return NotImplemented
         return self._cmpval() != other._cmpval()
-
 
     def __repr__(self):
         return "<%s: %s>" % (
@@ -94,14 +88,11 @@ class PropertyName(object):
             self.toString(),
         )
 
-
     def toString(self):
         return encodeXMLName(self.namespace, self.name)
 
-
     def toElement(self):
         return lookupElement((self.namespace, self.name,))
-
 
 
 class AbstractPropertyStore(DictMixin, object):
@@ -147,28 +138,22 @@ class AbstractPropertyStore(DictMixin, object):
         self._proxyOverrideKeys = set(AbstractPropertyStore._defaultProxyOverrideKeys)
         self._globalKeys = set(AbstractPropertyStore._defaultGlobalKeys)
 
-
     def __str__(self):
         return "<%s>" % (self.__class__.__name__)
-
 
     def _setDefaultUserUID(self, uid):
         self._defaultUser = uid
 
-
     def _setPerUserUID(self, uid):
         self._perUser = uid
 
-
     def _setProxyUID(self, uid):
         self._proxyUser = uid
-
 
     def setSpecialProperties(self, shadowableKeys, globalKeys, proxyOverrideKeys):
         self._shadowableKeys.update(shadowableKeys)
         self._proxyOverrideKeys.update(proxyOverrideKeys)
         self._globalKeys.update(globalKeys)
-
 
     #
     # Subclasses must override these
@@ -177,30 +162,23 @@ class AbstractPropertyStore(DictMixin, object):
     def _getitem_uid(self, key, uid):
         raise NotImplementedError()
 
-
     def _setitem_uid(self, key, value, uid):
         raise NotImplementedError()
-
 
     def _delitem_uid(self, key, uid):
         raise NotImplementedError()
 
-
     def _keys_uid(self, uid):
         raise NotImplementedError()
-
 
     def _removeResource(self):
         raise NotImplementedError()
 
-
     def flush(self):
         raise NotImplementedError()
 
-
     def abort(self):
         raise NotImplementedError()
-
 
     #
     # Required UserDict implementations
@@ -226,7 +204,6 @@ class AbstractPropertyStore(DictMixin, object):
         else:
             return self._getitem_uid(key, self._perUser)
 
-
     def __setitem__(self, key, value):
         # Handle per-user behavior
         if self.isGlobalProperty(key):
@@ -237,7 +214,6 @@ class AbstractPropertyStore(DictMixin, object):
         # Remainder is per user
         else:
             return self._setitem_uid(key, value, self._perUser)
-
 
     def __delitem__(self, key):
         # Delete proxy value if it exists, else fall through to normal logic
@@ -260,7 +236,6 @@ class AbstractPropertyStore(DictMixin, object):
         else:
             self._delitem_uid(key, self._perUser)
 
-
     def keys(self):
 
         userkeys = list(self._keys_uid(self._perUser))
@@ -271,7 +246,6 @@ class AbstractPropertyStore(DictMixin, object):
                     userkeys.append(key)
         return tuple(userkeys)
 
-
     def update(self, other):
         # FIXME: direct tests.
         # FIXME: support positional signature (although since strings aren't
@@ -279,18 +253,14 @@ class AbstractPropertyStore(DictMixin, object):
         for key in other:
             self[key] = other[key]
 
-
     def isShadowableProperty(self, key):
         return key in self._shadowableKeys
-
 
     def isProxyOverrideProperty(self, key):
         return key in self._proxyOverrideKeys
 
-
     def isGlobalProperty(self, key):
         return key in self._globalKeys
-
 
     def copyAllProperties(self, other):
         """
@@ -298,7 +268,6 @@ class AbstractPropertyStore(DictMixin, object):
         independently of the UID. Each underlying store will need to implement this.
         """
         pass
-
 
 
 # FIXME: Actually, we should replace this with calls to IPropertyName()

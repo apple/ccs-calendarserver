@@ -21,6 +21,7 @@ import numpy
 
 from benchlib import load_stats
 
+
 def main():
     fig = pyplot.figure()
     ax = fig.add_subplot(111)

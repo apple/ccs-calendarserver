@@ -49,8 +49,8 @@ class SyncCollection (WebDAVElement):
     # To allow for an empty element in a supported-report-set property we need
     # to relax the child restrictions
     allowed_children = {
-        (dav_namespace, "sync-token"): (0, 1), # When used in the REPORT this is required
-        (dav_namespace, "sync-level"): (0, 1), # When used in the REPORT this is required
+        (dav_namespace, "sync-token"): (0, 1),  # When used in the REPORT this is required
+        (dav_namespace, "sync-level"): (0, 1),  # When used in the REPORT this is required
         (dav_namespace, "prop"): (0, 1),
     }
 
@@ -84,7 +84,6 @@ class SyncCollection (WebDAVElement):
                 self.property = child
 
 
-
 @registerElement
 @registerElementClass
 class SyncToken (WebDAVTextElement):
@@ -96,7 +95,6 @@ class SyncToken (WebDAVTextElement):
     protected = True
 
 
-
 @registerElement
 @registerElementClass
 class SyncLevel (WebDAVTextElement):
@@ -104,7 +102,6 @@ class SyncLevel (WebDAVTextElement):
     Synchronization level used in report.
     """
     name = "sync-level"
-
 
 
 @registerElement
@@ -116,9 +113,8 @@ class Limit (WebDAVElement):
     name = "limit"
 
     allowed_children = {
-        (dav_namespace, "nresults"): (1, 1), # When used in the REPORT this is required
+        (dav_namespace, "nresults"): (1, 1),  # When used in the REPORT this is required
     }
-
 
 
 @registerElement

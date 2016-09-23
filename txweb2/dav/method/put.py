@@ -63,7 +63,6 @@ def preconditions_PUT(self, request):
         yield x
         x.getResult()
 
-
     #
     # HTTP/1.1 (RFC 2068, section 9.6) requires that we respond with a Not
     # Implemented error if we get a Content-* header which we don't
@@ -88,6 +87,7 @@ def preconditions_PUT(self, request):
             ))
 
 preconditions_PUT = deferredGenerator(preconditions_PUT)
+
 
 def http_PUT(self, request):
     """

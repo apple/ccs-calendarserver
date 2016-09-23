@@ -62,8 +62,8 @@ VALID_CONFIG = {
 VALID_CONFIG_PLIST = writePlistToString(VALID_CONFIG)
 
 
-
 class SimOptionsTests(TestCase):
+
     def test_defaultConfig(self):
         """
         If the I{config} option is not specified, the default config.plist in
@@ -71,7 +71,6 @@ class SimOptionsTests(TestCase):
         """
         options = SimOptions()
         self.assertEqual(options['config'], FilePath(__file__).sibling('config.plist'))
-
 
     def test_configFileNotFound(self):
         """
@@ -85,7 +84,6 @@ class SimOptionsTests(TestCase):
             UsageError, options.parseOptions, ['--config', name.path])
         self.assertEquals(
             str(exc), "--config %s: No such file or directory" % (name.path,))
-
 
     def test_configFileNotParseable(self):
         """
@@ -104,7 +102,6 @@ class SimOptionsTests(TestCase):
             "--config %s: syntax error: line 1, column 0" % (config.path,))
 
 
-
 class CalendarClientSimulatorTests(TestCase):
     """
     Tests for L{CalendarClientSimulator} which adds running clients to
@@ -117,7 +114,6 @@ class CalendarClientSimulatorTests(TestCase):
         email = name + "@example.com"
         record = _DirectoryRecord(name, password, name, email, name)
         return record
-
 
     def test_createUser(self):
         """
@@ -143,7 +139,6 @@ class CalendarClientSimulatorTests(TestCase):
         ])
         self.assertEqual(['alice', 'bob', 'carol'], users)
 
-
     def test_createUserAuthInfo(self):
         """
         The auth handler returned by L{CalendarClientSimulator._createUser}
@@ -168,13 +163,13 @@ class CalendarClientSimulatorTests(TestCase):
             auth['digest'].passwd.find_user_password('Test Realm', 'http://example.org:1234/')[1],
             'password-' + user)
 
-
     def test_stop(self):
         """
         After L{CalendarClientSimulator.stop} is called, failed clients and
         profiles are not logged.
         """
         class BrokenClient(object):
+
             def __init__(self, reactor, serverAddress, principalPathTemplate, serializationPath, userInfo, auth, instanceNumber, runResult):
                 self._runResult = runResult
 
@@ -185,6 +180,7 @@ class CalendarClientSimulatorTests(TestCase):
                 return succeed(None)
 
         class BrokenProfile(object):
+
             def __init__(self, reactor, simulator, client, userNumber, runResult):
                 self._runResult = runResult
                 self.enabled = True
@@ -221,14 +217,12 @@ class CalendarClientSimulatorTests(TestCase):
         self.assertEqual([], self.flushLoggedErrors())
 
 
-
 class Reactor(object):
     message = "some event to be observed"
 
     def __init__(self):
         self._triggers = []
         self._whenRunning = []
-
 
     def run(self):
         for thunk in self._whenRunning:
@@ -238,48 +232,43 @@ class Reactor(object):
             if event == 'shutdown':
                 thunk()
 
-
     def callWhenRunning(self, thunk):
         self._whenRunning.append(thunk)
-
 
     def addSystemEventTrigger(self, phase, event, thunk):
         self._triggers.append((phase, event, thunk))
 
 
-
 class Observer(object):
+
     def __init__(self):
         self.reported = False
         self.events = []
 
-
     def observe(self, event):
         self.events.append(event)
 
-
     def report(self, output):
         self.reported = True
-
 
     def failures(self):
         return []
 
 
-
 class NullArrival(object):
+
     def run(self, sim):
         pass
 
 
-
 class StubSimulator(LoadSimulator):
+
     def run(self):
         return 3
 
 
-
 class LoadSimulatorTests(TestCase):
+
     def test_main(self):
         """
         L{LoadSimulator.main} raises L{SystemExit} with the result of
@@ -292,7 +281,6 @@ class LoadSimulatorTests(TestCase):
             SystemExit, StubSimulator.main, ['--config', config.path])
         self.assertEquals(
             exc.args, (StubSimulator(None, None, None, None, None, None, None).run(),))
-
 
     def test_createSimulator(self):
         """
@@ -314,7 +302,6 @@ class LoadSimulatorTests(TestCase):
         self.assertIsInstance(calsim.reactor, LagTrackingReactor)
         self.assertIdentical(calsim.reactor._reactor, reactor)
         self.assertEquals(calsim.servers, servers)
-
 
     def test_loadAccountsFromFile(self):
         """
@@ -347,7 +334,6 @@ class LoadSimulatorTests(TestCase):
         self.assertEqual(sim.records[1].commonName, 'baz2')
         self.assertEqual(sim.records[1].email, 'quux2')
 
-
     def test_loadDefaultAccountsFromFile(self):
         """
         L{LoadSimulator.fromCommandLine} takes an account loader (with
@@ -376,7 +362,6 @@ class LoadSimulatorTests(TestCase):
         self.assertEqual(sim.records[98].commonName, 'User 99')
         self.assertEqual(sim.records[98].email, 'user99@example.com')
 
-
     def test_generateRecordsDefaultPatterns(self):
         """
         L{LoadSimulator.fromCommandLine} takes an account loader from the
@@ -403,7 +388,6 @@ class LoadSimulatorTests(TestCase):
         self.assertEqual(sim.records[1].password, 'user2')
         self.assertEqual(sim.records[1].commonName, 'User 2')
         self.assertEqual(sim.records[1].email, 'user2@example.com')
-
 
     def test_generateRecordsNonDefaultPatterns(self):
         """
@@ -436,7 +420,6 @@ class LoadSimulatorTests(TestCase):
         self.assertEqual(sim.records[2].commonName, 'Test User 003')
         self.assertEqual(sim.records[2].email, 'USER003@example2.com')
 
-
     def test_specifyRuntime(self):
         """
         L{LoadSimulator.fromCommandLine} recognizes the I{--runtime} option to
@@ -446,7 +429,6 @@ class LoadSimulatorTests(TestCase):
         config.setContent(VALID_CONFIG_PLIST)
         sim = LoadSimulator.fromCommandLine(['--config', config.path, '--runtime', '123'])
         self.assertEqual(123, sim.runtime)
-
 
     def test_loadServerConfig(self):
         """
@@ -465,7 +447,6 @@ class LoadSimulatorTests(TestCase):
         )
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
         self.assertEquals(sim.servers["PodA"]["uri"], "https://127.0.0.3:8432/")
-
 
     def test_loadArrivalConfig(self):
         """
@@ -490,13 +471,13 @@ class LoadSimulatorTests(TestCase):
             sim.arrival,
             Arrival(SmoothRampUp, dict(groups=10, groupSize=1, interval=3)))
 
-
     def test_createArrivalPolicy(self):
         """
         L{LoadSimulator.createArrivalPolicy} creates an arrival
         policy based on the L{Arrival} passed to its initializer.
         """
         class FakeArrival(object):
+
             def __init__(self, reactor, x, y):
                 self.reactor = reactor
                 self.x = x
@@ -510,7 +491,6 @@ class LoadSimulatorTests(TestCase):
         self.assertIdentical(arrival.reactor, sim.reactor)
         self.assertEquals(arrival.x, 3)
         self.assertEquals(arrival.y, 2)
-
 
     def test_loadPopulationParameters(self):
         """
@@ -570,7 +550,6 @@ class LoadSimulatorTests(TestCase):
         )
         self.assertEquals(sim.parameters, expectedParameters)
 
-
     def test_requireClient(self):
         """
         At least one client is required, so if a configuration with an
@@ -586,7 +565,6 @@ class LoadSimulatorTests(TestCase):
         expectedParameters.addClient(
             1, ClientType(OS_X_10_6, {}, [Eventer, Inviter, Accepter]))
         self.assertEquals(sim.parameters, expectedParameters)
-
 
     def test_loadLogObservers(self):
         """
@@ -609,7 +587,6 @@ class LoadSimulatorTests(TestCase):
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
         self.assertEquals(len(sim.observers), 1)
         self.assertIsInstance(sim.observers[0], SimpleStatistics)
-
 
     def test_observeRunReport(self):
         """

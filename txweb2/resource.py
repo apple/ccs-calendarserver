@@ -37,12 +37,12 @@ from txweb2 import iweb, http, server, responsecode
 from twisted.internet.defer import maybeDeferred
 
 
-
 class RenderMixin(object):
     """
     Mix-in class for L{iweb.IResource} which provides a dispatch mechanism for
     handling HTTP methods.
     """
+
     def allowedMethods(self):
         """
         @return: A tuple of HTTP methods that are allowed to be invoked on this
@@ -54,7 +54,6 @@ class RenderMixin(object):
                 if name.startswith('http_') and getattr(self, name) is not None
             )
         return self._allowed_methods
-
 
     def checkPreconditions(self, request):
         """
@@ -82,7 +81,6 @@ class RenderMixin(object):
         method = getattr(self, "preconditions_" + request.method, None)
         if method:
             return method(request)
-
 
     @inlineCallbacks
     def renderHTTP(self, request):
@@ -121,7 +119,6 @@ class RenderMixin(object):
         result.addErrback(self.methodRaisedException)
         returnValue((yield result))
 
-
     def methodRaisedException(self, failure):
         """
         An C{http_METHOD} method raised an exception; this is an errback for
@@ -129,7 +126,6 @@ class RenderMixin(object):
         may override this for top-level exception handling.
         """
         return failure
-
 
     def http_OPTIONS(self, request):
         """
@@ -149,7 +145,6 @@ class RenderMixin(object):
 #        """
 #        return server.doTrace(request)
 
-
     def http_HEAD(self, request):
         """
         Respond to a HEAD request.
@@ -157,7 +152,6 @@ class RenderMixin(object):
         @return: an object adaptable to L{iweb.IResponse}.
         """
         return self.http_GET(request)
-
 
     def http_GET(self, request):
         """
@@ -174,7 +168,6 @@ class RenderMixin(object):
 
         return self.render(request)
 
-
     def render(self, request):
         """
         Subclasses should implement this method to do page rendering.
@@ -183,7 +176,6 @@ class RenderMixin(object):
         @return: an object adaptable to L{iweb.IResponse}.
         """
         raise NotImplementedError("Subclass must implement render method.")
-
 
 
 class Resource(RenderMixin):
@@ -220,7 +212,6 @@ class Resource(RenderMixin):
 
         return None, []
 
-
     def child_(self, request):
         """
         This method locates a child with a trailing C{"/"} in the URL.
@@ -229,7 +220,6 @@ class Resource(RenderMixin):
         if self.addSlash and len(request.postpath) == 1:
             return self
         return None
-
 
     def getChild(self, path):
         """
@@ -242,7 +232,6 @@ class Resource(RenderMixin):
         @rtype: L{iweb.IResource}
         """
         return getattr(self, 'child_%s' % (path,), None)
-
 
     def putChild(self, path, child):
         """
@@ -259,7 +248,6 @@ class Resource(RenderMixin):
         """
         setattr(self, 'child_%s' % (path,), child)
 
-
     def http_GET(self, request):
         if self.addSlash and request.prepath[-1] != '':
             # If this is a directory-ish resource...
@@ -268,7 +256,6 @@ class Resource(RenderMixin):
             )
 
         return super(Resource, self).http_GET(request)
-
 
 
 class PostableResource(Resource):
@@ -299,7 +286,6 @@ class PostableResource(Resource):
         ).addCallback(lambda res: self.render(request))
 
 
-
 class LeafResource(RenderMixin):
     """
     A L{Resource} with no children.
@@ -308,7 +294,6 @@ class LeafResource(RenderMixin):
 
     def locateChild(self, request, segments):
         return self, server.StopTraversal
-
 
 
 class RedirectResource(LeafResource):
@@ -327,12 +312,10 @@ class RedirectResource(LeafResource):
         self._args = args
         self._kwargs = kwargs
 
-
     def renderHTTP(self, request):
         return http.RedirectResponse(
             request.unparseURL(*self._args, **self._kwargs)
         )
-
 
 
 class WrapperResource(object):
@@ -346,7 +329,6 @@ class WrapperResource(object):
     def __init__(self, resource):
         self.resource = resource
 
-
     def hook(self, request):
         """
         Override this method in order to do something before passing control on
@@ -357,20 +339,17 @@ class WrapperResource(object):
         """
         raise NotImplementedError()
 
-
     def locateChild(self, request, segments):
         x = self.hook(request)
         if x is not None:
             return x.addCallback(lambda data: (self.resource, segments))
         return self.resource, segments
 
-
     def renderHTTP(self, request):
         x = self.hook(request)
         if x is not None:
             return x.addCallback(lambda data: self.resource)
         return self.resource
-
 
     def getChild(self, name):
         return self.resource.getChild(name)

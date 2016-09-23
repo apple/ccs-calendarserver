@@ -18,6 +18,7 @@ from txdav.xml.element import WebDAVElement, dav_namespace, registerElement, \
     WebDAVTextElement, WebDAVEmptyElement, Bind, \
     SyncCollection, AddMember
 
+
 @registerElement
 class ServerInfo (WebDAVElement):
     namespace = dav_namespace
@@ -29,12 +30,10 @@ class ServerInfo (WebDAVElement):
     }
 
 
-
 @registerElement
 class Token (WebDAVTextElement):
     namespace = dav_namespace
     name = "token"
-
 
 
 @registerElement
@@ -44,7 +43,6 @@ class Features (WebDAVElement):
     allowed_children = {}
 
 
-
 @registerElement
 class Applications (WebDAVElement):
     namespace = dav_namespace
@@ -52,7 +50,6 @@ class Applications (WebDAVElement):
     allowed_children = {
         (dav_namespace, "application"): (0, None),
     }
-
 
 
 @registerElement
@@ -65,12 +62,10 @@ class Application (WebDAVElement):
     }
 
 
-
 @registerElement
 class Name_Service (WebDAVTextElement):
     namespace = dav_namespace
     name = "name"
-
 
 
 @registerElement
@@ -79,12 +74,10 @@ class Class1_Feature (WebDAVEmptyElement):
     name = "class-1"
 
 
-
 @registerElement
 class Class2_Feature (WebDAVEmptyElement):
     namespace = dav_namespace
     name = "class-2"
-
 
 
 @registerElement
@@ -93,12 +86,10 @@ class Class3_Feature (WebDAVEmptyElement):
     name = "class-3"
 
 
-
 @registerElement
 class AccessControl_Feature (WebDAVEmptyElement):
     namespace = dav_namespace
     name = "access-control"
-
 
 
 @registerElement
@@ -107,12 +98,10 @@ class VersionControl_Feature (WebDAVEmptyElement):
     name = "version-control"
 
 
-
 @registerElement
 class ExtendedMkcol_Feature (WebDAVEmptyElement):
     namespace = dav_namespace
     name = "extended-mkcol"
-
 
 
 @registerElement
@@ -121,9 +110,7 @@ class Quota_Feature (WebDAVEmptyElement):
     name = "quota"
 
 
-
 Bind_Feature = Bind
-
 
 
 @registerElement
@@ -132,9 +119,7 @@ class Search_Feature (WebDAVEmptyElement):
     name = "search"
 
 
-
 SyncCollection_Feature = SyncCollection
-
 
 
 AddMember_Feature = AddMember

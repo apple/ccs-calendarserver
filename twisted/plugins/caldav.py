@@ -31,7 +31,6 @@ def serviceMakerProperty(propname):
     return property(getProperty)
 
 
-
 class TAP(object):
     implements(IPlugin, IServiceMaker)
 

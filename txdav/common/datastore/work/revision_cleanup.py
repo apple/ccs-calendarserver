@@ -45,17 +45,14 @@ class FindMinValidRevisionWork(RegeneratingWorkItem, fromTable(schema.FIND_MIN_V
         else:
             return succeed(None)
 
-
     def regenerateInterval(self):
         """
         Return the interval in seconds between regenerating instances.
         """
         return float(config.RevisionCleanup.CleanupPeriodDays) * 24 * 60 * 60
 
-
     def dateCutoff(self):
         return datetime.datetime.utcnow() - datetime.timedelta(days=float(config.RevisionCleanup.SyncTokenLifetimeDays))
-
 
     @inlineCallbacks
     def doWork(self):
@@ -93,7 +90,6 @@ class FindMinValidRevisionWork(RegeneratingWorkItem, fromTable(schema.FIND_MIN_V
             yield RevisionCleanupWork.reschedule(self.transaction, seconds=0)
 
 
-
 class RevisionCleanupWork(SingletonWorkItem, fromTable(schema.REVISION_CLEANUP_WORK)):
 
     group = "group_revsion_cleanup"
@@ -106,7 +102,6 @@ class RevisionCleanupWork(SingletonWorkItem, fromTable(schema.REVISION_CLEANUP_W
 
         # delete revisions
         yield self.transaction.deleteRevisionsBefore(minValidRevision)
-
 
 
 @inlineCallbacks

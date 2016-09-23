@@ -74,10 +74,8 @@ def loadConfig(configFileName):
     return config
 
 
-
 class UsageError (StandardError):
     pass
-
 
 
 def booleanArgument(arg):
@@ -87,7 +85,6 @@ def booleanArgument(arg):
         return False
     else:
         raise ValueError("Not a boolean: %s" % (arg,))
-
 
 
 def autoDisableMemcached(config):
@@ -111,7 +108,6 @@ def autoDisableMemcached(config):
                 pool.ClientEnabled = False
 
 
-
 def setupMemcached(config):
     #
     # Connect to memcached
@@ -121,7 +117,6 @@ def setupMemcached(config):
         config.Memcached.MaxClients
     )
     autoDisableMemcached(config)
-
 
 
 def checkDirectory(dirpath, description, access=None, create=None, wait=False):
@@ -207,7 +202,6 @@ def checkDirectory(dirpath, description, access=None, create=None, wait=False):
         )
 
 
-
 @inlineCallbacks
 def principalForPrincipalID(principalID, checkOnly=False, directory=None):
 
@@ -280,7 +274,6 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
     raise ValueError("Invalid principal identifier: %s" % (principalID,))
 
 
-
 @inlineCallbacks
 def recordForPrincipalID(directory, principalID, checkOnly=False):
 
@@ -339,7 +332,6 @@ def recordForPrincipalID(directory, principalID, checkOnly=False):
     raise ValueError("Invalid principal identifier: %s" % (principalID,))
 
 
-
 @inlineCallbacks
 def _addRemoveProxy(msg, fn, store, record, proxyType, *proxyIDs):
     directory = store.directoryService()
@@ -360,7 +352,6 @@ def _addRemoveProxy(msg, fn, store, record, proxyType, *proxyIDs):
             )
 
 
-
 @inlineCallbacks
 def action_addProxy(store, record, proxyType, *proxyIDs):
     if config.GroupCaching.Enabled and config.GroupCaching.UseDirectoryBasedDelegates:
@@ -372,7 +363,6 @@ def action_addProxy(store, record, proxyType, *proxyIDs):
             returnValue(None)
 
     yield _addRemoveProxy("Added", Delegates.addDelegate, store, record, proxyType, *proxyIDs)
-
 
 
 @inlineCallbacks
@@ -389,7 +379,6 @@ def action_removeProxy(store, record, *proxyIDs):
     yield _addRemoveProxy("Removed", Delegates.removeDelegate, store, record, "write", *proxyIDs)
     # Read
     yield _addRemoveProxy("Removed", Delegates.removeDelegate, store, record, "read", *proxyIDs)
-
 
 
 @inlineCallbacks
@@ -412,7 +401,6 @@ def setProxies(record, readProxyRecords, writeProxyRecords):
             recordType, record.uid
         )
         yield proxyGroup.setMembers(proxyRecords)
-
 
 
 @inlineCallbacks
@@ -440,15 +428,12 @@ def getProxies(record):
     )
 
 
-
 def proxySubprincipal(principal, proxyType):
     return principal.getChild("calendar-proxy-" + proxyType)
 
 
-
 def prettyPrincipal(principal):
     return prettyRecord(principal.record)
-
 
 
 def prettyRecord(record):
@@ -464,7 +449,6 @@ def prettyRecord(record):
     )
 
 
-
 def displayNameForCollection(collection):
     try:
         displayName = collection.properties()[
@@ -475,7 +459,6 @@ def displayNameForCollection(collection):
         displayName = collection.name()
 
     return displayName
-
 
 
 def agoString(delta):
@@ -494,7 +477,6 @@ def agoString(delta):
     return agoString
 
 
-
 def locationString(component):
     locationProps = component.properties("LOCATION")
     if locationProps is not None:
@@ -505,7 +487,6 @@ def locationString(component):
     else:
         locationString = ""
     return locationString
-
 
 
 @inlineCallbacks
@@ -561,12 +542,10 @@ def getEventDetails(event):
     returnValue(detail)
 
 
-
 class ProxyError(Exception):
     """
     Raised when proxy assignments cannot be performed
     """
-
 
 
 class ProxyWarning(Exception):

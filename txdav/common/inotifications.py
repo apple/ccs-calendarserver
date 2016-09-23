@@ -27,6 +27,7 @@ __all__ = [
     "INotificationObject",
 ]
 
+
 class INotificationCollection(Interface):
     """
     NotificationCollection
@@ -35,7 +36,7 @@ class INotificationCollection(Interface):
     A notification collection belongs to a specific principal.
     """
 
-    def name(): #@NoSelf
+    def name():  # @NoSelf
         """
         Identify this notification collection.
 
@@ -43,7 +44,7 @@ class INotificationCollection(Interface):
         @rtype: C{str}
         """
 
-    def notificationObjects(): #@NoSelf
+    def notificationObjects():  # @NoSelf
         """
         Retrieve the notification objects contained in this notification
         collection with the given C{componentType}.
@@ -52,7 +53,7 @@ class INotificationCollection(Interface):
         @return: an iterable of L{INotificationObject}s.
         """
 
-    def notificationObjectWithName(name): #@NoSelf
+    def notificationObjectWithName(name):  # @NoSelf
         """
         Retrieve the notification object with the given C{name} contained
         in this notification collection.
@@ -62,7 +63,7 @@ class INotificationCollection(Interface):
             object exists.
         """
 
-    def notificationObjectWithUID(uid): #@NoSelf
+    def notificationObjectWithUID(uid):  # @NoSelf
         """
         Retrieve the notification object with the given C{uid} contained
         in this notification collection.
@@ -72,7 +73,7 @@ class INotificationCollection(Interface):
             object exists.
         """
 
-    def writeNotificationObject(uid, notificationtype, notificationdata): #@NoSelf
+    def writeNotificationObject(uid, notificationtype, notificationdata):  # @NoSelf
         """
         Write a notification with the given C{uid} in this notification
         collection from the given C{notificationdata} with given C{notificationtype}.  If a
@@ -91,7 +92,7 @@ class INotificationCollection(Interface):
         @type notificationdata: C{dict}
         """
 
-    def removeNotificationObjectWithName(name): #@NoSelf
+    def removeNotificationObjectWithName(name):  # @NoSelf
         """
         Remove the notification object with the given C{name} from this
         notification collection. If C{deleteOnly} is C{True} then do not
@@ -103,7 +104,7 @@ class INotificationCollection(Interface):
             object exists.
         """
 
-    def removeNotificationObjectWithUID(uid): #@NoSelf
+    def removeNotificationObjectWithUID(uid):  # @NoSelf
         """
         Remove the notification object with the given C{uid} from this
         notification collection.
@@ -113,20 +114,19 @@ class INotificationCollection(Interface):
             not exist.
         """
 
-    def syncToken(): #@NoSelf
+    def syncToken():  # @NoSelf
         """
         Retrieve the current sync token for this notification.
 
         @return: a string containing a sync token.
         """
 
-    def properties(): #@NoSelf
+    def properties():  # @NoSelf
         """
         Retrieve the property store for this notification.
 
         @return: an L{IPropertyStore}.
         """
-
 
 
 class INotificationObject(IDataStoreObject):
@@ -136,7 +136,7 @@ class INotificationObject(IDataStoreObject):
     An notification object describes an XML notification.
     """
 
-    def setData(uid, notificationtype, notificationdata, inserting=False): #@NoSelf
+    def setData(uid, notificationtype, notificationdata, inserting=False):  # @NoSelf
         """
         Rewrite this notification object to match the given C{notificationtype} and
         C{notificationdata}. C{notificationdata} must have the same UID as this notification object.
@@ -148,21 +148,21 @@ class INotificationObject(IDataStoreObject):
             an notification object.
         """
 
-    def notificationData(): #@NoSelf
+    def notificationData():  # @NoSelf
         """
         Retrieve the notification data for this notification object.
 
         @return: a C{dict}.
         """
 
-    def uid(): #@NoSelf
+    def uid():  # @NoSelf
         """
         Retrieve the UID for this notification object.
 
         @return: a string containing a UID.
         """
 
-    def notificationCollection(): #@NoSelf
+    def notificationCollection():  # @NoSelf
         """
         @return: the parent L{INotificationCollection} which this
             L{INotificationObject} was retrieved from.

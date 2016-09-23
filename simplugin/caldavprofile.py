@@ -48,6 +48,7 @@ from pycalendar.duration import Duration
 
 from datetime import datetime
 
+
 class BaseProfile(SuperBaseProfile):
 
     def _calendarsOfType(self, calendarType, componentType, justOwned=False):
@@ -63,7 +64,6 @@ class BaseProfile(SuperBaseProfile):
 
         return results
 
-
     def _getRandomCalendarOfType(self, componentType, justOwned=False):
         """
         Return a random L{Calendar} object from the current user
@@ -75,7 +75,6 @@ class BaseProfile(SuperBaseProfile):
         # Choose a random calendar
         calendar = self.random.choice(calendars)
         return calendar
-
 
     def _getRandomEventOfType(self, componentType, justOwned=True):
         """
@@ -102,7 +101,6 @@ class BaseProfile(SuperBaseProfile):
                 return event
         return None
 
-
     def _isSelfAttendee(self, attendee):
         """
         Try to match one of the attendee's identifiers against one of
@@ -110,7 +108,6 @@ class BaseProfile(SuperBaseProfile):
         C{False} otherwise.
         """
         return attendee.parameterValue('EMAIL') == self._client.email[len('mailto:'):]
-
 
     def _newOperation(self, label, deferred):
         """
@@ -153,7 +150,6 @@ class BaseProfile(SuperBaseProfile):
         deferred.addBoth(finished)
         return deferred
 
-
     def _failedOperation(self, label, reason):
         """
         Helper to emit a log event when an operation fails.
@@ -170,15 +166,11 @@ class BaseProfile(SuperBaseProfile):
         self._sim._simFailure("%s: %s" % (label, reason,), self._reactor)
 
 
-
 class CannotAddAttendee(Exception):
     """
     Indicates no new attendees can be invited to a particular event.
     """
     pass
-
-
-
 
 
 class Inviter(BaseProfile):
@@ -202,7 +194,6 @@ SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n"))
-
 
     def setParameters(
         self,
@@ -228,11 +219,9 @@ END:VCALENDAR
         self._eventDurationDistribution = eventDurationDistribution
         self._recurrenceDistribution = recurrenceDistribution
 
-
     def run(self):
         return loopWithDistribution(
             self._reactor, self._sendInvitationDistribution, self._invite)
-
 
     def _addAttendee(self, event, attendees):
         """
@@ -275,7 +264,6 @@ END:VCALENDAR
 
         event.addProperty(attendee)
         attendees.append(attendee)
-
 
     def _invite(self):
         """
@@ -331,12 +319,12 @@ END:VCALENDAR
             return self._newOperation("invite", d)
 
 
-
 class Accepter(BaseProfile):
     """
     A Calendar user who accepts invitations to events. As well as accepting requests, this
     will also remove cancels and replies.
     """
+
     def setParameters(
         self,
         enabled=True,
@@ -346,12 +334,10 @@ class Accepter(BaseProfile):
         self._accepting = set()
         self._acceptDelayDistribution = acceptDelayDistribution
 
-
     def run(self):
         self._subscription = self._client.catalog["eventChanged"].subscribe(self.eventChanged)
         # TODO: Propagate errors from eventChanged and _acceptInvitation to this Deferred
         return Deferred()
-
 
     def eventChanged(self, href):
         # Just respond to normal calendar events
@@ -369,7 +355,6 @@ class Accepter(BaseProfile):
         else:
             return
 
-
     def calendarEventChanged(self, calendar, href):
         if href in self._accepting:
             return
@@ -385,7 +370,6 @@ class Accepter(BaseProfile):
                     self._accepting.add(href)
                     self._reactor.callLater(
                         delay, self._acceptInvitation, href, attendee)
-
 
     def inboxEventChanged(self, calendar, href):
         if href in self._accepting:
@@ -406,7 +390,6 @@ class Accepter(BaseProfile):
             self._reactor.callLater(
                 delay, self._handleCancel, href)
 
-
     def _acceptInvitation(self, href, attendee):
         def change():
             accepted = self._makeAcceptedAttendee(attendee)
@@ -421,6 +404,7 @@ class Accepter(BaseProfile):
             # Download the event again and attempt to make the change
             # to the attendee list again.
             d = self._client.updateEvent(href)
+
             def cbUpdated(ignored):
                 d = change()
                 d.addErrback(scheduleError)
@@ -438,18 +422,17 @@ class Accepter(BaseProfile):
                         if uid == event.getUID():
                             return self._client.deleteEvent(event.url)
         d.addCallback(accepted)
+
         def finished(passthrough):
             self._accepting.remove(href)
             return passthrough
         d.addBoth(finished)
         return self._newOperation("accept", d)
 
-
     def _handleReply(self, href):
         d = self._client.deleteEvent(href)
         d.addBoth(self._finishRemoveAccepting, href)
         return self._newOperation("reply done", d)
-
 
     def _finishRemoveAccepting(self, passthrough, href):
         self._accepting.remove(href)
@@ -457,7 +440,6 @@ class Accepter(BaseProfile):
             passthrough.trap(IncorrectResponseCode)
             passthrough = passthrough.value.response
         return passthrough
-
 
     def _handleCancel(self, href):
 
@@ -475,7 +457,6 @@ class Accepter(BaseProfile):
         d.addBoth(self._finishRemoveAccepting, href)
         return self._newOperation("cancelled", d)
 
-
     def _makeAcceptedAttendee(self, attendee):
         accepted = attendee.duplicate()
         accepted.setParameter('PARTSTAT', 'ACCEPTED')
@@ -483,22 +464,20 @@ class Accepter(BaseProfile):
         return accepted
 
 
-
 class AttachmentDownloader(BaseProfile):
     """
     A Calendar user who downloads attachments.
     """
+
     def setParameters(
         self,
         enabled=True,
     ):
         self.enabled = enabled
 
-
     def run(self):
         self._subscription = self._client.catalog["eventChanged"].subscribe(self.eventChanged)
         return Deferred()
-
 
     def eventChanged(self, href):
         # Just respond to normal calendar events
@@ -511,7 +490,6 @@ class AttachmentDownloader(BaseProfile):
         if calendar.resourceType == caldavxml.calendar:
             self.calendarEventChanged(calendar, href)
 
-
     def calendarEventChanged(self, calendar, href):
         component = self._client._events[href].component
         attachments = tuple(component.mainComponent().properties('ATTACH'))
@@ -522,7 +500,6 @@ class AttachmentDownloader(BaseProfile):
                 self._reactor.callLater(
                     0, self._client.getAttachment, attachmentHref, managedId
                 )
-
 
 
 class Eventer(BaseProfile):
@@ -565,12 +542,10 @@ END:VCALENDAR
         self._eventDurationDistribution = eventDurationDistribution
         self._recurrenceDistribution = recurrenceDistribution
 
-
     def run(self):
         self._call = LoopingCall(self._addEvent)
         self._call.clock = self._reactor
         return self._call.start(self._interval)
-
 
     def _addEvent(self):
         # Don't perform any operations until the client is up and running
@@ -605,7 +580,6 @@ END:VCALENDAR
         return self._newOperation("create", d)
 
 
-
 class EventUpdaterBase(BaseProfile):
 
     @inlineCallbacks
@@ -630,17 +604,14 @@ class EventUpdaterBase(BaseProfile):
                 self._client.changeEvent(event.url)
             )
 
-
     def run(self):
         self._call = LoopingCall(self.action)
         self._call.clock = self._reactor
         return self._call.start(self._interval)
 
-
     def modifyEvent(self, href, vevent):
         """Overridden by subclasses"""
         pass
-
 
 
 class TitleChanger(EventUpdaterBase):
@@ -655,12 +626,10 @@ class TitleChanger(EventUpdaterBase):
         self._interval = interval
         self._titleLength = titleLengthDistribution
 
-
     def modifyEvent(self, _ignore_href, vevent):
         length = max(5, int(self._titleLength.sample()))
         vevent.replaceProperty(Property("SUMMARY", "Event" + "." * (length - 5)))
         return succeed("update{title}")
-
 
 
 class DescriptionChanger(EventUpdaterBase):
@@ -675,12 +644,10 @@ class DescriptionChanger(EventUpdaterBase):
         self._interval = interval
         self._descriptionLength = descriptionLengthDistribution
 
-
     def modifyEvent(self, _ignore_href, vevent):
         length = int(self._descriptionLength.sample())
         vevent.replaceProperty(Property("DESCRIPTION", "." * length))
         return succeed("update{description}")
-
 
 
 class Attacher(EventUpdaterBase):
@@ -695,13 +662,11 @@ class Attacher(EventUpdaterBase):
         self._interval = interval
         self._fileSize = fileSizeDistribution
 
-
     @inlineCallbacks
     def modifyEvent(self, href, vevent):
         fileSize = int(self._fileSize.sample())
         yield self._client.postAttachment(href, 'x' * fileSize)
         returnValue(None)
-
 
 
 class EventCountLimiter(EventUpdaterBase):
@@ -721,7 +686,6 @@ class EventCountLimiter(EventUpdaterBase):
         self._interval = interval
         self._limit = eventCountLimit
 
-
     @inlineCallbacks
     def action(self):
         # Don't perform any operations until the client is up and running
@@ -734,11 +698,11 @@ class EventCountLimiter(EventUpdaterBase):
                 yield self._client.deleteEvent(event.url)
 
 
-
 class CalendarSharer(BaseProfile):
     """
     A Calendar user who shares calendars to other random users.
     """
+
     def setParameters(
         self,
         enabled=True,
@@ -747,12 +711,10 @@ class CalendarSharer(BaseProfile):
         self.enabled = enabled
         self._interval = interval
 
-
     def run(self):
         self._call = LoopingCall(self.action)
         self._call.clock = self._reactor
         return self._call.start(self._interval)
-
 
     @inlineCallbacks
     def action(self):
@@ -761,7 +723,6 @@ class CalendarSharer(BaseProfile):
             returnValue(None)
 
         yield self.shareCalendar()
-
 
     @inlineCallbacks
     def shareCalendar(self):
@@ -784,7 +745,6 @@ class CalendarSharer(BaseProfile):
             body,
             label="POST{share-calendar}"
         )
-
 
 
 class AlarmAcknowledger(BaseProfile):
@@ -837,7 +797,6 @@ END:VCALENDAR
         self._recurrenceDistribution = recurrenceDistribution
         self._lastMinuteChecked = -1
 
-
     def initialize(self):
         """
         Called before the profile runs for real. Can be used to initialize client state.
@@ -847,12 +806,10 @@ END:VCALENDAR
 
         return self._initEvent()
 
-
     def run(self):
         self._call = LoopingCall(self._updateEvent)
         self._call.clock = self._reactor
         return self._call.start(self._interval)
-
 
     def _initEvent(self):
         # Don't perform any operations until the client is up and running
@@ -887,7 +844,6 @@ END:VCALENDAR
         d = self._client.addEvent(href, vcalendar)
         return self._newOperation("create", d)
 
-
     def _shouldUpdate(self, minutePastTheHour):
         """
         We want to only acknowledge our alarm at the "past the hour" minutes
@@ -902,7 +858,6 @@ END:VCALENDAR
 
         self._lastMinuteChecked = minutePastTheHour
         return should
-
 
     def _updateEvent(self):
         """
@@ -936,7 +891,6 @@ END:VCALENDAR
         return self._newOperation("update", d)
 
 
-
 class Tasker(BaseProfile):
     """
     A Calendar user who creates new tasks.
@@ -966,12 +920,10 @@ END:VCALENDAR
         self._interval = interval
         self._taskStartDistribution = taskDueDistribution
 
-
     def run(self):
         self._call = LoopingCall(self._addTask)
         self._call.clock = self._reactor
         return self._call.start(self._interval)
-
 
     def _addTask(self):
         # Don't perform any operations until the client is up and running
@@ -1000,7 +952,6 @@ END:VCALENDAR
             return self._newOperation("create", d)
 
 
-
 class Resetter(BaseProfile):
     """
     A Calendar user who resets their account and re-downloads everything.
@@ -1014,12 +965,10 @@ class Resetter(BaseProfile):
         self.enabled = enabled
         self._interval = interval
 
-
     def run(self):
         self._call = LoopingCall(self._resetAccount)
         self._call.clock = self._reactor
         return self._call.start(self._interval)
-
 
     def _resetAccount(self):
         # Don't perform any operations until the client is up and running
@@ -1029,7 +978,6 @@ class Resetter(BaseProfile):
         return self._client.reset()
 
 
-
 class OperationLogger(SummarizingMixin):
     """
     Profiles will initiate operations which may span multiple requests.  Start
@@ -1037,8 +985,8 @@ class OperationLogger(SummarizingMixin):
     logger.
     """
     formats = {
-        u"start" : u"%(user)s - - - - - - - - - - - %(label)8s BEGIN %(lag)s",
-        u"end"   : u"%(user)s - - - - - - - - - - - %(label)8s END [%(duration)5.2f s]",
+        u"start": u"%(user)s - - - - - - - - - - - %(label)8s BEGIN %(lag)s",
+        u"end": u"%(user)s - - - - - - - - - - - %(label)8s END [%(duration)5.2f s]",
         u"failed": u"%(user)s x x x x x x x x x x x %(label)8s FAILED %(reason)s",
     }
 
@@ -1103,7 +1051,6 @@ class OperationLogger(SummarizingMixin):
 
         self._fail_if_no_push = params.get("failIfNoPush", False)
 
-
     def observe(self, event):
         if event.get("type") == "operation":
             event = event.copy()
@@ -1123,12 +1070,10 @@ class OperationLogger(SummarizingMixin):
                 dataset = self._perOperationLags.setdefault(event[u'label'], [])
                 dataset.append(lag)
 
-
     def _summarizeData(self, operation, data):
         avglag = mean(self._perOperationLags.get(operation, [0.0])) * 1000.0
         data = SummarizingMixin._summarizeData(self, operation, data)
         return data[:-1] + (avglag,) + data[-1:]
-
 
     def report(self, output):
         output.write("\n")

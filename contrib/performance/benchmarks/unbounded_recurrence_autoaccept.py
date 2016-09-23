@@ -25,6 +25,7 @@ from datetime import datetime, timedelta
 from contrib.performance._event_create import (
     makeAttendees, makeVCalendar, measure as _measure)
 
+
 def makeEvent(i, organizerSequence, attendeeCount):
     """
     Create a new half-hour long event that starts soon and weekly for
@@ -39,7 +40,6 @@ def makeEvent(i, organizerSequence, attendeeCount):
         ' RUE;SCHEDULE-STATUS="1.2":urn:x-uid:40000000-0000-0000-0000-000000000001\n')
     return makeVCalendar(
         uuid4(), start, end, "RRULE:FREQ=WEEKLY", organizerSequence, attendees)
-
 
 
 def measure(host, port, dtrace, attendeeCount, samples):

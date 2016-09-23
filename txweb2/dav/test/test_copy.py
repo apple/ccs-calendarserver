@@ -32,12 +32,14 @@ from txweb2.test.test_server import SimpleRequest
 from txweb2.dav.test.util import dircmp, serialize
 from txweb2.dav.fileop import rmdir
 
+
 class COPY(txweb2.dav.test.util.TestCase):
     """
     COPY request
     """
     # FIXME:
     # Check that properties are being copied
+
     def test_COPY_create(self):
         """
         COPY to new resource.
@@ -81,7 +83,6 @@ class COPY(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work(self, test))
 
-
     def test_COPY_exists(self):
         """
         COPY to existing resource.
@@ -95,7 +96,6 @@ class COPY(txweb2.dav.test.util.TestCase):
                 pass
 
         return serialize(self.send, work(self, test, overwrite=False))
-
 
     def test_COPY_overwrite(self):
         """
@@ -113,7 +113,6 @@ class COPY(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work(self, test, overwrite=True))
 
-
     def test_COPY_no_parent(self):
         """
         COPY to resource with no parent.
@@ -127,7 +126,6 @@ class COPY(txweb2.dav.test.util.TestCase):
                 pass
 
         return serialize(self.send, work(self, test, dst=os.path.join(self.docroot, "elvislives!")))
-
 
 
 def work(self, test, overwrite=None, dst=None, depths=("0", "infinity", None)):
@@ -166,7 +164,6 @@ def work(self, test, overwrite=None, dst=None, depths=("0", "infinity", None)):
                 request.headers.setHeader("overwrite", overwrite)
 
             yield (request, do_test)
-
 
 
 def sumFile(path):

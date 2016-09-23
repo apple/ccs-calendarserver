@@ -17,6 +17,7 @@
 
 from contrib.performance.stats import mean, median, stddev
 
+
 class SummarizingMixin(object):
 
     def printHeader(self, output, fields):
@@ -36,7 +37,6 @@ class SummarizingMixin(object):
         header = ' '.join(format) % tuple(labels)
         output.write("%s\n" % header)
         output.write("%s\n" % ("-" * len(header),))
-
 
     def _summarizeData(self, operation, data, total_count):
         failed = 0
@@ -68,11 +68,9 @@ class SummarizingMixin(object):
             tuple(thresholds) + \
             (mean(durations), median(durations), stddev(durations), "FAIL" if failure else "")
 
-
     def _printRow(self, output, formats, values):
         format = ' '.join(formats)
         output.write("%s\n" % format % values)
-
 
     def printData(self, output, formats, perOperationTimes):
         """

@@ -31,7 +31,6 @@ except ImportError, e:
     importErrorMessage = str(e)
 
 
-
 class PropertyStoreTest(base.PropertyStoreTest):
 
     def setUp(self):
@@ -39,17 +38,16 @@ class PropertyStoreTest(base.PropertyStoreTest):
         tempDir.makedirs()
         tempFile = tempDir.child("test")
         tempFile.touch()
-        self.propertyStore = PropertyStore("user01", lambda : tempFile)
+        self.propertyStore = PropertyStore("user01", lambda: tempFile)
         self.propertyStore1 = self.propertyStore
-        self.propertyStore2 = PropertyStore("user01", lambda : tempFile)
+        self.propertyStore2 = PropertyStore("user01", lambda: tempFile)
         self.propertyStore2._setPerUserUID("user02")
         self.propertyStore2._setProxyUID("user02")
-        self.propertyStore3 = PropertyStore("user01", lambda : tempFile)
+        self.propertyStore3 = PropertyStore("user01", lambda: tempFile)
         self.propertyStore3._setProxyUID("user03")
-        self.propertyStore4 = PropertyStore("user01", lambda : tempFile)
+        self.propertyStore4 = PropertyStore("user01", lambda: tempFile)
         self.propertyStore4._setPerUserUID("user02")
         self.propertyStore4._setProxyUID("user04")
-
 
     def test_init(self):
         store = self.propertyStore
@@ -57,13 +55,11 @@ class PropertyStoreTest(base.PropertyStoreTest):
         self.assertEquals(store.removed, set())
         self.assertEquals(store.modified, {})
 
-
     def test_abort(self):
         super(PropertyStoreTest, self).test_abort()
         store = self.propertyStore
         self.assertEquals(store.removed, set())
         self.assertEquals(store.modified, {})
-
 
     def test_compress(self):
 
@@ -81,7 +77,6 @@ class PropertyStoreTest(base.PropertyStoreTest):
         self.assertTrue(compressedKey in self.propertyStore.attrs)
         self.assertFalse(uncompressedKey in self.propertyStore.attrs)
 
-
     def test_compress_upgrade(self):
 
         class DummyProperty (WebDAVTextElement):
@@ -94,7 +89,6 @@ class PropertyStoreTest(base.PropertyStoreTest):
         self.assertEqual(self.propertyStore[name], DummyProperty.fromString("data"))
         self.assertRaises(KeyError, lambda: self.propertyStore.attrs[uncompressedKey])
 
-
     def test_copy(self):
 
         tempDir = FilePath(self.mktemp())
@@ -105,22 +99,24 @@ class PropertyStoreTest(base.PropertyStoreTest):
         tempFile2.touch()
 
         # Existing store
-        store1_user1 = PropertyStore("user01", lambda : tempFile1)
-        store1_user2 = PropertyStore("user01", lambda : tempFile1)
+        store1_user1 = PropertyStore("user01", lambda: tempFile1)
+        store1_user2 = PropertyStore("user01", lambda: tempFile1)
         store1_user2._setPerUserUID("user02")
 
         # New store
-        store2_user1 = PropertyStore("user01", lambda : tempFile2)
-        store2_user2 = PropertyStore("user01", lambda : tempFile2)
+        store2_user1 = PropertyStore("user01", lambda: tempFile2)
+        store2_user2 = PropertyStore("user01", lambda: tempFile2)
         store2_user2._setPerUserUID("user02")
 
         # Populate current store with data
         class DummyProperty1(WebDAVTextElement):
             namespace = "http://calendarserver.org/ns/"
             name = "dummy1"
+
         class DummyProperty2(WebDAVTextElement):
             namespace = "http://calendarserver.org/ns/"
             name = "dummy2"
+
         class DummyProperty3(WebDAVTextElement):
             namespace = "http://calendarserver.org/ns/"
             name = "dummy3"

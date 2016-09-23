@@ -37,15 +37,13 @@ class CommonStoreTests(CommonCommonTests, TestCase):
         yield self.buildStoreAndDirectory()
         yield self.populate()
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
 
-
     @classproperty(cache=False)
-    def requirements(cls): #@NoSelf
+    def requirements(cls):  # @NoSelf
         return {
             "user01": {
                 "calendar_1": {
@@ -72,7 +70,6 @@ class CommonStoreTests(CommonCommonTests, TestCase):
                 },
             },
         }
-
 
 
 class DateTimeSubstitutionsMixin(object):
@@ -155,7 +152,6 @@ class DateTimeSubstitutionsMixin(object):
             setattr(self, attrname, self.nowFloating.duplicate())
             getattr(self, attrname).offsetDay(i + 1)
             self.dtsubs[attrname] = getattr(self, attrname)
-
 
     def assertEqualCalendarData(self, cal1, cal2):
         if isinstance(cal1, str):

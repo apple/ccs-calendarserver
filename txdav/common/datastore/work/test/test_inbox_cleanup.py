@@ -42,7 +42,6 @@ class InboxCleanupTests(CommonCommonTests, TestCase):
         yield self.buildStoreAndDirectory()
         yield self.populate()
 
-
     @inlineCallbacks
     def populate(self):
         calendarRequirements = self.requirements["calendar"]
@@ -95,9 +94,8 @@ END:VEVENT
 END:VCALENDAR
 """
 
-
     @classproperty(cache=False)
-    def requirements(cls): #@NoSelf
+    def requirements(cls):  # @NoSelf
         return {
             "calendar": {
                 "user01": {
@@ -120,7 +118,6 @@ END:VCALENDAR
                 },
             }
         }
-
 
     @inlineCallbacks
     def test_inboxCleanupWorkQueueing(self):
@@ -151,8 +148,7 @@ END:VCALENDAR
             Where=ch.RESOURCE_ID.In(Parameter("scheduledHomeIDs", len(FakeCleanupOneInboxWork.scheduledHomeIDs))),
         ).on(self.transactionUnderTest(), scheduledHomeIDs=FakeCleanupOneInboxWork.scheduledHomeIDs)
         homeUIDs = [workRow[0] for workRow in workRows]
-        self.assertEqual(set(homeUIDs), set(['user01', 'user02'])) # two homes
-
+        self.assertEqual(set(homeUIDs), set(['user01', 'user02']))  # two homes
 
     @inlineCallbacks
     def test_old(self):
@@ -182,7 +178,6 @@ END:VCALENDAR
         items = yield inbox.objectResources()
         names = [item.name() for item in items]
         self.assertEqual(set(names), set(["cal1.ics"]))
-
 
     @inlineCallbacks
     def test_old_queued(self):

@@ -18,6 +18,7 @@
 Defines a set of HTTP requests to execute and return results.
 """
 
+
 class HTTPTestBase(object):
     """
     Base class for an HTTP request that executes and results are returned for.
@@ -30,7 +31,6 @@ class HTTPTestBase(object):
             self.rows = rows
             self.timing = timing
 
-
     def __init__(self, label, sessions, logFilePath, logFilePrefix):
         """
         @param label: label used to identify the test
@@ -41,7 +41,6 @@ class HTTPTestBase(object):
         self.logFilePath = logFilePath
         self.logFilePrefix = logFilePrefix
         self.result = None
-
 
     def execute(self, count):
         """
@@ -55,13 +54,11 @@ class HTTPTestBase(object):
         self.cleanup()
         return self.result
 
-
     def prepare(self):
         """
         Do some setup prior to the real request.
         """
         pass
-
 
     def clearLog(self):
         """
@@ -70,13 +67,11 @@ class HTTPTestBase(object):
         with open(self.logFilePath, "w") as f:
             f.write("")
 
-
     def doRequest(self):
         """
         Execute the actual HTTP request. Sub-classes override.
         """
         raise NotImplementedError
-
 
     def collectResults(self, event_count):
         """
@@ -111,7 +106,6 @@ class HTTPTestBase(object):
         # Archive current sqlstats file
         with open("%s-%s-%d-%s" % (self.logFilePath, self.logFilePrefix, event_count, self.label), "w") as f:
             f.write(data)
-
 
     def cleanup(self):
         """

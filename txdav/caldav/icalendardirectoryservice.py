@@ -28,19 +28,19 @@ __all__ = [
     "ICalendarStoreDirectoryRecord",
 ]
 
+
 class ICalendarStoreDirectoryService(IStoreDirectoryService):
     """
     Directory Service for looking up users.
     """
 
-    def recordWithCalendarUserAddress(cuaddr): #@NoSelf
+    def recordWithCalendarUserAddress(cuaddr):  # @NoSelf
         """
         Return the record for the specified calendar user address.
 
         @return: Deferred resulting in the record.
         @rtype: L{Deferred} resulting in L{ICalendarStoreDirectoryRecord}
         """
-
 
 
 class ICalendarStoreDirectoryRecord(IStoreDirectoryRecord):
@@ -52,7 +52,7 @@ class ICalendarStoreDirectoryRecord(IStoreDirectoryRecord):
 
     calendarUserAddresses = Attribute("Calendar users address for entity associated with the record: C{frozenset}")
 
-    def canonicalCalendarUserAddress(): #@NoSelf
+    def canonicalCalendarUserAddress():  # @NoSelf
         """
         The canonical calendar user address to use for this record.
 
@@ -60,7 +60,7 @@ class ICalendarStoreDirectoryRecord(IStoreDirectoryRecord):
         @rtype: C{str}
         """
 
-    def calendarsEnabled(): #@NoSelf
+    def calendarsEnabled():  # @NoSelf
         """
         Indicates whether the record enabled for using the calendar service.
 
@@ -68,7 +68,7 @@ class ICalendarStoreDirectoryRecord(IStoreDirectoryRecord):
         @rtype: C{bool}
         """
 
-    def enabledAsOrganizer(): #@NoSelf
+    def enabledAsOrganizer():  # @NoSelf
         """
         Indicates that the record is allowed to be the Organizer in calendar data.
 
@@ -76,7 +76,7 @@ class ICalendarStoreDirectoryRecord(IStoreDirectoryRecord):
         @rtype: C{bool}
         """
 
-    def getCUType(): #@NoSelf
+    def getCUType():  # @NoSelf
         """
         Indicates the calendar user type for this record. It is the RFC 5545 CUTYPE value.
 
@@ -84,7 +84,7 @@ class ICalendarStoreDirectoryRecord(IStoreDirectoryRecord):
         @rtype: C{str}
         """
 
-    def canAutoSchedule(organizer): #@NoSelf
+    def canAutoSchedule(organizer):  # @NoSelf
         """
         Indicates that calendar data for this record can be automatically scheduled.
 
@@ -95,7 +95,7 @@ class ICalendarStoreDirectoryRecord(IStoreDirectoryRecord):
         @rtype: C{bool}
         """
 
-    def getAutoScheduleMode(organizer): #@NoSelf
+    def getAutoScheduleMode(organizer):  # @NoSelf
         """
         Indicates the mode of automatic scheduling used for this record.
 
@@ -106,7 +106,7 @@ class ICalendarStoreDirectoryRecord(IStoreDirectoryRecord):
         @rtype: C{bool}
         """
 
-    def setAutoScheduleMode(autoScheduleMode): #@NoSelf
+    def setAutoScheduleMode(autoScheduleMode):  # @NoSelf
         """
         Sets the mode of automatic scheduling used for this record.
 
@@ -114,7 +114,7 @@ class ICalendarStoreDirectoryRecord(IStoreDirectoryRecord):
         @type autoScheduleMode: L{AutoScheduleMode}
         """
 
-    def isProxyFor(other): #@NoSelf
+    def isProxyFor(other):  # @NoSelf
         """
         Test whether the record is a calendar user proxy for the specified record.
 
@@ -125,7 +125,7 @@ class ICalendarStoreDirectoryRecord(IStoreDirectoryRecord):
         @rtype: C{bool}
         """
 
-    def proxyMode(other): #@NoSelf
+    def proxyMode(other):  # @NoSelf
         """
         Determine the proxy mode this record has in relation to the one specified.
 
@@ -133,7 +133,7 @@ class ICalendarStoreDirectoryRecord(IStoreDirectoryRecord):
         @type other: L{CalendarDirectoryRecordMixin}
         """
 
-    def proxyFor(readWrite, ignoreDisabled=True): #@NoSelf
+    def proxyFor(readWrite, ignoreDisabled=True):  # @NoSelf
         """
         Returns the set of records currently delegating to this record
         with the access indicated by the readWrite argument.  If readWrite is

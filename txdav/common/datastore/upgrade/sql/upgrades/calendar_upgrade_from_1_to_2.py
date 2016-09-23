@@ -33,6 +33,7 @@ Calendar data upgrade from database version 1 to 2
 
 UPGRADE_TO_VERSION = 2
 
+
 @inlineCallbacks
 def doUpgrade(sqlStore):
     """
@@ -43,7 +44,6 @@ def doUpgrade(sqlStore):
 
     # Always bump the DB value
     yield updateCalendarDataVersion(sqlStore, UPGRADE_TO_VERSION)
-
 
 
 @inlineCallbacks
@@ -71,7 +71,7 @@ def moveSupportedComponentSetProperties(sqlStore):
                 meta = schema.CALENDAR_METADATA
                 yield Update(
                     {
-                        meta.SUPPORTED_COMPONENTS : supported_components
+                        meta.SUPPORTED_COMPONENTS: supported_components
                     },
                     Where=(meta.RESOURCE_ID == calendar_rid)
                 ).on(sqlTxn)
@@ -91,7 +91,6 @@ def moveSupportedComponentSetProperties(sqlStore):
         raise
 
 
-
 @inlineCallbacks
 def splitCalendars(sqlStore):
     """
@@ -101,7 +100,6 @@ def splitCalendars(sqlStore):
     # This is already done when doing file->sql migration
     if sqlStore._migrating:
         returnValue(None)
-
 
     @inlineCallbacks
     def doIt(txn, homeResourceID):

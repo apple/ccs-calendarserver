@@ -81,10 +81,8 @@ table.rounded-corners {
         self.loadsim = loadsim
         self.token = str(uuid.uuid4())
 
-
     def render_GET(self, request):
         return self._renderReport()
-
 
     def render_POST(self, request):
         html = self.HEAD + self.BODY
@@ -97,7 +95,6 @@ table.rounded-corners {
         elif 'results' in request.args:
             return self._renderReport()
         return html % (self.token,)
-
 
     def _renderReport(self, stopped=False):
         report = StringIO.StringIO()

@@ -29,6 +29,7 @@ from twistedcaldav.vcard import Property
 
 log = Logger()
 
+
 class FilterBase(object):
     """
     Determines which matching components are returned.
@@ -41,10 +42,8 @@ class FilterBase(object):
     def serialize_register(cls, register):
         cls.deserialize_names[register.serialized_name] = register
 
-
     def __init__(self, xml_element):
         pass
-
 
     @classmethod
     def deserialize(cls, data):
@@ -55,13 +54,11 @@ class FilterBase(object):
         obj._deserialize(data)
         return obj
 
-
     def _deserialize(self, data):
         """
         Convert a JSON compatible serialization of this object into the actual object.
         """
         pass
-
 
     def serialize(self):
         """
@@ -71,14 +68,11 @@ class FilterBase(object):
             "type": self.serialized_name,
         }
 
-
     def match(self, item, access=None):
         raise NotImplementedError
 
-
     def valid(self, level=0):
         raise NotImplementedError
-
 
 
 class Filter(FilterBase):
@@ -102,14 +96,12 @@ class Filter(FilterBase):
 
         self.children = [PropertyFilter(child) for child in xml_element.children]
 
-
     def _deserialize(self, data):
         """
         Convert a JSON compatible serialization of this object into the actual object.
         """
         self.filter_test = data["filter_test"]
         self.child = [FilterBase.deserialize(child) for child in data["children"]]
-
 
     def serialize(self):
         """
@@ -121,7 +113,6 @@ class Filter(FilterBase):
             "children": [child.serialize() for child in self.children],
         })
         return result
-
 
     def match(self, vcard):
         """
@@ -137,7 +128,6 @@ class Filter(FilterBase):
             return allof
         else:
             return True
-
 
     def valid(self):
         """
@@ -155,7 +145,6 @@ class Filter(FilterBase):
             return True
 
 FilterBase.serialize_register(Filter)
-
 
 
 class FilterChildBase(FilterBase):
@@ -208,7 +197,6 @@ class FilterChildBase(FilterBase):
             self.filter_name = self.filter_name.encode("utf-8")
         self.defined = not self.qualifier or not isinstance(qualifier, IsNotDefined) or len(filters)
 
-
     def _deserialize(self, data):
         """
         Convert a JSON compatible serialization of this object into the actual object.
@@ -218,7 +206,6 @@ class FilterChildBase(FilterBase):
         self.filters = [FilterBase.deserialize(filter) for filter in data["filters"]]
         self.filter_name = data["filter_name"]
         self.defined = data["defined"]
-
 
     def serialize(self):
         """
@@ -233,7 +220,6 @@ class FilterChildBase(FilterBase):
             "defined": self.defined,
         })
         return result
-
 
     def match(self, item):
         """
@@ -254,7 +240,6 @@ class FilterChildBase(FilterBase):
             return not allof
 
 
-
 class PropertyFilter (FilterChildBase):
     """
     Limits a search to specific properties.
@@ -271,7 +256,6 @@ class PropertyFilter (FilterChildBase):
             return not self.defined
         return self.defined
 
-
     def valid(self):
         """
         Indicate whether this filter element's structure is valid wrt vCard
@@ -284,7 +268,6 @@ class PropertyFilter (FilterChildBase):
         return True
 
 FilterBase.serialize_register(PropertyFilter)
-
 
 
 class ParameterFilter (FilterChildBase):
@@ -308,7 +291,6 @@ class ParameterFilter (FilterChildBase):
 FilterBase.serialize_register(ParameterFilter)
 
 
-
 class IsNotDefined (FilterBase):
     """
     Specifies that the named iCalendar item does not exist.
@@ -324,7 +306,6 @@ class IsNotDefined (FilterBase):
         return True
 
 FilterBase.serialize_register(IsNotDefined)
-
 
 
 class TextMatch (FilterBase):
@@ -366,7 +347,6 @@ class TextMatch (FilterBase):
         else:
             self.match_type = "contains"
 
-
     def _deserialize(self, data):
         """
         Convert a JSON compatible serialization of this object into the actual object.
@@ -375,7 +355,6 @@ class TextMatch (FilterBase):
         self.collation = data["collation"]
         self.negate = data["negate"]
         self.match_type = data["match_type"]
-
 
     def serialize(self):
         """
@@ -389,7 +368,6 @@ class TextMatch (FilterBase):
             "match_type": self.match_type,
         })
         return result
-
 
     def _match(self, item):
         """
@@ -406,7 +384,6 @@ class TextMatch (FilterBase):
             values = item
 
         test = unicode(self.text, "utf-8").lower()
-
 
         def _textCompare(s):
             # Currently ignores the collation and does caseless matching

@@ -154,6 +154,7 @@ Cuba	America/Havana
 Dateline Standard Time	Etc/GMT+12
 E. Africa Standard Time	Africa/Nairobi
 E. Australia Standard Time	Australia/Brisbane
+E. Europe Standard Time	Europe/Chisinau
 E. South America Standard Time	America/Sao_Paulo
 Eastern Standard Time	America/New_York
 Eastern Standard Time (Mexico)	America/Cancun
@@ -191,7 +192,35 @@ GB-Eire	Europe/London
 GMT	Etc/GMT
 GMT Standard Time	Europe/London
 GMT+0	Etc/GMT
+GMT+0000	Etc/GMT+0
+GMT+0100	Etc/GMT+1
+GMT+0200	Etc/GMT+2
+GMT+0300	Etc/GMT+3
+GMT+0400	Etc/GMT+4
+GMT+0500	Etc/GMT+5
+GMT+0600	Etc/GMT+6
+GMT+0700	Etc/GMT+7
+GMT+0800	Etc/GMT+8
+GMT+0900	Etc/GMT+9
+GMT+1000	Etc/GMT+10
+GMT+1100	Etc/GMT+11
+GMT+1200	Etc/GMT+12
 GMT-0	Etc/GMT
+GMT-0000	Etc/GMT-0
+GMT-0100	Etc/GMT-1
+GMT-0200	Etc/GMT-2
+GMT-0300	Etc/GMT-3
+GMT-0400	Etc/GMT-4
+GMT-0500	Etc/GMT-5
+GMT-0600	Etc/GMT-6
+GMT-0700	Etc/GMT-7
+GMT-0800	Etc/GMT-8
+GMT-0900	Etc/GMT-9
+GMT-1000	Etc/GMT-10
+GMT-1100	Etc/GMT-11
+GMT-1200	Etc/GMT-12
+GMT-1300	Etc/GMT-13
+GMT-1400	Etc/GMT-14
 GMT0	Etc/GMT
 GTB Standard Time	Europe/Bucharest
 Georgian Standard Time	Asia/Tbilisi
@@ -239,10 +268,10 @@ New Zealand Standard Time	Pacific/Auckland
 Newfoundland Standard Time	America/St_Johns
 North Asia East Standard Time	Asia/Irkutsk
 North Asia Standard Time	Asia/Krasnoyarsk
+North Korea Standard Time	Asia/Pyongyang
 PRC	Asia/Shanghai
 Pacific SA Standard Time	America/Santiago
 Pacific Standard Time	America/Los_Angeles
-Pacific Standard Time (Mexico)	America/Santa_Isabel
 Pacific/Johnston	Pacific/Honolulu
 Pacific/Midway	Pacific/Pago_Pago
 Pacific/Ponape	Pacific/Pohnpei

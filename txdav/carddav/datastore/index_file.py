@@ -56,12 +56,12 @@ log = Logger()
 db_basename = db_prefix + "sqlite"
 schema_version = "2"
 
+
 def wrapInDeferred(f):
     def _(*args, **kwargs):
         return maybeDeferred(f, *args, **kwargs)
 
     return _
-
 
 
 class MemcachedUIDReserver(CachePoolUserMixIn):
@@ -71,12 +71,10 @@ class MemcachedUIDReserver(CachePoolUserMixIn):
         self.index = index
         self._cachePool = cachePool
 
-
     def _key(self, uid):
         return 'reservation:%s' % (
             hashlib.md5('%s:%s' % (uid,
                                    self.index.resource.fp.path)).hexdigest())
-
 
     def reserveUID(self, uid):
         uid = uid.encode('utf-8')
@@ -98,7 +96,6 @@ class MemcachedUIDReserver(CachePoolUserMixIn):
         d.addCallback(_handleFalse)
         return d
 
-
     def unreserveUID(self, uid):
         uid = uid.encode('utf-8')
         self.log.debug(
@@ -116,7 +113,6 @@ class MemcachedUIDReserver(CachePoolUserMixIn):
         d = self.getCachePool().delete(self._key(uid))
         d.addCallback(_handleFalse)
         return d
-
 
     def isReservedUID(self, uid):
         uid = uid.encode('utf-8')
@@ -136,11 +132,10 @@ class MemcachedUIDReserver(CachePoolUserMixIn):
         return d
 
 
-
 class SQLUIDReserver(object):
+
     def __init__(self, index):
         self.index = index
-
 
     @wrapInDeferred
     def reserveUID(self, uid):
@@ -163,7 +158,6 @@ class SQLUIDReserver(object):
             log.error("Unable to reserve UID: {ex}", ex=e)
             self.index._db_rollback()
             raise
-
 
     def unreserveUID(self, uid):
         """
@@ -191,7 +185,6 @@ class SQLUIDReserver(object):
         d = self.isReservedUID(uid)
         d.addCallback(_cb)
         return d
-
 
     @wrapInDeferred
     def isReservedUID(self, uid):
@@ -222,7 +215,6 @@ class SQLUIDReserver(object):
         return False
 
 
-
 def sqladdressbookquery(filter, addressbookid=None):
     """
     Convert the supplied addressbook-query into a partial SQL statement.
@@ -238,7 +230,6 @@ def sqladdressbookquery(filter, addressbookid=None):
         return sql.generate()
     except ValueError:
         return None
-
 
 
 class AddressBookIndex(AbstractSQLDatabase):
@@ -268,13 +259,11 @@ class AddressBookIndex(AbstractSQLDatabase):
         self.resource._txn.postCommit(self._db_close)
         self.resource._txn.postAbort(self._db_close)
 
-
     def create(self):
         """
         Create the index and initialize it.
         """
         self._db()
-
 
     def recreate(self):
         """
@@ -286,7 +275,6 @@ class AddressBookIndex(AbstractSQLDatabase):
             pass
         self.create()
 
-
     #
     # A dict of sets. The dict keys are address book collection paths,
     # and the sets contains reserved UIDs for each path.
@@ -295,14 +283,11 @@ class AddressBookIndex(AbstractSQLDatabase):
     def reserveUID(self, uid):
         return self.reserver.reserveUID(uid)
 
-
     def unreserveUID(self, uid):
         return self.reserver.unreserveUID(uid)
 
-
     def isReservedUID(self, uid):
         return self.reserver.isReservedUID(uid)
-
 
     def isAllowedUID(self, uid, *names):
         """
@@ -317,7 +302,6 @@ class AddressBookIndex(AbstractSQLDatabase):
         """
         rname = self.resourceNameForUID(uid)
         return (rname is None or rname in names)
-
 
     def resourceNamesForUID(self, uid):
         """
@@ -344,7 +328,6 @@ class AddressBookIndex(AbstractSQLDatabase):
 
         return resources
 
-
     def resourceNameForUID(self, uid):
         """
         Looks up the name of the resource with the given UID.
@@ -359,7 +342,6 @@ class AddressBookIndex(AbstractSQLDatabase):
 
         return result
 
-
     def resourceUIDForName(self, name):
         """
         Looks up the UID of the resource with the given name.
@@ -370,7 +352,6 @@ class AddressBookIndex(AbstractSQLDatabase):
         uid = self._db_value_for_sql("select UID from RESOURCE where NAME = :1", name)
 
         return uid
-
 
     def addResource(self, name, vcard, fast=False):
         """
@@ -390,7 +371,6 @@ class AddressBookIndex(AbstractSQLDatabase):
         if not fast:
             self._db_commit()
 
-
     def deleteResource(self, name):
         """
         Remove this resource from the index.
@@ -402,7 +382,6 @@ class AddressBookIndex(AbstractSQLDatabase):
             self._delete_from_db(name, uid)
             self._db_commit()
 
-
     def resourceExists(self, name):
         """
         Determines whether the specified resource name exists in the index.
@@ -411,7 +390,6 @@ class AddressBookIndex(AbstractSQLDatabase):
         """
         uid = self._db_value_for_sql("select UID from RESOURCE where NAME = :1", name)
         return uid is not None
-
 
     def resourcesExist(self, names):
         """
@@ -427,7 +405,6 @@ class AddressBookIndex(AbstractSQLDatabase):
         statement += ")"
         results = self._db_values_for_sql(statement, *names)
         return results
-
 
     def whatchanged(self, revision):
 
@@ -449,12 +426,10 @@ class AddressBookIndex(AbstractSQLDatabase):
 
         return (changed, deleted, invalid)
 
-
     def lastRevision(self):
         return self._db_value_for_sql(
             "select REVISION from REVISION_SEQUENCE"
         )
-
 
     def bumpRevision(self, fast=False):
         self._db_execute(
@@ -470,7 +445,6 @@ class AddressBookIndex(AbstractSQLDatabase):
             """,
         )
 
-
     def searchValid(self, filter):
         if isinstance(filter, Filter):
             qualifiers = sqladdressbookquery(filter)
@@ -478,7 +452,6 @@ class AddressBookIndex(AbstractSQLDatabase):
             qualifiers = None
 
         return qualifiers is not None
-
 
     def search(self, filter):
         """
@@ -513,7 +486,6 @@ class AddressBookIndex(AbstractSQLDatabase):
                 )
                 self.deleteResource(name, None)
 
-
     def bruteForceSearch(self):
         """
         List the whole index and tests for existence, updating the index
@@ -535,20 +507,17 @@ class AddressBookIndex(AbstractSQLDatabase):
                 )
                 self.deleteResource(name)
 
-
     def _db_version(self):
         """
         @return: the schema version assigned to this index.
         """
         return schema_version
 
-
     def _db_type(self):
         """
         @return: the collection type assigned to this index.
         """
         return "AddressBook"
-
 
     def _db_init_data_tables(self, q):
         """
@@ -558,7 +527,6 @@ class AddressBookIndex(AbstractSQLDatabase):
 
         # Create database where the RESOURCE table has unique UID column.
         self._db_init_data_tables_base(q, True)
-
 
     def _db_init_data_tables_base(self, q, uidunique):
         """
@@ -626,7 +594,6 @@ class AddressBookIndex(AbstractSQLDatabase):
             """
         )
 
-
     def _db_recreate(self, do_commit=True):
         """
         Re-create the database tables from existing address book data.
@@ -669,7 +636,6 @@ class AddressBookIndex(AbstractSQLDatabase):
         if do_commit:
             self._db_commit()
 
-
     def _db_can_upgrade(self, old_version):
         """
         Can we do an in-place upgrade
@@ -677,7 +643,6 @@ class AddressBookIndex(AbstractSQLDatabase):
 
         # v2 is a minor change
         return True
-
 
     def _db_upgrade_data_tables(self, q, old_version):
         """
@@ -721,7 +686,6 @@ class AddressBookIndex(AbstractSQLDatabase):
                 """
             )
 
-
     def _add_to_db(self, name, vcard, cursor=None):
         """
         Records the given address book resource in the index with the given name.
@@ -748,7 +712,6 @@ class AddressBookIndex(AbstractSQLDatabase):
             values (:1, :2, :3)
             """, name, self.bumpRevision(fast=True), 'N',
         )
-
 
     def _delete_from_db(self, name, uid, dorevision=True):
         """

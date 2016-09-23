@@ -53,14 +53,11 @@ class ReverseProxyResource(LeafResource):
         self._kwargs = kwargs
         self.allowMultiHop = False
 
-
     def isCollection(self):
         return True
 
-
     def exists(self):
         return False
-
 
     @inlineCallbacks
     def renderHTTP(self, request):

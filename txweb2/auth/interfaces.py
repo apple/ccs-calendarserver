@@ -24,6 +24,7 @@
 
 from zope.interface import Interface, Attribute
 
+
 class ICredentialFactory(Interface):
     """
     A credential factory provides state between stages in HTTP
@@ -60,7 +61,6 @@ class ICredentialFactory(Interface):
         """
 
 
-
 class IAuthenticatedRequest(Interface):
     """
     A request that has been authenticated with the use of Cred,
@@ -72,7 +72,6 @@ class IAuthenticatedRequest(Interface):
 
     avatar = Attribute("The application specific avatar returned by "
                        "the application's realm")
-
 
 
 class IHTTPUser(Interface):

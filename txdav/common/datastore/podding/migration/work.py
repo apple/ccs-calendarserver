@@ -54,7 +54,6 @@ class HomeCleanupWork(WorkItem, fromTable(schema.HOME_CLEANUP_WORK)):
             yield oldnotifications.purge()
 
 
-
 class MigratedHomeCleanupWork(WorkItem, fromTable(schema.MIGRATED_HOME_CLEANUP_WORK)):
     """
     Work item to clean up the old home data left behind after migration, as well
@@ -101,7 +100,6 @@ class MigratedHomeCleanupWork(WorkItem, fromTable(schema.MIGRATED_HOME_CLEANUP_W
         yield DelegateRecord.deletesome(self.transaction, DelegateRecord.delegator == self.ownerUID)
         yield DelegateGroupsRecord.deletesome(self.transaction, DelegateGroupsRecord.delegator == self.ownerUID)
         yield ExternalDelegateGroupsRecord.deletesome(self.transaction, ExternalDelegateGroupsRecord.delegator == self.ownerUID)
-
 
 
 class MigrationCleanupWork(WorkItem, fromTable(schema.MIGRATION_CLEANUP_WORK)):

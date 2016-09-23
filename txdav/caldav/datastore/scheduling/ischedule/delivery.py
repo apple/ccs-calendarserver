@@ -68,7 +68,6 @@ __all__ = [
 log = Logger()
 
 
-
 class ScheduleViaISchedule(DeliveryService):
 
     domainServerMap = {}
@@ -77,7 +76,6 @@ class ScheduleViaISchedule(DeliveryService):
     @classmethod
     def serviceType(cls):
         return DeliveryService.serviceType_ischedule
-
 
     @classmethod
     @inlineCallbacks
@@ -92,7 +90,6 @@ class ScheduleViaISchedule(DeliveryService):
         # Do default match
         result = (yield super(ScheduleViaISchedule, cls).matchCalendarUserAddress(cuaddr))
         returnValue(result)
-
 
     @classmethod
     @inlineCallbacks
@@ -125,7 +122,6 @@ class ScheduleViaISchedule(DeliveryService):
                 cls.domainServerMap[domain] = None
 
         returnValue(cls.domainServerMap[domain])
-
 
     @inlineCallbacks
     def generateSchedulingResponses(self, refreshOnly=False):
@@ -183,7 +179,6 @@ class ScheduleViaISchedule(DeliveryService):
 
         yield DeferredList(deferreds)
 
-
     def _getServerForOtherServerUser(self, recipient):
 
         if not hasattr(self, "otherServers"):
@@ -201,7 +196,6 @@ class ScheduleViaISchedule(DeliveryService):
         return self.otherServers[serverURI]
 
 
-
 class IScheduleRequest(object):
 
     def __init__(self, scheduler, server, recipients, responses, refreshOnly=False):
@@ -214,7 +208,6 @@ class IScheduleRequest(object):
         self.headers = None
         self.data = None
         self.original_organizer = None
-
 
     @inlineCallbacks
     def doRequest(self):
@@ -287,7 +280,6 @@ class IScheduleRequest(object):
                 ))
                 self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=failed_status)
 
-
     @inlineCallbacks
     def logRequest(self, request):
         """
@@ -321,7 +313,6 @@ class IScheduleRequest(object):
         iostr.write("\n\n>>>> Request end\n")
         returnValue(iostr.getvalue())
 
-
     @inlineCallbacks
     def logResponse(self, response):
         """
@@ -354,7 +345,6 @@ class IScheduleRequest(object):
         iostr.write("\n\n>>>> Response end\n")
         returnValue(iostr.getvalue())
 
-
     @inlineCallbacks
     def _prepareRequest(self, host, port):
         """
@@ -364,7 +354,6 @@ class IScheduleRequest(object):
 
         component, method = (yield self._prepareData())
         yield self._prepareHeaders(host, port, component, method)
-
 
     @inlineCallbacks
     def _prepareHeaders(self, host, port, component, method):
@@ -427,7 +416,6 @@ class IScheduleRequest(object):
         if self.refreshOnly:
             self.headers.addRawHeader("X-CALENDARSERVER-ITIP-REFRESHONLY", "T")
 
-
     def _doAuthentication(self):
         if self.server.authentication and self.server.authentication[0] == "basic":
             self.headers.setHeader(
@@ -435,7 +423,6 @@ class IScheduleRequest(object):
                 ('Basic', ("{}:{}".format(self.server.authentication[1], self.server.authentication[2],)).encode('base64')[:-1])
             )
             self.sign_headers.append("Authorization")
-
 
     @inlineCallbacks
     def _prepareData(self):
@@ -471,7 +458,6 @@ class IScheduleRequest(object):
             method = cal.propertyValue("METHOD")
             returnValue((component, method,))
 
-
     @inlineCallbacks
     def _processRequest(self, ssl, host, port, path):
         if not self.server.podding() and config.Scheduling.iSchedule.DKIM.Enabled:
@@ -501,7 +487,6 @@ class IScheduleRequest(object):
         response = yield self._submitRequest(ssl, host, port, request)
         returnValue(response)
 
-
     @inlineCallbacks
     def _submitRequest(self, ssl, host, port, request):
         from twisted.internet import reactor
@@ -516,7 +501,6 @@ class IScheduleRequest(object):
         response = (yield proto.submitRequest(request))
 
         returnValue(response)
-
 
     def _parseResponse(self, xml):
 

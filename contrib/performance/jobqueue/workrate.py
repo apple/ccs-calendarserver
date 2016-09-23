@@ -43,7 +43,6 @@ def usage(e=None):
         sys.exit(0)
 
 
-
 def main():
     try:
         (optargs, _ignore_args) = getopt(
@@ -81,7 +80,6 @@ def main():
     d.run()
 
 
-
 class Monitor(object):
     """
     Main monitor controller. Use Python's L{sched} feature to schedule
@@ -102,14 +100,12 @@ class Monitor(object):
         self.last_completed = None
         self.last_time = None
 
-
     def run(self):
         """
         Create the initial window and run the L{scheduler}.
         """
         self.sched.enter(self.seconds, 0, self.updateResults, ())
         self.sched.run()
-
 
     def updateResults(self):
         """
@@ -139,7 +135,6 @@ class Monitor(object):
         self.sched.enter(max(self.seconds - (time.time() - t), 0), 0, self.updateResults, ())
 
 
-
 class MonitorClient(object):
     """
     Client that connects to a server and fetches information.
@@ -155,7 +150,6 @@ class MonitorClient(object):
             self.useTCP = True
         self.currentData = {}
         self.items = []
-
 
     def readSock(self, items):
         """
@@ -190,7 +184,6 @@ class MonitorClient(object):
             data = {}
         return data
 
-
     def update(self):
         """
         Update the current data from the server.
@@ -199,7 +192,6 @@ class MonitorClient(object):
         # Only read each item once
         self.currentData = self.readSock(list(set(self.items)))
 
-
     def getOneItem(self, item):
         """
         Update the current data from the server.
@@ -207,13 +199,11 @@ class MonitorClient(object):
         data = self.readSock([item])
         return data[item] if data else None
 
-
     def addItem(self, item):
         """
         Add a server data item to monitor.
         """
         self.items.append(item)
-
 
     def removeItem(self, item):
         """

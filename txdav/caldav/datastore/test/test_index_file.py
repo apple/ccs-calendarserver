@@ -34,6 +34,7 @@ from pycalendar.datetime import DateTime
 
 import os
 
+
 class MinimalCalendarObjectReplacement(object):
     """
     Provide the minimal set of attributes and methods from CalDAVFile required
@@ -42,7 +43,6 @@ class MinimalCalendarObjectReplacement(object):
 
     def __init__(self, filePath):
         self.fp = filePath
-
 
     def iCalendar(self):
         with self.fp.open() as f:
@@ -60,7 +60,6 @@ class MinimalCalendarObjectReplacement(object):
         return component
 
 
-
 class MinimalResourceReplacement(object):
     """
     Provide the minimal set of attributes and methods from CalDAVFile required
@@ -75,24 +74,19 @@ class MinimalResourceReplacement(object):
         def postAbort(self, _ignore):
             pass
 
-
     def __init__(self, filePath):
         self.fp = filePath
         self._txn = MinimalResourceReplacement.MinimalTxn()
 
-
     def isCalendarCollection(self):
         return True
-
 
     def getChild(self, name):
         # FIXME: this should really return something with a child method
         return MinimalCalendarObjectReplacement(self.fp.child(name))
 
-
     def initSyncToken(self):
         pass
-
 
 
 class SQLIndexTests (twistedcaldav.test.util.TestCase):
@@ -108,10 +102,8 @@ class SQLIndexTests (twistedcaldav.test.util.TestCase):
         # have all the associated backend machinery to actually get children.
         self.db = Index(MinimalResourceReplacement(self.indexDirPath))
 
-
     def tearDown(self):
         self.db._db_close()
-
 
     def test_reserve_uid_ok(self):
         uid = "test-test-test"
@@ -126,7 +118,6 @@ class SQLIndexTests (twistedcaldav.test.util.TestCase):
 
         return d
 
-
     def test_reserve_uid_twice(self):
         uid = "test-test-test"
         d = self.db.reserveUID(uid)
@@ -137,12 +128,10 @@ class SQLIndexTests (twistedcaldav.test.util.TestCase):
                                          ReservationError))
         return d
 
-
     def test_unreserve_unreserved(self):
         uid = "test-test-test"
         return self.assertFailure(self.db.unreserveUID(uid),
                                   ReservationError)
-
 
     def test_reserve_uid_timeout(self):
         # WARNING: This test is fundamentally flawed and will fail
@@ -166,7 +155,6 @@ class SQLIndexTests (twistedcaldav.test.util.TestCase):
         self.addCleanup(_finally)
 
         return d
-
 
     def test_index(self):
         data = (
@@ -331,7 +319,6 @@ END:VCALENDAR
                 self.assertTrue(self.db.resourceExists(name), msg=description)
             else:
                 self.assertFalse(self.db.resourceExists(name), msg=description)
-
 
     @inlineCallbacks
     def test_index_timerange(self):
@@ -501,7 +488,6 @@ END:VCALENDAR
                 index_results.add(found_name)
 
             self.assertEqual(set((name,)), index_results, msg=description)
-
 
     @inlineCallbacks
     def test_index_timespan(self):
@@ -687,7 +673,6 @@ END:VCALENDAR
                 index_results.add((float, start, end, fbtype, transp,))
 
             self.assertEqual(set(instances), index_results, msg=description)
-
 
     @inlineCallbacks
     def test_index_timespan_per_user(self):
@@ -1097,7 +1082,6 @@ END:VCALENDAR
 
             self.db.deleteResource(name)
 
-
     def test_index_revisions(self):
         data1 = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1165,13 +1149,12 @@ END:VCALENDAR
             self.assertEquals(self.db.whatchanged(revision), results, "Mismatched results for whatchanged with revision %d" % (revision,))
 
 
-
 class MemcacheTests(SQLIndexTests):
+
     def setUp(self):
         super(MemcacheTests, self).setUp()
         self.memcache = InMemoryMemcacheProtocol()
         self.db.reserver = MemcachedUIDReserver(self.db, self.memcache)
-
 
     def tearDown(self):
         super(MemcacheTests, self).tearDown()

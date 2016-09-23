@@ -94,12 +94,10 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
 
         self.nowYear = {"now": DateTime.getToday().getYear()}
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
-
 
     @inlineCallbacks
     def assertCalendarsSimilar(self, a, b, bCalendarFilter=None):
@@ -120,7 +118,6 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         self.assertEquals((yield namesAndComponents(a)),
                           (yield namesAndComponents(b, *extra)))
 
-
     def assertPropertiesSimilar(self, a, b, disregard=[]):
         """
         Assert that two objects with C{properties} methods have similar
@@ -136,7 +133,6 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
             return result
         self.assertEquals(sanitize(a), sanitize(b))
 
-
     def fileTransaction(self):
         """
         Create a file-backed calendar transaction, for migration testing.
@@ -146,7 +142,6 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         txn = fileStore.newTransaction()
         self.addCleanup(txn.commit)
         return txn
-
 
     @inlineCallbacks
     def test_purgingHome(self):
@@ -168,7 +163,6 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         self.assertTrue(home is not None)
         yield self.commit()
 
-
     @inlineCallbacks
     def test_migrateCalendarFromFile(self):
         """
@@ -183,7 +177,6 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         yield _migrateCalendar(fromCalendar, toCalendar,
                                lambda x: x.component())
         yield self.assertCalendarsSimilar(fromCalendar, toCalendar)
-
 
     @inlineCallbacks
     def test_migrateBadCalendarFromFile(self):
@@ -200,7 +193,6 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         ok, bad = (yield _migrateCalendar(fromCalendar, toCalendar, lambda x: succeed(x.component())))
         self.assertEqual(ok, 1)
         self.assertEqual(bad, 2)
-
 
     @inlineCallbacks
     def test_migrateRecurrenceFixCalendarFromFile(self):
@@ -377,7 +369,6 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n") % self.nowYear)
 
-
     @inlineCallbacks
     def test_migrateDuplicateAttachmentsCalendarFromFile(self):
         """
@@ -406,7 +397,6 @@ END:VCALENDAR
         ok, bad = (yield _migrateCalendar(fromCalendar, toCalendar, lambda x: x.component()))
         self.assertEqual(ok, 3)
         self.assertEqual(bad, 0)
-
 
     @inlineCallbacks
     def test_migrateCalendarFromFile_Transparency(self):
@@ -439,7 +429,6 @@ END:VCALENDAR
         _ignore_name, uid, _ignore_type, _ignore_organizer, _ignore_float, _ignore_start, _ignore_end, _ignore_fbtype, transp = results[0]
         self.assertEquals(uid, "uid4")
         self.assertEquals(transp, 'T')
-
 
     @inlineCallbacks
     def test_migrateHomeFromFile(self):
@@ -480,7 +469,6 @@ END:VCALENDAR
             )
         self.assertPropertiesSimilar(fromHome, toHome, builtinProperties)
 
-
     @inlineCallbacks
     def test_migrateHomeSplits(self):
         """
@@ -507,7 +495,6 @@ END:VCALENDAR
             supported_components.add(result)
 
         self.assertEqual(supported_components, set(ical.allowedStoreComponents))
-
 
     @inlineCallbacks
     def test_migrateHomeNoSplits(self):
@@ -536,7 +523,6 @@ END:VCALENDAR
 
         self.assertEqual(supported_components, set(ical.allowedStoreComponents))
 
-
     @inlineCallbacks
     def test_calendarHomeVersion(self):
         """
@@ -558,7 +544,6 @@ END:VCALENDAR
             Where=ch.OWNER_UID == "home_version",
         ).on(txn))[0][0]
         self.assertEqual(int(homeVersion), int(version))
-
 
     @inlineCallbacks
     def test_homeProvisioningConcurrency(self):
@@ -597,7 +582,7 @@ END:VCALENDAR
 
         @inlineCallbacks
         def _pause_home_uid1_1():
-            yield deferLater(reactor, 1.0, lambda : None)
+            yield deferLater(reactor, 1.0, lambda: None)
             yield txn1.commit()
         d2 = _pause_home_uid1_1()
 
@@ -614,7 +599,6 @@ END:VCALENDAR
 
         self.assertNotEqual(home_uid1_1, None)
         self.assertNotEqual(home_uid1_2, None)
-
 
     @inlineCallbacks
     def test_putConcurrency(self):
@@ -735,7 +719,6 @@ END:VCALENDAR
         yield d1
         yield d2
 
-
     @inlineCallbacks
     def test_datetimes(self):
         calendarStore = self._sqlCalendarStore
@@ -754,7 +737,6 @@ END:VCALENDAR
         obj._modified = parseSQLTimestamp("2011-02-08 11:22:47")
         self.assertEqual(obj.created(), datetimeMktime(datetime.datetime(2011, 2, 7, 11, 22, 47)))
         self.assertEqual(obj.modified(), datetimeMktime(datetime.datetime(2011, 2, 8, 11, 22, 47)))
-
 
     @inlineCallbacks
     def test_notificationsProvisioningConcurrency(self):
@@ -784,7 +766,7 @@ END:VCALENDAR
 
         @inlineCallbacks
         def _pause_notification_uid1_1():
-            yield deferLater(reactor, 1.0, lambda : None)
+            yield deferLater(reactor, 1.0, lambda: None)
             yield txn1.commit()
         d2 = _pause_notification_uid1_1()
 
@@ -794,7 +776,6 @@ END:VCALENDAR
 
         self.assertNotEqual(notification_uid1_1, None)
         self.assertNotEqual(notification_uid1_2, None)
-
 
     @inlineCallbacks
     def test_removeCalendarPropertiesOnDelete(self):
@@ -838,7 +819,6 @@ END:VCALENDAR
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
         self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_removeCalendarObjectPropertiesOnDelete(self):
@@ -887,7 +867,6 @@ END:VCALENDAR
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
         self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_removeInboxObjectPropertiesOnDelete(self):
@@ -944,7 +923,6 @@ END:VCALENDAR
         self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()
 
-
     @inlineCallbacks
     def test_removeNotifyCategoryInbox(self):
         """
@@ -957,7 +935,6 @@ END:VCALENDAR
         self.assertEquals(ChangeCategory.inbox, inboxItem.removeNotifyCategory())
         yield self.commit()
 
-
     @inlineCallbacks
     def test_removeNotifyCategoryNonInbox(self):
         """
@@ -969,7 +946,6 @@ END:VCALENDAR
         nonInboxItem = yield nonInbox.createCalendarObjectWithName("inbox.ics", component)
         self.assertEquals(ChangeCategory.default, nonInboxItem.removeNotifyCategory())
         yield self.commit()
-
 
     @inlineCallbacks
     def test_directShareCreateConcurrency(self):
@@ -1024,7 +1000,6 @@ END:VCALENDAR
 
         self.flushLoggedErrors()
 
-
     @inlineCallbacks
     def test_transferSharingDetails(self):
         """
@@ -1065,7 +1040,6 @@ END:VCALENDAR
         self.assertTrue(sharedCalendar is not None)
         self.assertEqual(sharedCalendar._resourceID, newcalendar._resourceID)
 
-
     @inlineCallbacks
     def test_moveCalendarObjectResource(self):
         """
@@ -1086,7 +1060,6 @@ END:VCALENDAR
 
         child = yield calendar1.calendarObjectWithName("5.ics")
         self.assertTrue(child is not None)
-
 
     @inlineCallbacks
     def test_splitCalendars(self):
@@ -1160,7 +1133,6 @@ END:VCALENDAR
         self.assertTrue(pkey in calendar2.properties())
         self.assertEqual(str(calendar2.properties()[pkey]), "A birthday calendar")
 
-
     @inlineCallbacks
     def test_noSplitCalendars(self):
         """
@@ -1186,7 +1158,6 @@ END:VCALENDAR
             supported_components.add(result)
 
         self.assertEqual(supported_components, set(ical.allowedStoreComponents))
-
 
     @inlineCallbacks
     def test_defaultCalendar(self):
@@ -1237,7 +1208,6 @@ END:VCALENDAR
         self.assertEqual(home._default_tasks, default_tasks2._resourceID)
         yield self.commit()
 
-
     @inlineCallbacks
     def test_setDefaultCalendar(self):
         """
@@ -1285,7 +1255,6 @@ END:VCALENDAR
         yield self.failUnlessFailure(home.setDefaultCalendar(calendar1, "VEVENT"), InvalidDefaultCalendar)
         yield self.commit()
 
-
     @inlineCallbacks
     def test_defaultCalendar_delete(self):
         """
@@ -1323,7 +1292,6 @@ END:VCALENDAR
         self.assertEqual(default_events._resourceID, calendar1._resourceID)
         yield self.commit()
 
-
     @inlineCallbacks
     def test_defaultCalendar_delete_and_recover(self):
         """
@@ -1352,7 +1320,6 @@ END:VCALENDAR
             self.assertEqual(default_events._resourceID, calendar1._resourceID)
             yield self.commit()
 
-
     @inlineCallbacks
     def test_resourceLock(self):
         """
@@ -1373,7 +1340,7 @@ END:VCALENDAR
         try:
             yield newResource.lock(wait=False)
         except:
-            pass # OK
+            pass  # OK
         else:
             self.fail("Expected an exception")
         self.assertFalse(newResource._locked)
@@ -1397,7 +1364,7 @@ END:VCALENDAR
         try:
             yield resource.lock(wait=False, useTxn=newTxn)
         except:
-            pass # OK
+            pass  # OK
         else:
             self.fail("Expected an exception")
         self.assertTrue(resource._locked)
@@ -1408,13 +1375,12 @@ END:VCALENDAR
         try:
             yield resource2.lock()
         except NoSuchObjectResourceError:
-            pass # OK
+            pass  # OK
         except:
             self.fail("Expected a NoSuchObjectResourceError exception")
         else:
             self.fail("Expected an exception")
         self.assertFalse(resource2._locked)
-
 
     @inlineCallbacks
     def test_recurrenceMinMax(self):
@@ -1429,7 +1395,6 @@ END:VCALENDAR
         rMin, rMax = yield resource.recurrenceMinMax()
         self.assertEqual(rMin, None)
         self.assertEqual(rMax, None)
-
 
     @inlineCallbacks
     def test_notExpandedWithin(self):
@@ -1503,7 +1468,6 @@ END:VCALENDAR
         result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
-
     @inlineCallbacks
     def test_setComponent_no_instance_indexing(self):
         """
@@ -1566,7 +1530,6 @@ END:VCALENDAR
         obj1 = yield calendar.calendarObjectWithName("indexing.ics")
         yield obj1.remove()
         yield self.commit()
-
 
     @inlineCallbacks
     def test_loadObjectResourcesWithName(self):
@@ -1658,7 +1621,6 @@ END:VCALENDAR
         prop = caldavxml.CalendarDescription.fromString("p2")
         self.assertEqual(resources[0].properties()[PropertyName.fromElement(prop)], prop)
 
-
     @inlineCallbacks
     def test_objectResourceWithID(self):
         """
@@ -1671,7 +1633,6 @@ END:VCALENDAR
         obj = (yield self.calendarObjectUnderTest())
         calendarObject = (yield home.objectResourceWithID(obj._resourceID))
         self.assertNotEquals(calendarObject, None)
-
 
     @inlineCallbacks
     def test_defaultAlarms(self):
@@ -1798,7 +1759,6 @@ END:VALARM
 
         yield self.commit()
 
-
     @inlineCallbacks
     def test_setAvailability(self):
         """
@@ -1841,7 +1801,6 @@ END:VCALENDAR
         self.assertEqual(home.getAvailability(), None)
         yield self.commit()
 
-
     @inlineCallbacks
     def test_setTimezone(self):
         """
@@ -1872,7 +1831,6 @@ END:VCALENDAR
         self.assertEqual(cal.getTimezone(), None)
         self.assertEqual(cal.getTimezoneID(), None)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_setTimezoneID(self):
@@ -1914,7 +1872,6 @@ END:VCALENDAR
         self.assertEqual(cal.getTimezoneID(), None)
         yield self.commit()
 
-
     @inlineCallbacks
     def test_inboxTransp(self):
         """
@@ -1944,7 +1901,6 @@ END:VCALENDAR
         inbox = yield self.calendarUnderTest(home="user01", name="inbox")
         self.assertFalse(inbox.isUsedForFreeBusy())
 
-
     @inlineCallbacks
     def test_tasksTransp(self):
         """
@@ -1973,7 +1929,6 @@ END:VCALENDAR
 
         tasks = yield self.calendarUnderTest(home="user01", name="tasks")
         self.assertFalse(tasks.isUsedForFreeBusy())
-
 
     @inlineCallbacks
     def test_missingTimezone(self):
@@ -2012,7 +1967,6 @@ END:VCALENDAR
             UnknownTimezone,
         )
         yield self.abort()
-
 
     @inlineCallbacks
     def test_standardTimezone(self):
@@ -2061,7 +2015,6 @@ END:VCALENDAR
         txt = cal.getTextWithTimezones(False)
         self.assertTrue("BEGIN:VTIMEZONE" not in txt)
 
-
     @inlineCallbacks
     def test_nonStandardTimezone(self):
         """
@@ -2109,7 +2062,6 @@ END:VCALENDAR
         txt = cal.getTextWithTimezones(False)
         self.assertTrue("BEGIN:VTIMEZONE" in txt)
 
-
     @inlineCallbacks
     def test_dataVersion(self):
         """
@@ -2138,7 +2090,6 @@ END:VCALENDAR
         obj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
         self.assertEqual(obj._dataversion, obj._currentDataVersion)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_dataUpgrade(self):
@@ -2210,7 +2161,6 @@ END:VCALENDAR
         self.assertEqual(obj._dataversion, obj._currentDataVersion)
         yield self.commit()
 
-
     @inlineCallbacks
     def test_sharedTasksMissingSharer(self):
         """
@@ -2276,7 +2226,6 @@ END:VCALENDAR
         yield self.commit()
 
 
-
 class SyncTests(CommonCommonTests, unittest.TestCase):
     """
     Revision table/sync report tests.
@@ -2287,7 +2236,6 @@ class SyncTests(CommonCommonTests, unittest.TestCase):
         yield super(SyncTests, self).setUp()
         yield self.buildStoreAndDirectory()
         yield self.populate()
-
 
     requirements = {
         "user01": {
@@ -2301,12 +2249,10 @@ class SyncTests(CommonCommonTests, unittest.TestCase):
         },
     }
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
-
 
     def token2revision(self, token):
         """
@@ -2320,7 +2266,6 @@ class SyncTests(CommonCommonTests, unittest.TestCase):
         _ignore_uuid, rev = token.split("_", 1)
         rev = int(rev)
         return rev
-
 
     @inlineCallbacks
     def test_calendarRevisionChangeConcurrency(self):
@@ -2398,7 +2343,6 @@ END:VCALENDAR
         self.assertNotEqual(caldata3, None)
         self.assertNotEqual(caldata4, None)
 
-
     @inlineCallbacks
     def test_calendarMissingRevision(self):
         """
@@ -2432,7 +2376,6 @@ END:VCALENDAR
         token = yield calendar.syncToken()
         self.assertTrue(token is not None)
 
-
     @inlineCallbacks
     def test_removeAfterRevisionCleanup(self):
         """
@@ -2461,7 +2404,6 @@ END:VCALENDAR
         cal = yield self.calendarUnderTest(home="user01", name="calendar_renamed")
         self.assertTrue(cal is not None)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_revisionModified(self):
@@ -2513,7 +2455,6 @@ END:VCALENDAR
         delete_modified = yield _getModified()
         self.assertGreater(delete_modified, old_modified)
         self.assertGreater(delete_modified, update_modified)
-
 
     @inlineCallbacks
     def test_homeSyncTokenWithTrash_Visible(self):
@@ -2569,7 +2510,6 @@ END:VCALENDAR
         self.assertEquals(deleted, [])
         self.assertEquals(invalid, [])
 
-
     @inlineCallbacks
     def test_homeSyncTokenWithTrash_Invisible(self):
         """
@@ -2616,7 +2556,6 @@ END:VCALENDAR
         self.assertEquals(invalid, [])
 
 
-
 class SchedulingTests(CommonCommonTests, DateTimeSubstitutionsMixin, unittest.TestCase):
     """
     CalendarObject splitting tests
@@ -2635,12 +2574,10 @@ class SchedulingTests(CommonCommonTests, DateTimeSubstitutionsMixin, unittest.Te
             self.assertNotEqual(home_uid, None)
         yield self.commit()
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
-
 
     @inlineCallbacks
     def test_doImplicitAttendeeEventFix(self):
@@ -2792,7 +2729,6 @@ END:VCALENDAR
 
         self.assertEqual(len(self.flushLoggedErrors(InvalidOverriddenInstanceError)), 1)
 
-
     @inlineCallbacks
     def test_setComponent_structuredLocation(self):
         """
@@ -2878,7 +2814,6 @@ END:VCALENDAR
         )
 
         yield self.commit()
-
 
     @inlineCallbacks
     def test_setComponent_structuredLocation_Multiple(self):
@@ -2995,7 +2930,6 @@ END:VCALENDAR
         )
 
         yield self.commit()
-
 
     @inlineCallbacks
     def test_setComponent_structuredLocation_Mixed(self):
@@ -3137,7 +3071,6 @@ END:VCALENDAR
 
         yield self.commit()
 
-
     @inlineCallbacks
     def test_setComponent_structuredLocation_MissingValue(self):
         """
@@ -3206,7 +3139,6 @@ END:VCALENDAR
         )
 
         yield self.commit()
-
 
     @inlineCallbacks
     def test_setComponent_changed_stripStandardTimezones(self):
@@ -3292,7 +3224,6 @@ END:VCALENDAR
 
         yield self.commit()
 
-
     @inlineCallbacks
     def test_setComponent_changed_preservePrivateComments(self):
         """
@@ -3354,7 +3285,6 @@ END:VCALENDAR
         self.assertTrue(cobj._componentChanged)
 
         yield self.commit()
-
 
     @inlineCallbacks
     def test_setComponent_changed_dropboxPathNormalization(self):
@@ -3418,7 +3348,6 @@ END:VCALENDAR
         self.assertTrue(cobj._componentChanged)
 
         yield self.commit()
-
 
     @inlineCallbacks
     def test_setComponent_externalPrincipal(self):
@@ -3491,7 +3420,6 @@ END:VCALENDAR
 
         yield self.commit()
 
-
     @inlineCallbacks
     def test_setComponent_noInstances(self):
         """
@@ -3528,7 +3456,6 @@ END:VCALENDAR
         self.assertTrue(cobj is not None)
 
 
-
 class CalendarObjectSplitting(CommonCommonTests, DateTimeSubstitutionsMixin, unittest.TestCase):
     """
     CalendarObject splitting tests
@@ -3551,12 +3478,10 @@ class CalendarObjectSplitting(CommonCommonTests, DateTimeSubstitutionsMixin, uni
 
         self.patch(config, "MaxAllowedInstances", 500)
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
-
 
     @inlineCallbacks
     def _splitDetails(self, home):
@@ -3577,7 +3502,6 @@ class CalendarObjectSplitting(CommonCommonTests, DateTimeSubstitutionsMixin, uni
         uid = ical_past.resourceUID()
 
         returnValue((ical_future, ical_past, uid, relID, new_name,))
-
 
     @inlineCallbacks
     def test_calendarObjectSplit(self):
@@ -3786,7 +3710,6 @@ END:VCALENDAR
         relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s" % (title,))
-
 
     @inlineCallbacks
     def test_calendarObjectSplit_AllDay(self):
@@ -4000,7 +3923,6 @@ END:VCALENDAR
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s %s" % (title, diff_iCalStrs(ical_future, data_future % relsubs)))
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s %s" % (title, diff_iCalStrs(ical_past, data_past % relsubs)))
 
-
     @inlineCallbacks
     def test_calendarObjectSplit_Floating(self):
         """
@@ -4208,7 +4130,6 @@ END:VCALENDAR
         relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s %s" % (title, diff_iCalStrs(ical_future, data_future % relsubs)))
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s %s" % (title, diff_iCalStrs(ical_past, data_past % relsubs)))
-
 
     @inlineCallbacks
     def test_calendarObjectSplit_work(self):
@@ -4724,7 +4645,6 @@ END:VCALENDAR
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future5) % relsubs, "Failed future: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_inbox), normalize_iCalStr(data_inbox5) % relsubs, "Failed inbox: %s" % (title,))
 
-
     @inlineCallbacks
     def test_calendarObjectSplit_removed(self):
         """
@@ -4830,7 +4750,6 @@ END:VCALENDAR
         cal = yield self.calendarUnderTest(name="calendar", home="user01")
         cobjs = yield cal.calendarObjects()
         self.assertEqual(len(cobjs), 0)
-
 
     @inlineCallbacks
     def test_calendarObjectSplit_no_attendee_split(self):
@@ -5038,7 +4957,6 @@ END:VCALENDAR
         self.assertEqual(normalize_iCalStr(ical), normalize_iCalStr(data_2_changed) % self.dtsubs, "Failed 2")
         yield self.commit()
 
-
     @inlineCallbacks
     def test_calendarObjectSplit_no_split_small_size(self):
         """
@@ -5104,7 +5022,6 @@ END:VCALENDAR
         cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
         self.assertFalse(hasattr(cobj, "_workItems"))
         yield self.commit()
-
 
     @inlineCallbacks
     def test_calendarObjectSplit_no_split_disabled_organizer(self):
@@ -5181,7 +5098,6 @@ END:VCALENDAR
         yield self.removeRecord(u"user01")
         willSplit = yield cobj.willSplit()
         self.assertFalse(willSplit)
-
 
     @inlineCallbacks
     def test_calendarObjectSplit_attachments(self):
@@ -5533,7 +5449,6 @@ END:VCALENDAR
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future2) % relsubs, "Failed future: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past2) % relsubs, "Failed past: %s" % (title,))
 
-
     @inlineCallbacks
     def test_calendarObjectSplit_processing_simple(self):
         """
@@ -5838,7 +5753,7 @@ END:VCALENDAR
 
         # Now inject an iTIP with split
         processor = ImplicitProcessor()
-        processor.getRecipientsCopy = lambda : succeed(None)
+        processor.getRecipientsCopy = lambda: succeed(None)
 
         cobj = yield self.calendarObjectUnderTest(name="data.ics", calendar_name="calendar", home="user01")
         processor.recipient_calendar_resource = cobj
@@ -5879,7 +5794,7 @@ END:VCALENDAR
 
         # Now inject an iTIP with split
         processor = ImplicitProcessor()
-        processor.getRecipientsCopy = lambda : succeed(None)
+        processor.getRecipientsCopy = lambda: succeed(None)
 
         cobj = yield self.calendarObjectUnderTest(name=new_names[0], calendar_name="calendar", home="user01")
         self.assertTrue(cobj is not None)
@@ -5896,7 +5811,6 @@ END:VCALENDAR
         yield self.commit()
 
         yield _verify_state()
-
 
     @inlineCallbacks
     def test_calendarObjectSplit_processing_one_past_instance(self):
@@ -5990,7 +5904,7 @@ END:VCALENDAR
 
         # Now inject an iTIP with split
         processor = ImplicitProcessor()
-        processor.getRecipientsCopy = lambda : succeed(None)
+        processor.getRecipientsCopy = lambda: succeed(None)
 
         cobj = yield self.calendarObjectUnderTest(name="data.ics", calendar_name="calendar", home="user01")
         processor.recipient_calendar_resource = cobj
@@ -6018,7 +5932,6 @@ END:VCALENDAR
         # Verify user01 data
         title = "user01"
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s\n%s" % (title, diff_iCalStrs(ical_past, data_past % relsubs),))
-
 
     @inlineCallbacks
     def test_calendarObjectSplit_processing_one_future_instance(self):
@@ -6111,7 +6024,7 @@ END:VCALENDAR
 
         # Now inject an iTIP with split
         processor = ImplicitProcessor()
-        processor.getRecipientsCopy = lambda : succeed(None)
+        processor.getRecipientsCopy = lambda: succeed(None)
 
         cobj = yield self.calendarObjectUnderTest(name="data.ics", calendar_name="calendar", home="user01")
         processor.recipient_calendar_resource = cobj
@@ -6139,7 +6052,6 @@ END:VCALENDAR
         # Verify user01 data
         title = "user01"
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s\n%s" % (title, diff_iCalStrs(ical_future, data_future % relsubs),))
-
 
     @inlineCallbacks
     def test_calendarObjectSplit_processing_one_past_and_one_future(self):
@@ -6284,7 +6196,7 @@ END:VCALENDAR
 
         # Now inject an iTIP with split
         processor = ImplicitProcessor()
-        processor.getRecipientsCopy = lambda : succeed(None)
+        processor.getRecipientsCopy = lambda: succeed(None)
 
         cobj = yield self.calendarObjectUnderTest(name="data.ics", calendar_name="calendar", home="user01")
         processor.recipient_calendar_resource = cobj
@@ -6309,7 +6221,6 @@ END:VCALENDAR
         title = "user01"
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s\n%s" % (title, diff_iCalStrs(ical_future, data_future % relsubs),))
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s\n%s" % (title, diff_iCalStrs(ical_past, data_past % relsubs),))
-
 
     @inlineCallbacks
     def test_calendarObjectSplit_processing_disabled(self):
@@ -6487,14 +6398,16 @@ END:VCALENDAR
 
         # Now inject an iTIP with split
         processor_action = [False, False, ]
+
         def _doImplicitAttendeeRequest():
             processor_action[0] = True
             return succeed(True)
+
         def _doImplicitAttendeeCancel():
             processor_action[1] = True
             return succeed(True)
         processor = ImplicitProcessor()
-        processor.getRecipientsCopy = lambda : succeed(None)
+        processor.getRecipientsCopy = lambda: succeed(None)
         processor.doImplicitAttendeeRequest = _doImplicitAttendeeRequest
         processor.doImplicitAttendeeCancel = _doImplicitAttendeeCancel
 
@@ -6514,7 +6427,7 @@ END:VCALENDAR
 
         # Now inject an iTIP with split
         processor_action = [False, False, ]
-        processor.getRecipientsCopy = lambda : succeed(None)
+        processor.getRecipientsCopy = lambda: succeed(None)
         processor.doImplicitAttendeeRequest = _doImplicitAttendeeRequest
         processor.doImplicitAttendeeCancel = _doImplicitAttendeeCancel
 
@@ -6529,7 +6442,6 @@ END:VCALENDAR
         yield processor.doImplicitAttendee()
         self.assertTrue(processor_action[0])
         self.assertFalse(processor_action[1])
-
 
     @inlineCallbacks
     def test_calendarObjectSplit_external(self):
@@ -6870,6 +6782,7 @@ END:VCALENDAR
 
         # Patch CalDAVScheduler to trap external schedules
         details = []
+
         def _doSchedulingViaPUT(self, originator, recipients, calendar, internal_request=False, suppress_refresh=False):
             details.append((originator, recipients, calendar,))
 
@@ -6959,7 +6872,6 @@ END:VCALENDAR
         self.assertEqual(details[1][0], "urn:x-uid:user01")
         self.assertEqual(details[1][1], ("mailto:cuser01@example.org",))
         self.assertEqual(normalize_iCalStr(details[1][2]), normalize_iCalStr(data_past_external) % relsubs, "Failed past: %s\n%s" % (title, diff_iCalStrs(details[1][2], data_past_external % relsubs),))
-
 
     @inlineCallbacks
     def test_calendarObjectSplit_timeout(self):
@@ -7308,6 +7220,7 @@ END:VCALENDAR
         self.assertFalse(self.transactionUnderTest().timedout)
 
         oldScheduling = ImplicitScheduler.doImplicitScheduling
+
         def newScheduling(self, do_smart_merge=False, split_details=None):
             c.advance(2)
             return oldScheduling(self, do_smart_merge, split_details)
@@ -7384,7 +7297,6 @@ END:VCALENDAR
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future2) % relsubs, "Failed future: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past2) % relsubs, "Failed past: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_inbox), normalize_iCalStr(data_inbox2) % relsubs, "Failed inbox: %s" % (title,))
-
 
     @inlineCallbacks
     def test_calendarObjectSplit_inbox_delete(self):
@@ -7640,6 +7552,7 @@ END:VCALENDAR
 
         # Patch resource lookup code so that it deletes the inbox resource after lookup is done
         oldLookup = CalendarStoreFeatures.calendarObjectDetailsWithUID
+
         @inlineCallbacks
         def _lookup(csself, txn, uid):
             results = yield oldLookup(csself, txn, uid)
@@ -7711,7 +7624,6 @@ END:VCALENDAR
         title = "user02"
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future2) % relsubs, "Failed future: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past2) % relsubs, "Failed past: %s" % (title,))
-
 
     @inlineCallbacks
     def test_calendarObjectSplit_clean_cache(self):
@@ -7835,7 +7747,6 @@ END:VCALENDAR
 #                ocount += 1
 #        self.assertTrue(hcount <= 2) # Just user01 home left (maybe user05 too)
 #        self.assertTrue(ocount <= 4) # Old resource + new resource (and maybe user05 too)
-
 
     @inlineCallbacks
     def _setupSplitAt(self):
@@ -8125,7 +8036,6 @@ END:VCALENDAR
 
         returnValue((data_future, data_past, data_future2, data_past2, data_inbox2,))
 
-
     @inlineCallbacks
     def _setupSplitAt2(self):
         """
@@ -8253,7 +8163,6 @@ END:VCALENDAR
 
         returnValue((data_future, data_past,))
 
-
     @inlineCallbacks
     def test_calendarObjectSplit_splitat_ok(self):
         """
@@ -8328,7 +8237,6 @@ END:VCALENDAR
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future2) % relsubs, "Failed future: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past2) % relsubs, "Failed past: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_inbox), normalize_iCalStr(data_inbox2) % relsubs, "Failed inbox: %s" % (title,))
-
 
     @inlineCallbacks
     def test_calendarObjectSplit_splitat_ok_not_instance_rid(self):
@@ -8405,7 +8313,6 @@ END:VCALENDAR
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past2) % relsubs, "Failed past: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_inbox), normalize_iCalStr(data_inbox2) % relsubs, "Failed inbox: %s" % (title,))
 
-
     @inlineCallbacks
     def test_calendarObjectSplit_splitat_no_organizer(self):
         """
@@ -8459,7 +8366,6 @@ END:VCALENDAR
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s" % (title,))
 
-
     @inlineCallbacks
     def test_calendarObjectSplit_splitat_no_attendee_split(self):
         """
@@ -8473,7 +8379,6 @@ END:VCALENDAR
         cobjs = yield cal.calendarObjects()
         self.assertEqual(len(cobjs), 1)
         yield self.failUnlessFailure(cobjs[0].splitAt(DateTime.parseText("%(now_back14)s" % self.dtsubs)), InvalidSplit)
-
 
     @inlineCallbacks
     def test_calendarObjectSplit_splitat_too_old(self):
@@ -8489,7 +8394,6 @@ END:VCALENDAR
         self.assertEqual(len(cobjs), 1)
         yield self.failUnlessFailure(cobjs[0].splitAt(DateTime.parseText("%(now_back30)s" % self.dtsubs)), InvalidSplit)
 
-
     @inlineCallbacks
     def test_calendarObjectSplit_splitat_too_new(self):
         """
@@ -8503,7 +8407,6 @@ END:VCALENDAR
         cobjs = yield cal.calendarObjects()
         self.assertEqual(len(cobjs), 1)
         yield self.failUnlessFailure(cobjs[0].splitAt(DateTime.parseText("%(now_fwd25)s" % self.dtsubs)), InvalidSplit)
-
 
     @inlineCallbacks
     def test_calendarObjectSplit_splitat_ok_pastuid(self):
@@ -8583,7 +8486,6 @@ END:VCALENDAR
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past2) % relsubs, "Failed past: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_inbox), normalize_iCalStr(data_inbox2) % relsubs, "Failed inbox: %s" % (title,))
 
-
     @inlineCallbacks
     def test_calendarObjectSplit_splitat_no_same_uid(self):
         """
@@ -8596,7 +8498,6 @@ END:VCALENDAR
         # Update it
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
         yield self.failUnlessFailure(cobj.splitAt(DateTime.parseText("%(now_back14)s" % self.dtsubs), pastUID="12345-67890"), InvalidSplit)
-
 
     @inlineCallbacks
     def test_calendarObjectSplit_splitat_no_existing_uid(self):
@@ -8632,7 +8533,6 @@ END:VCALENDAR
         # Update it
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
         yield self.failUnlessFailure(cobj.splitAt(DateTime.parseText("%(now_back14)s" % self.dtsubs), pastUID="12345-67890-existing"), InvalidSplit)
-
 
     @inlineCallbacks
     def test_calendarObjectSplit_splitat_wrong_value_type(self):
@@ -8679,7 +8579,6 @@ END:VCALENDAR
 
         # DTSTART DATE/rid DATE-TIME UTC
         yield self.failUnlessFailure(cobj.splitAt(DateTime.parseText("%(now)s" % self.dtsubs)), InvalidSplit)
-
 
 
 class TimeRangeUpdateOptimization(CommonCommonTests, DateTimeSubstitutionsMixin, unittest.TestCase):
@@ -8846,7 +8745,6 @@ END:VEVENT
 END:VCALENDAR
 """
 
-
     @inlineCallbacks
     def setUp(self):
         yield super(TimeRangeUpdateOptimization, self).setUp()
@@ -8857,6 +8755,7 @@ END:VCALENDAR
 
         self.trcount = 0
         base_addInstances = CalendarObject._addInstances
+
         def _addInstances(*args):
             self.trcount += 1
             return base_addInstances(*args)
@@ -8865,12 +8764,10 @@ END:VCALENDAR
         self.patch(config, "FreeBusyIndexDelayedExpand", False)
         self.patch(config, "FreeBusyIndexSmartUpdate", True)
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
-
 
     @property
     def requirements(self):
@@ -8888,7 +8785,6 @@ END:VCALENDAR
             },
         }
 
-
     @inlineCallbacks
     def test_initalPUT(self):
         """
@@ -8901,7 +8797,6 @@ END:VCALENDAR
         yield self.commit()
 
         self.assertEqual(self.trcount, 1)
-
 
     @inlineCallbacks
     def test_updatePUT_withoutTRChange(self):
@@ -8922,7 +8817,6 @@ END:VCALENDAR
         yield self.commit()
 
         self.assertEqual(self.trcount, 1)
-
 
     @inlineCallbacks
     def test_updatePUT_withoutOptimization(self):
@@ -8946,7 +8840,6 @@ END:VCALENDAR
 
         self.assertEqual(self.trcount, 2)
 
-
     @inlineCallbacks
     def test_updatePUT_withTRChange(self):
         """
@@ -8966,7 +8859,6 @@ END:VCALENDAR
         yield self.commit()
 
         self.assertEqual(self.trcount, 2)
-
 
     @inlineCallbacks
     def test_updatePUT_withTranspChange(self):
@@ -8988,7 +8880,6 @@ END:VCALENDAR
 
         self.assertEqual(self.trcount, 2)
 
-
     @inlineCallbacks
     def test_updatePUT_withStatusChange(self):
         """
@@ -9008,7 +8899,6 @@ END:VCALENDAR
         yield self.commit()
 
         self.assertEqual(self.trcount, 2)
-
 
     @inlineCallbacks
     def test_updatePUT_withTravelTimeChange(self):
@@ -9030,7 +8920,6 @@ END:VCALENDAR
 
         self.assertEqual(self.trcount, 2)
 
-
     @inlineCallbacks
     def test_updatePUT_withRRULEChange(self):
         """
@@ -9050,7 +8939,6 @@ END:VCALENDAR
         yield self.commit()
 
         self.assertEqual(self.trcount, 2)
-
 
     @inlineCallbacks
     def test_updatePUT_withEXDATEAdd(self):
@@ -9072,7 +8960,6 @@ END:VCALENDAR
 
         self.assertEqual(self.trcount, 2)
 
-
     @inlineCallbacks
     def test_updatePUT_withRDATEAdd(self):
         """
@@ -9092,7 +8979,6 @@ END:VCALENDAR
         yield self.commit()
 
         self.assertEqual(self.trcount, 2)
-
 
     INVITE1 = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9205,7 +9091,6 @@ END:VCALENDAR
 
         self.assertEqual(self.trcount, 9)
 
-
     @inlineCallbacks
     def test_schedulingPUT_withoutOptimization(self):
         """
@@ -9246,7 +9131,6 @@ END:VCALENDAR
         yield self.commit()
 
         self.assertEqual(self.trcount, 11)
-
 
     INVITE_OVERRIDE1 = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -9380,7 +9264,6 @@ END:VEVENT
 END:VCALENDAR
 """
 
-
     @inlineCallbacks
     def test_schedulingPUT_AddRemoveOverride_AutoAccept(self):
         """
@@ -9422,7 +9305,6 @@ END:VCALENDAR
         self.assertEqual(self.trcount, 6)
 
 
-
 class GroupExpand(CommonCommonTests, DateTimeSubstitutionsMixin, unittest.TestCase):
     """
     CalendarObject group attendee expansion.
@@ -9447,12 +9329,10 @@ class GroupExpand(CommonCommonTests, DateTimeSubstitutionsMixin, unittest.TestCa
         past400.offsetDay(-400)
         self.dtsubs["nowDate_back400"] = past400
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
-
 
     @property
     def requirements(self):
@@ -9470,7 +9350,6 @@ class GroupExpand(CommonCommonTests, DateTimeSubstitutionsMixin, unittest.TestCa
                 "inbox": {},
             },
         }
-
 
     @inlineCallbacks
     def test_expand_insert(self):
@@ -9524,7 +9403,6 @@ END:VCALENDAR
 
         links = yield calobj.groupEventLinks()
         self.assertEqual(len(links), 1)
-
 
     @inlineCallbacks
     def test_expand_update_new(self):
@@ -9625,7 +9503,6 @@ END:VCALENDAR
         comp = yield cobjs[0].componentForUser()
         self.assertTrue("METHOD:REQUEST" in str(comp))
         yield self.commit()
-
 
     @inlineCallbacks
     def test_expand_update_existing(self):
@@ -9738,7 +9615,6 @@ END:VCALENDAR
         links = yield calobj.groupEventLinks()
         self.assertEqual(len(links), 1)
 
-
     @inlineCallbacks
     def test_expand_insert_recurring(self):
         """
@@ -9793,7 +9669,6 @@ END:VCALENDAR
 
         links = yield calobj.groupEventLinks()
         self.assertEqual(len(links), 1)
-
 
     @inlineCallbacks
     def test_expand_update_new_recurring(self):
@@ -9877,7 +9752,6 @@ END:VCALENDAR
 
         links = yield calobj.groupEventLinks()
         self.assertEqual(len(links), 1)
-
 
     @inlineCallbacks
     def test_expand_update_existing_recurring(self):
@@ -9994,7 +9868,6 @@ END:VCALENDAR
         links = yield calobj.groupEventLinks()
         self.assertEqual(len(links), 1)
 
-
     @inlineCallbacks
     def test_expand_insert_past(self):
         """
@@ -10047,7 +9920,6 @@ END:VCALENDAR
 
         links = yield calobj.groupEventLinks()
         self.assertEqual(len(links), 0)
-
 
     @inlineCallbacks
     def test_expand_update_new_past(self):
@@ -10128,7 +10000,6 @@ END:VCALENDAR
 
         links = yield calobj.groupEventLinks()
         self.assertEqual(len(links), 0)
-
 
     @inlineCallbacks
     def test_expand_update_existing_past(self):
@@ -10241,7 +10112,6 @@ END:VCALENDAR
         links = yield calobj.groupEventLinks()
         self.assertEqual(len(links), 0)
 
-
     @inlineCallbacks
     def test_expand_insert_recurrence_big_future_step(self):
         """
@@ -10297,7 +10167,6 @@ END:VCALENDAR
 
         links = yield calobj.groupEventLinks()
         self.assertEqual(len(links), 1)
-
 
     @inlineCallbacks
     def test_expand_insert_recurrence_big_past_step(self):

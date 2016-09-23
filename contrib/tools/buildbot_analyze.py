@@ -22,6 +22,7 @@ import os
 import sys
 import cPickle
 
+
 def qos():
 
     logdir = os.path.expanduser("~/buildbot/master/PerfBladeSim")
@@ -64,7 +65,6 @@ def qos():
 
     for key in sorted(data.keys()):
         print("{}\t{}\t{}".format(key, data[key][0], data[key][1]))
-
 
 
 def usage(error_msg=None):

@@ -34,6 +34,7 @@ body = """\
 <?xml version="1.0" encoding="utf-8" ?>
 <x0:principal-property-search xmlns:x2="urn:ietf:params:xml:ns:caldav" xmlns:x0="DAV:" xmlns:x1="http://calendarserver.org/ns/" test="anyof"><x0:property-search><x0:prop><x0:displayname/></x0:prop><x0:match match-type="starts-with">user</x0:match></x0:property-search><x0:property-search><x0:prop><x1:email-address-set/></x0:prop><x0:match match-type="starts-with">user</x0:match></x0:property-search><x0:property-search><x0:prop><x1:first-name/></x0:prop><x0:match match-type="starts-with">user</x0:match></x0:property-search><x0:property-search><x0:prop><x1:last-name/></x0:prop><x0:match match-type="starts-with">user</x0:match></x0:property-search><x0:prop><x1:email-address-set/><x2:calendar-user-address-set/><x2:calendar-user-type/><x0:displayname/><x1:last-name/><x1:first-name/><x1:record-type/><x0:principal-URL/></x0:prop></x0:principal-property-search>"""
 
+
 @inlineCallbacks
 def measure(host, port, dtrace, attendeeCount, samples):
     user = password = "user01"

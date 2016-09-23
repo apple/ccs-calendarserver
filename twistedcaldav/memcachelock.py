@@ -20,6 +20,7 @@ from twisted.internet.defer import inlineCallbacks, Deferred, returnValue, \
 from twisted.internet import reactor
 import time
 
+
 class MemcacheLock(Memcacher):
 
     def __init__(self, namespace, locktoken, timeout=5.0, retry_interval=0.1, expire_time=0):
@@ -44,7 +45,6 @@ class MemcacheLock(Memcacher):
         self._expire_time = expire_time
         self._hasLock = False
 
-
     def _getMemcacheProtocol(self):
 
         result = super(MemcacheLock, self)._getMemcacheProtocol()
@@ -53,7 +53,6 @@ class MemcacheLock(Memcacher):
             raise AssertionError("No implementation of shared locking without memcached")
 
         return result
-
 
     @inlineCallbacks
     def acquire(self):
@@ -75,6 +74,7 @@ class MemcacheLock(Memcacher):
                 waiting = True
                 self.log.debug("Waiting for lock on {t}", t=self._locktoken)
                 pause = Deferred()
+
                 def _timedDeferred():
                     pause.callback(True)
                 reactor.callLater(self._retry_interval, _timedDeferred)
@@ -84,7 +84,6 @@ class MemcacheLock(Memcacher):
                 raise MemcacheLockTimeoutError()
 
         returnValue(True)
-
 
     def release(self):
 
@@ -98,14 +97,12 @@ class MemcacheLock(Memcacher):
         d.addCallback(_done)
         return d
 
-
     def clean(self):
 
         if self._hasLock:
             return self.release()
         else:
             return succeed(True)
-
 
     def locked(self):
         """
@@ -118,7 +115,6 @@ class MemcacheLock(Memcacher):
         d = self.get(self._locktoken)
         d.addCallback(_gotit)
         return d
-
 
 
 class MemcacheLockTimeoutError(Exception):

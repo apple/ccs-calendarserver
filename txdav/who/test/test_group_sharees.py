@@ -53,7 +53,6 @@ class GroupShareeTestBase(CommonCommonTests, unittest.TestCase):
 
         self.paths = {}
 
-
     def configure(self):
         super(GroupShareeTestBase, self).configure()
         config.Sharing.Enabled = True
@@ -61,20 +60,19 @@ class GroupShareeTestBase(CommonCommonTests, unittest.TestCase):
         config.Sharing.Calendars.Groups.Enabled = True
         config.Sharing.Calendars.Groups.ReconciliationDelaySeconds = 0
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
 
     requirements = {
-        "user01" : None,
-        "user02" : None,
-        "user03" : None,
-        "user06" : None,
-        "user07" : None,
-        "user08" : None,
-        "user09" : None,
-        "user10" : None,
+        "user01": None,
+        "user02": None,
+        "user03": None,
+        "user06": None,
+        "user07": None,
+        "user08": None,
+        "user09": None,
+        "user10": None,
     }
 
     @inlineCallbacks
@@ -83,13 +81,11 @@ class GroupShareeTestBase(CommonCommonTests, unittest.TestCase):
         count = yield cal6.countObjectResources()
         self.assertEqual(count, expected_count)
 
-
     @inlineCallbacks
     def _check_notifications(self, uid, items):
         notifyHome = yield self.transactionUnderTest().notificationsWithUID(uid, create=True)
         notifications = yield notifyHome.listNotificationObjects()
         self.assertEqual(set(notifications), set([item + ".xml" for item in items]))
-
 
     @inlineCallbacks
     def shareeViewUnderTest(self, txn=None, shareUID="calendar_1", home="user01"):
@@ -99,7 +95,6 @@ class GroupShareeTestBase(CommonCommonTests, unittest.TestCase):
         returnValue((
             yield (yield self.homeUnderTest(txn, home)).shareeView(shareUID)
         ))
-
 
 
 class GroupShareeReconciliationTests(GroupShareeTestBase):
@@ -184,7 +179,6 @@ class GroupShareeReconciliationTests(GroupShareeTestBase):
         noinvites = yield calendar.sharingInvites()
         self.assertEqual(len(noinvites), 0)
 
-
     @inlineCallbacks
     def test_group_change_invite_larger(self):
         """
@@ -264,7 +258,6 @@ class GroupShareeReconciliationTests(GroupShareeTestBase):
         yield calendar.uninviteUIDFromShare("group04")
         noinvites = yield calendar.sharingInvites()
         self.assertEqual(len(noinvites), 0)
-
 
     @inlineCallbacks
     def test_group_member_removal_refresh_slow(self):
@@ -351,7 +344,6 @@ class GroupShareeReconciliationTests(GroupShareeTestBase):
         noinvites = yield calendar.sharingInvites()
         self.assertEqual(len(noinvites), 3)
 
-
     @inlineCallbacks
     def test_no_self_invite(self):
         """
@@ -430,7 +422,6 @@ class GroupShareeReconciliationTests(GroupShareeTestBase):
         yield calendar.uninviteUIDFromShare("group05")
         noinvites = yield calendar.sharingInvites()
         self.assertEqual(len(noinvites), 0)
-
 
     @inlineCallbacks
     def test_no_self_invite_on_add(self):
@@ -512,7 +503,6 @@ class GroupShareeReconciliationTests(GroupShareeTestBase):
         noinvites = yield calendar.sharingInvites()
         self.assertEqual(len(noinvites), 0)
 
-
     @inlineCallbacks
     def test_group_change_trashed_calendar(self):
         """
@@ -593,7 +583,6 @@ class GroupShareeReconciliationTests(GroupShareeTestBase):
         yield self.commit()
         yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
 
-
     @inlineCallbacks
     def test_group_change_removed_calendar(self):
         """
@@ -672,7 +661,6 @@ class GroupShareeReconciliationTests(GroupShareeTestBase):
         self.assertEqual(len(wps), 0)
         yield self.commit()
         yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
-
 
     @inlineCallbacks
     def test_multiple_groups_remove_from_one_group(self):
@@ -755,7 +743,6 @@ class GroupShareeReconciliationTests(GroupShareeTestBase):
         yield calendar.uninviteUIDFromShare("group06")
         noinvites = yield calendar.sharingInvites()
         self.assertEqual(len(noinvites), 0)
-
 
     @inlineCallbacks
     def test_multiple_groups_with_individual_remove_from_one_group(self):

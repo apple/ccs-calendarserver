@@ -58,11 +58,9 @@ class WikiAccessLevel(Names):
     write = NamedConstant()
 
 
-
 class RecordType(Names):
     macOSXServerWiki = NamedConstant()
     macOSXServerWiki.description = u"Mac OS X Server Wiki"
-
 
 
 class DirectoryService(BaseDirectoryService):
@@ -79,12 +77,10 @@ class DirectoryService(BaseDirectoryService):
         FieldName,
     ))
 
-
     def __init__(self, realmName, endpointDescriptor):
         BaseDirectoryService.__init__(self, realmName)
         self.endpointDescriptor = endpointDescriptor
         self._recordsByName = {}
-
 
     # This directory service is rather limited in its skills.
     # We don't attempt to implement any expression handling (ie.
@@ -119,25 +115,21 @@ class DirectoryService(BaseDirectoryService):
 
         return succeed(None)
 
-
     def recordWithUID(self, uid, timeoutSeconds=None):
         if uid.startswith(self.uidPrefix):
             return self._recordWithName(uid[len(self.uidPrefix):])
         return succeed(None)
-
 
     def recordWithShortName(self, recordType, shortName, timeoutSeconds=None):
         if recordType is RecordType.macOSXServerWiki:
             return self._recordWithName(shortName)
         return succeed(None)
 
-
     def recordsFromExpression(
         self, expression, recordTypes=None, records=None,
         limitResults=None, timeoutSeconds=None
     ):
         return succeed(())
-
 
 
 class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
@@ -147,16 +139,13 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
 
     log = Logger()
 
-
     def __init__(self, service, fields):
         BaseDirectoryRecord.__init__(self, service, fields)
         CalendarDirectoryRecordMixin.__init__(self)
 
-
     @property
     def name(self):
         return self.shortNames[0]
-
 
     @inlineCallbacks
     def accessForRecord(self, record):
@@ -242,7 +231,6 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
         except KeyError:
             self.log.error("Unknown wiki access level: {level}", level=access)
             returnValue(WikiAccessLevel.none)
-
 
 
 @inlineCallbacks
@@ -380,12 +368,10 @@ def getWikiACL(resource, request):
         ))
 
 
-
 class WebAuthError(RuntimeError):
     """
     Error in web auth
     """
-
 
 
 @inlineCallbacks
@@ -416,7 +402,6 @@ def uidForAuthToken(token, descriptor):
         raise WebAuthError("Could not look up token: %s" % (token,))
 
 
-
 def accessForUserToWiki(user, wiki, descriptor):
     """
     Send a GET request to the wiki collabd service to retrieve the access level
@@ -436,7 +421,6 @@ def accessForUserToWiki(user, wiki, descriptor):
         user, wiki
     )
     return _getPage(url, descriptor)
-
 
 
 def _getPage(url, descriptor):

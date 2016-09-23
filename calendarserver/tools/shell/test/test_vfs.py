@@ -28,8 +28,8 @@ from calendarserver.tools.shell.vfs import File, Folder
 # from calendarserver.tools.shell.terminal import ShellService
 
 
-
 class TestListEntry(TestCase):
+
     def test_toString(self):
         self.assertEquals(
             ListEntry(None, File, "thingo").toString(),
@@ -48,7 +48,6 @@ class TestListEntry(TestCase):
             "thingo/"
         )
 
-
     def test_fieldNamesImplicit(self):
         # This test assumes File doesn't set list.fieldNames.
         assert not hasattr(File.list, "fieldNames")
@@ -57,7 +56,6 @@ class TestListEntry(TestCase):
             set(ListEntry(File(None, ()), File, "thingo").fieldNames),
             set(("Name",))
         )
-
 
     def test_fieldNamesExplicit(self):
         def fieldNames(fileClass):
@@ -68,35 +66,35 @@ class TestListEntry(TestCase):
 
         # Full list
         class MyFile1(File):
+
             def list(self):
                 return succeed(())
             list.fieldNames = ("Name", "Flavor")
         self.assertEquals(fieldNames(MyFile1).fieldNames, ("Name", "Flavor"))
 
-
         # Full list, different order
         class MyFile2(File):
+
             def list(self):
                 return succeed(())
             list.fieldNames = ("Flavor", "Name")
         self.assertEquals(fieldNames(MyFile2).fieldNames, ("Flavor", "Name"))
 
-
         # Omits Name, which is implicitly added
         class MyFile3(File):
+
             def list(self):
                 return succeed(())
             list.fieldNames = ("Flavor",)
         self.assertEquals(fieldNames(MyFile3).fieldNames, ("Name", "Flavor"))
 
-
         # Emtpy
         class MyFile4(File):
+
             def list(self):
                 return succeed(())
             list.fieldNames = ()
         self.assertEquals(fieldNames(MyFile4).fieldNames, ("Name",))
-
 
     def test_toFieldsImplicit(self):
         # This test assumes File doesn't set list.fieldNames.
@@ -113,7 +111,6 @@ class TestListEntry(TestCase):
             ("thingo", "Coconut", "Hard")
         )
 
-
     def test_toFieldsExplicit(self):
         def fields(fileClass):
             return tuple(
@@ -125,35 +122,35 @@ class TestListEntry(TestCase):
 
         # Full list
         class MyFile1(File):
+
             def list(self):
                 return succeed(())
             list.fieldNames = ("Name", "Flavor")
         self.assertEquals(fields(MyFile1), ("thingo", "Coconut"))
 
-
         # Full list, different order
         class MyFile2(File):
+
             def list(self):
                 return succeed(())
             list.fieldNames = ("Flavor", "Name")
         self.assertEquals(fields(MyFile2), ("Coconut", "thingo"))
 
-
         # Omits Name, which is implicitly added
         class MyFile3(File):
+
             def list(self):
                 return succeed(())
             list.fieldNames = ("Flavor",)
         self.assertEquals(fields(MyFile3), ("thingo", "Coconut"))
 
-
         # Emtpy
         class MyFile4(File):
+
             def list(self):
                 return succeed(())
             list.fieldNames = ()
         self.assertEquals(fields(MyFile4), ("thingo",))
-
 
 
 class UIDsFolderTests(TestCase):

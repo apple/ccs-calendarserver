@@ -39,6 +39,7 @@ csv_filename = sys.argv[1]
 # Do The Right Thing
 ##
 
+
 def parse_datetime(date, time):
     if date == "":
         return None
@@ -75,9 +76,9 @@ calendar = Component("VCALENDAR")
 reader.next()
 
 priorities = {
-    "High"   : "1",
-    "Medium" : "5",
-    "Low"    : "9",
+    "High": "1",
+    "Medium": "5",
+    "Low": "9",
 }
 
 for row in reader:

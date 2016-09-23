@@ -37,22 +37,18 @@ def mean(samples):
     return sum(samples) / len(samples)
 
 
-
 def median(samples):
     return sorted(samples)[len(samples) / 2]
-
 
 
 def residuals(samples, from_):
     return [from_ - s for s in samples]
 
 
-
 def stddev(samples):
     m = mean(samples)
     variance = sum([datum ** 2 for datum in residuals(samples, m)]) / len(samples)
     return variance ** 0.5
-
 
 
 def mad(samples):
@@ -64,27 +60,22 @@ def mad(samples):
     return median(res)
 
 
-
 class _Statistic(object):
     commands = ['summarize']
 
     def __init__(self, name):
         self.name = name
 
-
     def __eq__(self, other):
         if isinstance(other, _Statistic):
             return self.name == other.name
         return NotImplemented
 
-
     def __hash__(self):
         return hash((self.__class__, self.name))
 
-
     def __repr__(self):
         return '<Stat %r>' % (self.name,)
-
 
     def squash(self, samples, mode=None):
         """
@@ -92,7 +83,6 @@ class _Statistic(object):
         in seconds (I hope time is the only thing you measure).
         """
         return samples
-
 
     def summarize(self, data):
         return ''.join([
@@ -102,17 +92,14 @@ class _Statistic(object):
             self.name, ' median absolute deviation ', str(mad(data)), '\n',
             self.name, ' sum ', str(sum(data)), '\n'])
 
-
     def write(self, basename, data):
         fObj = file(basename % (self.name,), 'w')
         fObj.write('\n'.join(map(str, data)) + '\n')
         fObj.close()
 
 
-
 class Duration(_Statistic):
     pass
-
 
 
 class SQLDuration(_Statistic):
@@ -124,7 +111,6 @@ class SQLDuration(_Statistic):
         if token.ttype == sqlparse.tokens.Keyword and token.value in (u'True', u'False'):
             return True
         return False
-
 
     def _substitute(self, expression, replacement):
         try:
@@ -140,14 +126,12 @@ class SQLDuration(_Statistic):
             else:
                 self._substitute(token, replacement)
 
-
     def normalize(self, sql):
         (statement,) = sqlparse.parse(sql)
         # Replace any literal values with placeholders
         qmark = sqlparse.sql.Token('Operator', '?')
         self._substitute(statement, qmark)
         return sqlparse.format(statement.to_unicode().encode('ascii'))
-
 
     def squash(self, samples, mode="duration"):
         """
@@ -166,7 +150,6 @@ class SQLDuration(_Statistic):
             results.append(value)
         return results
 
-
     def summarize(self, samples):
         times = []
         statements = {}
@@ -181,7 +164,6 @@ class SQLDuration(_Statistic):
             '%d: %s\n' % (count, statement)
             for (statement, count)
             in statements.iteritems()]) + _Statistic.summarize(self, times)
-
 
     def statements(self, samples):
         statements = {}
@@ -204,7 +186,6 @@ class SQLDuration(_Statistic):
                 time = time / NANO * 1000
                 print(row % (time, time / count, count, statement))
 
-
     def transcript(self, samples):
         statements = []
         data = samples[len(samples) / 2]
@@ -213,15 +194,13 @@ class SQLDuration(_Statistic):
         return '\n'.join(statements) + '\n'
 
 
-
 class Bytes(_Statistic):
+
     def squash(self, samples):
         return [sum(bytes) for bytes in samples]
 
-
     def summarize(self, samples):
         return _Statistic.summarize(self, self.squash(samples))
-
 
 
 def quantize(data):
@@ -234,11 +213,10 @@ def quantize(data):
     return []
 
 
-
 class IPopulation(Interface):
-    def sample(): #@NoSelf
-        pass
 
+    def sample():  # @NoSelf
+        pass
 
 
 class UniformDiscreteDistribution(object, FancyEqMixin):
@@ -254,18 +232,15 @@ class UniformDiscreteDistribution(object, FancyEqMixin):
         self._randomize = randomize
         self._refill()
 
-
     def _refill(self):
         self._remaining = self._values[:]
         if self._randomize:
             random.shuffle(self._remaining)
 
-
     def sample(self):
         if not self._remaining:
             self._refill()
         return self._remaining.pop()
-
 
 
 class LogNormalDistribution(object, FancyEqMixin):
@@ -305,7 +280,6 @@ class LogNormalDistribution(object, FancyEqMixin):
         self._scale = scale
         self._maximum = maximum
 
-
     def sample(self):
         result = self._scale * random.lognormvariate(self._mu, self._sigma)
         if self._maximum is not None and result > self._maximum:
@@ -318,7 +292,6 @@ class LogNormalDistribution(object, FancyEqMixin):
         return result
 
 
-
 class FixedDistribution(object, FancyEqMixin):
     """
     """
@@ -329,10 +302,8 @@ class FixedDistribution(object, FancyEqMixin):
     def __init__(self, value):
         self._value = value
 
-
     def sample(self):
         return self._value
-
 
 
 class NearFutureDistribution(object, FancyEqMixin):
@@ -341,12 +312,10 @@ class NearFutureDistribution(object, FancyEqMixin):
     def __init__(self):
         self._offset = LogNormalDistribution(7, 0.8)
 
-
     def sample(self):
         now = DateTime.getNowUTC()
         now.offsetSeconds(int(self._offset.sample()))
         return now
-
 
 
 class NormalDistribution(object, FancyEqMixin):
@@ -356,14 +325,12 @@ class NormalDistribution(object, FancyEqMixin):
         self._mu = mu
         self._sigma = sigma
 
-
     def sample(self):
         # Only return positive values or zero
         v = random.normalvariate(self._mu, self._sigma)
         while v < 0:
             v = random.normalvariate(self._mu, self._sigma)
         return v
-
 
 
 class UniformIntegerDistribution(object, FancyEqMixin):
@@ -373,12 +340,12 @@ class UniformIntegerDistribution(object, FancyEqMixin):
         self._min = min
         self._max = max
 
-
     def sample(self):
         return int(random.uniform(self._min, self._max))
 
 
 NUM_WEEKDAYS = 7
+
 
 class WorkDistribution(object, FancyEqMixin):
     compareAttributes = ["_daysOfWeek", "_beginHour", "_endHour"]
@@ -397,10 +364,8 @@ class WorkDistribution(object, FancyEqMixin):
             60 * 60 * 8 * 4)
         self.now = DateTime.getNow
 
-
     def astimestamp(self, dt):
         return mktime(dt.timetuple())
-
 
     def _findWorkAfter(self, when):
         """
@@ -422,7 +387,6 @@ class WorkDistribution(object, FancyEqMixin):
                 if end > when:
                     return begin, end
 
-
     def sample(self):
         offset = PyDuration(seconds=int(self._helperDistribution.sample()))
         beginning = self.now(Timezone(tzid=self._tzname))
@@ -435,7 +399,6 @@ class WorkDistribution(object, FancyEqMixin):
                 return result
             offset.setDuration(offset.getTotalSeconds() - (end - start).getTotalSeconds())
             beginning = end
-
 
 
 class RecurrenceDistribution(object, FancyEqMixin):
@@ -460,7 +423,6 @@ class RecurrenceDistribution(object, FancyEqMixin):
                 for _ignore in range(count):
                     self._rrules.append(self._model_rrules[rrule])
         self._helperDistribution = UniformIntegerDistribution(0, len(self._rrules) - 1)
-
 
     def sample(self):
 

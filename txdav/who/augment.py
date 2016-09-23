@@ -48,7 +48,6 @@ from txdav.who.idirectory import (
 log = Logger()
 
 
-
 def timed(f):
     """
     A decorator which keeps track of the wrapped function's call count and
@@ -71,7 +70,6 @@ def timed(f):
         AugmentedDirectoryService._addTiming(key, time.time() - startTime)
         return result
 
-
     def timingWrapper(self, *args, **kwds):
         """
         Records the start time of the call and the method's name
@@ -82,7 +80,6 @@ def timed(f):
         return d
 
     return timingWrapper
-
 
 
 @implementer(IDirectoryService, IStoreDirectoryService)
@@ -103,7 +100,6 @@ class AugmentedDirectoryService(
 
     _timings = {}
 
-
     def __init__(self, directory, store, augmentDB):
         BaseDirectoryService.__init__(self, directory.realmName)
         self._directory = directory
@@ -114,7 +110,6 @@ class AugmentedDirectoryService(
         # This is assigned in buildDirectory()
         self._ldapDS = None
 
-
     @classmethod
     def _addTiming(cls, key, duration):
         if key not in cls._timings:
@@ -124,10 +119,8 @@ class AugmentedDirectoryService(
         timeSpent += duration
         cls._timings[key] = (count, timeSpent)
 
-
     def flush(self):
         return self._directory.flush()
-
 
     def stats(self):
         results = {}
@@ -139,17 +132,14 @@ class AugmentedDirectoryService(
 
         return succeed(results)
 
-
     @property
     def recordType(self):
         # Defer to the directory service we're augmenting
         return self._directory.recordType
 
-
     def recordTypes(self):
         # Defer to the directory service we're augmenting
         return self._directory.recordTypes()
-
 
     @inlineCallbacks
     def recordsFromExpression(
@@ -166,7 +156,6 @@ class AugmentedDirectoryService(
             augmented.append(record)
         returnValue(augmented)
 
-
     @inlineCallbacks
     def recordsWithFieldValue(
         self, fieldName, value, limitResults=None, timeoutSeconds=None
@@ -180,7 +169,6 @@ class AugmentedDirectoryService(
             record = yield self._augment(record)
             augmented.append(record)
         returnValue(augmented)
-
 
     @timed
     @inlineCallbacks
@@ -196,7 +184,6 @@ class AugmentedDirectoryService(
         record = yield self._augment(record)
         returnValue(record)
 
-
     @timed
     @inlineCallbacks
     def recordWithGUID(self, guid, timeoutSeconds=None):
@@ -205,7 +192,6 @@ class AugmentedDirectoryService(
         )
         record = yield self._augment(record)
         returnValue(record)
-
 
     @timed
     @inlineCallbacks
@@ -221,7 +207,6 @@ class AugmentedDirectoryService(
             augmented.append(record)
         returnValue(augmented)
 
-
     @timed
     @inlineCallbacks
     def recordWithShortName(self, recordType, shortName, timeoutSeconds=None):
@@ -235,7 +220,6 @@ class AugmentedDirectoryService(
         )
         record = yield self._augment(record)
         returnValue(record)
-
 
     @timed
     @inlineCallbacks
@@ -257,13 +241,11 @@ class AugmentedDirectoryService(
             augmented.append(record)
         returnValue(augmented)
 
-
     @timed
     def recordWithCalendarUserAddress(self, *args, **kwds):
         return CalendarDirectoryServiceMixin.recordWithCalendarUserAddress(
             self, *args, **kwds
         )
-
 
     @timed
     def recordsMatchingTokens(self, *args, **kwds):
@@ -271,13 +253,11 @@ class AugmentedDirectoryService(
             self, *args, **kwds
         )
 
-
     @timed
     def recordsMatchingFields(self, *args, **kwds):
         return CalendarDirectoryServiceMixin.recordsMatchingFields(
             self, *args, **kwds
         )
-
 
     @timed
     @inlineCallbacks
@@ -339,7 +319,6 @@ class AugmentedDirectoryService(
             except NotAllowedError:
                 pass
 
-
     def _splitFields(self, record):
         """
         Returns a tuple of two dictionaries; the first contains all the non
@@ -362,12 +341,10 @@ class AugmentedDirectoryService(
 
         return (baseFields, augmentFields)
 
-
     @inlineCallbacks
     def removeRecords(self, uids):
         yield self._augmentDB.removeAugmentRecords(uids)
         yield self._directory.removeRecords(uids)
-
 
     def _assignToField(self, fields, name, value):
         """
@@ -376,7 +353,6 @@ class AugmentedDirectoryService(
         field = self.fieldName.lookupByName(name)
         if field not in fields:
             fields[field] = value
-
 
     @inlineCallbacks
     def _augment(self, record):
@@ -457,7 +433,6 @@ class AugmentedDirectoryService(
                 augmentRecord.serverID.decode("utf-8")
             )
 
-
         else:
             self._assignToField(fields, "hasCalendars", False)
             self._assignToField(fields, "hasContacts", False)
@@ -469,7 +444,6 @@ class AugmentedDirectoryService(
         augmentedRecord = AugmentedDirectoryRecord(self, record, fields)
 
         returnValue(augmentedRecord)
-
 
     @inlineCallbacks
     def setAutoScheduleMode(self, record, autoScheduleMode):
@@ -491,7 +465,6 @@ class AugmentedDirectoryService(
             yield self._augmentDB.addAugmentRecords([augmentRecord])
 
 
-
 class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
     """
     Augmented directory record.
@@ -501,7 +474,6 @@ class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
         DirectoryRecord.__init__(self, service, augmentedFields)
         CalendarDirectoryRecordMixin.__init__(self)
         self._baseRecord = baseRecord
-
 
     @timed
     @inlineCallbacks
@@ -514,18 +486,14 @@ class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
 
         returnValue(augmented)
 
-
     def addMembers(self, memberRecords):
         return self._baseRecord.addMembers(memberRecords)
-
 
     def removeMembers(self, memberRecords):
         return self._baseRecord.removeMembers(memberRecords)
 
-
     def setMembers(self, memberRecords):
         return self._baseRecord.setMembers(memberRecords)
-
 
     @timed
     @inlineCallbacks
@@ -549,16 +517,13 @@ class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
 
         returnValue(augmented)
 
-
     @timed
     def verifyPlaintextPassword(self, password):
         return self._baseRecord.verifyPlaintextPassword(password)
 
-
     @timed
     def verifyHTTPDigest(self, *args):
         return self._baseRecord.verifyHTTPDigest(*args)
-
 
     @timed
     def accessForRecord(self, record):

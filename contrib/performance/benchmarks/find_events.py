@@ -41,6 +41,7 @@ PROPFIND = """\
 </x0:propfind>
 """
 
+
 def uploadEvents(numEvents, agent, uri, cal):
     def worker():
         for i in range(numEvents):
@@ -53,7 +54,6 @@ def uploadEvents(numEvents, agent, uri, cal):
     worker = worker()
     return gatherResults([
         cooperate(worker).whenDone() for _ignore_i in range(3)])
-
 
 
 @inlineCallbacks

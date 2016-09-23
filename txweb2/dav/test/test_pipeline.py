@@ -35,23 +35,22 @@ from twisted.internet.defer import waitForDeferred, deferredGenerator
 
 from twisted.python import util
 
+
 class Pipeline(test_server.BaseCase):
     """
     Pipelined request
     """
     class TestResource(resource.LeafResource):
+
         def render(self, req):
             return http.Response(stream="Host:%s, Path:%s" % (req.host, req.path))
-
 
     def setUp(self):
         self.root = self.TestResource()
 
-
     def chanrequest(self, root, uri, length, headers, method, version, prepath, content):
         self.cr = super(Pipeline, self).chanrequest(root, uri, length, headers, method, version, prepath, content)
         return self.cr
-
 
     def test_root(self):
 
@@ -61,7 +60,6 @@ class Pipeline(test_server.BaseCase):
         return self.assertResponse(
             (self.root, 'http://host/path', {"content-type": "text/plain", }, "PUT", None, '', "This is some text."),
             (405, {}, None)).addCallback(_testStreamRead)
-
 
 
 class SSLPipeline(test_http.SSLServerTest):

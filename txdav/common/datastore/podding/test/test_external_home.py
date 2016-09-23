@@ -42,7 +42,6 @@ class ExternalHome(CommonCommonTests, txweb2.dav.test.util.TestCase):
 
         self.site.resource.putChild("conduit", ConduitResource(self.site.resource, self.storeUnderTest()))
 
-
     @inlineCallbacks
     def test_validNormalHome(self):
         """
@@ -56,7 +55,6 @@ class ExternalHome(CommonCommonTests, txweb2.dav.test.util.TestCase):
             calendar = yield home.childWithName("calendar")
             self.assertTrue(calendar is not None)
 
-
     @inlineCallbacks
     def test_validExternalHome(self):
         """
@@ -69,7 +67,6 @@ class ExternalHome(CommonCommonTests, txweb2.dav.test.util.TestCase):
             self.assertEqual(home._status, _HOME_STATUS_EXTERNAL)
             calendar = yield home.childWithName("calendar")
             self.assertTrue(calendar is None)
-
 
     @inlineCallbacks
     def test_invalidHome(self):

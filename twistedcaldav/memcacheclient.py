@@ -69,6 +69,7 @@ try:
 except ImportError:
     _supports_compress = False
     # quickly define a decompress just in case we recv compressed data.
+
     def decompress(val):
         raise _Error("received compressed data but I don't support compession (import error)")
 
@@ -91,9 +92,9 @@ SERVER_MAX_KEY_LENGTH = 250
 #  after importing this module.
 SERVER_MAX_VALUE_LENGTH = 1024 * 1024
 
+
 class _Error(Exception):
     pass
-
 
 
 class MemcacheError(_Error):
@@ -102,12 +103,10 @@ class MemcacheError(_Error):
     """
 
 
-
 class NotFoundError(MemcacheError):
     """
     NOT_FOUND error
     """
-
 
 
 class TokenMismatchError(MemcacheError):
@@ -122,7 +121,6 @@ except ImportError:
     # TODO:  add the pure-python local implementation
     class local(object):
         pass
-
 
 
 class ClientFactory(object):
@@ -148,7 +146,6 @@ class ClientFactory(object):
                 pickler=pickler, unpickler=unpickler, pload=pload, pid=pid)
         else:
             return None
-
 
 
 class Client(local):
@@ -183,26 +180,20 @@ class Client(local):
     class MemcachedKeyError(Exception):
         pass
 
-
     class MemcachedKeyLengthError(MemcachedKeyError):
         pass
-
 
     class MemcachedKeyCharacterError(MemcachedKeyError):
         pass
 
-
     class MemcachedKeyNoneError(MemcachedKeyError):
         pass
-
 
     class MemcachedKeyTypeError(MemcachedKeyError):
         pass
 
-
     class MemcachedStringEncodingError(Exception):
         pass
-
 
     def __init__(self, servers, debug=0, pickleProtocol=0,
                  pickler=pickle.Pickler, unpickler=pickle.Unpickler,
@@ -241,7 +232,6 @@ class Client(local):
         except TypeError:
             self.picklerIsKeyword = False
 
-
     def set_servers(self, servers):
         """
         Set the pool of servers used by this client.
@@ -254,7 +244,6 @@ class Client(local):
         """
         self.servers = [_Host(s, self.debuglog) for s in servers]
         self._init_buckets()
-
 
     def get_stats(self):
         '''Get statistics from each of the servers.
@@ -285,7 +274,6 @@ class Client(local):
 
         return(data)
 
-
     def get_slabs(self):
         data = []
         for s in self.servers:
@@ -312,7 +300,6 @@ class Client(local):
                 serverData[slab[1]][slab[2]] = item[2]
         return data
 
-
     def flush_all(self):
         'Expire all data currently in the memcache servers.'
         for s in self.servers:
@@ -321,18 +308,15 @@ class Client(local):
             s.send_cmd('flush_all')
             s.expect("OK")
 
-
     def debuglog(self, str):
         if self.debug:
             sys.stderr.write("MemCached: %s\n" % str)
-
 
     def _statlog(self, func):
         if func not in self.stats:
             self.stats[func] = 1
         else:
             self.stats[func] += 1
-
 
     def forget_dead_hosts(self):
         """
@@ -341,13 +325,11 @@ class Client(local):
         for s in self.servers:
             s.deaduntil = 0
 
-
     def _init_buckets(self):
         self.buckets = []
         for server in self.servers:
             for _ignroe_i in range(server.weight):
                 self.buckets.append(server)
-
 
     def _get_server(self, key):
         if isinstance(key, tuple):
@@ -364,11 +346,9 @@ class Client(local):
         log.error("Memcacheclient _get_server( ) failed to connect")
         return None, None
 
-
     def disconnect_all(self):
         for s in self.servers:
             s.close_socket()
-
 
     def delete_multi(self, keys, time=0, key_prefix=''):
         '''
@@ -409,10 +389,10 @@ class Client(local):
             bigcmd = []
             write = bigcmd.append
             if time != None:
-                for key in server_keys[server]: # These are mangled keys
+                for key in server_keys[server]:  # These are mangled keys
                     write("delete %s %d\r\n" % (key, time))
             else:
-                for key in server_keys[server]: # These are mangled keys
+                for key in server_keys[server]:  # These are mangled keys
                     write("delete %s\r\n" % key)
             try:
                 server.send_cmds(''.join(bigcmd))
@@ -437,7 +417,6 @@ class Client(local):
                 server.mark_dead(msg)
                 rc = 0
         return rc
-
 
     def delete(self, key, time=0):
         '''Deletes a key from the memcache.
@@ -466,7 +445,6 @@ class Client(local):
             return 0
         return 1
 
-
     def incr(self, key, delta=1):
         """
         Sends a command to the server to atomically increment the value for C{key} by
@@ -492,7 +470,6 @@ class Client(local):
         """
         return self._incrdecr("incr", key, delta)
 
-
     def decr(self, key, delta=1):
         """
         Like L{incr}, but decrements.  Unlike L{incr}, underflow is checked and
@@ -504,7 +481,6 @@ class Client(local):
         @rtype: int
         """
         return self._incrdecr("decr", key, delta)
-
 
     def _incrdecr(self, cmd, key, delta):
         check_key(key)
@@ -523,7 +499,6 @@ class Client(local):
             server.mark_dead(msg)
             return None
 
-
     def add(self, key, val, time=0, min_compress_len=0):
         '''
         Add new key with value.
@@ -534,7 +509,6 @@ class Client(local):
         @rtype: int
         '''
         return self._set("add", key, val, time, min_compress_len)
-
 
     def append(self, key, val, time=0, min_compress_len=0):
         '''Append the value to the end of the existing key's value.
@@ -547,7 +521,6 @@ class Client(local):
         '''
         return self._set("append", key, val, time, min_compress_len)
 
-
     def prepend(self, key, val, time=0, min_compress_len=0):
         '''Prepend the value to the beginning of the existing key's value.
 
@@ -559,7 +532,6 @@ class Client(local):
         '''
         return self._set("prepend", key, val, time, min_compress_len)
 
-
     def replace(self, key, val, time=0, min_compress_len=0):
         '''Replace existing key with value.
 
@@ -570,7 +542,6 @@ class Client(local):
         @rtype: int
         '''
         return self._set("replace", key, val, time, min_compress_len)
-
 
     def set(self, key, val, time=0, min_compress_len=0, token=None):
         '''Unconditionally sets a key to a given value in the memcache.
@@ -598,7 +569,6 @@ class Client(local):
         '''
         return self._set("set", key, val, time, min_compress_len, token=token)
 
-
     def _map_and_prefix_keys(self, key_iterable, key_prefix):
         """Compute the mapping of server (_Host instance) -> list of keys to stuff onto that server, as well as the mapping of
         prefixed key -> original key.
@@ -620,9 +590,9 @@ class Client(local):
                 # Tuple of hashvalue, key ala _get_server(). Caller is essentially telling us what server to stuff this on.
                 # Ensure call to _get_server gets a Tuple as well.
                 str_orig_key = str(orig_key[1])
-                server, key = self._get_server((orig_key[0], key_prefix + str_orig_key)) # Gotta pre-mangle key before hashing to a server. Returns the mangled key.
+                server, key = self._get_server((orig_key[0], key_prefix + str_orig_key))  # Gotta pre-mangle key before hashing to a server. Returns the mangled key.
             else:
-                str_orig_key = str(orig_key) # set_multi supports int / long keys.
+                str_orig_key = str(orig_key)  # set_multi supports int / long keys.
                 server, key = self._get_server(key_prefix + str_orig_key)
 
             # Now check to make sure key length is proper ...
@@ -637,7 +607,6 @@ class Client(local):
             prefixed_to_orig_key[key] = orig_key
 
         return (server_keys, prefixed_to_orig_key)
-
 
     def set_multi(self, mapping, time=0, key_prefix='', min_compress_len=0):
         '''
@@ -691,7 +660,7 @@ class Client(local):
             bigcmd = []
             write = bigcmd.append
             try:
-                for key in server_keys[server]: # These are mangled keys
+                for key in server_keys[server]:  # These are mangled keys
                     store_info = self._val_to_store_info(mapping[prefixed_to_orig_key[key]], min_compress_len)
                     write("set %s %d %d %d\r\n%s\r\n" % (key, store_info[0], time, store_info[1], store_info[2]))
                 server.send_cmds(''.join(bigcmd))
@@ -709,7 +678,7 @@ class Client(local):
         if not server_keys:
             return(mapping.keys())
 
-        notstored = [] # original keys.
+        notstored = []  # original keys.
         for server, keys in server_keys.iteritems():
             try:
                 for key in keys:
@@ -717,13 +686,12 @@ class Client(local):
                     if line == 'STORED':
                         continue
                     else:
-                        notstored.append(prefixed_to_orig_key[key]) # un-mangle.
+                        notstored.append(prefixed_to_orig_key[key])  # un-mangle.
             except (_Error, socket.error), msg:
                 if isinstance(msg, tuple):
                     msg = msg[1]
                 server.mark_dead(msg)
         return notstored
-
 
     def _val_to_store_info(self, val, min_compress_len):
         """
@@ -771,7 +739,6 @@ class Client(local):
 
         return (flags, len(val), val)
 
-
     def _set(self, cmd, key, val, time, min_compress_len=0, token=None):
         check_key(key)
         server, key = self._get_server(key)
@@ -813,7 +780,6 @@ class Client(local):
             server.mark_dead(msg)
         return 0
 
-
     def get(self, key):
         '''Retrieves a key from the memcache.
 
@@ -840,7 +806,6 @@ class Client(local):
             raise MemcacheError("Memcache connection error")
         return value
 
-
     def gets(self, key):
         '''Retrieves a key from the memcache.
 
@@ -866,7 +831,6 @@ class Client(local):
             server.mark_dead(msg)
             raise MemcacheError("Memcache connection error")
         return (value, cas_token)
-
 
     def get_multi(self, keys, key_prefix=''):
         '''
@@ -945,7 +909,6 @@ class Client(local):
                 server.mark_dead(msg)
         return retvals
 
-
     def gets_multi(self, keys, key_prefix=''):
         '''
         Retrieves multiple keys from the memcache doing just one query.
@@ -991,7 +954,6 @@ class Client(local):
                 server.mark_dead(msg)
         return retvals
 
-
     def _expectvalue(self, server, line=None):
         if not line:
             line = server.readline()
@@ -1003,7 +965,6 @@ class Client(local):
             return (rkey, flags, rlen)
         else:
             return (None, None, None)
-
 
     def _expectvalue_cas(self, server, line=None):
         if not line:
@@ -1017,9 +978,8 @@ class Client(local):
         else:
             return (None, None, None, None)
 
-
     def _recv_value(self, server, flags, rlen):
-        rlen += 2 # include \r\n
+        rlen += 2  # include \r\n
         buf = server.recv(rlen)
         if len(buf) != rlen:
             raise _Error("received %d bytes when expecting %d" % (len(buf), rlen))
@@ -1053,7 +1013,6 @@ class Client(local):
         return val
 
 
-
 class TestClient(Client):
     """
     Fake memcache client for unit tests
@@ -1074,22 +1033,17 @@ class TestClient(Client):
         self.data = {}
         self.token = 0
 
-
     def get_stats(self):
         raise NotImplementedError()
-
 
     def get_slabs(self):
         raise NotImplementedError()
 
-
     def flush_all(self):
         raise NotImplementedError()
 
-
     def forget_dead_hosts(self):
         raise NotImplementedError()
-
 
     def delete_multi(self, keys, time=0, key_prefix=''):
         '''
@@ -1110,7 +1064,6 @@ class TestClient(Client):
             del self.data[key]
         return 1
 
-
     def delete(self, key, time=0):
         '''Deletes a key from the memcache.
 
@@ -1122,35 +1075,27 @@ class TestClient(Client):
         del self.data[key]
         return 1
 
-
     def incr(self, key, delta=1):
         raise NotImplementedError()
-
 
     def decr(self, key, delta=1):
         raise NotImplementedError()
 
-
     def add(self, key, val, time=0, min_compress_len=0):
         raise NotImplementedError()
-
 
     def append(self, key, val, time=0, min_compress_len=0):
         raise NotImplementedError()
 
-
     def prepend(self, key, val, time=0, min_compress_len=0):
         raise NotImplementedError()
-
 
     def replace(self, key, val, time=0, min_compress_len=0):
         raise NotImplementedError()
 
-
     def set(self, key, val, time=0, min_compress_len=0, token=None):
         self._statlog('set')
         return self._set("set", key, val, time, min_compress_len, token=token)
-
 
     def set_multi(self, mapping, time=0, key_prefix='', min_compress_len=0):
         self._statlog('set_multi')
@@ -1158,7 +1103,6 @@ class TestClient(Client):
             key = key_prefix + key
             self._set("set", key, val, time, min_compress_len)
         return []
-
 
     def _set(self, cmd, key, val, time, min_compress_len=0, token=None):
         check_key(key)
@@ -1177,7 +1121,6 @@ class TestClient(Client):
 
         return True
 
-
     def get(self, key):
         check_key(key)
 
@@ -1188,7 +1131,6 @@ class TestClient(Client):
             return val
         return None
 
-
     def gets(self, key):
         check_key(key)
         if key in self.data:
@@ -1196,7 +1138,6 @@ class TestClient(Client):
             val = pickle.loads(stored_val)
             return (val, stored_token)
         return (None, None)
-
 
     def get_multi(self, keys, key_prefix=''):
         self._statlog('get_multi')
@@ -1207,7 +1148,6 @@ class TestClient(Client):
             val = self.get(key)
             results[key] = val
         return results
-
 
     def gets_multi(self, keys, key_prefix=''):
         self._statlog('gets_multi')
@@ -1220,10 +1160,9 @@ class TestClient(Client):
         return results
 
 
-
 class _Host:
     _DEAD_RETRY = 1  # number of seconds before retrying a dead server.
-    _SOCKET_TIMEOUT = 3  #  number of seconds before sockets timeout.
+    _SOCKET_TIMEOUT = 3  # number of seconds before sockets timeout.
 
     def __init__(self, host, debugfunc=None):
         if isinstance(host, types.TupleType):
@@ -1261,26 +1200,22 @@ class _Host:
 
         self.buffer = ''
 
-
     def _check_dead(self):
         if self.deaduntil and self.deaduntil > time.time():
             return 1
         self.deaduntil = 0
         return 0
 
-
     def connect(self):
         if self._get_socket():
             return 1
         return 0
-
 
     def mark_dead(self, reason):
         log.error("Memcacheclient socket marked dead ({r})", r=reason)
         self.debuglog("MemCache: %s: %s.  Marking dead." % (self, reason))
         self.deaduntil = time.time() + _Host._DEAD_RETRY
         self.close_socket()
-
 
     def _get_socket(self):
         if self._check_dead():
@@ -1307,21 +1242,17 @@ class _Host:
         self.buffer = ''
         return s
 
-
     def close_socket(self):
         if self.socket:
             self.socket.close()
             self.socket = None
 
-
     def send_cmd(self, cmd):
         self.socket.sendall(cmd + '\r\n')
-
 
     def send_cmds(self, cmds):
         """ cmds already has trailing \r\n's applied """
         self.socket.sendall(cmds)
-
 
     def readline(self):
         buf = self.buffer
@@ -1342,13 +1273,11 @@ class _Host:
             self.buffer = ''
         return buf
 
-
     def expect(self, text):
         line = self.readline()
         if line != text:
             self.debuglog("while expecting '%s', got unexpected response '%s'" % (text, line))
         return line
-
 
     def recv(self, rlen):
         self_socket_recv = self.socket.recv
@@ -1363,7 +1292,6 @@ class _Host:
         self.buffer = buf[rlen:]
         return buf[:rlen]
 
-
     def __str__(self):
         d = ''
         if self.deaduntil:
@@ -1373,7 +1301,6 @@ class _Host:
             return "inet:%s:%d%s" % (self.address[0], self.address[1], d)
         else:
             return "unix:%s%s" % (self.address, d)
-
 
 
 def check_key(key, key_extra_len=0):
@@ -1386,7 +1313,7 @@ def check_key(key, key_extra_len=0):
         Is None (Raises MemcachedKeyError)
     """
 
-    return # Short-circuit this expensive method
+    return  # Short-circuit this expensive method
 
     if isinstance(key, tuple):
         key = key[1]
@@ -1408,7 +1335,6 @@ def check_key(key, key_extra_len=0):
         for char in key:
             if ord(char) < 32 or ord(char) == 127:
                 raise Client.MemcachedKeyCharacterError, "Control characters not allowed"
-
 
 
 def _doctest():
@@ -1435,6 +1361,7 @@ if __name__ == "__main__":
             if not isinstance(val, types.StringTypes):
                 return "%s (%s)" % (val, type(val))
             return "%s" % val
+
         def test_setget(key, val):
             print("Testing set/get {'%s': %s} ..." % (to_s(key), to_s(val)), end="")
             mc.set(key, val)
@@ -1446,12 +1373,14 @@ if __name__ == "__main__":
                 print("FAIL")
                 return 0
 
-
         class FooStruct:
+
             def __init__(self):
                 self.bar = "baz"
+
             def __str__(self):
                 return "A FooStruct"
+
             def __eq__(self, other):
                 if isinstance(other, FooStruct):
                     return self.bar == other.bar
@@ -1548,7 +1477,7 @@ if __name__ == "__main__":
 
         print("Testing set_multi() with no memcacheds running", end="")
         mc.disconnect_all()
-        errors = mc.set_multi({'keyhere' : 'a', 'keythere' : 'b'})
+        errors = mc.set_multi({'keyhere': 'a', 'keythere': 'b'})
         if errors != []:
             print("FAIL")
         else:
@@ -1556,7 +1485,7 @@ if __name__ == "__main__":
 
         print("Testing delete_multi() with no memcacheds running", end="")
         mc.disconnect_all()
-        ret = mc.delete_multi({'keyhere' : 'a', 'keythere' : 'b'})
+        ret = mc.delete_multi({'keyhere': 'a', 'keythere': 'b'})
         if ret != 1:
             print("FAIL")
         else:

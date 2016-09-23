@@ -11,6 +11,7 @@ from twistedcaldav.config import config
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.test.util import TestCase
 
+
 class MemcacherTestCase(TestCase):
     """
     Test Memcacher abstract cache.
@@ -33,7 +34,6 @@ class MemcacherTestCase(TestCase):
             else:
                 self.assertEquals("avalue", result)
 
-
     @inlineCallbacks
     def test_missingget(self):
 
@@ -44,7 +44,6 @@ class MemcacherTestCase(TestCase):
 
             result = yield cacher.get("akey")
             self.assertEquals(None, result)
-
 
     @inlineCallbacks
     def test_delete(self):
@@ -69,7 +68,6 @@ class MemcacherTestCase(TestCase):
             result = yield cacher.get("akey")
             self.assertEquals(None, result)
 
-
     @inlineCallbacks
     def test_all_pickled(self):
 
@@ -93,7 +91,6 @@ class MemcacherTestCase(TestCase):
             result = yield cacher.get("akey")
             self.assertEquals(None, result)
 
-
     @inlineCallbacks
     def test_all_noinvalidation(self):
 
@@ -114,7 +111,6 @@ class MemcacherTestCase(TestCase):
             result = yield cacher.get("akey")
             self.assertEquals(None, result)
 
-
     def test_keynormalization(self):
 
         for processType in ("Single", "Combined",):
@@ -131,7 +127,6 @@ class MemcacherTestCase(TestCase):
             self.assertTrue("\t" not in key)
             self.assertTrue("\r" not in key)
 
-
     def test_key_value_str(self):
 
         config.ProcessType = "Single"
@@ -139,7 +134,6 @@ class MemcacherTestCase(TestCase):
         cacher = Memcacher("testing", pickle=False)
         self.failUnlessRaises(ValueError, cacher.set, "akey", ["1", "2", "3", ])
         self.failUnlessRaises(ValueError, cacher.set, "akey", u"abc")
-
 
     @inlineCallbacks
     def test_expiration(self):
@@ -163,7 +157,6 @@ class MemcacherTestCase(TestCase):
         cacher._memcacheProtocol.advanceClock(1)
         result = yield cacher.get("akey")
         self.assertEquals(None, result)
-
 
     @inlineCallbacks
     def test_checkAndSet(self):
@@ -191,7 +184,6 @@ class MemcacherTestCase(TestCase):
         self.assertFalse((yield cacher.checkAndSet("akey", "yetanother", "0")))
         # Should work because identifier does match:
         self.assertTrue((yield cacher.checkAndSet("akey", "yetanother", "1")))
-
 
     @inlineCallbacks
     def test_keyValueLimits(self):

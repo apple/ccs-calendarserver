@@ -57,7 +57,6 @@ class FBCacheEntry(object):
         self.timerange = timerange.getText()
         self.fbresults = fbresults
 
-
     @classmethod
     @inlineCallbacks
     def getCacheEntry(cls, calresource, useruid, timerange):
@@ -82,7 +81,6 @@ class FBCacheEntry(object):
 
         returnValue(None)
 
-
     @classmethod
     @inlineCallbacks
     def makeCacheEntry(cls, calresource, useruid, timerange, fbresults):
@@ -91,7 +89,6 @@ class FBCacheEntry(object):
         token = (yield calresource.syncToken())
         entry = cls(key, token, timerange, fbresults)
         yield cls.fbcacher.set(key, entry)
-
 
 
 class FreebusyQuery(object):
@@ -160,7 +157,6 @@ class FreebusyQuery(object):
         self.attendee_record = self.recipient.record if self.recipient and self.recipient.hosted() else None
         self.attendee_uid = self.attendee_record.uid if self.attendee_record else None
 
-
     @inlineCallbacks
     def checkRichOptions(self, txn):
         if not hasattr(self, "rich_options"):
@@ -194,7 +190,6 @@ class FreebusyQuery(object):
                 if config.Scheduling.Options.RoomResourceRichFreeBusy and self.attendee_record.getCUType() in ("RESOURCE", "ROOM",):
                     self.rich_options["resource"] = True
 
-
     @inlineCallbacks
     def generateAttendeeFreeBusyResponse(self, fbset=None, method="REPLY"):
 
@@ -220,7 +215,6 @@ class FreebusyQuery(object):
         fbresult = self.buildFreeBusyResult(fbinfo, method=method)
 
         returnValue(fbresult)
-
 
     def processAvailabilityFreeBusy(self, calendar, fbinfo):
         """
@@ -263,7 +257,6 @@ class FreebusyQuery(object):
                 fbtype = "BUSY-UNAVAILABLE"
 
             getattr(fbinfo, self.FBInfo_mapper.get(fbtype, "unavailable")).extend(busyperiods)
-
 
     def processAvailablePeriods(self, calendar):
         """
@@ -311,7 +304,6 @@ class FreebusyQuery(object):
         normalizePeriodList(periods)
         return periods
 
-
     @inlineCallbacks
     def generateFreeBusyInfo(self, fbset, fbinfo, matchtotal=0):
         """
@@ -341,7 +333,6 @@ class FreebusyQuery(object):
 
         returnValue(matchtotal)
 
-
     @inlineCallbacks
     def _externalGenerateFreeBusyInfo(self, fbset, fbinfo, matchtotal):
         """
@@ -363,7 +354,6 @@ class FreebusyQuery(object):
             for i in range(3):
                 fbinfo[i].extend([Period.parseText(p) for p in fbresults[i]])
         returnValue(matchtotal)
-
 
     @inlineCallbacks
     def _internalGenerateFreeBusyInfo(
@@ -499,7 +489,6 @@ class FreebusyQuery(object):
 
         returnValue(matchtotal)
 
-
     @inlineCallbacks
     def _matchResources(self, fbset):
         """
@@ -516,7 +505,6 @@ class FreebusyQuery(object):
             results[calresource.id()] = (aggregated_resources, tzinfo, filter,)
 
         returnValue(results)
-
 
     @inlineCallbacks
     def _matchCalendarResources(self, calresource):
@@ -605,7 +593,6 @@ class FreebusyQuery(object):
 
         returnValue((aggregated_resources, tzinfo, filter,))
 
-
     @inlineCallbacks
     def _testIgnoreExcludeUID(self, uid, test_organizer, recordUIDCache, dirservice):
         """
@@ -641,7 +628,6 @@ class FreebusyQuery(object):
                 returnValue(True)
 
         returnValue(False)
-
 
     def _addEventDetails(self, calendar, rich_options, tzinfo):
         """
@@ -684,7 +670,6 @@ class FreebusyQuery(object):
                     subcomponent.removeComponent(sub)
 
         self.event_details.extend([subcomponent for subcomponent in expanded.subcomponents() if subcomponent.name() == "VEVENT"])
-
 
     def processEventFreeBusy(self, calendar, fbinfo, tzinfo):
         """
@@ -748,7 +733,6 @@ class FreebusyQuery(object):
                 else:
                     fbinfo.busy.append(clipped)
 
-
     def processFreeBusyFreeBusy(self, calendar, fbinfo):
         """
         Extract FREEBUSY data from a VFREEBUSY component.
@@ -778,7 +762,6 @@ class FreebusyQuery(object):
                     clipped = clipPeriod(period.getValue(), self.timerange)
                     if clipped:
                         getattr(fbinfo, self.FBInfo_mapper.get(fbtype, "busy")).append(clipped)
-
 
     def buildFreeBusyResult(self, fbinfo, method=None):
         """

@@ -18,8 +18,8 @@ from twistedcaldav import customxml
 import time
 import twistedcaldav.test.util
 
-class CustomXML (twistedcaldav.test.util.TestCase):
 
+class CustomXML (twistedcaldav.test.util.TestCase):
 
     def test_DTStamp(self):
 

@@ -41,12 +41,10 @@ def _newCacheToken(self):
     return token
 
 
-
 class StubDirectoryRecord(object):
 
     def __init__(self, uid):
         self.uid = uid
-
 
     def cacheToken(self):
         """
@@ -59,16 +57,13 @@ class StubDirectoryRecord(object):
         ))
 
 
-
 class StubDirectory(object):
 
     def oldNameToRecordType(self, oldName):
         return oldName
 
-
     def recordWithShortName(self, recordType, recordName):
         return StubDirectoryRecord(recordName)
-
 
 
 class StubSiteResource(object):
@@ -76,10 +71,8 @@ class StubSiteResource(object):
     def __init__(self):
         self.directory = StubDirectory()
 
-
     def getDirectory(self):
         return self.directory
-
 
 
 class StubSite(object):
@@ -88,19 +81,16 @@ class StubSite(object):
         self.resource = StubSiteResource()
 
 
-
 class StubPrincipal(object):
+
     def __init__(self, user):
         self.user = user
-
 
     def principalURL(self):
         return self.user
 
-
     def principalElement(self):
         return element.Principal(element.HRef.fromString(self.user))
-
 
 
 class StubRequest(object):
@@ -120,14 +110,13 @@ class StubRequest(object):
 
         self.site = StubSite()
 
-
     def locateResource(self, uri):
         assert uri[0] == '/', "URI path didn't begin with '/': %s" % (uri,)
         return succeed(self.resources.get(uri))
 
 
-
 class StubResponse(object):
+
     def __init__(self, code, headers, body):
         self.code = code
         self.headers = Headers(headers)
@@ -135,21 +124,20 @@ class StubResponse(object):
         self.stream = MemoryStream(body)
 
 
-
 class StubURLResource(object):
+
     def __init__(self, url, record=None):
         self._url = url
 
         if record is not None:
             self.record = record
 
-
     def url(self):
         return self._url
 
 
-
 class MemCacheChangeNotifierTests(TestCase):
+
     def setUp(self):
         TestCase.setUp(self)
         self.memcache = InMemoryMemcacheProtocol()
@@ -161,17 +149,14 @@ class MemCacheChangeNotifierTests(TestCase):
                                                  self.ccn,
                                                  MemcacheChangeNotifier)
 
-
     def assertToken(self, expectedToken):
         token = self.memcache._cache['cacheToken::memory:'][1]
         self.assertEquals(token, expectedToken)
-
 
     def test_cacheTokenPropertyIsProvisioned(self):
         d = self.ccn.changed()
         d.addCallback(lambda _: self.assertToken('token0'))
         return d
-
 
     def test_changedChangesToken(self):
         d = self.ccn.changed()
@@ -179,15 +164,14 @@ class MemCacheChangeNotifierTests(TestCase):
         d.addCallback(lambda _: self.assertToken('token1'))
         return d
 
-
     def tearDown(self):
         for call in self.memcache._timeouts.itervalues():
             call.cancel()
         MemcacheChangeNotifier._memcacheProtocol = None
 
 
-
 class BaseCacheTestMixin(object):
+
     def setUp(self):
         StubRequest.resources = {
             '/calendars/__uids__/cdaboo/': StubURLResource(
@@ -201,10 +185,8 @@ class BaseCacheTestMixin(object):
             '/principals/__uids__/dreid/': StubURLResource(
                 '/principals/__uids__/dreid/', record=StubDirectoryRecord('dreid'))}
 
-
     def tearDown(self):
         StubRequest.resources = {}
-
 
     def assertResponse(self, response, expected):
         self.assertNotEquals(response, None, "Got None instead of a response.")
@@ -215,7 +197,6 @@ class BaseCacheTestMixin(object):
         d = allDataFromStream(response.stream)
         d.addCallback(self.assertEquals, expected[2])
         return d
-
 
     def test_getResponseForRequestMultiHomedRequestURI(self):
         request = StubRequest(
@@ -228,7 +209,6 @@ class BaseCacheTestMixin(object):
         d.addCallback(self.assertEquals, None)
         return d
 
-
     def test_getResponseForRequestURINotFound(self):
         request = StubRequest(
             'PROPFIND',
@@ -238,7 +218,6 @@ class BaseCacheTestMixin(object):
         d = self.rc.getResponseForRequest(request)
         d.addCallback(self.assertEquals, None)
         return d
-
 
     def test_getResponseForRequestMultiHomedPrincipalURI(self):
         request = StubRequest(
@@ -251,7 +230,6 @@ class BaseCacheTestMixin(object):
         d.addCallback(self.assertEquals, None)
         return d
 
-
     def test_getResponseForRequestNotInCache(self):
         d = self.rc.getResponseForRequest(StubRequest(
             'PROPFIND',
@@ -262,7 +240,6 @@ class BaseCacheTestMixin(object):
         d.addCallback(self.assertEquals, None)
         return d
 
-
     def test_getResponseForRequestInCache(self):
         d = self.rc.getResponseForRequest(StubRequest(
             'PROPFIND',
@@ -272,7 +249,6 @@ class BaseCacheTestMixin(object):
 
         d.addCallback(self.assertResponse, self.expected_response)
         return d
-
 
     def test_getResponseForRequestPrincipalTokenChanged(self):
         self.tokens['/principals/__uids__/cdaboo/'] = 'principalToken1'
@@ -286,7 +262,6 @@ class BaseCacheTestMixin(object):
         d.addCallback(self.assertEquals, None)
         return d
 
-
     def test_getResponseForRequestUriTokenChanged(self):
         self.tokens['/calendars/__uids__/cdaboo/'] = 'uriToken1'
 
@@ -298,7 +273,6 @@ class BaseCacheTestMixin(object):
 
         d.addCallback(self.assertEquals, None)
         return d
-
 
     def test_getResponseForRequestChildTokenChanged(self):
         self.tokens['/calendars/__uids__/cdaboo/calendars/'] = 'childToken1'
@@ -312,7 +286,6 @@ class BaseCacheTestMixin(object):
         d.addCallback(self.assertEquals, None)
         return d
 
-
     def test_getResponseForDepthZero(self):
         d = self.rc.getResponseForRequest(StubRequest(
             'PROPFIND',
@@ -323,7 +296,6 @@ class BaseCacheTestMixin(object):
 
         d.addCallback(self.assertEquals, None)
         return d
-
 
     def test_getResponseForBody(self):
         d = self.rc.getResponseForRequest(StubRequest(
@@ -336,7 +308,6 @@ class BaseCacheTestMixin(object):
         d.addCallback(self.assertEquals, None)
         return d
 
-
     def test_getResponseForUnauthenticatedRequest(self):
         d = self.rc.getResponseForRequest(StubRequest(
             'PROPFIND',
@@ -347,7 +318,6 @@ class BaseCacheTestMixin(object):
 
         d.addCallback(self.assertEquals, None)
         return d
-
 
     def test_cacheUnauthenticatedResponse(self):
         expected_response = StubResponse(401, {}, "foobar")
@@ -364,7 +334,6 @@ class BaseCacheTestMixin(object):
                        expected_response.body))
 
         return d
-
 
     def test_cacheResponseForRequest(self):
         expected_response = StubResponse(200, {}, "Foobar")
@@ -393,7 +362,6 @@ class BaseCacheTestMixin(object):
         d.addCallback(_assertResponse)
         return d
 
-
     def test_recordHashChangeInvalidatesCache(self):
         StubRequest.resources[
             '/principals/__uids__/cdaboo/'].record = StubDirectoryRecord('cdaboo-changed')
@@ -408,8 +376,8 @@ class BaseCacheTestMixin(object):
         return d
 
 
-
 class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
+
     def setUp(self):
         super(MemcacheResponseCacheTests, self).setUp()
 
@@ -438,7 +406,7 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
         )])).hexdigest()
 
         memcacheStub._cache[expected_key] = (
-            0, #flags
+            0,  # flags
             cPickle.dumps((
                 'principalToken0',
                 StubDirectoryRecord('cdaboo').cacheToken(),
@@ -454,11 +422,9 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
 
         self.memcacheStub = memcacheStub
 
-
     def tearDown(self):
         for call in self.memcacheStub._timeouts.itervalues():
             call.cancel()
-
 
     def test_givenURIsForKeys(self):
         expected_response = (200, Headers({}), "Foobarbaz")
@@ -474,7 +440,7 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
         expected_key = hashlib.md5(':'.join([str(t) for t in _key])).hexdigest()
 
         self.memcacheStub._cache[expected_key] = (
-            0, #flags
+            0,  # flags
             cPickle.dumps((
                 'principalToken0',
                 StubDirectoryRecord('cdaboo').cacheToken(),
@@ -497,22 +463,19 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
         return d
 
 
-
 class StubResponseCacheResource(object):
+
     def __init__(self):
         self.cache = {}
         self.responseCache = self
-
 
     def getResponseForRequest(self, request):
         if request in self.cache:
             return self.cache[request]
 
-
     def cacheResponseForRequest(self, request, response):
         self.cache[request] = response
         return response
-
 
 
 class TestRenderMixin(object):
@@ -524,11 +487,10 @@ class TestRenderMixin(object):
         return self.response
 
 
-
 class TestCachingResource(PropfindCacheMixin, TestRenderMixin):
+
     def __init__(self, response):
         self.response = response
-
 
 
 class TestCacheStoreNotifier(TestCase):
@@ -547,7 +509,6 @@ class TestCacheStoreNotifier(TestCase):
             def changed(self, uri):
                 self.results.add(uri)
                 return succeed(None)
-
 
         class StubCacheResource(object):
 
@@ -572,16 +533,15 @@ class TestCacheStoreNotifier(TestCase):
             self.assertEqual(factory.results, set(results))
 
 
-
 class PropfindCacheMixinTests(TestCase):
     """
     Test the PropfindCacheMixin
     """
+
     def setUp(self):
         TestCase.setUp(self)
         self.resource = TestCachingResource(StubResponse(200, {}, "foobar"))
         self.responseCache = StubResponseCacheResource()
-
 
     def test_DAVHeaderCached(self):
         """
@@ -601,7 +561,6 @@ class PropfindCacheMixinTests(TestCase):
         d.addCallback(_checkCache)
 
         return d
-
 
     def test_onlyCachePropfind(self):
         """

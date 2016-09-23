@@ -49,7 +49,6 @@ __all__ = [
 log = Logger()
 
 
-
 class ScheduleWorkMixin(WorkItem):
     """
     Base class for common schedule work item behavior. Sub-classes have their own class specific data
@@ -90,7 +89,6 @@ class ScheduleWorkMixin(WorkItem):
         work.addBaseWork(baseWork)
         returnValue(work)
 
-
     @classmethod
     @inlineCallbacks
     def loadForJob(cls, txn, jobID):
@@ -106,7 +104,6 @@ class ScheduleWorkMixin(WorkItem):
             workItem[0].addBaseWork(baseItem)
             workItems.append(workItem[0])
         returnValue(workItems)
-
 
     @inlineCallbacks
     def runlock(self):
@@ -128,7 +125,6 @@ class ScheduleWorkMixin(WorkItem):
             yield self.trylock()
         returnValue(locked)
 
-
     def addBaseWork(self, baseWork):
         """
         Add the base work fields into the sub-classes as non-record attributes.
@@ -140,7 +136,6 @@ class ScheduleWorkMixin(WorkItem):
         self.__dict__["jobID"] = baseWork.jobID
         self.__dict__["icalendarUID"] = baseWork.icalendarUID
 
-
     def delete(self):
         """
         Delete the base work item which will delete this one via cascade.
@@ -151,7 +146,6 @@ class ScheduleWorkMixin(WorkItem):
         """
         return self.baseWork.delete()
 
-
     @classmethod
     @inlineCallbacks
     def hasWork(cls, txn):
@@ -161,7 +155,6 @@ class ScheduleWorkMixin(WorkItem):
             From=sch,
         ).on(txn))
         returnValue(len(rows) > 0)
-
 
     @inlineCallbacks
     def afterWork(self):
@@ -187,7 +180,6 @@ class ScheduleWorkMixin(WorkItem):
                     yield job.update(notBefore=datetime.datetime.utcnow())
                     log.debug("ScheduleOrganizerSendWork - promoted job: {id}, UID: '{uid}'", id=work.workID, uid=self.icalendarUID)
 
-
     @classmethod
     def allDone(cls):
         d = Deferred()
@@ -195,14 +187,12 @@ class ScheduleWorkMixin(WorkItem):
         cls._queued = 0
         return d
 
-
     @classmethod
     def _enqueued(cls):
         """
         Called when a new item is enqueued - using for tracking purposes.
         """
         ScheduleWorkMixin._queued += 1
-
 
     def _dequeued(self):
         """
@@ -217,7 +207,6 @@ class ScheduleWorkMixin(WorkItem):
                     ScheduleWorkMixin._allDoneCallback = None
                 self.transaction.postCommit(_post)
 
-
     def serializeWithAncillaryData(self):
         """
         Include the ancillary data in the serialized result.
@@ -226,7 +215,6 @@ class ScheduleWorkMixin(WorkItem):
         @rtype: L{Deferred} returning an L{dict} of L{str}:L{str}
         """
         return succeed(self.serialize())
-
 
     def extractSchedulingResponse(self, queuedResponses):
         """
@@ -256,7 +244,6 @@ class ScheduleWorkMixin(WorkItem):
                     all_delivered = False
 
         return results, all_delivered
-
 
     def handleSchedulingResponse(self, response, calendar, is_organizer):
         """
@@ -290,7 +277,6 @@ class ScheduleWorkMixin(WorkItem):
 
         return changed
 
-
     @inlineCallbacks
     def checkTemporaryFailure(self, results):
         """
@@ -310,7 +296,6 @@ class ScheduleWorkMixin(WorkItem):
                 raise JobTemporaryError(config.Scheduling.Options.WorkQueues.TemporaryFailureDelay)
 
 
-
 class ScheduleWork(Record, fromTable(schema.SCHEDULE_WORK)):
     """
     @DynamicAttrs
@@ -328,11 +313,9 @@ class ScheduleWork(Record, fromTable(schema.SCHEDULE_WORK)):
             Where=other.homeResourceID == homeID,
         )
 
-
     @classmethod
     def classForWorkType(cls, workType):
         return cls._classForWorkType.get(workType)
-
 
     def migrate(self, mapIDsCallback):
         """
@@ -343,7 +326,6 @@ class ScheduleWork(Record, fromTable(schema.SCHEDULE_WORK)):
         @param mapIDsCallback: a callback that returns a tuple of the new home id and new resource id
         """
         raise NotImplementedError
-
 
 
 class ScheduleOrganizerWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORGANIZER_WORK)):
@@ -400,7 +382,6 @@ class ScheduleOrganizerWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORGANIZ
         cls._enqueued()
         log.debug("ScheduleOrganizerWork - enqueued for ID: {id}, UID: {uid}, organizer: {org}", id=work.workID, uid=uid, org=organizer)
 
-
     @inlineCallbacks
     def migrate(self, txn, mapIDsCallback):
         """
@@ -430,7 +411,6 @@ class ScheduleOrganizerWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORGANIZ
         )
 
         returnValue(True)
-
 
     @inlineCallbacks
     def doWork(self):
@@ -473,7 +453,6 @@ class ScheduleOrganizerWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORGANIZ
             raise
 
         log.debug("ScheduleOrganizerWork - done for ID: {id}, UID: {uid}, organizer: {org}", id=self.workID, uid=self.icalendarUID, org=organizer)
-
 
 
 class ScheduleOrganizerSendWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORGANIZER_SEND_WORK)):
@@ -533,7 +512,6 @@ class ScheduleOrganizerSendWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORG
             att=attendee
         )
 
-
     @inlineCallbacks
     def migrate(self, txn, mapIDsCallback):
         """
@@ -559,7 +537,6 @@ class ScheduleOrganizerSendWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORG
         )
 
         returnValue(True)
-
 
     @inlineCallbacks
     def doWork(self):
@@ -633,7 +610,6 @@ class ScheduleOrganizerSendWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORG
         )
 
 
-
 class ScheduleReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REPLY_WORK)):
     """
     @DynamicAttrs
@@ -661,7 +637,6 @@ class ScheduleReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REPLY_WORK)
         cls._enqueued()
         log.debug("ScheduleReplyWork - enqueued for ID: {id}, UID: {uid}, attendee: {att}", id=work.workID, uid=uid, att=attendee)
 
-
     @inlineCallbacks
     def migrate(self, txn, mapIDsCallback):
         """
@@ -687,7 +662,6 @@ class ScheduleReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REPLY_WORK)
 
         returnValue(True)
 
-
     @inlineCallbacks
     def sendToOrganizer(self, home, itipmsg, originator, recipient):
 
@@ -701,7 +675,6 @@ class ScheduleReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REPLY_WORK)
         log.info("Implicit REPLY - attendee: '{att}' to organizer: '{org}', UID: '{uid}'", att=originator, org=recipient, uid=itipmsg.resourceUID())
         response = (yield scheduler.doSchedulingViaPUT(originator, (recipient,), itipmsg, internal_request=True))
         returnValue(response)
-
 
     @inlineCallbacks
     def doWork(self):
@@ -746,7 +719,6 @@ class ScheduleReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REPLY_WORK)
             raise
 
         log.debug("ScheduleReplyWork - done for ID: {id}, UID: {uid}, attendee: {att}", id=self.workID, uid=itipmsg.resourceUID(), att=attendee)
-
 
 
 class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_WORK)):
@@ -823,7 +795,6 @@ class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_W
         cls._enqueued()
         log.debug("ScheduleRefreshWork - enqueued for ID: {id}, UID: {uid}, attendees: {att}", id=work.workID, uid=organizer_resource.uid(), att=",".join(attendeesToRefresh))
 
-
     @inlineCallbacks
     def migrate(self, txn, mapIDsCallback):
         """
@@ -845,7 +816,6 @@ class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_W
         )
 
         returnValue(True)
-
 
     @inlineCallbacks
     def doWork(self):
@@ -911,7 +881,6 @@ class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_W
 
         log.debug("ScheduleRefreshWork - done for ID: {id}, UID: {uid}", id=self.workID, uid=self.icalendarUID)
 
-
     @inlineCallbacks
     def _doDelayedRefresh(self, attendeesToProcess):
         """
@@ -941,7 +910,6 @@ class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_W
         else:
             log.debug("ImplicitProcessing - skipping refresh of missing ID: '{rid}'", rid=self.resourceID)
 
-
     @inlineCallbacks
     def _doRefresh(self, organizer_resource, only_attendees):
         """
@@ -960,7 +928,6 @@ class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_W
             organizer_resource,
             only_attendees=only_attendees,
         )
-
 
     @inlineCallbacks
     def serializeWithAncillaryData(self):
@@ -984,7 +951,6 @@ class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_W
         result["_refreshAttendees"] = [row[0] for row in rows]
         returnValue(result)
 
-
     @classmethod
     def deserialize(cls, attrmap):
         """
@@ -996,7 +962,6 @@ class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_W
         record = super(ScheduleRefreshWork, cls).deserialize(attrmap)
         record._refreshAttendees = attendees
         return record
-
 
 
 class ScheduleAutoReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_AUTO_REPLY_WORK)):
@@ -1025,7 +990,6 @@ class ScheduleAutoReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_AUTO_RE
         cls._enqueued()
         log.debug("ScheduleAutoReplyWork - enqueued for ID: {id}, UID: {uid}", id=work.workID, uid=resource.uid())
 
-
     @inlineCallbacks
     def migrate(self, txn, mapIDsCallback):
         """
@@ -1048,7 +1012,6 @@ class ScheduleAutoReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_AUTO_RE
 
         returnValue(True)
 
-
     @inlineCallbacks
     def doWork(self):
 
@@ -1066,7 +1029,6 @@ class ScheduleAutoReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_AUTO_RE
         self._dequeued()
 
         log.debug("ScheduleAutoReplyWork - done for ID: {id}, UID: {uid}", id=self.workID, uid=self.icalendarUID)
-
 
     @inlineCallbacks
     def _sendAttendeeAutoReply(self):

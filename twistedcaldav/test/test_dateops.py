@@ -27,6 +27,7 @@ from twistedcaldav.dateops import parseSQLTimestampToPyCalendar, \
 from twistedcaldav.timezones import TimezoneCache
 import twistedcaldav.test.util
 
+
 class Dateops(twistedcaldav.test.util.TestCase):
     """
     dateops.py tests
@@ -35,7 +36,6 @@ class Dateops(twistedcaldav.test.util.TestCase):
     def setUp(self):
         super(Dateops, self).setUp()
         TimezoneCache.create()
-
 
     def test_normalizeForIndex(self):
         """
@@ -52,7 +52,6 @@ class Dateops(twistedcaldav.test.util.TestCase):
         for value, result in data:
             self.assertEqual(normalizeForIndex(value), result)
 
-
     def test_normalizeToUTC(self):
         """
         Test that dateops.normalizeToUTC works correctly on all four types of date/time: date only, floating, UTC and local time.
@@ -67,7 +66,6 @@ class Dateops(twistedcaldav.test.util.TestCase):
 
         for value, result in data:
             self.assertEqual(normalizeToUTC(value), result)
-
 
     def test_normalizeForExpand(self):
         """
@@ -84,22 +82,17 @@ class Dateops(twistedcaldav.test.util.TestCase):
         for value, result in data:
             self.assertEqual(normalizeForExpand(value), result)
 
-
     def test_floatoffset(self):
         raise SkipTest("test unimplemented")
-
 
     def test_adjustFloatingToTimezone(self):
         raise SkipTest("test unimplemented")
 
-
     def test_compareDateTime(self):
         raise SkipTest("test unimplemented")
 
-
     def test_differenceDateTime(self):
         raise SkipTest("test unimplemented")
-
 
     def test_timeRangesOverlap(self):
 
@@ -240,14 +233,11 @@ class Dateops(twistedcaldav.test.util.TestCase):
         for title, start1, end1, start2, end2, result in data:
             self.assertEqual(timeRangesOverlap(start1, end1, start2, end2), result, msg="Failed: %s" % (title,))
 
-
     def test_normalizePeriodList(self):
         raise SkipTest("test unimplemented")
 
-
     def test_clipPeriod(self):
         raise SkipTest("test unimplemented")
-
 
     def test_pyCalendarToSQLTimestamp(self):
         """
@@ -260,7 +250,6 @@ class Dateops(twistedcaldav.test.util.TestCase):
 
         for pycal, result in tests:
             self.assertEqual(pyCalendarToSQLTimestamp(pycal), result)
-
 
     def test_parseSQLTimestampToPyCalendar(self):
         """
@@ -276,7 +265,6 @@ class Dateops(twistedcaldav.test.util.TestCase):
         for sqlStr, result in tests:
             self.assertEqual(parseSQLTimestampToPyCalendar(sqlStr), result)
 
-
     def test_parseSQLDateToPyCalendar(self):
         """
         dateops.parseSQLDateToPyCalendar
@@ -291,7 +279,6 @@ class Dateops(twistedcaldav.test.util.TestCase):
 
         for sqlStr, result in tests:
             self.assertEqual(parseSQLDateToPyCalendar(sqlStr), result)
-
 
     def test_datetimeMktime(self):
         raise SkipTest("test unimplemented")

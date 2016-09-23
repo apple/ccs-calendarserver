@@ -29,6 +29,7 @@ log = Logger()
 
 _unset = object()
 
+
 class cached(object):
     """
     This object is a decorator for a 0-argument method which should be called
@@ -40,7 +41,6 @@ class cached(object):
 
     def __init__(self, thunk):
         self.thunk = thunk
-
 
     def __get__(self, oself, owner):
         def inner():
@@ -55,7 +55,6 @@ class cached(object):
         return inner
 
 
-
 class QueryCacher(Memcacher):
     """
     A Memcacher for the object-with-name query (more to come)
@@ -65,18 +64,14 @@ class QueryCacher(Memcacher):
         super(QueryCacher, self).__init__(cachePool, pickle=True)
         self.cacheExpireSeconds = cacheExpireSeconds
 
-
     def set(self, key, value):
         return super(QueryCacher, self).set(key, value, expireTime=self.cacheExpireSeconds)
-
 
     def delete(self, key):
         return super(QueryCacher, self).delete(key)
 
-
     def setAfterCommit(self, transaction, key, value):
         transaction.postCommit(lambda: self.set(key, value))
-
 
     def invalidateAfterCommit(self, transaction, key):
         # Invalidate now (so that operations within this transaction see it)
@@ -85,48 +80,40 @@ class QueryCacher(Memcacher):
         transaction.postCommit(lambda: self.delete(key))
         return self.delete(key)
 
-
     # Home objects by UID
 
     def keyForHomeWithUID(self, homeType, ownerUID, status):
         return "homeWithUID:%s:%s:%s" % (homeType, status, ownerUID)
-
 
     # Home objects by id
 
     def keyForHomeWithID(self, homeType, homeResourceID, status):
         return "homeWithID:%s:%s:%s" % (homeType, status, homeResourceID)
 
-
     # Home child objects by name
 
     def keyForObjectWithName(self, homeResourceID, name):
         return "objectWithName:%s:%s" % (homeResourceID, name)
-
 
     # Home child objects by id
 
     def keyForObjectWithResourceID(self, homeResourceID, resourceID):
         return "objectWithResourceID:%s:%s" % (homeResourceID, resourceID)
 
-
     # Home child objects by external id
 
     def keyForObjectWithBindUID(self, homeResourceID, bindUID):
         return "objectWithBindUID:%s:%s" % (homeResourceID, bindUID)
-
 
     # Home metadata (Created/Modified)
 
     def keyForHomeMetaData(self, homeResourceID):
         return "homeMetaData:%s" % (homeResourceID)
 
-
     # HomeChild metadata (Created/Modified (and SUPPORTED_COMPONENTS))
 
     def keyForHomeChildMetaData(self, resourceID):
         return "homeChildMetaData:%s" % (resourceID)
-
 
 
 def normalizeUUIDOrNot(somestr):

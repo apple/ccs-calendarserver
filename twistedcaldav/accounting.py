@@ -33,6 +33,7 @@ from twistedcaldav.config import config
 
 log = Logger()
 
+
 def accountingEnabled(category, record):
     """
     Determine if accounting is enabled for the given category and record.
@@ -41,7 +42,6 @@ def accountingEnabled(category, record):
         accountingEnabledForCategory(category) and
         accountingEnabledForRecord(record)
     )
-
 
 
 def accountingEnabledForCategory(category):
@@ -54,7 +54,6 @@ def accountingEnabledForCategory(category):
     return AccountingCategories.get(category, False)
 
 
-
 def accountingEnabledForRecord(record):
     """
     Determine if accounting is enabled for the given record.
@@ -65,7 +64,6 @@ def accountingEnabledForRecord(record):
         return True
 
     return record.uid in enabledRecordGUIDs
-
 
 
 def emitAccounting(category, record, data, tag=None, filename=None):

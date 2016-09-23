@@ -35,6 +35,7 @@ Tests for L{txdav.common.datastore.upgrade.sql.upgrade}.
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
+
 class Upgrade_from_3_to_4(CommonStoreTests):
     """
     Tests for L{DefaultCalendarPropertyUpgrade}.
@@ -65,7 +66,6 @@ class Upgrade_from_3_to_4(CommonStoreTests):
 
         yield self.commit()
 
-
     @inlineCallbacks
     def _defaultCalendarUpgrade_check(self, changed_users, unchanged_users):
 
@@ -88,20 +88,17 @@ class Upgrade_from_3_to_4(CommonStoreTests):
             inbox = (yield self.calendarUnderTest(name="inbox", home=user))
             self.assertTrue(PropertyName.fromElement(ScheduleDefaultCalendarURL) in inbox.properties())
 
-
     @inlineCallbacks
     def test_defaultCalendarUpgrade(self):
         yield self._defaultCalendarUpgrade_setup()
         yield updateCalendarHomes(self._sqlCalendarStore)
         yield self._defaultCalendarUpgrade_check(("user01", "user02",), ())
 
-
     @inlineCallbacks
     def test_partialDefaultCalendarUpgrade(self):
         yield self._defaultCalendarUpgrade_setup()
         yield updateCalendarHomes(self._sqlCalendarStore, "user01")
         yield self._defaultCalendarUpgrade_check(("user01",), ("user02",))
-
 
     @inlineCallbacks
     def _invalidDefaultCalendarUpgrade_setup(self):
@@ -132,7 +129,6 @@ class Upgrade_from_3_to_4(CommonStoreTests):
 
         yield self.commit()
 
-
     @inlineCallbacks
     def _invalidDefaultCalendarUpgrade_check(self, changed_users, unchanged_users):
 
@@ -155,20 +151,17 @@ class Upgrade_from_3_to_4(CommonStoreTests):
             inbox = (yield self.calendarUnderTest(name="inbox", home=user))
             self.assertTrue(PropertyName.fromElement(ScheduleDefaultCalendarURL) in inbox.properties())
 
-
     @inlineCallbacks
     def test_invalidDefaultCalendarUpgrade(self):
         yield self._invalidDefaultCalendarUpgrade_setup()
         yield updateCalendarHomes(self._sqlCalendarStore)
         yield self._invalidDefaultCalendarUpgrade_check(("user01", "user02",), ())
 
-
     @inlineCallbacks
     def test_partialInvalidDefaultCalendarUpgrade(self):
         yield self._invalidDefaultCalendarUpgrade_setup()
         yield updateCalendarHomes(self._sqlCalendarStore, "user01")
         yield self._invalidDefaultCalendarUpgrade_check(("user01",), ("user02",))
-
 
     @inlineCallbacks
     def _calendarTranspUpgrade_setup(self):
@@ -215,7 +208,6 @@ class Upgrade_from_3_to_4(CommonStoreTests):
         ).on(txn)
         yield self.commit()
 
-
     @inlineCallbacks
     def _calendarTranspUpgrade_check(self, changed_users, unchanged_users):
 
@@ -246,20 +238,17 @@ class Upgrade_from_3_to_4(CommonStoreTests):
             inbox = (yield self.calendarUnderTest(name="inbox", home=user))
             self.assertTrue(PropertyName.fromElement(CalendarFreeBusySet) in inbox.properties())
 
-
     @inlineCallbacks
     def test_calendarTranspUpgrade(self):
         yield self._calendarTranspUpgrade_setup()
         yield updateCalendarHomes(self._sqlCalendarStore)
         yield self._calendarTranspUpgrade_check(("user01", "user02",), ())
 
-
     @inlineCallbacks
     def test_partialCalendarTranspUpgrade(self):
         yield self._calendarTranspUpgrade_setup()
         yield updateCalendarHomes(self._sqlCalendarStore, "user01")
         yield self._calendarTranspUpgrade_check(("user01",), ("user02",))
-
 
     @inlineCallbacks
     def _defaultAlarmUpgrade_setup(self):
@@ -383,7 +372,6 @@ END:VALARM
 
         returnValue((detailshome, detailscalendar, detailsshared, shared_name,))
 
-
     @inlineCallbacks
     def _defaultAlarmUpgrade_check(self, changed_users, unchanged_users, detailshome, detailscalendar, detailsshared, shared_name):
 
@@ -421,20 +409,17 @@ END:VALARM
                 self.assertEquals(alarm_result, None)
                 self.assertTrue(PropertyName.fromElement(prop) in shared.properties())
 
-
     @inlineCallbacks
     def test_defaultAlarmUpgrade(self):
         detailshome, detailscalendar, detailsshared, shared_name = (yield self._defaultAlarmUpgrade_setup())
         yield updateCalendarHomes(self._sqlCalendarStore)
         yield self._defaultAlarmUpgrade_check(("user01", "user02",), (), detailshome, detailscalendar, detailsshared, shared_name)
 
-
     @inlineCallbacks
     def test_partialDefaultAlarmUpgrade(self):
         detailshome, detailscalendar, detailsshared, shared_name = (yield self._defaultAlarmUpgrade_setup())
         yield updateCalendarHomes(self._sqlCalendarStore, "user01")
         yield self._defaultAlarmUpgrade_check(("user01",), ("user02",), detailshome, detailscalendar, detailsshared, shared_name)
-
 
     @inlineCallbacks
     def test_combinedUpgrade(self):
@@ -446,7 +431,6 @@ END:VALARM
         yield self._calendarTranspUpgrade_check(("user01", "user02",), ())
         yield self._defaultAlarmUpgrade_check(("user01", "user02",), (), detailshome, detailscalendar, detailsshared, shared_name)
 
-
     @inlineCallbacks
     def test_partialCombinedUpgrade(self):
         yield self._defaultCalendarUpgrade_setup()
@@ -456,7 +440,6 @@ END:VALARM
         yield self._defaultCalendarUpgrade_check(("user01",), ("user02",))
         yield self._calendarTranspUpgrade_check(("user01",), ("user02",))
         yield self._defaultAlarmUpgrade_check(("user01",), ("user02",), detailshome, detailscalendar, detailsshared, shared_name)
-
 
     @inlineCallbacks
     def _resourceTypeUpgrade_setup(self):
@@ -475,7 +458,6 @@ END:VALARM
 
         yield self.commit()
 
-
     @inlineCallbacks
     def _resourceTypeUpgrade_check(self, full=True):
 
@@ -493,13 +475,11 @@ END:VALARM
             version = yield self.transactionUnderTest().calendarserverValue("CALENDAR-DATAVERSION")
             self.assertEqual(int(version), 3)
 
-
     @inlineCallbacks
     def test_resourceTypeUpgrade(self):
         yield self._resourceTypeUpgrade_setup()
         yield doUpgrade(self._sqlCalendarStore)
         yield self._resourceTypeUpgrade_check()
-
 
     @inlineCallbacks
     def test_fullUpgrade(self):
@@ -513,7 +493,6 @@ END:VALARM
         yield self._calendarTranspUpgrade_check(("user01", "user02",), ())
         yield self._defaultAlarmUpgrade_check(("user01", "user02",), (), detailshome, detailscalendar, detailsshared, shared_name)
         yield self._resourceTypeUpgrade_check()
-
 
     @inlineCallbacks
     def test_partialFullUpgrade(self):

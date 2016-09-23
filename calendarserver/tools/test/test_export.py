@@ -45,13 +45,13 @@ from txdav.common.datastore.test.util import populateCalendarsFrom
 
 from calendarserver.tools.export import usage, exportToFile
 
+
 def holiday(uid):
     return (
         getModule("twistedcaldav.test").filePath
         .sibling("data").child("Holidays").child(uid + ".ics")
         .getContent()
     )
-
 
 
 def sample(name):
@@ -91,7 +91,6 @@ class CommandLine(TestCase):
         self.assertEquals(len(out.getvalue()) > 0, True, "No output.")
         self.assertEquals(len(err.getvalue()), 0)
 
-
     def test_oneRecord(self):
         """
         One '--record' option will result in a single L{DirectoryExporter}
@@ -106,7 +105,6 @@ class CommandLine(TestCase):
         self.assertEquals(exp.shortName, "bob")
         self.assertEquals(exp.collections, [])
 
-
     def test_oneUID(self):
         """
         One '--uid' option will result in a single L{UIDExporter} object with no
@@ -118,7 +116,6 @@ class CommandLine(TestCase):
         exp = eo.exporters[0]
         self.assertIsInstance(exp, UIDExporter)
         self.assertEquals(exp.uid, "bob's your guid")
-
 
     def test_homeAndCollections(self):
         """
@@ -139,7 +136,6 @@ class CommandLine(TestCase):
         self.assertEquals(exp.uid, "jethroUID")
         self.assertEquals(exp.collections, ["fun stuff"])
 
-
     def test_outputFileSelection(self):
         """
         The --output option selects the file to write to, '-' or no parameter
@@ -157,7 +153,6 @@ class CommandLine(TestCase):
         eo.parseOptions(["--output", tmpnam])
         self.assertEquals(eo.openOutput().name, tmpnam)
 
-
     def test_outputFileError(self):
         """
         If the output file cannot be opened for writing, an error will be
@@ -173,7 +168,6 @@ class CommandLine(TestCase):
             io.getvalue(),
             "Unable to open output file for writing: "
             "[Errno 2] No such file or directory: '/not/a/file'\n")
-
 
 
 class IntegrationTests(StoreTestCase):
@@ -197,14 +191,12 @@ class IntegrationTests(StoreTestCase):
         self.store = self.storeUnderTest()
         self.waitToStop = Deferred()
 
-
     def stop(self):
         """
         Emulate reactor.stop(), which the service must call when it is done with
         work.
         """
         self.waitToStop.callback(None)
-
 
     def fakeUtilityMain(self, configFileName, serviceClass, reactor=None, verbose=False):
         """
@@ -220,7 +212,6 @@ class IntegrationTests(StoreTestCase):
         self.exportService = serviceClass(self.store)
         self.exportService.startService()
         self.addCleanup(self.exportService.stopService)
-
 
     @inlineCallbacks
     def test_serviceState(self):
@@ -238,7 +229,6 @@ class IntegrationTests(StoreTestCase):
         self.assertEquals(self.exportService.store, self.store)
         yield self.waitToStop
 
-
     @inlineCallbacks
     def test_emptyCalendar(self):
         """
@@ -252,13 +242,13 @@ class IntegrationTests(StoreTestCase):
         self.assertEquals(Component.fromString(io.getvalue()),
                           Component.newCalendar())
 
-
     def txn(self):
         """
         Create a new transaction and automatically clean it up when the test
         completes.
         """
         aTransaction = self.store.newTransaction()
+
         @inlineCallbacks
         def maybeAbort():
             try:
@@ -267,7 +257,6 @@ class IntegrationTests(StoreTestCase):
                 pass
         self.addCleanup(maybeAbort)
         return aTransaction
-
 
     @inlineCallbacks
     def test_oneEventCalendar(self):
@@ -296,7 +285,6 @@ class IntegrationTests(StoreTestCase):
         )
         self.assertEquals(Component.fromString(io.getvalue()),
                           expected)
-
 
     @inlineCallbacks
     def test_twoSimpleEvents(self):
@@ -330,7 +318,6 @@ class IntegrationTests(StoreTestCase):
         self.assertEquals(Component.fromString(io.getvalue()),
                           expected)
 
-
     @inlineCallbacks
     def test_onlyOneVTIMEZONE(self):
         """
@@ -344,9 +331,9 @@ class IntegrationTests(StoreTestCase):
             {
                 "user01": {
                     "calendar1": {
-                        "1.ics": (one, {}), # EST
-                        "2.ics": (another, {}), # EST
-                        "3.ics": (third, {}) # PST
+                        "1.ics": (one, {}),  # EST
+                        "2.ics": (another, {}),  # EST
+                        "3.ics": (third, {})  # PST
                     }
                 }
             }, self.store
@@ -377,7 +364,6 @@ class IntegrationTests(StoreTestCase):
                           # sure we don't depend on caching effects elsewhere.
                           set(["America/New_Yrok", "US/Pacific"]))
 
-
     @inlineCallbacks
     def test_perUserFiltering(self):
         """
@@ -388,7 +374,7 @@ class IntegrationTests(StoreTestCase):
             {
                 "user02": {
                     "calendar1": {
-                        "peruser.ics": (dataForTwoUsers, {}), # EST
+                        "peruser.ics": (dataForTwoUsers, {}),  # EST
                     }
                 }
             }, self.store
@@ -402,7 +388,6 @@ class IntegrationTests(StoreTestCase):
             Component.fromString(resultForUser2),
             Component.fromString(io.getvalue())
         )
-
 
     @inlineCallbacks
     def test_full(self):
@@ -421,7 +406,7 @@ class IntegrationTests(StoreTestCase):
                         "inbox-item.ics": (valentines, {})
                     },
                     "calendar1": {
-                        "peruser.ics": (dataForTwoUsers, {}), # EST
+                        "peruser.ics": (dataForTwoUsers, {}),  # EST
                     }
                 }
             }, self.store

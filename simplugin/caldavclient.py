@@ -68,8 +68,8 @@ from twisted.python.filepath import FilePath
 QName.__repr__ = lambda self: '<QName %r>' % (self.text,)
 
 
-
 SUPPORTED_REPORT_SET = '{DAV:}supported-report-set'
+
 
 def loadRequestBody(clientType, label):
     return FilePath(__file__).sibling('request-data').child(clientType).child(label + '.request').getContent()
@@ -79,7 +79,6 @@ class MissingCalendarHome(Exception):
     """
     Raised when the calendar home for a user is 404
     """
-
 
 
 class XMPPPush(object, FancyEqMixin):
@@ -95,9 +94,8 @@ class XMPPPush(object, FancyEqMixin):
         self.pushkey = pushkey
 
 
-
-
 class Event(object):
+
     def __init__(self, serializeBasePath, url, etag, component=None):
         self.serializeBasePath = serializeBasePath
         self.url = url
@@ -107,13 +105,11 @@ class Event(object):
             self.component = component
         self.uid = component.resourceUID() if component is not None else None
 
-
     def getUID(self):
         """
         Return the UID of the calendar resource.
         """
         return self.uid
-
 
     def serializePath(self):
         if self.serializeBasePath:
@@ -123,7 +119,6 @@ class Event(object):
             return os.path.join(calendar, self.url.split("/")[-1])
         else:
             return None
-
 
     def serialize(self):
         """
@@ -135,7 +130,6 @@ class Event(object):
             result[attr] = getattr(self, attr)
         return result
 
-
     @staticmethod
     def deserialize(serializeLocation, data):
         """
@@ -146,7 +140,6 @@ class Event(object):
         for attr in ("url", "etag", "scheduleTag", "uid",):
             setattr(event, attr, u2str(data[attr]))
         return event
-
 
     @property
     def component(self):
@@ -160,7 +153,6 @@ class Event(object):
             return comp
         else:
             return None
-
 
     @component.setter
     def component(self, component):
@@ -176,7 +168,6 @@ class Event(object):
                     f.write(str(component))
         self.uid = component.resourceUID() if component is not None else None
 
-
     def removed(self):
         """
         Resource no longer exists on the server - remove associated data.
@@ -186,8 +177,8 @@ class Event(object):
             os.remove(path)
 
 
-
 class Calendar(object):
+
     def __init__(
         self, resourceType, componentTypes, name, url, changeToken,
         shared=False, sharedByMe=False
@@ -204,7 +195,6 @@ class Calendar(object):
         if self.name is None and self.url is not None:
             self.name = self.url.rstrip("/").split("/")[-1]
 
-
     def serialize(self):
         """
         Create a dict of the data so we can serialize as JSON.
@@ -216,7 +206,6 @@ class Calendar(object):
         result["componentTypes"] = list(sorted(self.componentTypes))
         result["events"] = sorted(self.events.keys())
         return result
-
 
     @staticmethod
     def deserialize(data, events):
@@ -238,11 +227,9 @@ class Calendar(object):
                 calendar.changeToken = ""
         return calendar
 
-
     @staticmethod
     def addInviteeXML(uid, summary, readwrite=True):
         return AddInvitees(None, '/', [uid], readwrite, summary=summary).request_data.text
-
 
     @staticmethod
     def removeInviteeXML(uid):
@@ -252,14 +239,13 @@ class Calendar(object):
         return RemoveInvitee(None, '/', invitee).request_data.text
 
 
-
 class NotificationCollection(object):
+
     def __init__(self, url, changeToken):
         self.url = url
         self.changeToken = changeToken
         self.notifications = {}
         self.name = "notification"
-
 
     def serialize(self):
         """
@@ -271,7 +257,6 @@ class NotificationCollection(object):
             result[attr] = getattr(self, attr)
         result["notifications"] = sorted(self.notifications.keys())
         return result
-
 
     @staticmethod
     def deserialize(data, notifications):
@@ -293,9 +278,6 @@ class NotificationCollection(object):
                     # Ughh - a notification is missing - force changeToken to empty to trigger full resync
                     coll.changeToken = ""
         return coll
-
-
-
 
 
 class BaseAppleClient(BaseClient):
@@ -431,7 +413,6 @@ class BaseAppleClient(BaseClient):
         # Keep track of previously downloaded attachments
         self._attachments = {}
 
-
     def _setEvent(self, href, event):
         """
         Cache the provided event
@@ -439,7 +420,6 @@ class BaseAppleClient(BaseClient):
         self._events[href] = event
         calendar, basePath = href.rsplit('/', 1)
         self._calendars[calendar + '/'].events[basePath] = event
-
 
     def _removeEvent(self, href):
         """
@@ -449,10 +429,6 @@ class BaseAppleClient(BaseClient):
         del self._events[href]
         calendar, basePath = href.rsplit('/', 1)
         del self._calendars[calendar + '/'].events[basePath]
-
-
-
-
 
     def _parseMultiStatus(self, response, otherTokens=False):
         """
@@ -497,7 +473,6 @@ class BaseAppleClient(BaseClient):
 
         returnValue((response, result,))
 
-
     @inlineCallbacks
     def _proppatch(self, url, body, method_label=None):
         """
@@ -518,7 +493,6 @@ class BaseAppleClient(BaseClient):
             returnValue(result)
         else:
             returnValue(None)
-
 
     @inlineCallbacks
     def _report(self, url, body, depth='0', allowedStatus=(MULTI_STATUS,), otherTokens=False, method_label=None):
@@ -541,7 +515,6 @@ class BaseAppleClient(BaseClient):
         result = self._parseMultiStatus(body, otherTokens) if response.code == MULTI_STATUS else None
 
         returnValue(result)
-
 
     @inlineCallbacks
     def _startupPropfindWellKnown(self):
@@ -570,7 +543,6 @@ class BaseAppleClient(BaseClient):
 
         returnValue(result[location])
 
-
     @inlineCallbacks
     def _principalPropfindInitial(self, user):
         """
@@ -584,7 +556,6 @@ class BaseAppleClient(BaseClient):
             method_label="PROPFIND{find-principal}",
         )
         returnValue(result[principalPath])
-
 
     @inlineCallbacks
     def _principalPropfind(self):
@@ -600,7 +571,6 @@ class BaseAppleClient(BaseClient):
         )
         returnValue(result[self.principalURL])
 
-
     def _principalSearchPropertySetReport(self, principalCollectionSet):
         """
         Issue a principal-search-property-set REPORT against the chosen URL
@@ -611,7 +581,6 @@ class BaseAppleClient(BaseClient):
             allowedStatus=(OK,),
             method_label="REPORT{pset}",
         )
-
 
     @inlineCallbacks
     def _calendarHomePropfind(self, calendarHomeSet):
@@ -630,7 +599,6 @@ class BaseAppleClient(BaseClient):
             result, calendarHomeSet
         )
         returnValue((calendars, notificationCollection, result,))
-
 
     @inlineCallbacks
     def _extractPrincipalDetails(self):
@@ -664,7 +632,6 @@ class BaseAppleClient(BaseClient):
         yield self._principalSearchPropertySetReport(self.principalCollection)
 
         returnValue(principal)
-
 
     def _extractCalendars(self, results, calendarHome=None):
         """
@@ -746,7 +713,6 @@ class BaseAppleClient(BaseClient):
 
         return calendars, notificationCollection
 
-
     def _updateCalendar(self, calendar, newToken, fetchEvents=True):
         """
         Update the local cached data for a calendar in an appropriate manner.
@@ -755,7 +721,6 @@ class BaseAppleClient(BaseClient):
             return self._updateCalendar_SYNC(calendar, newToken, fetchEvents=fetchEvents)
         else:
             return self._updateCalendar_PROPFIND(calendar, newToken)
-
 
     @inlineCallbacks
     def _updateCalendar_PROPFIND(self, calendar, newToken):
@@ -779,7 +744,6 @@ class BaseAppleClient(BaseClient):
 
         # Now update calendar to the new token
         self._calendars[calendar.url].changeToken = newToken
-
 
     @inlineCallbacks
     def _updateCalendar_SYNC(self, calendar, newToken, fetchEvents=True):
@@ -858,7 +822,6 @@ class BaseAppleClient(BaseClient):
                 break
         self._calendars[calendar.url].changeToken = newToken
 
-
     @inlineCallbacks
     def _updateApplyChanges(self, calendar, multistatus, old_hrefs):
         """
@@ -894,7 +857,6 @@ class BaseAppleClient(BaseClient):
         for href in remove_hrefs:
             self._removeEvent(href)
 
-
     @inlineCallbacks
     def _updateChangedEvents(self, calendar, changed):
         """
@@ -924,7 +886,6 @@ class BaseAppleClient(BaseClient):
                     body = text[caldavxml.calendar_data]
                     self.eventChanged(responseHref, etag, scheduleTag, body)
 
-
     def eventChanged(self, href, etag, scheduleTag, body):
         event = self._events[href]
         event.etag = etag
@@ -932,7 +893,6 @@ class BaseAppleClient(BaseClient):
             event.scheduleTag = scheduleTag
         event.component = Component.fromString(body)
         self.catalog["eventChanged"].issue(href)
-
 
     def _eventReport(self, calendar, events):
         # Next do a REPORT on events that might have information
@@ -954,7 +914,6 @@ class BaseAppleClient(BaseClient):
             method_label="REPORT{multiget-%s}" % (label_suffix,),
         )
 
-
     @inlineCallbacks
     def _checkCalendarsForEvents(self, calendarHomeSet, firstTime=False, push=False):
         """
@@ -973,7 +932,6 @@ class BaseAppleClient(BaseClient):
                 except KeyError:
                     pass
         returnValue(result)
-
 
     @inlineCallbacks
     def _updateNotifications(self, oldToken, newToken):
@@ -1089,7 +1047,6 @@ class BaseAppleClient(BaseClient):
 
         self._notificationCollection.changeToken = newToken
 
-
     @inlineCallbacks
     def _poll(self, calendarHomeSet, firstTime):
         """
@@ -1147,7 +1104,6 @@ class BaseAppleClient(BaseClient):
 
         returnValue(True)
 
-
     @inlineCallbacks
     def _pollFirstTime1(self, homeNode, calendars):
         # Detect sync report if needed
@@ -1179,10 +1135,8 @@ class BaseAppleClient(BaseClient):
                     method_label="PROPPATCH{calendar}",
                 )
 
-
     def _pollFirstTime2(self):
         return self._principalExpand(self.principalURL)
-
 
     @inlineCallbacks
     def _notificationPropfind(self, notificationURL):
@@ -1192,7 +1146,6 @@ class BaseAppleClient(BaseClient):
             method_label="PROPFIND{notification}",
         )
         returnValue(result)
-
 
     @inlineCallbacks
     def _notificationChangesPropfind(self, notificationURL):
@@ -1204,7 +1157,6 @@ class BaseAppleClient(BaseClient):
         )
         returnValue(result)
 
-
     @inlineCallbacks
     def _principalExpand(self, principalURL):
         result = yield self._report(
@@ -1215,10 +1167,8 @@ class BaseAppleClient(BaseClient):
         )
         returnValue(result)
 
-
     def startup(self):
         raise NotImplementedError
-
 
     def _calendarCheckLoop(self, calendarHome):
         """
@@ -1227,7 +1177,6 @@ class BaseAppleClient(BaseClient):
         pollCalendarHome = LoopingCall(
             self._checkCalendarsForEvents, calendarHome)
         return pollCalendarHome.start(self.calendarHomePollInterval, now=False)
-
 
     @inlineCallbacks
     def _newOperation(self, label, deferred):
@@ -1266,7 +1215,6 @@ class BaseAppleClient(BaseClient):
         )
         returnValue(result)
 
-
     def _receivedPush(self, inboundID, dataChangedTimestamp, priority=5):
         for href, id in self.ampPushKeys.iteritems():
             if inboundID == id:
@@ -1275,7 +1223,6 @@ class BaseAppleClient(BaseClient):
         else:
             # somehow we are not subscribed to this id
             pass
-
 
     def _monitorAmpPush(self, home, pushKeys):
         """
@@ -1287,19 +1234,16 @@ class BaseAppleClient(BaseClient):
                 self._receivedPush, self.reactor
             )
 
-
     @inlineCallbacks
     def _unsubscribePubSub(self):
         for factory in self._pushFactories:
             yield factory.unsubscribeAll()
-
 
     @inlineCallbacks
     def run(self):
         """
         Emulate a CalDAV client.
         """
-
 
         @inlineCallbacks
         def startup():
@@ -1329,7 +1273,6 @@ class BaseAppleClient(BaseClient):
             # currently it never will except due to an unexpected error.
             yield self._calendarCheckLoop(calendarHome)
 
-
     @inlineCallbacks
     def stop(self):
         """
@@ -1339,7 +1282,6 @@ class BaseAppleClient(BaseClient):
         yield super(BaseAppleClient, self).stop()
         self.serialize()
         yield self._unsubscribePubSub()
-
 
     def serializeLocation(self):
         """
@@ -1357,7 +1299,6 @@ class BaseAppleClient(BaseClient):
 
         return path
 
-
     def serialize(self):
         """
         Write current state to disk.
@@ -1372,13 +1313,12 @@ class BaseAppleClient(BaseClient):
             "principalURL": self.principalURL,
             "calendars": [calendar.serialize() for calendar in sorted(self._calendars.values(), key=lambda x:x.name)],
             "events": [event.serialize() for event in sorted(self._events.values(), key=lambda x:x.url)],
-            "notificationCollection" : self._notificationCollection.serialize() if self._notificationCollection else {},
+            "notificationCollection": self._notificationCollection.serialize() if self._notificationCollection else {},
             "attachments": self._attachments
         }
         # Write JSON data
         with open(os.path.join(path, "index.json"), "w") as f:
             json.dump(data, f, indent=2)
-
 
     def deserialize(self):
         """
@@ -1413,8 +1353,6 @@ class BaseAppleClient(BaseClient):
             self._notificationCollection = NotificationCollection.deserialize(data, {})
         self._attachments = data.get("attachments", {})
 
-
-
     @inlineCallbacks
     def reset(self):
         path = self.serializeLocation()
@@ -1422,7 +1360,6 @@ class BaseAppleClient(BaseClient):
             shutil.rmtree(path)
         yield self.startup()
         yield self._checkCalendarsForEvents(self.calendarHomeHref)
-
 
     def _makeSelfAttendee(self):
         attendee = Property(
@@ -1436,7 +1373,6 @@ class BaseAppleClient(BaseClient):
         )
         return attendee
 
-
     def _makeSelfOrganizer(self):
         organizer = Property(
             name=u'ORGANIZER',
@@ -1446,7 +1382,6 @@ class BaseAppleClient(BaseClient):
             },
         )
         return organizer
-
 
     @inlineCallbacks
     def addEventAttendee(self, href, attendee):
@@ -1490,7 +1425,6 @@ class BaseAppleClient(BaseClient):
 
         # Finally, re-retrieve the event to update the etag
         yield self._updateEvent(response, href)
-
 
     @inlineCallbacks
     def _attendeeAutoComplete(self, component, attendee):
@@ -1546,7 +1480,6 @@ class BaseAppleClient(BaseClient):
                 [component.resourceUID()]
             )
 
-
     @inlineCallbacks
     def changeEventAttendee(self, href, oldAttendee, newAttendee):
         event = self._events[href]
@@ -1583,7 +1516,6 @@ class BaseAppleClient(BaseClient):
         # Finally, re-retrieve the event to update the etag
         yield self._updateEvent(response, href)
 
-
     @inlineCallbacks
     def deleteEvent(self, href):
         """
@@ -1600,7 +1532,6 @@ class BaseAppleClient(BaseClient):
             method_label="DELETE{event}",
         )
         returnValue(response)
-
 
     @inlineCallbacks
     def addEvent(self, href, component, invite=False):
@@ -1627,7 +1558,6 @@ class BaseAppleClient(BaseClient):
         )
         self._localUpdateEvent(response, href, component)
 
-
     @inlineCallbacks
     def addInvite(self, href, component):
         """
@@ -1644,7 +1574,6 @@ class BaseAppleClient(BaseClient):
 
         # Now do a normal PUT
         yield self.addEvent(href, component, invite=True)
-
 
     @inlineCallbacks
     def changeEvent(self, href):
@@ -1668,7 +1597,6 @@ class BaseAppleClient(BaseClient):
         # Finally, re-retrieve the event to update the etag
         yield self._updateEvent(response, href)
 
-
     def _localUpdateEvent(self, response, href, component):
         headers = response.headers
         etag = headers.getRawHeaders("etag", [None])[0]
@@ -1678,10 +1606,8 @@ class BaseAppleClient(BaseClient):
         event.scheduleTag = scheduleTag
         self._setEvent(href, event)
 
-
     def updateEvent(self, href):
         return self._updateEvent(None, href)
-
 
     @inlineCallbacks
     def _updateEvent(self, ignored, href):
@@ -1696,7 +1622,6 @@ class BaseAppleClient(BaseClient):
         scheduleTag = headers.getRawHeaders('schedule-tag', [None])[0]
         body = yield readBody(response)
         self.eventChanged(href, etag, scheduleTag, body)
-
 
     @inlineCallbacks
     def requestAvailability(self, start, end, users, mask=set()):
@@ -1773,7 +1698,6 @@ class BaseAppleClient(BaseClient):
         body = yield readBody(response)
         returnValue(body)
 
-
     @inlineCallbacks
     def postAttachment(self, href, content):
         url = self.server["uri"] + "{0}?{1}".format(href, "action=attachment-add")
@@ -1800,7 +1724,6 @@ class BaseAppleClient(BaseClient):
         yield self.updateEvent(href)
         returnValue(body)
 
-
     @inlineCallbacks
     def getAttachment(self, href, managedId):
 
@@ -1808,7 +1731,6 @@ class BaseAppleClient(BaseClient):
         if managedId not in self._attachments:
             self._attachments[managedId] = href
             yield self._newOperation("download", self._get(href, 200))
-
 
     @inlineCallbacks
     def postXML(self, href, content, label):
@@ -1825,7 +1747,6 @@ class BaseAppleClient(BaseClient):
         )
         body = yield readBody(response)
         returnValue(body)
-
 
 
 class OS_X_10_6(BaseAppleClient):
@@ -1902,7 +1823,6 @@ class OS_X_10_6(BaseAppleClient):
         returnValue(principal)
 
 
-
 class OS_X_10_7(BaseAppleClient):
     """
     Implementation of the OS X 10.7 iCal network behavior.
@@ -1953,7 +1873,6 @@ class OS_X_10_7(BaseAppleClient):
     _USER_LIST_PRINCIPAL_PROPERTY_SEARCH = loadRequestBody(_LOAD_PATH, 'user_list_principal_property_search')
     _POST_AVAILABILITY = loadRequestBody(_LOAD_PATH, 'post_availability')
 
-
     def _addDefaultHeaders(self, headers):
         """
         Add the clients default set of headers to ones being used in a request.
@@ -1966,7 +1885,6 @@ class OS_X_10_7(BaseAppleClient):
         headers.setRawHeaders('Accept-Language', ['en-us'])
         headers.setRawHeaders('Accept-Encoding', ['gzip,deflate'])
         headers.setRawHeaders('Connection', ['keep-alive'])
-
 
     @inlineCallbacks
     def startup(self):
@@ -1991,7 +1909,6 @@ class OS_X_10_7(BaseAppleClient):
         # Using the actual principal URL, retrieve principal information
         principal = yield self._extractPrincipalDetails()
         returnValue(principal)
-
 
 
 class OS_X_10_11(BaseAppleClient):
@@ -2048,7 +1965,6 @@ class OS_X_10_11(BaseAppleClient):
 
     _CALENDARSERVER_PRINCIPAL_SEARCH_REPORT = loadRequestBody(_LOAD_PATH, 'principal_search_report')
 
-
     def _addDefaultHeaders(self, headers):
         """
         Add the clients default set of headers to ones being used in a request.
@@ -2061,7 +1977,6 @@ class OS_X_10_11(BaseAppleClient):
         headers.setRawHeaders('Accept-Language', ['en-us'])
         headers.setRawHeaders('Accept-Encoding', ['gzip,deflate'])
         headers.setRawHeaders('Connection', ['keep-alive'])
-
 
     @inlineCallbacks
     def startup(self):
@@ -2085,7 +2000,6 @@ class OS_X_10_11(BaseAppleClient):
         # Using the actual principal URL, retrieve principal information
         principal = yield self._extractPrincipalDetails()
         returnValue(principal)
-
 
 
 class iOS_5(BaseAppleClient):
@@ -2132,7 +2046,6 @@ class iOS_5(BaseAppleClient):
     _POLL_CALENDAR_MULTIGET_REPORT = loadRequestBody(_LOAD_PATH, 'poll_calendar_multiget')
     _POLL_CALENDAR_MULTIGET_REPORT_HREF = loadRequestBody(_LOAD_PATH, 'poll_calendar_multiget_hrefs')
 
-
     def _addDefaultHeaders(self, headers):
         """
         Add the clients default set of headers to ones being used in a request.
@@ -2145,7 +2058,6 @@ class iOS_5(BaseAppleClient):
         headers.setRawHeaders('Accept-Language', ['en-us'])
         headers.setRawHeaders('Accept-Encoding', ['gzip,deflate'])
         headers.setRawHeaders('Connection', ['keep-alive'])
-
 
     @inlineCallbacks
     def _pollFirstTime1(self, homeNode, calendars):
@@ -2163,11 +2075,9 @@ class iOS_5(BaseAppleClient):
                     method_label="PROPPATCH{calendar}",
                 )
 
-
     def _pollFirstTime2(self):
         # Nothing here
         return succeed(None)
-
 
     def _updateCalendar(self, calendar, newToken):
         """
@@ -2183,7 +2093,6 @@ class iOS_5(BaseAppleClient):
             # VTODOs done as VTODO-only queries
             return self._updateCalendar_VTODO(calendar, newToken)
 
-
     @inlineCallbacks
     def _updateCalendar_VEVENT(self, calendar, newToken):
         """
@@ -2196,7 +2105,7 @@ class iOS_5(BaseAppleClient):
 
         now = DateTime.getNowUTC()
         now.setDateOnly(True)
-        now.offsetMonth(-1) # 1 month back default
+        now.offsetMonth(-1)  # 1 month back default
         result = yield self._report(
             calendar.url,
             self._POLL_CALENDAR_VEVENT_TR_QUERY % {"start-date": now.getText()},
@@ -2208,7 +2117,6 @@ class iOS_5(BaseAppleClient):
 
         # Now update calendar to the new token
         self._calendars[calendar.url].changeToken = newToken
-
 
     @inlineCallbacks
     def _updateCalendar_VTODO(self, calendar, newToken):
@@ -2231,7 +2139,6 @@ class iOS_5(BaseAppleClient):
 
         # Now update calendar to the new token
         self._calendars[calendar.url].changeToken = newToken
-
 
     @inlineCallbacks
     def startup(self):

@@ -39,6 +39,7 @@ from txweb2.http import StatusResponse, HTTPError
 from txweb2.dav.util import allDataFromStream
 from txweb2.stream import MemoryStream
 
+
 class PooledHTTPClientFactory(ClientFactory):
     """
     A client factory for HTTPClient that notifies a pool of it's state. It the connection
@@ -59,7 +60,6 @@ class PooledHTTPClientFactory(ClientFactory):
         self.onConnect = Deferred()
         self.afterConnect = Deferred()
 
-
     def clientConnectionLost(self, connector, reason):
         """
         Notify the connectionPool that we've lost our connection.
@@ -73,7 +73,6 @@ class PooledHTTPClientFactory(ClientFactory):
             # The reactor is stopping; don't reconnect
             return
 
-
     def clientConnectionFailed(self, connector, reason):
         """
         Notify the connectionPool that we're unable to connect
@@ -85,13 +84,11 @@ class PooledHTTPClientFactory(ClientFactory):
             self.reactor.callLater(0, self.afterConnect.errback, reason)
             del self.afterConnect
 
-
     def buildProtocol(self, addr):
         self.instance = self.protocol()
         self.reactor.callLater(0, self.onConnect.callback, self.instance)
         del self.onConnect
         return self.instance
-
 
 
 class HTTPClientPool(object):
@@ -152,7 +149,6 @@ class HTTPClientPool(object):
         self._pendingConnects = 0
         self._pendingRequests = []
 
-
     def _isIdle(self):
         return (
             len(self._busyClients) == 0 and
@@ -160,14 +156,12 @@ class HTTPClientPool(object):
             self._pendingConnects == 0
         )
 
-
     def _shutdownCallback(self):
         self.shutdown_requested = True
         if self._isIdle():
             return None
         self.shutdown_deferred = Deferred()
         return self.shutdown_deferred
-
 
     def _newClientConnection(self):
         """
@@ -213,7 +207,6 @@ class HTTPClientPool(object):
 
         return d
 
-
     def _performRequestOnClient(self, client, request, *args, **kwargs):
         """
         Perform the given request on the given client.
@@ -243,7 +236,6 @@ class HTTPClientPool(object):
         d = client.submitRequest(request, closeAfter=True)
         d.addCallbacks(_freeClientAfterRequest, _goneClientAfterError)
         return d
-
 
     @inlineCallbacks
     def submitRequest(self, request, *args, **kwargs):
@@ -288,7 +280,6 @@ class HTTPClientPool(object):
             self.log.error("HTTP pooled client connection error - exhausted retry attempts.")
             raise HTTPError(StatusResponse(responsecode.BAD_GATEWAY, "Could not connect to HTTP pooled client host."))
 
-
     def _submitRequest(self, request, *args, **kwargs):
         """
         Select an available client and perform the given request on it.
@@ -318,7 +309,6 @@ class HTTPClientPool(object):
 
         return d
 
-
     def _logClientStats(self):
         self.log.debug(
             "Clients #free: {free}, #busy: {busy}, #pending: {pending}, #queued: {queued}",
@@ -327,7 +317,6 @@ class HTTPClientPool(object):
             pending=self._pendingConnects,
             queued=len(self._pendingRequests)
         )
-
 
     def clientGone(self, client):
         """
@@ -346,7 +335,6 @@ class HTTPClientPool(object):
 
         self._processPending()
 
-
     def clientBusy(self, client):
         """
         Notify that the given client is being used to complete a request.
@@ -361,7 +349,6 @@ class HTTPClientPool(object):
 
         self.log.debug("Busied client: {client!r}", client=client)
         self._logClientStats()
-
 
     def clientFree(self, client):
         """
@@ -382,7 +369,6 @@ class HTTPClientPool(object):
 
         self._processPending()
 
-
     def _processPending(self):
         if len(self._pendingRequests) > 0:
             d, request, args, kwargs = self._pendingRequests.pop(0)
@@ -397,7 +383,6 @@ class HTTPClientPool(object):
 
             _ign_d.addCallbacks(d.callback, d.errback)
 
-
     def suggestMaxClients(self, maxClients):
         """
         Suggest the maximum number of concurrently connected clients.
@@ -409,6 +394,7 @@ class HTTPClientPool(object):
 
 _clientPools = {}     # Maps a host:port to a pool object
 
+
 def installPools(hosts, maxClients=5, reactor=None):
 
     for name, url in hosts:
@@ -418,7 +404,6 @@ def installPools(hosts, maxClients=5, reactor=None):
             maxClients,
             reactor,
         )
-
 
 
 def _configuredClientContextFactory(hostname):
@@ -433,7 +418,6 @@ def _configuredClientContextFactory(hostname):
         sslmethod=getattr(OpenSSL.SSL, config.SSLMethod),
         peerName=hostname,
     )
-
 
 
 def installPool(name, url, maxClients=5, reactor=None):
@@ -451,7 +435,6 @@ def installPool(name, url, maxClients=5, reactor=None):
         reactor,
     )
     _clientPools[name] = pool
-
 
 
 def getHTTPClientPool(name):

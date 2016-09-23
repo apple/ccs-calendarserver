@@ -7,9 +7,9 @@ from txweb2 import http, http_headers, responsecode, stream
 
 # Some starts at writing a response filter to handle request ranges.
 
+
 class UnsatisfiableRangeRequest(Exception):
     pass
-
 
 
 def canonicalizeRange((start, end), size):
@@ -33,14 +33,12 @@ def canonicalizeRange((start, end), size):
     return start, end
 
 
-
 def makeUnsatisfiable(request, oldresponse):
     if request.headers.hasHeader('if-range'):
-        return oldresponse # Return resource instead of error
+        return oldresponse  # Return resource instead of error
     response = http.Response(responsecode.REQUESTED_RANGE_NOT_SATISFIABLE)
     response.headers.setHeader("content-range", ('bytes', None, None, oldresponse.stream.length))
     return response
-
 
 
 def makeSegment(inputStream, lastOffset, start, end):
@@ -51,7 +49,6 @@ def makeSegment(inputStream, lastOffset, start, end):
         before, inputStream = inputStream.split(offset)
         before.close()
     return inputStream.split(length)
-
 
 
 def rangefilter(request, oldresponse):
@@ -114,7 +111,6 @@ def rangefilter(request, oldresponse):
                                       [('boundary', boundary)])
             )
             response.stream = out = stream.CompoundStream()
-
 
             lastOffset = 0
             origStream = oldresponse.stream

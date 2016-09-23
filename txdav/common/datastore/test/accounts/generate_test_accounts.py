@@ -31,7 +31,6 @@ out.write('<!DOCTYPE accounts SYSTEM "accounts.dtd">\n\n')
 out.write('<directory realm="Test Realm">\n')
 
 
-
 # user01-100
 for i in xrange(1, 101):
     out.write("""<record type="user">
@@ -53,7 +52,6 @@ for i in xrange(1, 101):
 """.format(ctr=i))
 out.write("</directory>\n")
 out.close()
-
 
 
 out = file("augments-test.xml", "w")

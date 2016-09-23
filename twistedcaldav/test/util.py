@@ -71,11 +71,11 @@ augmentsFile = dirTest.child("augments.xml")
 proxiesFile = dirTest.child("proxies.xml")
 
 
-
 class SimpleStoreRequest(SimpleRequest):
     """
     A SimpleRequest that automatically grabs the proper transaction for a test.
     """
+
     def __init__(self, test, method, uri, headers=None, content=None, authPrincipal=None):
         super(SimpleStoreRequest, self).__init__(test.site, method, uri, headers, content)
         self._test = test
@@ -86,7 +86,6 @@ class SimpleStoreRequest(SimpleRequest):
         if authPrincipal is not None:
             self.authzUser = self.authnUser = authPrincipal
 
-
     @inlineCallbacks
     def process(self):
         """
@@ -96,11 +95,9 @@ class SimpleStoreRequest(SimpleRequest):
         self._test.lastTransaction = None
         returnValue(result)
 
-
     def _cbFinishRender(self, result):
         self._test.lastTransaction = None
         return super(SimpleStoreRequest, self)._cbFinishRender(result)
-
 
 
 class StoreTestCase(CommonCommonTests, txweb2.dav.test.util.TestCase):
@@ -121,10 +118,8 @@ class StoreTestCase(CommonCommonTests, txweb2.dav.test.util.TestCase):
 
         yield self.populate()
 
-
     def populate(self):
         return succeed(None)
-
 
     def configure(self):
         """
@@ -139,7 +134,6 @@ class StoreTestCase(CommonCommonTests, txweb2.dav.test.util.TestCase):
         memcacher.Memcacher.reset()
         config.DirectoryAddressBook.Enabled = False
         config.UsePackageTimezones = True
-
 
     def createHierarchy(self, structure, root=None):
         if root is None:
@@ -177,7 +171,6 @@ class StoreTestCase(CommonCommonTests, txweb2.dav.test.util.TestCase):
 
         createChildren(root, structure)
         return root
-
 
     def verifyHierarchy(self, root, structure):
 
@@ -293,7 +286,6 @@ class StoreTestCase(CommonCommonTests, txweb2.dav.test.util.TestCase):
         return verifyChildren(root, structure)
 
 
-
 class TestCase(txweb2.dav.test.util.TestCase):
     resource_class = RootResource
 
@@ -305,7 +297,6 @@ class TestCase(txweb2.dav.test.util.TestCase):
         """
         return CommonDataStore(FilePath(config.DocumentRoot), None, None, True, False,
                                quota=deriveQuota(self))
-
 
     def setupCalendars(self):
         """
@@ -321,7 +312,6 @@ class TestCase(txweb2.dav.test.util.TestCase):
         """
         newStore = self.createDataStore()
 
-
         @self.directoryFixture.whenDirectoryServiceChanges
         def putAllChildren(ds):
             self.calendarCollection = (
@@ -335,7 +325,6 @@ class TestCase(txweb2.dav.test.util.TestCase):
                 ))
             self.site.resource.putChild("addressbooks",
                                         self.addressbookCollection)
-
 
     def configure(self):
         """
@@ -355,7 +344,6 @@ class TestCase(txweb2.dav.test.util.TestCase):
         memcacher.Memcacher.reset()
         config.DirectoryAddressBook.Enabled = False
         config.UsePackageTimezones = True
-
 
     def setUp(self):
         super(TestCase, self).setUp()
@@ -378,14 +366,14 @@ class TestCase(txweb2.dav.test.util.TestCase):
             os.makedirs(config.LogRoot)
 
 
-
 class norequest(object):
+
     def addResponseFilter(self, filter):
         "stub; ignore me"
 
 
-
 class InMemoryPropertyStore(object):
+
     def __init__(self):
         class _FauxPath(object):
             path = ':memory:'
@@ -396,7 +384,6 @@ class InMemoryPropertyStore(object):
         self._properties = {}
         self.resource = _FauxResource()
 
-
     def get(self, qname, uid=None):
         qnameuid = qname + (uid,)
         data = self._properties.get(qnameuid)
@@ -404,11 +391,9 @@ class InMemoryPropertyStore(object):
             raise HTTPError(StatusResponse(404, "No such property"))
         return data
 
-
     def set(self, property, uid=None):
         qnameuid = property.qname() + (uid,)
         self._properties[qnameuid] = property
-
 
     def delete(self, qname, uid=None):
         try:
@@ -417,11 +402,9 @@ class InMemoryPropertyStore(object):
         except KeyError:
             pass
 
-
     def contains(self, qname, uid=None):
         qnameuid = qname + (uid,)
         return qnameuid in self._properties
-
 
     def list(self, uid=None, filterByUID=True):
         results = self._properties.iterkeys()
@@ -435,8 +418,8 @@ class InMemoryPropertyStore(object):
             return results
 
 
-
 class StubCacheChangeNotifier(object):
+
     def __init__(self, *args, **kwargs):
         pass
 
@@ -447,8 +430,8 @@ class StubCacheChangeNotifier(object):
         return succeed(True)
 
 
-
 class InMemoryMemcacheProtocol(object):
+
     def __init__(self, reactor=None):
         self._cache = {}
 
@@ -459,13 +442,11 @@ class InMemoryMemcacheProtocol(object):
 
         self._timeouts = {}
 
-
     def get(self, key):
         if key not in self._cache:
             return succeed((0, None))
 
         return succeed(self._cache[key])
-
 
     def _timeoutKey(self, expireTime, key):
         def _removeKey():
@@ -479,7 +460,6 @@ class InMemoryMemcacheProtocol(object):
                 expireTime,
                 _removeKey)
 
-
     def set(self, key, value, flags=0, expireTime=0):
         try:
             self._cache[key] = (flags, value)
@@ -491,13 +471,11 @@ class InMemoryMemcacheProtocol(object):
         except Exception:
             return fail(Failure())
 
-
     def add(self, key, value, flags=0, expireTime=0):
         if key in self._cache:
             return succeed(False)
 
         return self.set(key, value, flags=flags, expireTime=expireTime)
-
 
     def delete(self, key):
         try:
@@ -510,13 +488,11 @@ class InMemoryMemcacheProtocol(object):
             return succeed(False)
 
 
-
 class ErrorOutput(Exception):
     """
     The process produced some error output and exited with a non-zero exit
     code.
     """
-
 
 
 class CapturingProcessProtocol(ProcessProtocol):
@@ -542,7 +518,6 @@ class CapturingProcessProtocol(ProcessProtocol):
         self.error = []
         self.terminated = False
 
-
     def connectionMade(self):
         """
         The process started; feed its input on stdin.
@@ -551,13 +526,11 @@ class CapturingProcessProtocol(ProcessProtocol):
             self.transport.write(self.input)
             self.transport.closeStdin()
 
-
     def outReceived(self, data):
         """
         Some output was received on stdout.
         """
         self.output.append(data)
-
 
     def errReceived(self, data):
         """
@@ -575,7 +548,6 @@ class CapturingProcessProtocol(ProcessProtocol):
             log.error("Terminating process due to output: {d}", d=data)
             self.terminated = True
             self.transport.signalProcess("TERM")
-
 
     def processEnded(self, why):
         """

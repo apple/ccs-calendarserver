@@ -53,7 +53,6 @@ def loggedReactor(reactor):
     return reactor
 
 
-
 class _TCPTrafficLoggingReactor(proxyForInterface(IReactorTCP, '_reactor')):
     """
     A mixin for a reactor wrapper which defines C{connectTCP} so as to cause
@@ -67,7 +66,6 @@ class _TCPTrafficLoggingReactor(proxyForInterface(IReactorTCP, '_reactor')):
             self._factories = []
         return self._factories
 
-
     def getLogFiles(self):
         active = []
         finished = []
@@ -77,13 +75,11 @@ class _TCPTrafficLoggingReactor(proxyForInterface(IReactorTCP, '_reactor')):
             finished.extend(factory.finishedLogs)
         return logstate(active, finished)
 
-
     def connectTCP(self, host, port, factory, *args, **kwargs):
         wrapper = _TrafficLoggingFactory(factory)
         self.factories.append(ref(wrapper, self.factories.remove))
         return self._reactor.connectTCP(
             host, port, wrapper, *args, **kwargs)
-
 
 
 class _TrafficLoggingFactory(WrappingFactory):
@@ -101,13 +97,11 @@ class _TrafficLoggingFactory(WrappingFactory):
         self.logs = []
         self.finishedLogs = []
 
-
     def unregisterProtocol(self, protocol):
         WrappingFactory.unregisterProtocol(self, protocol)
         self.logs.remove(protocol.logfile)
         self.finishedLogs.append(protocol.logfile)
         del self.finishedLogs[:-self.LOGFILE_LIMIT]
-
 
     def buildProtocol(self, addr):
         logfile = StringIO()

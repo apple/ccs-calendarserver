@@ -49,7 +49,6 @@ log = Logger()
 _MAGIC_READY_COOKIE = "database system is ready to accept connections"
 
 
-
 class PostgresMonitor(ProcessProtocol):
     """
     A monitoring protocol which watches the postgres subprocess.
@@ -64,7 +63,6 @@ class PostgresMonitor(ProcessProtocol):
         self.isReady = False
         self.completionDeferred = Deferred()
 
-
     def lineReceived(self, line):
         if self.svc is None:
             return
@@ -74,10 +72,8 @@ class PostgresMonitor(ProcessProtocol):
 
     disconnecting = False
 
-
     def connectionMade(self):
         self.lineReceiver.makeConnection(self)
-
 
     def outReceived(self, out):
         for line in out.split("\n"):
@@ -85,13 +81,11 @@ class PostgresMonitor(ProcessProtocol):
                 self.log.info("{msg}", msg=line)
         # self.lineReceiver.dataReceived(out)
 
-
     def errReceived(self, err):
         for line in err.split("\n"):
             if line:
                 self.log.error("{msg}", msg=line)
         self.lineReceiver.dataReceived(err)
-
 
     def processEnded(self, reason):
         self.log.info(
@@ -109,13 +103,11 @@ class PostgresMonitor(ProcessProtocol):
             self.completionDeferred.errback(reason)
 
 
-
 class ErrorOutput(Exception):
     """
     The process produced some error output and exited with a non-zero exit
     code.
     """
-
 
 
 class CapturingProcessProtocol(ProcessProtocol):
@@ -140,7 +132,6 @@ class CapturingProcessProtocol(ProcessProtocol):
         self.output = []
         self.error = []
 
-
     def connectionMade(self):
         """
         The process started; feed its input on stdin.
@@ -149,13 +140,11 @@ class CapturingProcessProtocol(ProcessProtocol):
             self.transport.write(self.input)
             self.transport.closeStdin()
 
-
     def outReceived(self, data):
         """
         Some output was received on stdout.
         """
         self.output.append(data)
-
 
     def errReceived(self, data):
         """
@@ -163,13 +152,11 @@ class CapturingProcessProtocol(ProcessProtocol):
         """
         self.output.append(data)
 
-
     def processEnded(self, why):
         """
         The process is over, fire the Deferred with the output.
         """
         self.deferred.callback("".join(self.output))
-
 
 
 class PostgresService(MultiService):
@@ -298,14 +285,12 @@ class PostgresService(MultiService):
         self._reactor = reactor
         self._postgresPid = None
 
-
     @property
     def reactor(self):
         if self._reactor is None:
             from twisted.internet import reactor
             self._reactor = reactor
         return self._reactor
-
 
     def activateDelayedShutdown(self):
         """
@@ -318,7 +303,6 @@ class PostgresService(MultiService):
         """
         self.delayedShutdown = True
 
-
     def deactivateDelayedShutdown(self):
         """
         Call this when database initialization code has completed so that the
@@ -327,7 +311,6 @@ class PostgresService(MultiService):
         self.delayedShutdown = False
         if self.shutdownDeferred:
             self.shutdownDeferred.callback(None)
-
 
     def _connectorFor(self, databaseName=None):
         if databaseName is None:
@@ -351,13 +334,11 @@ class PostgresService(MultiService):
 
         return DBAPIConnector.connectorFor("postgres", **kwargs)
 
-
     def produceConnection(self, label="<unlabeled>", databaseName=None):
         """
         Produce a DB-API 2.0 connection pointed at this database.
         """
         return self._connectorFor(databaseName).connect(label)
-
 
     def ready(self, createDatabaseConn, createDatabaseCursor):
         """
@@ -403,7 +384,6 @@ class PostgresService(MultiService):
                 self.produceConnection, self
             ).setServiceParent(self)
 
-
     def pauseMonitor(self):
         """
         Pause monitoring.  This is a testing hook for when (if) we are
@@ -413,7 +393,6 @@ class PostgresService(MultiService):
 #            pipe.stopReading()
 #            pipe.stopWriting()
         pass
-
 
     def unpauseMonitor(self):
         """
@@ -425,7 +404,6 @@ class PostgresService(MultiService):
 #            pipe.startReading()
 #            pipe.startWriting()
         pass
-
 
     def startDatabase(self):
         """
@@ -633,7 +611,6 @@ class PostgresService(MultiService):
             log.info("Cluster already exists at {dir}", dir=clusterDir.path.decode("utf-8"))
             self.startDatabase()
 
-
     def stopService(self):
         """
         Stop all child services, then stop the subprocess, if it's running.
@@ -686,7 +663,6 @@ class PostgresService(MultiService):
                     )
                     return monitor.completionDeferred
         return d.addCallback(superStopped)
-
 
     def hardStop(self):
         """

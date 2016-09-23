@@ -18,6 +18,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 import cProfile as profile
 import pstats
 
+
 def profile_method():
     """
     Decorator to profile a function
@@ -36,7 +37,6 @@ def profile_method():
             return result
         return inner
     return wrapper
-
 
 
 def profile_inline_callback():

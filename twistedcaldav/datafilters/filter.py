@@ -22,6 +22,7 @@ __all__ = [
     "AddressFilter",
 ]
 
+
 class CalendarFilter(object):
     """
     Abstract class that defines an iCalendar filter/merge object
@@ -29,7 +30,6 @@ class CalendarFilter(object):
 
     def __init__(self):
         pass
-
 
     def filter(self, ical):
         """
@@ -42,7 +42,6 @@ class CalendarFilter(object):
         """
         raise NotImplementedError
 
-
     def merge(self, icalnew, icalold):
         """
         Merge the old iCalendar object into the new iCalendar data using the request information.
@@ -53,7 +52,6 @@ class CalendarFilter(object):
         @type icalold: L{Component}
         """
         raise NotImplementedError
-
 
     def validCalendar(self, ical):
 
@@ -70,7 +68,6 @@ class CalendarFilter(object):
         return ical
 
 
-
 class AddressFilter(object):
     """
     Abstract class that defines a vCard filter/merge object
@@ -78,7 +75,6 @@ class AddressFilter(object):
 
     def __init__(self):
         pass
-
 
     def filter(self, vcard):
         """
@@ -91,7 +87,6 @@ class AddressFilter(object):
         """
         raise NotImplementedError
 
-
     def merge(self, vcardnew, vcardold):
         """
         Merge the old vcard object into the new vcard data using the request information.
@@ -102,7 +97,6 @@ class AddressFilter(object):
         @type vcardold: L{Component}
         """
         raise NotImplementedError
-
 
     def validAddress(self, vcard):
 

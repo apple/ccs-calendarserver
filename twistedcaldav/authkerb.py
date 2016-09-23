@@ -83,7 +83,6 @@ class KerberosCredentialFactoryBase(object):
 
         self.service, self.realm = self._splitPrincipal(principal)
 
-
     def _splitPrincipal(self, principal):
 
         try:
@@ -100,7 +99,6 @@ class KerberosCredentialFactoryBase(object):
         realm = realm
 
         return (service, realm,)
-
 
 
 class BasicKerberosCredentials(credentials.UsernamePassword):
@@ -127,7 +125,6 @@ class BasicKerberosCredentials(credentials.UsernamePassword):
         self.default_realm = realm
 
 
-
 class BasicKerberosCredentialFactory(KerberosCredentialFactoryBase):
     """
     Authorizer for insecure Basic (base64-encoded plaintext) authentication.
@@ -152,10 +149,8 @@ class BasicKerberosCredentialFactory(KerberosCredentialFactoryBase):
 
         super(BasicKerberosCredentialFactory, self).__init__(principal, serviceType, hostname)
 
-
     def getChallenge(self, _ignore_peer):
         return succeed({'realm': self.realm})
-
 
     def decode(self, response, request):  # @UnusedVariable
         try:
@@ -168,7 +163,6 @@ class BasicKerberosCredentialFactory(KerberosCredentialFactoryBase):
             c = BasicKerberosCredentials(creds[0], creds[1], self.service, self.realm)
             return succeed(c)
         raise error.LoginFailed('Invalid credentials')
-
 
 
 class BasicKerberosCredentialsChecker(object):
@@ -199,7 +193,6 @@ class BasicKerberosCredentialsChecker(object):
         raise error.UnauthorizedLogin("Bad credentials for: %s" % (pcreds.authnURI,))
 
 
-
 class NegotiateCredentials(object):
     """
     A set of user/password credentials that checks itself against Kerberos.
@@ -211,7 +204,6 @@ class NegotiateCredentials(object):
 
         self.principal = principal
         self.username = username
-
 
 
 class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
@@ -235,10 +227,8 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
 
         super(NegotiateCredentialFactory, self).__init__(principal, serviceType, hostname)
 
-
     def getChallenge(self, _ignore_peer):
         return succeed({})
-
 
     def decode(self, base64data, request):
 
@@ -312,7 +302,6 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
         request.addResponseFilter(responseFilterAddWWWAuthenticate)
 
         return succeed(NegotiateCredentials(principal, username))
-
 
 
 class NegotiateCredentialsChecker(object):

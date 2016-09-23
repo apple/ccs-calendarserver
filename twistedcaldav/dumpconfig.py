@@ -72,7 +72,6 @@ def parseConfigItem(item):
     return "\n".join(lines)
 
 
-
 def processConfig(configlines, with_comments=False, verbose=False, substitutions=None):
     """
     Process the "raw" config lines from stdconfig.py into a JSON object
@@ -165,7 +164,6 @@ def processConfig(configlines, with_comments=False, verbose=False, substitutions
                     )
                     break
 
-
         # Look for numeric expressions in the value and eval() those to get a value
         # that is compatible with JSON
         m = value.match(append)
@@ -189,7 +187,6 @@ def processConfig(configlines, with_comments=False, verbose=False, substitutions
     # Created an ordered JSON object
     j = json.loads(newj, object_pairs_hook=OrderedDict)
     return j
-
 
 
 class OrderedPlistWriter(PlistWriter):
@@ -226,7 +223,6 @@ class OrderedPlistWriter(PlistWriter):
                 newline = True
         self.endElement("dict")
 
-
     def writeComment(self, comment):
 
         indent = self.indentLevel * self.indent
@@ -248,7 +244,6 @@ class OrderedPlistWriter(PlistWriter):
                 self.file.write("{} -->\n".format(line))
             else:
                 self.file.write("{}\n\n".format(line))
-
 
 
 def writeOrderedPlist(rootObject, pathOrFile):
@@ -273,7 +268,6 @@ def writeOrderedPlist(rootObject, pathOrFile):
         pathOrFile.close()
 
 
-
 def writeOrderedPlistToString(rootObject):
     """
     A copy of L{plistlib.writePlistToString} that uses an L{writeOrderedPlist} to
@@ -287,7 +281,6 @@ def writeOrderedPlistToString(rootObject):
     return f.getvalue()
 
 
-
 def writeStdConfig(data):
     """
     Write the actual plist data to conf/caldavd-stdconfig.plist.
@@ -298,7 +291,6 @@ def writeStdConfig(data):
 
     with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), "conf", "caldavd-stdconfig.plist"), "w") as f:
         f.write(data)
-
 
 
 def dumpConfig():

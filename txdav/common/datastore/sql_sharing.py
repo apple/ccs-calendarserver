@@ -44,6 +44,7 @@ log = Logger()
 Classes and methods that relate to sharing in the SQL store.
 """
 
+
 class SharingHomeMixIn(object):
     """
     Common class for CommonHome to implement sharing operations
@@ -61,7 +62,6 @@ class SharingHomeMixIn(object):
 
         returnValue(shareeView)
 
-
     @inlineCallbacks
     def declineShare(self, shareUID):
         """
@@ -73,7 +73,6 @@ class SharingHomeMixIn(object):
             yield shareeView.declineShare()
 
         returnValue(shareeView is not None)
-
 
     #
     # External (cross-pod) sharing - entry point is the sharee's home collection.
@@ -111,7 +110,6 @@ class SharingHomeMixIn(object):
 
         shareeView.setInviteCopyProperties(copy_invite_properties)
 
-
     @inlineCallbacks
     def processExternalUninvite(self, ownerUID, bindUID, shareUID):
         """
@@ -134,7 +132,6 @@ class SharingHomeMixIn(object):
         # See if there are any references to the external share. If not,
         # remove it
         yield ownerView.cleanExternalShare()
-
 
     @inlineCallbacks
     def processExternalReply(
@@ -166,7 +163,6 @@ class SharingHomeMixIn(object):
                 yield shareeView.deleteShare()
             else:
                 yield shareeHome.declineShare(shareUID)
-
 
     @inlineCallbacks
     def createCollectionForExternalShare(self, name, bindUID, supported_components):
@@ -216,7 +212,6 @@ class SharingHomeMixIn(object):
             yield ownerView.setSupportedComponents(supported_components)
 
         returnValue(ownerView)
-
 
     @inlineCallbacks
     def sharedToBindRecords(self):
@@ -272,12 +267,10 @@ class SharingHomeMixIn(object):
         returnValue(dict([(homeMap[calendarID], (records[calendarID], ownerRecords[calendarID], metadataRecords[calendarID],),) for calendarID in records]))
 
 
-
 SharingInvitation = namedtuple(
     "SharingInvitation",
     ["uid", "ownerUID", "ownerHomeID", "shareeUID", "shareeHomeID", "shareeHomeStatus", "mode", "status", "summary"]
 )
-
 
 
 class SharingMixIn(object):
@@ -302,7 +295,6 @@ class SharingMixIn(object):
             bind.MESSAGE: Parameter("message"),
         })
 
-
     @classmethod
     def _updateBindColumnsQuery(cls, columnMap):
         bind = cls._bindSchema
@@ -311,7 +303,6 @@ class SharingMixIn(object):
             Where=(bind.RESOURCE_ID == Parameter("resourceID")).And(
                 bind.HOME_RESOURCE_ID == Parameter("homeID")),
         )
-
 
     @classproperty
     def _deleteBindForResourceIDAndHomeID(cls):
@@ -322,7 +313,6 @@ class SharingMixIn(object):
                 bind.HOME_RESOURCE_ID == Parameter("homeID")),
         )
 
-
     @classmethod
     def _bindFor(cls, condition):
         bind = cls._bindSchema
@@ -332,7 +322,6 @@ class SharingMixIn(object):
             From=bind,
             Where=condition
         )
-
 
     @classmethod
     def _bindInviteFor(cls, condition):
@@ -353,7 +342,6 @@ class SharingMixIn(object):
             Where=condition
         )
 
-
     @classproperty
     def _sharedInvitationBindForResourceID(cls):
         bind = cls._bindSchema
@@ -362,13 +350,11 @@ class SharingMixIn(object):
             (bind.BIND_MODE != _BIND_MODE_OWN)
         )
 
-
     @classproperty
     def _acceptedBindForHomeID(cls):
         bind = cls._bindSchema
         return cls._bindFor((bind.HOME_RESOURCE_ID == Parameter("homeID"))
                             .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
-
 
     @classproperty
     def _bindForResourceIDAndHomeID(cls):
@@ -380,7 +366,6 @@ class SharingMixIn(object):
         return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
                             .And(bind.HOME_RESOURCE_ID == Parameter("homeID")))
 
-
     @classproperty
     def _bindForBindUIDAndHomeID(cls):
         """
@@ -391,7 +376,6 @@ class SharingMixIn(object):
         return cls._bindFor((bind.BIND_UID == Parameter("bindUID"))
                             .And(bind.HOME_RESOURCE_ID == Parameter("homeID")))
 
-
     @classproperty
     def _bindForNameAndHomeID(cls):
         """
@@ -401,7 +385,6 @@ class SharingMixIn(object):
         bind = cls._bindSchema
         return cls._bindFor((bind.RESOURCE_NAME == Parameter("name"))
                             .And(bind.HOME_RESOURCE_ID == Parameter("homeID")))
-
 
     #
     # Higher level API
@@ -436,7 +419,6 @@ class SharingMixIn(object):
             yield self._sendInviteNotification(shareeView)
         returnValue(shareeView)
 
-
     @inlineCallbacks
     def directShareWithUser(self, shareeUID, shareName=None, displayName=None):
         """
@@ -461,7 +443,6 @@ class SharingMixIn(object):
                 yield self._sendExternalInvite(shareeView)
 
         returnValue(shareeView)
-
 
     @inlineCallbacks
     def uninviteUIDFromShare(self, shareeUID):
@@ -497,7 +478,6 @@ class SharingMixIn(object):
             # Remove the bind
             yield self.removeShare(shareeView)
 
-
     @inlineCallbacks
     def acceptShare(self, summary=None):
         """
@@ -513,7 +493,6 @@ class SharingMixIn(object):
             if not ownerView.external():
                 yield self._sendReplyNotification(ownerView, summary)
 
-
     @inlineCallbacks
     def declineShare(self):
         """
@@ -527,7 +506,6 @@ class SharingMixIn(object):
             yield ownerView.updateShare(self, status=_BIND_STATUS_DECLINED)
             if not ownerView.external():
                 yield self._sendReplyNotification(ownerView)
-
 
     @inlineCallbacks
     def deleteShare(self):
@@ -543,7 +521,6 @@ class SharingMixIn(object):
         else:
             yield self.declineShare()
 
-
     @inlineCallbacks
     def ownerDeleteShare(self):
         """
@@ -556,7 +533,6 @@ class SharingMixIn(object):
         # Remove all sharees (direct and invited)
         for invitation in (yield self.sharingInvites()):
             yield self.uninviteUIDFromShare(invitation.shareeUID)
-
 
     @inlineCallbacks
     def cleanExternalShare(self):
@@ -571,14 +547,12 @@ class SharingMixIn(object):
         if len(invites) == 0:
             yield self._home.removeExternalChild(self)
 
-
     def newShare(self, displayname=None):
         """
         Override in derived classes to do any specific operations needed when a share
         is first accepted.
         """
         return succeed(None)
-
 
     @inlineCallbacks
     def notifyExternalShare(self, category=ChangeCategory.default):
@@ -612,7 +586,6 @@ class SharingMixIn(object):
                 category,
             )
 
-
     @inlineCallbacks
     def allInvitations(self):
         """
@@ -624,7 +597,6 @@ class SharingMixIn(object):
         invitations = filter(lambda x: x.mode != _BIND_MODE_DIRECT, invitations)
         invitations.sort(key=lambda invitation: invitation.shareeUID)
         returnValue(invitations)
-
 
     @inlineCallbacks
     def _sendInviteNotification(self, shareeView, notificationState=None):
@@ -659,7 +631,6 @@ class SharingMixIn(object):
         notifications = yield self._txn.notificationsWithUID(shareeView.viewerHome().uid(), create=True)
         yield notifications.writeNotificationObject(shareeView.shareUID(), notificationtype, notificationdata)
 
-
     @inlineCallbacks
     def _sendReplyNotification(self, ownerView, summary=None):
         """
@@ -690,7 +661,6 @@ class SharingMixIn(object):
         notifications = yield self._txn.notificationsWithUID(self.ownerHome().uid(), create=True)
         yield notifications.writeNotificationObject(notificationUID, notificationtype, notificationdata)
 
-
     @inlineCallbacks
     def _removeInviteNotification(self, shareeView):
         """
@@ -700,7 +670,6 @@ class SharingMixIn(object):
         # Remove from sharee's collection
         notifications = yield self._txn.notificationsWithUID(shareeView.viewerHome().uid())
         yield notifications.removeNotificationObjectWithUID(shareeView.shareUID())
-
 
     #
     # External/cross-pod API
@@ -731,7 +700,6 @@ class SharingMixIn(object):
             supported_components=self.getSupportedComponents() if hasattr(self, "getSupportedComponents") else None,
         )
 
-
     @inlineCallbacks
     def _sendExternalUninvite(self, shareeView):
 
@@ -743,7 +711,6 @@ class SharingMixIn(object):
             shareeView.viewerHome().uid(),
             shareeView.shareUID(),
         )
-
 
     @inlineCallbacks
     def _replyExternalInvite(self, status, summary=None):
@@ -764,7 +731,6 @@ class SharingMixIn(object):
             yield self.fixNonExistentExternalShare()
             raise ExternalShareFailed("External share does not exist")
 
-
     #
     # Lower level API
     #
@@ -779,7 +745,6 @@ class SharingMixIn(object):
         # Get the child of the owner home that has the same resource id as the owned one
         ownerView = yield self.ownerHome().childWithID(self.id())
         returnValue(ownerView)
-
 
     @inlineCallbacks
     def shareeView(self, shareeUID):
@@ -798,7 +763,6 @@ class SharingMixIn(object):
         shareeHome = yield self._txn.homeWithUID(self._home._homeType, shareeUID, authzUID=shareeUID)
         shareeView = (yield shareeHome.allChildWithID(self.id())) if shareeHome is not None else None
         returnValue(shareeView)
-
 
     @inlineCallbacks
     def shareWithUID(self, shareeUID, mode, status=None, summary=None, shareName=None):
@@ -827,7 +791,6 @@ class SharingMixIn(object):
         returnValue(
             (yield self.shareWith(shareeHome, mode, status, summary, shareName))
         )
-
 
     @inlineCallbacks
     def shareWith(self, shareeHome, mode, status=None, summary=None, shareName=None):
@@ -898,7 +861,6 @@ class SharingMixIn(object):
 
         returnValue(bindName)
 
-
     @inlineCallbacks
     def createShare(self, shareeUID, mode, summary=None, shareName=None):
         """
@@ -916,7 +878,6 @@ class SharingMixIn(object):
         )
         shareeView = yield self.shareeView(shareeUID)
         returnValue(shareeView)
-
 
     @inlineCallbacks
     def updateShare(self, shareeView, mode=None, status=None, summary=None):
@@ -981,10 +942,8 @@ class SharingMixIn(object):
             yield self.notifyPropertyChanged()
             yield shareeView.viewerHome().notifyChanged()
 
-
     def _previousAcceptCount(self):
         return succeed(1)
-
 
     @inlineCallbacks
     def _changedStatus(self, previouslyAcceptedCount):
@@ -998,7 +957,6 @@ class SharingMixIn(object):
             yield self._deletedSyncToken(sharedRemoval=True)
             self._home._children[key].pop(self.name(), None)
             self._home._children[key].pop(self.id(), None)
-
 
     @inlineCallbacks
     def removeShare(self, shareeView):
@@ -1033,7 +991,6 @@ class SharingMixIn(object):
 
         yield shareeView.invalidateQueryCache()
 
-
     @inlineCallbacks
     def unshare(self):
         """
@@ -1049,7 +1006,6 @@ class SharingMixIn(object):
             # This collection is shared to me
             ownerView = yield self.ownerView()
             yield ownerView.removeShare(self)
-
 
     @inlineCallbacks
     def sharingInvites(self):
@@ -1083,7 +1039,6 @@ class SharingMixIn(object):
             result.append(invite)
         returnValue(result)
 
-
     @inlineCallbacks
     def sharingBindRecords(self):
         """
@@ -1105,7 +1060,6 @@ class SharingMixIn(object):
 
         returnValue(dict([(homeMap[getattr(record, self._bindHomeIDAttributeName)], record,) for record in records if record.bindMode != _BIND_MODE_OWN]))
 
-
     def migrateBindRecords(self, bindUID):
         """
         The user that owns this collection is being migrated to another pod. We need to switch over
@@ -1115,7 +1069,6 @@ class SharingMixIn(object):
             return self.migrateSharedByRecords(bindUID)
         else:
             return self.migrateSharedToRecords()
-
 
     @inlineCallbacks
     def migrateSharedByRecords(self, bindUID):
@@ -1158,7 +1111,6 @@ class SharingMixIn(object):
         if not remaining:
             yield calendar.remove()
 
-
     @inlineCallbacks
     def migrateSharedToRecords(self):
         """
@@ -1200,7 +1152,6 @@ class SharingMixIn(object):
         else:
             raise AssertionError("We must have a bind record for this calendar.")
 
-
     def externalHome(self):
         """
         Create and return an L{CommonHome} for the user being migrated. Note that when called, the user
@@ -1210,15 +1161,14 @@ class SharingMixIn(object):
         currentHome = self.viewerHome()
         return self._txn.homeWithUID(currentHome._homeType, currentHome.uid(), status=_HOME_STATUS_EXTERNAL, create=True)
 
-
     @inlineCallbacks
     def _initBindRevision(self):
-        yield self.syncToken() # init self._syncTokenRevision if None
+        yield self.syncToken()  # init self._syncTokenRevision if None
         self._bindRevision = self._syncTokenRevision
 
         bind = self._bindSchema
         yield self._updateBindColumnsQuery(
-            {bind.BIND_REVISION : Parameter("revision"), }
+            {bind.BIND_REVISION: Parameter("revision"), }
         ).on(
             self._txn,
             revision=self._bindRevision,
@@ -1226,7 +1176,6 @@ class SharingMixIn(object):
             homeID=self.viewerHome()._resourceID,
         )
         yield self.invalidateQueryCache()
-
 
     def sharedResourceType(self):
         """
@@ -1237,20 +1186,17 @@ class SharingMixIn(object):
         """
         return ""
 
-
     def newShareName(self):
         """
         Name used when creating a new share. By default this is a UUID.
         """
         return str(uuid4())
 
-
     def owned(self):
         """
         @see: L{ICalendar.owned}
         """
         return self._bindMode == _BIND_MODE_OWN
-
 
     def isSharedByOwner(self):
         """
@@ -1260,7 +1206,6 @@ class SharingMixIn(object):
         @rtype: C{bool}
         """
         return self.owned() and self._bindMessage == "shared"
-
 
     @inlineCallbacks
     def setShared(self, shared):
@@ -1292,7 +1237,6 @@ class SharingMixIn(object):
         yield self.invalidateQueryCache()
         yield self.notifyPropertyChanged()
 
-
     def direct(self):
         """
         Is this a "direct" share?
@@ -1300,7 +1244,6 @@ class SharingMixIn(object):
         @return: a boolean indicating whether it's direct.
         """
         return self._bindMode == _BIND_MODE_DIRECT
-
 
     def indirect(self):
         """
@@ -1310,13 +1253,11 @@ class SharingMixIn(object):
         """
         return self._bindMode == _BIND_MODE_INDIRECT
 
-
     def shareUID(self):
         """
         @see: L{ICalendar.shareUID}
         """
         return self.name()
-
 
     def shareMode(self):
         """
@@ -1324,20 +1265,17 @@ class SharingMixIn(object):
         """
         return self._bindMode
 
-
     def _effectiveShareMode(self, bindMode, viewerUID, txn):
         """
         Get the effective share mode without a calendar object
         """
         return bindMode
 
-
     def effectiveShareMode(self):
         """
         @see: L{ICalendar.shareMode}
         """
         return self._bindMode
-
 
     def shareName(self):
         """
@@ -1351,13 +1289,11 @@ class SharingMixIn(object):
             name = self.parentCollection().name() + "/" + name
         return name
 
-
     def shareStatus(self):
         """
         @see: L{ICalendar.shareStatus}
         """
         return self._bindStatus
-
 
     def bindUID(self):
         """
@@ -1365,20 +1301,17 @@ class SharingMixIn(object):
         """
         return self._bindUID
 
-
     def accepted(self):
         """
         @see: L{ICalendar.shareStatus}
         """
         return self._bindStatus == _BIND_STATUS_ACCEPTED
 
-
     def shareMessage(self):
         """
         @see: L{ICalendar.shareMessage}
         """
         return self._bindMessage
-
 
     def getInviteCopyProperties(self):
         """
@@ -1388,7 +1321,6 @@ class SharingMixIn(object):
         """
         return {}
 
-
     def setInviteCopyProperties(self, props):
         """
         Copy a set of shadowable properties (as name/value strings) onto this shared resource when
@@ -1396,7 +1328,6 @@ class SharingMixIn(object):
         care about.
         """
         pass
-
 
     @classmethod
     def metadataColumns(cls):
@@ -1413,7 +1344,6 @@ class SharingMixIn(object):
             cls._homeChildMetaDataSchema.MODIFIED,
         )
 
-
     @classmethod
     def metadataAttributes(cls):
         """
@@ -1428,7 +1358,6 @@ class SharingMixIn(object):
             "_created",
             "_modified",
         )
-
 
     @classmethod
     def bindColumns(cls):
@@ -1448,7 +1377,6 @@ class SharingMixIn(object):
             cls._bindSchema.BIND_UID,
             cls._bindSchema.MESSAGE
         )
-
 
     @classmethod
     def bindAttributes(cls):
@@ -1481,7 +1409,6 @@ class SharingMixIn(object):
 
         return ()
 
-
     @classmethod
     def additionalBindAttributes(cls):
         """
@@ -1491,7 +1418,6 @@ class SharingMixIn(object):
         """
 
         return ()
-
 
     @classproperty
     def _childrenAndMetadataForHomeID(cls):
@@ -1510,7 +1436,6 @@ class SharingMixIn(object):
             Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")).And(
                 bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
         )
-
 
     @inlineCallbacks
     def invalidateQueryCache(self):

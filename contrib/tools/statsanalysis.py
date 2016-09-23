@@ -26,9 +26,9 @@ import sys
 
 dataset = {}
 
+
 def safeDivision(value, total, factor=1):
     return value * factor / total if total else 0
-
 
 
 def analyze(fpath, title):
@@ -65,7 +65,6 @@ def analyze(fpath, title):
     print("Read %d data points\n" % (len(dataset[title]),))
 
 
-
 def analyzeTableFormat(f, title):
     """
     Analyze a "table" format output file. First line has already been tested.
@@ -79,7 +78,6 @@ def analyzeTableFormat(f, title):
     for line in f:
         if line.startswith("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"):
             analyzeTableRecord(f, title)
-
 
 
 def analyzeTableRecord(liter, title):
@@ -103,7 +101,6 @@ def analyzeTableRecord(liter, title):
             methods = parseMethods(liter)
             dataset[title][seconds].update(methods)
             break
-
 
 
 def parseOverall(line):
@@ -133,7 +130,6 @@ def parseOverall(line):
         overall["Overall:{}".format(key)] = conv(splits[2 + ctr].strip())
 
     return overall
-
 
 
 def parseMethods(liter):
@@ -166,7 +162,6 @@ def parseMethods(liter):
     return methods
 
 
-
 def analyzeJSONFormat(f, first, title):
     """
     Analyze a JSON format output file. First line has already been tested.
@@ -180,7 +175,6 @@ def analyzeJSONFormat(f, first, title):
     for line in f:
         if line:
             analyzeJSONRecord(line, title)
-
 
 
 def analyzeJSONRecord(line, title):
@@ -203,7 +197,6 @@ def analyzeJSONRecord(line, title):
 
     analyzeJSONStatsSummary(allstats, title, seconds)
     analyzeJSONStatsMethods(allstats, title, seconds)
-
 
 
 def analyzeJSONStatsSummary(allstats, title, seconds):
@@ -242,7 +235,6 @@ def analyzeJSONStatsSummary(allstats, title, seconds):
     dataset[title][seconds]["Overall:Max. Response"] = max(results["Max. Response"])
 
 
-
 def analyzeJSONStatsMethods(allstats, title, seconds):
     """
     Analyze all server JSON method stats.
@@ -276,7 +268,6 @@ def analyzeJSONStatsMethods(allstats, title, seconds):
         dataset[title][seconds]["Method:{}:Av. Response".format(method)] = response_average[method]
         dataset[title][seconds]["Method:{}:Av. Response %".format(method)] = safeDivision(response_average[method], total_avresponse, 100.0)
         dataset[title][seconds]["Method:{}:Total Resp. %".format(method)] = safeDivision(method_times[method], total_response, 100.0)
-
 
 
 def plotSeries(key, ymin=None, ymax=None):
@@ -315,7 +306,6 @@ def plotSeries(key, ymin=None, ymax=None):
     plt.grid(True, "minor", "x", alpha=0.5, linewidth=0.5)
     plt.legend(titles, 'upper left', shadow=True, fancybox=True)
     plt.show()
-
 
 
 def usage(error_msg=None):

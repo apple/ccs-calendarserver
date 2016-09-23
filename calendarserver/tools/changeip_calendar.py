@@ -37,7 +37,6 @@ def serverRootLocation():
     return serverRoot
 
 
-
 def usage():
     name = os.path.basename(sys.argv[0])
     print("Usage: %s [-hv] old-ip new-ip [old-hostname new-hostname]" % (name,))
@@ -49,7 +48,6 @@ def usage():
     print("    new-ip       - new IPv4 address of the server")
     print("    old-hostname - current FQDN for the server")
     print("    new-hostname - new FQDN for the server")
-
 
 
 def log(msg):
@@ -65,7 +63,6 @@ def log(msg):
     except IOError:
         # Could not write to log
         pass
-
 
 
 def main():
@@ -116,7 +113,6 @@ def main():
     writeConfig(config)
 
 
-
 def sendCommand(commandDict, configFile=None):
 
     args = [CALENDARSERVER_CONFIG]
@@ -146,7 +142,6 @@ def sendCommand(commandDict, configFile=None):
         return plistlib.readPlistFromString(output)["result"]
 
 
-
 def readConfig(configFile=None):
     """
     Ask calendarserver_config for the current configuration
@@ -158,7 +153,6 @@ def readConfig(configFile=None):
     return sendCommand(command)
 
 
-
 def writeConfig(valuesDict, configFile=None):
     """
     Ask calendarserver_config to update the configuration
@@ -168,7 +162,6 @@ def writeConfig(valuesDict, configFile=None):
         "Values": valuesDict,
     }
     return sendCommand(command)
-
 
 
 def updateConfig(

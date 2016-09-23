@@ -31,7 +31,6 @@ from txweb2.http_headers import Headers
 from ..eventsource import textAsEvent, EventSourceResource, IEventDecoder
 
 
-
 class EventGenerationTests(TestCase):
     """
     Tests for emitting HTML5 EventSource events.
@@ -48,7 +47,6 @@ class EventGenerationTests(TestCase):
             b"data: Hello, World!\n\n"
         )
 
-
     def test_textAsEvent_newlines(self):
         """
         Text with newlines generates multiple C{data:} lines in event.
@@ -57,7 +55,6 @@ class EventGenerationTests(TestCase):
             textAsEvent(u"AAPL\nApple Inc.\n527.10"),
             b"data: AAPL\ndata: Apple Inc.\ndata: 527.10\n\n"
         )
-
 
     def test_textAsEvent_newlineTrailing(self):
         """
@@ -68,7 +65,6 @@ class EventGenerationTests(TestCase):
             b"data: AAPL\ndata: Apple Inc.\ndata: 527.10\ndata: \n\n"
         )
 
-
     def test_textAsEvent_encoding(self):
         """
         Event text is encoded as UTF-8.
@@ -77,7 +73,6 @@ class EventGenerationTests(TestCase):
             textAsEvent(u"S\xe1nchez"),
             b"data: S\xc3\xa1nchez\n\n"
         )
-
 
     def test_textAsEvent_emptyText(self):
         """
@@ -88,13 +83,11 @@ class EventGenerationTests(TestCase):
             b"data: \n\n"  # Note that b"data\n\n" is a valid result here also
         )
 
-
     def test_textAsEvent_NoneText(self):
         """
         Text may not be L{None}.
         """
         self.assertRaises(TypeError, textAsEvent, None)
-
 
     def test_textAsEvent_eventID(self):
         """
@@ -104,7 +97,6 @@ class EventGenerationTests(TestCase):
             textAsEvent(u"", eventID=u"1234"),
             b"id: 1234\ndata: \n\n"  # Note order is allowed to vary
         )
-
 
     def test_textAsEvent_eventClass(self):
         """
@@ -116,7 +108,6 @@ class EventGenerationTests(TestCase):
         )
 
 
-
 class EventSourceResourceTests(TestCase):
     """
     Tests for L{EventSourceResource}.
@@ -126,7 +117,6 @@ class EventSourceResourceTests(TestCase):
 
     def eventSourceResource(self):
         return EventSourceResource(DictionaryEventDecoder, None)
-
 
     def render(self, resource):
         headers = Headers()
@@ -142,7 +132,6 @@ class EventSourceResourceTests(TestCase):
 
         return resource.render(request)
 
-
     def test_status(self):
         """
         Response status is C{200}.
@@ -151,7 +140,6 @@ class EventSourceResourceTests(TestCase):
         response = self.render(resource)
 
         self.assertEquals(response.code, 200)
-
 
     def test_contentType(self):
         """
@@ -165,7 +153,6 @@ class EventSourceResourceTests(TestCase):
             ["text/event-stream"]
         )
 
-
     def test_contentLength(self):
         """
         Response content length is not provided.
@@ -177,7 +164,6 @@ class EventSourceResourceTests(TestCase):
             response.headers.getRawHeaders(b"Content-Length"),
             None
         )
-
 
     @inlineCallbacks
     def test_streamBufferedEvents(self):
@@ -207,7 +193,6 @@ class EventSourceResourceTests(TestCase):
                 )
             )
 
-
     @inlineCallbacks
     def test_streamWaitForEvents(self):
         """
@@ -224,7 +209,6 @@ class EventSourceResourceTests(TestCase):
         d.cancel()
 
     test_streamWaitForEvents.todo = "Feature disabled; needs debugging"
-
 
     @inlineCallbacks
     def test_streamNewEvents(self):
@@ -278,7 +262,6 @@ class EventSourceResourceTests(TestCase):
     test_streamNewEvents.todo = "Feature disabled; needs debugging"
 
 
-
 @implementer(IEventDecoder)
 class DictionaryEventDecoder(object):
     """
@@ -289,16 +272,13 @@ class DictionaryEventDecoder(object):
     def idForEvent(event):
         return event.get("eventID")
 
-
     @staticmethod
     def classForEvent(event):
         return event.get("eventClass")
 
-
     @staticmethod
     def textForEvent(event):
         return event.get("eventText")
-
 
     @staticmethod
     def retryForEvent(event):

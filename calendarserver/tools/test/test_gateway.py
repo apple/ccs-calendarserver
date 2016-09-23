@@ -35,7 +35,6 @@ from txdav.who.idirectory import AutoScheduleMode
 from txdav.who.util import directoryFromConfig
 
 
-
 class RunCommandTestCase(TestCase):
 
     @inlineCallbacks
@@ -140,7 +139,6 @@ class RunCommandTestCase(TestCase):
         self.store = yield theStoreBuilder.buildStore(self, self.notifierFactory)
         self.directory = directoryFromConfig(config, self.store)
 
-
     @inlineCallbacks
     def runCommand(
         self, command, error=False, script="calendarserver_command_gateway",
@@ -175,12 +173,11 @@ class RunCommandTestCase(TestCase):
             try:
                 plist = readPlistFromString(output)
                 returnValue(plist)
-            except xml.parsers.expat.ExpatError, e: #@UndefinedVariable
+            except xml.parsers.expat.ExpatError, e:  # @UndefinedVariable
                 print("Error (%s) parsing (%s)" % (e, output))
                 raise
         else:
             returnValue(output)
-
 
 
 class GatewayTestCase(RunCommandTestCase):
@@ -190,18 +187,15 @@ class GatewayTestCase(RunCommandTestCase):
         self.directory._directory.services[1].flush()
         self.directory._directory.services[2].flush()
 
-
     @inlineCallbacks
     def test_getLocationAndResourceList(self):
         results = yield self.runCommand(command_getLocationAndResourceList)
         self.assertEquals(len(results["result"]), 20)
 
-
     @inlineCallbacks
     def test_getLocationList(self):
         results = yield self.runCommand(command_getLocationList)
         self.assertEquals(len(results["result"]), 10)
-
 
     @inlineCallbacks
     def test_getLocationAttributes(self):
@@ -223,12 +217,10 @@ class GatewayTestCase(RunCommandTestCase):
         self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03', 'user04']))
         self.assertEquals(set(results["result"]["WriteProxies"]), set(['user05', 'user06']))
 
-
     @inlineCallbacks
     def test_getResourceList(self):
         results = yield self.runCommand(command_getResourceList)
         self.assertEquals(len(results["result"]), 10)
-
 
     @inlineCallbacks
     def test_getResourceAttributes(self):
@@ -242,7 +234,6 @@ class GatewayTestCase(RunCommandTestCase):
         # self.assertEquals(results["result"]["Type"], "Computer")
         self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03', 'user04']))
         self.assertEquals(set(results["result"]["WriteProxies"]), set(['user05', 'user06']))
-
 
     @inlineCallbacks
     def test_createAddress(self):
@@ -282,7 +273,6 @@ class GatewayTestCase(RunCommandTestCase):
         results = yield self.runCommand(command_getAddressList)
         self.assertEquals(len(results["result"]), 0)
 
-
     @inlineCallbacks
     def test_createLocation(self):
 
@@ -308,7 +298,6 @@ class GatewayTestCase(RunCommandTestCase):
         self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03', 'user04']))
         self.assertEquals(set(results["result"]["WriteProxies"]), set(['user05', 'user06']))
 
-
     @inlineCallbacks
     def test_createLocationMinimal(self):
         """
@@ -327,7 +316,6 @@ class GatewayTestCase(RunCommandTestCase):
                 break
         else:
             self.fail("We did not find the Minimal record")
-
 
     @inlineCallbacks
     def test_setLocationAttributes(self):
@@ -352,7 +340,6 @@ class GatewayTestCase(RunCommandTestCase):
         self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03']))
         self.assertEquals(set(results["result"]["WriteProxies"]), set(['user05', 'user06', 'user07']))
 
-
     @inlineCallbacks
     def test_setAddressOnLocation(self):
         yield self.runCommand(command_createLocation)
@@ -370,7 +357,6 @@ class GatewayTestCase(RunCommandTestCase):
         record = yield self.directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
         self.assertEquals(record.associatedAddress, u"")
 
-
     @inlineCallbacks
     def test_destroyLocation(self):
 
@@ -385,7 +371,6 @@ class GatewayTestCase(RunCommandTestCase):
         record = yield self.directory.recordWithUID("location01")
         self.assertEquals(record, None)
 
-
     @inlineCallbacks
     def test_createResource(self):
 
@@ -399,7 +384,6 @@ class GatewayTestCase(RunCommandTestCase):
 
         record = yield self.directory.recordWithUID("AF575A61-CFA6-49E1-A0F6-B5662C9D9801")
         self.assertNotEquals(record, None)
-
 
     @inlineCallbacks
     def test_setResourceAttributes(self):
@@ -416,7 +400,6 @@ class GatewayTestCase(RunCommandTestCase):
         record = yield self.directory.recordWithUID("AF575A61-CFA6-49E1-A0F6-B5662C9D9801")
         self.assertEquals(record.displayName, "Updated Laptop 1")
 
-
     @inlineCallbacks
     def test_destroyResource(self):
 
@@ -431,19 +414,16 @@ class GatewayTestCase(RunCommandTestCase):
         record = yield self.directory.recordWithUID("resource01")
         self.assertEquals(record, None)
 
-
     @inlineCallbacks
     def test_addWriteProxy(self):
         results = yield self.runCommand(command_addWriteProxy)
         self.assertEquals(len(results["result"]["Proxies"]), 1)
-
 
     @inlineCallbacks
     def test_removeWriteProxy(self):
         yield self.runCommand(command_addWriteProxy)
         results = yield self.runCommand(command_removeWriteProxy)
         self.assertEquals(len(results["result"]["Proxies"]), 0)
-
 
     @inlineCallbacks
     def test_purgeOldEvents(self):
@@ -452,7 +432,6 @@ class GatewayTestCase(RunCommandTestCase):
         self.assertEquals(results["result"]["RetainDays"], 42)
         results = yield self.runCommand(command_purgeOldEventsNoDays)
         self.assertEquals(results["result"]["RetainDays"], 365)
-
 
     @inlineCallbacks
     def test_readConfig(self):
@@ -477,7 +456,6 @@ class GatewayTestCase(RunCommandTestCase):
 
         # Verify other non-writeable keys are not present, such as DataRoot which is not writable
         self.assertFalse("DataRoot" in results["result"])
-
 
     @inlineCallbacks
     def test_writeConfig(self):

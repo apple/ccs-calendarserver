@@ -25,6 +25,7 @@ from txweb2.dav.util import bindMethods
 # Attach methods
 ##
 
+
 def doBind():
     import txweb2.dav.method
     from txweb2.dav.resource import DAVResource

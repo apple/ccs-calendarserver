@@ -34,6 +34,7 @@ __all__ = [
 
 log = Logger()
 
+
 class IMIPScheduler(RemoteScheduler):
 
     scheduleResponse = ScheduleResponseQueue
@@ -57,7 +58,6 @@ class IMIPScheduler(RemoteScheduler):
     def checkAuthorization(self):
         pass
 
-
     def checkOriginator(self):
         """
         The originator always comes out of the tokens db
@@ -65,14 +65,11 @@ class IMIPScheduler(RemoteScheduler):
         self.originator = RemoteCalendarUser(self.originator)
         return succeed(None)
 
-
     def checkOrganizerAsOriginator(self):
         pass
 
-
     def checkAttendeeAsOriginator(self):
         pass
-
 
     def securityChecks(self):
         pass

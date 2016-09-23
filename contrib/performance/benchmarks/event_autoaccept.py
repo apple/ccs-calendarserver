@@ -44,7 +44,6 @@ def makeEvent(i, organizerSequence, attendeeCount):
         attendees)
 
 
-
 def measure(host, port, dtrace, attendeeCount, samples):
     calendar = "event-autoaccept-creation-benchmark"
     organizerSequence = 1

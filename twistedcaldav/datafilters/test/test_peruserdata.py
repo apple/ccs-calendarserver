@@ -119,7 +119,6 @@ END:VCALENDAR
 """.replace("\n", "\r\n")
 
 
-
 class PerUserDataFilterTestNotRecurring (twistedcaldav.test.util.TestCase):
 
     def test_public_noperuser(self):
@@ -143,7 +142,6 @@ END:VCALENDAR
             self.assertEqual(str(PerUserDataFilter("user01").filter(item)), data)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").filter(item)), data)
-
 
     def test_public_oneuser(self):
 
@@ -215,7 +213,6 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").filter(item)), result02)
 
-
     def test_public_twousers(self):
         """
         A component with data for 2 users can return results for either of the
@@ -234,7 +231,6 @@ END:VCALENDAR
         for item in (dataForTwoUsers, Component.fromString(dataForTwoUsers),):
             self.assertEqual(str(PerUserDataFilter("").filter(item)),
                              resultForOtherUser)
-
 
 
 class PerUserDataFilterTestRecurring (twistedcaldav.test.util.TestCase):
@@ -271,7 +267,6 @@ END:VCALENDAR
             self.assertEqual(str(PerUserDataFilter("user01").filter(item)), data)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").filter(item)), data)
-
 
     def test_public_oneuser_master(self):
 
@@ -381,7 +376,6 @@ END:VCALENDAR
             self.assertEqual(str(PerUserDataFilter("user02").filter(item)), result02)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").filter(item)), result02)
-
 
     def test_public_oneuser_master_and_override(self):
 
@@ -501,7 +495,6 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").filter(item)), result02)
 
-
     def test_public_oneuser_override(self):
 
         data = """BEGIN:VCALENDAR
@@ -606,7 +599,6 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").filter(item)), result02)
 
-
     def test_public_oneuser_master_derived_override(self):
 
         data = """BEGIN:VCALENDAR
@@ -705,7 +697,6 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").filter(item)), result02)
 
-
     def test_public_oneuser_master_invalid_derived_override(self):
 
         data = """BEGIN:VCALENDAR
@@ -787,7 +778,6 @@ END:VCALENDAR
             self.assertEqual(str(PerUserDataFilter("user02").filter(item)), result02)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").filter(item)), result02)
-
 
     def test_public_oneuser_master_derived_override_x2(self):
 
@@ -945,7 +935,6 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").filter(item)), result03)
 
-
     def test_public_oneuser_no_master_and_override(self):
 
         data = """BEGIN:VCALENDAR
@@ -1019,7 +1008,6 @@ END:VCALENDAR
             self.assertEqual(str(PerUserDataFilter("user02").filter(item)), result02)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").filter(item)), result02)
-
 
     def test_public_oneuser_no_master_and_override_bogus_peruser(self):
 
@@ -1104,7 +1092,6 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").filter(item)), result02)
 
-
     def test_public_oneuser(self):
 
         data = """BEGIN:VCALENDAR
@@ -1173,7 +1160,6 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").merge(item, None)), result02)
 
-
     def test_prevent_injection(self):
 
         data = """BEGIN:VCALENDAR
@@ -1203,7 +1189,6 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             filter = PerUserDataFilter("")
             self.assertRaises(ValueError, filter.merge, item, None)
-
 
 
 class PerUserDataMergeTestNewRecurring (twistedcaldav.test.util.TestCase):
@@ -1265,7 +1250,6 @@ END:VCALENDAR
             self.assertEqual(str(PerUserDataFilter("user01").merge(item, None)), result01)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").merge(item, None)), data)
-
 
     def test_public_oneuser_master(self):
 
@@ -1373,7 +1357,6 @@ END:VCALENDAR
             self.assertEqual(str(PerUserDataFilter("user01").merge(item, None)), result01)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").merge(item, None)), result02)
-
 
     def test_public_oneuser_master_and_override(self):
 
@@ -1491,7 +1474,6 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").merge(item, None)), result02)
 
-
     def test_public_oneuser_override(self):
 
         data = """BEGIN:VCALENDAR
@@ -1593,7 +1575,6 @@ END:VCALENDAR
             self.assertEqual(str(PerUserDataFilter("user01").merge(item, None)), result01)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").merge(item, None)), result02)
-
 
     def test_public_oneuser_master_compact_override(self):
 
@@ -1700,7 +1681,6 @@ END:VCALENDAR
             self.assertEqual(str(PerUserDataFilter("user01").merge(item, None)), result01)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").merge(item, None)), result02)
-
 
     def test_public_oneuser_master_noncompact_override(self):
 
@@ -1819,7 +1799,6 @@ END:VCALENDAR
             self.assertEqual(str(PerUserDataFilter("").merge(item, None)), result02)
 
 
-
 class PerUserDataMergeTestExistingNotRecurring (twistedcaldav.test.util.TestCase):
 
     def test_public_noperuser(self):
@@ -1870,7 +1849,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), newresult)
-
 
     def test_public_oneuser(self):
 
@@ -1950,7 +1928,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
-
 
     def test_public_twousers(self):
 
@@ -2055,7 +2032,6 @@ END:VCALENDAR
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
-
     def test_public_twousers_removal(self):
 
         newdata = """BEGIN:VCALENDAR
@@ -2142,7 +2118,6 @@ END:VCALENDAR
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
 
-
 class PerUserDataMergeTestExistingNowRecurring (twistedcaldav.test.util.TestCase):
 
     def test_public_noperuser_master(self):
@@ -2195,7 +2170,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), newresult)
-
 
     def test_public_noperuser_master_with_override(self):
 
@@ -2268,7 +2242,6 @@ END:VCALENDAR
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), newresult)
 
-
     def test_public_noperuser_only_override(self):
 
         newdata = """BEGIN:VCALENDAR
@@ -2319,7 +2292,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), newresult)
-
 
     def test_public_oneuser_master(self):
 
@@ -2401,7 +2373,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
-
 
     def test_public_oneuser_master_with_override(self):
 
@@ -2519,7 +2490,6 @@ END:VCALENDAR
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
-
     def test_public_oneuser_only_override(self):
 
         newdata = """BEGIN:VCALENDAR
@@ -2603,7 +2573,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
-
 
     def test_public_twousers_master(self):
 
@@ -2709,7 +2678,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
-
 
     def test_public_twousers_master_with_override(self):
 
@@ -2851,7 +2819,6 @@ END:VCALENDAR
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
-
     def test_public_twousers_only_override(self):
 
         newdata = """BEGIN:VCALENDAR
@@ -2946,7 +2913,6 @@ END:VCALENDAR
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
-
     def test_public_twousers_removal_master(self):
 
         newdata = """BEGIN:VCALENDAR
@@ -3033,7 +2999,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
-
 
     def test_public_twousers_removal_master_with_override(self):
 
@@ -3142,7 +3107,6 @@ END:VCALENDAR
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
-
     def test_public_twousers_removal_only_override(self):
 
         newdata = """BEGIN:VCALENDAR
@@ -3217,7 +3181,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
-
 
 
 class PerUserDataMergeTestExistingWasRecurring (twistedcaldav.test.util.TestCase):
@@ -3274,7 +3237,6 @@ END:VCALENDAR
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), newresult)
 
-
     def test_public_noperuser_master_with_override(self):
 
         newdata = """BEGIN:VCALENDAR
@@ -3337,7 +3299,6 @@ END:VCALENDAR
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), newresult)
 
-
     def test_public_noperuser_only_override(self):
 
         newdata = """BEGIN:VCALENDAR
@@ -3387,7 +3348,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), newresult)
-
 
     def test_public_oneuser_master(self):
 
@@ -3468,7 +3428,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
-
 
     def test_public_oneuser_master_with_override(self):
 
@@ -3560,7 +3519,6 @@ END:VCALENDAR
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
-
     def test_public_oneuser_only_override(self):
 
         newdata = """BEGIN:VCALENDAR
@@ -3641,7 +3599,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
-
 
     def test_public_twousers_master(self):
 
@@ -3746,7 +3703,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
-
 
     def test_public_twousers_master_with_override(self):
 
@@ -3880,7 +3836,6 @@ END:VCALENDAR
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
-
     def test_public_twousers_only_override(self):
 
         newdata = """BEGIN:VCALENDAR
@@ -3975,7 +3930,6 @@ END:VCALENDAR
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
-
     def test_public_twousers_removal_master(self):
 
         newdata = """BEGIN:VCALENDAR
@@ -4062,7 +4016,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
-
 
     def test_public_twousers_removal_master_with_override(self):
 
@@ -4171,7 +4124,6 @@ END:VCALENDAR
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
-
     def test_public_twousers_removal_only_override(self):
 
         newdata = """BEGIN:VCALENDAR
@@ -4249,7 +4201,6 @@ END:VCALENDAR
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
 
-
 class PerUserDataMergeTestBothRecurringMasterOnly (twistedcaldav.test.util.TestCase):
 
     def test_public_noperuser(self):
@@ -4303,7 +4254,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), newresult)
-
 
     def test_public_oneuser(self):
 
@@ -4386,7 +4336,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
-
 
     def test_public_twousers(self):
 
@@ -4494,7 +4443,6 @@ END:VCALENDAR
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
-
     def test_public_twousers_removal(self):
 
         newdata = """BEGIN:VCALENDAR
@@ -4582,7 +4530,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
-
 
     def test_public_twousers_invalid_instance(self):
 
@@ -4682,7 +4629,6 @@ END:VCALENDAR
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
 
-
 class PerUserDataMergeTestBothRecurringMasterWithOverride (twistedcaldav.test.util.TestCase):
 
     def test_public_noperuser(self):
@@ -4767,7 +4713,6 @@ END:VCALENDAR
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), newresult)
 
-
     def test_public_oneuser(self):
 
         newdata = """BEGIN:VCALENDAR
@@ -4903,7 +4848,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
-
 
     def test_public_twousers(self):
 
@@ -5074,7 +5018,6 @@ END:VCALENDAR
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
-
     def test_public_twousers_removal(self):
 
         newdata = """BEGIN:VCALENDAR
@@ -5210,7 +5153,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
-
 
 
 class PerUserDataMergeTestBothRecurringOverrideOnly (twistedcaldav.test.util.TestCase):
@@ -5267,7 +5209,6 @@ END:VCALENDAR
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), newresult)
 
-
     def test_public_oneuser(self):
 
         newdata = """BEGIN:VCALENDAR
@@ -5351,7 +5292,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
-
 
     def test_public_twousers(self):
 
@@ -5450,7 +5390,6 @@ END:VCALENDAR
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
-
     def test_public_twousers_removal(self):
 
         newdata = """BEGIN:VCALENDAR
@@ -5528,7 +5467,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
-
 
 
 class PerUserDataMergeTestBothRecurringSpecialCase (twistedcaldav.test.util.TestCase):
@@ -5666,7 +5604,6 @@ END:VCALENDAR
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
-
     def test_public_twousers_recurrence_shift(self):
 
         newdata = """BEGIN:VCALENDAR
@@ -5791,7 +5728,6 @@ END:VCALENDAR
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
-
     def test_public_twousers_rdate_removed(self):
 
         newdata = """BEGIN:VCALENDAR
@@ -5907,7 +5843,6 @@ END:VCALENDAR
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
-
 
     def test_public_twousers_exdate_added(self):
 
@@ -6027,7 +5962,6 @@ END:VCALENDAR
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
 
-
 class PerUserDataMergeTestCompact (twistedcaldav.test.util.TestCase):
 
     def test_merge_vevent_compact(self):
@@ -6111,7 +6045,6 @@ END:VCALENDAR
         unfiltered = PerUserDataFilter("user01").filter(filtered)
         self.assertEqual(str(unfiltered), newdata)
 
-
     def test_merge_vevent_all_day_compact(self):
 
         newdata = """BEGIN:VCALENDAR
@@ -6192,7 +6125,6 @@ END:VCALENDAR
         self.assertEqual(str(filtered), result)
         unfiltered = PerUserDataFilter("user01").filter(filtered)
         self.assertEqual(str(unfiltered), newdata)
-
 
     def test_merge_peruser_compact(self):
 
@@ -6275,7 +6207,6 @@ END:VCALENDAR
         self.assertEqual(str(filtered), result)
         unfiltered = PerUserDataFilter("user01").filter(filtered)
         self.assertEqual(str(unfiltered), newdata)
-
 
     def test_merge_peruser_all_day_compact(self):
 
@@ -6360,7 +6291,6 @@ END:VCALENDAR
         self.assertEqual(str(filtered), result)
         unfiltered = PerUserDataFilter("user01").filter(filtered)
         self.assertEqual(str(unfiltered), newdata)
-
 
     def test_merge_both_compact(self):
 
@@ -6455,7 +6385,6 @@ END:VCALENDAR
         self.assertEqual(str(filtered), result)
         unfiltered = PerUserDataFilter("user01").filter(filtered)
         self.assertEqual(str(unfiltered), unfiltered_result)
-
 
 
 class PerUserDataFilterTestTimezonechange (twistedcaldav.test.util.TestCase):
@@ -6588,7 +6517,6 @@ END:VCALENDAR
         self.assertEqual(str(result02), data02)
         TimezoneCache.clear()
 
-
     def test_public_oneuser_master_override(self):
 
         data01 = """BEGIN:VCALENDAR
@@ -6707,7 +6635,6 @@ END:VCALENDAR
         result02 = PerUserDataFilter("user02").filter(peruser.duplicate())
         self.assertEqual(str(result02), data02)
         TimezoneCache.clear()
-
 
 
 class PerUserDataFilterTestTransp (twistedcaldav.test.util.TestCase):
@@ -7063,7 +6990,6 @@ END:VCALENDAR
             txt = txt.replace("\n", "\r\n")
             self.assertEqual(str(PerUserDataFilter("user01").filter(txt)), result1.replace("\n", "\r\n") if result1 is not None else txt, msg=title)
             self.assertEqual(str(PerUserDataFilter("user02").filter(txt)), result2.replace("\n", "\r\n") if result2 is not None else txt, msg=title)
-
 
     def test_merge(self):
 

@@ -49,7 +49,6 @@ def stubCheckSACL(username, service):
     return False
 
 
-
 class RootTests(StoreTestCase):
 
     @inlineCallbacks
@@ -57,7 +56,6 @@ class RootTests(StoreTestCase):
         yield super(RootTests, self).setUp()
 
         self.patch(calendarserver.provision.root, "checkSACL", stubCheckSACL)
-
 
 
 class ComplianceTests(RootTests):
@@ -82,7 +80,6 @@ class ComplianceTests(RootTests):
         result = yield rsrc.renderHTTP(request)
         returnValue(result)
 
-
     @inlineCallbacks
     def test_optionsIncludeCalendar(self):
         """
@@ -91,7 +88,6 @@ class ComplianceTests(RootTests):
         """
         response = yield self.issueRequest([""], "OPTIONS")
         self.assertIn("addressbook", response.headers.getHeader("DAV"))
-
 
 
 class SACLTests(RootTests):
@@ -118,7 +114,6 @@ class SACLTests(RootTests):
         )
 
         self.assertEquals(segments, [])
-
 
     @inlineCallbacks
     def test_inSacls(self):
@@ -159,7 +154,6 @@ class SACLTests(RootTests):
             )
         )
 
-
     @inlineCallbacks
     def test_notInSacls(self):
         """
@@ -189,7 +183,6 @@ class SACLTests(RootTests):
         except HTTPError, e:
             self.assertEquals(e.response.code, 403)
 
-
     @inlineCallbacks
     def test_unauthenticated(self):
         """
@@ -215,7 +208,6 @@ class SACLTests(RootTests):
             )
         except HTTPError, e:
             self.assertEquals(e.response.code, 401)
-
 
     @inlineCallbacks
     def test_badCredentials(self):
@@ -250,7 +242,6 @@ class SACLTests(RootTests):
         except HTTPError, e:
             self.assertEquals(e.response.code, 401)
 
-
     def test_DELETE(self):
         def do_test(response):
             response = IResponse(response)
@@ -261,7 +252,6 @@ class SACLTests(RootTests):
 
         request = SimpleStoreRequest(self, "DELETE", "/")
         return self.send(request, do_test)
-
 
     def test_COPY(self):
         def do_test(response):
@@ -278,7 +268,6 @@ class SACLTests(RootTests):
             headers=http_headers.Headers({"Destination": "/copy/"})
         )
         return self.send(request, do_test)
-
 
     def test_MOVE(self):
         def do_test(response):
@@ -297,10 +286,10 @@ class SACLTests(RootTests):
         return self.send(request, do_test)
 
 
-
 class SACLCacheTests(RootTests):
 
     class StubResponseCacheResource(object):
+
         def __init__(self):
             self.cache = {}
             self.responseCache = self
@@ -311,17 +300,14 @@ class SACLCacheTests(RootTests):
                 self.cacheHitCount += 1
                 return self.cache[str(request)]
 
-
         def cacheResponseForRequest(self, request, response):
             self.cache[str(request)] = response
             return response
-
 
     @inlineCallbacks
     def setUp(self):
         yield super(SACLCacheTests, self).setUp()
         self.actualRoot.responseCache = SACLCacheTests.StubResponseCacheResource()
-
 
     @inlineCallbacks
     def test_PROPFIND(self):
@@ -369,7 +355,6 @@ class SACLCacheTests(RootTests):
         if response.code != responsecode.MULTI_STATUS:
             self.fail("Incorrect response for PROPFIND /principals/: %s" % (response.code,))
         self.assertEqual(self.actualRoot.responseCache.cacheHitCount, 1)
-
 
 
 class WikiTests(RootTests):

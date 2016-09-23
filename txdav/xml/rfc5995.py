@@ -51,7 +51,6 @@ class AddMember (WebDAVElement):
     allowed_children = {(dav_namespace, "href"): (0, 1)}
 
 
-
 @registerElement
 @registerElementClass
 class AllowClientDefinedURI (WebDAVElement):

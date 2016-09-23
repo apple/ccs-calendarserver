@@ -42,7 +42,7 @@ import twistedcaldav.mkcolxml
 import twistedcaldav.customxml
 import twistedcaldav.timezonexml
 
-twistedcaldav # Shhh.. pyflakes
+twistedcaldav  # Shhh.. pyflakes
 
 #
 # DefaultHTTPHandler

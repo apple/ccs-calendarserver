@@ -47,7 +47,6 @@ class WikiIndividualServiceTestCase(unittest.TestCase):
         )
 
 
-
 class WikiAggregateServiceTestCase(StoreTestCase):
     """
     Get a wiki service as part of directoryFromConfig
@@ -62,7 +61,6 @@ class WikiAggregateServiceTestCase(StoreTestCase):
         super(WikiAggregateServiceTestCase, self).configure()
         self.patch(config.Authentication.Wiki, "Enabled", True)
 
-
     @inlineCallbacks
     def test_service(self):
         record = yield self.directory.recordWithUID(u"wiki-test")
@@ -70,7 +68,6 @@ class WikiAggregateServiceTestCase(StoreTestCase):
             record.shortNames[0],
             u"test"
         )
-
 
 
 class AccessForRecordTestCase(StoreTestCase):
@@ -92,12 +89,10 @@ class AccessForRecordTestCase(StoreTestCase):
             self.stubAccessForUserToWiki
         )
 
-
     def stubAccessForUserToWiki(self, *args, **kwds):
         if hasattr(self, "raiseTimeout"):
             raise TimeoutError
         return succeed(self.access)
-
 
     @inlineCallbacks
     def test_accessForRecord(self):
@@ -125,7 +120,6 @@ class AccessForRecordTestCase(StoreTestCase):
         self.assertEquals(access, WikiAccessLevel.none)
 
 
-
 # Test getWikiACL()
 # Currently stubs out enough functionality to test that an unauthenticated
 # request can support read access when generating an ACL element
@@ -137,17 +131,14 @@ class FakeRequest(object):
         self.authnUser = None
 
 
-
 class FakeResource(object):
 
     def __init__(self, record):
         self.record = record
 
 
-
 def stubAccessForRecord(self, record):
     return succeed(self.access)
-
 
 
 class GetWikiACLTestCase(StoreTestCase):
@@ -168,7 +159,6 @@ class GetWikiACLTestCase(StoreTestCase):
             "accessForRecord",
             stubAccessForRecord
         )
-
 
     @inlineCallbacks
     def test_getWikiACL(self):

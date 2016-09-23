@@ -26,6 +26,7 @@ import collections
 from txweb2.dav.auth import AuthenticationWrapper
 import txweb2.dav.test.util
 
+
 class AutoWrapperTestCase(txweb2.dav.test.util.TestCase):
 
     def test_basicAuthPrevention(self):
@@ -39,12 +40,15 @@ class AutoWrapperTestCase(txweb2.dav.test.util.TestCase):
         wireUnencryptedfactories = [FakeFactory("digest"), FakeFactory("xyzzy")]
 
         class FakeChannel(object):
+
             def __init__(self, secure):
                 self.secure = secure
+
             def getHostInfo(self):
                 return "ignored", self.secure
 
         class FakeRequest(object):
+
             def __init__(self, secure):
                 self.portal = None
                 self.loginInterfaces = None
@@ -52,13 +56,13 @@ class AutoWrapperTestCase(txweb2.dav.test.util.TestCase):
                 self.chanRequest = FakeChannel(secure)
 
         wrapper = AuthenticationWrapper(None, None, wireEncryptedfactories, wireUnencryptedfactories, None)
-        req = FakeRequest(True) # Connection is over SSL
+        req = FakeRequest(True)  # Connection is over SSL
         wrapper.hook(req)
         self.assertEquals(
             set(req.credentialFactories.keys()),
             set(["basic", "digest", "xyzzy"])
         )
-        req = FakeRequest(False) # Connection is not over SSL
+        req = FakeRequest(False)  # Connection is not over SSL
         wrapper.hook(req)
         self.assertEquals(
             set(req.credentialFactories.keys()),

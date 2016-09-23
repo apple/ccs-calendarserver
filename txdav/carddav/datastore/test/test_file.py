@@ -40,10 +40,10 @@ from txdav.common.datastore.test.util import StubNotifierFactory
 
 storePath = FilePath(__file__).parent().child("addressbook_store")
 
+
 def _todo(f, why):
     f.todo = why
     return f
-
 
 
 featureUnimplemented = lambda f: _todo(f, "Feature unimplemented")
@@ -67,13 +67,11 @@ def setUpAddressBookStore(test):
     assert test.addressbookStore is not None, "No addressbook store?"
 
 
-
 @inlineCallbacks
 def setUpHome1(test):
     setUpAddressBookStore(test)
     test.home1 = yield test.txn.addressbookHomeWithUID("home1")
     assert test.home1 is not None, "No addressbook home?"
-
 
 
 @inlineCallbacks
@@ -83,7 +81,6 @@ def setUpAddressBook1(test):
     assert test.addressbook1 is not None, "No addressbook?"
 
 
-
 class AddressBookStoreTest(unittest.TestCase):
     """
     Test cases for L{AddressBookStore}.
@@ -91,7 +88,6 @@ class AddressBookStoreTest(unittest.TestCase):
 
     def setUp(self):
         setUpAddressBookStore(self)
-
 
     @inlineCallbacks
     def test_addressbookHomeWithUID_dot(self):
@@ -107,12 +103,10 @@ class AddressBookStoreTest(unittest.TestCase):
         )
 
 
-
 class AddressBookHomeTest(unittest.TestCase):
 
     def setUp(self):
         return setUpHome1(self)
-
 
     def test_init(self):
         """
@@ -128,7 +122,6 @@ class AddressBookHomeTest(unittest.TestCase):
             self.addressbookStore
         )
 
-
     def test_addressbookWithName_dot(self):
         """
         Filenames starting with "." are reserved by this
@@ -137,7 +130,6 @@ class AddressBookHomeTest(unittest.TestCase):
         name = ".foo"
         self.home1._path.child(name).createDirectory()
         self.assertEquals(self.home1.addressbookWithName(name), None)
-
 
     def test_createAddressBookWithName_dot(self):
         """
@@ -148,7 +140,6 @@ class AddressBookHomeTest(unittest.TestCase):
             HomeChildNameNotAllowedError,
             self.home1.createAddressBookWithName, ".foo"
         )
-
 
     def test_removeAddressBookWithName_dot(self):
         """
@@ -163,12 +154,10 @@ class AddressBookHomeTest(unittest.TestCase):
         )
 
 
-
 class AddressBookTest(unittest.TestCase):
 
     def setUp(self):
         setUpAddressBook1(self)
-
 
     def test_init(self):
         """
@@ -183,7 +172,6 @@ class AddressBookTest(unittest.TestCase):
             isinstance(self.addressbook1._addressbookHome, AddressBookHome),
             self.addressbook1._addressbookHome
         )
-
 
     @inlineCallbacks
     def test_useIndexImmediately(self):
@@ -208,7 +196,6 @@ class AddressBookTest(unittest.TestCase):
         self.assertEquals(set((yield index.addressbookObjects())),
                           set((yield addressbook.addressbookObjects())))
 
-
     @inlineCallbacks
     def test_addressbookObjectWithName_dot(self):
         """
@@ -222,7 +209,6 @@ class AddressBookTest(unittest.TestCase):
             (yield self.addressbook1.addressbookObjectWithName(name)),
             None
         )
-
 
     @featureUnimplemented
     def test_addressbookObjectWithUID_exists(self):
@@ -239,7 +225,6 @@ class AddressBookTest(unittest.TestCase):
             (yield self.addressbook1.addressbookObjectWithName("1.vcf")).component()
         )
 
-
     def test_createAddressBookObjectWithName_dot(self):
         """
         Filenames starting with "." are reserved by this
@@ -251,7 +236,6 @@ class AddressBookTest(unittest.TestCase):
             self.addressbook1.createAddressBookObjectWithName,
             ".foo", VComponent.fromString(vcard4_text)
         )
-
 
     @featureUnimplemented
     def test_createAddressBookObjectWithName_uidconflict(self):
@@ -271,7 +255,6 @@ class AddressBookTest(unittest.TestCase):
             name, component
         )
 
-
     def test_removeAddressBookObject_delayedEffect(self):
         """
         Removing a addressbook object should not immediately remove the underlying
@@ -283,7 +266,6 @@ class AddressBookTest(unittest.TestCase):
         self.txn.commit()
         self.failIf(self.addressbook1._path.child("2.vcf").exists())
 
-
     @inlineCallbacks
     def _refresh(self):
         """
@@ -293,7 +275,6 @@ class AddressBookTest(unittest.TestCase):
         self.txn = self.addressbookStore.newTransaction(self.id())
         self.home1 = yield self.txn.addressbookHomeWithUID("home1")
         self.addressbook1 = yield self.home1.addressbookWithName("addressbook")
-
 
     @inlineCallbacks
     def test_undoCreateAddressBookObject(self):
@@ -316,7 +297,6 @@ class AddressBookTest(unittest.TestCase):
             None
         )
 
-
     @inlineCallbacks
     def doThenUndo(self):
         """
@@ -330,7 +310,6 @@ class AddressBookTest(unittest.TestCase):
         self.txn.addOperation(fail, "dummy failing operation")
         self.assertRaises(RuntimeError, self.txn.commit)
         yield self._refresh()
-
 
     @inlineCallbacks
     def test_undoModifyAddressBookObject(self):
@@ -354,7 +333,6 @@ class AddressBookTest(unittest.TestCase):
             originalComponent
         )
 
-
     @inlineCallbacks
     def test_modifyAddressBookObjectCaches(self):
         """
@@ -371,14 +349,12 @@ class AddressBookTest(unittest.TestCase):
         )
         yield self.txn.commit()
 
-
     @testUnimplemented
     def test_syncToken(self):
         """
         Sync token is correct.
         """
         raise NotImplementedError()
-
 
     @testUnimplemented
     def test_addressbookObjectsSinceToken(self):
@@ -389,14 +365,12 @@ class AddressBookTest(unittest.TestCase):
         raise NotImplementedError()
 
 
-
 class AddressBookObjectTest(unittest.TestCase):
 
     @inlineCallbacks
     def setUp(self):
         yield setUpAddressBook1(self)
         self.object1 = yield self.addressbook1.addressbookObjectWithName("1.vcf")
-
 
     def test_init(self):
         """
@@ -414,7 +388,6 @@ class AddressBookObjectTest(unittest.TestCase):
         )
 
 
-
 class FileStorageTests(CommonTests, unittest.TestCase):
     """
     File storage tests.
@@ -430,7 +403,6 @@ class FileStorageTests(CommonTests, unittest.TestCase):
             setUpAddressBookStore(self)
         return self.addressbookStore
 
-
     def test_init(self):
         """
         L{AddressBookStore} has a C{_path} attribute which refers to its
@@ -438,7 +410,6 @@ class FileStorageTests(CommonTests, unittest.TestCase):
         """
         self.assertEquals(self.storeUnderTest()._path,
                           self.storeRootPath)
-
 
     @inlineCallbacks
     def test_addressbookObjectsWithDotFile(self):
@@ -449,7 +420,6 @@ class FileStorageTests(CommonTests, unittest.TestCase):
         self.homeUnderTest()._path.child(".foo").createDirectory()
         yield self.test_addressbookObjects()
 
-
     @inlineCallbacks
     def test_addressbookObjectsWithDirectory(self):
         """
@@ -459,7 +429,6 @@ class FileStorageTests(CommonTests, unittest.TestCase):
         ((yield self.addressbookUnderTest())._path.child("not-a-vcard")
          .createDirectory())
         yield self.test_addressbookObjects()
-
 
     @testUnimplemented
     def test_createAddressBookWithName_absent(self):

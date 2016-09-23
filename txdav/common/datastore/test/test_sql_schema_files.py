@@ -24,6 +24,7 @@ import re
 Tests for L{txdav.common.datastore.sql}.
 """
 
+
 class SQLSchemaFiles(TestCase):
     """
     Tests for txdav.common.datastore.sql_schema having complete information. Note that upgrade files are checked elsewhere.
@@ -38,7 +39,6 @@ class SQLSchemaFiles(TestCase):
                 self.fail("Could not find version string in %s" % (filePath.path,))
 
         return int(found.group(1))
-
 
     def test_old_files(self):
         """
@@ -65,7 +65,6 @@ class SQLSchemaFiles(TestCase):
                 old_set.add(int(found.group(1)))
             self.assertEqual(current_set, old_set, msg="Missing old schema file for dialect: %s" % (child.basename(),))
 
-
     def test_old_files_consistent(self):
         """
         Make sure txdav.common.datastore.sql_schema.old contains all the appropriate old versions
@@ -86,7 +85,6 @@ class SQLSchemaFiles(TestCase):
                 old_name_version = int(found.group(1))
                 old_version = self.versionFromSchema(oldVersion)
                 self.assertEqual(old_name_version, old_version, "Name of schema file does not match actual schema version: %s" % (oldVersion.path,))
-
 
     def test_current_oracle(self):
         """
@@ -117,10 +115,8 @@ class SQLSchemaFiles(TestCase):
         # Remove stored procedures which we only use on Oracle
         schema_oracle.functions = []
 
-
         mismatched = schema_current.compare(schema_oracle)
         self.assertEqual(len(mismatched), 0, msg=", ".join(mismatched))
-
 
     def test_schema_compare(self):
 
@@ -137,7 +133,6 @@ class SQLSchemaFiles(TestCase):
         v5Schema = schemaFromPath(sqlSchema.child("old").child("postgres-dialect").child("v5.sql"))
         mismatched = v6Schema.compare(v5Schema)
         self.assertEqual(len(mismatched), 5, msg="\n".join(mismatched))
-
 
     def test_references_index(self):
         """
@@ -162,7 +157,6 @@ class SQLSchemaFiles(TestCase):
                         failures.append(id)
 
         self.assertEqual(len(failures), 0, msg="Missing index for references columns: %s" % (", ".join(sorted(failures))))
-
 
     def test_primary_keys(self):
         """

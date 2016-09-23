@@ -44,7 +44,6 @@ log = Logger()
 VERSION = "1"
 
 
-
 def usage(e=None):
     if e:
         print(e)
@@ -70,10 +69,8 @@ description = ''.join(
 description += "\nVersion: %s" % (VERSION,)
 
 
-
 class ConfigError(Exception):
     pass
-
 
 
 class MigrateVerifyOptions(Options):
@@ -92,11 +89,9 @@ class MigrateVerifyOptions(Options):
         ['data', 'd', "./paths.txt", "List of file paths for migrated data."],
     ]
 
-
     def __init__(self):
         super(MigrateVerifyOptions, self).__init__()
         self.outputName = '-'
-
 
     def opt_output(self, filename):
         """
@@ -106,7 +101,6 @@ class MigrateVerifyOptions(Options):
 
     opt_o = opt_output
 
-
     def openOutput(self):
         """
         Open the appropriate output file based on the '--output' option.
@@ -115,7 +109,6 @@ class MigrateVerifyOptions(Options):
             return sys.stdout
         else:
             return open(self.outputName, 'wb')
-
 
 
 class MigrateVerifyService(WorkerService, object):
@@ -139,7 +132,6 @@ class MigrateVerifyService(WorkerService, object):
         self.missingCalendars = []
         self.missingResources = []
 
-
     @inlineCallbacks
     def doWork(self):
         """
@@ -155,7 +147,6 @@ class MigrateVerifyService(WorkerService, object):
             pass
         except:
             log.failure("doWork()")
-
 
     def readPaths(self):
 
@@ -214,7 +205,6 @@ class MigrateVerifyService(WorkerService, object):
         self.output.write("\n-- Bad paths\n")
         for badPath in sorted(self.badPaths):
             self.output.write("Bad path: %s\n" % (badPath,))
-
 
     @inlineCallbacks
     def doCheck(self):
@@ -304,11 +294,10 @@ class MigrateVerifyService(WorkerService, object):
         for resource in sorted(self.missingResources):
             self.output.write("%s\n" % (resource,))
 
-
     @inlineCallbacks
     def guid2ResourceID(self, guid):
         ch = schema.CALENDAR_HOME
-        kwds = {"GUID" : guid}
+        kwds = {"GUID": guid}
         rows = (yield Select(
             [
                 ch.RESOURCE_ID,
@@ -321,11 +310,10 @@ class MigrateVerifyService(WorkerService, object):
 
         returnValue(rows[0][0] if rows else None)
 
-
     @inlineCallbacks
     def calendarsForUser(self, rid):
         cb = schema.CALENDAR_BIND
-        kwds = {"RID" : rid}
+        kwds = {"RID": rid}
         rows = (yield Select(
             [
                 cb.CALENDAR_RESOURCE_NAME,
@@ -339,11 +327,10 @@ class MigrateVerifyService(WorkerService, object):
 
         returnValue(rows)
 
-
     @inlineCallbacks
     def resourcesForCalendar(self, rid):
         co = schema.CALENDAR_OBJECT
-        kwds = {"RID" : rid}
+        kwds = {"RID": rid}
         rows = (yield Select(
             [
                 co.RESOURCE_NAME,
@@ -356,13 +343,11 @@ class MigrateVerifyService(WorkerService, object):
 
         returnValue(rows)
 
-
     def stopService(self):
         """
         Stop the service.  Nothing to do; everything should be finished by this
         time.
         """
-
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
@@ -378,7 +363,6 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     except IOError, e:
         stderr.write("Unable to open output file for writing: %s\n" % (e))
         sys.exit(1)
-
 
     def makeService(store):
         from twistedcaldav.config import config

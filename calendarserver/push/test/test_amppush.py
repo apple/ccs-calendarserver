@@ -20,6 +20,7 @@ from twistedcaldav.test.util import StoreTestCase
 from twisted.internet.task import Clock
 from calendarserver.push.ipush import PushPriority
 
+
 class AMPPushMasterTests(StoreTestCase):
 
     def test_AMPPushMaster(self):
@@ -72,9 +73,9 @@ class AMPPushMasterTests(StoreTestCase):
                 (
                     NotificationForID,
                     {
-                        'id'                   : '/CalDAV/localhost/user01/',
-                        'dataChangedTimestamp' : 1354815999,
-                        'priority'             : PushPriority.high.value,
+                        'id': '/CalDAV/localhost/user01/',
+                        'dataChangedTimestamp': 1354815999,
+                        'priority': PushPriority.high.value,
                     }
                 )
             ]
@@ -88,9 +89,9 @@ class AMPPushMasterTests(StoreTestCase):
                 (
                     NotificationForID,
                     {
-                        'id'                   : '/CalDAV/localhost/user01/',
-                        'dataChangedTimestamp' : 1354815999,
-                        'priority'             : PushPriority.high.value,
+                        'id': '/CalDAV/localhost/user01/',
+                        'dataChangedTimestamp': 1354815999,
+                        'priority': PushPriority.high.value,
                     }
                 )
             ]
@@ -104,9 +105,9 @@ class AMPPushMasterTests(StoreTestCase):
                 (
                     NotificationForID,
                     {
-                        'id'                   : '/CalDAV/localhost/user01/',
-                        'dataChangedTimestamp' : 1354815999,
-                        'priority'             : PushPriority.high.value,
+                        'id': '/CalDAV/localhost/user01/',
+                        'dataChangedTimestamp': 1354815999,
+                        'priority': PushPriority.high.value,
                     }
                 )
             ]
@@ -127,9 +128,9 @@ class AMPPushMasterTests(StoreTestCase):
                 (
                     NotificationForID,
                     {
-                        'id'                   : '/CalDAV/localhost/user01/',
-                        'dataChangedTimestamp' : 1354815999,
-                        'priority'             : PushPriority.low.value,
+                        'id': '/CalDAV/localhost/user01/',
+                        'dataChangedTimestamp': 1354815999,
+                        'priority': PushPriority.low.value,
                     }
                 )
             ]
@@ -154,9 +155,9 @@ class AMPPushMasterTests(StoreTestCase):
                 (
                     NotificationForID,
                     {
-                        'id'                   : '/CalDAV/localhost/user01/',
-                        'dataChangedTimestamp' : 1354815999,
-                        'priority'             : PushPriority.medium.value,
+                        'id': '/CalDAV/localhost/user01/',
+                        'dataChangedTimestamp': 1354815999,
+                        'priority': PushPriority.medium.value,
                     }
                 )
             ]
@@ -167,14 +168,13 @@ class AMPPushMasterTests(StoreTestCase):
                 (
                     NotificationForID,
                     {
-                        'id'                   : '/CalDAV/localhost/user01/',
-                        'dataChangedTimestamp' : 1354815999,
-                        'priority'             : PushPriority.medium.value,
+                        'id': '/CalDAV/localhost/user01/',
+                        'dataChangedTimestamp': 1354815999,
+                        'priority': PushPriority.medium.value,
                     }
                 )
             ]
         )
-
 
 
 class TestProtocol(AMPPushNotifierProtocol):
@@ -183,10 +183,8 @@ class TestProtocol(AMPPushNotifierProtocol):
         super(TestProtocol, self).__init__(service)
         self.reset()
 
-
     def callRemote(self, cls, **kwds):
         self.history.append((cls, kwds))
-
 
     def reset(self):
         self.history = []

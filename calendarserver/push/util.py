@@ -25,7 +25,6 @@ from OpenSSL import crypto
 import os
 
 
-
 def getAPNTopicFromConfig(protocol, accountName, protoConfig):
     """
     Given the APNS protocol config, extract the APN topic.
@@ -94,7 +93,6 @@ def getAPNTopicFromConfig(protocol, accountName, protoConfig):
                 raise ValueError("Cannot retrieve {proto} APNS passphrase from keychain".format(proto=protocol))
 
 
-
 def getAPNTopicFromCertificate(certPath):
     """
     Given the path to a certificate, extract the UID value portion of the
@@ -110,7 +108,6 @@ def getAPNTopicFromCertificate(certPath):
     return getAPNTopicFromX509(crypto.load_certificate(crypto.FILETYPE_PEM, certData))
 
 
-
 def getAPNTopicFromIdentity(identity):
     """
     Given a keychain identity certificate, extract the UID value portion of the
@@ -122,7 +119,6 @@ def getAPNTopicFromIdentity(identity):
     @return: C{str} topic, or empty string if value is not found
     """
     return getAPNTopicFromX509(crypto.load_certificate(None, identity))
-
 
 
 def getAPNTopicFromX509(x509):
@@ -143,7 +139,6 @@ def getAPNTopicFromX509(x509):
     return ""
 
 
-
 def validToken(token):
     """
     Return True if token is in hex and is 64 characters long, False
@@ -158,7 +153,6 @@ def validToken(token):
         return False
 
     return True
-
 
 
 class TokenHistory(object):
@@ -177,7 +171,6 @@ class TokenHistory(object):
         self.identifier = 0
         self.history = []
 
-
     def add(self, token):
         """
         Add a token to the history, and return the new identifier associated
@@ -193,7 +186,6 @@ class TokenHistory(object):
         self.history.append((self.identifier, token))
         del self.history[:-self.maxSize]
         return self.identifier
-
 
     def extractIdentifier(self, identifier):
         """
@@ -211,7 +203,6 @@ class TokenHistory(object):
                 del self.history[index]
                 return token
         return None
-
 
 
 class PushScheduler(object):
@@ -232,7 +223,6 @@ class PushScheduler(object):
         self.reactor = reactor
         self.callback = callback
         self.staggerSeconds = staggerSeconds
-
 
     def schedule(self, tokens, key, dataChangedTimestamp, priority):
         """
@@ -267,7 +257,6 @@ class PushScheduler(object):
                 )
                 scheduleTime += self.staggerSeconds
 
-
     def send(self, token, key, dataChangedTimestamp, priority):
         """
         This method is what actually gets scheduled.  Its job is to remove
@@ -285,7 +274,6 @@ class PushScheduler(object):
         self.log.debug("PushScheduler fired for {token} {key} {time}", token=token, key=key, time=dataChangedTimestamp)
         del self.outstanding[(token, key)]
         return self.callback(token, key, dataChangedTimestamp, priority)
-
 
     def stop(self):
         """

@@ -21,6 +21,7 @@ from twistedcaldav.dumpconfig import parseConfigItem, dumpConfig, \
 from unittest.case import TestCase
 import os
 
+
 class TestDumpConfig (TestCase):
 
     def test_parseConfigItem(self):
@@ -39,7 +40,6 @@ class TestDumpConfig (TestCase):
         for item in items:
             lines = parseConfigItem(item)
             self.assertNotEqual(len(lines), 0, msg="Failed {}".format(item))
-
 
     def test_writeOrderedPlistToString(self):
         """
@@ -77,7 +77,6 @@ class TestDumpConfig (TestCase):
 </plist>
 """.format(copyright=COPYRIGHT))
 
-
     def test_plistWithComments(self):
         """
         Make sure L{writeOrderedPlistToString} preserves key order
@@ -114,7 +113,6 @@ class TestDumpConfig (TestCase):
 </dict>
 </plist>
 """.format(copyright=COPYRIGHT))
-
 
     def test_fullPlistDump(self):
         """

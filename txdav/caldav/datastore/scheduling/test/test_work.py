@@ -31,7 +31,6 @@ from txdav.caldav.datastore.scheduling.work import ScheduleOrganizerWork, \
 from txdav.common.datastore.test.util import populateCalendarsFrom, CommonCommonTests
 
 
-
 class BaseWorkTests(CommonCommonTests, unittest.TestCase):
     """
     Tests for scheduling work.
@@ -42,7 +41,6 @@ class BaseWorkTests(CommonCommonTests, unittest.TestCase):
         yield super(BaseWorkTests, self).setUp()
         yield self.buildStoreAndDirectory()
         yield self.populate()
-
 
     @inlineCallbacks
     def populate(self):
@@ -70,13 +68,11 @@ class BaseWorkTests(CommonCommonTests, unittest.TestCase):
         },
     }
 
-
     def storeUnderTest(self):
         """
         Create and return a L{CalendarStore} for testing.
         """
         return self._sqlCalendarStore
-
 
     @inlineCallbacks
     def _runAllJobs(self):
@@ -91,7 +87,6 @@ class BaseWorkTests(CommonCommonTests, unittest.TestCase):
             jobs = yield JobItem.all(self.transactionUnderTest())
         yield self.commit()
 
-
     @inlineCallbacks
     def _runOneJob(self):
         """
@@ -103,7 +98,6 @@ class BaseWorkTests(CommonCommonTests, unittest.TestCase):
             yield job.run()
             break
         yield self.commit()
-
 
     @inlineCallbacks
     def createOrganizerEvent(self, organizer, ical, run_jobs=True):
@@ -117,7 +111,6 @@ class BaseWorkTests(CommonCommonTests, unittest.TestCase):
         if run_jobs:
             yield self._runAllJobs()
 
-
     @inlineCallbacks
     def getOrganizerResource(self, organizer):
         """
@@ -125,7 +118,6 @@ class BaseWorkTests(CommonCommonTests, unittest.TestCase):
         """
         calobj = yield self.calendarObjectUnderTest(name="invite.ics", calendar_name="calendar", home=organizer)
         returnValue(calobj)
-
 
     @inlineCallbacks
     def setOrganizerEvent(self, organizer, ical, run_jobs=True):
@@ -139,7 +131,6 @@ class BaseWorkTests(CommonCommonTests, unittest.TestCase):
         if run_jobs:
             yield self._runAllJobs()
 
-
     @inlineCallbacks
     def getOrganizerEvent(self, organizer):
         """
@@ -150,7 +141,6 @@ class BaseWorkTests(CommonCommonTests, unittest.TestCase):
         yield self.commit()
         returnValue(comp)
 
-
     @inlineCallbacks
     def getAttendeeResource(self, attendee):
         """
@@ -160,7 +150,6 @@ class BaseWorkTests(CommonCommonTests, unittest.TestCase):
         calobjs = yield cal.calendarObjects()
         self.assertEqual(len(calobjs), 1)
         returnValue(calobjs[0])
-
 
     @inlineCallbacks
     def setAttendeeEvent(self, attendee, ical, run_jobs=True):
@@ -174,7 +163,6 @@ class BaseWorkTests(CommonCommonTests, unittest.TestCase):
         if run_jobs:
             yield self._runAllJobs()
 
-
     @inlineCallbacks
     def getAttendeeEvent(self, attendee):
         """
@@ -184,7 +172,6 @@ class BaseWorkTests(CommonCommonTests, unittest.TestCase):
         comp = yield calobj.componentForUser()
         yield self.commit()
         returnValue(comp)
-
 
 
 class TestScheduleOrganizerWork(BaseWorkTests):
@@ -219,7 +206,6 @@ ATTENDEE:urn:uuid:user02
 END:VEVENT
 END:VCALENDAR
 """)
-
 
     @inlineCallbacks
     def test_create(self):
@@ -264,7 +250,6 @@ END:VCALENDAR
         self.assertEqual(len(work), 0)
         baseWork = yield ScheduleWork.all(self.transactionUnderTest())
         self.assertEqual(len(baseWork), 0)
-
 
     @inlineCallbacks
     def test_cascade_delete_cleanup(self):
@@ -317,7 +302,6 @@ END:VCALENDAR
         self.assertEqual(len(baseWork), 0)
 
 
-
 class TestScheduleOrganizerSendWork(BaseWorkTests):
     """
     Test creation of L{ScheduleOrganizerSendWork} items.
@@ -336,7 +320,6 @@ ORGANIZER:urn:x-uid:user01
 END:VEVENT
 END:VCALENDAR
 """.format(attendees="\n".join(["ATTENDEE:urn:x-uid:user%02d" % i for i in range(1, 100)])))
-
 
     @inlineCallbacks
     def test_create(self):
@@ -375,7 +358,6 @@ END:VCALENDAR
         yield self.commit()
 
 
-
 class TestScheduleWork(BaseWorkTests):
     """
     Test various scheduling work scenarios that are potential race conditions and could give rise to
@@ -394,7 +376,6 @@ class TestScheduleWork(BaseWorkTests):
         self.patch(self.config.Scheduling.Options.WorkQueues, "AttendeeRefreshBatchIntervalSeconds", 1000)
         self.patch(JobItem, "failureRescheduleInterval", 1000)
         self.patch(JobItem, "lockRescheduleInterval", 1000)
-
 
     @inlineCallbacks
     def test_replyBeforeResourceDelete(self):
@@ -481,7 +462,6 @@ END:VCALENDAR
 
         organizer = yield self.getOrganizerEvent("user01")
         self.assertEqual(organizer, organizer2, msg=diff_iCalStrs(organizer, organizer2))
-
 
     @inlineCallbacks
     def test_replyBeforeOrganizerEXDATE(self):
@@ -602,7 +582,6 @@ END:VCALENDAR
         self.assertEqual(len(jobs), 0)
         yield self.commit()
 
-
     @inlineCallbacks
     def test_replyBeforeOrganizerInconsequentialChange(self):
         """
@@ -706,7 +685,6 @@ END:VEVENT
 END:VCALENDAR
 """)
 
-
         yield self.createOrganizerEvent("user01", organizer1)
         attendee = yield self.getAttendeeEvent("user02")
         self.assertEqual(attendee, attendee1, msg=diff_iCalStrs(attendee, attendee1))
@@ -725,7 +703,6 @@ END:VCALENDAR
         self.assertEqual(normalize_iCalStr(organizer), normalize_iCalStr(organizer3), msg=diff_iCalStrs(organizer3, organizer))
         attendee = yield self.getAttendeeEvent("user02")
         self.assertEqual(normalize_iCalStr(attendee), normalize_iCalStr(attendee3), msg=diff_iCalStrs(attendee3, attendee))
-
 
     @inlineCallbacks
     def test_replyBeforeOrganizerConsequentialChange(self):
@@ -831,7 +808,6 @@ END:VEVENT
 END:VCALENDAR
 """)
 
-
         yield self.createOrganizerEvent("user01", organizer1)
         attendee = yield self.getAttendeeEvent("user02")
         self.assertEqual(attendee, attendee1, msg=diff_iCalStrs(attendee, attendee1))
@@ -850,7 +826,6 @@ END:VCALENDAR
         self.assertEqual(normalize_iCalStr(organizer), normalize_iCalStr(organizer3), msg=diff_iCalStrs(organizer3, organizer))
         attendee = yield self.getAttendeeEvent("user02")
         self.assertEqual(normalize_iCalStr(attendee), normalize_iCalStr(attendee3), msg=diff_iCalStrs(attendee3, attendee))
-
 
     @inlineCallbacks
     def test_needsActionOrganizerChange(self):
@@ -953,7 +928,6 @@ TRANSP:TRANSPARENT
 END:VEVENT
 END:VCALENDAR
 """)
-
 
         yield self.createOrganizerEvent("user01", organizer1)
         attendee = yield self.getAttendeeEvent("user02")

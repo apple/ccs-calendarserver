@@ -55,6 +55,7 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
 
+
 class QueryTest(HTTPTestBase):
     """
     A sync operation
@@ -63,7 +64,6 @@ class QueryTest(HTTPTestBase):
     def __init__(self, label, sessions, logFilePath, logFilePrefix, count):
         super(QueryTest, self).__init__(label, sessions, logFilePath, logFilePrefix)
         self.count = count
-
 
     def prepare(self):
         """
@@ -77,7 +77,6 @@ class QueryTest(HTTPTestBase):
         for i in range(self.count):
             href = joinURL(self.sessions[0].calendarHref, "tr-query-%d.ics" % (i + 1,))
             self.sessions[0].writeData(URL(path=href), ICAL % (self.start.getText(), i + 1,), "text/calendar")
-
 
     def doRequest(self):
         """
@@ -101,7 +100,6 @@ class QueryTest(HTTPTestBase):
             pass
         else:
             raise RuntimeError("Query request failed: %s" % (request.getStatusCode(),))
-
 
     def cleanup(self):
         """

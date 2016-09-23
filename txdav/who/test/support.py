@@ -36,7 +36,6 @@ class TestRecord(IndexedDirectoryRecord, CalendarDirectoryRecordMixin):
     pass
 
 
-
 class InMemoryDirectoryService(IndexDirectoryService):
     """
     An in-memory IDirectoryService.  You must call updateRecords( ) if you want
@@ -53,10 +52,8 @@ class InMemoryDirectoryService(IndexDirectoryService):
         )
     )
 
-
     def loadRecords(self):
         pass
-
 
     @inlineCallbacks
     def updateRecords(self, records, create=False):
@@ -70,7 +67,6 @@ class InMemoryDirectoryService(IndexDirectoryService):
         yield self.removeRecords(recordsByUID.keys())
         self.indexRecords(records)
 
-
     def removeRecords(self, uids):
         index = self._index
         for fieldName in self.indexedFields:
@@ -79,7 +75,6 @@ class InMemoryDirectoryService(IndexDirectoryService):
                     if record.uid in uids:
                         recordSet.remove(record)
         return succeed(None)
-
 
 
 class CalendarInMemoryDirectoryService(

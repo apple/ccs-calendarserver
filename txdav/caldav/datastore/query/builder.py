@@ -29,7 +29,6 @@ __all__ = [
 ]
 
 
-
 # SQL Index column (field) names
 
 def buildExpression(filter, fields):
@@ -61,7 +60,6 @@ def buildExpression(filter, fields):
         return expression.allExpression()
 
 
-
 def compfilterListExpression(compfilters, fields, logical):
     """
     Create an expression for a list of comp-filter elements.
@@ -74,7 +72,6 @@ def compfilterListExpression(compfilters, fields, logical):
         return compfilterExpression(compfilters[0], fields)
     else:
         return logical([compfilterExpression(c, fields) for c in compfilters])
-
 
 
 def compfilterExpression(compfilter, fields):
@@ -138,7 +135,6 @@ def compfilterExpression(compfilter, fields):
     return expression.andExpression(expressions)
 
 
-
 def propfilterExpression(propfilter, fields):
     """
     Create an expression for a single prop-filter element.
@@ -196,7 +192,6 @@ def propfilterExpression(propfilter, fields):
         return paramsExpression
     else:
         return None
-
 
 
 def getTimerangeArguments(timerange):

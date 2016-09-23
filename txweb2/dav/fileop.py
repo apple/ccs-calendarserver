@@ -171,7 +171,6 @@ def delete(uri, filepath, depth="infinity"):
     return succeed(response)
 
 
-
 def copy(source_filepath, destination_filepath, destination_uri, depth):
     """
     Perform a X{COPY} from the given source and destination filepaths.
@@ -327,6 +326,7 @@ def copy(source_filepath, destination_filepath, destination_uri, depth):
 
 copy = deferredGenerator(copy)
 
+
 def move(source_filepath, source_uri, destination_filepath, destination_uri, depth):
     """
     Perform a X{MOVE} from the given source and destination filepaths.
@@ -398,6 +398,7 @@ def move(source_filepath, source_uri, destination_filepath, destination_uri, dep
     yield success_code
 
 move = deferredGenerator(move)
+
 
 def put(stream, filepath, uri=None):
     """
@@ -474,6 +475,7 @@ def put(stream, filepath, uri=None):
 
 put = deferredGenerator(put)
 
+
 def mkcollection(filepath):
     """
     Perform a X{MKCOL} on the given filepath.
@@ -497,7 +499,6 @@ def mkcollection(filepath):
     return succeed(responsecode.CREATED)
 
 
-
 def rmdir(dirname):
     """
     Removes the directory with the given name, as well as its contents.
@@ -514,7 +515,6 @@ def rmdir(dirname):
                 os.rmdir(path)
 
     os.rmdir(dirname)
-
 
 
 def checkResponse(response, method, *codes):

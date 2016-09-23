@@ -53,7 +53,6 @@ else:
     _ERRNO_NO_ATTR = errno.ENODATA
 
 
-
 class PropertyStore(AbstractPropertyStore):
     """
     Property store using filesystem extended attributes.
@@ -98,20 +97,16 @@ class PropertyStore(AbstractPropertyStore):
         self.removed = set()
         self.modified = {}
 
-
     @property
     def path(self):
         return self._pathFactory()
-
 
     @property
     def attrs(self):
         return xattr(self.path.path)
 
-
     def __str__(self):
         return "<%s %s>" % (self.__class__.__name__, self.path.path)
-
 
     def _encodeKey(self, effective, compressNamespace=True):
 
@@ -126,7 +121,6 @@ class PropertyStore(AbstractPropertyStore):
             result = uid + result
         r = self.deadPropertyXattrPrefix + result
         return r
-
 
     def _decodeKey(self, name):
 
@@ -146,7 +140,6 @@ class PropertyStore(AbstractPropertyStore):
         propname = name[index2 + 1:]
 
         return PropertyName(propnamespace, propname), uid
-
 
     #
     # Required implementations
@@ -232,7 +225,6 @@ class PropertyStore(AbstractPropertyStore):
 
         return doc.root_element
 
-
     def _setitem_uid(self, key, value, uid):
         validKey(key)
         effectiveKey = (key, uid)
@@ -240,7 +232,6 @@ class PropertyStore(AbstractPropertyStore):
         if effectiveKey in self.removed:
             self.removed.remove(effectiveKey)
         self.modified[effectiveKey] = value
-
 
     def _delitem_uid(self, key, uid):
         validKey(key)
@@ -252,7 +243,6 @@ class PropertyStore(AbstractPropertyStore):
             raise KeyError(key)
 
         self.removed.add(effectiveKey)
-
 
     def _keys_uid(self, uid):
         seen = set()
@@ -276,13 +266,11 @@ class PropertyStore(AbstractPropertyStore):
             if effectivekey[1] == uid and effectivekey not in seen:
                 yield effectivekey[0]
 
-
     def _removeResource(self):
         # xattrs are removed when the underlying file is deleted so just clear
         # out cached changes
         self.removed.clear()
         self.modified.clear()
-
 
     #
     # I/O
@@ -321,11 +309,9 @@ class PropertyStore(AbstractPropertyStore):
         self.removed.clear()
         self.modified.clear()
 
-
     def abort(self):
         self.removed.clear()
         self.modified.clear()
-
 
     def copyAllProperties(self, other):
         """

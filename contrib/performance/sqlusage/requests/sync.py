@@ -53,6 +53,7 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
 
+
 class SyncTest(HTTPTestBase):
     """
     A sync operation
@@ -63,7 +64,6 @@ class SyncTest(HTTPTestBase):
         self.full = full
         self.count = count
         self.synctoken = ""
-
 
     def prepare(self):
         """
@@ -80,7 +80,6 @@ class SyncTest(HTTPTestBase):
                 href = joinURL(self.sessions[0].calendarHref, "sync-collection-%d.ics" % (i + 1,))
                 self.sessions[0].writeData(URL(path=href), ICAL % (now.getYear() + 1, i + 1,), "text/calendar")
 
-
     def doRequest(self):
         """
         Execute the actual HTTP request.
@@ -92,7 +91,6 @@ class SyncTest(HTTPTestBase):
 
         # Run sync collection
         self.sessions[0].syncCollection(URL(path=self.sessions[0].calendarHref), self.synctoken, props)
-
 
     def cleanup(self):
         """

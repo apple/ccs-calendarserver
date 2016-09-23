@@ -37,6 +37,7 @@ from zope.interface import implements, Attribute, Interface
 
 log = Logger()
 
+
 class _LogByteCounter(object):
     implements(stream.IByteStream)
 
@@ -57,13 +58,11 @@ class _LogByteCounter(object):
             self.len += len(data)
         return data
 
-
     def read(self):
         data = self.stream.read()
         if isinstance(data, defer.Deferred):
             return data.addCallback(self._callback)
         return self._callback(data)
-
 
     def close(self):
         if self.done:
@@ -71,7 +70,6 @@ class _LogByteCounter(object):
             self.done = None
             done(False, self.len)
         self.stream.close()
-
 
 
 class ILogInfo(Interface):
@@ -83,7 +81,6 @@ class ILogInfo(Interface):
     startTime = Attribute("Time at which the request started")
 
 
-
 class LogInfo(object):
     implements(ILogInfo)
 
@@ -93,11 +90,9 @@ class LogInfo(object):
     startTime = None
 
 
-
 def logFilter(request, response, startTime=None):
     if startTime is None:
         startTime = time.time()
-
 
     def _log(success, length):
         loginfo = LogInfo()
@@ -124,6 +119,7 @@ logFilter.handleErrors = True
 
 
 class LogWrapperResource(resource.WrapperResource):
+
     def hook(self, request):
         # Insert logger
         request.addResponseFilter(logFilter, atEnd=True, onlyOnce=True)
@@ -144,7 +140,6 @@ class BaseCommonAccessLoggingObserver(object):
 
     def logMessage(self, message):
         raise NotImplemented, 'You must provide an implementation.'
-
 
     def computeTimezoneForLog(self, tz):
         if tz > 0:
@@ -180,7 +175,6 @@ class BaseCommonAccessLoggingObserver(object):
         return '%02d/%s/%02d:%02d:%02d:%02d %s' % (
             D, monthname[M], Y, h, m, s, tz)
 
-
     def emit(self, eventDict):
         if eventDict.get('interface') is not iweb.IRequest:
             return
@@ -208,17 +202,14 @@ class BaseCommonAccessLoggingObserver(object):
             )
         )
 
-
     def start(self):
         """Start observing log events."""
         # Use the root publisher to bypass log level filtering
         log.observer.addObserver(self.emit)
 
-
     def stop(self):
         """Stop observing log events."""
         log.observer.removeObserver(self.emit)
-
 
 
 class FileAccessLoggingObserver(BaseCommonAccessLoggingObserver):
@@ -228,23 +219,20 @@ class FileAccessLoggingObserver(BaseCommonAccessLoggingObserver):
     def __init__(self, logpath):
         self.logpath = logpath
 
-
     def logMessage(self, message):
         self.f.write(message + '\n')
-
 
     def start(self):
         super(FileAccessLoggingObserver, self).start()
         self.f = open(self.logpath, 'a', 1)
-
 
     def stop(self):
         super(FileAccessLoggingObserver, self).stop()
         self.f.close()
 
 
-
 class DefaultCommonAccessLoggingObserver(BaseCommonAccessLoggingObserver):
     """Log requests to default twisted logfile."""
+
     def logMessage(self, message):
         log.info(message)

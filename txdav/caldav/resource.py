@@ -51,14 +51,13 @@ class CalDAVResource(DAVResource):
 
     def davComplianceClasses(self):
         return (
-            tuple(super(CalDAVResource, self).davComplianceClasses())
-            + config.CalDAVComplianceClasses
+            tuple(super(CalDAVResource, self).davComplianceClasses()) +
+            config.CalDAVComplianceClasses
         )
 
     supportedCalendarComponentSet = caldavxml.SupportedCalendarComponentSet(
         *[caldavxml.CalendarComponent(name=item) for item in allowedComponents]
     )
-
 
 
 class CalendarHomeResource(CalDAVResource):
@@ -67,7 +66,6 @@ class CalendarHomeResource(CalDAVResource):
 
     This resource is backed by an L{ICalendarHome} implementation.
     """
-
 
 
 class CalendarCollectionResource(CalDAVResource):
@@ -122,7 +120,6 @@ class CalendarCollectionResource(CalDAVResource):
 
         return super(CalDAVResource, self).render(request)
 
-
     #
     # WebDAV
     #
@@ -136,7 +133,6 @@ class CalendarCollectionResource(CalDAVResource):
         )
 
 
-
 class CalendarObjectResource(CalDAVResource):
     """
     Calendar object resource.
@@ -145,14 +141,12 @@ class CalendarObjectResource(CalDAVResource):
     """
 
 
-
 class ScheduleInboxResource(CalDAVResource):
     """
     Schedule inbox resource.
 
     This resource is backed by an XXXXXXX implementation.
     """
-
 
 
 class ScheduleOutboxResource(CalDAVResource):

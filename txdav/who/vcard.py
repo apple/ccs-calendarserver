@@ -44,7 +44,7 @@ recordTypeToVCardKindMap = {
 }
 
 vCardKindToRecordTypeMap = {
-    "individual" : RecordType.user,
+    "individual": RecordType.user,
     "group": RecordType.group,
     "org": RecordType.group,
     "location": CalRecordType.location,
@@ -96,7 +96,6 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
             if existingProperty == newProperty:
                 return False
         return True
-
 
     def addUniqueProperty(newProperty, ignoredParameters=None):
         if isUniqueProperty(newProperty, ignoredParameters):

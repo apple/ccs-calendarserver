@@ -28,7 +28,6 @@ __all__ = [
 from .resource import PageElement, TemplateResource
 
 
-
 class WebAdminLandingPageElement(PageElement):
     """
     Web administration langing page element.
@@ -37,12 +36,10 @@ class WebAdminLandingPageElement(PageElement):
     def __init__(self):
         super(WebAdminLandingPageElement, self).__init__(u"landing")
 
-
     def pageSlots(self):
         return {
             u"title": u"Server Administration",
         }
-
 
 
 class WebAdminLandingResource(TemplateResource):
@@ -51,7 +48,6 @@ class WebAdminLandingResource(TemplateResource):
     """
 
     addSlash = True
-
 
     def __init__(self, path, root, directory, store, principalCollections=()):
         super(WebAdminLandingResource, self).__init__(WebAdminLandingPageElement, principalCollections, True)
@@ -76,7 +72,6 @@ class WebAdminLandingResource(TemplateResource):
 
         from .work import WorkMonitorResource
         self.putChild(u"work", WorkMonitorResource(store, principalCollections))
-
 
     # def getChild(self, name):
     #     bound = super(WebAdminLandingResource, self).getChild(name)

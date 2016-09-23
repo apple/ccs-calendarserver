@@ -45,7 +45,6 @@ class iCalSplitter(object):
         self.now.setHHMMSS(0, 0, 0)
         self.now.offsetDay(-1)
 
-
     def willSplit(self, ical):
         """
         Determine if the specified iCalendar object needs to be split. Our policy is
@@ -103,7 +102,6 @@ class iCalSplitter(object):
         else:
             return (True, False)
 
-
     def whereSplit(self, ical, break_point=None, allow_past_the_end=True):
         """
         Determine where a split is going to happen - i.e., the RECURRENCE-ID.
@@ -147,9 +145,7 @@ class iCalSplitter(object):
             elif dtstart.floating():
                 rid.setTimezoneID(None)
 
-
         return rid
-
 
     def split(self, ical, rid=None, olderUID=None):
         """

@@ -22,6 +22,7 @@ from twistedcaldav import caldavxml
 from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
 from twistedcaldav.directory.util import NotFoundResource
 
+
 class ProvisionedCalendars (StoreTestCase):
     """
     Directory service provisioned principals.
@@ -29,7 +30,6 @@ class ProvisionedCalendars (StoreTestCase):
 
     def oneRequest(self, uri):
         return SimpleStoreRequest(self, "GET", uri)
-
 
     def test_NonExistentCalendarHome(self):
         """
@@ -46,7 +46,6 @@ class ProvisionedCalendars (StoreTestCase):
         d.addCallback(_response)
         return d
 
-
     def test_ExistentCalendarHome(self):
 
         def _response(resource):
@@ -57,7 +56,6 @@ class ProvisionedCalendars (StoreTestCase):
         d = request.locateResource(request.uri)
         d.addCallback(_response)
         return d
-
 
     def test_ExistentCalendar(self):
 
@@ -70,7 +68,6 @@ class ProvisionedCalendars (StoreTestCase):
         d.addCallback(_response)
         return d
 
-
     def test_ExistentInbox(self):
 
         def _response(resource):
@@ -81,7 +78,6 @@ class ProvisionedCalendars (StoreTestCase):
         d = request.locateResource(request.uri)
         d.addCallback(_response)
         return d
-
 
     @inlineCallbacks
     def test_CalendarTranspProperty(self):

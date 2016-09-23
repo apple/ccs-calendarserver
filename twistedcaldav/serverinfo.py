@@ -39,6 +39,7 @@ from twistedcaldav.serverinfoxml import Class1_Feature, AccessControl_Feature, \
 draft-douglass-server-info: "DAV Server Information Object"
 """
 
+
 def buildServerInfo(config):
     """
     Build the DAV compliance header, server-info document, and server-info-token value
@@ -174,7 +175,6 @@ def buildServerInfo(config):
     return compliance, _createServerInfo(token), token
 
 
-
 class ServerInfoResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMixin, DAVResource):
     """
     Server-info resource.
@@ -192,24 +192,19 @@ class ServerInfoResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
 
         self.parent = parent
 
-
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = NonePropertyStore(self)
         return self._dead_properties
 
-
     def etag(self):
         return succeed(ETag(config.ServerInfoToken))
-
 
     def checkPreconditions(self, request):
         return None
 
-
     def checkPrivileges(self, request, privileges, recurse=False, principal=None, inherited_aces=None):
         return succeed(None)
-
 
     def defaultAccessControlList(self):
         return succeed(
@@ -225,26 +220,20 @@ class ServerInfoResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
             )
         )
 
-
     def contentType(self):
         return MimeType.fromString("text/xml; charset=utf-8")
-
 
     def resourceType(self):
         return None
 
-
     def isCollection(self):
         return False
-
 
     def isCalendarCollection(self):
         return False
 
-
     def isPseudoCalendarCollection(self):
         return False
-
 
     @inlineCallbacks
     def http_GET(self, request):

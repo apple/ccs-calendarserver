@@ -36,6 +36,7 @@ from txdav.common.datastore.upgrade.sql.upgrade import UpgradeDatabaseSchemaStep
 from datetime import datetime
 import re
 
+
 class SchemaUpgradeWithDataTests(TestCase):
     """
     Tests for upgrading schema when data is present in the database to make sure data conversion
@@ -48,7 +49,6 @@ class SchemaUpgradeWithDataTests(TestCase):
         found = re.search("insert into CALENDARSERVER (\(NAME, VALUE\) )?values \('%s', '(\d+)'\);" % (versionKey,), schema)
         return int(found.group(2)) if found else None
 
-
     def _getSchemaVersion(self, fp, versionKey):
         found = self._getRawSchemaVersion(fp, versionKey)
         if found is None:
@@ -57,7 +57,6 @@ class SchemaUpgradeWithDataTests(TestCase):
             else:
                 return 1
         return found
-
 
     @inlineCallbacks
     def setUp(self):
@@ -71,14 +70,12 @@ class SchemaUpgradeWithDataTests(TestCase):
             self, {"push": StubNotifierFactory()}, enableJobProcessing=False
         )
 
-
     @inlineCallbacks
     def cleanUp(self):
         startTxn = self.store.newTransaction("test_dbUpgrades")
         yield startTxn.execSQL("set search_path to public;")
         yield startTxn.execSQL("drop schema test_dbUpgrades cascade;")
         yield startTxn.commit()
-
 
     @inlineCallbacks
     def _loadOldSchema(self, path):
@@ -96,14 +93,12 @@ class SchemaUpgradeWithDataTests(TestCase):
 
         returnValue(_populateSchema(path))
 
-
     @inlineCallbacks
     def _loadVersion(self):
         startTxn = self.store.newTransaction("test_dbUpgrades")
         new_version = yield startTxn.execSQL("select value from calendarserver where name = 'VERSION';")
         yield startTxn.commit()
         returnValue(int(new_version[0][0]))
-
 
     @inlineCallbacks
     def test_upgrade_SCHEDULE_REPLY_CANCEL(self):
@@ -193,7 +188,6 @@ END:VCALENDAR
         self.assertEqual(workers[0].workType, "SCHEDULE_REPLY_WORK")
 
         yield txn.commit()
-
 
     @inlineCallbacks
     def test_upgrade_SCHEDULE_REPLY(self):
@@ -299,7 +293,6 @@ END:VCALENDAR
         self.assertEqual(workers[0].workType, "SCHEDULE_REPLY_WORK")
 
         yield txn.commit()
-
 
     @inlineCallbacks
     def test_upgrade_imipTokens(self):

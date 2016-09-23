@@ -27,7 +27,9 @@ from txdav.xml import element as davxml
 from txweb2.stream import readStream
 from txweb2.test.test_server import SimpleRequest
 
+
 class DAVFileTest(util.TestCase):
+
     def test_renderPrivileges(self):
         """
         Verify that a directory listing includes children which you
@@ -36,7 +38,7 @@ class DAVFileTest(util.TestCase):
         request = SimpleRequest(self.site, "GET", "/")
 
         def setEmptyACL(resource):
-            resource.setAccessControlList(davxml.ACL()) # Empty ACL = no access
+            resource.setAccessControlList(davxml.ACL())  # Empty ACL = no access
             return resource
 
         def renderRoot(_):

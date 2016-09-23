@@ -49,7 +49,6 @@ from twistedcaldav.xmlutil import readXML, writeXML, addSubElement
 
 from txdav.caldav.datastore.index_file import db_basename
 from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser
-from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokensDatabase
 from txdav.caldav.datastore.scheduling.imip.mailgateway import migrateTokensToStore
 from txdav.caldav.datastore.scheduling.scheduler import DirectScheduler
 from txdav.caldav.datastore.util import normalizationLookup
@@ -84,7 +83,6 @@ def xattrname(n):
     return deadPropertyXattrPrefix + n
 
 
-
 def getCalendarServerIDs(config):
 
     # Determine uid/gid for ownership of directories we create here
@@ -105,7 +103,6 @@ def getCalendarServerIDs(config):
     return uid, gid
 
 
-
 def fixBadQuotes(data):
     if (
         data.find('\\"') != -1 or
@@ -124,7 +121,6 @@ def fixBadQuotes(data):
         return data, True
     else:
         return data, False
-
 
 
 @inlineCallbacks
@@ -223,7 +219,6 @@ def upgradeCalendarCollection(calPath, directory, cuaCache):
     returnValue(errorOccurred)
 
 
-
 @inlineCallbacks
 def upgradeCalendarHome(homePath, directory, cuaCache):
 
@@ -271,7 +266,6 @@ def upgradeCalendarHome(homePath, directory, cuaCache):
     returnValue(errorOccurred)
 
 
-
 @inlineCallbacks
 def upgrade_to_1(config, directory):
     """
@@ -283,7 +277,6 @@ def upgrade_to_1(config, directory):
         if f is not None:
             log.error(f)
         errorOccurred.append(True)
-
 
     def doProxyDatabaseMoveUpgrade(config, uid=-1, gid=-1):
         # See if the new one is already present
@@ -323,7 +316,6 @@ def upgrade_to_1(config, directory):
             old=oldDbPath, new=newDbPath
         )
 
-
     def moveCalendarHome(oldHome, newHome, uid=-1, gid=-1):
         if os.path.exists(newHome):
             # Both old and new homes exist; stop immediately to let the
@@ -337,23 +329,6 @@ def upgrade_to_1(config, directory):
             os.path.dirname(newHome.rstrip("/")), uid=uid, gid=gid
         )
         os.rename(oldHome, newHome)
-
-
-    def createMailTokensDatabase(config, uid, gid):
-        # Cause the tokens db to be created on disk so we can set the
-        # permissions on it now
-        db = MailGatewayTokensDatabase(config.DataRoot)
-        db.lookupByToken("")
-
-        dbPath = os.path.join(config.DataRoot, MailGatewayTokensDatabase.dbFilename)
-        if os.path.exists(dbPath):
-            os.chown(dbPath, uid, gid)
-
-        journalPath = "%s-journal" % (dbPath,)
-        if os.path.exists(journalPath):
-            os.chown(journalPath, uid, gid)
-
-        db._db_close()
 
     cuaCache = {}
 
@@ -500,11 +475,8 @@ def upgrade_to_1(config, directory):
                                         )
                 log.warn("Done processing calendar homes")
 
-    createMailTokensDatabase(config, uid, gid)
-
     if errorOccurred:
         log.warn("Data upgrade encountered errors but will proceed; see error.log for details")
-
 
 
 @inlineCallbacks
@@ -550,7 +522,6 @@ def normalizeCUAddrs(data, directory, cuaCache):
     returnValue((newData, not newData == data))
 
 
-
 @inlineCallbacks
 def upgrade_to_2(config, directory):
 
@@ -565,7 +536,6 @@ def upgrade_to_2(config, directory):
         newDbPath = os.path.join(config.DataRoot, newFilename)
         if os.path.exists(oldDbPath) and not os.path.exists(newDbPath):
             os.rename(oldDbPath, newDbPath)
-
 
     def flattenHome(calHome):
 
@@ -615,7 +585,6 @@ def upgrade_to_2(config, directory):
 
         return succeed(True)
 
-
     def flattenHomes():
         """
         Make sure calendars inside regular collections are all moved to the top level.
@@ -654,7 +623,6 @@ def upgrade_to_2(config, directory):
 
     if flattenHomes():
         raise UpgradeError("Data upgrade failed, see error.log for details")
-
 
 
 def upgradeResourcesXML(resourcesFilePath):
@@ -709,7 +677,6 @@ def upgradeResourcesXML(resourcesFilePath):
         directoryNode.append(destNode)
 
     resourcesFilePath.setContent(etreeToString(directoryNode, "utf-8"))
-
 
 
 def upgradeAugmentsXML(augmentsFilePath):
@@ -817,13 +784,11 @@ def upgradeData(config, directory):
         os.remove(triggerPath)
 
 
-
 class UpgradeError(RuntimeError):
     """
     Generic upgrade error.
     """
     pass
-
 
 
 #
@@ -847,7 +812,6 @@ def updateFreeBusyHref(href, directory):
     uid = record.uid
     newHref = "/calendars/__uids__/%s/%s/" % (uid, pieces[4])
     returnValue(newHref)
-
 
 
 @inlineCallbacks
@@ -891,7 +855,6 @@ def updateFreeBusySet(value, directory):
     returnValue(None)  # no update required
 
 
-
 def makeDirsUserGroup(path, uid=-1, gid=-1):
     parts = path.split("/")
     if parts[0] == "":  # absolute path
@@ -905,7 +868,6 @@ def makeDirsUserGroup(path, uid=-1, gid=-1):
         if not os.path.exists(path):
             os.mkdir(path)
             os.chown(path, uid, gid)
-
 
 
 def archive(config, srcPath, uid, gid):
@@ -937,7 +899,6 @@ def archive(config, srcPath, uid, gid):
         os.remove(srcPath)
 
 
-
 DELETECHARS = ''.join(chr(i) for i in xrange(32) if i not in (9, 10, 13))
 
 
@@ -955,7 +916,6 @@ def removeIllegalCharacters(data):
         return data, True
     else:
         return data, False
-
 
 
 # Deferred
@@ -983,7 +943,6 @@ def migrateFromOD(directory):
         ))
 
     return migrateResources(EnhancedDirectoryService(), directory)
-
 
 
 @inlineCallbacks
@@ -1029,17 +988,14 @@ def migrateAutoSchedule(config, directory):
             log.warn("Migrated {len} auto-schedule settings", len=len(augmentRecords))
 
 
-
 def loadDelegatesFromXMLintoProxyDB(xmlFile, service):
     loader = XMLCalendarUserProxyLoader(xmlFile)
     return loader.updateProxyDB(service)
 
 
-
 def loadDelegatesFromXMLintoStore(xmlFile, store):
     loader = XMLCalendarUserProxyLoader(xmlFile)
     return loader.updateProxyStore(store)
-
 
 
 @inlineCallbacks
@@ -1087,7 +1043,6 @@ def migrateDelegatesToStore(store):
         os.remove(journalPath)
 
 
-
 class UpgradeFileSystemFormatStep(object):
     """
     Upgrade filesystem from previous versions.
@@ -1099,7 +1054,6 @@ class UpgradeFileSystemFormatStep(object):
         """
         self.config = config
         self.store = store
-
 
     @inlineCallbacks
     def doUpgrade(self):
@@ -1122,13 +1076,11 @@ class UpgradeFileSystemFormatStep(object):
 
         returnValue(None)
 
-
     def stepWithResult(self, result):
         """
         Execute the step.
         """
         return self.doUpgrade()
-
 
 
 class PostDBImportStep(object):
@@ -1151,7 +1103,6 @@ class PostDBImportStep(object):
         self.store = store
         self.config = config
         self.doPostImport = doPostImport
-
 
     @inlineCallbacks
     def stepWithResult(self, result):
@@ -1200,7 +1151,6 @@ class PostDBImportStep(object):
 
             # Migrate mail tokens from sqlite to store
             yield migrateTokensToStore(self.config.DataRoot, self.store)
-
 
     @inlineCallbacks
     def processInboxItems(self):
@@ -1327,7 +1277,6 @@ class PostDBImportStep(object):
                     # Remove the inbox items file - nothing more to do
                     os.remove(inboxItemsList)
                     log.info("Completed inbox item processing.")
-
 
     @inlineCallbacks
     def processInboxItem(

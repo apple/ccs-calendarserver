@@ -38,17 +38,15 @@ class FakeSocket(object):
     """
     A fake socket for testing.
     """
+
     def __init__(self, test):
         self.test = test
-
 
     def fileno(self):
         return "not a socket"
 
-
     def setblocking(self, blocking):
         return
-
 
     def getpeername(self):
         if self.test.peerNameSucceed:
@@ -56,10 +54,8 @@ class FakeSocket(object):
         else:
             raise SocketError(ENOTCONN, "Transport endpoint not connected")
 
-
     def getsockname(self):
         return ("4.3.2.1", 4321)
-
 
 
 class InheritedPortForTesting(sendfdport.InheritedPort):
@@ -79,7 +75,6 @@ class InheritedPortForTesting(sendfdport.InheritedPort):
 
     def stopWriting(self):
         "Do nothing."
-
 
 
 class ServerTransportForTesting(Server):
@@ -104,7 +99,6 @@ class ServerTransportForTesting(Server):
         self.reactor = None
 
 
-
 class ReportingHTTPServiceTests(TestCase):
     """
     Tests for L{ReportingHTTPService}
@@ -115,8 +109,10 @@ class ReportingHTTPServiceTests(TestCase):
     def setUp(self):
         def fakefromfd(fd, addressFamily, socketType):
             return FakeSocket(self)
+
         def fakerecvfd(fd):
             return "not an fd", "not a description"
+
         def fakeclose(fd):
             ""
         def fakegetsockfam(fd):
@@ -132,7 +128,6 @@ class ReportingHTTPServiceTests(TestCase):
         self.svc = ReportingHTTPService(None, None, None)
         self.svc.startService()
 
-
     def test_quickClosedSocket(self):
         """
         If a socket is closed very quickly after being {accept()}ed, requesting
@@ -144,7 +139,6 @@ class ReportingHTTPServiceTests(TestCase):
         channels = self.svc.reportingFactory.connectedChannels
         self.assertEqual(len(channels), 1)
         self.assertEqual(list(channels)[0].transport.getPeer().host, "0.0.0.0")
-
 
 
 class ConnectionLimiterTests(TestCase):
@@ -161,11 +155,10 @@ class ConnectionLimiterTests(TestCase):
         """
         builder = LimiterBuilder(self)
         builder.fillUp()
-        self.assertEquals(builder.port.reading, False) # sanity check
+        self.assertEquals(builder.port.reading, False)  # sanity check
         self.assertEquals(builder.highestLoad(), builder.requestsPerSocket)
         builder.loadDown()
         self.assertEquals(builder.port.reading, True)
-
 
     def test_processRestartedStartsReadingAgain(self):
         """
@@ -179,7 +172,6 @@ class ConnectionLimiterTests(TestCase):
         self.assertEquals(builder.highestLoad(), builder.requestsPerSocket)
         builder.processRestart()
         self.assertEquals(builder.port.reading, True)
-
 
     def test_unevenLoadDistribution(self):
         """
@@ -199,7 +191,6 @@ class ConnectionLimiterTests(TestCase):
         # And everyone should have an even amount of work.
         self.assertEquals(builder.highestLoad(), builder.requestsPerSocket)
 
-
     def test_processStopsReadingEvenWhenConnectionsAreNotAcknowledged(self):
         """
         L{ConnectionLimiter.statusesChanged} determines whether the current
@@ -212,7 +203,6 @@ class ConnectionLimiterTests(TestCase):
         builder.processRestart()
         self.assertEquals(builder.port.reading, True)
 
-
     def test_workerStatusRepr(self):
         """
         L{WorkerStatus.__repr__} will show all the values associated with the
@@ -221,7 +211,6 @@ class ConnectionLimiterTests(TestCase):
         self.assertEquals(repr(WorkerStatus(1, 2, 3, 4, 5, 6, 7, 8)),
                           "<WorkerStatus acknowledged=1 unacknowledged=2 total=3 "
                           "started=4 abandoned=5 unclosed=6 starting=7 stopped=8>")
-
 
     def test_workerStatusNonNegative(self):
         """
@@ -237,7 +226,6 @@ class ConnectionLimiterTests(TestCase):
         self.assertEquals(w.acknowledged, 1)
         self.assertEquals(w.unacknowledged, 0)
         self.assertEquals(w.total, 1)
-
 
 
 class LimiterBuilder(object):
@@ -267,13 +255,11 @@ class LimiterBuilder(object):
         self.limiter.startService()
         self.port = self.service.myPort
 
-
     def highestLoad(self):
         return max(
             skt.status.effective()
             for skt in self.limiter.dispatcher._subprocessSockets
         )
-
 
     def serverServiceMakerMaker(self, s):
         """
@@ -281,8 +267,10 @@ class LimiterBuilder(object):
         L{ConnectionLimiter.addPortService}.
         """
         class NotAPort(object):
+
             def startReading(self):
                 self.reading = True
+
             def stopReading(self):
                 self.reading = False
 
@@ -294,7 +282,6 @@ class LimiterBuilder(object):
             factory.myServer = s
             return s
         return serverServiceMaker
-
 
     def fillUp(self, acknowledged=True, count=0):
         """
@@ -314,14 +301,12 @@ class LimiterBuilder(object):
                     self.dispatcher._subprocessSockets[0], "+"
                 )
 
-
     def processRestart(self):
         self.dispatcher._subprocessSockets[0].stop()
         self.dispatcher._subprocessSockets[0].start()
         self.dispatcher.statusMessage(
             self.dispatcher._subprocessSockets[0], "0"
         )
-
 
     def loadDown(self):
         self.dispatcher.statusMessage(

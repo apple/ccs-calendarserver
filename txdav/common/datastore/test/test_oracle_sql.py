@@ -38,7 +38,6 @@ class OracleSpecificSQLStoreTests(CommonCommonTests, TestCase):
         yield super(OracleSpecificSQLStoreTests, self).setUp()
         yield self.buildStoreAndDirectory()
 
-
     @inlineCallbacks
     def test_logging(self):
         """
@@ -60,7 +59,6 @@ class OracleSpecificSQLStoreTests(CommonCommonTests, TestCase):
         self.assertNotEqual(version, None)
         self.assertEqual(len(version), 1)
         self.assertEqual(len(version[0]), 1)
-
 
     @inlineCallbacks
     def test_delete_returning(self):

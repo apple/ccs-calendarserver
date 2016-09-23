@@ -21,6 +21,7 @@ from caldavclientlibrary.protocol.webdav.definitions import davxml, statuscodes
 from contrib.performance.sqlusage.requests.httpTests import HTTPTestBase
 from txweb2.dav.util import joinURL
 
+
 class MultigetTest(HTTPTestBase):
     """
     A multiget operation
@@ -29,7 +30,6 @@ class MultigetTest(HTTPTestBase):
     def __init__(self, label, sessions, logFilePath, logFilePrefix, count):
         super(MultigetTest, self).__init__(label, sessions, logFilePath, logFilePrefix)
         self.count = count
-
 
     def doRequest(self):
         """

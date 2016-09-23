@@ -29,6 +29,7 @@ from httpclient import StringProducer, readBody
 
 
 class CalDAVAccount(object):
+
     def __init__(self, agent, netloc, user, password, root, principal):
         self.agent = agent
         self.netloc = netloc
@@ -37,16 +38,15 @@ class CalDAVAccount(object):
         self.root = root
         self.principal = principal
 
-
     def _makeURL(self, path):
         if not path.startswith('/'):
             raise ValueError("Pass a relative URL with an absolute path")
         return 'http://%s%s' % (self.netloc, path)
 
-
     def deleteResource(self, path):
         url = self._makeURL(path)
         d = self.agent.request('DELETE', url)
+
         def deleted(response):
             if response.code not in (NO_CONTENT, NOT_FOUND):
                 raise Exception(
@@ -55,10 +55,8 @@ class CalDAVAccount(object):
         d.addCallback(deleted)
         return d
 
-
     def makeCalendar(self, path):
         return self.agent.request('MKCALENDAR', self._makeURL(path))
-
 
     def writeData(self, path, data, contentType):
         return self.agent.request(
@@ -68,13 +66,11 @@ class CalDAVAccount(object):
             StringProducer(data))
 
 
-
 @inlineCallbacks
 def _serial(fs):
     for (f, args) in fs:
         yield f(*args)
     returnValue(None)
-
 
 
 def initialize(agent, host, port, user, password, root, principal, calendar):
@@ -94,7 +90,6 @@ def initialize(agent, host, port, user, password, root, principal, calendar):
     return d
 
 
-
 def firstResult(deferreds):
     """
     Return a L{Deferred} which fires when the first L{Deferred} from
@@ -102,7 +97,6 @@ def firstResult(deferreds):
 
     @param deferreds: A sequence of Deferreds to wait on.
     """
-
 
 
 @inlineCallbacks
@@ -115,6 +109,7 @@ def sample(dtrace, sampleTime, agent, paramgen, responseCode, concurrency=1):
         before = time()
         params = paramgen()
         d = agent.request(*params)
+
         def cbResponse(response):
             if response.code != responseCode:
                 raise Exception(
@@ -122,6 +117,7 @@ def sample(dtrace, sampleTime, agent, paramgen, responseCode, concurrency=1):
                         params, response.code))
 
             d = readBody(response)
+
             def cbBody(ignored):
                 after = time()
                 msg('response received')
@@ -196,13 +192,11 @@ def sample(dtrace, sampleTime, agent, paramgen, responseCode, concurrency=1):
     returnValue(data)
 
 
-
 def select(statistics, benchmark, parameter, statistic):
     for stat, samples in statistics[benchmark][int(parameter)].iteritems():
         if stat.name == statistic:
             return (stat, samples)
     raise ValueError("Unknown statistic %r" % (statistic,))
-
 
 
 def load_stats(statfiles):

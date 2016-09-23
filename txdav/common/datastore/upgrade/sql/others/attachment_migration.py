@@ -28,6 +28,7 @@ The existing attachments still appear as ATTACH properties that clients can down
 data if needed. All new attachments are now managed.
 """
 
+
 @inlineCallbacks
 def doUpgrade(upgrader):
     """

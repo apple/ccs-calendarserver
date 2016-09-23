@@ -35,34 +35,34 @@ class ApplePushNotifierServiceTests(StoreTestCase):
     def test_ApplePushNotifierService(self):
 
         settings = ConfigDict({
-            "Enabled" : True,
-            "SubscriptionURL" : "apn",
-            "SubscriptionPurgeSeconds" : 24 * 60 * 60,
-            "SubscriptionPurgeIntervalSeconds" : 24 * 60 * 60,
-            "ProviderHost" : "gateway.push.apple.com",
-            "ProviderPort" : 2195,
-            "FeedbackHost" : "feedback.push.apple.com",
-            "FeedbackPort" : 2196,
-            "FeedbackUpdateSeconds" : 300,
-            "EnableStaggering" : True,
-            "StaggerSeconds" : 3,
-            "CalDAV" : {
-                "Enabled" : True,
-                "CertificatePath" : "caldav.cer",
-                "PrivateKeyPath" : "caldav.pem",
-                "AuthorityChainPath" : "chain.pem",
-                "Passphrase" : "",
+            "Enabled": True,
+            "SubscriptionURL": "apn",
+            "SubscriptionPurgeSeconds": 24 * 60 * 60,
+            "SubscriptionPurgeIntervalSeconds": 24 * 60 * 60,
+            "ProviderHost": "gateway.push.apple.com",
+            "ProviderPort": 2195,
+            "FeedbackHost": "feedback.push.apple.com",
+            "FeedbackPort": 2196,
+            "FeedbackUpdateSeconds": 300,
+            "EnableStaggering": True,
+            "StaggerSeconds": 3,
+            "CalDAV": {
+                "Enabled": True,
+                "CertificatePath": "caldav.cer",
+                "PrivateKeyPath": "caldav.pem",
+                "AuthorityChainPath": "chain.pem",
+                "Passphrase": "",
                 "KeychainIdentity": "org.calendarserver.test",
-                "Topic" : "caldav_topic",
+                "Topic": "caldav_topic",
             },
-            "CardDAV" : {
-                "Enabled" : True,
-                "CertificatePath" : "carddav.cer",
-                "PrivateKeyPath" : "carddav.pem",
-                "AuthorityChainPath" : "chain.pem",
-                "Passphrase" : "",
+            "CardDAV": {
+                "Enabled": True,
+                "CertificatePath": "carddav.cer",
+                "PrivateKeyPath": "carddav.pem",
+                "AuthorityChainPath": "chain.pem",
+                "Passphrase": "",
                 "KeychainIdentity": "org.calendarserver.test",
-                "Topic" : "carddav_topic",
+                "Topic": "carddav_topic",
             },
         })
 
@@ -159,13 +159,13 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         rawData = providerConnector.transport.data
         self.assertEquals(len(rawData), 199)
         data = struct.unpack("!BI", rawData[:5])
-        self.assertEquals(data[0], 2) # command
-        self.assertEquals(data[1], 194) # frame length
+        self.assertEquals(data[0], 2)  # command
+        self.assertEquals(data[1], 194)  # frame length
         # Item 1 (device token)
         data = struct.unpack("!BH32s", rawData[5:40])
         self.assertEquals(data[0], 1)
         self.assertEquals(data[1], 32)
-        self.assertEquals(data[2].encode("hex"), token.replace(" ", "")) # token
+        self.assertEquals(data[2].encode("hex"), token.replace(" ", ""))  # token
         # Item 2 (payload)
         data = struct.unpack("!BH", rawData[40:43])
         self.assertEquals(data[0], 2)
@@ -207,7 +207,7 @@ class ApplePushNotifierServiceTests(StoreTestCase):
             txn, "/CalDAV/calendars.example.com/user01/calendar/",
             priority=PushPriority.low)
         yield txn.commit()
-        clock.advance(1) # so that first push is sent
+        clock.advance(1)  # so that first push is sent
         self.assertEquals(len(providerConnector.transport.data), 199)
         # Ensure that the priority is "low"
         data = struct.unpack("!BHB", providerConnector.transport.data[195:199])
@@ -217,7 +217,7 @@ class ApplePushNotifierServiceTests(StoreTestCase):
 
         # Reset sent data
         providerConnector.transport.data = None
-        clock.advance(3) # so that second push is sent
+        clock.advance(3)  # so that second push is sent
         self.assertEquals(len(providerConnector.transport.data), 199)
 
         history = []
@@ -270,6 +270,7 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         # Simulate feedback with multiple tokens, and dataReceived called
         # with amounts of data not fitting message boundaries
         history = []
+
         def feedbackTestFunction(timestamp, token):
             history.append((timestamp, token))
             return succeed(None)
@@ -325,8 +326,8 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         # Create two subscriptions, one old and one new
         txn = self._sqlCalendarStore.newTransaction()
         now = int(time.time())
-        yield txn.addAPNSubscription(token2, key1, now - 2 * 24 * 60 * 60, uid, userAgent, ipAddr) # old
-        yield txn.addAPNSubscription(token2, key2, now, uid, userAgent, ipAddr) # recent
+        yield txn.addAPNSubscription(token2, key1, now - 2 * 24 * 60 * 60, uid, userAgent, ipAddr)  # old
+        yield txn.addAPNSubscription(token2, key2, now, uid, userAgent, ipAddr)  # recent
         yield txn.commit()
 
         # Purge old subscriptions
@@ -343,13 +344,11 @@ class ApplePushNotifierServiceTests(StoreTestCase):
 
         service.stopService()
 
-
     def test_validToken(self):
         self.assertTrue(validToken("2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"))
         self.assertFalse(validToken("d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"))
         self.assertFalse(validToken("foo"))
         self.assertFalse(validToken(""))
-
 
     def test_TokenHistory(self):
         history = TokenHistory(maxSize=5)
@@ -411,7 +410,6 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         )
 
 
-
 class TestConnector(object):
 
     def connect(self, service, factory):
@@ -421,17 +419,14 @@ class TestConnector(object):
         self.transport = StubTransport()
         service.protocol.makeConnection(self.transport)
 
-
     def receiveData(self, data, fn=None):
         return self.service.protocol.dataReceived(data, fn=fn)
-
 
 
 class StubTransport(object):
 
     def __init__(self):
         self.data = None
-
 
     def write(self, data):
         self.data = data

@@ -47,6 +47,7 @@ from txdav.xml import element as davxml
 
 log = Logger()
 
+
 @inlineCallbacks
 def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_query):
     """

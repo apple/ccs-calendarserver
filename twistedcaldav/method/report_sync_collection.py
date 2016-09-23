@@ -42,6 +42,7 @@ import functools
 
 log = Logger()
 
+
 @inlineCallbacks
 def report_DAV__sync_collection(self, request, sync_collection):
     """

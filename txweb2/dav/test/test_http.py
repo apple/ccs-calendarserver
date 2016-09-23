@@ -30,10 +30,12 @@ from txweb2.http import HTTPError
 from txweb2.dav.http import ErrorResponse, statusForFailure
 import txweb2.dav.test.util
 
+
 class HTTP(txweb2.dav.test.util.TestCase):
     """
     HTTP Utilities
     """
+
     def test_statusForFailure_errno(self):
         """
         statusForFailure() for exceptions with known errno values
@@ -41,12 +43,11 @@ class HTTP(txweb2.dav.test.util.TestCase):
         for ex_class in (IOError, OSError):
             for exception, result in (
                 (ex_class(errno.EACCES, "Permission denied"), responsecode.FORBIDDEN),
-                (ex_class(errno.EPERM , "Permission denied"), responsecode.FORBIDDEN),
+                (ex_class(errno.EPERM, "Permission denied"), responsecode.FORBIDDEN),
                 (ex_class(errno.ENOSPC, "No space available"), responsecode.INSUFFICIENT_STORAGE_SPACE),
                 (ex_class(errno.ENOENT, "No such file"), responsecode.NOT_FOUND),
             ):
                 self._check_exception(exception, result)
-
 
     def test_statusForFailure_HTTPError(self):
         """
@@ -55,7 +56,6 @@ class HTTP(txweb2.dav.test.util.TestCase):
         for code in responsecode.RESPONSES:
             self._check_exception(HTTPError(code), code)
             self._check_exception(HTTPError(ErrorResponse(code, ("http://twistedmatrix.com/", "bar"))), code)
-
 
     def test_statusForFailure_exception(self):
         """
@@ -75,7 +75,6 @@ class HTTP(txweb2.dav.test.util.TestCase):
             pass
         else:
             self.fail("Unknown exception should have re-raised.")
-
 
     def _check_exception(self, exception, result):
         try:

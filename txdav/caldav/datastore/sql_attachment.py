@@ -69,7 +69,6 @@ class AttachmentStorageTransport(StorageTransportBase):
 
         self._txn.postAbort(self.aborted)
 
-
     def _temporaryFile(self):
         """
         Returns a (file descriptor, absolute path) tuple for a temporary file within
@@ -83,11 +82,9 @@ class AttachmentStorageTransport(StorageTransportBase):
             tempUploadsPath.createDirectory()
         return tempfile.mkstemp(dir=tempUploadsPath.path)
 
-
     @property
     def _txn(self):
         return self._attachment._txn
-
 
     def aborted(self):
         """
@@ -96,13 +93,11 @@ class AttachmentStorageTransport(StorageTransportBase):
         if self._path.exists():
             self._path.remove()
 
-
     def write(self, data):
         if isinstance(data, buffer):
             data = str(data)
         self._file.write(data)
         self._hash.update(data)
-
 
     @inlineCallbacks
     def loseConnection(self):
@@ -135,8 +130,7 @@ class AttachmentStorageTransport(StorageTransportBase):
         # Check overall user quota
         if not self._migrating:
             allowed = home.quotaAllowedBytes()
-            if allowed is not None and allowed < ((yield home.quotaUsedBytes())
-                                                  + (newSize - oldSize)):
+            if allowed is not None and allowed < ((yield home.quotaUsedBytes()) + (newSize - oldSize)):
                 self._path.remove()
                 if self._creating:
                     yield self._attachment._internalRemove()
@@ -157,7 +151,6 @@ class AttachmentStorageTransport(StorageTransportBase):
 
             # Send change notification to home
             yield home.notifyChanged()
-
 
 
 class AttachmentLink(object):
@@ -185,7 +178,6 @@ class AttachmentLink(object):
             setattr(child, attr, value)
         return child
 
-
     @classmethod
     def _allColumns(cls):
         """
@@ -199,7 +191,6 @@ class AttachmentLink(object):
             aco.CALENDAR_OBJECT_RESOURCE_ID,
         ]
 
-
     @classmethod
     def _rowAttributes(cls):
         """
@@ -211,7 +202,6 @@ class AttachmentLink(object):
             "_managedID",
             "_calendarObjectID",
         )
-
 
     @classmethod
     @inlineCallbacks
@@ -232,12 +222,10 @@ class AttachmentLink(object):
         # Create the actual objects
         returnValue([cls.makeClass(home._txn, row) for row in dataRows])
 
-
     def __init__(self, txn):
         self._txn = txn
         for attr in self._rowAttributes():
             setattr(self, attr, None)
-
 
     def serialize(self):
         """
@@ -246,7 +234,6 @@ class AttachmentLink(object):
         the attributes may not match exactly and will need to be processed accordingly.
         """
         return dict([(attr[1:], getattr(self, attr, None)) for attr in self._rowAttributes()])
-
 
     @classmethod
     def deserialize(cls, txn, mapping):
@@ -259,7 +246,6 @@ class AttachmentLink(object):
 
         return cls.makeClass(txn, [mapping.get(row[1:]) for row in cls._rowAttributes()])
 
-
     def insert(self):
         """
         Insert the object.
@@ -267,7 +253,6 @@ class AttachmentLink(object):
 
         row = dict([(column, getattr(self, attr)) for column, attr in itertools.izip(self._allColumns(), self._rowAttributes())])
         return Insert(row).on(self._txn)
-
 
 
 class Attachment(object):
@@ -307,7 +292,6 @@ class Attachment(object):
 
         return child
 
-
     @classmethod
     def _allColumns(cls):
         """
@@ -327,7 +311,6 @@ class Attachment(object):
             att.PATH,
         ]
 
-
     @classmethod
     def _rowAttributes(cls):
         """
@@ -345,7 +328,6 @@ class Attachment(object):
             "_modified",
             "_name",
         )
-
 
     @classmethod
     @inlineCallbacks
@@ -372,7 +354,6 @@ class Attachment(object):
 
         returnValue(results)
 
-
     @classmethod
     @inlineCallbacks
     def loadAttachmentByID(cls, home, id):
@@ -393,7 +374,6 @@ class Attachment(object):
         # Create the actual object
         returnValue(cls.makeClass(home._txn, rows[0]) if len(rows) == 1 else None)
 
-
     def serialize(self):
         """
         Create a dictionary mapping key attributes so this object can be sent over a cross-pod call
@@ -406,7 +386,6 @@ class Attachment(object):
         result["contentType"] = generateContentType(result["contentType"])
         return result
 
-
     @classmethod
     def deserialize(cls, txn, mapping):
         """
@@ -417,7 +396,6 @@ class Attachment(object):
         """
 
         return cls.makeClass(txn, [mapping.get(row[1:]) for row in cls._rowAttributes()])
-
 
     def __init__(self, txn, a_id, dropboxID, name, ownerHomeID=None, justCreated=False):
         self._txn = txn
@@ -432,17 +410,14 @@ class Attachment(object):
         self._name = name
         self._justCreated = justCreated
 
-
     def __repr__(self):
         return (
             "<{self.__class__.__name__}: {self._attachmentID}>"
             .format(self=self)
         )
 
-
     def _attachmentPathRoot(self):
         return self._txn._store.attachmentsPath
-
 
     @inlineCallbacks
     def initFromStore(self):
@@ -474,7 +449,6 @@ class Attachment(object):
 
         returnValue(self)
 
-
     def copyRemote(self, remote):
         """
         Copy properties from a remote (external) attachment that is being migrated.
@@ -484,36 +458,28 @@ class Attachment(object):
         """
         return self.changed(remote.contentType(), remote.name(), remote.md5(), remote.size())
 
-
     def id(self):
         return self._attachmentID
-
 
     def dropboxID(self):
         return self._dropboxID
 
-
     def isManaged(self):
         return self._dropboxID == "."
-
 
     def name(self):
         return self._name
 
-
     def properties(self):
         pass  # stub
-
 
     def store(self, contentType, dispositionName=None, migrating=False):
         if not self._name:
             self._name = dispositionName
         return AttachmentStorageTransport(self, contentType, dispositionName, self._justCreated, migrating=migrating)
 
-
     def retrieve(self, protocol):
         return AttachmentRetrievalTransport(self._path).start(protocol)
-
 
     def changed(self, contentType, dispositionName, md5, size):
         raise NotImplementedError
@@ -522,7 +488,6 @@ class Attachment(object):
         From=schema.ATTACHMENT,
         Where=(schema.ATTACHMENT.ATTACHMENT_ID == Parameter("attachmentID"))
     )
-
 
     @inlineCallbacks
     def remove(self, adjustQuota=True):
@@ -539,7 +504,6 @@ class Attachment(object):
                 # Send change notification to home
                 yield home.notifyChanged()
 
-
     def removePaths(self):
         """
         Remove the actual file and up to attachment parent directory if empty.
@@ -547,7 +511,6 @@ class Attachment(object):
         if self._path.exists():
             self._path.remove()
         self.removeParentPaths()
-
 
     def removeParentPaths(self):
         """
@@ -562,7 +525,6 @@ class Attachment(object):
             else:
                 break
 
-
     def _internalRemove(self):
         """
         Just delete the row; don't do any accounting / bookkeeping.  (This is
@@ -570,7 +532,6 @@ class Attachment(object):
         storage.)
         """
         return self._removeStatement.on(self._txn, attachmentID=self._attachmentID)
-
 
     @classmethod
     @inlineCallbacks
@@ -621,27 +582,21 @@ class Attachment(object):
             ),
         ).on(txn)
 
-
     # IDataStoreObject
     def contentType(self):
         return self._contentType
 
-
     def md5(self):
         return self._md5
-
 
     def size(self):
         return self._size
 
-
     def created(self):
         return datetimeMktime(self._created)
 
-
     def modified(self):
         return datetimeMktime(self._modified)
-
 
 
 class DropBoxAttachment(Attachment):
@@ -670,12 +625,12 @@ class DropBoxAttachment(Attachment):
         # Now create the DB entry
         att = cls._attachmentSchema
         rows = (yield Insert({
-            att.CALENDAR_HOME_RESOURCE_ID : ownerHomeID,
-            att.DROPBOX_ID                : dropboxID,
-            att.CONTENT_TYPE              : "",
-            att.SIZE                      : 0,
-            att.MD5                       : "",
-            att.PATH                      : name,
+            att.CALENDAR_HOME_RESOURCE_ID: ownerHomeID,
+            att.DROPBOX_ID: dropboxID,
+            att.CONTENT_TYPE: "",
+            att.SIZE: 0,
+            att.MD5: "",
+            att.PATH: name,
         }, Return=(att.ATTACHMENT_ID, att.CREATED, att.MODIFIED)).on(txn))
 
         row_iter = iter(rows[0])
@@ -695,7 +650,6 @@ class DropBoxAttachment(Attachment):
 
         returnValue(attachment)
 
-
     @classmethod
     @inlineCallbacks
     def load(cls, txn, dropboxID, name):
@@ -703,14 +657,12 @@ class DropBoxAttachment(Attachment):
         attachment = (yield attachment.initFromStore())
         returnValue(attachment)
 
-
     @property
     def _path(self):
         # Use directory hashing scheme based on MD5 of dropboxID
         hasheduid = hashlib.md5(self._dropboxID).hexdigest()
         attachmentRoot = self._attachmentPathRoot().child(hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid)
         return attachmentRoot.child(self.name())
-
 
     @classmethod
     @inlineCallbacks
@@ -741,7 +693,6 @@ class DropBoxAttachment(Attachment):
                 attachment = yield cls.load(txn, dropboxID, name)
                 yield attachment.remove()
 
-
     @inlineCallbacks
     def changed(self, contentType, dispositionName, md5, size):
         """
@@ -757,15 +708,14 @@ class DropBoxAttachment(Attachment):
             parseSQLTimestamp,
             (yield Update(
                 {
-                    att.CONTENT_TYPE    : generateContentType(self._contentType),
-                    att.SIZE            : self._size,
-                    att.MD5             : self._md5,
-                    att.MODIFIED        : utcNowSQL,
+                    att.CONTENT_TYPE: generateContentType(self._contentType),
+                    att.SIZE: self._size,
+                    att.MD5: self._md5,
+                    att.MODIFIED: utcNowSQL,
                 },
                 Where=(att.ATTACHMENT_ID == self._attachmentID),
                 Return=(att.CREATED, att.MODIFIED)).on(self._txn))[0]
         )
-
 
     @inlineCallbacks
     def convertToManaged(self):
@@ -781,7 +731,7 @@ class DropBoxAttachment(Attachment):
         # Change the DROPBOX_ID to a single "." to indicate a managed attachment.
         att = self._attachmentSchema
         (yield Update(
-            {att.DROPBOX_ID    : ".", },
+            {att.DROPBOX_ID: ".", },
             Where=(att.ATTACHMENT_ID == self._attachmentID),
         ).on(self._txn))
 
@@ -805,7 +755,6 @@ class DropBoxAttachment(Attachment):
         self.removeParentPaths()
 
         returnValue(mattach)
-
 
 
 class ManagedAttachment(Attachment):
@@ -835,12 +784,12 @@ class ManagedAttachment(Attachment):
         # Now create the DB entry
         att = cls._attachmentSchema
         rows = (yield Insert({
-            att.CALENDAR_HOME_RESOURCE_ID : ownerHomeID,
-            att.DROPBOX_ID                : ".",
-            att.CONTENT_TYPE              : "",
-            att.SIZE                      : 0,
-            att.MD5                       : "",
-            att.PATH                      : "",
+            att.CALENDAR_HOME_RESOURCE_ID: ownerHomeID,
+            att.DROPBOX_ID: ".",
+            att.CONTENT_TYPE: "",
+            att.SIZE: 0,
+            att.MD5: "",
+            att.PATH: "",
         }, Return=(att.ATTACHMENT_ID, att.CREATED, att.MODIFIED)).on(txn))
 
         row_iter = iter(rows[0])
@@ -860,7 +809,6 @@ class ManagedAttachment(Attachment):
             pass
 
         returnValue(attachment)
-
 
     @classmethod
     @inlineCallbacks
@@ -885,13 +833,12 @@ class ManagedAttachment(Attachment):
         # Create the attachment<->calendar object relationship for managed attachments
         attco = cls._attachmentLinkSchema
         yield Insert({
-            attco.ATTACHMENT_ID               : attachment._attachmentID,
-            attco.MANAGED_ID                  : attachment._managedID,
-            attco.CALENDAR_OBJECT_RESOURCE_ID : attachment._objectResourceID,
+            attco.ATTACHMENT_ID: attachment._attachmentID,
+            attco.MANAGED_ID: attachment._managedID,
+            attco.CALENDAR_OBJECT_RESOURCE_ID: attachment._objectResourceID,
         }).on(txn)
 
         returnValue(attachment)
-
 
     @classmethod
     @inlineCallbacks
@@ -921,8 +868,8 @@ class ManagedAttachment(Attachment):
         attco = cls._attachmentLinkSchema
         yield Update(
             {
-                attco.ATTACHMENT_ID    : attachment._attachmentID,
-                attco.MANAGED_ID       : attachment._managedID,
+                attco.ATTACHMENT_ID: attachment._attachmentID,
+                attco.MANAGED_ID: attachment._managedID,
             },
             Where=(attco.MANAGED_ID == oldManagedID).And(
                 attco.CALENDAR_OBJECT_RESOURCE_ID == attachment._objectResourceID
@@ -942,7 +889,6 @@ class ManagedAttachment(Attachment):
             yield oldattachment.remove()
 
         returnValue(attachment)
-
 
     @classmethod
     @inlineCallbacks
@@ -973,7 +919,6 @@ class ManagedAttachment(Attachment):
         attachment._objectResourceID = referencedID
         returnValue(attachment)
 
-
     @classmethod
     @inlineCallbacks
     def referencesTo(cls, txn, managedID):
@@ -988,7 +933,6 @@ class ManagedAttachment(Attachment):
         ).on(txn))
         cobjs = set([row[0] for row in rows]) if rows is not None else set()
         returnValue(cobjs)
-
 
     @classmethod
     @inlineCallbacks
@@ -1012,7 +956,6 @@ class ManagedAttachment(Attachment):
         ).on(txn))
         returnValue(rows)
 
-
     @classmethod
     @inlineCallbacks
     def resourceRemoved(cls, txn, resourceID):
@@ -1032,7 +975,6 @@ class ManagedAttachment(Attachment):
             attachment = (yield ManagedAttachment.load(txn, resourceID, managedID))
             (yield attachment.removeFromResource(resourceID))
 
-
     @classmethod
     @inlineCallbacks
     def copyManagedID(cls, txn, managedID, referencedBy):
@@ -1049,15 +991,13 @@ class ManagedAttachment(Attachment):
         ).on(txn))[0][0]
 
         yield Insert({
-            attco.ATTACHMENT_ID               : aid,
-            attco.MANAGED_ID                  : managedID,
-            attco.CALENDAR_OBJECT_RESOURCE_ID : referencedBy,
+            attco.ATTACHMENT_ID: aid,
+            attco.MANAGED_ID: managedID,
+            attco.CALENDAR_OBJECT_RESOURCE_ID: referencedBy,
         }).on(txn)
-
 
     def managedID(self):
         return self._managedID
-
 
     @inlineCallbacks
     def objectResource(self):
@@ -1069,13 +1009,11 @@ class ManagedAttachment(Attachment):
         obj = (yield home.objectResourceWithID(self._objectResourceID))
         returnValue(obj)
 
-
     @property
     def _path(self):
         # Use directory hashing scheme based on MD5 of attachmentID
         hasheduid = hashlib.md5(str(self._attachmentID)).hexdigest()
         return self._attachmentPathRoot().child(hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid)
-
 
     @inlineCallbacks
     def location(self):
@@ -1098,14 +1036,12 @@ class ManagedAttachment(Attachment):
         }
         returnValue(location)
 
-
     @classmethod
     def lastSegmentOfUriPath(cls, managed_id, name):
         splits = name.rsplit(".", 1)
         fname = splits[0]
         suffix = splits[1] if len(splits) == 2 else "unknown"
         return "{0}-{1}.{2}".format(fname, managed_id[:8], suffix)
-
 
     @inlineCallbacks
     def changed(self, contentType, dispositionName, md5, size):
@@ -1122,16 +1058,15 @@ class ManagedAttachment(Attachment):
             parseSQLTimestamp,
             (yield Update(
                 {
-                    att.CONTENT_TYPE    : generateContentType(self._contentType),
-                    att.SIZE            : self._size,
-                    att.MD5             : self._md5,
-                    att.MODIFIED        : utcNowSQL,
-                    att.PATH            : self._name,
+                    att.CONTENT_TYPE: generateContentType(self._contentType),
+                    att.SIZE: self._size,
+                    att.MD5: self._md5,
+                    att.MODIFIED: utcNowSQL,
+                    att.PATH: self._name,
                 },
                 Where=(att.ATTACHMENT_ID == self._attachmentID),
                 Return=(att.CREATED, att.MODIFIED)).on(self._txn))[0]
         )
-
 
     @inlineCallbacks
     def newReference(self, resourceID):
@@ -1148,14 +1083,13 @@ class ManagedAttachment(Attachment):
 
         attco = self._attachmentLinkSchema
         yield Insert({
-            attco.ATTACHMENT_ID               : self._attachmentID,
-            attco.MANAGED_ID                  : self._managedID,
-            attco.CALENDAR_OBJECT_RESOURCE_ID : resourceID,
+            attco.ATTACHMENT_ID: self._attachmentID,
+            attco.MANAGED_ID: self._managedID,
+            attco.CALENDAR_OBJECT_RESOURCE_ID: resourceID,
         }).on(self._txn)
 
         mattach = (yield ManagedAttachment.load(self._txn, resourceID, self._managedID))
         returnValue(mattach)
-
 
     @inlineCallbacks
     def removeFromResource(self, resourceID):
@@ -1177,7 +1111,6 @@ class ManagedAttachment(Attachment):
         if len(rows) == 0:
             yield self.remove()
 
-
     @inlineCallbacks
     def attachProperty(self):
         """
@@ -1186,7 +1119,6 @@ class ManagedAttachment(Attachment):
         attach = Property("ATTACH", "", valuetype=Value.VALUETYPE_URI)
         location = (yield self.updateProperty(attach))
         returnValue((attach, location,))
-
 
     @inlineCallbacks
     def updateProperty(self, attach):

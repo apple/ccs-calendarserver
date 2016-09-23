@@ -32,6 +32,7 @@ Classes and methods that relate to directory objects in the SQL store. e.g.,
 delegates, groups etc
 """
 
+
 class GroupsRecord(SerializableRecord, fromTable(schema.GROUPS)):
     """
     @DynamicAttrs
@@ -51,7 +52,6 @@ class GroupsRecord(SerializableRecord, fromTable(schema.GROUPS)):
             ),
         )
 
-
     @classmethod
     def groupsMissingSince(cls, txn, since):
 
@@ -59,7 +59,6 @@ class GroupsRecord(SerializableRecord, fromTable(schema.GROUPS)):
             txn,
             (cls.extant == 0).And(cls.modified < since)
         )
-
 
 
 class GroupMembershipRecord(SerializableRecord, fromTable(schema.GROUP_MEMBERSHIP)):
@@ -70,14 +69,12 @@ class GroupMembershipRecord(SerializableRecord, fromTable(schema.GROUP_MEMBERSHI
     pass
 
 
-
 class DelegateRecord(SerializableRecord, fromTable(schema.DELEGATES)):
     """
     @DynamicAttrs
     L{Record} for L{schema.DELEGATES}.
     """
     pass
-
 
 
 class DelegateGroupsRecord(SerializableRecord, fromTable(schema.DELEGATE_GROUPS)):
@@ -102,7 +99,6 @@ class DelegateGroupsRecord(SerializableRecord, fromTable(schema.DELEGATE_GROUPS)
             ),
         )
 
-
     @classmethod
     def delegateGroups(cls, txn, delegator, readWrite):
         """
@@ -121,7 +117,6 @@ class DelegateGroupsRecord(SerializableRecord, fromTable(schema.DELEGATE_GROUPS)
             ),
         )
 
-
     @classmethod
     def indirectDelegators(cls, txn, delegate, readWrite):
         """
@@ -137,7 +132,6 @@ class DelegateGroupsRecord(SerializableRecord, fromTable(schema.DELEGATE_GROUPS)
                 )
             ).And(cls.readWrite == (1 if readWrite else 0)),
         )
-
 
     @classmethod
     def indirectDelegates(cls, txn, delegator, readWrite):
@@ -156,7 +150,6 @@ class DelegateGroupsRecord(SerializableRecord, fromTable(schema.DELEGATE_GROUPS)
                 )
             ),
         )
-
 
     @classmethod
     @inlineCallbacks
@@ -190,14 +183,12 @@ class DelegateGroupsRecord(SerializableRecord, fromTable(schema.DELEGATE_GROUPS)
         returnValue(results)
 
 
-
 class ExternalDelegateGroupsRecord(SerializableRecord, fromTable(schema.EXTERNAL_DELEGATE_GROUPS)):
     """
     @DynamicAttrs
     L{Record} for L{schema.EXTERNAL_DELEGATE_GROUPS}.
     """
     pass
-
 
 
 class GroupsAPIMixin(object):
@@ -226,7 +217,6 @@ class GroupsAPIMixin(object):
         yield self.refreshGroup(group, record)
         returnValue(group)
 
-
     def updateGroup(self, groupUID, name, membershipHash, extant=True):
         """
         @type groupUID: C{unicode}
@@ -243,7 +233,6 @@ class GroupsAPIMixin(object):
                 extant=(1 if extant else 0),
                 modified=timestamp,
             )
-
 
     @inlineCallbacks
     def groupByUID(self, groupUID, create=True):
@@ -285,7 +274,6 @@ class GroupsAPIMixin(object):
         else:
             returnValue(None)
 
-
     @inlineCallbacks
     def groupByID(self, groupID):
         """
@@ -305,7 +293,6 @@ class GroupsAPIMixin(object):
             raise NotFoundError
 
 
-
 class GroupCacherAPIMixin(object):
     """
     A mixin for L{CommonStoreTransaction} that covers the group cacher API.
@@ -314,12 +301,10 @@ class GroupCacherAPIMixin(object):
     def addMemberToGroup(self, memberUID, groupID):
         return GroupMembershipRecord.create(self, groupID=groupID, memberUID=memberUID.encode("utf-8"))
 
-
     def removeMemberFromGroup(self, memberUID, groupID):
         return GroupMembershipRecord.deletesimple(
             self, groupID=groupID, memberUID=memberUID.encode("utf-8")
         )
-
 
     @inlineCallbacks
     def groupMemberUIDs(self, groupID):
@@ -337,7 +322,6 @@ class GroupCacherAPIMixin(object):
 
         members = yield GroupMembershipRecord.query(self, GroupMembershipRecord.groupID == groupID)
         returnValue(set([record.memberUID.decode("utf-8") for record in members]))
-
 
     @inlineCallbacks
     def refreshGroup(self, group, record):
@@ -388,7 +372,6 @@ class GroupCacherAPIMixin(object):
 
         returnValue((membershipChanged, addedUIDs, removedUIDs,))
 
-
     @inlineCallbacks
     def synchronizeMembers(self, groupID, newMemberUIDs):
         """
@@ -416,7 +399,6 @@ class GroupCacherAPIMixin(object):
 
         returnValue((added, removed,))
 
-
     @inlineCallbacks
     def groupChanged(self, groupID, addedUIDs, removedUIDs):
         """
@@ -431,7 +413,6 @@ class GroupCacherAPIMixin(object):
         """
         yield Delegates.groupChanged(self, groupID, addedUIDs, removedUIDs)
 
-
     @inlineCallbacks
     def groupMembers(self, groupID):
         """
@@ -444,7 +425,6 @@ class GroupCacherAPIMixin(object):
             if record is not None:
                 members.add(record)
         returnValue(members)
-
 
     @inlineCallbacks
     def groupUIDsFor(self, uid):
@@ -460,7 +440,6 @@ class GroupCacherAPIMixin(object):
         groups = yield GroupsRecord.groupsForMember(self, uid)
         returnValue(set([group.groupUID.decode("utf-8") for group in groups]))
 
-
     @inlineCallbacks
     def allGroups(self):
         """
@@ -474,7 +453,6 @@ class GroupCacherAPIMixin(object):
         groups = set([record.groupUID.decode("utf-8") for record in results])
 
         returnValue(groups)
-
 
     @inlineCallbacks
     def groupsMissingSince(self, since):
@@ -493,7 +471,6 @@ class GroupCacherAPIMixin(object):
         groups = set([record.groupUID.decode("utf-8") for record in results])
 
         returnValue(groups)
-
 
 
 class DelegatesAPIMixin(object):
@@ -529,7 +506,6 @@ class DelegatesAPIMixin(object):
         except AllRetriesFailed:
             pass
 
-
     @inlineCallbacks
     def addDelegateGroup(self, delegator, delegateGroupID, readWrite,
                          isExternal=False):
@@ -560,7 +536,6 @@ class DelegatesAPIMixin(object):
         except AllRetriesFailed:
             pass
 
-
     def removeDelegate(self, delegator, delegate, readWrite):
         """
         Removes a row from the DELEGATES table.  The delegate should not be a
@@ -581,7 +556,6 @@ class DelegatesAPIMixin(object):
             readWrite=(1 if readWrite else 0),
         )
 
-
     def removeDelegates(self, delegator, readWrite):
         """
         Removes all rows for this delegator/readWrite combination from the
@@ -598,7 +572,6 @@ class DelegatesAPIMixin(object):
             delegator=delegator.encode("utf-8"),
             readWrite=(1 if readWrite else 0)
         )
-
 
     def removeDelegateGroup(self, delegator, delegateGroupID, readWrite):
         """
@@ -620,7 +593,6 @@ class DelegatesAPIMixin(object):
             readWrite=(1 if readWrite else 0),
         )
 
-
     def removeDelegateGroups(self, delegator, readWrite):
         """
         Removes all rows for this delegator/readWrite combination from the
@@ -637,7 +609,6 @@ class DelegatesAPIMixin(object):
             delegator=delegator.encode("utf-8"),
             readWrite=(1 if readWrite else 0),
         )
-
 
     @inlineCallbacks
     def delegates(self, delegator, readWrite, expanded=False):
@@ -685,7 +656,6 @@ class DelegatesAPIMixin(object):
 
         returnValue(delegates)
 
-
     @inlineCallbacks
     def delegators(self, delegate, readWrite):
         """
@@ -723,7 +693,6 @@ class DelegatesAPIMixin(object):
 
         returnValue(delegators)
 
-
     @inlineCallbacks
     def delegatorsToGroup(self, delegateGroupID, readWrite):
         """
@@ -749,7 +718,6 @@ class DelegatesAPIMixin(object):
         delegators = set([record.delegator.decode("utf-8") for record in results])
         returnValue(delegators)
 
-
     @inlineCallbacks
     def allGroupDelegates(self):
         """
@@ -765,7 +733,6 @@ class DelegatesAPIMixin(object):
         delegates = set([record.groupUID.decode("utf-8") for record in results])
 
         returnValue(delegates)
-
 
     @inlineCallbacks
     def externalDelegates(self):
@@ -789,7 +756,6 @@ class DelegatesAPIMixin(object):
             )
 
         returnValue(delegates)
-
 
     @inlineCallbacks
     def assignExternalDelegates(
@@ -842,13 +808,11 @@ class DelegatesAPIMixin(object):
                 delegator, writeDelegateGroupID, True, isExternal=True
             )
 
-
     def dumpIndividualDelegatesLocal(self, delegator):
         """
         Get the L{DelegateRecord} for all delegates associated with this delegator.
         """
         return DelegateRecord.querysimple(self, delegator=delegator.encode("utf-8"))
-
 
     @inlineCallbacks
     def dumpIndividualDelegatesExternal(self, delegator):
@@ -858,13 +822,11 @@ class DelegatesAPIMixin(object):
         raw_results = yield self.store().conduit.send_dump_individual_delegates(self, delegator)
         returnValue([DelegateRecord.deserialize(row) for row in raw_results])
 
-
     def dumpGroupDelegatesLocal(self, delegator):
         """
         Get the L{DelegateGroupsRecord},L{GroupsRecord} for all group delegates associated with this delegator.
         """
         return DelegateGroupsRecord.delegatorGroups(self, delegator)
-
 
     @inlineCallbacks
     def dumpGroupDelegatesExternal(self, delegator):
@@ -874,13 +836,11 @@ class DelegatesAPIMixin(object):
         raw_results = yield self.store().conduit.send_dump_group_delegates(self, delegator)
         returnValue([(DelegateGroupsRecord.deserialize(row[0]), GroupsRecord.deserialize(row[1]),) for row in raw_results])
 
-
     def dumpExternalDelegatesLocal(self, delegator):
         """
         Get the L{ExternalDelegateGroupsRecord} for all delegates associated with this delegator.
         """
         return ExternalDelegateGroupsRecord.querysimple(self, delegator=delegator.encode("utf-8"))
-
 
     @inlineCallbacks
     def dumpExternalDelegatesExternal(self, delegator):

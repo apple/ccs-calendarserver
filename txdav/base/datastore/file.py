@@ -32,7 +32,6 @@ from txdav.base.propertystore.base import PropertyName
 from txdav.xml.element import GETContentType
 
 
-
 def isValidName(name):
     """
     Determine if the given string is a valid name.  i.e. does it conflict with
@@ -43,10 +42,8 @@ def isValidName(name):
     return not name.startswith(".")
 
 
-
 def hidden(path):
     return path.sibling('.' + path.basename())
-
 
 
 def writeOperation(thunk):
@@ -58,7 +55,6 @@ def writeOperation(thunk):
                 % (self, thunk.__name__, self._transaction._termination))
         return thunk(self, *a, **kw)
     return inner
-
 
 
 class DataStore(object):
@@ -81,10 +77,8 @@ class DataStore(object):
         # FIXME: Add DataStoreNotFoundError?
         #     raise NotFoundError("No such data store")
 
-
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._path.path)
-
 
     def newTransaction(self, name='no name'):
         """
@@ -93,7 +87,6 @@ class DataStore(object):
         @see Transaction
         """
         return self._transactionClass(self)
-
 
 
 class _CommitTracker(object):
@@ -106,7 +99,6 @@ class _CommitTracker(object):
         self.done = False
         self.info = []
 
-
     def __del__(self):
         if not self.done and self.info:
             print("**** UNCOMMITTED TRANSACTION (%s) BEING GARBAGE COLLECTED ****") % (
@@ -115,7 +107,6 @@ class _CommitTracker(object):
             for info in self.info:
                 print("   "), info
             print("---- END OF OPERATIONS")
-
 
 
 class DataStoreTransaction(object):
@@ -140,15 +131,12 @@ class DataStoreTransaction(object):
         self._postAbortOperations = []
         self._tracker = _CommitTracker(name)
 
-
     def store(self):
         return self._dataStore
-
 
     def addOperation(self, operation, name):
         self._operations.append(operation)
         self._tracker.info.append(name)
-
 
     def _terminate(self, mode):
         """
@@ -168,13 +156,11 @@ class DataStoreTransaction(object):
         self._termination = mode
         self._tracker.done = True
 
-
     def abort(self):
         self._terminate("aborted")
 
         for operation in self._postAbortOperations:
             operation()
-
 
     def commit(self):
         self._terminate("committed")
@@ -199,14 +185,11 @@ class DataStoreTransaction(object):
         for operation in self._postCommitOperations:
             operation()
 
-
     def postCommit(self, operation):
         self._postCommitOperations.append(operation)
 
-
     def postAbort(self, operation):
         self._postAbortOperations.append(operation)
-
 
 
 class FileMetaDataMixin(object):
@@ -223,7 +206,6 @@ class FileMetaDataMixin(object):
 
         return self._path.basename()
 
-
     def contentType(self):
         """
         The content type of the object's content.
@@ -234,7 +216,6 @@ class FileMetaDataMixin(object):
             return self.properties()[PropertyName.fromElement(GETContentType)].mimeType()
         except KeyError:
             return None
-
 
     def md5(self):
         """
@@ -256,7 +237,6 @@ class FileMetaDataMixin(object):
             md5 = hashlib.md5(data).hexdigest()
             return md5
 
-
     def size(self):
         """
         The octet-size of this object's content.
@@ -268,7 +248,6 @@ class FileMetaDataMixin(object):
         else:
             return 0
 
-
     def created(self):
         """
         The creation date-time stamp of this object.
@@ -276,10 +255,9 @@ class FileMetaDataMixin(object):
         @rtype: C{int}
         """
         if self._path.exists():
-            return self._path.getmtime() # No creation time on POSIX
+            return self._path.getmtime()  # No creation time on POSIX
         else:
             return None
-
 
     def modified(self):
         """

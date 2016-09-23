@@ -37,21 +37,20 @@ from twistedcaldav.customxml import calendarserver_namespace
 
 log = Logger()
 
+
 class DropBoxHomeResource (DAVResource):
     """
     Drop box collection resource.
     """
-    def resourceType(self):
-        return davxml.ResourceType.dropboxhome #@UndefinedVariable
 
+    def resourceType(self):
+        return davxml.ResourceType.dropboxhome  # @UndefinedVariable
 
     def isCollection(self):
         return True
 
-
     def http_PUT(self, request):
         return responsecode.FORBIDDEN
-
 
     @inlineCallbacks
     def accessControlList(self, request, *args, **kwargs):
@@ -83,19 +82,16 @@ class DropBoxHomeResource (DAVResource):
             returnValue(acl)
 
 
-
 class DropBoxCollectionResource (DAVResource):
     """
     Drop box resource.
     """
 
     def resourceType(self):
-        return davxml.ResourceType.dropbox #@UndefinedVariable
-
+        return davxml.ResourceType.dropbox  # @UndefinedVariable
 
     def isCollection(self):
         return True
-
 
     def writeNewACEs(self, newaces):
         """
@@ -119,7 +115,6 @@ class DropBoxCollectionResource (DAVResource):
 
         # Do inherited with possibly modified set of aces
         return super(DropBoxCollectionResource, self).writeNewACEs(edited_aces)
-
 
     def http_PUT(self, request):
         return ErrorResponse(

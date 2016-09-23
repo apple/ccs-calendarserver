@@ -54,40 +54,31 @@ class ConduitResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMix
         self.parent = parent
         self.store = store
 
-
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = NonePropertyStore(self)
         return self._dead_properties
 
-
     def etag(self):
         return succeed(None)
-
 
     def checkPreconditions(self, request):
         return None
 
-
     def resourceType(self):
         return davxml.ResourceType.ischeduleinbox
-
 
     def contentType(self):
         return MimeType.fromString("text/html; charset=utf-8")
 
-
     def isCollection(self):
         return False
-
 
     def isCalendarCollection(self):
         return False
 
-
     def isPseudoCalendarCollection(self):
         return False
-
 
     @inlineCallbacks
     def principalForCalendarUserAddress(self, address):
@@ -96,7 +87,6 @@ class ConduitResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMix
             if principal is not None:
                 returnValue(principal)
         returnValue(None)
-
 
     def render(self, request):
         output = """<html>
@@ -111,7 +101,6 @@ class ConduitResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMix
         response = Response(200, {}, output)
         response.headers.setHeader("content-type", MimeType("text", "html"))
         return response
-
 
     @inlineCallbacks
     def http_POST(self, request):
@@ -162,11 +151,15 @@ class ConduitResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMix
             try:
 
                 stream = ProducerStream()
+
                 class StreamProtocol(Protocol):
+
                     def connectionMade(self):
                         stream.registerProducer(self.transport, False)
+
                     def dataReceived(self, data):
                         stream.write(data)
+
                     def connectionLost(self, reason):
                         stream.finish()
 
@@ -207,14 +200,12 @@ class ConduitResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMix
         response = JSONResponse(code, result)
         returnValue(response)
 
-
     ##
     # ACL
     ##
 
     def supportedPrivileges(self, request):
         return succeed(deliverSchedulePrivilegeSet)
-
 
     def defaultAccessControlList(self):
         privs = (

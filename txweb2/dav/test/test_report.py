@@ -30,10 +30,12 @@ import txweb2.dav.test.util
 from txweb2.test.test_server import SimpleRequest
 from txdav.xml import element as davxml
 
+
 class REPORT(txweb2.dav.test.util.TestCase):
     """
     REPORT request
     """
+
     def test_REPORT_no_body(self):
         """
         REPORT request with no body
@@ -50,7 +52,6 @@ class REPORT(txweb2.dav.test.util.TestCase):
 
         return self.send(request, do_test)
 
-
     def test_REPORT_unknown(self):
         """
         Unknown/bogus report type
@@ -61,9 +62,11 @@ class REPORT(txweb2.dav.test.util.TestCase):
             if response.code != responsecode.FORBIDDEN:
                 self.fail("Unexpected response code for unknown REPORT: %s"
                           % (response.code,))
+
         class GoofyReport (davxml.WebDAVUnknownElement):
             namespace = "GOOFY:"
             name = "goofy-report"
+
             def __init__(self):
                 super(GoofyReport, self).__init__()
 

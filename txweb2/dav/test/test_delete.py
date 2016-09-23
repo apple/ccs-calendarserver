@@ -32,6 +32,7 @@ from txweb2.test.test_server import SimpleRequest
 from txweb2.dav.test.util import serialize
 import txweb2.dav.test.util
 
+
 class DELETE(txweb2.dav.test.util.TestCase):
     """
     DELETE request

@@ -49,7 +49,6 @@ from twext.who.util import ConstantsContainer
 from .idirectory import RecordType, FieldName, AutoScheduleMode
 
 
-
 #
 # XML constants
 #
@@ -128,12 +127,10 @@ class Element(Values):
     geographicLocation.fieldName = FieldName.geographicLocation
 
 
-
 class Attribute(Values):
     """
     XML calendar and contacts attribute names.
     """
-
 
 
 class RecordTypeValue(Values):
@@ -149,7 +146,6 @@ class RecordTypeValue(Values):
 
     address = ValueConstant(u"address")
     address.recordType = RecordType.address
-
 
 
 #
@@ -186,7 +182,6 @@ class DirectoryService(BaseDirectoryService):
     recordTypeValue = ConstantsContainer(
         (BaseDirectoryService.recordTypeValue, RecordTypeValue)
     )
-
 
     xmlFieldOrder = BaseDirectoryService.xmlFieldOrder + (
         FieldName.capacity,

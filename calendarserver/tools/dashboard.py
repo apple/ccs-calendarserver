@@ -37,7 +37,6 @@ LOG_FILENAME = 'db.log'
 #logging.basicConfig(filename=LOG_FILENAME, level=logging.DEBUG)
 
 
-
 def main():
     parser = argparse.ArgumentParser(description="Dashboard service for CalendarServer.")
     parser.add_argument("-t", action="store_false", help="text output, not curses")
@@ -76,15 +75,12 @@ def main():
         d.run()
 
 
-
 def safeDivision(value, total, factor=1):
     return value * factor / total if total else 0
 
 
-
 def defaultIfNone(x, default):
     return x if x is not None else default
-
 
 
 def terminal_size():
@@ -96,7 +92,6 @@ def terminal_size():
         )
     )
     return w, h
-
 
 
 class Dashboard(object):
@@ -126,7 +121,6 @@ class Dashboard(object):
         self.client = DashboardClient(servers[0])
         self.client_error = False
 
-
     @classmethod
     def registerWindow(cls, wtype, keypress):
         """
@@ -136,7 +130,6 @@ class Dashboard(object):
         available window type.
         """
         cls.registered_windows[keypress] = wtype
-
 
     @classmethod
     def registerWindowSet(cls, wtype, keypress):
@@ -148,7 +141,6 @@ class Dashboard(object):
         """
         cls.registered_window_sets[keypress][1].append(wtype)
 
-
     def run(self):
         """
         Create the initial window and run the L{scheduler}.
@@ -157,7 +149,6 @@ class Dashboard(object):
         self.displayWindow(None)
         self.sched.enter(self.seconds, 0, self.updateDisplay, ())
         self.sched.run()
-
 
     def displayWindow(self, wtype):
         """
@@ -219,7 +210,6 @@ class Dashboard(object):
             curses.panel.update_panels()
         self.updateDisplay(True)
 
-
     def resetWindows(self):
         """
         Reset the current set of windows.
@@ -238,7 +228,6 @@ class Dashboard(object):
                 # Allow the help window to float on the right edge
                 if old.__class__.__name__ != "HelpWindow":
                     top += self.windows[-1].nlines + 1
-
 
     def updateDisplay(self, initialUpdate=False):
         """
@@ -271,7 +260,6 @@ class Dashboard(object):
 
         if not initialUpdate:
             self.sched.enter(self.seconds, 0, self.updateDisplay, ())
-
 
     def processKeys(self):
         """
@@ -313,7 +301,6 @@ class Dashboard(object):
             self.resetWindows()
 
 
-
 class DashboardClient(object):
     """
     Client that connects to a server and fetches information.
@@ -329,7 +316,6 @@ class DashboardClient(object):
             self.useTCP = True
         self.currentData = {}
         self.items = []
-
 
     def readSock(self, items):
         """
@@ -364,7 +350,6 @@ class DashboardClient(object):
             data = {}
         return data
 
-
     def update(self):
         """
         Update the current data from the server.
@@ -373,7 +358,6 @@ class DashboardClient(object):
         # Only read each item once
         self.currentData = self.readSock(list(set(self.items)))
 
-
     def getOneItem(self, item):
         """
         Update the current data from the server.
@@ -381,13 +365,11 @@ class DashboardClient(object):
         data = self.readSock([item])
         return data[item] if data else None
 
-
     def addItem(self, item):
         """
         Add a server data item to monitor.
         """
         self.items.append(item)
-
 
     def removeItem(self, item):
         """
@@ -400,21 +382,17 @@ class DashboardClient(object):
             pass
 
 
-
 class Point(object):
 
     def __init__(self, x=0, y=0):
         self.x = x
         self.y = y
 
-
     def xplus(self, xdiff=1):
         self.x += xdiff
 
-
     def yplus(self, ydiff=1):
         self.y += ydiff
-
 
 
 class BaseWindow(object):
@@ -437,7 +415,6 @@ class BaseWindow(object):
         self.needsReset = False
         self.z_order = 'bottom'
 
-
     def makeWindow(self, top=0, left=0):
         self.updateRowCount()
         self._createWindow(
@@ -448,13 +425,11 @@ class BaseWindow(object):
         )
         return self
 
-
     def updateRowCount(self):
         """
         Update L{self.rowCount} based on the current data
         """
         raise NotImplementedError()
-
 
     def _createWindow(
         self, title, nlines, ncols, begin_y=0, begin_x=0
@@ -475,7 +450,6 @@ class BaseWindow(object):
         self.iter = 0
         self.lastResult = {}
 
-
     def requiresUpdate(self):
         """
         Indicates whether a window type has dynamic data that should be
@@ -484,14 +458,12 @@ class BaseWindow(object):
         """
         return True
 
-
     def requiresReset(self):
         """
         Indicates that the window needs a full reset, because e.g., the
         number of items it displays has changed.
         """
         return self.needsReset
-
 
     def activate(self):
         """
@@ -504,7 +476,6 @@ class BaseWindow(object):
         if not self.requiresUpdate():
             self.update()
 
-
     def deactivate(self):
         """
         Clear any drawing done by the current window type.
@@ -516,13 +487,11 @@ class BaseWindow(object):
             self.window.erase()
             self.window.refresh()
 
-
     def update(self):
         """
         Periodic window update - redraw the window.
         """
         raise NotImplementedError()
-
 
     def tableHeader(self, hdrs, count):
         """
@@ -550,7 +519,6 @@ class BaseWindow(object):
 
         return pt
 
-
     def tableFooter(self, feet, pt):
         """
         Generate the footer rows.
@@ -566,7 +534,6 @@ class BaseWindow(object):
                 print(footer)
                 pt.yplus()
             print("")
-
 
     def tableRow(self, text, pt, style=curses.A_NORMAL):
         """
@@ -584,14 +551,11 @@ class BaseWindow(object):
             pass
         pt.yplus()
 
-
     def clientData(self):
         return self.dashboard.client.currentData.get(self.clientItem)
 
-
     def readItem(self, item):
         return self.dashboard.client.getOneItem(item)
-
 
 
 class ServersMenu(BaseWindow):
@@ -611,14 +575,11 @@ class ServersMenu(BaseWindow):
         self.formatWidth = term_w - 50
         return super(ServersMenu, self).makeWindow(0, 0)
 
-
     def updateRowCount(self):
         self.rowCount = 1
 
-
     def requiresUpdate(self):
         return False
-
 
     def update(self):
 
@@ -650,7 +611,6 @@ class ServersMenu(BaseWindow):
         self.window.refresh()
 
 
-
 class HelpWindow(BaseWindow):
     """
     Display help for the dashboard.
@@ -677,14 +637,11 @@ class HelpWindow(BaseWindow):
         help_x_offset = term_w - self.formatWidth
         return super(HelpWindow, self).makeWindow(0, help_x_offset)
 
-
     def updateRowCount(self):
         self.rowCount = len(self.helpItems) + len(filter(lambda x: len(x[1]) != 0, Dashboard.registered_window_sets.values())) + len(Dashboard.registered_windows)
 
-
     def requiresUpdate(self):
         return False
-
 
     def update(self):
 
@@ -710,7 +667,6 @@ class HelpWindow(BaseWindow):
             self.window.refresh()
 
 
-
 class SystemWindow(BaseWindow):
     """
     Displays the system information provided by the server.
@@ -725,7 +681,6 @@ class SystemWindow(BaseWindow):
 
     def updateRowCount(self):
         self.rowCount = len(defaultIfNone(self.readItem(self.clientItem), (1, 2, 3, 4,)))
-
 
     def update(self):
         records = defaultIfNone(self.clientData(), {
@@ -768,7 +723,6 @@ class SystemWindow(BaseWindow):
         self.lastResult = records
 
 
-
 class RequestStatsWindow(BaseWindow):
     """
     Displays the status of the server's master process worker slave slots.
@@ -783,7 +737,6 @@ class RequestStatsWindow(BaseWindow):
 
     def updateRowCount(self):
         self.rowCount = 4
-
 
     def update(self):
         records = defaultIfNone(self.clientData(), {})
@@ -826,7 +779,6 @@ class RequestStatsWindow(BaseWindow):
         self.lastResult = records
 
 
-
 class HTTPSlotsWindow(BaseWindow):
     """
     Displays the status of the server's master process worker slave slots.
@@ -841,7 +793,6 @@ class HTTPSlotsWindow(BaseWindow):
 
     def updateRowCount(self):
         self.rowCount = len(defaultIfNone(self.readItem(self.clientItem), {"slots": ()})["slots"])
-
 
     def update(self):
         data = defaultIfNone(self.clientData(), {"slots": {}, "overloaded": False})
@@ -901,7 +852,6 @@ class HTTPSlotsWindow(BaseWindow):
         self.lastResult = records
 
 
-
 class MethodsWindow(BaseWindow):
     """
     Display the status of the server's request methods.
@@ -922,7 +872,6 @@ class MethodsWindow(BaseWindow):
             methods.update(stats.get(key, {}).get("method", {}).keys())
         nlines = len(methods)
         self.rowCount = nlines
-
 
     def update(self):
         stats = defaultIfNone(self.clientData(), {})
@@ -992,7 +941,6 @@ class MethodsWindow(BaseWindow):
         self.lastResult = defaultIfNone(self.clientData(), {}).get("current", {}).get("method", {})
 
 
-
 class AssignmentsWindow(BaseWindow):
     """
     Displays the status of the server's master process worker slave slots.
@@ -1007,7 +955,6 @@ class AssignmentsWindow(BaseWindow):
 
     def updateRowCount(self):
         self.rowCount = len(defaultIfNone(self.readItem(self.clientItem), {"workers": ()})["workers"])
-
 
     def update(self):
         data = defaultIfNone(self.clientData(), {"workers": {}, "level": 0})
@@ -1057,7 +1004,6 @@ class AssignmentsWindow(BaseWindow):
         self.lastResult = records
 
 
-
 class JobsWindow(BaseWindow):
     """
     Display the status of the server's job queue.
@@ -1072,7 +1018,6 @@ class JobsWindow(BaseWindow):
 
     def updateRowCount(self):
         self.rowCount = defaultIfNone(self.readItem("jobcount"), 0)
-
 
     def update(self):
         records = defaultIfNone(self.clientData(), {})
@@ -1140,7 +1085,6 @@ class JobsWindow(BaseWindow):
         self.lastResult = records
 
 
-
 class DirectoryStatsWindow(BaseWindow):
     """
     Displays the status of the server's directory service calls
@@ -1155,7 +1099,6 @@ class DirectoryStatsWindow(BaseWindow):
 
     def updateRowCount(self):
         self.rowCount = len(defaultIfNone(self.readItem("directory"), {}))
-
 
     def update(self):
         records = defaultIfNone(self.clientData(), {})
@@ -1223,7 +1166,6 @@ class DirectoryStatsWindow(BaseWindow):
 
         if self.usesCurses:
             self.window.refresh()
-
 
 
 Dashboard.registerWindow(HelpWindow, "h")

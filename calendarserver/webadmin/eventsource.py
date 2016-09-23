@@ -39,7 +39,6 @@ from txweb2.http_headers import MimeType
 from txweb2.http import Response
 
 
-
 def textAsEvent(text, eventID=None, eventClass=None, eventRetry=None):
     """
     Format some text as an HTML5 EventSource event.  Since the EventSource data
@@ -89,7 +88,6 @@ def textAsEvent(text, eventID=None, eventClass=None, eventRetry=None):
     return (u"\n".join(event) + u"\n\n").encode("utf-8")
 
 
-
 class IEventDecoder(Interface):
     """
     An object that can be used to extract data from an application-specific
@@ -122,7 +120,6 @@ class IEventDecoder(Interface):
         """
 
 
-
 class EventSourceResource(SimpleResource):
     """
     Resource that vends HTML5 EventSource events.
@@ -131,7 +128,6 @@ class EventSourceResource(SimpleResource):
     """
 
     addSlash = False
-
 
     def __init__(self, eventDecoder, principalCollections, bufferSize=400):
         """
@@ -149,14 +145,12 @@ class EventSourceResource(SimpleResource):
         self._events = deque(maxlen=bufferSize)
         self._streams = set()
 
-
     def addEvents(self, events):
         self._events.extend(events)
 
         # Notify outbound streams that there is new data to vend
         for stream in self._streams:
             stream.didAddEvents()
-
 
     def render(self, request):
         lastID = request.headers.getRawHeaders(u"last-event-id")
@@ -172,11 +166,10 @@ class EventSourceResource(SimpleResource):
             self._streams.remove(response.stream)
             return _response
 
-        #request.addResponseFilter(cleanupFilter)
+        # request.addResponseFilter(cleanupFilter)
         self._streams.add(response.stream)
 
         return response
-
 
 
 @implementer(IByteStream)
@@ -186,7 +179,6 @@ class EventStream(object):
     """
 
     length = None
-
 
     def __init__(self, eventDecoder, events, lastID):
         """
@@ -209,13 +201,11 @@ class EventStream(object):
         self._closed = False
         self._deferredRead = None
 
-
     def didAddEvents(self):
         d = self._deferredRead
         if d is not None:
             self._deferredRead = None
             d.callback(None)
-
 
     def read(self):
         if self._closed:
@@ -267,10 +257,8 @@ class EventStream(object):
         d.addCallback(lambda _: self.read())
         return d
 
-
     def split(self, point):
         return fallbackSplit(self, point)
-
 
     def close(self):
         self._closed = True

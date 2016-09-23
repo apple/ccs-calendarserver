@@ -37,14 +37,16 @@ from txweb2.test.test_server import SimpleRequest
 from txweb2.dav.test.util import InMemoryPropertyStore
 import txweb2.dav.test.util
 
+
 class TestCase(txweb2.dav.test.util.TestCase):
+
     def setUp(self):
         txweb2.dav.test.util.TestCase.setUp(self)
         TestResource._cachedPropertyStores = {}
 
 
-
 class GenericDAVResource(TestCase):
+
     def setUp(self):
         TestCase.setUp(self)
 
@@ -65,7 +67,6 @@ class GenericDAVResource(TestCase):
         })
 
         self.site = Site(rootresource)
-
 
     def test_findChildren(self):
         """
@@ -204,8 +205,8 @@ class GenericDAVResource(TestCase):
         return d
 
 
-
 class AccessTests(TestCase):
+
     def setUp(self):
         TestCase.setUp(self)
 
@@ -251,7 +252,6 @@ class AccessTests(TestCase):
             loginInterfaces,
         ))
 
-
     def checkSecurity(self, request):
         """
         Locate the resource named by the given request's URI, then authorize it
@@ -261,11 +261,9 @@ class AccessTests(TestCase):
         d.addCallback(lambda r: r.authorize(request, (davxml.Read(),)))
         return d
 
-
     def assertErrorResponse(self, error, expectedcode, otherExpectations=lambda err: None):
         self.assertEquals(error.response.code, expectedcode)
         otherExpectations(error)
-
 
     def test_checkPrivileges(self):
         """
@@ -314,7 +312,6 @@ class AccessTests(TestCase):
 
         return DeferredList(ds)
 
-
     def test_authorize(self):
         """
         Authorizing a known user with the correct password will not raise an
@@ -327,7 +324,6 @@ class AccessTests(TestCase):
             ("basic", "gooduser:goodpass".encode("base64")))
         return self.checkSecurity(request)
 
-
     def test_badUsernameOrPassword(self):
         request = SimpleRequest(self.site, "GET", "/protected")
         request.headers.setHeader(
@@ -335,16 +331,17 @@ class AccessTests(TestCase):
             ("basic", "gooduser:badpass".encode("base64"))
         )
         d = self.assertFailure(self.checkSecurity(request), HTTPError)
+
         def expectWwwAuth(err):
             self.failUnless(err.response.headers.hasHeader("WWW-Authenticate"),
                             "No WWW-Authenticate header present.")
         d.addCallback(self.assertErrorResponse, responsecode.UNAUTHORIZED, expectWwwAuth)
         return d
 
-
     def test_badUsernameOrPassword_XForwarded(self):
         class FakeLogObserver(object):
             messages = []
+
             def emit(self, eventDict):
                 if "log_legacy" in eventDict:
                     self.messages.append(eventDict["log_legacy"])
@@ -360,13 +357,13 @@ class AccessTests(TestCase):
         )
         request.headers.setRawHeaders("x-forwarded-for", ("10.0.1.1",))
         d = self.assertFailure(self.checkSecurity(request), HTTPError)
+
         def expectWwwAuth(err):
             self.failUnless(err.response.headers.hasHeader("WWW-Authenticate"),
                             "No WWW-Authenticate header present.")
             self.assertTrue("fwd=10.0.1.1" in str(blo.messages[0]))
         d.addCallback(self.assertErrorResponse, responsecode.UNAUTHORIZED, expectWwwAuth)
         return d
-
 
     def test_lacksPrivileges(self):
         request = SimpleRequest(self.site, "GET", "/protected")
@@ -377,7 +374,6 @@ class AccessTests(TestCase):
         d = self.assertFailure(self.checkSecurity(request), HTTPError)
         d.addCallback(self.assertErrorResponse, responsecode.FORBIDDEN)
         return d
-
 
 
 ##
@@ -407,7 +403,6 @@ class TestResource (DAVResource):
         self.children = children
         self.uri = uri
 
-
     def deadProperties(self):
         """
         Retrieve deadProperties from a special place in memory
@@ -420,18 +415,14 @@ class TestResource (DAVResource):
             self._dead_properties = dp
         return self._dead_properties
 
-
     def isCollection(self):
         return self.children is not None
-
 
     def listChildren(self):
         return self.children.keys()
 
-
     def supportedPrivileges(self, request):
         return succeed(davPrivilegeSet)
-
 
     def locateChild(self, request, segments):
         child = segments[0]
@@ -442,14 +433,11 @@ class TestResource (DAVResource):
         else:
             raise HTTPError(404)
 
-
     def setAccessControlList(self, acl):
         self.acl = acl
 
-
     def accessControlList(self, request, **kwargs):
         return succeed(self.acl)
-
 
 
 class TestPrincipalsCollection(DAVPrincipalCollectionResource, TestResource):
@@ -463,13 +451,11 @@ class TestPrincipalsCollection(DAVPrincipalCollectionResource, TestResource):
         DAVPrincipalCollectionResource.__init__(self, url)
         TestResource.__init__(self, url, children, principalCollections=(self,))
 
-
     def principalForUser(self, user):
         """
         @see L{IDAVPrincipalCollectionResource.principalForUser}.
         """
         return self.principalForShortName('users', user)
-
 
     def principalForAuthID(self, creds):
         """
@@ -492,7 +478,6 @@ class TestPrincipalsCollection(DAVPrincipalCollectionResource, TestResource):
         # XXX either move this to CalendarServer entirely or document it on
         # IDAVPrincipalCollectionResource
         return self.principalForShortName('users', creds.username)
-
 
     def principalForShortName(self, type, shortName):
         """
@@ -522,7 +507,6 @@ class TestPrincipalsCollection(DAVPrincipalCollectionResource, TestResource):
         return user
 
 
-
 class AuthAllResource (TestResource):
     """
     Give Authenticated principals all privileges and deny everyone else.
@@ -536,10 +520,10 @@ class AuthAllResource (TestResource):
     )
 
 
-
 class TestDAVPrincipalResource(DAVPrincipalResource, TestResource):
     """
     Get deadProperties from TestResource
     """
+
     def principalURL(self):
         return self.uri

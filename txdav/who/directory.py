@@ -48,7 +48,6 @@ __all__ = [
 ]
 
 
-
 class CalendarDirectoryServiceMixin(object):
 
     guid = "1332A615-4D3A-41FE-B636-FBE25BFB982E"
@@ -58,10 +57,8 @@ class CalendarDirectoryServiceMixin(object):
     def serversDB(self):
         return self._serversDB
 
-
     def setServersDB(self, serversDB):
         self._serversDB = serversDB
-
 
     # Must maintain the hack for a bit longer:
     def setPrincipalCollection(self, principalCollection):
@@ -72,7 +69,6 @@ class CalendarDirectoryServiceMixin(object):
         @type principalService: L{DirectoryProvisioningResource}
         """
         self.principalCollection = principalCollection
-
 
     @inlineCallbacks
     def recordWithCalendarUserAddress(
@@ -136,7 +132,6 @@ class CalendarDirectoryServiceMixin(object):
     searchContext_group = "group"
     searchContext_attendee = "attendee"
 
-
     def recordTypesForSearchContext(self, context):
         """
         Map calendarserver-principal-search REPORT context value to applicable record types
@@ -163,7 +158,6 @@ class CalendarDirectoryServiceMixin(object):
         else:
             recordTypes = list(self.recordTypes())
         return recordTypes
-
 
     @inlineCallbacks
     def recordsMatchingTokens(self, tokens, context=None, limitResults=None,
@@ -225,7 +219,6 @@ class CalendarDirectoryServiceMixin(object):
 
         returnValue(results)
 
-
     def recordsMatchingFields(
         self, fields, operand=Operand.OR, recordType=None,
         limitResults=None, timeoutSeconds=None
@@ -269,7 +262,6 @@ class CalendarDirectoryServiceMixin(object):
             limitResults=limitResults, timeoutSeconds=timeoutSeconds
         )
 
-
     def setFilter(self, filter):
         """
         Assign a filter for post-processing recordsMatchingTokens and
@@ -280,7 +272,6 @@ class CalendarDirectoryServiceMixin(object):
             ...and returning a deferred firing with the list of records
         """
         self._resultFilter = filter
-
 
     _oldRecordTypeNames = {
         "address": "addresses",
@@ -295,20 +286,17 @@ class CalendarDirectoryServiceMixin(object):
         "writeDelegatorGroup": "writeDelegatorGroups",
     }
 
-
     # Maps record types <--> url path segments, i.e. the segment after
     # /principals/ e.g. "users" or "groups"
 
     def recordTypeToOldName(self, recordType):
         return self._oldRecordTypeNames[recordType.name]
 
-
     def oldNameToRecordType(self, oldName):
         for name, value in self._oldRecordTypeNames.iteritems():
             if oldName == value:
                 return self.recordType.lookupByName(name)
         return None
-
 
     @inlineCallbacks
     def recordsWithDirectoryBasedDelegates(self):
@@ -338,7 +326,6 @@ class CalendarDirectoryServiceMixin(object):
         returnValue(records)
 
 
-
 class CalendarDirectoryRecordMixin(object):
     """
     Calendar (and Contacts) specific logic for directory records lives in this
@@ -349,7 +336,6 @@ class CalendarDirectoryRecordMixin(object):
         if config.Scheduling.Options.FakeResourceLocationEmail:
             if self.recordType in (DAVRecordType.location, DAVRecordType.resource) and not getattr(self, "emailAddresses", None):
                 self.fields[BaseFieldName.emailAddresses] = (u"{}@do_not_reply".format(self.uid.encode("hex"),),)
-
 
     @inlineCallbacks
     def verifyCredentials(self, credentials):
@@ -383,7 +369,6 @@ class CalendarDirectoryRecordMixin(object):
                 ))
             )
 
-
     def _calendarAddresses(self):
         cuas = set()
 
@@ -412,7 +397,6 @@ class CalendarDirectoryRecordMixin(object):
 
         return frozenset(cuas)
 
-
     @property
     def calendarUserAddresses(self):
         try:
@@ -436,10 +420,8 @@ class CalendarDirectoryRecordMixin(object):
         DAVRecordType.location: 'ROOM',
     }
 
-
     def getCUType(self):
         return self._cuTypes.get(self.recordType, "UNKNOWN")
-
 
     @classmethod
     def fromCUType(cls, cuType):
@@ -447,7 +429,6 @@ class CalendarDirectoryRecordMixin(object):
             if val == cuType:
                 return key
         return None
-
 
     def applySACLs(self):
         """
@@ -473,7 +454,6 @@ class CalendarDirectoryRecordMixin(object):
         except AttributeError:
             return u""
 
-
     def cacheToken(self):
         """
         Generate a token that can be uniquely used to identify the state of this record for use
@@ -487,7 +467,6 @@ class CalendarDirectoryRecordMixin(object):
             self.uid,
             self.hasCalendars,
         ))
-
 
     def canonicalCalendarUserAddress(self, checkCal=True):
         """
@@ -519,7 +498,6 @@ class CalendarDirectoryRecordMixin(object):
         # fall back to using the first one
         return sortedCuas[0] if sortedCuas else None  # groups may not have cua
 
-
     def enabledAsOrganizer(self):
         if self.recordType == self.service.recordType.user:
             return True
@@ -531,7 +509,6 @@ class CalendarDirectoryRecordMixin(object):
             return config.Scheduling.Options.AllowResourceAsOrganizer
         else:
             return False
-
 
     def serverURI(self):
         """
@@ -545,7 +522,6 @@ class CalendarDirectoryRecordMixin(object):
         else:
             return None
 
-
     def server(self):
         """
         Server hosting this record. Return None if hosted on this server.
@@ -558,19 +534,15 @@ class CalendarDirectoryRecordMixin(object):
         else:
             return None
 
-
     def thisServer(self):
         s = self.server()
         return s.thisServer if s is not None else True
 
-
     def isLoginEnabled(self):
         return self.loginAllowed
 
-
     def calendarsEnabled(self):
         return config.EnableCalDAV and self.hasCalendars
-
 
     @inlineCallbacks
     def canAutoSchedule(self, organizer=None):
@@ -589,7 +561,6 @@ class CalendarDirectoryRecordMixin(object):
                     returnValue(True)
         returnValue(False)
 
-
     @inlineCallbacks
     def getAutoScheduleMode(self, organizer):
         autoScheduleMode = self.autoScheduleMode
@@ -606,10 +577,8 @@ class CalendarDirectoryRecordMixin(object):
 
         returnValue(autoScheduleMode)
 
-
     def setAutoScheduleMode(self, autoScheduleMode):
         return self.service.setAutoScheduleMode(self, autoScheduleMode)
-
 
     @inlineCallbacks
     def autoAcceptFromOrganizer(self, organizer):
@@ -630,7 +599,6 @@ class CalendarDirectoryRecordMixin(object):
                 if organizerRecord.uid in memberUIDs:
                     returnValue(True)
         returnValue(False)
-
 
     @inlineCallbacks
     def expandedMembers(self, members=None, seen=None):
@@ -658,7 +626,6 @@ class CalendarDirectoryRecordMixin(object):
 
         returnValue(members)
 
-
     @inlineCallbacks
     def expandedMemberUIDs(self):
         """
@@ -668,13 +635,11 @@ class CalendarDirectoryRecordMixin(object):
         members = yield self.expandedMembers()
         returnValue([member.uid for member in members])
 
-
     # For scheduling/freebusy
     @inlineCallbacks
     def isProxyFor(self, other):
         proxymode = yield self.proxyMode(other)
         returnValue(proxymode != "none")
-
 
     @inlineCallbacks
     def proxyMode(self, other):
@@ -699,7 +664,6 @@ class CalendarDirectoryRecordMixin(object):
                     returnValue(result)
 
         returnValue("none")
-
 
     @inlineCallbacks
     def proxyFor(self, readWrite, ignoreDisabled=True):
@@ -734,7 +698,6 @@ class CalendarDirectoryRecordMixin(object):
                     proxyFors.add(record)
 
         returnValue(proxyFors)
-
 
     def attendeeProperty(self, params={}):
         """

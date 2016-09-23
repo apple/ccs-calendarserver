@@ -31,15 +31,15 @@ import sys
 
 
 verbose = False
+
+
 def _verbose(log):
     if verbose:
         print(log)
 
 
-
 def safeDivision(value, total, factor=1):
     return value * factor / total if total else 0
-
 
 
 class MyHelpFormatter(HelpFormatter):
@@ -51,7 +51,6 @@ class MyHelpFormatter(HelpFormatter):
     def _fill_text(self, text, width, indent):
         return ''.join([indent + line for line in text.splitlines(True)])
 
-
     def _get_help_string(self, action):
         help = action.help
         if '%(default)' not in action.help:
@@ -60,7 +59,6 @@ class MyHelpFormatter(HelpFormatter):
                 if action.option_strings or action.nargs in defaulting_nargs:
                     help += ' (default: %(default)s)'
         return help
-
 
 
 class DataType(object):
@@ -78,7 +76,6 @@ class DataType(object):
     # first 60 data items to be skipped.
     skip60 = False
 
-
     @staticmethod
     def getTitle(measurement):
         if "-" in measurement:
@@ -87,20 +84,17 @@ class DataType(object):
             item = ""
         return DataType.allTypes[measurement].title(item)
 
-
     @staticmethod
     def getMaxY(measurement, numHosts):
         if "-" in measurement:
             measurement = measurement.split("-", 1)[0]
         return DataType.allTypes[measurement].maxY(numHosts)
 
-
     @staticmethod
     def skip(measurement):
         if "-" in measurement:
             measurement = measurement.split("-", 1)[0]
         return DataType.allTypes[measurement].skip60
-
 
     @staticmethod
     def process(measurement, stats, host):
@@ -110,16 +104,13 @@ class DataType(object):
             item = ""
         return DataType.allTypes[measurement].calculate(stats, item, host)
 
-
     @staticmethod
     def title(item):
         raise NotImplementedError
 
-
     @staticmethod
     def maxY(numHosts):
         raise NotImplementedError
-
 
     @staticmethod
     def calculate(stats, item, hosts):
@@ -136,7 +127,6 @@ class DataType(object):
         raise NotImplementedError
 
 
-
 class CPUDataType(DataType):
     """
     CPU use.
@@ -148,16 +138,13 @@ class CPUDataType(DataType):
     def title(item):
         return "CPU Use %"
 
-
     @staticmethod
     def maxY(numHosts):
         return 100 * numHosts
 
-
     @staticmethod
     def calculate(stats, item, hosts):
         return sum([stats[onehost]["stats_system"]["cpu use"] if stats[onehost] else 0 for onehost in hosts])
-
 
 
 class MemoryDataType(DataType):
@@ -171,16 +158,13 @@ class MemoryDataType(DataType):
     def title(item):
         return "Memory Use %"
 
-
     @staticmethod
     def maxY(numHosts):
         return 100 * numHosts
 
-
     @staticmethod
     def calculate(stats, item, hosts):
         return sum([stats[onehost]["stats_system"]["memory percent"] if stats[onehost] else 0 for onehost in hosts])
-
 
 
 class RequestsDataType(DataType):
@@ -195,16 +179,13 @@ class RequestsDataType(DataType):
     def title(item):
         return "Requests/sec"
 
-
     @staticmethod
     def maxY(numHosts):
         return None
 
-
     @staticmethod
     def calculate(stats, item, hosts):
         return sum([stats[onehost]["stats"]["1m"]["requests"] if stats[onehost] else 0 for onehost in hosts]) / 60.0
-
 
 
 class ResponseDataType(DataType):
@@ -219,18 +200,15 @@ class ResponseDataType(DataType):
     def title(item):
         return "Av. Response Time (ms)"
 
-
     @staticmethod
     def maxY(numHosts):
         return None
-
 
     @staticmethod
     def calculate(stats, item, hosts):
         tsum = sum([stats[onehost]["stats"]["1m"]["t"] if stats[onehost] else 0 for onehost in hosts])
         rsum = sum([stats[onehost]["stats"]["1m"]["requests"] if stats[onehost] else 0 for onehost in hosts])
         return safeDivision(tsum, rsum)
-
 
 
 class Code500DataType(DataType):
@@ -245,16 +223,13 @@ class Code500DataType(DataType):
     def title(item):
         return "Code 500/sec"
 
-
     @staticmethod
     def maxY(numHosts):
         return None
 
-
     @staticmethod
     def calculate(stats, item, hosts):
         return sum([stats[onehost]["stats"]["1m"]["500"] if stats[onehost] else 0 for onehost in hosts]) / 60.0
-
 
 
 class Code401DataType(DataType):
@@ -269,16 +244,13 @@ class Code401DataType(DataType):
     def title(item):
         return "Code 401/sec"
 
-
     @staticmethod
     def maxY(numHosts):
         return None
 
-
     @staticmethod
     def calculate(stats, item, hosts):
         return sum([stats[onehost]["stats"]["1m"]["401"] if stats[onehost] else 0 for onehost in hosts]) / 60.0
-
 
 
 class MaxSlotsDataType(DataType):
@@ -293,16 +265,13 @@ class MaxSlotsDataType(DataType):
     def title(item):
         return "Max. Slots"
 
-
     @staticmethod
     def maxY(numHosts):
         return None
 
-
     @staticmethod
     def calculate(stats, item, hosts):
         return sum([stats[onehost]["stats"]["1m"]["max-slots"] if stats[onehost] else 0 for onehost in hosts])
-
 
 
 class JobsCompletedDataType(DataType):
@@ -318,11 +287,9 @@ class JobsCompletedDataType(DataType):
     def title(item):
         return "Completed"
 
-
     @staticmethod
     def maxY(numHosts):
         return None
-
 
     @staticmethod
     def calculate(stats, item, hosts):
@@ -334,7 +301,6 @@ class JobsCompletedDataType(DataType):
                 result += delta
             JobsCompletedDataType.lastCompleted[onehost] = completed
         return result
-
 
 
 class MethodCountDataType(DataType):
@@ -350,16 +316,13 @@ class MethodCountDataType(DataType):
     def title(item):
         return item
 
-
     @staticmethod
     def maxY(numHosts):
         return None
 
-
     @staticmethod
     def calculate(stats, item, hosts):
         return sum([stats[onehost]["stats"]["1m"]["method"].get(item, 0) if stats[onehost] else 0 for onehost in hosts])
-
 
 
 class MethodResponseDataType(DataType):
@@ -375,18 +338,15 @@ class MethodResponseDataType(DataType):
     def title(item):
         return item
 
-
     @staticmethod
     def maxY(numHosts):
         return None
-
 
     @staticmethod
     def calculate(stats, item, hosts):
         tsum = sum([stats[onehost]["stats"]["1m"]["method-t"].get(item, 0) if stats[onehost] else 0 for onehost in hosts])
         rsum = sum([stats[onehost]["stats"]["1m"]["method"].get(item, 0) if stats[onehost] else 0 for onehost in hosts])
         return safeDivision(tsum, rsum)
-
 
 
 class JobQueueDataType(DataType):
@@ -401,11 +361,9 @@ class JobQueueDataType(DataType):
     def title(item):
         return ("JQ " + "_".join(map(operator.itemgetter(0), item.split("_")))) if item else "Jobs Queued"
 
-
     @staticmethod
     def maxY(numHosts):
         return None
-
 
     @staticmethod
     def calculate(stats, item, hosts):
@@ -422,7 +380,6 @@ class JobQueueDataType(DataType):
 # Register the known L{DataType}s
 for dtype in DataType.__subclasses__():
     DataType.allTypes[dtype.key] = dtype
-
 
 
 class Calculator(object):
@@ -462,7 +419,6 @@ class Calculator(object):
         self.titles = {}
         self.ymaxes = {}
 
-
     def singleHost(self, valuekeys):
         """
         Generate data for a single host only.
@@ -472,7 +428,6 @@ class Calculator(object):
         """
         self._plotHosts(valuekeys, (self.single_server,))
 
-
     def combinedHosts(self, valuekeys):
         """
         Generate data for all hosts.
@@ -481,7 +436,6 @@ class Calculator(object):
         @type valuekeys: L{list} or L{str}
         """
         self._plotHosts(valuekeys, None)
-
 
     def _plotHosts(self, valuekeys, hosts):
         """
@@ -524,7 +478,6 @@ class Calculator(object):
                         self.titles[measurement] = DataType.getTitle(measurement)
                         self.ymaxes[measurement] = DataType.getMaxY(measurement, len(hosts))
 
-
                 for measurement in valuekeys:
                     stats = jline["pods"][self.pod]
                     try:
@@ -541,7 +494,6 @@ class Calculator(object):
             if DataType.skip(measurement):
                 self.y[measurement] = self.y[measurement][60:]
                 self.y[measurement].extend([None] * 60)
-
 
     def perHost(self, perhostkeys, combinedkeys):
         """
@@ -628,10 +580,8 @@ class Calculator(object):
                 self.y[measurement] = self.y[measurement][60:]
                 self.y[measurement].extend([None] * 60)
 
-
     def run(self, mode, *args):
         getattr(self, mode)(*args)
-
 
     def plot(self):
         # Generate a single stacked plot of the data
@@ -667,7 +617,6 @@ class Calculator(object):
             plt.savefig(os.path.join(dirpath, fname), orientation="landscape", format="png")
         if not self.noshow:
             plt.show()
-
 
 
 def main():
@@ -819,7 +768,6 @@ scatter - scatter plot of request count and response time vs CPU.
     calculator.plot()
 
 
-
 def plotSeries(title, x, y, ymin=None, ymax=None, last_subplot=True):
     """
     Plot the chosen dataset key for each scanned data file.
@@ -833,7 +781,6 @@ def plotSeries(title, x, y, ymin=None, ymax=None, last_subplot=True):
     """
 
     plt.plot(x, y)
-
 
     if ymin is not None:
         plt.ylim(ymin=ymin)
@@ -851,7 +798,6 @@ def plotSeries(title, x, y, ymin=None, ymax=None, last_subplot=True):
     plt.xticks(range(0, 3601, 300), range(0, 61, 5) if last_subplot else [])
     frame.set_xticks(range(0, 3601, 60), minor=True)
     plt.grid(True, "minor", "x", alpha=0.5, linewidth=0.5)
-
 
 
 def plotScatter(title, x, y, xlim=None, ylim=None, last_subplot=True):

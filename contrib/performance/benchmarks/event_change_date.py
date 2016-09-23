@@ -25,6 +25,7 @@ from contrib.performance import _event_change
 
 TIME_FORMAT = '%Y%m%dT%H%M%S'
 
+
 def _increment(event, marker, amount):
     # Find the last occurrence of the marker
     dtstart = event.rfind(marker)
@@ -38,13 +39,11 @@ def _increment(event, marker, amount):
     return event[:colon + 1] + new.strftime(TIME_FORMAT) + event[eol:]
 
 
-
 def replaceTimestamp(event, i):
     offset = datetime.timedelta(hours=i)
     return _increment(
         _increment(event, 'DTSTART', offset),
         'DTEND', offset)
-
 
 
 def measure(host, port, dtrace, attendeeCount, samples):

@@ -22,6 +22,7 @@ from txdav.caldav.datastore.scheduling.work import ScheduleWorkMixin
 from txdav.caldav.datastore.test.util import CommonStoreTests, \
     DateTimeSubstitutionsMixin
 
+
 class BaseQueueSchedulingTests(CommonStoreTests, DateTimeSubstitutionsMixin):
 
     """
@@ -42,9 +43,8 @@ class BaseQueueSchedulingTests(CommonStoreTests, DateTimeSubstitutionsMixin):
 
         self.setupDateTimeValues()
 
-
     @classproperty(cache=False)
-    def requirements(cls): #@NoSelf
+    def requirements(cls):  # @NoSelf
         return {
             "user01": {
                 "calendar": {
@@ -66,7 +66,6 @@ class BaseQueueSchedulingTests(CommonStoreTests, DateTimeSubstitutionsMixin):
             },
         }
 
-
     @inlineCallbacks
     def _getOneResource(self, home, calendar_name):
         """
@@ -76,7 +75,6 @@ class BaseQueueSchedulingTests(CommonStoreTests, DateTimeSubstitutionsMixin):
         objs = yield inbox.objectResources()
         self.assertEqual(len(objs), 1)
         returnValue(objs[0])
-
 
     @inlineCallbacks
     def _testOneResource(self, home, calendar_name, data):
@@ -89,7 +87,6 @@ class BaseQueueSchedulingTests(CommonStoreTests, DateTimeSubstitutionsMixin):
 
         caldata = yield objs[0].componentForUser()
         self.assertEqualCalendarData(caldata, data.format(**self.dtsubs))
-
 
 
 class SimpleSchedulingTests(BaseQueueSchedulingTests):

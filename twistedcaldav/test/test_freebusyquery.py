@@ -33,6 +33,7 @@ from twistedcaldav import caldavxml
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav.test.test_calendarquery import addEventsDir
 
+
 class FreeBusyQuery (twistedcaldav.test.util.TestCase):
     """
     free-busy-query REPORT
@@ -47,14 +48,12 @@ class FreeBusyQuery (twistedcaldav.test.util.TestCase):
         """
         raise SkipTest("test unimplemented")
 
-
     def test_free_busy_recurring(self):
         """
         Free-busy on recurring events.
         (CalDAV-access-09, section 7.8)
         """
         raise SkipTest("test unimplemented")
-
 
     def test_free_busy_statustransp(self):
         """
@@ -63,14 +62,12 @@ class FreeBusyQuery (twistedcaldav.test.util.TestCase):
         """
         raise SkipTest("test unimplemented")
 
-
     def test_free_busy_free_busy(self):
         """
         Free-busy on free busy components.
         (CalDAV-access-09, section 7.8)
         """
         raise SkipTest("test unimplemented")
-
 
     def simple_free_busy_query(self, cal_uri, start, end):
 
@@ -85,7 +82,6 @@ class FreeBusyQuery (twistedcaldav.test.util.TestCase):
             pass
 
         return self.free_busy_query(cal_uri, query, got_calendar)
-
 
     @inlineCallbacks
     def free_busy_query(self, calendar_uri, query, got_calendar):

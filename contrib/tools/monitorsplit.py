@@ -26,6 +26,7 @@ outputFile = None
 fileCount = 0
 lastWeek = None
 
+
 def split(fpath, outputDir):
 
     global outputFile, fileCount, lastWeek
@@ -66,7 +67,6 @@ def split(fpath, outputDir):
     f.close()
 
 
-
 def argPath(path):
     fpath = os.path.expanduser(path)
     if not fpath.startswith("/"):
@@ -74,10 +74,8 @@ def argPath(path):
     return fpath
 
 
-
 def expandDate(date):
     return "%s/%s/%s" % (date[0:4], date[4:6], date[6:8],)
-
 
 
 def usage(error_msg=None):

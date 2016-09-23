@@ -132,7 +132,6 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n").format(**nowYear)
 
-
     @inlineCallbacks
     def test_remote_home(self):
         """
@@ -149,7 +148,6 @@ END:VCALENDAR
         self.assertTrue(home is not None)
         self.assertEqual(home.id(), home01.id())
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_prepare_home(self):
@@ -172,7 +170,6 @@ END:VCALENDAR
         self.assertEqual(len(children), 0)
         yield self.commitTransaction(1)
 
-
     @inlineCallbacks
     def test_prepare_home_external_txn(self):
         """
@@ -194,7 +191,6 @@ END:VCALENDAR
         children = yield home.listChildren()
         self.assertEqual(len(children), 0)
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_home_metadata(self):
@@ -304,7 +300,6 @@ END:VCALENDAR
         self.assertEqual(normalize_iCalStr(home1.getAvailability()), normalize_iCalStr(availability))
         yield self.commitTransaction(1)
 
-
     @inlineCallbacks
     def test_get_calendar_sync_list(self):
         """
@@ -333,7 +328,6 @@ END:VCALENDAR
         yield syncer.loadRecord()
         results = yield syncer.getCalendarSyncList()
         self.assertEqual(results, results01)
-
 
     @inlineCallbacks
     def test_sync_calendar_initial_empty(self):
@@ -379,7 +373,6 @@ END:VCALENDAR
         calendar1 = yield home1.childWithName("calendar")
         self.assertTrue(calendar1 is not None)
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_sync_calendar_initial_with_data(self):
@@ -429,7 +422,6 @@ END:VCALENDAR
             ).on(self.theTransactionUnderTest(1))
             expected_mappings = dict([(mapping0[name], mapping1[name]) for name in mapping0.keys()])
             self.assertEqual(dict(mappings), expected_mappings)
-
 
         # Local calendar exists
         home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name="user01", status=_HOME_STATUS_MIGRATING)
@@ -504,7 +496,6 @@ END:VCALENDAR
         yield _checkCalendarObjectMigrationState(home1, mapping1)
         yield self.commitTransaction(1)
 
-
     @inlineCallbacks
     def test_sync_calendars_add_remove(self):
         """
@@ -567,14 +558,12 @@ END:VCALENDAR
         self.assertEqual(set(details1.values()), set(details0.values()))
         yield self.commitTransaction(1)
 
-
     @inlineCallbacks
     def test_sync_attachments_add_remove(self):
         """
         Test that L{syncAttachments} syncs attachment data, then an update to the data,
         and finally a removal of the data.
         """
-
 
         home0 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
         calendar0 = yield home0.childWithName("calendar")
@@ -625,7 +614,6 @@ END:VCALENDAR
             ).on(self.theTransactionUnderTest(1))
             expected_mappings = dict([(mapping0[name], mapping1[name]) for name in mapping0.keys()])
             self.assertEqual(dict(mappings), expected_mappings)
-
 
         # Local calendar exists
         home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name="user01", status=_HOME_STATUS_MIGRATING)
@@ -740,7 +728,6 @@ END:VCALENDAR
         mapping1 = dict([(o.md5(), o.id()) for o in attachments])
         yield _checkAttachmentObjectMigrationState(home1, mapping1)
 
-
     @inlineCallbacks
     def test_link_attachments(self):
         """
@@ -850,7 +837,6 @@ END:VCALENDAR
         self.assertTrue(attachment is not None)
         self.assertEqual(attachment.md5(), md50_1)
 
-
     @inlineCallbacks
     def test_delegate_reconcile(self):
         """
@@ -883,7 +869,6 @@ END:VCALENDAR
         yield txn.assignExternalDelegates(u"user01", None, None, u"external1", u"external2")
 
         yield self.commitTransaction(0)
-
 
         # Initially no local delegates
         txn = self.theTransactionUnderTest(1)
@@ -938,7 +923,6 @@ END:VCALENDAR
 
         yield self.commitTransaction(1)
 
-
     @inlineCallbacks
     def test_notifications_reconcile(self):
         """
@@ -983,7 +967,6 @@ END:VCALENDAR
             else:
                 self.fail("Notification uid {} not found".format(result.uid()))
         yield self.commitTransaction(1)
-
 
     @inlineCallbacks
     def test_disable_remote_home(self):
@@ -1072,7 +1055,6 @@ END:VCALENDAR
         self.assertEqual(count, 4)
 
         yield self.commitTransaction(0)
-
 
     @inlineCallbacks
     def test_work_items_sync(self):
@@ -1185,7 +1167,6 @@ END:VCALENDAR
         self.assertEqual(pod0Data, pod1Data)
 
 
-
 class TestSharingSync(MultiStoreConduitTest):
     """
     Test that L{CrossPodHomeSync} sharing sync works.
@@ -1198,7 +1179,6 @@ class TestSharingSync(MultiStoreConduitTest):
         yield super(TestSharingSync, self).setUp()
         yield self.populate()
 
-
     def configure(self):
         super(TestSharingSync, self).configure()
         config.Sharing.Enabled = True
@@ -1206,21 +1186,19 @@ class TestSharingSync(MultiStoreConduitTest):
         config.Sharing.Calendars.Groups.Enabled = True
         config.Sharing.Calendars.Groups.ReconciliationDelaySeconds = 0
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.theStoreUnderTest(0))
 
     requirements = {
-        "user01" : None,
-        "user02" : None,
-        "user06" : None,
-        "user07" : None,
-        "user08" : None,
-        "user09" : None,
-        "user10" : None,
+        "user01": None,
+        "user02": None,
+        "user06": None,
+        "user07": None,
+        "user08": None,
+        "user09": None,
+        "user10": None,
     }
-
 
     @inlineCallbacks
     def _createShare(self, shareFrom, shareTo, accept=True):
@@ -1243,7 +1221,6 @@ class TestSharingSync(MultiStoreConduitTest):
             sharedName = None
 
         returnValue(sharedName)
-
 
     @inlineCallbacks
     def test_shared_collections_reconcile(self):
@@ -1317,7 +1294,6 @@ class TestSharingSync(MultiStoreConduitTest):
         self.assertEqual(invites[0].shareeHomeID, shareeHome1.id())
         yield self.commitTransaction(1)
 
-
     @inlineCallbacks
     def test_group_shared_collections_reconcile(self):
         """
@@ -1353,7 +1329,6 @@ class TestSharingSync(MultiStoreConduitTest):
         self.assertEqual(len(group), 1)
         self.assertEqual(group[0].groupUID, "group02")
         yield self.commitTransaction(1)
-
 
 
 class TestGroupAttendeeSync(MultiStoreConduitTest):
@@ -1417,26 +1392,24 @@ END:VCALENDAR""".format(**now)
         yield super(TestGroupAttendeeSync, self).setUp()
         yield self.populate()
 
-
     def configure(self):
         super(TestGroupAttendeeSync, self).configure()
         config.GroupAttendees.Enabled = True
         config.GroupAttendees.ReconciliationDelaySeconds = 0
         config.GroupAttendees.AutoUpdateSecondsFromNow = 0
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.theStoreUnderTest(0))
 
     requirements = {
-        "user01" : None,
-        "user02" : None,
-        "user06" : None,
-        "user07" : None,
-        "user08" : None,
-        "user09" : None,
-        "user10" : None,
+        "user01": None,
+        "user02": None,
+        "user06": None,
+        "user07": None,
+        "user08": None,
+        "user09": None,
+        "user10": None,
     }
 
     @inlineCallbacks
@@ -1482,7 +1455,6 @@ END:VCALENDAR""".format(**now)
         self.assertEqual(record.membershipHash, group04.membershipHash)
 
 
-
 class TestiMIPTokensSync(MultiStoreConduitTest):
     """
     Test that L{CrossPodHomeSync} iMIP token sync works.
@@ -1495,21 +1467,19 @@ class TestiMIPTokensSync(MultiStoreConduitTest):
         yield super(TestiMIPTokensSync, self).setUp()
         yield self.populate()
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.theStoreUnderTest(0))
 
     requirements = {
-        "user01" : None,
-        "user02" : None,
-        "user06" : None,
-        "user07" : None,
-        "user08" : None,
-        "user09" : None,
-        "user10" : None,
+        "user01": None,
+        "user02": None,
+        "user06": None,
+        "user07": None,
+        "user08": None,
+        "user09": None,
+        "user10": None,
     }
-
 
     @inlineCallbacks
     def _createTokens(self, txn, organizer, attendee_prefix, number):
@@ -1522,7 +1492,6 @@ class TestiMIPTokensSync(MultiStoreConduitTest):
                 attendee="mailto:{}{}@example.com".format(attendee_prefix, n + 1),
                 icaluid=str(uuid4()),
             )
-
 
     @inlineCallbacks
     def test_token_sync(self):

@@ -50,7 +50,6 @@ class MakeCollection (davxml.WebDAVElement):
     child_types = {"WebDAVUnknownElement": (0, None)}
 
 
-
 @registerElement
 class MakeCollectionResponse (davxml.WebDAVElement):
     """

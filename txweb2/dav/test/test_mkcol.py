@@ -31,6 +31,7 @@ from txweb2.dav.fileop import rmdir
 from txweb2.test.test_server import SimpleRequest
 import txweb2.dav.test.util
 
+
 class MKCOL(txweb2.dav.test.util.TestCase):
     """
     MKCOL request
@@ -39,6 +40,7 @@ class MKCOL(txweb2.dav.test.util.TestCase):
     # Try in nonexistant parent collection.
     # Try on existing resource.
     # Try with request body?
+
     def test_MKCOL(self):
         """
         MKCOL request
@@ -59,7 +61,6 @@ class MKCOL(txweb2.dav.test.util.TestCase):
         request = SimpleRequest(self.site, "MKCOL", uri)
 
         return self.send(request, check_result)
-
 
     def test_MKCOL_invalid_body(self):
         """

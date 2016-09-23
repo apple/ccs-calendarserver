@@ -13,11 +13,11 @@ from txweb2 import stream, fileupload
 from txweb2.http_headers import MimeType
 
 
-
 class TestStream(stream.SimpleStream):
     """
     A stream that reads less data at a time than it could.
     """
+
     def __init__(self, mem, maxReturn=1000, start=0, length=None):
         self.mem = mem
         self.start = start
@@ -28,7 +28,6 @@ class TestStream(stream.SimpleStream):
             if len(mem) < length:
                 raise ValueError("len(mem) < start + length")
             self.length = length
-
 
     def read(self):
         if self.mem is None:
@@ -42,14 +41,13 @@ class TestStream(stream.SimpleStream):
             self.start += amtToRead
         return result
 
-
     def close(self):
         self.mem = None
         stream.SimpleStream.close(self)
 
 
-
 class MultipartTests(unittest.TestCase):
+
     def doTestError(self, boundary, data, expected_error):
         # Test different amounts of data at a time.
         ds = [fileupload.parseMultipartFormData(TestStream(data,
@@ -60,12 +58,10 @@ class MultipartTests(unittest.TestCase):
         d.addCallback(self._assertFailures, expected_error)
         return d
 
-
     def _assertFailures(self, failures, *expectedFailures):
         for flag, failure in failures:
             self.failUnlessEqual(flag, defer.FAILURE)
             failure.trap(*expectedFailures)
-
 
     def doTest(self, boundary, data, expected_args, expected_files):
         # import time, gc, cgi, cStringIO
@@ -111,8 +107,7 @@ blah\r
 """,
             {'foo': ['Foo Bar']},
             {'file': [('filename', MimeType('text', 'html'),
-                      "Contents of a file\nblah\nblah")]})
-
+                       "Contents of a file\nblah\nblah")]})
 
     def testMultipleUpload(self):
         return self.doTest(
@@ -141,7 +136,6 @@ bleh\r
             {'file': [('filename', MimeType('text', 'html'), "blah"),
                       ('filename', MimeType('text', 'plain'), "bleh")]})
 
-
     def testStupidFilename(self):
         return self.doTest(
             '----------0xKhTmLbOuNdArY',
@@ -156,8 +150,7 @@ blah\r
 """,
             {},
             {'file': [('foo"; name="foobar.txt', MimeType('text', 'plain'),
-                      "Contents of a file\nblah\nblah")]})
-
+                       "Contents of a file\nblah\nblah")]})
 
     def testEmptyFilename(self):
         return self.doTest(
@@ -171,7 +164,7 @@ qwertyuiop\r
 """,
             {},
             {'foo': [('', MimeType('application', 'octet-stream'),
-                     "qwertyuiop")]})
+                      "qwertyuiop")]})
 
 
 # Failing parses
@@ -186,14 +179,12 @@ Blah blah I am a stupid webbrowser\r
 """,
             fileupload.MimeFormatError)
 
-
     def testRandomData(self):
         return self.doTestError(
             'boundary',
             """--sdkjsadjlfjlj skjsfdkljsd
 sfdkjsfdlkjhsfadklj sffkj""",
             fileupload.MimeFormatError)
-
 
     def test_tooBigUpload(self):
         """
@@ -217,7 +208,6 @@ blah\r
         return self.assertFailure(
             fileupload.parseMultipartFormData(s, boundary, maxSize=200),
             fileupload.MimeFormatError)
-
 
     def test_tooManyFields(self):
         """
@@ -249,7 +239,6 @@ bleh\r
             fileupload.parseMultipartFormData(s, boundary, maxFields=3),
             fileupload.MimeFormatError)
 
-
     def test_maxMem(self):
         """
         An attachment with no filename goes to memory: check that the
@@ -275,8 +264,8 @@ blah\r
             fileupload.MimeFormatError)
 
 
-
 class TestURLEncoded(unittest.TestCase):
+
     def doTest(self, data, expected_args):
         for bytes in range(1, 20):
             s = TestStream(data, maxReturn=bytes)
@@ -286,12 +275,10 @@ class TestURLEncoded(unittest.TestCase):
             self.assertEquals(args, expected_args)
     doTest = deferredGenerator(doTest)
 
-
     def test_parseValid(self):
         self.doTest("a=b&c=d&c=e", {'a': ['b'], 'c': ['d', 'e']})
         self.doTest("a=b&c=d&c=e", {'a': ['b'], 'c': ['d', 'e']})
         self.doTest("a=b+c%20d", {'a': ['b c d']})
-
 
     def test_parseInvalid(self):
         self.doTest("a&b=c", {'b': ['c']})

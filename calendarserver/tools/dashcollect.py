@@ -60,10 +60,11 @@ import time
 import zlib
 
 verbose = False
+
+
 def _verbose(log):
     if verbose:
         print(log)
-
 
 
 class MyHelpFormatter(HelpFormatter):
@@ -75,7 +76,6 @@ class MyHelpFormatter(HelpFormatter):
     def _fill_text(self, text, width, indent):
         return ''.join([indent + line for line in text.splitlines(True)])
 
-
     def _get_help_string(self, action):
         help = action.help
         if '%(default)' not in action.help:
@@ -84,7 +84,6 @@ class MyHelpFormatter(HelpFormatter):
                 if action.option_strings or action.nargs in defaulting_nargs:
                     help += ' (default: %(default)s)'
         return help
-
 
 
 def main():
@@ -163,7 +162,6 @@ def main():
             server_thread.join()
 
 
-
 class Config(object):
     """
     Loads the config and creates a list of L{Pod}'s.
@@ -212,7 +210,6 @@ class Config(object):
             raise RuntimeError("No valid JSON data in {}".format(path))
 
 
-
 class Pod(object):
     """
     Model object that represents an L{Pod}.
@@ -241,7 +238,6 @@ class Pod(object):
             if ctr == 0:
                 server.addItem("jobs")
 
-
     def sendSock(self):
         """
         Update the data for each L{Server} in this L{Pod}.
@@ -249,7 +245,6 @@ class Pod(object):
         _verbose("  Pod send: {}".format(self.title))
         for server in self.servers:
             server.sendSock()
-
 
     def update(self, data):
         """
@@ -261,11 +256,11 @@ class Pod(object):
             server.update(data[self.title])
 
 
-
 class Server(object):
     """
     Model object that represents a server in a pod.
     """
+
     def __init__(self, host):
         """
         Setup the appropriate socket connection details.
@@ -286,7 +281,6 @@ class Server(object):
         self.currentData = {}
         self.items = []
 
-
     def sendSock(self):
         """
         Open a socket, send the specified request, and retrieve the response. Keep the socket open.
@@ -306,7 +300,6 @@ class Server(object):
             _verbose("    server failed: {} {}".format(self.host, e))
         except ValueError as e:
             _verbose("    server failed: {} {}".format(self.host, e))
-
 
     def readSock(self, items):
         """
@@ -340,7 +333,6 @@ class Server(object):
             _verbose("    server failed: {} {}".format(self.host, e))
         return data
 
-
     def update(self, data):
         """
         Update the current data from the server.
@@ -352,7 +344,6 @@ class Server(object):
         _verbose("    Server read: {} {}".format(self.host, len(data[self.host])))
         #_verbose("      Data: {}".format(self.currentData))
 
-
     def getOneItem(self, item):
         """
         Update the current data from the server.
@@ -360,13 +351,11 @@ class Server(object):
         data = self.readSock([item])
         return data[item] if data else None
 
-
     def addItem(self, item):
         """
         Add a server data item to monitor.
         """
         self.items.append(item)
-
 
     def removeItem(self, item):
         """
@@ -377,7 +366,6 @@ class Server(object):
         except ValueError:
             # Don't care if the item is not present
             pass
-
 
 
 class DashboardCollector(object):
@@ -397,7 +385,6 @@ class DashboardCollector(object):
         self.lastData = {}
         self._stop = False
 
-
     def run(self):
         """
         Start the L{scheduler}.
@@ -407,10 +394,8 @@ class DashboardCollector(object):
         self.sched.run()
         _verbose("Stopped Dashboard")
 
-
     def stop(self):
         self._stop = True
-
 
     @staticmethod
     def logfile(logdir, loghourly):
@@ -423,7 +408,6 @@ class DashboardCollector(object):
             return os.path.join(logdir, "dashboard-{today}T{hour:02d}00.log".format(today=today, hour=hour))
         else:
             return os.path.join(logdir, "dashboard-{today}.log".format(today=today))
-
 
     def update(self):
         """
@@ -463,7 +447,6 @@ class DashboardCollector(object):
             self.sched.enter(self.seconds, 0, self.update, ())
 
 
-
 class CollectorService(SocketServer.ThreadingTCPServer):
     """
     L{ThreadingTCPServer} that sends out the current data from
@@ -475,7 +458,6 @@ class CollectorService(SocketServer.ThreadingTCPServer):
             return json.dumps(self.dashboard.lastData)
         else:
             return "{}"
-
 
 
 class CollectorRequestHandler(SocketServer.BaseRequestHandler):

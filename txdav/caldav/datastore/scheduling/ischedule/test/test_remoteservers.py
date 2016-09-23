@@ -19,6 +19,7 @@ from twisted.trial import unittest
 
 from txdav.caldav.datastore.scheduling.ischedule.remoteservers import IScheduleServersParser
 
+
 class Test_IScheduleServersParser(unittest.TestCase):
     """
     Test L{IScheduleServersParser} implementation.

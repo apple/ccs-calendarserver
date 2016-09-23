@@ -483,7 +483,6 @@ END:VCALENDAR
             differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
             self.assertEqual(differ.organizerDiff(), result, msg=description)
 
-
     def test_attendee_merge_simple(self):
 
         data = (
@@ -1200,7 +1199,6 @@ END:VCALENDAR
             result = tuple(result)
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
-
     def test_attendee_merge_complex(self):
 
         data = (
@@ -1705,7 +1703,6 @@ END:VCALENDAR
             result = tuple(result)
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
-
     def test_attendee_merge_exdate(self):
 
         data = (
@@ -2063,7 +2060,6 @@ END:VCALENDAR
             result[2] = tuple([(DateTime.parseText(dt) if dt else None) for dt in result[2]])
             result = tuple(result)
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
-
 
     def test_attendee_merge_cancelled(self):
 
@@ -2432,7 +2428,6 @@ END:VCALENDAR
             result = tuple(result)
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
-
     def test_attendee_merge_dropbox(self):
 
         data = (
@@ -2715,7 +2710,6 @@ END:VCALENDAR
             result[2] = tuple([(DateTime.parseText(dt) if dt else None) for dt in result[2]])
             result = tuple(result)
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
-
 
     def test_attendee_merge_fake_master(self):
 
@@ -3273,7 +3267,6 @@ END:VCALENDAR
             result = tuple(result)
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
-
     def test_attendee_merge_timezonedst(self):
 
         data = (
@@ -3506,7 +3499,6 @@ END:VCALENDAR
             result[2] = tuple([(DateTime.parseText(dt) if dt else None) for dt in result[2]])
             result = tuple(result)
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
-
 
     def test_what_is_different(self):
 
@@ -4850,7 +4842,6 @@ END:VCALENDAR
             self.assertEqual(got_rids, rids, msg="%s expected R-IDs: '%s', got: '%s'" % (description, rids, got_rids,))
             self.assertEqual(got_changes, changes, msg="%s expected changes R-IDs: '%s', got: '%s'" % (description, changes, got_changes,))
 
-
     def test_attendee_needs_action(self):
 
         data = (
@@ -5420,7 +5411,6 @@ END:VCALENDAR
             self.assertEqual(got_rids, rids, msg="%s expected R-IDs: '%s', got: '%s'" % (description, rids, got_rids,))
             self.assertEqual(got_rescheduled, rescheduled, msg="%s expected rescheduled: '%s', got: '%s'" % (description, rescheduled, got_rescheduled,))
 
-
     def test_attendee_merge_forceTRANSP(self):
 
         data = (
@@ -5804,7 +5794,6 @@ END:VCALENDAR
                 ) if diffResult[3] else None,
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
-
 
     def test_organizer_smart_merge(self):
 
@@ -6616,7 +6605,6 @@ END:VCALENDAR
             strcal2 = str(cal2)
             strchanged = str(Component.fromString(changed_calendar))
             self.assertEqual(strchanged, strcal2, msg="%s mismatch:\n%s" % (description, "\n".join(unified_diff(strchanged.split("\n"), strcal2.split("\n")))))
-
 
     def test_attendee_merge_vpoll(self):
 

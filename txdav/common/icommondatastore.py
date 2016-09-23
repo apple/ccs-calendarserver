@@ -57,12 +57,10 @@ class CommonStoreError(RuntimeError):
     """
 
 
-
 class RecordNotAllowedError(CommonStoreError):
     """
     User not allowed.
     """
-
 
 
 class NameNotAllowedError(CommonStoreError):
@@ -71,12 +69,10 @@ class NameNotAllowedError(CommonStoreError):
     """
 
 
-
 class HomeChildNameNotAllowedError(NameNotAllowedError):
     """
     Home child name not allowed.
     """
-
 
 
 class ObjectResourceNameNotAllowedError(NameNotAllowedError):
@@ -85,12 +81,10 @@ class ObjectResourceNameNotAllowedError(NameNotAllowedError):
     """
 
 
-
 class AlreadyExistsError(CommonStoreError):
     """
     Attempt to create an object that already exists.
     """
-
 
 
 class HomeChildNameAlreadyExistsError(AlreadyExistsError):
@@ -99,12 +93,10 @@ class HomeChildNameAlreadyExistsError(AlreadyExistsError):
     """
 
 
-
 class ObjectResourceNameAlreadyExistsError(AlreadyExistsError):
     """
     An object resource with the requested name already exists.
     """
-
 
 
 class ObjectResourceUIDAlreadyExistsError(AlreadyExistsError):
@@ -113,12 +105,10 @@ class ObjectResourceUIDAlreadyExistsError(AlreadyExistsError):
     """
 
 
-
 class TooManyObjectResourcesError(CommonStoreError):
     """
     Home child has maximum allowed count of resources.
     """
-
 
 
 class NotFoundError(CommonStoreError):
@@ -127,19 +117,16 @@ class NotFoundError(CommonStoreError):
     """
 
 
-
 class NoSuchHomeChildError(NotFoundError):
     """
     The requested home child does not exist.
     """
 
 
-
 class NoSuchObjectResourceError(NotFoundError):
     """
     The requested object resource does not exist.
     """
-
 
 
 class ConcurrentModification(NotFoundError):
@@ -155,12 +142,10 @@ class ConcurrentModification(NotFoundError):
     """
 
 
-
 class InvalidObjectResourceError(CommonStoreError):
     """
     Invalid object resource data.
     """
-
 
 
 class InvalidComponentForStoreError(CommonStoreError):
@@ -169,12 +154,10 @@ class InvalidComponentForStoreError(CommonStoreError):
     """
 
 
-
 class ObjectResourceTooBigError(CommonStoreError):
     """
     Object resource data is larger than allowed limit.
     """
-
 
 
 class InvalidUIDError(CommonStoreError):
@@ -183,12 +166,10 @@ class InvalidUIDError(CommonStoreError):
     """
 
 
-
 class UIDExistsError(CommonStoreError):
     """
     The UID of the component in a store operation exists in the same calendar belonging to the owner.
     """
-
 
 
 class UIDExistsElsewhereError(CommonStoreError):
@@ -197,19 +178,16 @@ class UIDExistsElsewhereError(CommonStoreError):
     """
 
 
-
 class InvalidResourceMove(CommonStoreError):
     """
     Moving a resource failed.
     """
 
 
-
 class InternalDataStoreError(CommonStoreError):
     """
     Uh, oh.
     """
-
 
 
 class AllRetriesFailed(CommonStoreError):
@@ -219,19 +197,16 @@ class AllRetriesFailed(CommonStoreError):
     """
 
 
-
 class ShareNotAllowed(CommonStoreError):
     """
     An operation on a shared resource is not allowed.
     """
 
 
-
 class ExternalShareFailed(CommonStoreError):
     """
     An external sharee operation failed.
     """
-
 
 
 class NonExistentExternalShare(CommonStoreError):
@@ -242,16 +217,13 @@ class NonExistentExternalShare(CommonStoreError):
     """
 
 
-
 class AlreadyInTrashError(CommonStoreError):
     """
     An object resource being removed is already in the trash.
     """
 
 
-
 # Indexing / sync tokens
-
 
 
 class ReservationError(LookupError):
@@ -261,10 +233,8 @@ class ReservationError(LookupError):
     """
 
 
-
 class IndexedSearchException(ValueError):
     pass
-
 
 
 class SyncTokenValidException(ValueError):
@@ -274,7 +244,6 @@ class SyncTokenValidException(ValueError):
 # APN Subscriptions
 
 
-
 class InvalidSubscriptionValues(ValueError):
     """
     Invalid APN subscription values passed in.
@@ -282,7 +251,6 @@ class InvalidSubscriptionValues(ValueError):
 
 
 # IMIP Tokens
-
 
 
 class InvalidIMIPTokenValues(ValueError):
@@ -296,14 +264,13 @@ class InvalidIMIPTokenValues(ValueError):
 #
 
 
-
 class ICommonTransaction(ITransaction):
     """
     Transaction functionality shared in common by calendar and addressbook
     stores.
     """
 
-    def notificationsWithUID(uid): #@NoSelf
+    def notificationsWithUID(uid):  # @NoSelf
         """
         Retrieve the notification collection for the principal with the given
         C{uid}.
@@ -312,7 +279,7 @@ class ICommonTransaction(ITransaction):
             notification collection exists.
         """
 
-    def addAPNSubscription(token, key, timestamp, subscriber, userAgent, ipAddr): #@NoSelf
+    def addAPNSubscription(token, key, timestamp, subscriber, userAgent, ipAddr):  # @NoSelf
         """
         Add (or update) a subscription entry in the database.
 
@@ -335,7 +302,7 @@ class ICommonTransaction(ITransaction):
         @type ipAddr: C{str}
         """
 
-    def removeAPNSubscription(token, key): #@NoSelf
+    def removeAPNSubscription(token, key):  # @NoSelf
         """
         Remove a subscription entry from the database.
 
@@ -346,7 +313,7 @@ class ICommonTransaction(ITransaction):
         @type key: C{str}
         """
 
-    def purgeOldAPNSubscriptions(olderThan): #@NoSelf
+    def purgeOldAPNSubscriptions(olderThan):  # @NoSelf
         """
         Remove all subscription entries whose modified timestamp
         is older than the provided timestamp.
@@ -355,7 +322,7 @@ class ICommonTransaction(ITransaction):
         @type token: C{int}
         """
 
-    def apnSubscriptionsByToken(token): #@NoSelf
+    def apnSubscriptionsByToken(token):  # @NoSelf
         """
         Retrieve all subscription entries for the token.
 
@@ -365,7 +332,7 @@ class ICommonTransaction(ITransaction):
         @return: list of L{Record}
         """
 
-    def apnSubscriptionsByKey(key): #@NoSelf
+    def apnSubscriptionsByKey(key):  # @NoSelf
         """
         Retrieve all subscription entries for the key.
 
@@ -375,7 +342,7 @@ class ICommonTransaction(ITransaction):
         @return: list of L{Record}
         """
 
-    def apnSubscriptionsBySubscriber(guid): #@NoSelf
+    def apnSubscriptionsBySubscriber(guid):  # @NoSelf
         """
         Retrieve all subscription entries for the subscriber.
 
@@ -385,7 +352,7 @@ class ICommonTransaction(ITransaction):
         @return: list of L{Record}
         """
 
-    def imipCreateToken(organizer, attendee, icaluid, token=None): #@NoSelf
+    def imipCreateToken(organizer, attendee, icaluid, token=None):  # @NoSelf
         """
         Add an entry in the database; if no token is provided, one will be
         generated.
@@ -400,7 +367,7 @@ class ICommonTransaction(ITransaction):
         @type token: C{str}
         """
 
-    def imipLookupByToken(token): #@NoSelf
+    def imipLookupByToken(token):  # @NoSelf
         """
         Returns the organizer, attendee, and icaluid corresponding to the token
 
@@ -408,7 +375,7 @@ class ICommonTransaction(ITransaction):
         @type token: L{Record}
         """
 
-    def imipGetToken(organizer, attendee, icaluid): #@NoSelf
+    def imipGetToken(organizer, attendee, icaluid):  # @NoSelf
         """
         Returns the token (if any) corresponding to the given organizer, attendee,
         and icaluid combination
@@ -421,7 +388,7 @@ class ICommonTransaction(ITransaction):
         @type organizer: C{str}
         """
 
-    def imipRemoveToken(token): #@NoSelf
+    def imipRemoveToken(token):  # @NoSelf
         """
         Removes the entry for the given token.
 
@@ -429,11 +396,10 @@ class ICommonTransaction(ITransaction):
         @type token: C{str}
         """
 
-    def purgeOldIMIPTokens(olderThan): #@NoSelf
+    def purgeOldIMIPTokens(olderThan):  # @NoSelf
         """
         Removes all tokens whose access time is before olderThan
         """
-
 
 
 class IShareableCollection(Interface):

@@ -23,10 +23,11 @@ from stats import (
 from pycalendar.datetime import DateTime
 from pycalendar.timezone import Timezone
 
+
 class SQLDurationTests(TestCase):
+
     def setUp(self):
         self.stat = SQLDuration('foo')
-
 
     def test_normalize_integer(self):
         self.assertEquals(
@@ -39,15 +40,14 @@ class SQLDurationTests(TestCase):
             self.stat.normalize('SELECT foo + 1 FROM bar'),
             'SELECT foo + ? FROM bar')
 
-
     def test_normalize_boolean(self):
         self.assertEquals(
             self.stat.normalize('SELECT foo FROM bar WHERE True'),
             'SELECT foo FROM bar WHERE ?')
 
 
-
 class DistributionTests(TestCase):
+
     def test_lognormal(self):
         dist = LogNormalDistribution(mu=1, sigma=1)
         for _ignore_i in range(100):
@@ -76,7 +76,6 @@ class DistributionTests(TestCase):
         self.assertRaises(ValueError, LogNormalDistribution, mean=1)
         self.assertRaises(ValueError, LogNormalDistribution, median=1)
 
-
     def test_uniformdiscrete(self):
         population = [1, 5, 6, 9]
         counts = dict.fromkeys(population, 0)
@@ -84,7 +83,6 @@ class DistributionTests(TestCase):
         for _ignore_i in range(len(population) * 10):
             counts[dist.sample()] += 1
         self.assertEqual(dict.fromkeys(population, 10), counts)
-
 
     def test_workdistribution(self):
         tzname = "US/Eastern"
@@ -111,7 +109,6 @@ class DistributionTests(TestCase):
     # b = datetime.datetime(2011, 6, 4, 19, 30, tzinfo=<DstTzInfo 'US/Eastern' EDT-1 day, 20:00:00 DST>)
     # test_workdistribution.todo = "Somehow timezones mess this up"
 
-
     def test_recurrencedistribution(self):
         dist = RecurrenceDistribution(False)
         for _ignore in range(100):
@@ -131,14 +128,12 @@ class DistributionTests(TestCase):
         value = dist.sample()
         self.assertTrue(value is not None)
 
-
     def test_uniform(self):
         dist = UniformIntegerDistribution(-5, 10)
         for _ignore_i in range(100):
             value = dist.sample()
             self.assertTrue(-5 <= value < 10)
             self.assertIsInstance(value, int)
-
 
 
 class QuantizationTests(TestCase):
@@ -156,7 +151,6 @@ class QuantizationTests(TestCase):
         expected = [(5.0, [5.0])]
         self.assertEqual(quantize(dataset), expected)
 
-
     def test_two(self):
         """
         Each of two values are put into buckets the size of the
@@ -166,7 +160,6 @@ class QuantizationTests(TestCase):
         expected = [(1.5, [2.0]), (4.5, [5.0])]
         self.assertEqual(quantize(dataset), expected)
 
-
     def xtest_three(self):
         """
         If two out of three values fall within one bucket defined by
@@ -174,7 +167,6 @@ class QuantizationTests(TestCase):
         half so each bucket has one value.
         """
         pass
-
 
     def xtest_alpha(self):
         """

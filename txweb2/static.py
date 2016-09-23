@@ -43,17 +43,18 @@ from twext.python.filepath import CachingFilePath as FilePath
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from zope.interface import implements
 
+
 class MetaDataMixin(object):
     """
     Mix-in class for L{iweb.IResource} which provides methods for accessing resource
     metadata specified by HTTP.
     """
+
     def etag(self):
         """
         @return: The current etag for the resource if available, None otherwise.
         """
         return succeed(None)
-
 
     def lastModified(self):
         """
@@ -61,13 +62,11 @@ class MetaDataMixin(object):
         """
         return None
 
-
     def creationDate(self):
         """
         @return: The creation date of the resource if available, None otherwise.
         """
         return None
-
 
     def contentLength(self):
         """
@@ -75,13 +74,11 @@ class MetaDataMixin(object):
         """
         return None
 
-
     def contentType(self):
         """
         @return: The MIME type of the resource if available, None otherwise.
         """
         return None
-
 
     def contentEncoding(self):
         """
@@ -89,13 +86,11 @@ class MetaDataMixin(object):
         """
         return None
 
-
     def displayName(self):
         """
         @return: The display name of the resource if available, None otherwise.
         """
         return None
-
 
     def exists(self):
         """
@@ -104,9 +99,7 @@ class MetaDataMixin(object):
         return True
 
 
-
 class StaticRenderMixin(resource.RenderMixin, MetaDataMixin):
-
 
     @inlineCallbacks
     def checkPreconditions(self, request):
@@ -124,7 +117,6 @@ class StaticRenderMixin(resource.RenderMixin, MetaDataMixin):
         method = getattr(self, "preconditions_" + request.method, None)
         if method:
             returnValue((yield method(request)))
-
 
     @inlineCallbacks
     def renderHTTP(self, request):
@@ -155,16 +147,15 @@ class StaticRenderMixin(resource.RenderMixin, MetaDataMixin):
         returnValue(response)
 
 
-
 class Data(resource.Resource):
     """
     This is a static, in-memory resource.
     """
+
     def __init__(self, data, type):
         self.data = data
         self.type = http_headers.MimeType.fromString(type)
         self.created_time = time.time()
-
 
     def etag(self):
         lastModified = self.lastModified()
@@ -172,29 +163,23 @@ class Data(resource.Resource):
             "%X-%X" % (lastModified, hash(self.data)),
             weak=(time.time() - lastModified <= 1)))
 
-
     def lastModified(self):
         return self.creationDate()
-
 
     def creationDate(self):
         return self.created_time
 
-
     def contentLength(self):
         return len(self.data)
 
-
     def contentType(self):
         return self.type
-
 
     def render(self, req):
         return http.Response(
             responsecode.OK,
             http_headers.Headers({'content-type': self.contentType()}),
             stream=self.data)
-
 
 
 class File(StaticRenderMixin):
@@ -223,7 +208,7 @@ class File(StaticRenderMixin):
     contentTypes = property(_getContentTypes)
 
     contentEncodings = {
-        ".gz" : "gzip",
+        ".gz": "gzip",
         ".bz2": "bzip2"
     }
 
@@ -256,7 +241,6 @@ class File(StaticRenderMixin):
         if indexNames is not None:
             self.indexNames = indexNames
 
-
     def comparePath(self, path):
 
         if isinstance(path, FilePath):
@@ -264,10 +248,8 @@ class File(StaticRenderMixin):
         else:
             return path == self.fp.path
 
-
     def exists(self):
         return self.fp.exists()
-
 
     def etag(self):
         if not self.fp.exists():
@@ -287,20 +269,17 @@ class File(StaticRenderMixin):
             weak=weak
         ))
 
-
     def lastModified(self):
         if self.fp.exists():
             return self.fp.getmtime()
         else:
             return None
 
-
     def creationDate(self):
         if self.fp.exists():
             return self.fp.getmtime()
         else:
             return None
-
 
     def contentLength(self):
         if self.fp.exists():
@@ -312,7 +291,6 @@ class File(StaticRenderMixin):
                 return None
         else:
             return None
-
 
     def _initTypeAndEncoding(self):
         self._type, self._encoding = getTypeAndEncoding(
@@ -326,25 +304,21 @@ class File(StaticRenderMixin):
         if self.fp.isdir():
             self._type = "httpd/unix-directory"
 
-
     def contentType(self):
         if not hasattr(self, "_type"):
             self._initTypeAndEncoding()
         return http_headers.MimeType.fromString(self._type)
-
 
     def contentEncoding(self):
         if not hasattr(self, "_encoding"):
             self._initTypeAndEncoding()
         return self._encoding
 
-
     def displayName(self):
         if self.fp.exists():
             return self.fp.basename()
         else:
             return None
-
 
     def ignoreExt(self, ext):
         """Ignore the given extension.
@@ -353,7 +327,6 @@ class File(StaticRenderMixin):
         """
         self.ignoredExts.append(ext)
 
-
     def putChild(self, name, child):
         """
         Register a child with the given name with this resource.
@@ -361,7 +334,6 @@ class File(StaticRenderMixin):
         @param child: the child to register
         """
         self.putChildren[name] = child
-
 
     def getChild(self, name):
         """
@@ -384,7 +356,6 @@ class File(StaticRenderMixin):
         else:
             return None
 
-
     def listChildren(self):
         """
         @return: a sequence of the names of all known children of this resource.
@@ -394,7 +365,6 @@ class File(StaticRenderMixin):
             children += [c for c in self.fp.listdir() if c not in children]
             self.knownChildren = set(children)
         return children
-
 
     def locateChild(self, req, segments):
         """
@@ -437,11 +407,9 @@ class File(StaticRenderMixin):
 
         return self.createSimilarFile(fpath.path), segments[1:]
 
-
     def renderHTTP(self, req):
         self.fp.changed()
         return super(File, self).renderHTTP(req)
-
 
     def render(self, req):
         """You know what you doing."""
@@ -489,11 +457,9 @@ class File(StaticRenderMixin):
 
         return response
 
-
     def createSimilarFile(self, path):
         return self.__class__(path, self.defaultType, self.ignoredExts,
                               self.processors, self.indexNames[:])
-
 
 
 class FileSaver(resource.PostableResource):
@@ -508,7 +474,6 @@ class FileSaver(resource.PostableResource):
         self.expectedFields = expectedFields
         self.permissions = permissions
 
-
     def makeUniqueName(self, filename):
         """Called when a unique filename is needed.
 
@@ -519,7 +484,6 @@ class FileSaver(resource.PostableResource):
         """
 
         return tempfile.mktemp(suffix=os.path.splitext(filename)[1], dir=self.destination)
-
 
     def isSafeToWrite(self, filename, mimetype, filestream):
         """Returns True if it's "safe" to write this file,
@@ -535,7 +499,6 @@ class FileSaver(resource.PostableResource):
             raise IOError("%s: File type not allowed %s" % (filename, mimetype))
 
         return True
-
 
     def writeFile(self, filename, mimetype, fileobject):
         """Does the I/O dirty work after it calls isSafeToWrite to make
@@ -554,7 +517,6 @@ class FileSaver(resource.PostableResource):
             fileobject.close()
 
         return outname
-
 
     def render(self, req):
         content = ["<html><body>"]
@@ -601,11 +563,11 @@ class FileSaver(resource.PostableResource):
 # Utilities
 ##
 
-dangerousPathError = http.HTTPError(responsecode.NOT_FOUND) #"Invalid request URL."
+dangerousPathError = http.HTTPError(responsecode.NOT_FOUND)  # "Invalid request URL."
+
 
 def isDangerous(path):
     return path == '..' or '/' in path or os.sep in path
-
 
 
 def addSlash(request):
@@ -613,7 +575,6 @@ def addSlash(request):
         request.isSecure() and 's' or '',
         request.getHeader("host"),
         (request.uri.split('?')[0]))
-
 
 
 def loadMimeTypes(mimetype_locations=['/etc/mime.types']):
@@ -625,7 +586,7 @@ def loadMimeTypes(mimetype_locations=['/etc/mime.types']):
     """
     import mimetypes
     # Grab Python's built-in mimetypes dictionary.
-    contentTypes = mimetypes.types_map #@UndefinedVariable
+    contentTypes = mimetypes.types_map  # @UndefinedVariable
     # Update Python's semi-erroneous dictionary with a few of the
     # usual suspects.
     contentTypes.update(
@@ -652,7 +613,6 @@ def loadMimeTypes(mimetype_locations=['/etc/mime.types']):
             contentTypes.update(mimetypes.read_mime_types(location))
 
     return contentTypes
-
 
 
 def getTypeAndEncoding(filename, types, encodings, defaultType):

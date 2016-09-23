@@ -41,6 +41,7 @@ nonASCIIConfigPList = """
 </plist>
 """ % (nonASCIIValue,)
 
+
 class ConfigParsingTests(TestCase):
     """
     Tests to verify the behavior of the configuration parser.
@@ -56,7 +57,6 @@ class ConfigParsingTests(TestCase):
         self.assertEquals(parser.parse(StringIO(nonASCIIPlist)),
                           nonASCIIValue)
 
-
     def test_parseNonASCIIConfig(self):
         """
         Non-ASCII <string>s found as part of a configuration file will be
@@ -68,7 +68,6 @@ class ConfigParsingTests(TestCase):
         tempfile.setContent(nonASCIIConfigPList)
         cfg.load(tempfile.path)
         self.assertEquals(cfg.DataRoot, nonASCIIValue)
-
 
     def test_relativeDefaultPaths(self):
         """
@@ -90,7 +89,6 @@ class ConfigParsingTests(TestCase):
                             "</dict></plist>")
         cfg.load(tempfile.path)
         self.assertEquals(cfg.AccountingLogRoot, "/other/root/some-path")
-
 
     def test_includes(self):
 
@@ -146,43 +144,40 @@ class ConfigParsingTests(TestCase):
         self.assertEquals(cfg.DocumentRoot, "/root/overridedata/defaultdoc")
         self.assertEquals(cfg.DataRoot, "/root/overridedata")
 
-
     def test_updateDataStore(self):
         configDict = {
-            "ServerRoot" : "/a/b/c/",
+            "ServerRoot": "/a/b/c/",
         }
         _updateDataStore(configDict)
         self.assertEquals(configDict["ServerRoot"], "/a/b/c")
-
 
     def test_updateMultiProcess(self):
         def stubProcessCount(*args):
             return 3
         self.patch(twistedcaldav.stdconfig, "computeProcessCount", stubProcessCount)
         configDict = ConfigDict({
-            "MultiProcess" : {
-                "ProcessCount" : 0,
-                "MinProcessCount" : 2,
-                "PerCPU" : 1,
-                "PerGB" : 1,
+            "MultiProcess": {
+                "ProcessCount": 0,
+                "MinProcessCount": 2,
+                "PerCPU": 1,
+                "PerGB": 1,
             },
-            "Postgres" : {
-                "ExtraConnections" : 5,
-                "BuffersToConnectionsRatio" : 1.5,
+            "Postgres": {
+                "ExtraConnections": 5,
+                "BuffersToConnectionsRatio": 1.5,
             },
-            "SharedConnectionPool" : False,
-            "MaxDBConnectionsPerPool" : 10,
+            "SharedConnectionPool": False,
+            "MaxDBConnectionsPerPool": 10,
         })
         _updateMultiProcess(configDict)
         self.assertEquals(45, configDict.Postgres.MaxConnections)
         self.assertEquals(67, configDict.Postgres.SharedBuffers)
 
-
     def test_updateUtilityLog(self):
         configDict = {
-            "ServerRoot" : "/a/b/c/",
-            "LogRoot" : "Logs",
-            "UtilityLogFile" : "util.txt",
+            "ServerRoot": "/a/b/c/",
+            "LogRoot": "Logs",
+            "UtilityLogFile": "util.txt",
         }
         _updateUtilityLog(configDict)
         self.assertEquals(configDict["UtilityLogFile"], "{}.log".format(os.path.basename(sys.argv[0])))

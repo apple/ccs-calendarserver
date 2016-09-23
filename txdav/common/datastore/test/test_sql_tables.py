@@ -38,6 +38,7 @@ from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
 
 from textwrap import dedent
 
+
 class SampleSomeColumns(TestCase, SchemaTestHelper):
     """
     Sample some columns from the tables defined by L{schema} and verify that
@@ -53,7 +54,6 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
         _translateSchema(io, *schema)
         return io.getvalue()
 
-
     def assertSortaEquals(self, a, b):
         """
         Assert that two strings are equals, modulo whitespace differences.
@@ -62,12 +62,10 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
         sortaB = " ".join(b.split())
         self.assertEquals(sortaA, sortaB)
 
-
     def test_addressbookObjectResourceID(self):
         ao = schema.ADDRESSBOOK_OBJECT
         self.assertEquals(ao.RESOURCE_ID.model.name,
                           "RESOURCE_ID")
-
 
     def test_schemaTranslation(self):
         """
@@ -75,7 +73,6 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
         can be translated without errors.
         """
         self.translated()
-
 
     def test_schemaTranslationIncludesVersion(self):
         """
@@ -93,7 +90,6 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
                       "values ('VERSION', '%s');" % version,
                       self.translated())
 
-
     def test_translateSingleUnique(self):
         """
         L{_translateSchema} translates single-column 'unique' statements inline.
@@ -109,7 +105,6 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
             'create table alpha ( "beta" integer unique );'
         )
 
-
     def test_translateSingleTableUnique(self):
         """
         L{_translateSchema} translates single-column 'unique' statements inline,
@@ -124,7 +119,6 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
             self.translated(stx),
             'create table alpha ( "beta" integer unique );'
         )
-
 
     def test_multiTableUnique(self):
         """
@@ -143,7 +137,6 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
             'unique ("beta", "gamma") );'
         )
 
-
     def test_translateSinglePrimaryKey(self):
         """
         L{_translateSchema} translates single-column 'primary key' statements
@@ -160,7 +153,6 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
             'create table alpha ( "beta" integer primary key );'
         )
 
-
     def test_translateSingleTablePrimaryKey(self):
         """
         L{_translateSchema} translates single-column 'primary key' statements
@@ -175,7 +167,6 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
             self.translated(stx),
             'create table alpha ( "beta" integer primary key );'
         )
-
 
     def test_multiTablePrimaryKey(self):
         """
@@ -193,7 +184,6 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
             'create table alpha ( "beta" integer, "gamma" nclob, '
             'primary key ("beta", "gamma") );'
         )
-
 
     def test_primaryKeyUniqueOrdering(self):
         """
@@ -214,7 +204,6 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
             'primary key ("beta", "gamma"), unique ("beta", "delta") );'
         )
 
-
     def test_anonymousCheckConstraint(self):
         """
         Named 'check' constraints are propagated through translation without
@@ -231,7 +220,6 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
             " );"
         )
 
-
     def test_namedCheckConstraint(self):
         """
         Named 'check' constraints are propagated through translation without
@@ -247,7 +235,6 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
             '"beta" integer, constraint "beta_lt_3" check ("beta" > 3)'
             " );"
         )
-
 
     def test_youBrokeTheSchema(self):
         """
@@ -270,7 +257,6 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
         )
 
 
-
 class SQLSplitterTests(TestCase):
     """
     Test that strings which mix zero or more sql statements with zero or more
@@ -286,7 +272,6 @@ class SQLSplitterTests(TestCase):
         self.assertEquals(r1, "select * from foo")
         self.assertRaises(StopIteration, result.next)
 
-
     def test_returnTwoSimpleStatements(self):
         """
         Two simple sql statements yield two separate strings
@@ -297,7 +282,6 @@ class SQLSplitterTests(TestCase):
         r2 = result.next()
         self.assertEquals(r2, "select bang from boop")
         self.assertRaises(StopIteration, result.next)
-
 
     def test_returnOneComplexStatement(self):
         """
@@ -329,7 +313,6 @@ class SQLSplitterTests(TestCase):
         self.assertEquals(r1, bigSQL.rstrip(";"))
         self.assertRaises(StopIteration, result.next)
 
-
     def test_returnOnePlSQL(self):
         """
         One pl/sql block yields a single string
@@ -347,7 +330,6 @@ class SQLSplitterTests(TestCase):
         r1 = result.next()
         self.assertEquals(r1, s1)
         self.assertRaises(StopIteration, result.next)
-
 
     def test_returnOnePlSQLAndOneSQL(self):
         """
@@ -378,7 +360,6 @@ class SQLSplitterTests(TestCase):
         r2 = result.next()
         self.assertEquals(r2, s2)
         self.assertRaises(StopIteration, result.next)
-
 
     def test_returnOnePlSQLAndOneSQLAndOneFunction(self):
         """
@@ -420,7 +401,6 @@ class SQLSplitterTests(TestCase):
         r3 = result.next()
         self.assertEquals(r3, s3)
         self.assertRaises(StopIteration, result.next)
-
 
     def test_returnTwoPlSQLCreateOrReplace(self):
         """
@@ -481,7 +461,6 @@ open c1;fetch c1 into result;close c1;return result;end;"""
         r2 = result.next()
         self.assertEquals(r2, s2)
         self.assertRaises(StopIteration, result.next)
-
 
     def test_actualSchemaUpgrade(self):
         """

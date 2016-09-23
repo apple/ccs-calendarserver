@@ -22,6 +22,7 @@ from txdav.caldav.datastore.scheduling.caldav.delivery import ScheduleViaCalDAV
 
 import twistedcaldav.test.util
 
+
 class CalDAV (twistedcaldav.test.util.TestCase):
     """
     txdav.caldav.datastore.scheduling.caldav tests

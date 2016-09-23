@@ -38,6 +38,7 @@ from cStringIO import StringIO
 # Multipart MIME Reader
 #
 
+
 class MimeFormatError(Exception):
     pass
 
@@ -49,6 +50,7 @@ cd_regexp = re.compile(
     ' *form-data; *name="([^"]*)"(?:; *filename="(.*)")?$',
     re.IGNORECASE)
 
+
 def parseContentDispositionFormData(value):
     match = cd_regexp.match(value)
     if not match:
@@ -57,7 +59,6 @@ def parseContentDispositionFormData(value):
     name = match.group(1)
     filename = match.group(2)
     return name, filename
-
 
 
 # @defer.deferredGenerator
@@ -82,9 +83,9 @@ def _readHeaders(stream):
             else:
                 raise MimeFormatError("Header line too long")
 
-        line = line[:-2] # strip \r\n
+        line = line[:-2]  # strip \r\n
         if line == "":
-            break # End of headers
+            break  # End of headers
 
         parts = line.split(':', 1)
         if len(parts) != 2:
@@ -110,13 +111,15 @@ _readHeaders = defer.deferredGenerator(_readHeaders)
 
 
 class _BoundaryWatchingStream(object):
+
     def __init__(self, stream, boundary):
         self.stream = stream
         self.boundary = boundary
         self.data = ''
         self.deferred = defer.Deferred()
 
-    length = None # unknown
+    length = None  # unknown
+
     def read(self):
         if self.stream is None:
             if self.deferred is not None:
@@ -128,7 +131,6 @@ class _BoundaryWatchingStream(object):
         if isinstance(newdata, defer.Deferred):
             return newdata.addCallbacks(self._gotRead, self._gotError)
         return self._gotRead(newdata)
-
 
     def _gotRead(self, newdata):
         if not newdata:
@@ -154,7 +156,6 @@ class _BoundaryWatchingStream(object):
             self.stream = None
             return data[:off]
 
-
     def _gotError(self, err):
         # Propogate error back to MultipartMimeStream also
         if self.deferred is not None:
@@ -163,20 +164,18 @@ class _BoundaryWatchingStream(object):
             deferred.errback(err)
         return err
 
-
     def close(self):
         # Assume error will be raised again and handled by MMS?
         readAndDiscard(self).addErrback(lambda _: None)
 
 
-
 class MultipartMimeStream(object):
     implements(IStream)
+
     def __init__(self, stream, boundary):
         self.stream = BufferedStream(stream)
         self.boundary = "--" + boundary
         self.first = True
-
 
     def read(self):
         """
@@ -200,7 +199,6 @@ class MultipartMimeStream(object):
         d.addCallback(self._gotHeaders)
         return d
 
-
     def _readFirstBoundary(self):
         # print("_readFirstBoundary")
         line = self.stream.readline(size=1024)
@@ -215,7 +213,6 @@ class MultipartMimeStream(object):
         yield True
         return
     _readFirstBoundary = defer.deferredGenerator(_readFirstBoundary)
-
 
     def _readBoundaryLine(self):
         # print("_readBoundaryLine")
@@ -235,13 +232,11 @@ class MultipartMimeStream(object):
         return
     _readBoundaryLine = defer.deferredGenerator(_readBoundaryLine)
 
-
     def _doReadHeaders(self, morefields):
         # print("_doReadHeaders", morefields)
         if not morefields:
             return None
         return _readHeaders(self.stream)
-
 
     def _gotHeaders(self, headers):
         if headers is None:
@@ -253,15 +248,14 @@ class MultipartMimeStream(object):
         return tuple(ret)
 
 
-
 def readIntoFile(stream, outFile, maxlen):
     """Read the stream into a file, but not if it's longer than maxlen.
     Returns Deferred which will be triggered on finish.
     """
     curlen = [0]
+
     def done(_):
         return _
-
 
     def write(data):
         curlen[0] += len(data)
@@ -271,7 +265,6 @@ def readIntoFile(stream, outFile, maxlen):
 
         outFile.write(data)
     return readStream(stream, write).addBoth(done)
-
 
 
 # @defer.deferredGenerator
@@ -327,7 +320,6 @@ def parseMultipartFormData(stream, boundary,
             outfile.seek(0)
             files.setdefault(fieldname, []).append((filename, ctype, outfile))
 
-
     yield args, files
     return
 parseMultipartFormData = defer.deferredGenerator(parseMultipartFormData)
@@ -373,6 +365,7 @@ def parse_urlencoded_stream(
                 yield name, value
 parse_urlencoded_stream = generatorToStream(parse_urlencoded_stream)
 
+
 def parse_urlencoded(stream, maxMem=100 * 1024, maxFields=1024,
                      keep_blank_values=False, strict_parsing=False):
     d = {}
@@ -409,6 +402,7 @@ if __name__ == '__main__':
     from twext.python.log import Logger
     log = Logger()
     d.addErrback(log.err)
+
     def pr(s):
         print(s)
     d.addCallback(pr)

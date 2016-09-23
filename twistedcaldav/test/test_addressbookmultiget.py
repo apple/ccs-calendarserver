@@ -33,7 +33,6 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.xml import element as davxml
 
 
-
 class AddressBookMultiget (StoreTestCase):
     """
     addressbook-multiget REPORT
@@ -41,12 +40,10 @@ class AddressBookMultiget (StoreTestCase):
     data_dir = os.path.join(os.path.dirname(__file__), "data")
     vcards_dir = os.path.join(data_dir, "vCards")
 
-
     @inlineCallbacks
     def setUp(self):
         yield StoreTestCase.setUp(self)
         self.authPrincipal = yield self.actualRoot.findPrincipalForAuthID("wsanchez")
-
 
     def test_multiget_some_vcards(self):
         """
@@ -59,7 +56,6 @@ class AddressBookMultiget (StoreTestCase):
 
         return self.simple_vcard_multiget("/addressbook/", okuids, baduids)
 
-
     def test_multiget_all_vcards(self):
         """
         All vcards.
@@ -70,13 +66,13 @@ class AddressBookMultiget (StoreTestCase):
 
         return self.simple_vcard_multiget("/addressbook/", okuids, baduids)
 
-
     def test_multiget_limited_with_data(self):
         """
         All vcards.
         """
         oldValue = config.MaxMultigetWithDataHrefs
         config.MaxMultigetWithDataHrefs = 1
+
         def _restoreValueOK(f):
             config.MaxMultigetWithDataHrefs = oldValue
             self.fail("REPORT must fail with 403")
@@ -93,13 +89,13 @@ class AddressBookMultiget (StoreTestCase):
         d.addCallbacks(_restoreValueOK, _restoreValueError)
         return d
 
-
     def test_multiget_limited_no_data(self):
         """
         All vcards.
         """
         oldValue = config.MaxMultigetWithDataHrefs
         config.MaxMultigetWithDataHrefs = 1
+
         def _restoreValueOK(f):
             config.MaxMultigetWithDataHrefs = oldValue
             return None
@@ -113,7 +109,6 @@ class AddressBookMultiget (StoreTestCase):
         baduids = ["12345%40example.com", "67890%40example.com"]
 
         return self.simple_vcard_multiget("/addressbook/", okuids, baduids, withData=False)
-
 
     def simple_vcard_multiget(self, vcard_uri, okuids, baduids, data=None, no_init=False, withData=True):
 
@@ -204,7 +199,6 @@ class AddressBookMultiget (StoreTestCase):
                 self.fail("Some components were not returned: %r, %r" % (okuids, badhrefs))
 
         return self.addressbook_query(vcard_uri, query, got_xml, data, no_init)
-
 
     @inlineCallbacks
     def addressbook_query(self, addressbook_uri, query, got_xml, data, no_init):

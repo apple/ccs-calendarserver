@@ -48,7 +48,6 @@ from txdav.carddav.datastore.sql import AddressBook
 from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 
 
-
 class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
     """
     AddressBook SQL storage tests.
@@ -64,7 +63,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
             )
         )
         yield self.populate()
-
 
     @inlineCallbacks
     def populate(self):
@@ -86,7 +84,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         yield populateTxn.commit()
         self.notifierFactory.reset()
 
-
     @inlineCallbacks
     def assertAddressbooksSimilar(self, a, b, bAddressbookFilter=None):
         """
@@ -105,7 +102,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         self.assertEquals((yield namesAndComponents(a)),
                           (yield namesAndComponents(b, *extra)))
 
-
     def assertPropertiesSimilar(self, a, b, disregard=[]):
         """
         Assert that two objects with C{properties} methods have similar
@@ -121,7 +117,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
             return result
         self.assertEquals(sanitize(a), sanitize(b))
 
-
     def fileTransaction(self):
         """
         Create a file-backed addressbook transaction, for migration testing.
@@ -131,7 +126,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         txn = fileStore.newTransaction()
         self.addCleanup(txn.commit)
         return txn
-
 
     @inlineCallbacks
     def test_migrateAddressbookFromFile(self):
@@ -147,7 +141,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         yield _migrateAddressbook(fromAddressbook, toAddressbook,
                                   lambda x: x.component())
         yield self.assertAddressbooksSimilar(fromAddressbook, toAddressbook)
-
 
     @inlineCallbacks
     def test_migrateBadAddressbookFromFile(self):
@@ -165,7 +158,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
             fromAddressbook, toAddressbook, lambda x: x.component()))
         self.assertEqual(ok, 1)
         self.assertEqual(bad, 1)
-
 
     @inlineCallbacks
     def test_migrateHomeFromFile(self):
@@ -204,7 +196,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
             )
         self.assertPropertiesSimilar(fromHome, toHome,)
 
-
     @inlineCallbacks
     def test_addressBookHomeVersion(self):
         """
@@ -226,7 +217,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
             Where=ch.OWNER_UID == "home_version",
         ).on(txn))[0][0]
         self.assertEqual(int(homeVersion), int(version))
-
 
     @inlineCallbacks
     def test_homeProvisioningConcurrency(self):
@@ -265,7 +255,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
         @inlineCallbacks
         def _pause_home_uid1_1():
-            yield deferLater(reactor, 1.0, lambda : None)
+            yield deferLater(reactor, 1.0, lambda: None)
             yield txn1.commit()
         d2 = _pause_home_uid1_1()
 
@@ -282,7 +272,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
         self.assertNotEqual(home_uid1_1, None)
         self.assertNotEqual(home_uid1_2, None)
-
 
     @inlineCallbacks
     def test_putConcurrency(self):
@@ -350,7 +339,6 @@ END:VCARD
         yield d1
         yield d2
 
-
     @inlineCallbacks
     def test_notificationsProvisioningConcurrency(self):
         """
@@ -379,7 +367,7 @@ END:VCARD
 
         @inlineCallbacks
         def _pause_notification_uid1_1():
-            yield deferLater(reactor, 1.0, lambda : None)
+            yield deferLater(reactor, 1.0, lambda: None)
             yield txn1.commit()
         d2 = _pause_notification_uid1_1()
 
@@ -389,7 +377,6 @@ END:VCARD
 
         self.assertNotEqual(notification_uid1_1, None)
         self.assertNotEqual(notification_uid1_2, None)
-
 
     @inlineCallbacks
     def test_addressbookObjectUID(self):
@@ -435,7 +422,6 @@ END:VCARD
         yield home.removeAddressBookWithName("addressbook")
 
         yield txn.commit()
-
 
     @inlineCallbacks
     def test_addressbookObjectKind(self):
@@ -526,7 +512,6 @@ END:VCARD
 
         yield home.removeAddressBookWithName("addressbook")
         yield txn.commit()
-
 
     @inlineCallbacks
     def test_addressbookObjectMembers(self):
@@ -639,7 +624,6 @@ END:VCARD
         yield home.removeAddressBookWithName("addressbook")
         yield txn.commit()
 
-
     @inlineCallbacks
     def test_removeAddressBookPropertiesOnDelete(self):
         """
@@ -685,7 +669,6 @@ END:VCARD
         self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()
 
-
     @inlineCallbacks
     def test_removeAddressBookObjectPropertiesOnDelete(self):
         """
@@ -726,7 +709,6 @@ END:VCARD
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
         self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_directShareCreateConcurrency(self):
@@ -780,7 +762,6 @@ END:VCARD
         yield d2
 
         self.flushLoggedErrors()
-
 
     @inlineCallbacks
     def test_resourceLock(self):
@@ -844,7 +825,6 @@ END:VCARD
             self.fail("Expected an exception")
         self.assertFalse(resource2._locked)
 
-
     @inlineCallbacks
     def test_loadObjectResourcesWithName(self):
         """
@@ -879,7 +859,6 @@ END:VCARD
 
         yield self.commit()
 
-
     @inlineCallbacks
     def test_objectResourceWithID(self):
         """
@@ -892,7 +871,6 @@ END:VCARD
         obj = (yield self.addressbookObjectUnderTest())
         addressbookObject = (yield home.objectResourceWithID(obj._resourceID))
         self.assertNotEquals(addressbookObject, None)
-
 
     @inlineCallbacks
     def test_dataVersion(self):
@@ -922,7 +900,6 @@ END:VCARD
         yield self.commit()
 
 
-
 class SyncTests(CommonCommonTests, unittest.TestCase):
     """
     Revision table/sync report tests.
@@ -933,7 +910,6 @@ class SyncTests(CommonCommonTests, unittest.TestCase):
         yield super(SyncTests, self).setUp()
         yield self.buildStoreAndDirectory()
         yield self.populate()
-
 
     requirements = {
         "user01": {
@@ -946,12 +922,10 @@ class SyncTests(CommonCommonTests, unittest.TestCase):
         },
     }
 
-
     @inlineCallbacks
     def populate(self):
         yield populateAddressBooksFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
-
 
     @inlineCallbacks
     def test_updateAfterRevisionCleanup(self):
@@ -1014,7 +988,6 @@ END:VCARD
         self.assertTrue(obj is not None)
         yield self.commit()
 
-
     @inlineCallbacks
     def test_removeAfterRevisionCleanup(self):
         """
@@ -1067,7 +1040,6 @@ END:VCARD
         obj = yield self.addressbookObjectUnderTest(name="person.vcf", addressbook_name="addressbook", home="user01")
         self.assertTrue(obj is not None)
         yield self.commit()
-
 
     @inlineCallbacks
     def test_revisionModified(self):

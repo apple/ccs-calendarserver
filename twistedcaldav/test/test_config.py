@@ -16,7 +16,7 @@
 
 import socket
 
-from plistlib import writePlist #@UnresolvedImport
+from plistlib import writePlist  # @UnresolvedImport
 
 from twext.python.log import Logger
 
@@ -27,7 +27,6 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG, PListConfigProvider, \
 from twistedcaldav.test.util import TestCase
 
 from twisted.logger import LogLevel
-
 
 
 testConfig = """<?xml version="1.0" encoding="UTF-8"?>
@@ -127,13 +126,12 @@ testConfig = """<?xml version="1.0" encoding="UTF-8"?>
 """
 
 
-
 def _testResponseCompression(testCase):
     testCase.assertEquals(config.ResponseCompression, True)
 
 
-
 class ConfigTests(TestCase):
+
     def setUp(self):
         TestCase.setUp(self)
         config.setProvider(PListConfigProvider(DEFAULT_CONFIG))
@@ -141,11 +139,9 @@ class ConfigTests(TestCase):
         with open(self.testConfig, "w") as f:
             f.write(testConfig)
 
-
     def tearDown(self):
         config.setDefaults(DEFAULT_CONFIG)
         config.reset()
-
 
     def testDefaults(self):
         for key, value in DEFAULT_CONFIG.iteritems():
@@ -170,14 +166,12 @@ class ConfigTests(TestCase):
                 % (key, getattr(config, key), value)
             )
 
-
     def testLoadConfig(self):
         self.assertEquals(config.ResponseCompression, False)
 
         config.load(self.testConfig)
 
         self.assertEquals(config.ResponseCompression, True)
-
 
     def testScoping(self):
         self.assertEquals(config.ResponseCompression, False)
@@ -188,11 +182,9 @@ class ConfigTests(TestCase):
 
         _testResponseCompression(self)
 
-
     def _myUpdateHook(self, data, reloading=False):
         # A stub hook to record the value of reloading=
         self._reloadingValue = reloading
-
 
     def testReloading(self):
         self.assertEquals(config.HTTPPort, 0)
@@ -212,7 +204,6 @@ class ConfigTests(TestCase):
 
         self.assertEquals(config.HTTPPort, 0)
 
-
     def testUpdateAndReload(self):
         self.assertEquals(config.HTTPPort, 0)
 
@@ -227,7 +218,6 @@ class ConfigTests(TestCase):
         config.reload()
 
         self.assertEquals(config.HTTPPort, 8008)
-
 
     def testPreserveAcrossReload(self):
         self.assertEquals(config.Scheduling.iMIP.Sending.Password, "")
@@ -245,7 +235,6 @@ class ConfigTests(TestCase):
         self.assertEquals(config.Scheduling.iMIP.Sending.Password, "sending")
         self.assertEquals(config.Scheduling.iMIP.Receiving.Password, "receiving")
 
-
     def testSetAttr(self):
         self.assertNotIn("BindAddresses", config.__dict__)
 
@@ -254,7 +243,6 @@ class ConfigTests(TestCase):
         self.assertNotIn("BindAddresses", config.__dict__)
 
         self.assertEquals(config.BindAddresses, ["127.0.0.1"])
-
 
     def testDirty(self):
         config.__dict__["_dirty"] = False
@@ -269,7 +257,6 @@ class ConfigTests(TestCase):
         config._foo = "bar"
         self.assertEquals(config.__dict__["_dirty"], False)
 
-
     def testUpdating(self):
         self.assertEquals(config.SSLPort, 0)
 
@@ -277,14 +264,12 @@ class ConfigTests(TestCase):
 
         self.assertEquals(config.SSLPort, 8443)
 
-
     def testMerge(self):
         self.assertEquals(config.MultiProcess.StaggeredStartup.Enabled, False)
 
         config.update({"MultiProcess": {}})
 
         self.assertEquals(config.MultiProcess.StaggeredStartup.Enabled, False)
-
 
     def testDirectoryService_noChange(self):
         self.assertEquals(config.DirectoryService.type, "xml")
@@ -295,7 +280,6 @@ class ConfigTests(TestCase):
         self.assertEquals(config.DirectoryService.type, "xml")
         self.assertEquals(config.DirectoryService.params.xmlFile, "accounts.xml")
 
-
     def testDirectoryService_sameType(self):
         self.assertEquals(config.DirectoryService.type, "xml")
         self.assertEquals(config.DirectoryService.params.xmlFile, "accounts.xml")
@@ -304,7 +288,6 @@ class ConfigTests(TestCase):
 
         self.assertEquals(config.DirectoryService.type, "xml")
         self.assertEquals(config.DirectoryService.params.xmlFile, "accounts.xml")
-
 
     def testDirectoryService_newType(self):
         self.assertEquals(config.DirectoryService.type, "xml")
@@ -316,7 +299,6 @@ class ConfigTests(TestCase):
         self.assertNotIn("xmlFile", config.DirectoryService.params)
         self.assertEquals(config.DirectoryService.params.node, "/Search")
 
-
     def testDirectoryService_newParam(self):
         self.assertEquals(config.DirectoryService.type, "xml")
         self.assertEquals(config.DirectoryService.params.xmlFile, "accounts.xml")
@@ -325,7 +307,6 @@ class ConfigTests(TestCase):
 
         self.assertEquals(config.DirectoryService.type, "opendirectory")
         self.assertEquals(config.DirectoryService.params.node, "/Search")
-
 
     def testDirectoryService_unknownType(self):
         self.assertEquals(config.DirectoryService.type, "xml")
@@ -355,12 +336,10 @@ class ConfigTests(TestCase):
 
         config.updateDefaults({"SSLPort": 0})
 
-
     def testMergeDefaults(self):
         config.updateDefaults({"MultiProcess": {}})
 
         self.assertEquals(config._provider.getDefaults().MultiProcess.StaggeredStartup.Enabled, False)
-
 
     def testSetDefaults(self):
         config.updateDefaults({"SSLPort": 8443})
@@ -371,12 +350,10 @@ class ConfigTests(TestCase):
 
         self.assertEquals(config.SSLPort, 0)
 
-
     def testCopiesDefaults(self):
         config.updateDefaults({"Foo": "bar"})
 
         self.assertNotIn("Foo", DEFAULT_CONFIG)
-
 
     def testComplianceClasses(self):
         resource = CalDAVResource()
@@ -400,7 +377,6 @@ class ConfigTests(TestCase):
         self.assertTrue("calendarserver-group-attendee" not in resource.davComplianceClasses())
         config.GroupAttendees.Enabled = True
         config.update()
-
 
     def test_logging(self):
         """
@@ -428,7 +404,6 @@ class ConfigTests(TestCase):
 
         self.assertEquals(Logger.filterPredicate.logLevelForNamespace(None), defaultLogLevel)
         self.assertEquals(Logger.filterPredicate.logLevelForNamespace("some.namespace"), defaultLogLevel)
-
 
     def test_ConfigDict(self):
         configDict = ConfigDict({
@@ -479,33 +454,32 @@ class ConfigTests(TestCase):
         configDict._x = "X"
         self.assertEquals(configDict._x, "X")
 
-
     def test_mergeData(self):
         """
         Verify we don't lose keys which are present in the old but not
         replaced in the new.
         """
         old = ConfigDict({
-            "Scheduling" : ConfigDict({
-                "iMIP" : ConfigDict({
-                    "Enabled" : True,
-                    "Receiving" : ConfigDict({
-                        "Username" : "xyzzy",
-                        "Server" : "example.com",
+            "Scheduling": ConfigDict({
+                "iMIP": ConfigDict({
+                    "Enabled": True,
+                    "Receiving": ConfigDict({
+                        "Username": "xyzzy",
+                        "Server": "example.com",
                     }),
-                    "Sending" : ConfigDict({
-                        "Username" : "plugh",
+                    "Sending": ConfigDict({
+                        "Username": "plugh",
                     }),
-                    "AddressPatterns" : ["mailto:.*"],
+                    "AddressPatterns": ["mailto:.*"],
                 }),
             }),
         })
         new = ConfigDict({
-            "Scheduling" : ConfigDict({
-                "iMIP" : ConfigDict({
-                    "Enabled" : False,
-                    "Receiving" : ConfigDict({
-                        "Username" : "changed",
+            "Scheduling": ConfigDict({
+                "iMIP": ConfigDict({
+                    "Enabled": False,
+                    "Receiving": ConfigDict({
+                        "Username": "changed",
                     }),
                 }),
             }),
@@ -513,7 +487,6 @@ class ConfigTests(TestCase):
         mergeData(old, new)
         self.assertEquals(old.Scheduling.iMIP.Receiving.Server, "example.com")
         self.assertEquals(old.Scheduling.iMIP.Sending.Username, "plugh")
-
 
     def test_SimpleInclude(self):
 
@@ -579,7 +552,6 @@ class ConfigTests(TestCase):
         config.load(self.testMaster)
         self.assertEquals(config.HTTPPort, 9008)
         self.assertEquals(config.SSLPort, 8443)
-
 
     def test_FQDNInclude(self):
 
@@ -647,7 +619,6 @@ class ConfigTests(TestCase):
         self.assertEquals(config.HTTPPort, 9008)
         self.assertEquals(config.SSLPort, 8443)
 
-
     def test_HostnameInclude(self):
 
         testConfigMaster = """<?xml version="1.0" encoding="UTF-8"?>
@@ -713,7 +684,6 @@ class ConfigTests(TestCase):
         config.load(self.testMaster)
         self.assertEquals(config.HTTPPort, 9008)
         self.assertEquals(config.SSLPort, 8443)
-
 
     def testSyncToken(self):
         config.load(self.testConfig)

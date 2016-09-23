@@ -53,7 +53,6 @@ def usage(e=None):
         sys.exit(0)
 
 
-
 class MonitorAMPNotifications(WorkerService):
 
     ids = []
@@ -63,13 +62,11 @@ class MonitorAMPNotifications(WorkerService):
     def doWork(self):
         return monitorAMPNotifications(self.hostname, self.port, self.ids)
 
-
     def postStartService(self):
         """
         Don't quit right away
         """
         pass
-
 
 
 def main():
@@ -128,11 +125,9 @@ def main():
     )
 
 
-
 def notificationCallback(id, dataChangedTimestamp, priority):
     print("Received notification for:", id, "Priority", priority)
     return succeed(True)
-
 
 
 @inlineCallbacks

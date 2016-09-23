@@ -45,7 +45,6 @@ log = Logger()
 VERSION = "1"
 
 
-
 def usage(e=None):
     if e:
         print(e)
@@ -71,10 +70,8 @@ description = ''.join(
 description += "\nVersion: %s" % (VERSION,)
 
 
-
 class ConfigError(Exception):
     pass
-
 
 
 class PodMigrationOptions(Options):
@@ -107,7 +104,6 @@ class PodMigrationOptions(Options):
         super(PodMigrationOptions, self).__init__()
         self.outputName = '-'
 
-
     def opt_output(self, filename):
         """
         Specify output file path (default: '-', meaning stdout).
@@ -115,7 +111,6 @@ class PodMigrationOptions(Options):
         self.outputName = filename
 
     opt_o = opt_output
-
 
     def openOutput(self):
         """
@@ -125,7 +120,6 @@ class PodMigrationOptions(Options):
             return sys.stdout
         else:
             return open(self.outputName, 'wb')
-
 
     def postOptions(self):
         runstep = None
@@ -143,7 +137,6 @@ class PodMigrationOptions(Options):
             raise UsageError("A uid is required")
 
 
-
 class PodMigrationService(WorkerService, object):
     """
     Service which runs, does its stuff, then stops the reactor.
@@ -156,7 +149,6 @@ class PodMigrationService(WorkerService, object):
         self.reactor = reactor
         self.config = config
         TimezoneCache.create()
-
 
     @inlineCallbacks
     def doWork(self):
@@ -180,7 +172,6 @@ class PodMigrationService(WorkerService, object):
         except:
             log.failure("doWork()")
 
-
     @inlineCallbacks
     def step1(self):
         syncer = CrossPodHomeSync(
@@ -190,7 +181,6 @@ class PodMigrationService(WorkerService, object):
         )
         syncer.accounting("Pod Migration Step 1\n")
         yield syncer.sync()
-
 
     @inlineCallbacks
     def step2(self):
@@ -202,7 +192,6 @@ class PodMigrationService(WorkerService, object):
         syncer.accounting("Pod Migration Step 2\n")
         yield syncer.sync()
 
-
     @inlineCallbacks
     def step3(self):
         syncer = CrossPodHomeSync(
@@ -212,7 +201,6 @@ class PodMigrationService(WorkerService, object):
         )
         syncer.accounting("Pod Migration Step 3\n")
         yield syncer.disableRemoteHome()
-
 
     @inlineCallbacks
     def step4(self):
@@ -225,7 +213,6 @@ class PodMigrationService(WorkerService, object):
         syncer.accounting("Pod Migration Step 4\n")
         yield syncer.sync()
 
-
     @inlineCallbacks
     def step5(self):
         syncer = CrossPodHomeSync(
@@ -237,7 +224,6 @@ class PodMigrationService(WorkerService, object):
         syncer.accounting("Pod Migration Step 5\n")
         yield syncer.finalSync()
 
-
     @inlineCallbacks
     def step6(self):
         syncer = CrossPodHomeSync(
@@ -247,7 +233,6 @@ class PodMigrationService(WorkerService, object):
         )
         syncer.accounting("Pod Migration Step 6\n")
         yield syncer.enableLocalHome()
-
 
     @inlineCallbacks
     def step7(self):
@@ -259,7 +244,6 @@ class PodMigrationService(WorkerService, object):
         )
         syncer.accounting("Pod Migration Step 7\n")
         yield syncer.removeRemoteHome()
-
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
@@ -280,7 +264,6 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     except IOError, e:
         stderr.write("Unable to open output file for writing: %s\n" % (e))
         sys.exit(1)
-
 
     def makeService(store):
         from twistedcaldav.config import config

@@ -32,7 +32,6 @@ import os
 import plistlib
 
 
-
 class DTraceBug(Exception):
     """
     Represents some kind of problem related to a shortcoming in dtrace
@@ -40,22 +39,19 @@ class DTraceBug(Exception):
     """
 
 
-
 class IOMeasureConsumer(ProcessProtocol):
+
     def __init__(self, started, done, parser):
         self.started = started
         self.done = done
         self.parser = parser
 
-
     def connectionMade(self):
         self._out = ''
         self._err = ''
 
-
     def mark(self):
         return self.parser.mark()
-
 
     def errReceived(self, bytes):
         self._err += bytes
@@ -63,7 +59,6 @@ class IOMeasureConsumer(ProcessProtocol):
             started = self.started
             self.started = None
             started.errback(DTraceBug(self._err))
-
 
     def outReceived(self, bytes):
         if self.started is None:
@@ -77,7 +72,6 @@ class IOMeasureConsumer(ProcessProtocol):
                 self.started = None
                 started.callback(None)
 
-
     def processEnded(self, reason):
         if self.started is None:
             self.done.callback(None)
@@ -85,10 +79,8 @@ class IOMeasureConsumer(ProcessProtocol):
             self.started.errback(RuntimeError("Exited too soon: %r/%r" % (self._out, self._err)))
 
 
-
 def masterPID(directory):
     return int(directory.child('caldavd.pid').getContent())
-
 
 
 def instancePIDs(directory):
@@ -101,7 +93,6 @@ def instancePIDs(directory):
     return pids
 
 
-
 class _DTraceParser(LineReceiver):
     delimiter = '\n\1'
 
@@ -112,7 +103,6 @@ class _DTraceParser(LineReceiver):
     def __init__(self, collector):
         self.collector = collector
 
-
     def lineReceived(self, dtrace):
         # dtrace puts some extra newlines in the output sometimes.  Get rid of them.
         dtrace = dtrace.strip()
@@ -120,18 +110,15 @@ class _DTraceParser(LineReceiver):
             op, rest = dtrace.split(None, 1)
             getattr(self, '_op_' + op)(op, rest)
 
-
     def mark(self):
         self._marked = Deferred()
         return self._marked
-
 
     def _op_MARK(self, cmd, rest):
         marked = self._marked
         self._marked = None
         if marked is not None:
             marked.callback(None)
-
 
     def _op_EXECUTE(self, cmd, rest):
         try:
@@ -172,26 +159,22 @@ class _DTraceParser(LineReceiver):
     def _op_B_READ(self, cmd, rest):
         self.collector._bread.append(int(rest))
 
-
     def _op_B_WRITE(self, cmd, rest):
         self.collector._bwrite.append(int(rest))
 
-
     def _op_READ(self, cmd, rest):
         self.collector._read.append(int(rest))
-
 
     def _op_WRITE(self, cmd, rest):
         self.collector._write.append(int(rest))
 
 
-
 class DTraceCollector(object):
+
     def __init__(self, script, pids):
         self._dScript = script
         self.pids = pids
         self._init_stats()
-
 
     def _init_stats(self):
         self._bread = []
@@ -201,20 +184,18 @@ class DTraceCollector(object):
         self._execute = []
         self._iternext = []
 
-
     def stats(self):
         results = {
             Bytes('pagein'): self._bread,
             Bytes('pageout'): self._bwrite,
             Bytes('read'): self._read,
             Bytes('write'): self._write,
-            SQLDuration('execute'): self._execute, # Time spent in the execute phase of SQL execution
-            SQLDuration('iternext'): self._iternext, # Time spent fetching rows from the execute phase
-            SQLDuration('SQL'): self._execute + self._iternext, # Combination of the previous two
+            SQLDuration('execute'): self._execute,  # Time spent in the execute phase of SQL execution
+            SQLDuration('iternext'): self._iternext,  # Time spent fetching rows from the execute phase
+            SQLDuration('SQL'): self._execute + self._iternext,  # Combination of the previous two
         }
         self._init_stats()
         return results
-
 
     def start(self):
         ready = []
@@ -242,7 +223,6 @@ class DTraceCollector(object):
             self.finished.append(stopped)
 
         return gatherResults(ready)
-
 
     def _startDTrace(self, script, pid):
         """
@@ -276,10 +256,12 @@ class DTraceCollector(object):
             command.extend(["-p", str(pid)])
 
         process = reactor.spawnProcess(proto, command[0], command)
+
         def eintr(reason):
             reason.trap(DTraceBug)
             msg('Dtrace startup failed (%s), retrying.' % (reason.getErrorMessage().strip(),))
             return self._startDTrace(script, pid)
+
         def ready(passthrough):
             # Once the dtrace process is ready, save the state and
             # have the stopped Deferred deal with the results.  We
@@ -292,11 +274,9 @@ class DTraceCollector(object):
         started.addCallbacks(ready, eintr)
         return started, stopped
 
-
     def _cleanup(self, passthrough, pid):
         del self.dtraces[pid]
         return passthrough
-
 
     def mark(self):
         marks = []
@@ -311,14 +291,12 @@ class DTraceCollector(object):
             pass
         return d
 
-
     def stop(self):
         for (process, _ignore_protocol) in self.dtraces.itervalues():
             process.signalProcess(SIGINT)
         d = gatherResults(self.finished)
         d.addCallback(lambda ign: self.stats())
         return d
-
 
 
 @inlineCallbacks
@@ -347,13 +325,11 @@ def benchmark(host, port, pids, label, scalingParameters, benchmarks):
     fObj.close()
 
 
-
 def logsCoerce(directory):
     path = FilePath(directory)
     if not path.isdir():
         raise ValueError("%r is not a directory" % (path.path,))
     return path
-
 
 
 class BenchmarkOptions(Options):
@@ -380,7 +356,6 @@ class BenchmarkOptions(Options):
         Options.__init__(self)
         self['parameters'] = {}
 
-
     def _selectBenchmarks(self, benchmarks):
         """
         Select the benchmarks to run, based on those named and on the
@@ -404,7 +379,6 @@ class BenchmarkOptions(Options):
                 if i % self['hosts-count'] == self['host-index']]
         return benchmarks
 
-
     def opt_parameters(self, which):
         """
         Specify the scaling parameters for a particular benchmark.
@@ -417,12 +391,10 @@ class BenchmarkOptions(Options):
         values = map(int, values.split(','))
         self['parameters'][benchmark] = values
 
-
     def parseArgs(self, *benchmarks):
         if not benchmarks:
             raise UsageError("Specify at least one benchmark")
         self['benchmarks'] = self._selectBenchmarks(list(benchmarks))
-
 
 
 def whichPIDs(source, conf):
@@ -435,12 +407,13 @@ def whichPIDs(source, conf):
 
 
 _benchmarks = getModule("contrib.performance.benchmarks")
+
+
 def resolveBenchmark(name):
     for module in _benchmarks.iterModules():
         if module.name == ".".join((_benchmarks.name, name)):
             return module.load()
     raise ValueError("Unknown benchmark: %r" % (name,))
-
 
 
 def main():

@@ -32,6 +32,7 @@ from txweb2.dav.test.util import Site
 from txdav.xml import element as davxml
 import os
 
+
 class QuotaBase(txweb2.dav.test.util.TestCase):
 
     def createDocumentRoot(self):
@@ -43,7 +44,6 @@ class QuotaBase(txweb2.dav.test.util.TestCase):
         self.site.resource.setQuotaRoot(None, 100000)
         return docroot
 
-
     def checkQuota(self, value):
         def _defer(quota):
             self.assertEqual(quota, value)
@@ -53,13 +53,11 @@ class QuotaBase(txweb2.dav.test.util.TestCase):
         return d
 
 
-
 class QuotaEmpty(QuotaBase):
 
     def test_Empty_Quota(self):
 
         return self.checkQuota(0)
-
 
 
 class QuotaPUT(QuotaBase):
@@ -82,7 +80,6 @@ class QuotaPUT(QuotaBase):
         request = SimpleRequest(self.site, "PUT", dst_uri)
         request.stream = FileStream(file(os.path.join(os.path.dirname(__file__), "data", "quota_100.txt"), "rb"))
         return self.send(request, checkResult)
-
 
 
 class QuotaDELETE(QuotaBase):
@@ -122,7 +119,6 @@ class QuotaDELETE(QuotaBase):
         return self.send(request, checkPUTResult)
 
 
-
 class OverQuotaPUT(QuotaBase):
 
     def test_Quota_PUT(self):
@@ -145,7 +141,6 @@ class OverQuotaPUT(QuotaBase):
         request = SimpleRequest(self.site, "PUT", dst_uri)
         request.stream = FileStream(file(os.path.join(os.path.dirname(__file__), "data", "quota_100.txt"), "rb"))
         return self.send(request, checkResult)
-
 
 
 class QuotaOKAdjustment(QuotaBase):
@@ -178,7 +173,6 @@ class QuotaOKAdjustment(QuotaBase):
         request = SimpleRequest(self.site, "PUT", dst_uri)
         request.stream = FileStream(file(os.path.join(os.path.dirname(__file__), "data", "quota_100.txt"), "rb"))
         return self.send(request, checkPUTResult)
-
 
 
 class QuotaBadAdjustment(QuotaBase):

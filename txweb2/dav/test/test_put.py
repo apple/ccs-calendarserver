@@ -34,10 +34,12 @@ import txweb2.dav.test.util
 from txweb2.test.test_server import SimpleRequest
 from txweb2.dav.test.util import serialize
 
+
 class PUT(txweb2.dav.test.util.TestCase):
     """
     PUT request
     """
+
     def test_PUT_simple(self):
         """
         PUT request
@@ -90,7 +92,6 @@ class PUT(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work())
 
-
     def test_PUT_again(self):
         """
         PUT on existing resource with If-None-Match header
@@ -131,7 +132,6 @@ class PUT(txweb2.dav.test.util.TestCase):
                 yield (request, (checkResult, onError))
 
         return serialize(self.send, work())
-
 
     def test_PUT_no_parent(self):
         """

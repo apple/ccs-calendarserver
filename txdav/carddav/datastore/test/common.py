@@ -109,8 +109,7 @@ END:VCARD
 )
 
 
-
-vcard4notCardDAV_text = (# Missing UID, N and FN
+vcard4notCardDAV_text = (  # Missing UID, N and FN
     """BEGIN:VCARD
 VERSION:3.0
 EMAIL;type=INTERNET;type=WORK;type=pref:lthompson@example.com
@@ -121,7 +120,6 @@ item1.X-ABADR:us
 END:VCARD
 """.replace("\n", "\r\n")
 )
-
 
 
 vcard1modified_text = vcard4_text.replace(
@@ -203,7 +201,6 @@ class CommonTests(CommonCommonTests):
         },
     }
 
-
     def homeUnderTest(self, txn=None, name=None):
         """
         Get the addressbook home detailed by C{requirements['home1']}.
@@ -213,7 +210,6 @@ class CommonTests(CommonCommonTests):
             if txn
             else self.transactionUnderTest().addressbookHomeWithUID(name if name else "home1")
         )
-
 
     @inlineCallbacks
     def addressbookUnderTest(self, txn=None, name=None, home="home1"):
@@ -225,7 +221,6 @@ class CommonTests(CommonCommonTests):
             .addressbookWithName(name if name else "addressbook")
         ))
 
-
     @inlineCallbacks
     def addressbookObjectUnderTest(self, txn=None, name=None, addressbook_name="addressbook", home="home1"):
         """
@@ -233,8 +228,7 @@ class CommonTests(CommonCommonTests):
         C{requirements['home1']['addressbook']['1.vcf']}.
         """
         returnValue((yield (yield self.addressbookUnderTest(txn=txn, name=addressbook_name, home=home))
-                    .addressbookObjectWithName(name if name else "1.vcf")))
-
+                     .addressbookObjectWithName(name if name else "1.vcf")))
 
     def test_addressbookStoreProvides(self):
         """
@@ -243,7 +237,6 @@ class CommonTests(CommonCommonTests):
         """
         addressbookStore = self.storeUnderTest()
         self.assertProvides(IDataStore, addressbookStore)
-
 
     def test_transactionProvides(self):
         """
@@ -254,7 +247,6 @@ class CommonTests(CommonCommonTests):
         self.assertProvides(ICommonTransaction, txn)
         self.assertProvides(IAddressBookTransaction, txn)
 
-
     @inlineCallbacks
     def test_homeProvides(self):
         """
@@ -263,7 +255,6 @@ class CommonTests(CommonCommonTests):
         """
         self.assertProvides(IAddressBookHome, (yield self.homeUnderTest()))
 
-
     @inlineCallbacks
     def test_addressbookProvides(self):
         """
@@ -271,7 +262,6 @@ class CommonTests(CommonCommonTests):
         its required attributes.
         """
         self.assertProvides(IAddressBook, (yield self.addressbookUnderTest()))
-
 
     @inlineCallbacks
     def test_addressbookObjectProvides(self):
@@ -282,14 +272,12 @@ class CommonTests(CommonCommonTests):
         self.assertProvides(IAddressBookObject,
                             (yield self.addressbookObjectUnderTest()))
 
-
     @inlineCallbacks
     def test_notifierID(self):
         home = yield self.homeUnderTest()
         self.assertEquals(home.notifierID(), ("CardDAV", "home1",))
         addressbook = yield home.addressbookWithName("addressbook")
         self.assertEquals(addressbook.notifierID(), ("CardDAV", "home1/addressbook",))
-
 
     @inlineCallbacks
     def test_addressbookHomeWithUID_exists(self):
@@ -305,7 +293,6 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(addressbookHome.uid(), "home1")
         self.assertProvides(IAddressBookHome, addressbookHome)
 
-
     @inlineCallbacks
     def test_addressbookHomeWithUID_absent(self):
         """
@@ -314,7 +301,6 @@ class CommonTests(CommonCommonTests):
         """
         txn = self.transactionUnderTest()
         self.assertEquals((yield txn.addressbookHomeWithUID("xyzzy")), None)
-
 
     @inlineCallbacks
     def test_addressbookWithName_exists(self):
@@ -330,7 +316,6 @@ class CommonTests(CommonCommonTests):
             self.assertProvides(IAddressBook, addressbook)
             self.assertEquals(addressbook.name(), name)
 
-
     @inlineCallbacks
     def test_addressbookRename(self):
         """
@@ -343,7 +328,6 @@ class CommonTests(CommonCommonTests):
         except HTTPError, e:
             self.assertEquals(e.response.code, FORBIDDEN)
 
-
     @inlineCallbacks
     def test_addressbookWithName_absent(self):
         """
@@ -353,7 +337,6 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             (yield (yield self.homeUnderTest()).addressbookWithName("xyzzy")),
             None)
-
 
     @inlineCallbacks
     def test_createAddressBookWithName_absent(self):
@@ -373,7 +356,6 @@ class CommonTests(CommonCommonTests):
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = yield self.homeUnderTest()
         self.assertNotIdentical((yield home.addressbookWithName(name)), None)
-
 
     @inlineCallbacks
     def test_removeAddressBookWithName_exists(self):
@@ -401,7 +383,6 @@ class CommonTests(CommonCommonTests):
 
         yield self.commit()
 
-
     @inlineCallbacks
     def test_removeAddressBookWithName_absent(self):
         """
@@ -412,7 +393,6 @@ class CommonTests(CommonCommonTests):
             maybeDeferred(home.removeAddressBookWithName, "xyzzy"),
             NoSuchHomeChildError
         )
-
 
     @inlineCallbacks
     def test_addressbookObjects(self):
@@ -435,7 +415,6 @@ class CommonTests(CommonCommonTests):
             set(addressbook1_objectNames)
         )
 
-
     @inlineCallbacks
     def test_addressbookObjectsWithRemovedObject(self):
         """
@@ -450,7 +429,6 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(set(o.name() for o in addressbookObjects),
                           set(addressbook1_objectNames) - set(["2.vcf"]))
 
-
     @inlineCallbacks
     def test_ownerAddressBookHome(self):
         """
@@ -460,7 +438,6 @@ class CommonTests(CommonCommonTests):
             (yield self.addressbookUnderTest()).ownerAddressBookHome().uid(),
             (yield self.homeUnderTest()).uid()
         )
-
 
     @inlineCallbacks
     def test_addressbookObjectWithName_exists(self):
@@ -475,7 +452,6 @@ class CommonTests(CommonCommonTests):
             self.assertEquals(addressbookObject.name(), name)
             # FIXME: add more tests based on CommonTests.requirements
 
-
     @inlineCallbacks
     def test_addressbookObjectWithName_absent(self):
         """
@@ -484,7 +460,6 @@ class CommonTests(CommonCommonTests):
         """
         addressbook1 = yield self.addressbookUnderTest()
         self.assertEquals((yield addressbook1.addressbookObjectWithName("xyzzy")), None)
-
 
     @inlineCallbacks
     def test_AddressBookObject_remove_exists(self):
@@ -509,7 +484,6 @@ class CommonTests(CommonCommonTests):
                 None
             )
 
-
     @inlineCallbacks
     def test_AddressBookObject_remove(self):
         """
@@ -532,14 +506,12 @@ class CommonTests(CommonCommonTests):
             ])
         )
 
-
     @inlineCallbacks
     def test_addressbookName(self):
         """
         L{AddressBook.name} reflects the name of the addressbook.
         """
         self.assertEquals((yield self.addressbookUnderTest()).name(), "addressbook")
-
 
     @inlineCallbacks
     def test_addressbookObjectName(self):
@@ -549,7 +521,6 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             (yield self.addressbookObjectUnderTest()).name(),
             "1.vcf")
-
 
     @inlineCallbacks
     def test_addressbookObjectMetaData(self):
@@ -564,7 +535,6 @@ class CommonTests(CommonCommonTests):
         self.assertIsInstance(adbk.size(), int)
         self.assertIsInstance(adbk.created(), int)
         self.assertIsInstance(adbk.modified(), int)
-
 
     @inlineCallbacks
     def test_component(self):
@@ -582,7 +552,6 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(component.name(), "VCARD")
         self.assertEquals(component.resourceUID(), "uid1")
 
-
     @inlineCallbacks
     def test_iAddressBookText(self):
         """
@@ -595,7 +564,6 @@ class CommonTests(CommonCommonTests):
         self.assertIn("\r\nUID:uid1\r\n", text)
         self.failUnless(text.endswith("\r\nEND:VCARD\r\n"))
 
-
     @inlineCallbacks
     def test_addressbookObjectUID(self):
         """
@@ -603,7 +571,6 @@ class CommonTests(CommonCommonTests):
         of the addressbook object's component.
         """
         self.assertEquals((yield self.addressbookObjectUnderTest()).uid(), "uid1")
-
 
     @inlineCallbacks
     def test_addressbookObjectWithUID_absent(self):
@@ -616,7 +583,6 @@ class CommonTests(CommonCommonTests):
             (yield addressbook1.addressbookObjectWithUID("xyzzy")),
             None
         )
-
 
     @inlineCallbacks
     def test_addressbooks(self):
@@ -642,7 +608,6 @@ class CommonTests(CommonCommonTests):
             set(home1_addressbookNames)
         )
 
-
     @inlineCallbacks
     def test_loadAllAddressBooks(self):
         """
@@ -667,7 +632,6 @@ class CommonTests(CommonCommonTests):
 
         for c in addressbooks:
             self.assertTrue(c.properties() is not None)
-
 
     @inlineCallbacks
     def test_createAddressBookObjectWithName_absent(self):
@@ -695,7 +659,6 @@ class CommonTests(CommonCommonTests):
 
         yield self.commit()
 
-
     @inlineCallbacks
     def test_createAddressBookObjectWithName_exists(self):
         """
@@ -709,7 +672,6 @@ class CommonTests(CommonCommonTests):
                 "1.vcf", VComponent.fromString(vcard4_text)),
             ObjectResourceNameAlreadyExistsError
         )
-
 
     @inlineCallbacks
     def test_createAddressBookObjectWithName_invalidName(self):
@@ -725,7 +687,6 @@ class CommonTests(CommonCommonTests):
             ObjectResourceNameNotAllowedError
         )
 
-
     @inlineCallbacks
     def test_createAddressBookObjectWithName_longName(self):
         """
@@ -739,7 +700,6 @@ class CommonTests(CommonCommonTests):
                 "A" * 256 + ".vcf", VComponent.fromString(vcard4_text)),
             ObjectResourceNameNotAllowedError
         )
-
 
     @inlineCallbacks
     def test_createAddressBookObjectWithName_invalid(self):
@@ -757,7 +717,6 @@ class CommonTests(CommonCommonTests):
             InvalidObjectResourceError
         )
 
-
     @inlineCallbacks
     def test_setComponent_invalid(self):
         """
@@ -772,7 +731,6 @@ class CommonTests(CommonCommonTests):
             ),
             InvalidObjectResourceError
         )
-
 
     @inlineCallbacks
     def test_setComponent_uidchanged(self):
@@ -789,7 +747,6 @@ class CommonTests(CommonCommonTests):
             InvalidObjectResourceError, InvalidUIDError,
         )
 
-
     @inlineCallbacks
     def test_addressbookHomeWithUID_create(self):
         """
@@ -802,6 +759,7 @@ class CommonTests(CommonCommonTests):
             noHomeUID,
             create=True
         )
+
         @inlineCallbacks
         def readOtherTxn():
             otherTxn = self.savedStore.newTransaction()
@@ -813,7 +771,6 @@ class CommonTests(CommonCommonTests):
         yield self.commit()
         # But once it's committed, other transactions should see it.
         self.assertProvides(IAddressBookHome, (yield readOtherTxn()))
-
 
     @inlineCallbacks
     def test_setComponent(self):
@@ -845,7 +802,6 @@ class CommonTests(CommonCommonTests):
 
         yield self.commit()
 
-
     def checkPropertiesMethod(self, thunk):
         """
         Verify that the given object has a properties method that returns an
@@ -854,14 +810,12 @@ class CommonTests(CommonCommonTests):
         properties = thunk.properties()
         self.assertProvides(IPropertyStore, properties)
 
-
     @inlineCallbacks
     def test_homeProperties(self):
         """
         L{IAddressBookHome.properties} returns a property store.
         """
         self.checkPropertiesMethod((yield self.homeUnderTest()))
-
 
     @inlineCallbacks
     def test_addressbookProperties(self):
@@ -870,14 +824,12 @@ class CommonTests(CommonCommonTests):
         """
         self.checkPropertiesMethod((yield self.addressbookUnderTest()))
 
-
     @inlineCallbacks
     def test_addressbookObjectProperties(self):
         """
         L{IAddressBookObject.properties} returns a property store.
         """
         self.checkPropertiesMethod((yield self.addressbookObjectUnderTest()))
-
 
     @inlineCallbacks
     def test_newAddressBookObjectProperties(self):
@@ -891,7 +843,6 @@ class CommonTests(CommonCommonTests):
         )
         newEvent = yield addressbook.addressbookObjectWithName("4.vcf")
         self.assertEquals(newEvent.properties().items(), [])
-
 
     @inlineCallbacks
     def test_setComponentPreservesProperties(self):
@@ -938,7 +889,6 @@ class CommonTests(CommonCommonTests):
                 propertyContent
             )
 
-
     @inlineCallbacks
     def test_dontLeakAddressbooks(self):
         """
@@ -950,7 +900,6 @@ class CommonTests(CommonCommonTests):
         )
         ab = yield homeNew.addressbookWithName("addressbook")
         self.assertEquals((yield ab.addressbookObjects()), [])
-
 
     @inlineCallbacks
     def test_dontLeakObjects(self):

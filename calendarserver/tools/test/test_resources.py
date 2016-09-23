@@ -15,7 +15,6 @@
 ##
 
 
-
 from twisted.internet.defer import inlineCallbacks
 from calendarserver.tools.resources import migrateResources
 from twistedcaldav.test.util import StoreTestCase
@@ -27,7 +26,6 @@ from txdav.who.directory import CalendarDirectoryRecordMixin
 
 class TestRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
     pass
-
 
 
 class MigrateResourcesTest(StoreTestCase):
@@ -66,7 +64,6 @@ class MigrateResourcesTest(StoreTestCase):
             ),
         )
         yield self.sourceService.updateRecords(records, create=True)
-
 
     @inlineCallbacks
     def test_migrateResources(self):

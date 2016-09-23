@@ -136,7 +136,7 @@ def attrsFromFile(fileobj, debugFile=None):
                 ] = struct.unpack(XATTR_ENTRY, data[:XATTR_ENTRY_LENGTH])
                 xattr_name = data[
                     XATTR_ENTRY_LENGTH:
-                    XATTR_ENTRY_LENGTH + xattr_name_len - 1 # strip NULL terminator
+                    XATTR_ENTRY_LENGTH + xattr_name_len - 1  # strip NULL terminator
                 ]
                 fileobj.seek(xattr_offset)
                 xattr_value = fileobj.read(xattr_length)
@@ -158,7 +158,6 @@ def attrsFromFile(fileobj, debugFile=None):
                 advance = (XATTR_ENTRY_LENGTH + xattr_name_len + 3) & ~3
                 data = data[advance:]
     return attrs
-
 
 
 class PropertyStore(XattrPropStore):

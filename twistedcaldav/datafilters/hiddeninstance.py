@@ -21,6 +21,7 @@ __all__ = [
     "HiddenInstanceFilter",
 ]
 
+
 class HiddenInstanceFilter(CalendarFilter):
     """
     Filter overridden components in an event marked by a specific property to remove the component and add
@@ -51,7 +52,6 @@ class HiddenInstanceFilter(CalendarFilter):
                     master.addExdate(rid)
 
         return ical
-
 
     def merge(self, icalnew, icalold):
         """

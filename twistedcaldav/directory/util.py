@@ -54,7 +54,6 @@ def uuidFromName(namespace, name):
     return normalizeUUID(str(uuid5(UUID(namespace), name)))
 
 
-
 def normalizeUUID(value):
     """
     Convert strings which the uuid.UUID( ) method can parse into normalized
@@ -116,7 +115,6 @@ def transactionFromRequest(request, newStore):
     return transaction
 
 
-
 def splitIntoBatches(data, size):
     """
     Return a generator of sets consisting of the contents of the data set
@@ -128,7 +126,6 @@ def splitIntoBatches(data, size):
     while data:
         yield set(data[:size])
         del data[:size]
-
 
 
 class NotFoundResource(DAVResource):
@@ -159,7 +156,6 @@ class NotFoundResource(DAVResource):
             returnValue(response)
 
 
-
 def formatLink(url):
     """
     Convert a URL string into some twisted.web.template DOM objects for
@@ -168,13 +164,11 @@ def formatLink(url):
     return tags.a(href=url)(url)
 
 
-
 def formatLinks(urls):
     """
     Format a list of URL strings as a list of twisted.web.template DOM links.
     """
     return formatList(formatLink(link) for link in urls)
-
 
 
 def formatPrincipals(principals):
@@ -195,7 +189,6 @@ def formatPrincipals(principals):
             shortName = u""
         return (record.recordType, shortName)
 
-
     def describe(principal):
         if hasattr(principal, "record"):
             return " - %s" % (principal.record.displayName,)
@@ -208,7 +201,6 @@ def formatPrincipals(principals):
         )
         for principal in sorted(principals, key=recordKey)
     )
-
 
 
 def formatList(iterable):

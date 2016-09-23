@@ -26,6 +26,7 @@ from txdav.carddav.datastore.query.builder import buildExpression
 from txdav.common.datastore.query.generator import SQLQueryGenerator
 from txdav.carddav.datastore.index_file import sqladdressbookquery
 
+
 class TestQueryFilter(TestCase):
 
     _objectSchema = schema.ADDRESSBOOK_OBJECT
@@ -54,7 +55,6 @@ class TestQueryFilter(TestCase):
         self.assertEqual(select.toSQL(), SQLFragment("select distinct RESOURCE_NAME, VCARD_UID from ADDRESSBOOK_OBJECT where ADDRESSBOOK_HOME_RESOURCE_ID = ? and VCARD_UID like (? || (? || ?))", [1234, "%", "Example", "%"]))
         self.assertEqual(args, {})
 
-
     def test_sqllite_query(self):
         """
         Basic query test - single term.
@@ -72,7 +72,6 @@ class TestQueryFilter(TestCase):
 
         self.assertEqual(sql, " from RESOURCE where RESOURCE.UID GLOB :1")
         self.assertEqual(args, ["*Example*"])
-
 
 
 class TestQueryFilterSerialize(TestCase):

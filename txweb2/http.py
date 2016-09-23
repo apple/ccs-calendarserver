@@ -53,6 +53,7 @@ log = Logger()
 
 defaultPortForScheme = {'http': 80, 'https': 443, 'ftp': 21}
 
+
 def splitHostPort(scheme, hostport):
     """Split the host in "host:port" format into host and port fields.
     If port was not specified, use the default for the given scheme, if
@@ -68,7 +69,6 @@ def splitHostPort(scheme, hostport):
     return hostport[0], defaultPortForScheme.get(scheme, 0)
 
 
-
 def parseVersion(strversion):
     """Parse version strings of the form Protocol '/' Major '.' Minor. E.g. 'HTTP/1.1'.
     Returns (protocol, major, minor).
@@ -80,7 +80,6 @@ def parseVersion(strversion):
     if major < 0 or minor < 0:
         raise ValueError("negative number")
     return (proto.lower(), major, minor)
-
 
 
 class HTTPError(Exception):
@@ -95,10 +94,8 @@ class HTTPError(Exception):
         self.response = iweb.IResponse(codeOrResponse)
         Exception.__init__(self, str(self.response))
 
-
     def __repr__(self):
         return "<%s %s>" % (self.__class__.__name__, self.response)
-
 
 
 class Response(object):
@@ -136,7 +133,6 @@ class Response(object):
         if stream is not None:
             self.stream = IByteStream(stream)
 
-
     def __repr__(self):
         if self.stream is None:
             streamlen = None
@@ -144,7 +140,6 @@ class Response(object):
             streamlen = self.stream.length
 
         return "<%s.%s code=%d, streamlen=%s>" % (self.__module__, self.__class__.__name__, self.code, streamlen)
-
 
 
 class StatusResponseElement(Element):
@@ -164,14 +159,12 @@ class StatusResponseElement(Element):
         self.title = title
         self.description = description
 
-
     @renderer
     def response(self, request, tag):
         """
         Top-level renderer.
         """
         return tag.fillSlots(title=self.title, description=self.description)
-
 
 
 class StatusResponse (Response):
@@ -203,16 +196,15 @@ class StatusResponse (Response):
 
         self.description = description
 
-
     def __repr__(self):
         return "<%s %s %s>" % (self.__class__.__name__, self.code, self.description)
-
 
 
 class RedirectResponse (StatusResponse):
     """
     A L{Response} object that contains a redirect to another network location.
     """
+
     def __init__(self, location, temporary=False):
         """
         @param location: the URI to redirect to.
@@ -225,7 +217,6 @@ class RedirectResponse (StatusResponse):
         )
 
         self.headers.setHeader("location", location)
-
 
 
 def NotModifiedResponse(oldResponse=None):
@@ -244,7 +235,6 @@ def NotModifiedResponse(oldResponse=None):
     else:
         headers = None
     return Response(code=responsecode.NOT_MODIFIED, headers=headers)
-
 
 
 def checkPreconditions(request, response=None, entityExists=True, etag=None, lastModified=None):
@@ -288,12 +278,11 @@ def checkPreconditions(request, response=None, entityExists=True, etag=None, las
     if response:
         assert etag is None and lastModified is None
         # if the code is some sort of error code, don't do anything
-        if not ((response.code >= 200 and response.code <= 299)
-                or response.code == responsecode.PRECONDITION_FAILED):
+        if not ((response.code >= 200 and response.code <= 299) or
+                response.code == responsecode.PRECONDITION_FAILED):
             return False
         etag = response.headers.getHeader("etag")
         lastModified = response.headers.getHeader("last-modified")
-
 
     def matchETag(tags, allowWeak):
         if entityExists and '*' in tags:
@@ -348,7 +337,6 @@ def checkPreconditions(request, response=None, entityExists=True, etag=None, las
             raise HTTPError(NotModifiedResponse(response))
 
 
-
 def checkIfRange(request, response):
     """Checks for the If-Range header, and if it exists, checks if the
     test passes. Returns true if the server should return partial data."""
@@ -363,14 +351,12 @@ def checkIfRange(request, response):
         return ifrange == response.headers.getHeader("last-modified")
 
 
-
 class _NotifyingProducerStream(stream.ProducerStream):
     doStartReading = None
 
     def __init__(self, length=None, doStartReading=None):
         stream.ProducerStream.__init__(self, length=length)
         self.doStartReading = doStartReading
-
 
     def read(self):
         if self.doStartReading is not None:
@@ -380,11 +366,9 @@ class _NotifyingProducerStream(stream.ProducerStream):
 
         return stream.ProducerStream.read(self)
 
-
     def write(self, data):
         self.doStartReading = None
         stream.ProducerStream.write(self, data)
-
 
     def finish(self):
         self.doStartReading = None
@@ -393,6 +377,7 @@ class _NotifyingProducerStream(stream.ProducerStream):
 
 # response codes that must have empty bodies
 NO_BODY_CODES = (responsecode.NO_CONTENT, responsecode.NOT_MODIFIED)
+
 
 class Request(object):
     """A HTTP request.
@@ -429,7 +414,6 @@ class Request(object):
         self.stream = _NotifyingProducerStream(contentLength, doStartReading)
         self.stream.registerProducer(self.chanRequest, True)
 
-
     def checkExpect(self):
         """Ensure there are no expectations that cannot be met.
         Checks Expect header against self.known_expects."""
@@ -438,43 +422,35 @@ class Request(object):
             if expect not in self.known_expects:
                 raise HTTPError(responsecode.EXPECTATION_FAILED)
 
-
     def process(self):
         """Called by channel to let you process the request.
 
         Can be overridden by a subclass to do something useful."""
         pass
 
-
     def handleContentChunk(self, data):
         """Callback from channel when a piece of data has been received.
         Puts the data in .stream"""
         self.stream.write(data)
-
 
     def handleContentComplete(self):
         """Callback from channel when all data has been received. """
         self.stream.unregisterProducer()
         self.stream.finish()
 
-
     def connectionLost(self, reason):
         """connection was lost"""
         pass
 
-
     def __repr__(self):
         return '<%s %s %s>' % (self.method, self.uri, self.clientproto)
-
 
     def _sendContinue(self):
         self.chanRequest.writeIntermediateResponse(responsecode.CONTINUE)
 
-
     def _reallyFinished(self, x):
         """We are finished writing data."""
         self.chanRequest.finish()
-
 
     def _finished(self, x):
         """
@@ -489,7 +465,6 @@ class Request(object):
         else:
             self._reallyFinished(x)
 
-
     def _error(self, reason):
         if reason.check(error.ConnectionLost):
             log.info("Request error: {msg}", msg=reason.getErrorMessage())
@@ -497,7 +472,6 @@ class Request(object):
             log.failure("Request error", reason)
             # Only bother with cleanup on errors other than lost connection.
             self.chanRequest.abortConnection()
-
 
     def writeResponse(self, response):
         """
@@ -537,12 +511,12 @@ class Request(object):
         d.addCallback(self._finished).addErrback(self._error)
 
 
-
 class XMLResponse (Response):
     """
     XML L{Response} object.
     Renders itself as an XML document.
     """
+
     def __init__(self, code, element):
         """
         @param xml_responses: an iterable of davxml.Response objects.
@@ -551,12 +525,12 @@ class XMLResponse (Response):
         self.headers.setHeader("content-type", http_headers.MimeType("text", "xml"))
 
 
-
 class JSONResponse (Response):
     """
     JSON L{Response} object.
     Renders itself as an JSON document.
     """
+
     def __init__(self, code, jobj, contentType="application/json", pretty=False):
         """
         @param jobj: a Python object that can be serialized to JSON.

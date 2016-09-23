@@ -32,6 +32,7 @@ from txdav.common.datastore.sql_tables import schema
 import datetime
 from twistedcaldav.ical import Component
 
+
 class TestQueryFilter(TestCase):
 
     _objectSchema = schema.CALENDAR_OBJECT
@@ -43,7 +44,6 @@ class TestQueryFilter(TestCase):
     def setUp(self):
         super(TestQueryFilter, self).setUp()
         TimezoneCache.create()
-
 
     def test_query(self):
         """
@@ -71,7 +71,6 @@ class TestQueryFilter(TestCase):
         ))
         self.assertEqual(args, {"arg1": ("VEVENT", "VFREEBUSY", "VAVAILABILITY")})
         self.assertEqual(usedtimerange, False)
-
 
     def test_query_timerange(self):
         """
@@ -101,7 +100,6 @@ class TestQueryFilter(TestCase):
         self.assertEqual(args, {"arg1": ("VEVENT", "VFREEBUSY", "VAVAILABILITY")})
         self.assertEqual(usedtimerange, True)
 
-
     def test_query_freebusy(self):
         """
         Basic query test - with time range
@@ -129,7 +127,6 @@ class TestQueryFilter(TestCase):
         ))
         self.assertEqual(args, {"arg1": ("VEVENT", "VFREEBUSY", "VAVAILABILITY")})
         self.assertEqual(usedtimerange, True)
-
 
     def test_query_not_extended(self):
         """
@@ -162,7 +159,6 @@ class TestQueryFilter(TestCase):
         ))
         self.assertEqual(args, {})
         self.assertEqual(usedtimerange, False)
-
 
     def test_query_extended(self):
         """
@@ -197,7 +193,6 @@ class TestQueryFilter(TestCase):
         self.assertEqual(args, {})
         self.assertEqual(usedtimerange, True)
 
-
     def test_sqllite_query(self):
         """
         Basic query test - single term.
@@ -221,13 +216,11 @@ class TestQueryFilter(TestCase):
         self.assertTrue("VEVENT" in args)
 
 
-
 class TestQueryFilterSerialize(TestCase):
 
     def setUp(self):
         super(TestQueryFilterSerialize, self).setUp()
         TimezoneCache.create()
-
 
     def test_query(self):
         """
@@ -249,7 +242,6 @@ class TestQueryFilterSerialize(TestCase):
 
         f = FilterBase.deserialize(j)
         self.assertTrue(isinstance(f, Filter))
-
 
     def test_timerange_query(self):
         """
@@ -275,7 +267,6 @@ class TestQueryFilterSerialize(TestCase):
         self.assertTrue(isinstance(f.child.filters[0].qualifier, TimeRange))
         self.assertTrue(isinstance(f.child.filters[0].qualifier.tzinfo, Timezone))
         self.assertEqual(f.child.filters[0].qualifier.tzinfo.getTimezoneID(), "America/New_York")
-
 
     def test_query_not_extended(self):
         """
@@ -303,7 +294,6 @@ class TestQueryFilterSerialize(TestCase):
         f = FilterBase.deserialize(j)
         self.assertTrue(isinstance(f, Filter))
         self.assertEqual(len(f.child.filters), 2)
-
 
     def test_query_extended(self):
         """
@@ -333,7 +323,6 @@ class TestQueryFilterSerialize(TestCase):
         self.assertTrue(isinstance(f, Filter))
         self.assertEqual(len(f.child.filters), 2)
         self.assertTrue(isinstance(f.child.filters[0].qualifier, TimeRange))
-
 
     def test_query_text(self):
         """
@@ -366,13 +355,11 @@ class TestQueryFilterSerialize(TestCase):
         self.assertEqual(f.child.filters[0].filters[0].qualifier.text, "1234")
 
 
-
 class TestQueryFilterMatch(TestCase):
 
     def setUp(self):
         super(TestQueryFilterMatch, self).setUp()
         TimezoneCache.create()
-
 
     def test_vlarm_undefined(self):
 

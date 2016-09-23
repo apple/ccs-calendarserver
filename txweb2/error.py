@@ -143,7 +143,6 @@ ERROR_MESSAGES = {
 }
 
 
-
 class DefaultErrorElement(Element):
     """
     An L{ErrorElement} is an L{Element} that renders some HTML for the default
@@ -168,7 +167,6 @@ class DefaultErrorElement(Element):
         self.request = request
         self.response = response
 
-
     @renderer
     def error(self, request, tag):
         """
@@ -184,7 +182,6 @@ class DefaultErrorElement(Element):
             )
         )
 
-
     def loadMessage(self, code):
         tag = XMLString(
             ('<t:transparent xmlns:t="http://twistedmatrix.com/'
@@ -192,7 +189,6 @@ class DefaultErrorElement(Element):
             ERROR_MESSAGES.get(code, "") +
             '</t:transparent>').load()[0]
         return tag
-
 
 
 def defaultErrorHandler(request, response):

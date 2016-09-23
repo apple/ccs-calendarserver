@@ -8,20 +8,22 @@ from txweb2.http import Response
 from txweb2.resource import Resource, WrapperResource
 from txweb2.test.test_server import BaseCase, BaseTestResource
 
+
 class BufferingLogObserver(BaseCommonAccessLoggingObserver):
     """
     A web2 log observer that buffer messages.
     """
     messages = []
+
     def logMessage(self, message):
         self.messages.append(message)
-
 
 
 class SetDateWrapperResource(WrapperResource):
     """
     A resource wrapper which sets the date header.
     """
+
     def hook(self, req):
         def _filter(req, resp):
             resp.headers.setHeader('date', 0.0)
@@ -31,17 +33,17 @@ class SetDateWrapperResource(WrapperResource):
         req.addResponseFilter(_filter, atEnd=True)
 
 
-
 class NoneStreamResource(Resource):
     """
     A basic empty resource.
     """
+
     def render(self, req):
         return Response(200)
 
 
-
 class TestLogging(BaseCase):
+
     def setUp(self):
         self.blo = BufferingLogObserver()
         addObserver(self.blo.emit)
@@ -52,10 +54,8 @@ class TestLogging(BaseCase):
 
         self.root = SetDateWrapperResource(LogWrapperResource(self.resrc))
 
-
     def tearDown(self):
         removeObserver(self.blo.emit)
-
 
     def assertLogged(self, **expected):
         """
@@ -94,13 +94,13 @@ class TestLogging(BaseCase):
         else:
             self.assertEquals(len(messages), 0, "len(%r) != 0" % (messages, ))
 
-
     def test_logSimpleRequest(self):
         """
         Check the log for a simple request.
         """
         uri = 'http://localhost/'
         method = 'GET'
+
         def _cbCheckLog(response):
             self.assertLogged(method=method, uri=uri, status=response[0],
                               length=response[1].getHeader('content-length'))
@@ -109,7 +109,6 @@ class TestLogging(BaseCase):
         d.addCallback(_cbCheckLog)
 
         return d
-
 
     def test_logErrors(self):
         """
@@ -128,8 +127,7 @@ class TestLogging(BaseCase):
                                        uri,
                                        method=method).addCallback(_cbCheckLog)
 
-
-        uri = 'http://localhost/foo' # doesn't exist
+        uri = 'http://localhost/foo'  # doesn't exist
         method = 'GET'
 
         d = test(None, uri, method, status=404, logged=True)
@@ -140,7 +138,6 @@ class TestLogging(BaseCase):
         d.addCallback(test, uri, method, status=400, logged=False)
 
         return d
-
 
     def test_logNoneResponseStream(self):
         """

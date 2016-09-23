@@ -33,7 +33,6 @@ __all__ = [
 log = Logger()
 
 
-
 class IScheduleServers(object):
 
     _fileInfo = None
@@ -45,7 +44,6 @@ class IScheduleServers(object):
 
         if IScheduleServers._servers is None:
             self._loadConfig()
-
 
     def _loadConfig(self):
         if config.Scheduling.iSchedule.RemoteServers:
@@ -72,13 +70,11 @@ class IScheduleServers(object):
             IScheduleServers._servers = ()
             IScheduleServers._domainMap = {}
 
-
     def _mapDomains(self):
         IScheduleServers._domainMap = {}
         for server in IScheduleServers._servers:
             for domain in server.domains:
                 IScheduleServers._domainMap[domain] = server
-
 
     def mapDomain(self, domain):
         """
@@ -103,14 +99,13 @@ ELEMENT_CLIENT_HOSTS = "hosts"
 ELEMENT_HOST = "host"
 
 
-
 class IScheduleServersParser(object):
     """
     Server-to-server configuration file parser.
     """
+
     def __repr__(self):
         return "<{} {}>".format(self.__class__.__name__, self.xmlFile)
-
 
     def __init__(self, xmlFile):
 
@@ -119,7 +114,6 @@ class IScheduleServersParser(object):
         # Read in XML
         _ignore_etree, servers_node = xmlutil.readXML(xmlFile.path, ELEMENT_SERVERS)
         self._parseXML(servers_node)
-
 
     def _parseXML(self, node):
         """
@@ -133,11 +127,11 @@ class IScheduleServersParser(object):
                 self.servers[-1].parseXML(child)
 
 
-
 class IScheduleServerRecord (object):
     """
     Contains server-to-server details.
     """
+
     def __init__(self, uri=None, rewriteCUAddresses=True, moreHeaders=[], podding=False):
         """
         @param recordType: record type for directory entry.
@@ -156,14 +150,11 @@ class IScheduleServerRecord (object):
             self.uri = uri
             self._parseDetails()
 
-
     def details(self):
         return (self.ssl, self.host, self.port, self.path,)
 
-
     def podding(self):
         return self._podding
-
 
     def redirect(self, location):
         """
@@ -171,7 +162,6 @@ class IScheduleServerRecord (object):
         """
         self.uri = location
         self._parseDetails()
-
 
     def parseXML(self, node):
         for child in node:
@@ -192,12 +182,10 @@ class IScheduleServerRecord (object):
 
         self._parseDetails()
 
-
     def _parseList(self, node, element_name, appendto):
         for child in node:
             if child.tag == element_name:
                 appendto.append(child.text)
-
 
     def _parseAuthentication(self, node):
         if node.get(ATTRIBUTE_TYPE) != ATTRIBUTE_BASICAUTH:
@@ -210,7 +198,6 @@ class IScheduleServerRecord (object):
                 password = child.text
 
         self.authentication = ("basic", user, password,)
-
 
     def _parseDetails(self):
         # Extract scheme, host, port and path

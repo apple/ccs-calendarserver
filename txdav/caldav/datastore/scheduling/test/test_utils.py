@@ -71,7 +71,6 @@ END:VCALENDAR
 """.replace("\n", "\r\n") % {"year": now + 1}
 
 
-
 class RecipientCopy(CommonCommonTests, unittest.TestCase):
     """
     Tests for deleting events older than a given date
@@ -86,17 +85,17 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
     }
 
     requirements = {
-        "user01" : {
-            "calendar1" : {
-                "1.ics" : (ORGANIZER_ICS, metadata,),
+        "user01": {
+            "calendar1": {
+                "1.ics": (ORGANIZER_ICS, metadata,),
             }
         },
-        "user02" : {
-            "calendar2" : {
-                "2.ics" : (ATTENDEE_ICS, metadata,),
+        "user02": {
+            "calendar2": {
+                "2.ics": (ATTENDEE_ICS, metadata,),
             },
-            "calendar3" : {
-                "3.ics" : (ATTENDEE_ICS, metadata,),
+            "calendar3": {
+                "3.ics": (ATTENDEE_ICS, metadata,),
             }
         }
     }
@@ -108,19 +107,16 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
         yield self.buildStoreAndDirectory()
         yield self.populate()
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
-
 
     def storeUnderTest(self):
         """
         Create and return a L{CalendarStore} for testing.
         """
         return self._sqlCalendarStore
-
 
     @inlineCallbacks
     def test_getCalendarObjectForRecord(self):
@@ -185,7 +181,6 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
         self.assertTrue(resource is None)
         yield self.commit()
 
-
     def test_uidFromCalendarUserAddress(self):
         """
         Test that L{uidFromCalendarUserAddress} returns the expected results.
@@ -203,7 +198,6 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
 
         for cuaddr, uid in data:
             self.assertEqual(uidFromCalendarUserAddress(cuaddr), uid)
-
 
     def test_extractEmailDomain(self):
         """

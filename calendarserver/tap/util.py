@@ -164,7 +164,6 @@ def pgServiceFromConfig(config, subServiceFactory, uid=None, gid=None):
     )
 
 
-
 class ConnectionWithPeer(Connection):
 
     connected = True
@@ -172,10 +171,8 @@ class ConnectionWithPeer(Connection):
     def getPeer(self):
         return "<peer: %r %r>" % (self.socket.fileno(), id(self))
 
-
     def getHost(self):
         return "<host: %r %r>" % (self.socket.fileno(), id(self))
-
 
 
 def transactionFactoryFromFD(dbampfd, dbtype):
@@ -192,7 +189,6 @@ def transactionFactoryFromFD(dbampfd, dbtype):
     return protocol.newTransaction
 
 
-
 class ConnectionDispenser(object):
     """
     A L{ConnectionDispenser} can dispense already-connected file descriptors,
@@ -204,7 +200,6 @@ class ConnectionDispenser(object):
 
     def __init__(self, connectionPool):
         self.pool = connectionPool
-
 
     def dispense(self):
         """
@@ -221,7 +216,6 @@ class ConnectionDispenser(object):
         return c
 
 
-
 def storeFromConfigWithoutDPS(config, txnFactory):
     store = storeFromConfig(config, txnFactory, None)
     directory = directoryFromConfig(config, store)
@@ -232,7 +226,6 @@ def storeFromConfigWithoutDPS(config, txnFactory):
     #     )
     store.setDirectoryService(directory)
     return store
-
 
 
 def storeFromConfigWithDPSClient(config, txnFactory):
@@ -249,7 +242,6 @@ def storeFromConfigWithDPSClient(config, txnFactory):
     return store
 
 
-
 def storeFromConfigWithDPSServer(config, txnFactory):
     store = storeFromConfig(config, txnFactory, None)
     directory = directoryFromConfig(config, store)
@@ -260,7 +252,6 @@ def storeFromConfigWithDPSServer(config, txnFactory):
     #     )
     store.setDirectoryService(directory)
     return store
-
 
 
 def storeFromConfig(config, txnFactory, directoryService):
@@ -322,7 +313,6 @@ def storeFromConfig(config, txnFactory, directoryService):
     for notifierFactory in notifierFactories.values():
         notifierFactory.store = store
     return store
-
 
 
 # MOVE2WHO -- should we move this class somewhere else?
@@ -387,7 +377,6 @@ class PrincipalCredentialChecker(object):
                         user=credentials.credentials.username
                     )
                 )
-
 
 
 def getRootResource(config, newStore, resources=None):
@@ -813,7 +802,6 @@ def getRootResource(config, newStore, resources=None):
     return logWrapper
 
 
-
 def getDBPool(config):
     """
     Inspect configuration to determine what database connection pool
@@ -853,7 +841,6 @@ def getDBPool(config):
     return (pool, txnFactory)
 
 
-
 class FakeRequest(object):
 
     def __init__(self, rootResource, method, path, uri='/', transaction=None):
@@ -867,7 +854,6 @@ class FakeRequest(object):
         if transaction is not None:
             self._newStoreTransaction = transaction
 
-
     @inlineCallbacks
     def _getChild(self, resource, segments):
         if not segments:
@@ -875,7 +861,6 @@ class FakeRequest(object):
 
         child, remaining = (yield resource.locateChild(self, segments))
         returnValue((yield self._getChild(child, remaining)))
-
 
     @inlineCallbacks
     def locateResource(self, url):
@@ -885,7 +870,6 @@ class FakeRequest(object):
         if resource:
             self._rememberResource(resource, url)
         returnValue(resource)
-
 
     @inlineCallbacks
     def locateChildResource(self, parent, childName):
@@ -901,19 +885,16 @@ class FakeRequest(object):
             self._rememberResource(resource, url)
         returnValue(resource)
 
-
     def _rememberResource(self, resource, url):
         self._resourcesByURL[url] = resource
         self._urlsByResource[resource] = url
         return resource
-
 
     def _forgetResource(self, resource, url):
         if url in self._resourcesByURL:
             del self._resourcesByURL[url]
         if resource in self._urlsByResource:
             del self._urlsByResource[resource]
-
 
     def urlForResource(self, resource):
         url = self._urlsByResource.get(resource, None)
@@ -923,10 +904,8 @@ class FakeRequest(object):
             raise NoURLForResourceError(resource)
         return url
 
-
     def addResponseFilter(self, *args, **kwds):
         pass
-
 
 
 def memoryForPID(pid, residentOnly=True):
@@ -942,7 +921,6 @@ def memoryForPID(pid, residentOnly=True):
     """
     memoryInfo = psutil.Process(pid).memory_info()
     return memoryInfo.rss if residentOnly else memoryInfo.vms
-
 
 
 class MemoryLimitService(Service, object):
@@ -975,14 +953,12 @@ class MemoryLimitService(Service, object):
         # Unit tests can swap out _memoryForPID
         self._memoryForPID = memoryForPID
 
-
     def startService(self):
         """
         Start scheduling the memory checks
         """
         super(MemoryLimitService, self).startService()
         self._delayedCall = self._reactor.callLater(self._seconds, self.checkMemory)
-
 
     def stopService(self):
         """
@@ -992,7 +968,6 @@ class MemoryLimitService(Service, object):
         if self._delayedCall is not None and self._delayedCall.active():
             self._delayedCall.cancel()
             self._delayedCall = None
-
 
     def checkMemory(self):
         """
@@ -1024,7 +999,6 @@ class MemoryLimitService(Service, object):
                         self._processMonitor.stopProcess(name)
         finally:
             self._delayedCall = self._reactor.callLater(self._seconds, self.checkMemory)
-
 
 
 def checkDirectories(config):
@@ -1094,7 +1068,6 @@ def checkDirectories(config):
     )
 
 
-
 class Stepper(object):
     """
     Manages the sequential, deferred execution of "steps" which are objects
@@ -1130,7 +1103,6 @@ class Stepper(object):
         self.result = None
         self.running = False
 
-
     def addStep(self, step):
         """
         Adds a step object to the ordered list of steps
@@ -1145,10 +1117,8 @@ class Stepper(object):
         self.steps.append(step)
         return self
 
-
     def defaultStepWithResult(self, result):
         return succeed(result)
-
 
     def defaultStepWithFailure(self, failure, step):
         if failure.type not in (
@@ -1157,7 +1127,6 @@ class Stepper(object):
         ):
             log.failure("Step failure: {name}", name=step.__class__.__name__, failure=failure)
         return failure
-
 
     def start(self, result=None):
         """
@@ -1195,7 +1164,6 @@ class Stepper(object):
         return self.deferred
 
 
-
 def requestShutdown(programPath, reason):
     """
     Log the shutdown reason and call the shutdown-requesting program.
@@ -1219,7 +1187,6 @@ def requestShutdown(programPath, reason):
         stdout=PIPE,
         stderr=PIPE,
     ).communicate()
-
 
 
 def preFlightChecks(config):
@@ -1262,7 +1229,6 @@ def preFlightChecks(config):
     return True
 
 
-
 def verifyConfig(config):
     """
     At least one of EnableCalDAV or EnableCardDAV must be True
@@ -1272,7 +1238,6 @@ def verifyConfig(config):
         return True, "A protocol is enabled"
 
     return False, "Neither CalDAV nor CardDAV are enabled"
-
 
 
 def verifyServerRoot(config):
@@ -1288,7 +1253,6 @@ def verifyServerRoot(config):
         return False, "ServerRoot is supposed to be on a non-boot-volume but it's not"
 
     return True, "ServerRoot is ok"
-
 
 
 def verifyTLSCertificate(config):
@@ -1326,12 +1290,12 @@ def verifyTLSCertificate(config):
 
             length = os.stat(config.SSLCertificate).st_size
             if length == 0:
-                    message = (
-                        "The configured TLS certificate ({cert}) is empty".format(
-                            cert=config.SSLCertificate
-                        )
+                message = (
+                    "The configured TLS certificate ({cert}) is empty".format(
+                        cert=config.SSLCertificate
                     )
-                    return False, message
+                )
+                return False, message
             certificate_title = config.SSLCertificate
         else:
             return True, "TLS disabled"
@@ -1364,7 +1328,6 @@ def verifyTLSCertificate(config):
         return False, message
 
     return True, "TLS enabled"
-
 
 
 def verifyAPNSCertificate(config):
@@ -1434,7 +1397,6 @@ def verifyAPNSCertificate(config):
         return True, "APNS disabled"
 
 
-
 def checkCertExpiration(certPath):
     """
     See if the given certificate is expired.
@@ -1455,7 +1417,6 @@ def checkCertExpiration(certPath):
     except IndexError:
         # We can't check
         return True
-
 
 
 def getSSLPassphrase(*ignored):
@@ -1525,7 +1486,6 @@ def getSSLPassphrase(*ignored):
     return None
 
 
-
 #
 # Server Alert Posting
 #
@@ -1546,17 +1506,14 @@ class AlertPoster(object):
 
     _alertPoster = None
 
-
     @classmethod
     def setupForMaster(cls, controlSocket):
         cls._alertPoster = cls()
         AMPAlertReceiver(controlSocket)
 
-
     @classmethod
     def setupForWorker(cls, controlSocket):
         cls._alertPoster = cls(controlSocket)
-
 
     @classmethod
     def _getAlertPoster(cls):
@@ -1564,14 +1521,12 @@ class AlertPoster(object):
             cls._alertPoster = cls()
         return cls._alertPoster
 
-
     def __init__(self, controlSocket=None):
 
         if controlSocket is None:
             self.sender = None
         else:
             self.sender = AMPAlertSender(controlSocket)
-
 
     @classmethod
     def postAlert(cls, alertType, ignoreWithinSeconds, args):
@@ -1612,7 +1567,6 @@ class AlertPoster(object):
             # Send request to master over AMP
             poster.sender.sendAlert(alertType, args)
 
-
     @classmethod
     def secondsSinceLastPost(cls, alertType, timestampsDirectory=None, now=None):
         if timestampsDirectory is None:
@@ -1633,7 +1587,6 @@ class AlertPoster(object):
                     timestamp = 0
         return now - timestamp
 
-
     @classmethod
     def recordTimeStamp(cls, alertType, timestampsDirectory=None, now=None):
         if timestampsDirectory is None:
@@ -1646,18 +1599,15 @@ class AlertPoster(object):
         childFP.setContent(str(now))
 
 
-
 class AMPAlertSendingFactory(Factory):
 
     def __init__(self, sender):
         self.sender = sender
 
-
     def buildProtocol(self, addr):
         protocol = amp.AMP()
         self.sender.protocol = protocol
         return protocol
-
 
 
 class AMPAlertSender(object):
@@ -1670,19 +1620,16 @@ class AMPAlertSender(object):
         if controlSocket is not None:
             controlSocket.addFactory(AlertPoster.ALERT_ROUTE, AMPAlertSendingFactory(self))
 
-
     def sendAlert(self, alertType, args):
         return self.protocol.callRemote(
             PostAlert, alertType=alertType, args=args
         )
 
 
-
 class AMPAlertReceiverFactory(Factory):
 
     def buildProtocol(self, addr):
         return AMPAlertProtocol()
-
 
 
 class AMPAlertReceiver(object):
@@ -1698,7 +1645,6 @@ class AMPAlertReceiver(object):
             )
 
 
-
 class PostAlert(amp.Command):
     arguments = [
         ('alertType', amp.String()),
@@ -1707,7 +1653,6 @@ class PostAlert(amp.Command):
     response = [
         ('status', amp.String()),
     ]
-
 
 
 class AMPAlertProtocol(amp.AMP):
@@ -1724,7 +1669,6 @@ class AMPAlertProtocol(amp.AMP):
         return {
             "status": "OK"
         }
-
 
 
 def serverRootLocation():

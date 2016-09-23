@@ -56,7 +56,6 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
                 """
             )
 
-
     class new_ProxyDB(ProxySqliteDB):
 
         def _db_version(self):
@@ -65,7 +64,6 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
             """
             return "11"
 
-
     class newer_ProxyDB(ProxySqliteDB):
 
         def _db_version(self):
@@ -73,7 +71,6 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
             @return: the schema version assigned to this index.
             """
             return "51"
-
 
     @inlineCallbacks
     def test_normalDB(self):
@@ -90,7 +87,6 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
         self.assertEqual(membershipsB, set(("A",)))
 
         db.close()
-
 
     @inlineCallbacks
     def test_normalDBNonAscii(self):
@@ -109,7 +105,6 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
 
         db.close()
 
-
     @inlineCallbacks
     def test_DBIndexed(self):
 
@@ -120,7 +115,6 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
 
         db.close()
 
-
     @inlineCallbacks
     def test_OldDB(self):
 
@@ -130,7 +124,6 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
         self.assertEqual(set([row[1] for row in (yield db.query("PRAGMA index_list(GROUPS)"))]), set())
 
         db.close()
-
 
     @inlineCallbacks
     def test_DBUpgrade(self):
@@ -158,7 +151,6 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
         self.assertEqual(membershipsB, set(("A",)))
         self.assertEqual(set([row[1] for row in (yield db.query("PRAGMA index_list(GROUPS)"))]), set(("GROUPNAMES", "MEMBERS")))
         db.close()
-
 
     @inlineCallbacks
     def test_DBUpgradeNewer(self):
@@ -188,7 +180,6 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
         db.close()
         db = None
 
-
     @inlineCallbacks
     def test_DBNoUpgradeNewer(self):
 
@@ -216,7 +207,6 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
         self.assertEqual(set([row[1] for row in (yield db.query("PRAGMA index_list(GROUPS)"))]), set(("GROUPNAMES", "MEMBERS")))
         db.close()
         db = None
-
 
     @inlineCallbacks
     def test_cachingDBInsert(self):
@@ -262,7 +252,6 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
 
             db.close()
 
-
     @inlineCallbacks
     def test_cachingDBRemove(self):
 
@@ -308,7 +297,6 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
 
             db.close()
 
-
     @inlineCallbacks
     def test_cachingDBRemoveSpecial(self):
 
@@ -346,7 +334,6 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
 
             db.close()
 
-
     @inlineCallbacks
     def test_cachingDBInsertUncached(self):
 
@@ -381,7 +368,6 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
             db.close()
 
 
-
 class ProxyPrincipalDBPostgreSQL (twistedcaldav.test.util.TestCase):
     """
     Directory service provisioned principals.
@@ -394,12 +380,10 @@ class ProxyPrincipalDBPostgreSQL (twistedcaldav.test.util.TestCase):
         self.db = ProxyPostgreSQLDB(host="localhost", database="proxies")
         yield self.db.clean()
 
-
     @inlineCallbacks
     def tearDown(self):
         yield self.db.close()
         self.db = None
-
 
     @inlineCallbacks
     def test_normalDB(self):
@@ -419,14 +403,12 @@ class ProxyPrincipalDBPostgreSQL (twistedcaldav.test.util.TestCase):
         self.assertEqual(membersA, set(("B", "C", "D",)))
         self.assertEqual(membershipsB, set(("A",)))
 
-
     @inlineCallbacks
     def test_DBIndexed(self):
 
         # Get the DB
         yield self.db.clean()
         self.assertTrue((yield self.db.queryOne("select hasindexes from pg_tables where tablename = 'groups'")))
-
 
     @inlineCallbacks
     def test_cachingDBInsert(self):
@@ -467,7 +449,6 @@ class ProxyPrincipalDBPostgreSQL (twistedcaldav.test.util.TestCase):
             self.assertEqual(membershipsD, set())
             self.assertEqual(membershipsE, set(("A",)))
 
-
     @inlineCallbacks
     def test_cachingDBRemove(self):
 
@@ -508,7 +489,6 @@ class ProxyPrincipalDBPostgreSQL (twistedcaldav.test.util.TestCase):
             self.assertEqual(membershipsC, set("X",))
             self.assertEqual(membershipsD, set())
 
-
     @inlineCallbacks
     def test_cachingDBRemoveSpecial(self):
 
@@ -540,7 +520,6 @@ class ProxyPrincipalDBPostgreSQL (twistedcaldav.test.util.TestCase):
             self.assertEqual(membershipsB, set("X",))
             self.assertEqual(membershipsC, set("X",))
             self.assertEqual(membershipsD, set())
-
 
     @inlineCallbacks
     def test_cachingDBRemovePrincipal(self):
@@ -581,7 +560,6 @@ class ProxyPrincipalDBPostgreSQL (twistedcaldav.test.util.TestCase):
             self.assertEqual(membershipsB, set())
             self.assertEqual(membershipsC, set(("A", "X",)))
             self.assertEqual(membershipsD, set(("A",),))
-
 
     @inlineCallbacks
     def test_cachingDBInsertUncached(self):

@@ -26,11 +26,11 @@ __all__ = [
     "IStoreDirectoryRecord",
 ]
 
+
 class IStoreDirectoryError(Exception):
     """
     Base class for directory related errors.
     """
-
 
 
 class DirectoryRecordNotFoundError(Exception):
@@ -39,13 +39,12 @@ class DirectoryRecordNotFoundError(Exception):
     """
 
 
-
 class IStoreDirectoryService(Interface):
     """
     Directory Service for looking up users.
     """
 
-    def recordWithUID(uid): #@NoSelf
+    def recordWithUID(uid):  # @NoSelf
         """
         Return the record for the specified store uid.
 
@@ -53,14 +52,13 @@ class IStoreDirectoryService(Interface):
         @rtype: L{IStoreDirectoryRecord}
         """
 
-    def recordWithGUID(guid): #@NoSelf
+    def recordWithGUID(guid):  # @NoSelf
         """
         Return the record for the specified store guid.
 
         @return: the record.
         @rtype: L{IStoreDirectoryRecord}
         """
-
 
 
 class IStoreDirectoryRecord(Interface):
@@ -78,7 +76,7 @@ class IStoreDirectoryRecord(Interface):
 
     displayName = Attribute("Display name for entity associated with the record: C{str}")
 
-    def serverURI(): #@NoSelf
+    def serverURI():  # @NoSelf
         """
         Return the URI for the record's server "pod".
 
@@ -86,7 +84,7 @@ class IStoreDirectoryRecord(Interface):
         @rtype: C{str}
         """
 
-    def server(): #@NoSelf
+    def server():  # @NoSelf
         """
         Return the L{txdav.caldav.datastore.scheduling.localservers.Server} for the record's server "pod".
 
@@ -94,7 +92,7 @@ class IStoreDirectoryRecord(Interface):
         @rtype: L{txdav.caldav.datastore.scheduling.localservers.Server}
         """
 
-    def thisServer(): #@NoSelf
+    def thisServer():  # @NoSelf
         """
         Indicates whether the record is hosted on this server "pod".
 

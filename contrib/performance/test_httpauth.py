@@ -17,8 +17,8 @@
 from twisted.trial.unittest import TestCase
 from httpauth import AuthHandlerAgent
 
-class HTTPAuthTests(TestCase):
 
+class HTTPAuthTests(TestCase):
 
     def test_AuthHandlerAgent_parse(self):
         """

@@ -39,6 +39,7 @@ SCHEMADIR = "./txdav/common/datastore/sql_schema/"
 # Executables:
 PSQL = "../postgresql/_root/bin/psql"
 
+
 def usage(e=None):
     name = os.path.basename(sys.argv[0])
     print("usage: %s [options] username" % (name,))
@@ -59,7 +60,6 @@ def usage(e=None):
         sys.exit(64)
     else:
         sys.exit(0)
-
 
 
 def execSQL(title, stmt, verbose=False):
@@ -96,7 +96,6 @@ def execSQL(title, stmt, verbose=False):
     return [map(lambda x: x.strip(), s.split("|")) for s in out.splitlines()[:-1]]
 
 
-
 def getSchemaVersion(verbose=False):
     """
     Return the version number for the schema installed in the database.
@@ -116,7 +115,6 @@ def getSchemaVersion(verbose=False):
             "Failed to parse schema version: %s" % (e,)
         )
     return version
-
 
 
 def dumpCurrentSchema(verbose=False):
@@ -228,7 +226,6 @@ def dumpCurrentSchema(verbose=False):
     return schema
 
 
-
 def checkSchema(dbversion, verbose=False):
     """
     Compare schema in the database with the expected schema file.
@@ -250,16 +247,13 @@ def checkSchema(dbversion, verbose=False):
         print("\nCurrent schema in database is a match to the expected server version")
 
 
-
 class CheckSchemaError(Exception):
     pass
-
 
 
 def error(s):
     sys.stderr.write("%s\n" % (s,))
     sys.exit(1)
-
 
 
 def main():
@@ -320,7 +314,7 @@ def main():
             if db_version == current_version:
                 print("Schema version {} is current".format(db_version))
 
-            else: # upgrade needed
+            else:  # upgrade needed
                 print("Schema needs to be upgraded from {} to {}".format(db_version, current_version))
 
     checkSchema(db_version, verbose)

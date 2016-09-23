@@ -3,6 +3,7 @@ import urlparse
 
 __all__ = ['addLocation']
 
+
 def addLocation(request, location):
     """
     Add a C{location} header to the response if the response status is

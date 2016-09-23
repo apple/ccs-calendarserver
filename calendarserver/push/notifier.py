@@ -39,7 +39,6 @@ from calendarserver.push.ipush import PushPriority
 log = Logger()
 
 
-
 class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
 
     group = property(lambda self: (self.table.PUSH_ID == self.pushID))
@@ -75,8 +74,8 @@ class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
                 Where=self.table.WORK_ID.In(Parameter("workIDs", len(workIDs)))
             ).on(self.transaction, workIDs=workIDs)
             yield Delete(
-                From=JobItem.table, #@UndefinedVariable
-                Where=JobItem.jobID.In(Parameter("jobIDs", len(jobIDs))) #@UndefinedVariable
+                From=JobItem.table,  # @UndefinedVariable
+                Where=JobItem.jobID.In(Parameter("jobIDs", len(jobIDs)))  # @UndefinedVariable
             ).on(self.transaction, jobIDs=jobIDs)
 
         pushDistributor = self.transaction._pushDistributor
@@ -84,7 +83,6 @@ class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
             # Convert the integer priority value back into a constant
             priority = PushPriority.lookupByValue(maxPriority)
             yield pushDistributor.enqueue(self.transaction, self.pushID, priority=priority)
-
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -105,16 +103,13 @@ class Notifier(object):
         self._storeObject = storeObject
         self._notify = True
 
-
     def enableNotify(self, arg):
         self.log.debug("enableNotify: {id}", id=self._ids['default'][1])
         self._notify = True
 
-
     def disableNotify(self):
         self.log.debug("disableNotify: {id}", id=self._ids['default'][1])
         self._notify = False
-
 
     @inlineCallbacks
     def notify(self, txn, priority=PushPriority.high):
@@ -150,10 +145,8 @@ class Notifier(object):
                     obj=self._storeObject, prefix=prefix, id=id,
                 )
 
-
     def clone(self, storeObject):
         return self.__class__(self._notifierFactory, storeObject)
-
 
     def nodeName(self):
         """
@@ -168,7 +161,6 @@ class Notifier(object):
         else:
             prefix, id = self._storeObject.notifierID()
         return self._notifierFactory.pushKeyForId(prefix, id)
-
 
 
 class NotifierFactory(object):
@@ -191,7 +183,6 @@ class NotifierFactory(object):
             from twisted.internet import reactor
         self.reactor = reactor
 
-
     @inlineCallbacks
     def send(self, prefix, id, txn, priority=PushPriority.high):
         """
@@ -204,15 +195,12 @@ class NotifierFactory(object):
             pushPriority=priority.value
         )
 
-
     def newNotifier(self, storeObject):
         return Notifier(self, storeObject)
-
 
     def pushKeyForId(self, prefix, id):
         key = "/%s/%s/%s/" % (prefix, self.hostname, id)
         return key[:255]
-
 
 
 def getPubSubAPSConfiguration(notifierID, config):
@@ -246,7 +234,6 @@ def getPubSubAPSConfiguration(notifierID, config):
     return None
 
 
-
 class PushDistributor(object):
     """
     Distributes notifications to the protocol-specific subservices
@@ -259,7 +246,6 @@ class PushDistributor(object):
         """
         # TODO: add an IPushObservers interface?
         self.observers = observers
-
 
     @inlineCallbacks
     def enqueue(self, transaction, pushKey, priority=PushPriority.high):

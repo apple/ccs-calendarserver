@@ -26,20 +26,18 @@ from pycalendar.duration import Duration
 from pycalendar.period import Period
 from pycalendar.timezone import Timezone
 
+
 class TooManyInstancesError(Exception):
 
     def __init__(self):
         Exception.__init__(self)
         self.max_allowed = config.MaxAllowedInstances
 
-
     def __str__(self):
         return "Too many recurrence instances."
 
-
     def __repr__(self):
         return "<%s max:%s>" % (self.__class__.__name__, self.max_allowed)
-
 
 
 class InvalidOverriddenInstanceError(Exception):
@@ -48,14 +46,11 @@ class InvalidOverriddenInstanceError(Exception):
         Exception.__init__(self)
         self.rid = rid
 
-
     def __str__(self):
         return "Invalid overridden instance :%s" % (self.rid,)
 
-
     def __repr__(self):
         return "<%s invalid:%s>" % (self.__class__.__name__, self.rid)
-
 
 
 class Instance(object):
@@ -67,7 +62,6 @@ class Instance(object):
         self.rid = self.start if rid is None else rid
         self.overridden = overridden
         self.future = future
-
 
     def getAlarmTriggers(self):
         """
@@ -97,10 +91,8 @@ class Instance(object):
 
         return triggers
 
-
     def isMasterInstance(self):
         return not self.overridden and self.start == self.component.getStartDateUTC()
-
 
 
 class InstanceList(object):
@@ -115,16 +107,13 @@ class InstanceList(object):
         self.adjustedLowerLimit = None
         self.adjustedUpperLimit = None
 
-
     def __iter__(self):
         # Return keys in sorted order via iterator
         for i in sorted(self.instances.keys()):
             yield i
 
-
     def __getitem__(self, key):
         return self.instances[key]
-
 
     def expandTimeRanges(self, componentSet, limit, lowerLimit=None):
         """
@@ -181,7 +170,6 @@ class InstanceList(object):
                 # AVAILABLE components are just like VEVENT components
                 self._addOverrideEventComponent(component, lowerLimit, limit, master)
 
-
     def addInstance(self, instance):
         """
         Add the supplied instance to the map.
@@ -193,7 +181,6 @@ class InstanceList(object):
         # Check for too many instances
         if config.MaxAllowedInstances and len(self.instances) > config.MaxAllowedInstances:
             raise TooManyInstancesError()
-
 
     def _setupLimits(self, dt, lowerLimit, upperLimit):
         """
@@ -215,7 +202,6 @@ class InstanceList(object):
                 self.adjustedUpperLimit = upperLimit
 
         return (self.adjustedLowerLimit, self.adjustedUpperLimit,)
-
 
     def _getMasterEventDetails(self, component):
         """
@@ -242,7 +228,6 @@ class InstanceList(object):
 
         return (rulestart, start, end, duration,)
 
-
     def _addMasterEventComponent(self, component, lowerLimit, upperLimit):
         """
         Add the specified master VEVENT Component to the instance list, expanding it
@@ -258,7 +243,6 @@ class InstanceList(object):
 
         lowerLimit, upperLimit = self._setupLimits(start, lowerLimit, upperLimit)
         self._addMasterComponent(component, lowerLimit, upperLimit, rulestart, start, end, duration)
-
 
     def _addOverrideEventComponent(self, component, lowerLimit, upperLimit, master):
         """
@@ -277,7 +261,6 @@ class InstanceList(object):
 
         lowerLimit, upperLimit = self._setupLimits(start, lowerLimit, upperLimit)
         self._addOverrideComponent(component, lowerLimit, upperLimit, start, end, master)
-
 
     def _getMasterToDoDetails(self, component):
         """
@@ -324,7 +307,6 @@ class InstanceList(object):
 
         return (rulestart, start, end, duration,)
 
-
     def _addMasterToDoComponent(self, component, lowerLimit, upperLimit):
         """
         Add the specified master VTODO Component to the instance list, expanding it
@@ -339,7 +321,6 @@ class InstanceList(object):
 
         lowerLimit, upperLimit = self._setupLimits(start, lowerLimit, upperLimit)
         self._addMasterComponent(component, lowerLimit, upperLimit, rulestart, start, end, duration)
-
 
     def _addOverrideToDoComponent(self, component, lowerLimit, upperLimit, master):
         """
@@ -358,7 +339,6 @@ class InstanceList(object):
 
         lowerLimit, upperLimit = self._setupLimits(start, lowerLimit, upperLimit)
         self._addOverrideComponent(component, lowerLimit, upperLimit, start, end, master)
-
 
     def _addMasterComponent(self, component, lowerLimit, upperlimit, rulestart, start, end, duration):
 
@@ -396,7 +376,6 @@ class InstanceList(object):
                 self.limit = upperlimit
 
         self.master_cancelled = component.propertyValue("STATUS") == "CANCELLED"
-
 
     def _addOverrideComponent(self, component, lowerLimit, upperlimit, start, end, master):
 
@@ -475,7 +454,6 @@ class InstanceList(object):
                 # Now replacing existing entry with the new one
                 self.addInstance(Instance(component, start, end, originalStart, False, False))
 
-
     def _addFreeBusyComponent(self, component, lowerLimit, upperLimit):
         """
         Add the specified master VFREEBUSY Component to the instance list, expanding it
@@ -512,7 +490,6 @@ class InstanceList(object):
                 start = self.normalizeFunction(period.getStart())
                 end = self.normalizeFunction(period.getEnd())
                 self.addInstance(Instance(component, start, end))
-
 
     def _addAvailabilityComponent(self, component, lowerLimit, upperLimit):
         """

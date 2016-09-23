@@ -30,7 +30,6 @@ from twisted.internet.defer import inlineCallbacks, Deferred
 from twisted.application.service import Service
 
 
-
 class SubprocessStartup(TestCase):
     """
     Tests for starting and stopping the subprocess.
@@ -56,7 +55,6 @@ class SubprocessStartup(TestCase):
                 self.connection = connectionFactory()
                 test.addCleanup(self.connection.close)
                 self.instances.append(self)
-
 
             def startService(self):
                 cursor = self.connection.cursor()
@@ -87,7 +85,6 @@ class SubprocessStartup(TestCase):
         values = cursor.fetchall()
         self.assertEquals(map(list, values), [["dummy"]])
 
-
     @inlineCallbacks
     def test_startService_Socket(self):
         """
@@ -108,7 +105,6 @@ class SubprocessStartup(TestCase):
                 self.connection = connectionFactory()
                 test.addCleanup(self.connection.close)
                 self.instances.append(self)
-
 
             def startService(self):
                 cursor = self.connection.cursor()

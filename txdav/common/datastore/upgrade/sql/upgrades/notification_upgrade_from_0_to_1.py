@@ -34,6 +34,7 @@ Data upgrade from database version 0 to 1
 
 UPGRADE_TO_VERSION = 1
 
+
 @inlineCallbacks
 def doUpgrade(sqlStore):
     """
@@ -47,7 +48,6 @@ def doUpgrade(sqlStore):
         yield updateNotificationDataVersion(sqlStore, UPGRADE_TO_VERSION)
 
 
-
 @inlineCallbacks
 def updateNotificationHomes(sqlStore, prefix=None):
     """
@@ -55,7 +55,6 @@ def updateNotificationHomes(sqlStore, prefix=None):
     """
 
     yield doToEachHomeNotAtVersion(sqlStore, schema.NOTIFICATION_HOME, UPGRADE_TO_VERSION, updateNotificationHome, "Update Notification Home", filterOwnerUID=prefix)
-
 
 
 @inlineCallbacks
@@ -68,7 +67,6 @@ def updateNotificationHome(txn, homeResourceID):
     notifications = (yield home.notificationObjects())
     for notification in notifications:
         yield updateNotification(txn, notification)
-
 
 
 @inlineCallbacks

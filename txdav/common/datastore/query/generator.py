@@ -25,6 +25,7 @@ __all__ = [
     "SQLQueryGenerator",
 ]
 
+
 class SQLQueryGenerator(object):
 
     def __init__(self, expr, collection, whereid):
@@ -38,7 +39,6 @@ class SQLQueryGenerator(object):
         self.expression = expr
         self.collection = collection
         self.whereid = whereid
-
 
     def generate(self):
         """
@@ -72,7 +72,6 @@ class SQLQueryGenerator(object):
         )
 
         return select, self.arguments
-
 
     def generateExpression(self, expr):
         """
@@ -149,7 +148,6 @@ class SQLQueryGenerator(object):
             partial = expr.field.NotIn(Parameter(argname, len(expr.text)))
 
         return partial
-
 
     def addArgument(self, arg):
         """

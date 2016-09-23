@@ -41,7 +41,6 @@ def findRecords(directory, terms):
     returnValue(sorted(records, key=operator.attrgetter("fullName")))
 
 
-
 @inlineCallbacks
 def recordInfo(directory, record):
     """
@@ -54,12 +53,11 @@ def recordInfo(directory, record):
             info.append("%s:" % (name,))
             info.append(subInfo)
 
-    add("Directory record" , (yield recordBasicInfo(directory, record)))
+    add("Directory record", (yield recordBasicInfo(directory, record)))
     add("Group memberships", (yield recordGroupMembershipInfo(directory, record)))
-    add("Proxy access"     , (yield recordProxyAccessInfo(directory, record)))
+    add("Proxy access", (yield recordProxyAccessInfo(directory, record)))
 
     returnValue("\n".join(info))
-
 
 
 def recordBasicInfo(directory, record):
@@ -72,16 +70,16 @@ def recordBasicInfo(directory, record):
         if value:
             table.addRow((name, value))
 
-    add("Service"    , record.service)
+    add("Service", record.service)
     add("Record Type", record.recordType)
 
     for shortName in record.shortNames:
         add("Short Name", shortName)
 
-    add("GUID"      , record.guid)
-    add("Full Name" , record.fullName)
+    add("GUID", record.guid)
+    add("Full Name", record.fullName)
     add("First Name", record.firstName)
-    add("Last Name" , record.lastName)
+    add("Last Name", record.lastName)
 
     try:
         for email in record.emailAddresses:
@@ -95,13 +93,12 @@ def recordBasicInfo(directory, record):
     except AttributeError:
         pass
 
-    add("Server ID"           , record.serverID)
-    add("Enabled"             , record.enabled)
+    add("Server ID", record.serverID)
+    add("Enabled", record.enabled)
     add("Enabled for Calendar", record.hasCalendars)
     add("Enabled for Contacts", record.hasContacts)
 
     return succeed(table.toString())
-
 
 
 def recordGroupMembershipInfo(directory, record):
@@ -127,7 +124,6 @@ def recordGroupMembershipInfo(directory, record):
         table.addRow(row)
 
     return succeed(table.toString())
-
 
 
 @inlineCallbacks
@@ -174,7 +170,6 @@ def recordProxyAccessInfo(directory, record):
         table.addRow(row)
 
     returnValue(table.toString())
-
 
 
 def summarizeRecords(directory, records):

@@ -27,14 +27,14 @@ from txdav.idav import ChangeCategory
 from twext.enterprise.jobs.jobitem import JobItem
 from twisted.internet import reactor
 
+
 class StubService(object):
+
     def __init__(self):
         self.reset()
 
-
     def reset(self):
         self.history = []
-
 
     def enqueue(
         self, transaction, id, dataChangedTimestamp=None,
@@ -42,7 +42,6 @@ class StubService(object):
     ):
         self.history.append((id, priority))
         return(succeed(None))
-
 
 
 class PushDistributorTests(StoreTestCase):
@@ -54,24 +53,23 @@ class PushDistributorTests(StoreTestCase):
         yield dist.enqueue(None, "testing", PushPriority.high)
         self.assertEquals(stub.history, [("testing", PushPriority.high)])
 
-
     def test_getPubSubAPSConfiguration(self):
         config = ConfigDict({
-            "EnableSSL" : True,
-            "BehindTLSProxy" : False,
-            "ServerHostName" : "calendars.example.com",
-            "SSLPort" : 8443,
-            "HTTPPort" : 8008,
-            "Notifications" : {
-                "Services" : {
-                    "APNS" : {
-                        "CalDAV" : {
-                            "Topic" : "test topic",
+            "EnableSSL": True,
+            "BehindTLSProxy": False,
+            "ServerHostName": "calendars.example.com",
+            "SSLPort": 8443,
+            "HTTPPort": 8008,
+            "Notifications": {
+                "Services": {
+                    "APNS": {
+                        "CalDAV": {
+                            "Topic": "test topic",
                         },
-                        "SubscriptionRefreshIntervalSeconds" : 42,
-                        "SubscriptionURL" : "apns",
-                        "Environment" : "prod",
-                        "Enabled" : True,
+                        "SubscriptionRefreshIntervalSeconds": 42,
+                        "SubscriptionURL": "apns",
+                        "Environment": "prod",
+                        "Enabled": True,
                     },
                 },
             },
@@ -88,21 +86,21 @@ class PushDistributorTests(StoreTestCase):
             }
         )
         config = ConfigDict({
-            "EnableSSL" : False,
-            "BehindTLSProxy" : True,
-            "ServerHostName" : "calendars.example.com",
-            "SSLPort" : 8443,
-            "HTTPPort" : 8008,
-            "Notifications" : {
-                "Services" : {
-                    "APNS" : {
-                        "CalDAV" : {
-                            "Topic" : "test topic",
+            "EnableSSL": False,
+            "BehindTLSProxy": True,
+            "ServerHostName": "calendars.example.com",
+            "SSLPort": 8443,
+            "HTTPPort": 8008,
+            "Notifications": {
+                "Services": {
+                    "APNS": {
+                        "CalDAV": {
+                            "Topic": "test topic",
                         },
-                        "SubscriptionRefreshIntervalSeconds" : 42,
-                        "SubscriptionURL" : "apns",
-                        "Environment" : "prod",
-                        "Enabled" : True,
+                        "SubscriptionRefreshIntervalSeconds": 42,
+                        "SubscriptionURL": "apns",
+                        "Environment": "prod",
+                        "Enabled": True,
                     },
                 },
             },
@@ -129,21 +127,21 @@ class PushDistributorTests(StoreTestCase):
         )
 
         config = ConfigDict({
-            "EnableSSL" : False,
-            "BehindTLSProxy" : False,
-            "ServerHostName" : "calendars.example.com",
-            "SSLPort" : 8443,
-            "HTTPPort" : 8008,
-            "Notifications" : {
-                "Services" : {
-                    "APNS" : {
-                        "CalDAV" : {
-                            "Topic" : "test topic",
+            "EnableSSL": False,
+            "BehindTLSProxy": False,
+            "ServerHostName": "calendars.example.com",
+            "SSLPort": 8443,
+            "HTTPPort": 8008,
+            "Notifications": {
+                "Services": {
+                    "APNS": {
+                        "CalDAV": {
+                            "Topic": "test topic",
                         },
-                        "SubscriptionRefreshIntervalSeconds" : 42,
-                        "SubscriptionURL" : "apns",
-                        "Environment" : "prod",
-                        "Enabled" : True,
+                        "SubscriptionRefreshIntervalSeconds": 42,
+                        "SubscriptionURL": "apns",
+                        "Environment": "prod",
+                        "Enabled": True,
                     },
                 },
             },
@@ -160,15 +158,13 @@ class PushDistributorTests(StoreTestCase):
         )
 
 
-
 class StubDistributor(object):
+
     def __init__(self):
         self.reset()
 
-
     def reset(self):
         self.history = []
-
 
     def enqueue(
         self, transaction, pushID, dataChangedTimestamp=None,
@@ -176,7 +172,6 @@ class StubDistributor(object):
     ):
         self.history.append((pushID, priority))
         return(succeed(None))
-
 
 
 class PushNotificationWorkTests(StoreTestCase):
@@ -266,15 +261,14 @@ class PushNotificationWorkTests(StoreTestCase):
             [("/CalDAV/localhost/bar/", PushPriority.high)])
 
 
-
 class NotifierFactory(StoreTestCase):
 
     requirements = {
-        "user01" : {
-            "calendar_1" : {}
+        "user01": {
+            "calendar_1": {}
         },
-        "user02" : {
-            "calendar_1" : {}
+        "user02": {
+            "calendar_1": {}
         },
     }
 
@@ -285,11 +279,9 @@ class NotifierFactory(StoreTestCase):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
 
-
     def test_storeInit(self):
 
         self.assertTrue("push" in self._sqlCalendarStore._notifierFactories)
-
 
     @inlineCallbacks
     def test_homeNotifier(self):
@@ -300,7 +292,6 @@ class NotifierFactory(StoreTestCase):
             self.notifierFactory.history,
             [("/CalDAV/example.com/user01/", PushPriority.high)])
         yield self.commit()
-
 
     @inlineCallbacks
     def test_calendarNotifier(self):
@@ -314,7 +305,6 @@ class NotifierFactory(StoreTestCase):
                 ("/CalDAV/example.com/user01/calendar_1/", PushPriority.high)])
         )
         yield self.commit()
-
 
     @inlineCallbacks
     def test_shareWithNotifier(self):
@@ -345,7 +335,6 @@ class NotifierFactory(StoreTestCase):
         )
         yield self.commit()
 
-
     @inlineCallbacks
     def test_sharedCalendarNotifier(self):
 
@@ -365,7 +354,6 @@ class NotifierFactory(StoreTestCase):
                 ("/CalDAV/example.com/user01/calendar_1/", PushPriority.high)])
         )
         yield self.commit()
-
 
     @inlineCallbacks
     def test_notificationNotifier(self):

@@ -52,13 +52,13 @@ except ImportError:
     from txweb2.dav.noneprops import NonePropertyStore as DeadPropertyStore
 
 
-
 class DAVFile (DAVResource, File):
     """
     WebDAV-accessible File resource.
 
     Extends txweb2.static.File to handle WebDAV methods.
     """
+
     def __init__(
         self, path,
         defaultType="text/plain", indexNames=None,
@@ -80,10 +80,8 @@ class DAVFile (DAVResource, File):
         )
         DAVResource.__init__(self, principalCollections=principalCollections)
 
-
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self.fp.path)
-
 
     ##
     # WebDAV
@@ -97,16 +95,13 @@ class DAVFile (DAVResource, File):
         else:
             return super(DAVFile, self).etag()
 
-
     def davComplianceClasses(self):
-        return ("1", "access-control") # Add "2" when we have locking
-
+        return ("1", "access-control")  # Add "2" when we have locking
 
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = DeadPropertyStore(self)
         return self._dead_properties
-
 
     def isCollection(self):
         """
@@ -114,14 +109,12 @@ class DAVFile (DAVResource, File):
         """
         return self.fp.isdir()
 
-
     ##
     # ACL
     ##
 
     def supportedPrivileges(self, request):
         return succeed(davPrivilegeSet)
-
 
     ##
     # Quota
@@ -167,7 +160,6 @@ class DAVFile (DAVResource, File):
         else:
             return succeed(self.fp.getsize())
 
-
     ##
     # Workarounds for issues with File
     ##
@@ -177,7 +169,6 @@ class DAVFile (DAVResource, File):
         Does nothing; doesn't apply to this subclass.
         """
         pass
-
 
     def locateChild(self, req, segments):
         """
@@ -206,7 +197,6 @@ class DAVFile (DAVResource, File):
             return (self, ())
 
         return (self.createSimilarFile(self.fp.child(path).path), segments[1:])
-
 
     def createSimilarFile(self, path):
         return self.__class__(

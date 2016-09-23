@@ -30,11 +30,14 @@ class Stop(Exception):
 
 
 interrupted = 0.0
+
+
 def waitForInterrupt():
     if signal.getsignal(signal.SIGINT) != signal.default_int_handler:
         raise RuntimeError("Already waiting")
 
     d = Deferred()
+
     def fire(*ignored):
         global interrupted
         signal.signal(signal.SIGINT, signal.default_int_handler)
@@ -46,7 +49,6 @@ def waitForInterrupt():
             reactor.callFromThread(d.callback, None)
     signal.signal(signal.SIGINT, fire)
     return d
-
 
 
 @inlineCallbacks
@@ -68,7 +70,6 @@ def collect(directory):
             if s.name == 'execute':
                 s.statements(stats[s])
         print('Stopped')
-
 
 
 def main():

@@ -27,6 +27,7 @@ __all__ = [
 
 log = Logger()
 
+
 class DeliveryService(object):
     """
     Abstract base class that defines a delivery method for a scheduling message.
@@ -45,11 +46,9 @@ class DeliveryService(object):
         self.responses = responses
         self.freebusy = freebusy
 
-
     @classmethod
     def serviceType(cls):
         raise NotImplementedError
-
 
     @classmethod
     def matchCalendarUserAddress(cls, cuaddr):
@@ -76,7 +75,6 @@ class DeliveryService(object):
                 )
 
         return succeed(False)
-
 
     def generateSchedulingResponses(self):
         raise NotImplementedError

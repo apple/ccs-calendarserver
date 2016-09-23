@@ -69,10 +69,10 @@ schema_version = "10"
 collection_types = {"Calendar": "Regular Calendar Collection", "iTIP": "iTIP Calendar Collection"}
 
 icalfbtype_to_indexfbtype = {
-    "FREE"            : 'F',
-    "BUSY"            : 'B',
+    "FREE": 'F',
+    "BUSY": 'B',
     "BUSY-UNAVAILABLE": 'U',
-    "BUSY-TENTATIVE"  : 'T',
+    "BUSY-TENTATIVE": 'T',
 }
 indexfbtype_to_icalfbtype = dict([(v, k) for k, v in icalfbtype_to_indexfbtype.iteritems()])
 
@@ -98,13 +98,11 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
         self.resource._txn.postCommit(self._db_close)
         self.resource._txn.postAbort(self._db_close)
 
-
     def create(self):
         """
         Create the index and initialize it.
         """
         self._db()
-
 
     def reserveUID(self, uid):
         """
@@ -114,7 +112,6 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
         """
         raise NotImplementedError
 
-
     def unreserveUID(self, uid):
         """
         Unreserve a UID for this index's resource.
@@ -123,7 +120,6 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
         """
         raise NotImplementedError
 
-
     def isReservedUID(self, uid):
         """
         Check to see whether a UID is reserved.
@@ -131,7 +127,6 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
         @return: True if C{uid} is reserved, False otherwise.
         """
         raise NotImplementedError
-
 
     def isAllowedUID(self, uid, *names):
         """
@@ -146,7 +141,6 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
             False otherwise.
         """
         raise NotImplementedError
-
 
     def resourceNamesForUID(self, uid):
         """
@@ -173,7 +167,6 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
 
         return resources
 
-
     def resourceNameForUID(self, uid):
         """
         Looks up the name of the resource with the given UID.
@@ -188,7 +181,6 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
 
         return result
 
-
     def resourceUIDForName(self, name):
         """
         Looks up the UID of the resource with the given name.
@@ -200,13 +192,11 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
 
         return uid
 
-
     def componentTypeCounts(self):
         """
         Count each type of component.
         """
         return self._db_execute("select TYPE, COUNT(TYPE) from RESOURCE group by TYPE")
-
 
     def addResource(self, name, calendar, fast=False, reCreate=False):
         """
@@ -226,7 +216,6 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
         if not fast:
             self._db_commit()
 
-
     def deleteResource(self, name):
         """
         Remove this resource from the index.
@@ -238,7 +227,6 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
             self._delete_from_db(name, uid)
             self._db_commit()
 
-
     def resourceExists(self, name):
         """
         Determines whether the specified resource name exists in the index.
@@ -247,7 +235,6 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
         """
         uid = self._db_value_for_sql("select UID from RESOURCE where NAME = :1", name)
         return uid is not None
-
 
     def resourcesExist(self, names):
         """
@@ -264,7 +251,6 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
         results = self._db_values_for_sql(statement, *names)
         return results
 
-
     def testAndUpdateIndex(self, minDate):
         # Find out if the index is expanded far enough
         names = self.notExpandedBeyond(minDate)
@@ -272,7 +258,6 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
         for name in names:
             self.log.info("Search falls outside range of index for {name} {date}", name=name, date=minDate)
             self.reExpandResource(name, minDate)
-
 
     def whatchanged(self, revision):
 
@@ -294,12 +279,10 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
 
         return (changed, deleted, invalid)
 
-
     def lastRevision(self):
         return self._db_value_for_sql(
             "select REVISION from REVISION_SEQUENCE"
         )
-
 
     def bumpRevision(self, fast=False):
         self._db_execute(
@@ -313,7 +296,6 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
             select REVISION from REVISION_SEQUENCE
             """,
         )
-
 
     def indexedSearch(self, filter, useruid="", fbtype=False):
         """
@@ -391,7 +373,6 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
 
         return results
 
-
     def bruteForceSearch(self):
         """
         List the whole index and tests for existence, updating the index
@@ -415,13 +396,11 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
 
         return results
 
-
     def _db_version(self):
         """
         @return: the schema version assigned to this index.
         """
         return schema_version
-
 
     def _add_to_db(self, name, calendar, cursor=None, expand_until=None, reCreate=False):
         """
@@ -436,7 +415,6 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
         """
         raise NotImplementedError
 
-
     def _delete_from_db(self, name, uid, dorevision=True):
         """
         Deletes the specified entry from all dbs.
@@ -444,7 +422,6 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
         @param uid: the uid of the resource to delete.
         """
         raise NotImplementedError
-
 
 
 def sqlcalendarquery(filter, calendarid=None, userid=None, freebusy=False):
@@ -464,7 +441,6 @@ def sqlcalendarquery(filter, calendarid=None, userid=None, freebusy=False):
         return None
 
 
-
 class CalendarIndex (AbstractCalendarIndex):
     """
     Calendar index - abstract class for indexer that indexes calendar objects in a collection.
@@ -476,7 +452,6 @@ class CalendarIndex (AbstractCalendarIndex):
             index.
         """
         super(CalendarIndex, self).__init__(resource)
-
 
     def _db_init_data_tables_base(self, q, uidunique):
         """
@@ -640,7 +615,6 @@ class CalendarIndex (AbstractCalendarIndex):
             """
         )
 
-
     def _db_can_upgrade(self, old_version):
         """
         Can we do an in-place upgrade
@@ -648,7 +622,6 @@ class CalendarIndex (AbstractCalendarIndex):
 
         # v10 is a big change - no upgrade possible
         return False
-
 
     def _db_upgrade_data_tables(self, q, old_version):
         """
@@ -658,14 +631,12 @@ class CalendarIndex (AbstractCalendarIndex):
         # v10 is a big change - no upgrade possible
         pass
 
-
     def notExpandedBeyond(self, minDate):
         """
         Gives all resources which have not been expanded beyond a given date
         in the index
         """
         return self._db_values_for_sql("select NAME from RESOURCE where RECURRANCE_MAX < :1", pyCalendarToSQLTimestamp(minDate))
-
 
     def reExpandResource(self, name, expand_until):
         """
@@ -675,7 +646,6 @@ class CalendarIndex (AbstractCalendarIndex):
         calendar = self.resource.getChild(name).iCalendar()
         self._add_to_db(name, calendar, expand_until=expand_until, reCreate=True)
         self._db_commit()
-
 
     def _add_to_db(self, name, calendar, cursor=None, expand_until=None, reCreate=False):
         """
@@ -837,7 +807,6 @@ class CalendarIndex (AbstractCalendarIndex):
             """, name, self.bumpRevision(fast=True), 'N',
         )
 
-
     def _delete_from_db(self, name, uid, dorevision=True):
         """
         Deletes the specified entry from all dbs.
@@ -854,13 +823,11 @@ class CalendarIndex (AbstractCalendarIndex):
             )
 
 
-
 def wrapInDeferred(f):
     def _(*args, **kwargs):
         return maybeDeferred(f, *args, **kwargs)
 
     return _
-
 
 
 class MemcachedUIDReserver(CachePoolUserMixIn):
@@ -870,12 +837,10 @@ class MemcachedUIDReserver(CachePoolUserMixIn):
         self.index = index
         self._cachePool = cachePool
 
-
     def _key(self, uid):
         return 'reservation:%s' % (
             hashlib.md5('%s:%s' % (uid,
                                    self.index.resource.fp.path)).hexdigest())
-
 
     def reserveUID(self, uid):
         uid = uid.encode('utf-8')
@@ -897,7 +862,6 @@ class MemcachedUIDReserver(CachePoolUserMixIn):
         d.addCallback(_handleFalse)
         return d
 
-
     def unreserveUID(self, uid):
         uid = uid.encode('utf-8')
         self.log.debug(
@@ -915,7 +879,6 @@ class MemcachedUIDReserver(CachePoolUserMixIn):
         d = self.getCachePool().delete(self._key(uid))
         d.addCallback(_handleFalse)
         return d
-
 
     def isReservedUID(self, uid):
         uid = uid.encode('utf-8')
@@ -935,11 +898,10 @@ class MemcachedUIDReserver(CachePoolUserMixIn):
         return d
 
 
-
 class SQLUIDReserver(object):
+
     def __init__(self, index):
         self.index = index
-
 
     @wrapInDeferred
     def reserveUID(self, uid):
@@ -962,7 +924,6 @@ class SQLUIDReserver(object):
             log.error("Unable to reserve UID: {ex}", ex=e)
             self.index._db_rollback()
             raise
-
 
     def unreserveUID(self, uid):
         """
@@ -990,7 +951,6 @@ class SQLUIDReserver(object):
         d = self.isReservedUID(uid)
         d.addCallback(_cb)
         return d
-
 
     @wrapInDeferred
     def isReservedUID(self, uid):
@@ -1021,7 +981,6 @@ class SQLUIDReserver(object):
         return False
 
 
-
 class Index (CalendarIndex):
     """
     Calendar collection index - regular collection that enforces CalDAV UID uniqueness requirement.
@@ -1044,7 +1003,6 @@ class Index (CalendarIndex):
         else:
             self.reserver = SQLUIDReserver(self)
 
-
     #
     # A dict of sets. The dict keys are calendar collection paths,
     # and the sets contains reserved UIDs for each path.
@@ -1053,14 +1011,11 @@ class Index (CalendarIndex):
     def reserveUID(self, uid):
         return self.reserver.reserveUID(uid)
 
-
     def unreserveUID(self, uid):
         return self.reserver.unreserveUID(uid)
 
-
     def isReservedUID(self, uid):
         return self.reserver.isReservedUID(uid)
-
 
     def isAllowedUID(self, uid, *names):
         """
@@ -1076,13 +1031,11 @@ class Index (CalendarIndex):
         rname = self.resourceNameForUID(uid)
         return (rname is None or rname in names)
 
-
     def _db_type(self):
         """
         @return: the collection type assigned to this index.
         """
         return collection_types["Calendar"]
-
 
     def _db_init_data_tables(self, q):
         """
@@ -1092,7 +1045,6 @@ class Index (CalendarIndex):
 
         # Create database where the RESOURCE table has unique UID column.
         self._db_init_data_tables_base(q, True)
-
 
     def _db_recreate(self, do_commit=True):
         """
@@ -1136,13 +1088,12 @@ class Index (CalendarIndex):
             self._db_commit()
 
 
-
 class IndexSchedule (CalendarIndex):
     """
     Schedule collection index - does not require UID uniqueness.
     """
 
-    def reserveUID(self, uid): #@UnusedVariable
+    def reserveUID(self, uid):  # @UnusedVariable
         """
         Reserve a UID for this index's resource.
         @param uid: the UID to reserve
@@ -1152,8 +1103,7 @@ class IndexSchedule (CalendarIndex):
         # iTIP does not require unique UIDs
         return succeed(None)
 
-
-    def unreserveUID(self, uid): #@UnusedVariable
+    def unreserveUID(self, uid):  # @UnusedVariable
         """
         Unreserve a UID for this index's resource.
         @param uid: the UID to reserve
@@ -1163,8 +1113,7 @@ class IndexSchedule (CalendarIndex):
         # iTIP does not require unique UIDs
         return succeed(None)
 
-
-    def isReservedUID(self, uid): #@UnusedVariable
+    def isReservedUID(self, uid):  # @UnusedVariable
         """
         Check to see whether a UID is reserved.
         @param uid: the UID to check
@@ -1174,8 +1123,7 @@ class IndexSchedule (CalendarIndex):
         # iTIP does not require unique UIDs
         return succeed(False)
 
-
-    def isAllowedUID(self, uid, *names): #@UnusedVariable
+    def isAllowedUID(self, uid, *names):  # @UnusedVariable
         """
         Checks to see whether to allow an operation with adds the the specified
         UID is allowed to the index.  Specifically, the operation may not
@@ -1191,13 +1139,11 @@ class IndexSchedule (CalendarIndex):
         # iTIP does not require unique UIDs
         return True
 
-
     def _db_type(self):
         """
         @return: the collection type assigned to this index.
         """
         return collection_types["iTIP"]
-
 
     def _db_init_data_tables(self, q):
         """
@@ -1207,7 +1153,6 @@ class IndexSchedule (CalendarIndex):
 
         # Create database where the RESOURCE table has a UID column that is not unique.
         self._db_init_data_tables_base(q, False)
-
 
     def _db_recreate(self, do_commit=True):
         """

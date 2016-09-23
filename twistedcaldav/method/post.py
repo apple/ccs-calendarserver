@@ -32,6 +32,7 @@ from twistedcaldav.config import config
 
 log = Logger()
 
+
 @inlineCallbacks
 def http_POST(self, request):
 

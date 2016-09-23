@@ -26,6 +26,7 @@ __all__ = [
     "PrivateEventFilter",
 ]
 
+
 class PrivateEventFilter(CalendarFilter):
     """
     Filter a private event to match the rights of the non-owner user accessing the data
@@ -42,7 +43,6 @@ class PrivateEventFilter(CalendarFilter):
 
         self.accessRestriction = accessRestriction
         self.isowner = isowner
-
 
     def filter(self, ical):
         """
@@ -166,7 +166,6 @@ class PrivateEventFilter(CalendarFilter):
         else:
             # Unknown access restriction
             raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Access Denied"))
-
 
     def merge(self, icalnew, icalold):
         """

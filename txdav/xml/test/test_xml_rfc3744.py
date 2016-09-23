@@ -30,6 +30,7 @@ class XML_3744(unittest.TestCase):
     """
     RFC 3744 (WebDAV ACL) XML tests.
     """
+
     def test_Privilege_isAggregateOf(self):
         """
         Privilege.isAggregateOf()

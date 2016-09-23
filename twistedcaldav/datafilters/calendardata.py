@@ -25,6 +25,7 @@ __all__ = [
     "CalendarDataFilter",
 ]
 
+
 class CalendarDataFilter(CalendarFilter):
     """
     Filter using the CALDAV:calendar-data element specification
@@ -41,7 +42,6 @@ class CalendarDataFilter(CalendarFilter):
 
         self.calendardata = calendardata
         self.timezone = timezone
-
 
     def filter(self, ical):
         """
@@ -75,7 +75,6 @@ class CalendarDataFilter(CalendarFilter):
             ical = self.compFilter(self.calendardata.component, ical)
 
         return ical
-
 
     def compFilter(self, comp, component):
         """
@@ -118,7 +117,6 @@ class CalendarDataFilter(CalendarFilter):
 
         return result
 
-
     def expandRecurrence(self, calendar, timezone=None):
         """
         Expand the recurrence set into individual items.
@@ -127,7 +125,6 @@ class CalendarDataFilter(CalendarFilter):
         @return: the L{Component} for the result.
         """
         return calendar.expand(self.calendardata.recurrence_set.start, self.calendardata.recurrence_set.end, timezone)
-
 
     def limitRecurrence(self, calendar):
         """
@@ -139,7 +136,6 @@ class CalendarDataFilter(CalendarFilter):
         """
         raise NotImplementedError()
         return calendar
-
 
     def limitFreeBusy(self, calendar):
         """
@@ -169,7 +165,6 @@ class CalendarDataFilter(CalendarFilter):
                 else:
                     component.removeProperty(property)
         return calendar
-
 
     def merge(self, icalnew, icalold):
         """

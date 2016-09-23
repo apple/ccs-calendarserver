@@ -124,12 +124,10 @@ class _NewStorePropertiesWrapper(object):
         """
         self._newPropertyStore = newPropertyStore
 
-
     @classmethod
     def _convertKey(cls, qname):
         namespace, name = qname
         return PropertyName(namespace, name)
-
 
     def get(self, qname):
         try:
@@ -140,7 +138,6 @@ class _NewStorePropertiesWrapper(object):
                 "No such property: %s" % (encodeXMLName(*qname),)
             ))
 
-
     def set(self, prop):
         try:
             self._newPropertyStore[self._convertKey(prop.qname())] = prop
@@ -150,7 +147,6 @@ class _NewStorePropertiesWrapper(object):
                 "Property cannot be changed: %s" % (prop.sname(),)
             ))
 
-
     def delete(self, qname):
         try:
             del self._newPropertyStore[self._convertKey(qname)]
@@ -159,15 +155,12 @@ class _NewStorePropertiesWrapper(object):
             # non-existing property is not an error.
             pass
 
-
     def contains(self, qname):
         return (self._convertKey(qname) in self._newPropertyStore)
-
 
     def list(self):
         return [(pname.namespace, pname.name) for pname in
                 self._newPropertyStore.keys()]
-
 
 
 class _NewStoreFileMetaDataHelper(object):
@@ -175,34 +168,26 @@ class _NewStoreFileMetaDataHelper(object):
     def exists(self):
         return self._newStoreObject is not None
 
-
     def name(self):
         return self._newStoreObject.name() if self._newStoreObject is not None else self._name
-
 
     def etag(self):
         return succeed(ETag(self._newStoreObject.md5()) if self._newStoreObject is not None else None)
 
-
     def contentType(self):
         return self._newStoreObject.contentType() if self._newStoreObject is not None else None
-
 
     def contentLength(self):
         return self._newStoreObject.size() if self._newStoreObject is not None else None
 
-
     def lastModified(self):
         return self._newStoreObject.modified() if self._newStoreObject is not None else None
-
 
     def creationDate(self):
         return self._newStoreObject.created() if self._newStoreObject is not None else None
 
-
     def newStoreProperties(self):
         return self._newStoreObject.properties() if self._newStoreObject is not None else None
-
 
 
 class _CommonStoreExceptionHandler(object):
@@ -232,7 +217,6 @@ class _CommonStoreExceptionHandler(object):
         """
         raise HTTPError(StatusResponse(responsecode.FORBIDDEN, arg if arg is not None else str(err)))
 
-
     @classmethod
     def _storeExceptionError(cls, err, arg):
         """
@@ -249,7 +233,6 @@ class _CommonStoreExceptionHandler(object):
             str(err),
         ))
 
-
     @classmethod
     def _storeExceptionUnavailable(cls, err, arg):
         """
@@ -263,7 +246,6 @@ class _CommonStoreExceptionHandler(object):
         response = StatusResponse(responsecode.SERVICE_UNAVAILABLE, arg if arg is not None else str(err))
         response.headers.setHeader("Retry-After", time.time() + config.TransactionHTTPRetrySeconds)
         raise HTTPError(response)
-
 
     @classmethod
     def _handleStoreException(cls, ex, exceptionMap):
@@ -279,7 +261,6 @@ class _CommonStoreExceptionHandler(object):
         if type(ex) in exceptionMap:
             error, arg = exceptionMap[type(ex)]
             error(ex, arg)
-
 
     @classmethod
     def _handleStoreExceptionArg(cls, ex, exceptionMap, arg):
@@ -298,7 +279,6 @@ class _CommonStoreExceptionHandler(object):
         if type(ex) in exceptionMap:
             error = exceptionMap[type(ex)]
             error(ex, arg)
-
 
 
 class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
@@ -325,7 +305,6 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
             self._newStoreObject.properties()
         ) if self._newStoreObject else NonePropertyStore(self)
 
-
     def liveProperties(self):
 
         props = super(_CommonHomeChildCollectionMixin, self).liveProperties()
@@ -337,7 +316,6 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
             props += (customxml.BulkRequests.qname(),)
 
         return props
-
 
     @inlineCallbacks
     def readProperty(self, prop, request):
@@ -364,10 +342,8 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
         result = (yield super(_CommonHomeChildCollectionMixin, self).readProperty(prop, request))
         returnValue(result)
 
-
     def url(self):
         return joinURL(self._parentResource.url(), self._name, "/")
-
 
     def owner_url(self):
         if self.isShareeResource():
@@ -375,15 +351,12 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
         else:
             return self.url()
 
-
     def parentResource(self):
         return self._parentResource
-
 
     def exists(self):
         # FIXME: tests
         return self._newStoreObject is not None
-
 
     @inlineCallbacks
     def _indexWhatChanged(self, revision, depth):
@@ -391,7 +364,6 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
         returnValue(
             (yield self._newStoreObject.resourceNamesSinceToken(revision))
         )
-
 
     @inlineCallbacks
     def makeChild(self, name):
@@ -419,7 +391,6 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
         else:
             returnValue(NoParent())
 
-
     @inlineCallbacks
     def listChildren(self):
         """
@@ -429,13 +400,11 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
         children.update((yield self._newStoreObject.listObjectResources()))
         returnValue(sorted(children))
 
-
     def countChildren(self):
         """
         @return: L{Deferred} with the count of all known children of this resource.
         """
         return self._newStoreObject.countObjectResources()
-
 
     @inlineCallbacks
     def resourceExists(self, name):
@@ -448,10 +417,8 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
         allNames = yield self._newStoreObject.listObjectResources()
         returnValue(name in allNames)
 
-
     def name(self):
         return self._name
-
 
     @inlineCallbacks
     def etag(self):
@@ -464,23 +431,18 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
         else:
             returnValue(None)
 
-
     def lastModified(self):
         return self._newStoreObject.modified() if self._newStoreObject else None
-
 
     def creationDate(self):
         return self._newStoreObject.created() if self._newStoreObject else None
 
-
     def getInternalSyncToken(self):
         return self._newStoreObject.syncToken() if self._newStoreObject else None
-
 
     def resourceID(self):
         rid = "%s/%s" % (self._newStoreParentHome.id(), self._newStoreObject.id(),)
         return uuid.uuid5(self.uuid_namespace, rid).urn
-
 
     @inlineCallbacks
     def findChildrenFaster(
@@ -503,7 +465,6 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
 
         returnValue(result)
 
-
     @inlineCallbacks
     def createCollection(self):
         """
@@ -521,13 +482,11 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
 
         returnValue(CREATED)
 
-
     def http_PUT(self, request):
         """
         Cannot PUT to existing collection. Use POST instead.
         """
         return FORBIDDEN
-
 
     @requiresPermissions(fromParent=[davxml.Unbind()])
     @inlineCallbacks
@@ -553,7 +512,6 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
             self._handleStoreException(err, self.StoreExceptionsErrors)
             raise
         returnValue(response)
-
 
     @inlineCallbacks
     def storeRemove(self, request):
@@ -624,14 +582,12 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
 
         returnValue(response)
 
-
     def http_COPY(self, request):
         """
         Copying of calendar collections isn't allowed.
         """
         # FIXME: no direct tests
         return FORBIDDEN
-
 
     # FIXME: access control
     @inlineCallbacks
@@ -663,7 +619,6 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
         yield self._newStoreObject.rename(basename)
         returnValue(NO_CONTENT)
 
-
     @inlineCallbacks
     def POST_handler_add_member(self, request):
         """
@@ -689,7 +644,6 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
 
         returnValue(response)
 
-
     @inlineCallbacks
     def checkCTagPrecondition(self, request):
         if request.headers.hasHeader("If"):
@@ -703,14 +657,12 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
                 if testctag != ctag:
                     raise HTTPError(StatusResponse(PRECONDITION_FAILED, "CTag pre-condition failure"))
 
-
     def checkReturnChanged(self, request):
         if request.headers.hasHeader("X-MobileMe-DAV-Options"):
             return_changed = request.headers.getRawHeaders("X-MobileMe-DAV-Options")[0]
             return ("return-changed-data" in return_changed)
         else:
             return False
-
 
     @requiresPermissions(davxml.Bind())
     @inlineCallbacks
@@ -749,7 +701,6 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
         request.extendedLogItems["rcount"] = len(xmlresponses)
 
         returnValue(result)
-
 
     @inlineCallbacks
     def bulkCreate(self, indexedComponents, request, return_changed, xmlresponses, format):
@@ -797,7 +748,6 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
                     yield self.bulkCreateResponse(component, newchildURL, newchild, changedComponent, None, None, format)
                 )
 
-
     @inlineCallbacks
     def bulkCreateResponse(self, component, newchildURL, newchild, changedComponent, code, error, format):
         """
@@ -842,7 +792,6 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
                     ) if error else None,
                 )
             )
-
 
     @inlineCallbacks
     def crudBatchPOST(self, request, xmlroot):
@@ -894,7 +843,7 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
         yield self.crudCreate(crudCreateInfo, request, xmlresponses, return_changed)
         yield self.crudUpdate(crudUpdateInfo, request, xmlresponses, return_changed)
 
-        result = MultiStatusResponse(xmlresponses) #@UndefinedVariable
+        result = MultiStatusResponse(xmlresponses)  # @UndefinedVariable
 
         newctag = (yield self.getInternalSyncToken())
         result.headers.setRawHeaders("CTag", (newctag,))
@@ -912,7 +861,6 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
             request.extendedLogItems["delete"] = len(crudDeleteInfo)
 
         returnValue(result)
-
 
     @inlineCallbacks
     def crudCreate(self, crudCreateInfo, request, xmlresponses, return_changed):
@@ -936,7 +884,7 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
                 format = xmldata.content_type
 
                 if hasPrivilege is not True:
-                    e = hasPrivilege # use same code pattern as exception
+                    e = hasPrivilege  # use same code pattern as exception
                     code = e.response.code
                     if isinstance(e.response, ErrorResponse):
                         error = e.response.error
@@ -949,7 +897,6 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
                     indexedComponents.append((index, component,))
 
             yield self.bulkCreate(indexedComponents, request, return_changed, xmlresponses, format)
-
 
     @inlineCallbacks
     def crudUpdate(self, crudUpdateInfo, request, xmlresponses, return_changed):
@@ -1018,7 +965,6 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
                     ) if error else None,
                 )
 
-
     @inlineCallbacks
     def crudDelete(self, crudDeleteInfo, request, xmlresponses):
 
@@ -1073,18 +1019,14 @@ class _CommonHomeChildCollectionMixin(_CommonStoreExceptionHandler):
                         ) if error else None,
                     )
 
-
     def search(self, filter, **kwargs):
         return self._newStoreObject.search(filter, **kwargs)
-
 
     def notifierID(self):
         return "%s/%s" % self._newStoreObject.notifierID()
 
-
     def notifyChanged(self):
         return self._newStoreObject.notifyChanged()
-
 
 
 class _CalendarCollectionBehaviorMixin():
@@ -1100,7 +1042,6 @@ class _CalendarCollectionBehaviorMixin():
         support_components = tuple([comp.attributes["name"].upper() for comp in support_components_property.children])
         return self.setSupportedComponents(support_components)
 
-
     def getSupportedComponentSet(self):
         comps = self._newStoreObject.getSupportedComponents()
         if comps:
@@ -1110,7 +1051,6 @@ class _CalendarCollectionBehaviorMixin():
         return caldavxml.SupportedCalendarComponentSet(
             *[caldavxml.CalendarComponent(name=item) for item in comps]
         )
-
 
     def setSupportedComponents(self, components):
         """
@@ -1127,7 +1067,6 @@ class _CalendarCollectionBehaviorMixin():
         support_components = ",".join(sorted([comp.upper() for comp in components]))
         return maybeDeferred(self._newStoreObject.setSupportedComponents, support_components)
 
-
     def getSupportedComponents(self):
         comps = self._newStoreObject.getSupportedComponents()
         if comps:
@@ -1136,10 +1075,8 @@ class _CalendarCollectionBehaviorMixin():
             comps = ical.allowedStoreComponents
         return comps
 
-
     def isSupportedComponent(self, componentType):
         return self._newStoreObject.isSupportedComponent(componentType)
-
 
     def validSupportedComponents(self, components):
         """
@@ -1149,7 +1086,6 @@ class _CalendarCollectionBehaviorMixin():
         if config.RestrictCalendarsToOneComponentType:
             return components in (("VEVENT",), ("VTODO",),)
         return True
-
 
 
 class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionBehaviorMixin, _CommonHomeChildCollectionMixin, CalDAVResource):
@@ -1180,7 +1116,6 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
                 self._postHandlers[("application", "calendar+json")] = _CommonHomeChildCollectionMixin.simpleBatchPOST
             self.xmlDocHandlers[customxml.Multiput] = _CommonHomeChildCollectionMixin.crudBatchPOST
 
-
     def __repr__(self):
         return "<Calendar Collection Resource %r:%r %s>" % (
             self._newStoreParentHome.uid(),
@@ -1188,17 +1123,14 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
             "" if self._newStoreObject else "Non-existent"
         )
 
-
     def isCollection(self):
         return True
-
 
     def isCalendarCollection(self):
         """
         Yes, it is a calendar collection.
         """
         return True
-
 
     def resourceType(self):
         if self.isSharedByOwner():
@@ -1209,7 +1141,6 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
             return customxml.ResourceType.trash
         else:
             return caldavxml.ResourceType.calendar
-
 
     @inlineCallbacks
     def iCalendarRolledup(self, request):
@@ -1273,7 +1204,6 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
     createCalendarCollection = _CommonHomeChildCollectionMixin.createCollection
 
-
     @classmethod
     def componentsFromData(cls, data, format):
         """
@@ -1282,16 +1212,13 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         """
         return Component.componentsFromData(data, format)
 
-
     @classmethod
     def resourceSuffix(cls):
         return ".ics"
 
-
     @classmethod
     def xmlDataElementType(cls):
         return caldavxml.CalendarData
-
 
     def dynamicProperties(self):
         return super(CalendarCollectionResource, self).dynamicProperties() + tuple(
@@ -1300,7 +1227,6 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
             caldavxml.CalendarTimeZone.qname(),
             caldavxml.CalendarTimeZoneID.qname(),
         )
-
 
     def hasProperty(self, property, request):
         if type(property) is tuple:
@@ -1317,7 +1243,6 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
         else:
             return super(CalendarCollectionResource, self).hasProperty(property, request)
-
 
     @inlineCallbacks
     def readProperty(self, property, request):
@@ -1340,7 +1265,6 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
         result = (yield super(CalendarCollectionResource, self).readProperty(property, request))
         returnValue(result)
-
 
     @inlineCallbacks
     def writeProperty(self, property, request):
@@ -1384,7 +1308,6 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         result = (yield super(CalendarCollectionResource, self).writeProperty(property, request))
         returnValue(result)
 
-
     @inlineCallbacks
     def removeProperty(self, property, request):
         if type(property) is tuple:
@@ -1403,10 +1326,8 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         result = (yield super(CalendarCollectionResource, self).removeProperty(property, request))
         returnValue(result)
 
-
     def canBeShared(self):
         return config.Sharing.Enabled and config.Sharing.Calendars.Enabled
-
 
     @inlineCallbacks
     def storeResourceData(self, newchild, component, returnChangedData=False):
@@ -1417,7 +1338,6 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
             returnValue(result)
         else:
             returnValue(None)
-
 
     # FIXME: access control
     @inlineCallbacks
@@ -1430,7 +1350,6 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         returnValue(result)
 
 
-
 class StoreScheduleInboxResource(_CalendarCollectionBehaviorMixin, _CommonHomeChildCollectionMixin, ScheduleInboxResource):
 
     def __init__(self, *a, **kw):
@@ -1438,7 +1357,6 @@ class StoreScheduleInboxResource(_CalendarCollectionBehaviorMixin, _CommonHomeCh
         self._childClass = CalendarObjectResource
         super(StoreScheduleInboxResource, self).__init__(*a, **kw)
         self.parent.propagateTransaction(self)
-
 
     @classmethod
     @inlineCallbacks
@@ -1460,26 +1378,20 @@ class StoreScheduleInboxResource(_CalendarCollectionBehaviorMixin, _CommonHomeCh
         self._name = storage.name()
         returnValue(self)
 
-
     def provisionFile(self):
         pass
-
 
     def provision(self):
         pass
 
-
     def http_DELETE(self, request):
         return FORBIDDEN
-
 
     def http_COPY(self, request):
         return FORBIDDEN
 
-
     def http_MOVE(self, request):
         return FORBIDDEN
-
 
 
 class _GetChildHelper(CalDAVResource):
@@ -1489,10 +1401,8 @@ class _GetChildHelper(CalDAVResource):
             return self, segments[1:]
         return self.getChild(segments[0]), segments[1:]
 
-
     def getChild(self, name):
         return None
-
 
     def readProperty(self, prop, request):
         if type(prop) is tuple:
@@ -1504,15 +1414,12 @@ class _GetChildHelper(CalDAVResource):
             return succeed(self.resourceType())
         return super(_GetChildHelper, self).readProperty(prop, request)
 
-
     def davComplianceClasses(self):
         return ("1", "access-control")
-
 
     @requiresPermissions(davxml.Read())
     def http_GET(self, request):
         return super(_GetChildHelper, self).http_GET(request)
-
 
 
 class DropboxCollection(_GetChildHelper):
@@ -1529,13 +1436,11 @@ class DropboxCollection(_GetChildHelper):
         self._newStoreHome = parent._newStoreHome
         parent.propagateTransaction(self)
 
-
     def isCollection(self):
         """
         It is a collection.
         """
         return True
-
 
     @inlineCallbacks
     def getChild(self, name):
@@ -1548,14 +1453,11 @@ class DropboxCollection(_GetChildHelper):
         self.propagateTransaction(objectDropbox)
         returnValue(objectDropbox)
 
-
     def resourceType(self,):
-        return davxml.ResourceType.dropboxhome #@UndefinedVariable
-
+        return davxml.ResourceType.dropboxhome  # @UndefinedVariable
 
     def listChildren(self):
         return self._newStoreHome.getAllDropboxIDs()
-
 
 
 class NoDropboxHere(_GetChildHelper):
@@ -1563,27 +1465,21 @@ class NoDropboxHere(_GetChildHelper):
     def getChild(self, name):
         raise HTTPError(FORBIDDEN)
 
-
     def isCollection(self):
         return False
-
 
     def exists(self):
         return False
 
-
     def http_GET(self, request):
         return FORBIDDEN
-
 
     def http_MKCALENDAR(self, request):
         return FORBIDDEN
 
-
     @requiresPermissions(fromParent=[davxml.Bind()])
     def http_MKCOL(self, request):
         return CREATED
-
 
 
 class CalendarObjectDropbox(_GetChildHelper):
@@ -1596,14 +1492,11 @@ class CalendarObjectDropbox(_GetChildHelper):
         super(CalendarObjectDropbox, self).__init__(*a, **kw)
         self._newStoreCalendarObject = calendarObject
 
-
     def isCollection(self):
         return True
 
-
     def resourceType(self):
-        return davxml.ResourceType.dropbox #@UndefinedVariable
-
+        return davxml.ResourceType.dropbox  # @UndefinedVariable
 
     @inlineCallbacks
     def getChild(self, name):
@@ -1617,7 +1510,6 @@ class CalendarObjectDropbox(_GetChildHelper):
         )
         self.propagateTransaction(result)
         returnValue(result)
-
 
     @requiresPermissions(davxml.WriteACL())
     @inlineCallbacks
@@ -1654,16 +1546,13 @@ class CalendarObjectDropbox(_GetChildHelper):
                             returnValue(FORBIDDEN)
         returnValue(OK)
 
-
     @requiresPermissions(fromParent=[davxml.Bind()])
     def http_MKCOL(self, request):
         return CREATED
 
-
     @requiresPermissions(fromParent=[davxml.Unbind()])
     def http_DELETE(self, request):
         return NO_CONTENT
-
 
     @inlineCallbacks
     def listChildren(self):
@@ -1671,7 +1560,6 @@ class CalendarObjectDropbox(_GetChildHelper):
         for attachment in (yield self._newStoreCalendarObject.attachments()):
             l.append(attachment.name())
         returnValue(l)
-
 
     @inlineCallbacks
     def accessControlList(self, request, *a, **kw):
@@ -1747,7 +1635,6 @@ class CalendarObjectDropbox(_GetChildHelper):
 
         returnValue(davxml.ACL(*tuple(originalACEs + newACEs)))
 
-
     @inlineCallbacks
     def sharedDropboxACEs(self):
 
@@ -1809,7 +1696,6 @@ class CalendarObjectDropbox(_GetChildHelper):
         returnValue(aces)
 
 
-
 class AttachmentsCollection(_GetChildHelper):
     """
     A collection of all managed attachments, presented as a
@@ -1825,13 +1711,11 @@ class AttachmentsCollection(_GetChildHelper):
         self._newStoreHome = self.parent._newStoreHome
         self.parent.propagateTransaction(self)
 
-
     def isCollection(self):
         """
         It is a collection.
         """
         return True
-
 
     @inlineCallbacks
     def getChild(self, name):
@@ -1857,19 +1741,15 @@ class AttachmentsCollection(_GetChildHelper):
         self.propagateTransaction(objectDropbox)
         returnValue(objectDropbox)
 
-
     def resourceType(self,):
-        return davxml.ResourceType.dropboxhome #@UndefinedVariable
-
+        return davxml.ResourceType.dropboxhome  # @UndefinedVariable
 
     def listChildren(self):
         return self._newStoreHome.getAllDropboxIDs()
 
-
     def supportedPrivileges(self, request):
         # Just DAV standard privileges - no CalDAV ones
         return succeed(davPrivilegeSet)
-
 
     @inlineCallbacks
     def defaultAccessControlList(self):
@@ -1919,11 +1799,9 @@ class AttachmentsCollection(_GetChildHelper):
 
         returnValue(davxml.ACL(*aces))
 
-
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
         # Permissions here are fixed, and are not subject to inheritance rules, etc.
         return self.defaultAccessControlList()
-
 
 
 class AttachmentsChildCollection(_GetChildHelper):
@@ -1940,13 +1818,11 @@ class AttachmentsChildCollection(_GetChildHelper):
         self._newStoreCalendarObject = calendarObject
         parent.propagateTransaction(self)
 
-
     def isCollection(self):
         """
         It is a collection.
         """
         return True
-
 
     @inlineCallbacks
     def getChild(self, name):
@@ -1972,10 +1848,8 @@ class AttachmentsChildCollection(_GetChildHelper):
         self.propagateTransaction(result)
         returnValue(result)
 
-
     def resourceType(self,):
-        return davxml.ResourceType.dropbox #@UndefinedVariable
-
+        return davxml.ResourceType.dropbox  # @UndefinedVariable
 
     @inlineCallbacks
     def listChildren(self):
@@ -1984,19 +1858,16 @@ class AttachmentsChildCollection(_GetChildHelper):
             l.append(attachment.name())
         returnValue(l)
 
-
     @inlineCallbacks
     def http_ACL(self, request):
         # For managed attachment compatibility this is always forbidden as dropbox clients must never be
         # allowed to store attachments or make any changes.
         return FORBIDDEN
 
-
     def http_MKCOL(self, request):
         # For managed attachment compatibility this is always forbidden as dropbox clients must never be
         # allowed to store attachments or make any changes.
         return FORBIDDEN
-
 
     @requiresPermissions(fromParent=[davxml.Unbind()])
     def http_DELETE(self, request):
@@ -2004,7 +1875,6 @@ class AttachmentsChildCollection(_GetChildHelper):
         # this but we don't want them to see an error. Managed attachments will always be cleaned
         # up on removal of the actual calendar object resource.
         return NO_CONTENT
-
 
     @inlineCallbacks
     def accessControlList(self, request, *a, **kw):
@@ -2071,7 +1941,6 @@ class AttachmentsChildCollection(_GetChildHelper):
 
         returnValue(davxml.ACL(*tuple(originalACEs + newACEs)))
 
-
     @inlineCallbacks
     def _sharedAccessControl(self, invite):
         """
@@ -2111,7 +1980,6 @@ class AttachmentsChildCollection(_GetChildHelper):
         elif invite.mode in (_BIND_MODE_WRITE,):
             returnValue("read-write")
         returnValue("original")
-
 
     @inlineCallbacks
     def sharedDropboxACEs(self):
@@ -2166,7 +2034,6 @@ class AttachmentsChildCollection(_GetChildHelper):
         returnValue(aces)
 
 
-
 class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
 
     def __init__(self, calendarObject, attachment, attachmentName, managed, **kw):
@@ -2177,14 +2044,11 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
         self._dead_properties = NonePropertyStore(self)
         self.attachmentName = attachmentName
 
-
     def getChild(self, name):
         return None
 
-
     def displayName(self):
         return self.name()
-
 
     @requiresPermissions(davxml.WriteContent())
     @inlineCallbacks
@@ -2231,7 +2095,6 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
             )
         returnValue(CREATED if creating else NO_CONTENT)
 
-
     @requiresPermissions(davxml.Read())
     def http_GET(self, request):
 
@@ -2240,11 +2103,15 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
             raise HTTPError(NOT_FOUND)
 
         stream = ProducerStream()
+
         class StreamProtocol(Protocol):
+
             def connectionMade(self):
                 stream.registerProducer(self.transport, False)
+
             def dataReceived(self, data):
                 stream.write(data)
+
             def connectionLost(self, reason):
                 stream.finish()
         try:
@@ -2256,7 +2123,6 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
         headers = {"content-type": self.contentType()}
         headers["content-disposition"] = MimeDisposition("attachment", params={"filename": self.displayName()})
         return Response(OK, headers, stream)
-
 
     @requiresPermissions(fromParent=[davxml.Unbind()])
     @inlineCallbacks
@@ -2278,22 +2144,18 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
     http_MKCOL = None
     http_MKCALENDAR = None
 
-
     def http_PROPPATCH(self, request):
         """
         No dead properties allowed on attachments.
         """
         return FORBIDDEN
 
-
     def isCollection(self):
         return False
-
 
     def supportedPrivileges(self, request):
         # Just DAV standard privileges - no CalDAV ones
         return succeed(davPrivilegeSet)
-
 
 
 class NoParent(CalDAVResource):
@@ -2301,18 +2163,14 @@ class NoParent(CalDAVResource):
     def http_MKCALENDAR(self, request):
         return CONFLICT
 
-
     def http_PUT(self, request):
         return CONFLICT
-
 
     def isCollection(self):
         return False
 
-
     def exists(self):
         return False
-
 
 
 class _CommonObjectResource(_NewStoreFileMetaDataHelper, _CommonStoreExceptionHandler, CalDAVResource, FancyEqMixin):
@@ -2332,7 +2190,6 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, _CommonStoreExceptionHa
         self._name = name
         self._metadata = {}
 
-
     def _initializeWithObject(self, storeObject, parentObject):
         self._newStoreParent = parentObject
         self._newStoreObject = storeObject
@@ -2340,37 +2197,29 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, _CommonStoreExceptionHa
             self._newStoreObject.properties()
         ) if self._newStoreObject and self._newStoreParent.objectResourcesHaveProperties() else NonePropertyStore(self)
 
-
     def url(self):
         return joinURL(self._parentResource.url(), self.name())
-
 
     def isCollection(self):
         return False
 
-
     def quotaSize(self, request):
         return succeed(self._newStoreObject.size())
-
 
     def uid(self):
         return self._newStoreObject.uid()
 
-
     def component(self):
         return self._newStoreObject.component()
 
-
     def componentForUser(self):
         return self._newStoreObject.component()
-
 
     def allowedTypes(self):
         """
         Return a dict of allowed MIME types for storing, mapped to equivalent PyCalendar types.
         """
         raise NotImplementedError
-
 
     def determineType(self, content_type):
         """
@@ -2380,7 +2229,6 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, _CommonStoreExceptionHa
         if content_type is not None:
             format = "%s/%s" % (content_type.mediaType, content_type.mediaSubtype,)
         return format if format in self.allowedTypes() else None
-
 
     @inlineCallbacks
     def render(self, request):
@@ -2399,7 +2247,6 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, _CommonStoreExceptionHa
         response.headers.setHeader("content-type", MimeType.fromString("%s; charset=utf-8" % (accepted_type,)))
         returnValue(response)
 
-
     @inlineCallbacks
     def checkPreconditions(self, request):
         """
@@ -2417,7 +2264,6 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, _CommonStoreExceptionHa
 
         returnValue(response)
 
-
     @inlineCallbacks
     def _processPrefer(self, request, response):
         # Look for Prefer header
@@ -2434,7 +2280,6 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, _CommonStoreExceptionHa
 
         returnValue(response)
 
-
     @requiresPermissions(fromParent=[davxml.Unbind()])
     def http_DELETE(self, request):
         """
@@ -2446,14 +2291,12 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, _CommonStoreExceptionHa
 
         return self.storeRemove(request)
 
-
     def http_COPY(self, request):
         """
         Copying of calendar data isn't allowed.
         """
         # FIXME: no direct tests
         return FORBIDDEN
-
 
     @inlineCallbacks
     def http_MOVE(self, request):
@@ -2526,7 +2369,6 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, _CommonStoreExceptionHa
             self._handleStoreException(err, self.StoreMoveExceptionsErrors)
             raise
 
-
     def http_PROPPATCH(self, request):
         """
         No dead properties allowed on object resources.
@@ -2536,7 +2378,6 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, _CommonStoreExceptionHa
         else:
             return FORBIDDEN
 
-
     @inlineCallbacks
     def storeStream(self, stream, format):
 
@@ -2544,7 +2385,6 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, _CommonStoreExceptionHa
         component = self._componentFromStream((yield allDataFromStream(stream)), format)
         result = (yield self.storeComponent(component))
         returnValue(result)
-
 
     @inlineCallbacks
     def storeComponent(self, component, **kwargs):
@@ -2567,7 +2407,6 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, _CommonStoreExceptionHa
             self._handleStoreException(err, self.StoreExceptionsErrors)
             raise
 
-
     @inlineCallbacks
     def storeMove(self, request, destinationparent, destination_name):
         """
@@ -2583,7 +2422,6 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, _CommonStoreExceptionHa
 
         yield self._newStoreObject.moveTo(destinationparent._newStoreObject, destination_name)
         returnValue(CREATED)
-
 
     @inlineCallbacks
     def storeRemove(self, request):
@@ -2619,7 +2457,6 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, _CommonStoreExceptionHa
         returnValue(NO_CONTENT)
 
 
-
 class _MetadataProperty(object):
     """
     A python property which can be set either on a _newStoreObject or on some
@@ -2629,20 +2466,17 @@ class _MetadataProperty(object):
     def __init__(self, name):
         self.name = name
 
-
     def __get__(self, oself, ptype=None):
         if oself._newStoreObject:
             return getattr(oself._newStoreObject, self.name)
         else:
             return oself._metadata.get(self.name, None)
 
-
     def __set__(self, oself, value):
         if oself._newStoreObject:
             setattr(oself._newStoreObject, self.name, value)
         else:
             oself._metadata[self.name] = value
-
 
 
 class _CalendarObjectMetaDataMixin(object):
@@ -2655,7 +2489,6 @@ class _CalendarObjectMetaDataMixin(object):
     scheduleTag = _MetadataProperty("scheduleTag")
     scheduleEtags = _MetadataProperty("scheduleEtags")
     hasPrivateComment = _MetadataProperty("hasPrivateComment")
-
 
 
 class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource):
@@ -2674,7 +2507,6 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         Return a tuple of allowed MIME types for storing.
         """
         return Component.allowedTypes()
-
 
     @inlineCallbacks
     def inNewTransaction(self, request, label=""):
@@ -2705,10 +2537,8 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         self._initializeWithObject(newObject, newParent)
         returnValue(txn)
 
-
     def componentForUser(self):
         return self._newStoreObject.componentForUser()
-
 
     def validIfScheduleMatch(self, request):
         """
@@ -2793,7 +2623,6 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         AttachmentRemoveFailed: (_CommonStoreExceptionHandler._storeExceptionError, (caldav_namespace, "valid-attachment-remove",),),
     }
 
-
     @inlineCallbacks
     def _checkPreconditions(self, request):
         """
@@ -2843,7 +2672,6 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         result = (yield super(CalendarObjectResource, self).checkPreconditions(request))
         returnValue(result)
 
-
     @inlineCallbacks
     def checkPreconditions(self, request):
         """
@@ -2861,10 +2689,8 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
 
         returnValue(response)
 
-
     def canBeShared(self):
         return False
-
 
     @inlineCallbacks
     def http_PUT(self, request):
@@ -2969,7 +2795,6 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             else:
                 raise
 
-
     @requiresPermissions(fromParent=[davxml.Unbind()])
     def http_DELETE(self, request):
         """
@@ -2983,7 +2808,6 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         self.validIfScheduleMatch(request)
 
         return self.storeRemove(request)
-
 
     @inlineCallbacks
     def http_MOVE(self, request):
@@ -3002,7 +2826,6 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
 
         result = (yield super(CalendarObjectResource, self).http_MOVE(request))
         returnValue(result)
-
 
     @inlineCallbacks
     def POST_handler_action(self, request, action):
@@ -3030,7 +2853,6 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                     (caldav_namespace, "valid-action-parameter",),
                     "The action parameter in the request-URI is not valid",
                 ))
-
 
     @requiresPermissions(davxml.WriteContent())
     @inlineCallbacks
@@ -3144,7 +2966,6 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             result.headers.addRawHeader("Split-Component-URL", other.url())
 
         returnValue(result)
-
 
     @requiresPermissions(davxml.WriteContent())
     @inlineCallbacks
@@ -3280,7 +3101,6 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         returnValue(result)
 
 
-
 class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource):
     """
     Wrapper around a L{txdav.carddav.iaddressbook.IAddressBook}.
@@ -3303,7 +3123,6 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
                 self._postHandlers[("application", "vcard+json")] = _CommonHomeChildCollectionMixin.simpleBatchPOST
             self.xmlDocHandlers[customxml.Multiput] = AddressBookCollectionResource.crudBatchPOST
 
-
     def __repr__(self):
         return "<AddressBook Collection Resource %r:%r %s>" % (
             self._newStoreParentHome.uid(),
@@ -3311,14 +3130,11 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
             "" if self._newStoreObject else "Non-existent"
         )
 
-
     def isCollection(self):
         return True
 
-
     def isAddressBookCollection(self):
         return True
-
 
     def resourceType(self):
         if self.isSharedByOwner():
@@ -3330,7 +3146,6 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
 
     createAddressBookCollection = _CommonHomeChildCollectionMixin.createCollection
 
-
     @classmethod
     def componentsFromData(cls, data, format):
         try:
@@ -3338,20 +3153,16 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         except InvalidVCardDataError:
             return None
 
-
     @classmethod
     def resourceSuffix(cls):
         return ".vcf"
-
 
     @classmethod
     def xmlDataElementType(cls):
         return carddavxml.AddressData
 
-
     def canBeShared(self):
         return config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled
-
 
     @inlineCallbacks
     def storeResourceData(self, newchild, component, returnChangedData=False):
@@ -3363,13 +3174,11 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         else:
             returnValue(None)
 
-
     def http_MOVE(self, request):
         """
         Addressbooks may not be renamed.
         """
         return FORBIDDEN
-
 
     @inlineCallbacks
     def makeChild(self, name):
@@ -3380,7 +3189,6 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         # if abObjectResource.exists() and abObjectResource._newStoreObject.shareUID() is not None:
         #     abObjectResource = yield self.parentResource().provisionShare(abObjectResource)
         returnValue(abObjectResource)
-
 
     @inlineCallbacks
     def bulkCreate(self, indexedComponents, request, return_changed, xmlresponses, format):
@@ -3452,8 +3260,8 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
                 xmlresponses[index] = (
                     yield self.bulkCreateResponse(component, newchildURL, newchild, None, FORBIDDEN, None, format)
                 )
-                coaddedUIDs -= set([component.resourceUID()]) # group uid not added
-                groupRetries.remove(groupRetry) # remove this retry
+                coaddedUIDs -= set([component.resourceUID()])  # group uid not added
+                groupRetries.remove(groupRetry)  # remove this retry
 
             for index, component, newchildURL, newchild, missingUIDs in groupRetries:
                 # newchild._metadata -> newchild._options during store
@@ -3466,7 +3274,6 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
                 xmlresponses[index] = (
                     yield self.bulkCreateResponse(component, newchildURL, newchild, changedComponent, None, None, format)
                 )
-
 
     @inlineCallbacks
     def crudDelete(self, crudDeleteInfo, request, xmlresponses):
@@ -3541,7 +3348,6 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
                     )
 
 
-
 class AddressBookObjectResource(_CommonObjectResource):
     """
     A resource wrapping a addressbook object.
@@ -3558,7 +3364,6 @@ class AddressBookObjectResource(_CommonObjectResource):
         Return a tuple of allowed MIME types for storing.
         """
         return VCard.allowedTypes()
-
 
     @inlineCallbacks
     def vCardText(self):
@@ -3589,7 +3394,6 @@ class AddressBookObjectResource(_CommonObjectResource):
         LockTimeout: (_CommonStoreExceptionHandler._storeExceptionUnavailable, "Lock timed out.",),
     }
 
-
     def resourceType(self):
         if self.isSharedByOwner():
             return customxml.ResourceType.sharedownergroup
@@ -3597,7 +3401,6 @@ class AddressBookObjectResource(_CommonObjectResource):
             return customxml.ResourceType.sharedgroup
         else:
             return super(AddressBookObjectResource, self).resourceType()
-
 
     @inlineCallbacks
     def storeRemove(self, request):
@@ -3627,14 +3430,12 @@ class AddressBookObjectResource(_CommonObjectResource):
 
         returnValue(response)
 
-
     def canBeShared(self):
         return (
             config.Sharing.Enabled and
             config.Sharing.AddressBooks.Enabled and
             config.Sharing.AddressBooks.Groups.Enabled
         )
-
 
     @inlineCallbacks
     def http_PUT(self, request):
@@ -3728,7 +3529,6 @@ class AddressBookObjectResource(_CommonObjectResource):
             else:
                 raise
 
-
     @inlineCallbacks
     def http_DELETE(self, request):
         """
@@ -3741,7 +3541,6 @@ class AddressBookObjectResource(_CommonObjectResource):
             returnValue((yield self.storeRemove(request)))
 
         returnValue((yield super(AddressBookObjectResource, self).http_DELETE(request)))
-
 
     @inlineCallbacks
     def accessControlList(self, request, *a, **kw):
@@ -3805,7 +3604,6 @@ class AddressBookObjectResource(_CommonObjectResource):
         returnValue(davxml.ACL(*aces))
 
 
-
 class _NotificationChildHelper(object):
     """
     Methods for things which are like notification objects.
@@ -3829,17 +3627,14 @@ class _NotificationChildHelper(object):
             self._newStoreNotifications.properties()
         )
 
-
     def locateChild(self, request, segments):
         if segments[0] == '':
             return self, segments[1:]
         return self.getChild(segments[0]), segments[1:]
 
-
     def exists(self):
         # FIXME: tests
         return True
-
 
     @inlineCallbacks
     def makeChild(self, name):
@@ -3858,7 +3653,6 @@ class _NotificationChildHelper(object):
         self.propagateTransaction(similar)
         returnValue(similar)
 
-
     @inlineCallbacks
     def listChildren(self):
         """
@@ -3867,7 +3661,6 @@ class _NotificationChildHelper(object):
         children = set(self.putChildren.keys())
         children.update((yield self._newStoreNotifications.listNotificationObjects()))
         returnValue(children)
-
 
 
 class StoreNotificationCollectionResource(_NotificationChildHelper, NotificationCollectionResource):
@@ -3884,14 +3677,11 @@ class StoreNotificationCollectionResource(_NotificationChildHelper, Notification
         self._initializeWithNotifications(notifications, home)
         self._parentResource = homeResource
 
-
     def name(self):
         return "notification"
 
-
     def url(self):
         return joinURL(self._parentResource.url(), self.name(), "/")
-
 
     @inlineCallbacks
     def listChildren(self):
@@ -3900,14 +3690,11 @@ class StoreNotificationCollectionResource(_NotificationChildHelper, Notification
             l.append(notification.name())
         returnValue(l)
 
-
     def isCollection(self):
         return True
 
-
     def getInternalSyncToken(self):
         return self._newStoreNotifications.syncToken()
-
 
     @inlineCallbacks
     def _indexWhatChanged(self, revision, depth):
@@ -3916,13 +3703,11 @@ class StoreNotificationCollectionResource(_NotificationChildHelper, Notification
             (yield self._newStoreNotifications.resourceNamesSinceToken(revision))
         )
 
-
     def deleteNotification(self, request, record):
         return maybeDeferred(
             self._newStoreNotifications.removeNotificationObjectWithName,
             record.name
         )
-
 
 
 class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResource):
@@ -3940,18 +3725,15 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
         super(StoreNotificationObjectFile, self).__init__(*args, **kw)
         self._initializeWithObject(notificationObject)
 
-
     def _initializeWithObject(self, notificationObject):
         self._newStoreObject = notificationObject
         self._dead_properties = NonePropertyStore(self)
-
 
     def liveProperties(self):
 
         props = super(StoreNotificationObjectFile, self).liveProperties()
         props += (customxml.NotificationType.qname(),)
         return props
-
 
     @inlineCallbacks
     def readProperty(self, prop, request):
@@ -3981,14 +3763,11 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
 
         returnValue((yield super(StoreNotificationObjectFile, self).readProperty(prop, request)))
 
-
     def isCollection(self):
         return False
 
-
     def quotaSize(self, request):
         return succeed(self._newStoreObject.size())
-
 
     @inlineCallbacks
     def text(self, ignored=None):
@@ -4090,7 +3869,6 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
             raise HTTPError(responsecode.INTERNAL_SERVER_ERROR)
         returnValue(xmldata.toxml())
 
-
     @requiresPermissions(davxml.Read())
     @inlineCallbacks
     def http_GET(self, request):
@@ -4106,7 +3884,6 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
         except ConcurrentModification:
             raise HTTPError(NOT_FOUND)
 
-
     @requiresPermissions(fromParent=[davxml.Unbind()])
     def http_DELETE(self, request):
         """
@@ -4118,13 +3895,11 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
 
         return self.storeRemove(request)
 
-
     def http_PROPPATCH(self, request):
         """
         No dead properties allowed on notification objects.
         """
         return FORBIDDEN
-
 
     @inlineCallbacks
     def storeRemove(self, request):

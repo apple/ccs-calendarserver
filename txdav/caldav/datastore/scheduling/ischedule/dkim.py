@@ -132,7 +132,6 @@ class DKIMUtils(object):
         else:
             log.info("DKIM: Disabled")
 
-
     @staticmethod
     def getConfiguration(config):
         """
@@ -153,17 +152,15 @@ class DKIMUtils(object):
 
         return domain, selector, key_file, algorithm, useDNSKey, useHTTPKey, usePrivateExchangeKey, expire
 
-
     @staticmethod
     def hashlib_method(algorithm):
         """
         Return hashlib function for DKIM algorithm.
         """
         return {
-            RSA1  : hashlib.sha1,
+            RSA1: hashlib.sha1,
             RSA256: hashlib.sha256,
         }[algorithm]
-
 
     @staticmethod
     def hash_name(algorithm):
@@ -171,10 +168,9 @@ class DKIMUtils(object):
         Return RSA hash name for DKIM algorithm.
         """
         return {
-            RSA1  : "SHA-1",
+            RSA1: "SHA-1",
             RSA256: "SHA-256",
         }[algorithm]
-
 
     @staticmethod
     def hash_func(algorithm):
@@ -182,10 +178,9 @@ class DKIMUtils(object):
         Return RSA hash name for DKIM algorithm.
         """
         return {
-            RSA1  : SHA,
+            RSA1: SHA,
             RSA256: SHA256,
         }[algorithm]
-
 
     @staticmethod
     def extractTags(data):
@@ -203,7 +198,6 @@ class DKIMUtils(object):
                 pass
         return dkim_tags
 
-
     @staticmethod
     def canonicalizeHeader(name, value, dkim_tags=None, method="ischedule-relaxed"):
 
@@ -213,7 +207,6 @@ class DKIMUtils(object):
             return DKIMUtils.ischeduleHeader(name, value, dkim_tags)
         else:
             assert "Invalid header canonicalization method: %s" % (method,)
-
 
     @staticmethod
     def relaxedHeader(name, value, dkim_tags=None):
@@ -243,7 +236,6 @@ class DKIMUtils(object):
 
         crlf = "" if name == DKIM_SIGNATURE.lower() else "\r\n"
         return "%s:%s%s" % (name, value, crlf)
-
 
     @staticmethod
     def ischeduleHeader(name, value, dkim_tags=None):
@@ -276,7 +268,6 @@ class DKIMUtils(object):
         crlf = "" if name == DKIM_SIGNATURE.lower() else "\r\n"
         return "%s:%s%s" % (name, value, crlf)
 
-
     @staticmethod
     def canonicalizeDKIMHeaderFields(value, dkim_tags):
         """
@@ -290,7 +281,6 @@ class DKIMUtils(object):
         value = value[:pos] + value[pos + len(dkim_tags["b"]):]
         value = " ".join(value.split())
         return value
-
 
     @staticmethod
     def canonicalizeBody(data):
@@ -306,13 +296,11 @@ class DKIMUtils(object):
         data += "\r\n"
         return data
 
-
     @staticmethod
     def sign(data, privkey, hashfunc):
         h = hashfunc.new(data)
         signer = PKCS1_v1_5.new(privkey)
         return base64.b64encode(signer.sign(h))
-
 
     @staticmethod
     def verify(data, signature, pubkey, hashfunc):
@@ -320,7 +308,6 @@ class DKIMUtils(object):
         verifier = PKCS1_v1_5.new(pubkey)
         if not verifier.verify(h, base64.b64decode(signature)):
             raise ValueError()
-
 
 
 class DKIMRequest(ClientRequest):
@@ -404,7 +391,6 @@ class DKIMRequest(ClientRequest):
 
         self.message_id = str(uuid.uuid4())
 
-
     @inlineCallbacks
     def sign(self):
         """
@@ -428,7 +414,6 @@ class DKIMRequest(ClientRequest):
 
         returnValue(signature)
 
-
     @inlineCallbacks
     def bodyHash(self):
         """
@@ -443,7 +428,6 @@ class DKIMRequest(ClientRequest):
         self.stream.doStartReading = None
 
         returnValue(base64.b64encode(self.hash_method(DKIMUtils.canonicalizeBody(data)).digest()))
-
 
     @inlineCallbacks
     def signatureHeaders(self):
@@ -490,7 +474,6 @@ class DKIMRequest(ClientRequest):
 
         returnValue((headers, dkim_tags,))
 
-
     def generateSignature(self, headers):
         # Sign the hash
         if self.key_file not in self.keys:
@@ -498,7 +481,6 @@ class DKIMRequest(ClientRequest):
                 key = f.read()
             self.keys[self.key_file] = RSA.importKey(key)
         return DKIMUtils.sign(headers, self.keys[self.key_file], self.hash_func)
-
 
 
 class DKIMMissingError(Exception):
@@ -509,13 +491,11 @@ class DKIMMissingError(Exception):
     pass
 
 
-
 class DKIMVerificationError(Exception):
     """
     Used to indicate a DKIM verification error.
     """
     pass
-
 
 
 class DKIMVerifier(object):
@@ -543,7 +523,6 @@ class DKIMVerifier(object):
         ) if key_lookup is None else key_lookup
 
         self.time = int(time.time())
-
 
     @inlineCallbacks
     def verify(self):
@@ -599,7 +578,6 @@ Base64 encoded body:
             if self._debug:
                 msg = "%s:%s" % (msg, _debug_msg,)
             raise DKIMVerificationError(msg)
-
 
     def processDKIMHeader(self):
         """
@@ -680,7 +658,6 @@ Base64 encoded body:
         self.hash_func = DKIMUtils.hash_func(self.dkim_tags["a"])
         self.key_methods = self.dkim_tags["q"].split(":")
 
-
     def extractSignedHeaders(self):
         """
         Extract the set of headers from the request that are supposed to be signed. Canonicalize them
@@ -703,7 +680,6 @@ Base64 encoded body:
         # Now canonicalize the values
         return "".join([DKIMUtils.canonicalizeHeader(name, value, dkim_tags=self.dkim_tags) for name, value in headers])
 
-
     @inlineCallbacks
     def locatePublicKey(self):
         """
@@ -717,7 +693,6 @@ Base64 encoded body:
                     returnValue(pubkey)
         else:
             returnValue(None)
-
 
 
 class PublicKeyLookup(object):
@@ -734,7 +709,6 @@ class PublicKeyLookup(object):
     def __init__(self, dkim_tags):
         self.dkim_tags = dkim_tags
 
-
     @inlineCallbacks
     def getPublicKey(self, useCache=True):
         """
@@ -750,7 +724,6 @@ class PublicKeyLookup(object):
 
         returnValue(self._selectKey())
 
-
     def _getSelectorKey(self):
         """
         Get a token used to uniquely identify the key being looked up. Token format will
@@ -758,14 +731,12 @@ class PublicKeyLookup(object):
         """
         raise NotImplementedError
 
-
     def _lookupKeys(self):
         """
         Do the key lookup using the actual lookup method. Return a C{list} of C{dict}
         that contains the key tag-list. Return a L{Deferred}.
         """
         raise NotImplementedError
-
 
     def _selectKey(self):
         """
@@ -800,7 +771,6 @@ class PublicKeyLookup(object):
         log.debug("DKIM: No valid public key: {sel} {keys}", sel=self._getSelectorKey(), keys=pubkeys)
         return None
 
-
     def _makeKey(self, pkey):
         """
         Turn the key tag list into an actual RSA public key object
@@ -821,11 +791,9 @@ class PublicKeyLookup(object):
             log.debug("DKIM: Unable to make public key:\n{key}", key=key_data)
             return None
 
-
     @staticmethod
     def flushCache():
         PublicKeyLookup.keyCache = {}
-
 
 
 class PublicKeyLookup_DNSTXT(PublicKeyLookup):
@@ -839,7 +807,6 @@ class PublicKeyLookup_DNSTXT(PublicKeyLookup):
         """
         return "%s._domainkey.%s" % (self.dkim_tags["s"], self.dkim_tags["d"],)
 
-
     @inlineCallbacks
     def _lookupKeys(self):
         """
@@ -849,7 +816,6 @@ class PublicKeyLookup_DNSTXT(PublicKeyLookup):
         data = (yield lookupDataViaTXT(self._getSelectorKey()))
         log.debug("DKIM: TXT lookup results: {key}\n{data}", key=self._getSelectorKey(), data="\n".join(data))
         returnValue(tuple([DKIMUtils.extractTags(line) for line in data]))
-
 
 
 class PublicKeyLookup_HTTP_WellKnown(PublicKeyLookup):
@@ -864,7 +830,6 @@ class PublicKeyLookup_HTTP_WellKnown(PublicKeyLookup):
 
         host = ".".join(self.dkim_tags["d"].split(".")[-2:])
         return "https://%s/.well-known/domainkey/%s/%s" % (host, self.dkim_tags["d"], self.dkim_tags["s"],)
-
 
     @inlineCallbacks
     def _getURI(self):
@@ -888,7 +853,6 @@ class PublicKeyLookup_HTTP_WellKnown(PublicKeyLookup):
                 port = ":%s" % (port,)
 
         returnValue("%s://%s%s/.well-known/domainkey/%s/%s" % (scheme, host, port, self.dkim_tags["d"], self.dkim_tags["s"],))
-
 
     @inlineCallbacks
     def _lookupKeys(self):
@@ -916,7 +880,6 @@ class PublicKeyLookup_HTTP_WellKnown(PublicKeyLookup):
         returnValue(tuple([DKIMUtils.extractTags(line) for line in response.data.splitlines()]))
 
 
-
 class PublicKeyLookup_PrivateExchange(PublicKeyLookup):
 
     method = Q_PRIVATE
@@ -928,7 +891,6 @@ class PublicKeyLookup_PrivateExchange(PublicKeyLookup):
         depend on the lookup method.
         """
         return "%s#%s" % (self.dkim_tags["d"], self.dkim_tags["s"],)
-
 
     def _lookupKeys(self):
         """
@@ -957,7 +919,6 @@ class PublicKeyLookup_PrivateExchange(PublicKeyLookup):
         return succeed(tuple([DKIMUtils.extractTags(line) for line in keys.splitlines()]))
 
 
-
 class DomainKeyResource (SimpleResource):
     """
     Domainkey well-known resource.
@@ -973,7 +934,6 @@ class DomainKeyResource (SimpleResource):
         self.makeKeyData(domain, selector, pubkeyfile)
         self.domain = domain
         self.selector = selector
-
 
     def makeKeyData(self, domain, selector, pubkeyfile):
         """
@@ -1006,10 +966,8 @@ class DomainKeyResource (SimpleResource):
         selectorResource = SimpleDataResource(principalCollections=None, content_type=MimeType.fromString("text/plain"), data=txt_data, defaultACL=SimpleResource.allReadACL)
         domainResource.putChild(selector, selectorResource)
 
-
     def contentType(self):
         return MimeType.fromString("text/html; charset=utf-8")
-
 
     def render(self, request):
         output = """<html>

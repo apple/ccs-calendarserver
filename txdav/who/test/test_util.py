@@ -50,7 +50,6 @@ class StubStore(object):
     pass
 
 
-
 class UtilTest(TestCase):
 
     def setUp(self):
@@ -68,7 +67,6 @@ class UtilTest(TestCase):
 
         # Note, don't create resources.xml nor augments.xml here,
         # We'll test later on that they get created automatically.
-
 
     @inlineCallbacks
     def test_directoryFromConfig(self):
@@ -177,7 +175,6 @@ class UtilTest(TestCase):
         # And make sure it's functional:
         record = yield service.recordWithUID("group07")
         self.assertEquals(record.fullNames, [u'Group 07'])
-
 
 
 class IndexDirectoryServiceTest(TestCase):

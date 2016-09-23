@@ -46,12 +46,10 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase):
     dbFilename = "mailgatewaytokens.sqlite"
     dbFormatVersion = "1"
 
-
     def __init__(self, path):
         if path != ":memory:":
             path = os.path.join(path, MailGatewayTokensDatabase.dbFilename)
         super(MailGatewayTokensDatabase, self).__init__(path, True)
-
 
     def createToken(self, organizer, attendee, icaluid, token=None):
         if token is None:
@@ -64,7 +62,6 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase):
         )
         self._db_commit()
         return token
-
 
     def lookupByToken(self, token):
         results = list(
@@ -80,7 +77,6 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase):
             return None
 
         return results[0]
-
 
     def getToken(self, organizer, attendee, icaluid):
         token = self._db_value_for_sql(
@@ -100,7 +96,6 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase):
         else:
             return None
 
-
     def getAllTokens(self):
         results = list(
             self._db_execute(
@@ -111,7 +106,6 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase):
         )
         return results
 
-
     def deleteToken(self, token):
         self._db_execute(
             """
@@ -120,7 +114,6 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase):
         )
         self._db_commit()
 
-
     def purgeOldTokens(self, before):
         self._db_execute(
             """
@@ -128,7 +121,6 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase):
             """, before
         )
         self._db_commit()
-
 
     def lowercase(self):
         """
@@ -164,20 +156,17 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase):
             )
         self._db_commit()
 
-
     def _db_version(self):
         """
         @return: the schema version assigned to this index.
         """
         return MailGatewayTokensDatabase.dbFormatVersion
 
-
     def _db_type(self):
         """
         @return: the collection type assigned to this index.
         """
         return MailGatewayTokensDatabase.dbType
-
 
     def _db_init_data_tables(self, q):
         """
@@ -205,7 +194,6 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase):
             """
         )
 
-
     def _db_upgrade_data_tables(self, q, old_version):
         """
         Upgrade the data from an older version of the DB.
@@ -214,7 +202,6 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase):
         @type old_version: str
         """
         pass
-
 
 
 @inlineCallbacks

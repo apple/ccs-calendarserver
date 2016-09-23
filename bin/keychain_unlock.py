@@ -21,6 +21,7 @@ import sys
 
 password_file = os.path.expanduser("~/.keychain")
 
+
 def isKeychainUnlocked():
 
     child = Popen(
@@ -37,7 +38,6 @@ def isKeychainUnlocked():
         return False
     else:
         return True
-
 
 
 def unlockKeychain():
@@ -63,7 +63,6 @@ def unlockKeychain():
     else:
         print("Unlocked login.keychain")
         return True
-
 
 
 if __name__ == '__main__':

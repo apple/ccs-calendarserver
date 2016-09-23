@@ -32,6 +32,7 @@ AddressBook Data upgrade from database version 1 to 2
 
 UPGRADE_TO_VERSION = 2
 
+
 @inlineCallbacks
 def doUpgrade(sqlStore):
     """
@@ -42,7 +43,6 @@ def doUpgrade(sqlStore):
 
     # bump data version
     yield updateAddressBookDataVersion(sqlStore, UPGRADE_TO_VERSION)
-
 
 
 @inlineCallbacks
@@ -79,7 +79,6 @@ def populateMemberTables(sqlStore):
 
     # Do this to each calendar home not already at version 2
     yield doToEachHomeNotAtVersion(sqlStore, schema.ADDRESSBOOK_HOME, UPGRADE_TO_VERSION, doIt, "Populate Members")
-
 
 
 @inlineCallbacks

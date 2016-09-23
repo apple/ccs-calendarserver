@@ -37,6 +37,7 @@ from twistedcaldav import caldavxml
 
 log = Logger()
 
+
 @inlineCallbacks
 def http_MKCALENDAR(self, request):
     """

@@ -1,0 +1,36 @@
+# Extra time zone data to use when building the zoneinfo database
+#
+# The data here should be in the IANA time zone data format.
+# Typically this is used only for creating links for time zone
+# ids clients are commonly using but aren't in IANA or the
+# unicode windowsZones.xml file.
+
+# Link	TARGET			LINK-NAME
+Link	Etc/GMT-14	GMT-1400
+Link	Etc/GMT-13	GMT-1300
+Link	Etc/GMT-12	GMT-1200
+Link	Etc/GMT-11	GMT-1100
+Link	Etc/GMT-10	GMT-1000
+Link	Etc/GMT-9	GMT-0900
+Link	Etc/GMT-8	GMT-0800
+Link	Etc/GMT-7	GMT-0700
+Link	Etc/GMT-6	GMT-0600
+Link	Etc/GMT-5	GMT-0500
+Link	Etc/GMT-4	GMT-0400
+Link	Etc/GMT-3	GMT-0300
+Link	Etc/GMT-2	GMT-0200
+Link	Etc/GMT-1	GMT-0100
+Link	Etc/GMT-0	GMT-0000
+Link	Etc/GMT+0	GMT+0000
+Link	Etc/GMT+1	GMT+0100
+Link	Etc/GMT+2	GMT+0200
+Link	Etc/GMT+3	GMT+0300
+Link	Etc/GMT+4	GMT+0400
+Link	Etc/GMT+5	GMT+0500
+Link	Etc/GMT+6	GMT+0600
+Link	Etc/GMT+7	GMT+0700
+Link	Etc/GMT+8	GMT+0800
+Link	Etc/GMT+9	GMT+0900
+Link	Etc/GMT+10	GMT+1000
+Link	Etc/GMT+11	GMT+1100
+Link	Etc/GMT+12	GMT+1200

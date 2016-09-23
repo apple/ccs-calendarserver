@@ -30,6 +30,7 @@ Data upgrade from database version 5 to 6
 
 UPGRADE_TO_VERSION = 6
 
+
 @inlineCallbacks
 def doUpgrade(sqlStore):
     """

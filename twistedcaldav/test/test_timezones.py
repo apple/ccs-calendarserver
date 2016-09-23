@@ -26,6 +26,7 @@ import os
 import threading
 from twisted.python.failure import Failure
 
+
 class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
     """
     Timezone support tests
@@ -36,7 +37,6 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
     def tearDown(self):
         TimezoneCache.clear()
         TimezoneCache.create()
-
 
     def doTest(self, filename, dtstart, dtend, testEqual=True):
 
@@ -58,7 +58,6 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
             testMethod(end, dtend)
             break
 
-
     def test_truncatedApr(self):
         """
         Custom VTZ with truncated standard time - 2006. Daylight 2007 OK.
@@ -73,7 +72,6 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
             DateTime(2007, 04, 01, 17, 0, 0, Timezone.UTCTimezone)
         )
 
-
     def test_truncatedDec(self):
         """
         Custom VTZ valid from 2007. Daylight 2007 OK.
@@ -87,7 +85,6 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
             DateTime(2007, 12, 10, 17, 0, 0, Timezone.UTCTimezone),
             DateTime(2007, 12, 10, 18, 0, 0, Timezone.UTCTimezone)
         )
-
 
     def test_truncatedAprThenDecFail(self):
         """
@@ -109,7 +106,6 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
             testEqual=False
         )
 
-
     def test_truncatedAprThenDecOK(self):
         """
         VTZ loaded from std timezone DB. 2007 OK.
@@ -127,7 +123,6 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
             DateTime(2007, 12, 10, 17, 0, 0, Timezone.UTCTimezone),
             DateTime(2007, 12, 10, 18, 0, 0, Timezone.UTCTimezone),
         )
-
 
     def test_truncatedDecThenApr(self):
         """
@@ -149,7 +144,6 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
         )
 
 
-
 class TimezoneCacheTest (twistedcaldav.test.util.TestCase):
     """
     Timezone support tests
@@ -162,7 +156,6 @@ class TimezoneCacheTest (twistedcaldav.test.util.TestCase):
         TimezoneCache.create()
         self.assertTrue(readTZ("America/New_York"))
         self.assertTrue(readTZ("US/Eastern"))
-
 
     def test_not_in_cache(self):
 
@@ -210,6 +203,12 @@ END:VCALENDAR
             self.assertEqual(end, DateTime(2007, 12, 25, 06, 0, 0, Timezone.UTCTimezone))
             break
 
+    def test_getTZExtrasPath(self):
+        """
+        Make sure TimezoneCache._getTZExtrasPath returns a valid file.
+        """
+        extras = TimezoneCache._getTZExtrasPath()
+        self.assertTrue(os.path.isfile(extras))
 
 
 class TimezonePackageTest (twistedcaldav.test.util.TestCase):
@@ -222,12 +221,10 @@ class TimezonePackageTest (twistedcaldav.test.util.TestCase):
         TimezoneCache.clear()
         TimezoneCache.create()
 
-
     def test_ReadTZ(self):
 
         self.assertTrue(readTZ("America/New_York").find("TZID:America/New_York") != -1)
         self.assertRaises(TimezoneException, readTZ, "America/Pittsburgh")
-
 
     def test_ReadTZCached(self):
 
@@ -236,7 +233,6 @@ class TimezonePackageTest (twistedcaldav.test.util.TestCase):
         self.assertRaises(TimezoneException, readTZ, "America/Pittsburgh")
         self.assertRaises(TimezoneException, readTZ, "America/Pittsburgh")
 
-
     def test_ListTZs(self):
 
         results = listTZs()
@@ -244,14 +240,12 @@ class TimezonePackageTest (twistedcaldav.test.util.TestCase):
         self.assertTrue("Europe/London" in results)
         self.assertTrue("GB" in results)
 
-
     def test_ListTZsCached(self):
 
         results = listTZs()
         self.assertTrue("America/New_York" in results)
         self.assertTrue("Europe/London" in results)
         self.assertTrue("GB" in results)
-
 
     def test_copyPackage(self):
         """
@@ -278,7 +272,6 @@ class TimezonePackageTest (twistedcaldav.test.util.TestCase):
 
         self.assertEqual(str(pkg_tz), str(copy_tz))
 
-
     def test_copyPackage_missingVersion(self):
         """
         Test that tz data is updated if the version is missing.
@@ -296,7 +289,6 @@ class TimezonePackageTest (twistedcaldav.test.util.TestCase):
         TimezoneCache.create()
         self.assertTrue(os.path.exists(os.path.join(config.DataRoot, "zoneinfo", "version.txt")))
 
-
     def test_copyPackage_Concurrency(self):
         """
         Test that concurrent copying of the tz package works.
@@ -306,6 +298,7 @@ class TimezonePackageTest (twistedcaldav.test.util.TestCase):
         TimezoneCache.clear()
 
         ex = [None, None]
+
         def _try(n):
             try:
                 TimezoneCache.create()

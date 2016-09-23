@@ -75,7 +75,6 @@ def directoryFromConfig(config, store):
     )
 
 
-
 def buildDirectory(
     store, dataRoot, servicesInfo, augmentServiceInfo, wikiServiceInfo,
     serversDB=None, cachingSeconds=0, filterStartsWith=False
@@ -106,7 +105,6 @@ def buildDirectory(
 
         directoryType = serviceValue.type.lower()
         params = serviceValue.params
-
 
         if "xml" in directoryType:
             xmlFile = params.xmlFile
@@ -372,7 +370,7 @@ def startswithFilter(
             names = []
         for fullName in record.fullNames:
             names.extend(re.split(' |-', fullName))
-        match = True # assume it will match
+        match = True  # assume it will match
         for token in tokens:
             for name in names:
                 if name.lower().startswith(token):

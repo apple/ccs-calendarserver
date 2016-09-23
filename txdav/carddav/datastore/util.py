@@ -64,7 +64,6 @@ def validateAddressBookComponent(addressbookObject, vcard, component, inserting)
         raise InvalidObjectResourceError(e)
 
 
-
 @inlineCallbacks
 def _migrateAddressbook(inAddressbook, outAddressbook, getComponent):
     """
@@ -84,7 +83,7 @@ def _migrateAddressbook(inAddressbook, outAddressbook, getComponent):
     for addressbookObject in inObjects:
 
         try:
-            component = (yield addressbookObject.component()) # XXX WRONG SHOULD CALL getComponent
+            component = (yield addressbookObject.component())  # XXX WRONG SHOULD CALL getComponent
             component.md5 = addressbookObject.md5()
             yield outAddressbook.createAddressBookObjectWithName(
                 addressbookObject.name(),
@@ -120,7 +119,6 @@ def _migrateAddressbook(inAddressbook, outAddressbook, getComponent):
             bad_count += 1
 
     returnValue((ok_count, bad_count,))
-
 
 
 @inlineCallbacks

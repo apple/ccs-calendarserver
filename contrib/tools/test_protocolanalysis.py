@@ -19,11 +19,13 @@ from twisted.trial.unittest import TestCase
 
 from protocolanalysis import CalendarServerLogAnalyzer
 
+
 class UserInteractionTests(TestCase):
     """
     Tests for analysis of the way users interact with each other, done
     by CalendarServerLogAnalyzer.
     """
+
     def test_propfindOtherCalendar(self):
         """
         L{CalendarServerLogAnalyzer}'s C{otherUserCalendarRequests}
@@ -66,7 +68,6 @@ class UserInteractionTests(TestCase):
         self.assertEquals(
             analyzer.summarizeUserInteraction("PROPFIND Calendar Home"),
             {"(a):0": 1, "(b):1": 2, "(c):2": 2})
-
 
     test_propfindOtherCalendar.todo = (
         "needs fixing"

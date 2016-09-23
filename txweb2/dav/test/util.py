@@ -50,7 +50,6 @@ from txweb2.dav.util import allDataFromStream
 log = Logger()
 
 
-
 class SimpleRequest(server.Request):
     """
     A L{SimpleRequest} can be used in cases where a L{server.Request} object is
@@ -80,12 +79,10 @@ class SimpleRequest(server.Request):
         self.host = 'localhost'
         self.port = 8080
 
-
     def writeResponse(self, response):
         if self.chanRequest:
             self.chanRequest.writeHeaders(response.code, response.headers)
         return response
-
 
 
 class InMemoryPropertyStore (object):
@@ -94,9 +91,9 @@ class InMemoryPropertyStore (object):
 
     DO NOT USE OUTSIDE OF UNIT TESTS!
     """
+
     def __init__(self, resource):
         self._dict = {}
-
 
     def get(self, qname):
         try:
@@ -110,10 +107,8 @@ class InMemoryPropertyStore (object):
         doc = element.WebDAVDocument.fromString(property)
         return doc.root_element
 
-
     def set(self, property):
         self._dict[property.qname()] = property.toxml()
-
 
     def delete(self, qname):
         try:
@@ -121,14 +116,11 @@ class InMemoryPropertyStore (object):
         except KeyError:
             pass
 
-
     def contains(self, qname):
         return qname in self._dict
 
-
     def list(self):
         return self._dict.keys()
-
 
 
 class TestFile (DAVFile):
@@ -145,10 +137,8 @@ class TestFile (DAVFile):
 
         return self._dead_properties
 
-
     def parent(self):
         return TestFile(self.fp.parent())
-
 
 
 class TestCase (unittest.TestCase):
@@ -190,7 +180,7 @@ class TestCase (unittest.TestCase):
             os.path.join(docroot, "dir3"),                          # 3
             os.path.join(docroot, "dir4"),                          # 4
             os.path.join(docroot, "dir4", "subdir1"),               # 5
-            os.path.join(docroot, "dir4", "subdir1", "subsubdir1"), # 6
+            os.path.join(docroot, "dir4", "subdir1", "subsubdir1"),  # 6
             os.path.join(docroot, "dir4", "subdir2"),               # 7
             os.path.join(docroot, "dir4", "subdir2", "dir1"),       # 8
             os.path.join(docroot, "dir4", "subdir2", "dir2"),       # 9
@@ -211,7 +201,6 @@ class TestCase (unittest.TestCase):
                 copy(filename, dirname)
         return docroot
 
-
     def _getDocumentRoot(self):
         if not hasattr(self, "_docroot"):
             log.info("Setting up docroot for %s" % (self.__class__,))
@@ -219,7 +208,6 @@ class TestCase (unittest.TestCase):
             self._docroot = self.createDocumentRoot()
 
         return self._docroot
-
 
     def _setDocumentRoot(self, value):
         self._docroot = value
@@ -233,7 +221,6 @@ class TestCase (unittest.TestCase):
             self._site = Site(rootresource)
         return self._site
 
-
     def _setSite(self, site):
         self._site = site
 
@@ -243,10 +230,8 @@ class TestCase (unittest.TestCase):
         unittest.TestCase.setUp(self)
         TestFile._cachedPropertyStores = {}
 
-
     def tearDown(self):
         unittest.TestCase.tearDown(self)
-
 
     def mkdtemp(self, prefix):
         """
@@ -257,7 +242,6 @@ class TestCase (unittest.TestCase):
         uri = joinURL("/", url_quote(os.path.basename(path))) + "/"
 
         return (os.path.abspath(path), uri)
-
 
     def send(self, request, callback=None):
         """
@@ -284,7 +268,6 @@ class TestCase (unittest.TestCase):
                 d.addCallback(callback)
 
         return d
-
 
     def simpleSend(self, method, path="/", body="", mimetype="text",
                    subtype="xml", resultcode=responsecode.OK, headers=()):
@@ -326,6 +309,7 @@ class TestCase (unittest.TestCase):
             for k, v in headers:
                 request.headers.setHeader(k, v)
         request.headers.setHeader("content-type", MimeType(mimetype, subtype))
+
         def checkResult(response):
             self.assertEqual(response.code, resultcode)
             if response.stream is None:
@@ -334,14 +318,12 @@ class TestCase (unittest.TestCase):
         return self.send(request, None).addCallback(checkResult)
 
 
-
 class Site:
     # FIXME: There is no ISite interface; there should be.
     # implements(ISite)
 
     def __init__(self, resource):
         self.resource = resource
-
 
 
 def dircmp(dir1, dir2):
@@ -353,13 +335,11 @@ def dircmp(dir1, dir2):
     )
 
 
-
 def serialize(f, work):
     d = Deferred()
 
     def oops(error):
         d.errback(error)
-
 
     def do_serialize(_):
         try:

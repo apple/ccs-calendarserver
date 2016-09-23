@@ -81,7 +81,6 @@ log = Logger()
 md5key = PropertyName.fromElement(TwistedGETContentMD5)
 
 
-
 def allInstancesOf(cls):
     """
     Use L{gc.get_referrers} to retrieve all instances of a given class.
@@ -89,7 +88,6 @@ def allInstancesOf(cls):
     for o in gc.get_referrers(cls):
         if isinstance(o, cls):
             yield o
-
 
 
 def dumpConnectionStatus():
@@ -105,11 +103,11 @@ def dumpConnectionStatus():
     print("--- CONNECTIONS END ---")
 
 
-
 class SQLStoreBuilder(object):
     """
     Test-fixture-builder which can construct a PostgresStore.
     """
+
     def __init__(self, count=0, **options):
         self.sharedService = None
         self.currentTestID = None
@@ -119,7 +117,6 @@ class SQLStoreBuilder(object):
         )
 
         self.options = options
-
 
     def createService(self, serviceFactory):
         """
@@ -148,7 +145,6 @@ class SQLStoreBuilder(object):
                 dsnUser=self.options.get("dsnUser"),
             )
 
-
     def childStore(self):
         """
         Create a store suitable for use in a child process, that is hooked up
@@ -175,7 +171,6 @@ class SQLStoreBuilder(object):
             quota=staticQuota
         )
         return cds
-
 
     def buildStore(
         self, testCase, notifierFactory,
@@ -224,7 +219,6 @@ class SQLStoreBuilder(object):
 
         testCase.addCleanup(cleanUp)
         return result
-
 
     @inlineCallbacks
     def makeAndCleanStore(
@@ -306,7 +300,6 @@ class SQLStoreBuilder(object):
 
         returnValue(store)
 
-
     @inlineCallbacks
     def cleanStore(self, testCase, storeToClean):
 
@@ -322,7 +315,7 @@ class SQLStoreBuilder(object):
         # later table.  Therefore it's OK to drop them in the (reverse) order
         # that they happen to be in.
         tables = [
-            t.name for t in schema.model.tables #@UndefinedVariable
+            t.name for t in schema.model.tables  # @UndefinedVariable
             # All tables with rows _in_ the schema are populated
             # exclusively _by_ the schema and shouldn't be manipulated
             # while the server is running, so we leave those populated.
@@ -336,7 +329,7 @@ class SQLStoreBuilder(object):
                 log.failure("delete table {table} failed", table=table)
 
         # Change the starting values of sequences to random values
-        for sequence in schema.model.sequences: #@UndefinedVariable
+        for sequence in schema.model.sequences:  # @UndefinedVariable
             try:
                 if cleanupTxn.dbtype.dialect == POSTGRES_DIALECT:
                     curval = (yield cleanupTxn.execSQL("select nextval('{}')".format(sequence.name), []))[0][0]
@@ -362,7 +355,6 @@ cleanStore = theStoreBuilder.cleanStore
 
 
 _notSet = object()
-
 
 
 def deriveValue(testCase, attribute, computeDefault):
@@ -396,7 +388,6 @@ def deriveValue(testCase, attribute, computeDefault):
         return value
 
 
-
 def withSpecialValue(attribute, value):
     """
     Decorator for a test method which has a special value.  Should be used by
@@ -406,7 +397,6 @@ def withSpecialValue(attribute, value):
         setattr(function, attribute, value)
         return function
     return thunk
-
 
 
 def _computeDefaultQuota(testCase):
@@ -421,10 +411,8 @@ def _computeDefaultQuota(testCase):
     return baseline + fuzz
 
 
-
 _SPECIAL_QUOTA = "__special_quota__"
 _SPECIAL_TXN_CLEAN = "__special_txn_clean__"
-
 
 
 def deriveQuota(testCase):
@@ -451,7 +439,6 @@ def deriveQuota(testCase):
     return deriveValue(testCase, _SPECIAL_QUOTA, _computeDefaultQuota)
 
 
-
 def withSpecialQuota(quotaValue):
     """
     Test method decorator that will cause L{deriveQuota} to return a different
@@ -460,7 +447,6 @@ def withSpecialQuota(quotaValue):
     @see: L{withSpecialValue}
     """
     return withSpecialValue(_SPECIAL_QUOTA, quotaValue)
-
 
 
 def transactionClean(f=None):
@@ -477,7 +463,6 @@ def transactionClean(f=None):
         return decorator(f)
     else:
         return decorator
-
 
 
 @inlineCallbacks
@@ -536,7 +521,6 @@ def populateCalendarsFrom(requirements, store, migrating=False):
     yield populateTxn.commit()
 
 
-
 def updateToCurrentYear(data):
     """
     Update the supplied iCalendar data so that all dates are updated to the
@@ -550,7 +534,6 @@ def updateToCurrentYear(data):
         subs["now-{}".format(i)] = nowYear - 1
         subs["now+{}".format(i)] = nowYear + 1
     return data % subs
-
 
 
 @inlineCallbacks
@@ -583,7 +566,6 @@ def resetCalendarMD5s(md5s, store):
                             TwistedGETContentMD5.fromString(md5)
                         )
     yield populateTxn.commit()
-
 
 
 @inlineCallbacks
@@ -624,7 +606,6 @@ def populateAddressBooksFrom(requirements, store):
     yield populateTxn.commit()
 
 
-
 @inlineCallbacks
 def resetAddressBookMD5s(md5s, store):
     """
@@ -659,7 +640,6 @@ def resetAddressBookMD5s(md5s, store):
     yield populateTxn.commit()
 
 
-
 def assertProvides(testCase, interface, provider):
     """
     Verify that C{provider} properly provides C{interface}
@@ -674,7 +654,6 @@ def assertProvides(testCase, interface, provider):
     except DoesNotImplement, e:
         testCase.fail("%r does not provide %s.%s" %
                       (provider, interface.__module__, interface.getName()))
-
 
 
 def buildTestDirectory(
@@ -775,7 +754,6 @@ def buildTestDirectory(
     return directory
 
 
-
 class CommonCommonTests(object):
     """
     Common utility functionality for file/store combination tests.
@@ -784,7 +762,6 @@ class CommonCommonTests(object):
     lastTransaction = None
     savedStore = None
     assertProvides = assertProvides
-
 
     @inlineCallbacks
     def buildStoreAndDirectory(
@@ -822,7 +799,6 @@ class CommonCommonTests(object):
                     }
                 )
 
-
     def configure(self):
         """
         Modify the configuration to suit unit tests, with a mktemp-created
@@ -853,7 +829,6 @@ class CommonCommonTests(object):
 
         self.config = config
 
-
     def buildStore(self, storeBuilder=theStoreBuilder, notifierFactory=None):
         """
         Builds and returns a store
@@ -862,7 +837,6 @@ class CommonCommonTests(object):
         # Build the store before the directory; the directory will be assigned
         # to the store via setDirectoryService()
         return storeBuilder.buildStore(self, notifierFactory if notifierFactory is not None else self.notifierFactory, None)
-
 
     def transactionUnderTest(self, txn=None):
         """
@@ -873,7 +847,6 @@ class CommonCommonTests(object):
         if self.lastTransaction is None:
             self.lastTransaction = self.concurrentTransaction(txn)
         return self.lastTransaction
-
 
     def concurrentTransaction(self, txn=None):
         """
@@ -903,7 +876,6 @@ class CommonCommonTests(object):
 
         return txn
 
-
     def commit(self):
         """
         Commit the last transaction created from C{transactionUnderTest}, and
@@ -912,7 +884,6 @@ class CommonCommonTests(object):
         result = self.lastTransaction.commit()
         self.lastTransaction = None
         return result
-
 
     def abort(self):
         """
@@ -923,13 +894,11 @@ class CommonCommonTests(object):
         self.lastTransaction = None
         return result
 
-
     def storeUnderTest(self):
         """
         Create and return the L{CalendarStore} for testing.
         """
         return self.store
-
 
     def homeUnderTest(self, txn=None, name="home1", status=None, create=False):
         """
@@ -939,7 +908,6 @@ class CommonCommonTests(object):
             txn = self.transactionUnderTest()
         return txn.calendarHomeWithUID(name, status=status, create=create)
 
-
     @inlineCallbacks
     def calendarUnderTest(self, txn=None, name="calendar_1", home="home1", status=None):
         """
@@ -948,7 +916,6 @@ class CommonCommonTests(object):
         home = yield self.homeUnderTest(txn, home, status=status)
         calendar = yield home.calendarWithName(name)
         returnValue(calendar)
-
 
     @inlineCallbacks
     def calendarObjectUnderTest(
@@ -964,7 +931,6 @@ class CommonCommonTests(object):
         object = yield calendar.calendarObjectWithName(name)
         returnValue(object)
 
-
     @inlineCallbacks
     def trashObjectsUnderTest(
         self, txn=None, home="home1", status=None
@@ -978,7 +944,6 @@ class CommonCommonTests(object):
         objects = yield trash.objectResources()
         returnValue(objects)
 
-
     def addressbookHomeUnderTest(self, txn=None, name="home1"):
         """
         Get the addressbook home detailed by C{requirements['home1']}.
@@ -986,7 +951,6 @@ class CommonCommonTests(object):
         if txn is None:
             txn = self.transactionUnderTest()
         return txn.addressbookHomeWithUID(name)
-
 
     @inlineCallbacks
     def addressbookUnderTest(self, txn=None, name="addressbook", home="home1"):
@@ -997,7 +961,6 @@ class CommonCommonTests(object):
         home = yield self.addressbookHomeUnderTest(txn=txn, name=home)
         addressbook = yield home.addressbookWithName(name)
         returnValue(addressbook)
-
 
     @inlineCallbacks
     def addressbookObjectUnderTest(
@@ -1014,18 +977,15 @@ class CommonCommonTests(object):
         object = yield addressBook.addressbookObjectWithName(name)
         returnValue(object)
 
-
     def notificationCollectionUnderTest(self, txn=None, name="home1", status=None, create=False):
         if txn is None:
             txn = self.transactionUnderTest()
         return txn.notificationsWithUID(name, status=status, create=create)
 
-
     def userRecordWithShortName(self, shortname):
         return self.directory.recordWithShortName(
             self.directory.recordType.user, shortname
         )
-
 
     @inlineCallbacks
     def userUIDFromShortName(self, shortname):
@@ -1034,15 +994,12 @@ class CommonCommonTests(object):
         )
         returnValue(record.uid if record is not None else None)
 
-
     def addRecordFromFields(self, fields):
         updatedRecord = DirectoryRecord(self.directory, fields)
         return self.directory.updateRecords((updatedRecord,), create=True)
 
-
     def removeRecord(self, uid):
         return self.directory.removeRecords([uid])
-
 
     def changeRecord(self, record, fieldname, value, directory=None):
         if directory is None:
@@ -1051,7 +1008,6 @@ class CommonCommonTests(object):
         fields[fieldname] = value
         updatedRecord = DirectoryRecord(directory, fields)
         return directory.updateRecords((updatedRecord,))
-
 
 
 class StubNotifierFactory(object):
@@ -1063,22 +1019,17 @@ class StubNotifierFactory(object):
         self.reset()
         self.hostname = "example.com"
 
-
     def newNotifier(self, storeObject):
         return Notifier(self, storeObject)
-
 
     def pushKeyForId(self, prefix, id):
         return "/%s/%s/%s/" % (prefix, self.hostname, id)
 
-
     def send(self, prefix, id, txn, priority):
         self.history.append((self.pushKeyForId(prefix, id), priority))
 
-
     def reset(self):
         self.history = []
-
 
 
 def disableMemcacheForTest(aTest):

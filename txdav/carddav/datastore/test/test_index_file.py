@@ -27,6 +27,7 @@ import twistedcaldav.test.util
 
 import os
 
+
 class MinimalResourceReplacement(object):
     """
     Provide the minimal set of attributes and methods from CalDAVFile required
@@ -41,24 +42,19 @@ class MinimalResourceReplacement(object):
         def postAbort(self, _ignore):
             pass
 
-
     def __init__(self, filePath):
         self.fp = filePath
         self._txn = MinimalResourceReplacement.MinimalTxn()
 
-
     def isAddressBookCollection(self):
         return True
-
 
     def getChild(self, name):
         # FIXME: this should really return something with a child method
         return self.fp.child(name)
 
-
     def initSyncToken(self):
         pass
-
 
 
 class SQLIndexTests (twistedcaldav.test.util.TestCase):
@@ -74,10 +70,8 @@ class SQLIndexTests (twistedcaldav.test.util.TestCase):
         # have all the associated backend machinery to actually get children.
         self.db = AddressBookIndex(MinimalResourceReplacement(self.indexDirPath))
 
-
     def tearDown(self):
         self.db._db_close()
-
 
     def test_reserve_uid_ok(self):
         uid = "test-test-test"
@@ -92,7 +86,6 @@ class SQLIndexTests (twistedcaldav.test.util.TestCase):
 
         return d
 
-
     def test_reserve_uid_twice(self):
         uid = "test-test-test"
         d = self.db.reserveUID(uid)
@@ -103,12 +96,10 @@ class SQLIndexTests (twistedcaldav.test.util.TestCase):
                                          ReservationError))
         return d
 
-
     def test_unreserve_unreserved(self):
         uid = "test-test-test"
         return self.assertFailure(self.db.unreserveUID(uid),
                                   ReservationError)
-
 
     def test_reserve_uid_timeout(self):
         # WARNING: This test is fundamentally flawed and will fail
@@ -132,7 +123,6 @@ class SQLIndexTests (twistedcaldav.test.util.TestCase):
         self.addCleanup(_finally)
 
         return d
-
 
     def test_index(self):
         data = (
@@ -162,7 +152,6 @@ END:VCARD
         self.db._db_recreate()
         for description, name, vcard_txt in data:
             self.assertTrue(self.db.resourceExists(name), msg=description)
-
 
     def test_index_revisions(self):
         data1 = """BEGIN:VCARD
@@ -214,13 +203,12 @@ END:VCARD
             self.assertEquals(self.db.whatchanged(revision), results, "Mismatched results for whatchanged with revision %d" % (revision,))
 
 
-
 class MemcacheTests(SQLIndexTests):
+
     def setUp(self):
         super(MemcacheTests, self).setUp()
         self.memcache = InMemoryMemcacheProtocol()
         self.db.reserver = MemcachedUIDReserver(self.db, self.memcache)
-
 
     def tearDown(self):
         super(MemcacheTests, self).tearDown()

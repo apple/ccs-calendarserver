@@ -41,10 +41,12 @@ from txdav.xml import element
 
 import txweb2.dav.test.util
 
+
 class ACL(txweb2.dav.test.util.TestCase):
     """
     RFC 3744 (WebDAV ACL) tests.
     """
+
     def createDocumentRoot(self):
         docroot = self.mktemp()
         os.mkdir(docroot)
@@ -83,11 +85,11 @@ class ACL(txweb2.dav.test.util.TestCase):
         rootResource.setAccessControlList(self.grant(element.All()))
 
         for name, acl in (
-            ("none"       , self.grant()),
-            ("read"       , self.grant(element.Read())),
-            ("read-write" , self.grant(element.Read(), element.Write())),
-            ("unlock"     , self.grant(element.Unlock())),
-            ("all"        , self.grant(element.All())),
+            ("none", self.grant()),
+            ("read", self.grant(element.Read())),
+            ("read-write", self.grant(element.Read(), element.Write())),
+            ("unlock", self.grant(element.Unlock())),
+            ("all", self.grant(element.All())),
         ):
             filename = os.path.join(docroot, name)
             if not os.path.isfile(filename):
@@ -96,9 +98,9 @@ class ACL(txweb2.dav.test.util.TestCase):
             resource.setAccessControlList(acl)
 
         for name, acl in (
-            ("nobind" , self.grant()),
-            ("bind"   , self.grant(element.Bind())),
-            ("unbind" , self.grant(element.Bind(), element.Unbind())),
+            ("nobind", self.grant()),
+            ("bind", self.grant(element.Bind())),
+            ("unbind", self.grant(element.Bind(), element.Unbind())),
         ):
             dirname = os.path.join(docroot, name)
             if not os.path.isdir(dirname):
@@ -107,7 +109,6 @@ class ACL(txweb2.dav.test.util.TestCase):
             resource.setAccessControlList(acl)
         return docroot
 
-
     def restore(self):
         # Get rid of whatever messed up state the test has now so that we'll
         # get a fresh docroot.  This isn't very cool; tests should be doing
@@ -115,7 +116,6 @@ class ACL(txweb2.dav.test.util.TestCase):
         if hasattr(self, "_docroot"):
             rmdir(self._docroot)
             del self._docroot
-
 
     def test_COPY_MOVE_source(self):
         """
@@ -137,15 +137,15 @@ class ACL(txweb2.dav.test.util.TestCase):
                 src_resource = self.resource_class(src_path)
                 src_resource.setAccessControlList({
                     "nobind": self.grant(),
-                    "bind"  : self.grant(element.Bind()),
+                    "bind": self.grant(element.Bind()),
                     "unbind": self.grant(element.Bind(), element.Unbind())
                 }[src])
                 for name, acl in (
-                    ("none"       , self.grant()),
-                    ("read"       , self.grant(element.Read())),
-                    ("read-write" , self.grant(element.Read(), element.Write())),
-                    ("unlock"     , self.grant(element.Unlock())),
-                    ("all"        , self.grant(element.All())),
+                    ("none", self.grant()),
+                    ("read", self.grant(element.Read())),
+                    ("read-write", self.grant(element.Read(), element.Write())),
+                    ("unlock", self.grant(element.Unlock())),
+                    ("all", self.grant(element.All())),
                 ):
                     filename = os.path.join(src_path, name)
                     if not os.path.isfile(filename):
@@ -156,7 +156,7 @@ class ACL(txweb2.dav.test.util.TestCase):
                     for name, code in (
                         ("none", {"COPY": responsecode.FORBIDDEN, "MOVE": status}[method]),
                         ("read", {"COPY": responsecode.CREATED, "MOVE": status}[method]),
-                        ("read-write" , {"COPY": responsecode.CREATED, "MOVE": status}[method]),
+                        ("read-write", {"COPY": responsecode.CREATED, "MOVE": status}[method]),
                         ("unlock", {"COPY": responsecode.FORBIDDEN, "MOVE": status}[method]),
                         ("all", {"COPY": responsecode.CREATED, "MOVE": status}[method]),
                     ):
@@ -178,7 +178,6 @@ class ACL(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work())
 
-
     def test_COPY_MOVE_dest(self):
         """
         Verify destination access controls during COPY and MOVE.
@@ -189,9 +188,9 @@ class ACL(txweb2.dav.test.util.TestCase):
 
             for method in ("COPY", "MOVE"):
                 for name, code in (
-                    ("nobind" , responsecode.FORBIDDEN),
-                    ("bind"   , responsecode.CREATED),
-                    ("unbind" , responsecode.CREATED),
+                    ("nobind", responsecode.FORBIDDEN),
+                    ("bind", responsecode.CREATED),
+                    ("unbind", responsecode.CREATED),
                 ):
                     dst_parent_path = os.path.join(self.docroot, name)
                     dst_path = os.path.join(dst_parent_path, "dst")
@@ -212,16 +211,15 @@ class ACL(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work())
 
-
     def test_DELETE(self):
         """
         Verify access controls during DELETE.
         """
         def work():
             for name, code in (
-                ("nobind" , responsecode.FORBIDDEN),
-                ("bind"   , responsecode.FORBIDDEN),
-                ("unbind" , responsecode.NO_CONTENT),
+                ("nobind", responsecode.FORBIDDEN),
+                ("bind", responsecode.FORBIDDEN),
+                ("unbind", responsecode.NO_CONTENT),
             ):
                 collection_path = os.path.join(self.docroot, name)
                 path = os.path.join(collection_path, "dst")
@@ -239,7 +237,6 @@ class ACL(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work())
 
-
     def test_UNLOCK(self):
         """
         Verify access controls during UNLOCK of unowned lock.
@@ -255,9 +252,9 @@ class ACL(txweb2.dav.test.util.TestCase):
         for method in ("MKCOL", "PUT"):
             def work():
                 for name, code in (
-                    ("nobind" , responsecode.FORBIDDEN),
-                    ("bind"   , responsecode.CREATED),
-                    ("unbind" , responsecode.CREATED),
+                    ("nobind", responsecode.FORBIDDEN),
+                    ("bind", responsecode.CREATED),
+                    ("unbind", responsecode.CREATED),
                 ):
                     collection_path = os.path.join(self.docroot, name)
                     path = os.path.join(collection_path, "dst")
@@ -278,18 +275,17 @@ class ACL(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work())
 
-
     def test_PUT_exists(self):
         """
         Verify access controls during PUT of existing file.
         """
         def work():
             for name, code in (
-                ("none"       , responsecode.FORBIDDEN),
-                ("read"       , responsecode.FORBIDDEN),
-                ("read-write" , responsecode.NO_CONTENT),
-                ("unlock"     , responsecode.FORBIDDEN),
-                ("all"        , responsecode.NO_CONTENT),
+                ("none", responsecode.FORBIDDEN),
+                ("read", responsecode.FORBIDDEN),
+                ("read-write", responsecode.NO_CONTENT),
+                ("unlock", responsecode.FORBIDDEN),
+                ("all", responsecode.NO_CONTENT),
             ):
                 path = os.path.join(self.docroot, name)
 
@@ -303,7 +299,6 @@ class ACL(txweb2.dav.test.util.TestCase):
                 yield (request, test)
 
         return serialize(self.send, work())
-
 
     def test_PROPFIND(self):
         """
@@ -319,11 +314,11 @@ class ACL(txweb2.dav.test.util.TestCase):
         """
         def work():
             for name, code in (
-                ("none"       , responsecode.FORBIDDEN),
-                ("read"       , responsecode.FORBIDDEN),
-                ("read-write" , responsecode.MULTI_STATUS),
-                ("unlock"     , responsecode.FORBIDDEN),
-                ("all"        , responsecode.MULTI_STATUS),
+                ("none", responsecode.FORBIDDEN),
+                ("read", responsecode.FORBIDDEN),
+                ("read-write", responsecode.MULTI_STATUS),
+                ("unlock", responsecode.FORBIDDEN),
+                ("all", responsecode.MULTI_STATUS),
             ):
                 path = os.path.join(self.docroot, name)
 
@@ -341,7 +336,6 @@ class ACL(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work())
 
-
     def test_GET_REPORT(self):
         """
         Verify access controls during GET and REPORT.
@@ -356,11 +350,11 @@ class ACL(txweb2.dav.test.util.TestCase):
                     raise AssertionError("We shouldn't be here.  (method = %r)" % (method,))
 
                 for name, code in (
-                    ("none"       , responsecode.FORBIDDEN),
-                    ("read"       , ok),
-                    ("read-write" , ok),
-                    ("unlock"     , responsecode.FORBIDDEN),
-                    ("all"        , ok),
+                    ("none", responsecode.FORBIDDEN),
+                    ("read", ok),
+                    ("read-write", ok),
+                    ("unlock", responsecode.FORBIDDEN),
+                    ("all", ok),
                 ):
                     path = os.path.join(self.docroot, name)
 
@@ -378,7 +372,6 @@ class ACL(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work())
 
-
     def oops(self, request, response, code, method, name):
         def gotResponseData(doc):
             if doc is None:
@@ -389,7 +382,6 @@ class ACL(txweb2.dav.test.util.TestCase):
             def fail(acl):
                 self.fail("Incorrect status code %s (!= %s) for %s of resource %s with %s ACL: %s\nACL: %s"
                           % (response.code, code, method, request.uri, name, doc_xml, acl.toxml()))
-
 
             def getACL(resource):
                 return resource.accessControlList(request)
@@ -402,7 +394,6 @@ class ACL(txweb2.dav.test.util.TestCase):
         d = davXMLFromStream(response.stream)
         d.addCallback(gotResponseData)
         return d
-
 
 
 def _add_auth_header(request):

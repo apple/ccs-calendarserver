@@ -31,6 +31,7 @@ from txdav.common.datastore.upgrade.sql.upgrade import (
     UpgradeDatabaseSchemaStep, UpgradeDatabaseAddressBookDataStep, UpgradeDatabaseCalendarDataStep, NotAllowedToUpgrade)
 import re
 
+
 class SchemaUpgradeTests(TestCase):
     """
     Tests for L{UpgradeDatabaseSchemaStep}.
@@ -43,13 +44,11 @@ class SchemaUpgradeTests(TestCase):
         else:
             self.testStoreBuilder = SQLStoreBuilder(dsnUser="test_dbUpgrades", noCleanup=True)
 
-
     @staticmethod
     def _getRawSchemaVersion(fp, versionKey):
         schema = fp.getContent()
         found = re.search("insert into CALENDARSERVER (\(NAME, VALUE\) )?values \('%s', '(\d+)'\);" % (versionKey,), schema)
         return int(found.group(2)) if found else None
-
 
     def _getSchemaVersion(self, fp, versionKey):
         found = SchemaUpgradeTests._getRawSchemaVersion(fp, versionKey)
@@ -59,7 +58,6 @@ class SchemaUpgradeTests(TestCase):
             else:
                 return 1
         return found
-
 
     def test_scanUpgradeFiles(self):
 
@@ -82,7 +80,6 @@ class SchemaUpgradeTests(TestCase):
                 (4, 5, upgrader.schemaLocation.child("upgrades").child("fake_dialect").child("upgrade_from_4_to_5.sql")),
             ]
         )
-
 
     def test_determineUpgradeSequence(self):
 
@@ -121,7 +118,6 @@ class SchemaUpgradeTests(TestCase):
             ]
         )
 
-
     def test_upgradeAvailability(self):
         """
         Make sure that each old schema has a valid upgrade path to the current one.
@@ -150,7 +146,6 @@ class SchemaUpgradeTests(TestCase):
 #                result = upgrader.getDataUpgrade(fp)
 #                if result is not None:
 #                    self.assertIsInstance(result, types.FunctionType)
-
 
     @inlineCallbacks
     def _dbSchemaUpgrades(self, child):
@@ -262,7 +257,6 @@ class SchemaUpgradeTests(TestCase):
         yield _unloadOldSchema()
 
         self.assertEqual(old_version, new_version)
-
 
     @inlineCallbacks
     def _dbDataUpgrades(self, version, versionKey, upgraderClass):

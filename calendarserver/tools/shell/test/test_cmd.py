@@ -25,10 +25,10 @@ from calendarserver.tools.shell.terminal import ShellProtocol
 
 
 class TestCommandsBase(twisted.trial.unittest.TestCase):
+
     def setUp(self):
         self.protocol = ShellProtocol(None, commandsClass=CommandsBase)
         self.commands = self.protocol.commands
-
 
     @inlineCallbacks
     def test_getTargetNone(self):
@@ -38,10 +38,8 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
         target = (yield self.commands.getTarget([]))
         self.assertEquals(target, None)
 
-
     def test_getTargetMissing(self):
         return self.assertFailure(self.commands.getTarget(["/foo"]), NotFoundError)
-
 
     @inlineCallbacks
     def test_getTargetOne(self):
@@ -49,13 +47,11 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
         match = (yield self.commands.wd.locate(["users"]))
         self.assertEquals(target, match)
 
-
     @inlineCallbacks
     def test_getTargetSome(self):
         target = (yield self.commands.getTarget(["users", "blah"]))
         match = (yield self.commands.wd.locate(["users"]))
         self.assertEquals(target, match)
-
 
     def test_commandsNone(self):
         allCommands = self.commands.commands()
@@ -63,7 +59,6 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
 
         allCommands = self.commands.commands(showHidden=True)
         self.assertEquals(sorted(allCommands), [])
-
 
     def test_commandsSome(self):
         protocol = ShellProtocol(None, commandsClass=SomeCommands)
@@ -90,7 +85,6 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
             ]
         )
 
-
     def test_complete(self):
         items = (
             "foo",
@@ -112,7 +106,6 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
         self.assertEquals(c("q"), ["uux"])
         self.assertEquals(c("xyzzy"), [])
 
-
     def test_completeCommands(self):
         protocol = ShellProtocol(None, commandsClass=SomeCommands)
         commands = protocol.commands
@@ -124,7 +117,6 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
         self.assertEquals(c("a"), [""])
         self.assertEquals(c("h"), ["idden"])
         self.assertEquals(c("f"), [])
-
 
     @inlineCallbacks
     def _test_completeFiles(self, tests):
@@ -156,52 +148,47 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
                 self.assertEquals((yield c(word)), completions, "Completing %r" % (word,))
                 self.assertEquals((yield d(word)), completions, "Completing %r" % (word,))
 
-
     def test_completeFilesLevelOne(self):
         return self._test_completeFiles((
-            (None    , ["groups/", "locations/", "resources/", "uids/", "users/"]),
-            (""      , ["groups/", "locations/", "resources/", "uids/", "users/"]),
-            ("u"     , ["ids/", "sers/"]),
-            ("g"     , ["roups/"]),
-            ("gr"    , ["oups/"]),
+            (None, ["groups/", "locations/", "resources/", "uids/", "users/"]),
+            ("", ["groups/", "locations/", "resources/", "uids/", "users/"]),
+            ("u", ["ids/", "sers/"]),
+            ("g", ["roups/"]),
+            ("gr", ["oups/"]),
             ("groups", ["/"]),
         ))
 
-
     def test_completeFilesLevelOneSlash(self):
         return self._test_completeFiles((
-            ("/"      , ["groups/", "locations/", "resources/", "uids/", "users/"]),
-            ("/u"     , ["ids/", "sers/"]),
-            ("/g"     , ["roups/"]),
-            ("/gr"    , ["oups/"]),
+            ("/", ["groups/", "locations/", "resources/", "uids/", "users/"]),
+            ("/u", ["ids/", "sers/"]),
+            ("/g", ["roups/"]),
+            ("/gr", ["oups/"]),
             ("/groups", ["/"]),
         ))
 
-
     def test_completeFilesDirectory(self):
         return self._test_completeFiles((
-            ("users/" , ["wsanchez", "admin"]), # FIXME: Look up users
+            ("users/", ["wsanchez", "admin"]),  # FIXME: Look up users
         ))
 
     test_completeFilesDirectory.todo = "Doesn't work yet"
 
     def test_completeFilesLevelTwo(self):
         return self._test_completeFiles((
-            ("users/w" , ["sanchez"]), # FIXME: Look up users?
+            ("users/w", ["sanchez"]),  # FIXME: Look up users?
         ))
 
     test_completeFilesLevelTwo.todo = "Doesn't work yet"
 
 
-
 class SomeCommands(CommandsBase):
+
     def cmd_a(self, tokens):
         pass
 
-
     def cmd_b(self, tokens):
         pass
-
 
     def cmd_hidden(self, tokens):
         pass

@@ -22,6 +22,7 @@ import sys
 import traceback
 from pycalendar.icalendar.calendar import Calendar
 
+
 def usage(error_msg=None):
     if error_msg:
         print(error_msg)

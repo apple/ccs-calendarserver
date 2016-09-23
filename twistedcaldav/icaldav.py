@@ -25,18 +25,19 @@ __all__ = [
 
 from txweb2.dav.idav import IDAVResource
 
+
 class ICalDAVResource(IDAVResource):
     """
     CalDAV resource.
     """
-    def isCalendarCollection(): #@NoSelf
+    def isCalendarCollection():  # @NoSelf
         """
         (CalDAV-access-10, Section 4.2)
         @return: True if this resource is a calendar collection, False
             otherwise.
         """
 
-    def isSpecialCollection(collectiontype): #@NoSelf
+    def isSpecialCollection(collectiontype):  # @NoSelf
         """
         (CalDAV-access-10, Section 4.2)
         @param collectiontype: L{WebDAVElement} for the collection type to test for.
@@ -44,14 +45,14 @@ class ICalDAVResource(IDAVResource):
             False otherwise.
         """
 
-    def isPseudoCalendarCollection(): #@NoSelf
+    def isPseudoCalendarCollection():  # @NoSelf
         """
         @return: True if this resource is a calendar collection like (e.g.
             a regular calendar collection or schedule inbox/outbox), False
             otherwise.
         """
 
-    def findCalendarCollections(depth): #@NoSelf
+    def findCalendarCollections(depth):  # @NoSelf
         """
         Returns an iterable of child calendar collection resources for the given
         depth.
@@ -62,12 +63,12 @@ class ICalDAVResource(IDAVResource):
         @return: an iterable of tuples C{(resource, uri)}.
         """
 
-    def createCalendar(request): #@NoSelf
+    def createCalendar(request):  # @NoSelf
         """
         Create a calendar collection for this resource.
         """
 
-    def component(): #@NoSelf
+    def component():  # @NoSelf
         """
         Instantiate an iCalendar component object representing this resource or
         its child with the given name.
@@ -79,41 +80,40 @@ class ICalDAVResource(IDAVResource):
         """
 
 
-
 class ICalendarPrincipalResource(IDAVResource):
     """
     CalDAV principle resource.
     """
-    def principalUID(): #@NoSelf
+    def principalUID():  # @NoSelf
         """
         @return: the user id for this principal.
         """
 
-    def calendarHomeURLs(): #@NoSelf
+    def calendarHomeURLs():  # @NoSelf
         """
         @return: a list of calendar home URLs for this principal's calendar user.
         """
 
-    def calendarUserAddresses(): #@NoSelf
+    def calendarUserAddresses():  # @NoSelf
         """
         @return: a list of calendar user addresses for this principal's calendar
             user.
         """
 
-    def calendarFreeBusyURIs(request): #@NoSelf
+    def calendarFreeBusyURIs(request):  # @NoSelf
         """
         @param request: the request being processed.
         @return: a L{Deferred} list of URIs for calendars that contribute to
             free-busy for this principal's calendar user.
         """
 
-    def scheduleInboxURL(): #@NoSelf
+    def scheduleInboxURL():  # @NoSelf
         """
         Get the schedule INBOX URL for this principal's calendar user.
         @return: a string containing the URL from the schedule-inbox-URL property.
         """
 
-    def scheduleOutboxURL(): #@NoSelf
+    def scheduleOutboxURL():  # @NoSelf
         """
         Get the schedule OUTBOX URL for this principal's calendar user.
         @return: a string containing the URL from the schedule-outbox-URL property.

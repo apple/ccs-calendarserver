@@ -29,7 +29,6 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 log = Logger()
 
 
-
 class TrashRestorationService(WorkerService):
 
     operation = None
@@ -37,7 +36,6 @@ class TrashRestorationService(WorkerService):
 
     def doWork(self):
         return self.operation(self.store, *self.operationArgs)
-
 
 
 def main():
@@ -90,7 +88,6 @@ def main():
     )
 
 
-
 @inlineCallbacks
 def listTrashedCollectionsForPrincipal(service, store, principalUID):
     directory = store.directoryService()
@@ -98,7 +95,6 @@ def listTrashedCollectionsForPrincipal(service, store, principalUID):
     if record is None:
         print("No record found for:", principalUID)
         returnValue(None)
-
 
     @inlineCallbacks
     def doIt(txn):
@@ -145,10 +141,8 @@ def listTrashedCollectionsForPrincipal(service, store, principalUID):
     yield store.inTransaction(label="List trashed collections", operation=doIt)
 
 
-
 def startString(pydt):
     return pydt.getLocaleDateTime(DateTime.FULLDATE, False, True, pydt.getTimezoneID())
-
 
 
 @inlineCallbacks
@@ -203,7 +197,6 @@ def printEventDetails(event):
         print("         {} {}".format(startString(dtstart), location))
 
 
-
 @inlineCallbacks
 def listTrashedEventsForPrincipal(service, store, principalUID):
     directory = store.directoryService()
@@ -211,7 +204,6 @@ def listTrashedEventsForPrincipal(service, store, principalUID):
     if record is None:
         print("No record found for:", principalUID)
         returnValue(None)
-
 
     @inlineCallbacks
     def doIt(txn):
@@ -230,7 +222,6 @@ def listTrashedEventsForPrincipal(service, store, principalUID):
             print("No untrashed collections for:", prettyRecord(record))
             returnValue(None)
 
-
         for collection in untrashedCollections:
             displayName = displayNameForCollection(collection)
             children = yield trash.trashForCollection(collection._resourceID)
@@ -246,7 +237,6 @@ def listTrashedEventsForPrincipal(service, store, principalUID):
     yield store.inTransaction(label="List trashed events", operation=doIt)
 
 
-
 @inlineCallbacks
 def restoreTrashedCollection(service, store, principalUID, resourceID):
     directory = store.directoryService()
@@ -254,7 +244,6 @@ def restoreTrashedCollection(service, store, principalUID, resourceID):
     if record is None:
         print("No record found for:", principalUID)
         returnValue(None)
-
 
     @inlineCallbacks
     def doIt(txn):
@@ -275,7 +264,6 @@ def restoreTrashedCollection(service, store, principalUID, resourceID):
     yield store.inTransaction(label="Restore trashed collection", operation=doIt)
 
 
-
 @inlineCallbacks
 def restoreTrashedEvent(service, store, principalUID, resourceID):
     directory = store.directoryService()
@@ -283,7 +271,6 @@ def restoreTrashedEvent(service, store, principalUID, resourceID):
     if record is None:
         print("No record found for:", principalUID)
         returnValue(None)
-
 
     @inlineCallbacks
     def doIt(txn):
@@ -310,7 +297,6 @@ def restoreTrashedEvent(service, store, principalUID, resourceID):
     yield store.inTransaction(label="Restore trashed event", operation=doIt)
 
 
-
 @inlineCallbacks
 def emptyTrashForPrincipal(service, store, principalUID, days, txn=None, verbose=True):
     directory = store.directoryService()
@@ -319,7 +305,6 @@ def emptyTrashForPrincipal(service, store, principalUID, days, txn=None, verbose
         if verbose:
             print("No record found for:", principalUID)
         returnValue(None)
-
 
     @inlineCallbacks
     def doIt(txn):
@@ -335,7 +320,6 @@ def emptyTrashForPrincipal(service, store, principalUID, days, txn=None, verbose
         yield store.inTransaction(label="Empty trash", operation=doIt)
     else:
         yield doIt(txn)
-
 
 
 if __name__ == "__main__":

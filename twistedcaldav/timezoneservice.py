@@ -48,6 +48,7 @@ from twistedcaldav.timezones import readTZ
 
 from pycalendar.datetime import DateTime
 
+
 class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMixin, DAVResource):
     """
     Timezone Service resource.
@@ -66,24 +67,19 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
         self.parent = parent
         self.cache = {}
 
-
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = NonePropertyStore(self)
         return self._dead_properties
 
-
     def etag(self):
         return succeed(None)
-
 
     def checkPreconditions(self, request):
         return None
 
-
     def checkPrivileges(self, request, privileges, recurse=False, principal=None, inherited_aces=None):
         return succeed(None)
-
 
     def defaultAccessControlList(self):
         return succeed(
@@ -99,26 +95,20 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
             )
         )
 
-
     def contentType(self):
         return MimeType.fromString("text/xml")
-
 
     def resourceType(self):
         return davxml.ResourceType.timezones
 
-
     def isCollection(self):
         return False
-
 
     def isCalendarCollection(self):
         return False
 
-
     def isPseudoCalendarCollection(self):
         return False
-
 
     def render(self, request):
         output = """<html>
@@ -144,7 +134,6 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
         # GET and POST do the same thing
         return self.http_POST(request)
 
-
     def http_POST(self, request):
         """
         The timezone service POST method.
@@ -167,9 +156,9 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
             method = method[0]
 
             action = {
-                "list"   : self.doPOSTList,
-                "get"    : self.doPOSTGet,
-                "expand" : self.doPOSTExpand,
+                "list": self.doPOSTList,
+                "get": self.doPOSTGet,
+                "expand": self.doPOSTExpand,
             }.get(method, None)
 
             if action is None:
@@ -185,7 +174,6 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
         d.addCallback(_gotResult)
         return d
 
-
     def doPOSTList(self, request):
         """
         Return a list of all timezones known to the server.
@@ -195,7 +183,6 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
         tzids.sort()
         result = customxml.TZIDs(*[customxml.TZID(tzid) for tzid in tzids])
         return XMLResponse(responsecode.OK, result)
-
 
     def doPOSTGet(self, request):
         """
@@ -224,7 +211,6 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
         response.stream = MemoryStream(tzdata)
         response.headers.setHeader("content-type", MimeType.fromString("text/calendar; charset=utf-8"))
         return response
-
 
     def doPOSTExpand(self, request):
         """

@@ -27,6 +27,7 @@ from txdav.common.datastore.upgrade.sql.upgrades.notification_upgrade_from_0_to_
 Tests for L{txdav.common.datastore.upgrade.sql.upgrade}.
 """
 
+
 class Upgrade_from_0_to_1(CommonStoreTests):
     """
     Tests for notification upgrade.

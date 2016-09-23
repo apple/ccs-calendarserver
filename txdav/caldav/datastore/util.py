@@ -57,6 +57,7 @@ log = Logger()
 
 validationBypass = False
 
+
 def validateCalendarComponent(calendarObject, calendar, component, inserting, migrating):
     """
     Validate a calendar component for a particular calendar.
@@ -99,7 +100,6 @@ def validateCalendarComponent(calendarObject, calendar, component, inserting, mi
         raise InvalidObjectResourceError(e)
 
 
-
 @inlineCallbacks
 def normalizationLookup(cuaddr, recordFunction, config):
     """
@@ -128,7 +128,6 @@ def normalizationLookup(cuaddr, recordFunction, config):
             [cua.encode("utf-8") for cua in record.calendarUserAddresses]
         )
         returnValue((fullName, record.uid, record.getCUType(), cuas))
-
 
 
 @inlineCallbacks
@@ -177,7 +176,6 @@ def dropboxIDFromCalendarObject(calendarObject):
     returnValue(uid + ".dropbox")
 
 
-
 @inlineCallbacks
 def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
     """
@@ -203,7 +201,7 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
     for calendarObject in (yield inCalendar.calendarObjects()):
         try:
             ctype = yield calendarObject.componentType()
-        except Exception, e: # Don't stop for any error
+        except Exception, e:  # Don't stop for any error
             log.error(
                 "  Failed to migrate calendar object: {home}/{cal}/{rsrc} (ex)",
                 home=inCalendar.ownerHome().name(),
@@ -288,7 +286,6 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
     returnValue((ok_count, bad_count,))
 
 
-
 # MIME helpers - mostly copied from txweb2.static
 
 def loadMimeTypes(mimetype_locations=['/etc/mime.types']):
@@ -300,7 +297,7 @@ def loadMimeTypes(mimetype_locations=['/etc/mime.types']):
     """
     import mimetypes
     # Grab Python's built-in mimetypes dictionary.
-    contentTypes = mimetypes.types_map #@UndefinedVariable
+    contentTypes = mimetypes.types_map  # @UndefinedVariable
     # Update Python's semi-erroneous dictionary with a few of the
     # usual suspects.
     contentTypes.update(
@@ -329,27 +326,23 @@ def loadMimeTypes(mimetype_locations=['/etc/mime.types']):
     return contentTypes
 
 
-
 def getType(filename, types, defaultType="application/octet-stream"):
     _ignore_p, ext = os.path.splitext(filename)
     ext = ext.lower()
     return types.get(ext, defaultType)
 
 
-
 class _AttachmentMigrationProto(Protocol, object):
+
     def __init__(self, storeTransport):
         self.storeTransport = storeTransport
         self.done = Deferred()
 
-
     def connectionMade(self):
         self.storeTransport.registerProducer(self.transport, False)
 
-
     def dataReceived(self, data):
         self.storeTransport.write(data)
-
 
     @inlineCallbacks
     def connectionLost(self, reason):
@@ -359,7 +352,6 @@ class _AttachmentMigrationProto(Protocol, object):
             self.done.errback()
         else:
             self.done.callback(None)
-
 
 
 @inlineCallbacks
@@ -425,7 +417,6 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component(), merge=Fal
         yield outHome.splitCalendars()
 
 
-
 class CalendarObjectBase(object):
     """
     Base logic shared between file- and sql-based L{ICalendarObject}
@@ -469,7 +460,6 @@ class CalendarObjectBase(object):
         returnValue(component)
 
 
-
 class StorageTransportAddress(object):
     """
     Peer / host address for L{IAttachmentStorageTransport} implementations.
@@ -490,14 +480,12 @@ class StorageTransportAddress(object):
         self.attachment = attachment
         self.isHost = isHost
 
-
     def __repr__(self):
         if self.isHost:
             host = " (host)"
         else:
             host = ""
         return '<Storing Attachment: %r%s>' % (self.attachment.name(), host)
-
 
 
 class StorageTransportBase(object):
@@ -526,11 +514,9 @@ class StorageTransportBase(object):
         if self._contentType is None:
             self._contentType = http_headers.MimeType.fromString(getType(self._attachment.name(), self.contentTypes))
 
-
     def resetDetails(self, contentType, dispositionName):
         self._contentType = contentType
         self._dispositionName = dispositionName
-
 
     def write(self, data):
         """
@@ -543,27 +529,21 @@ class StorageTransportBase(object):
             # (etc) forever.
             self._clock.callLater(0, self._producer.resumeProducing)
 
-
     def registerProducer(self, producer, streaming):
         self._producer = producer
         self._streamingProducer = streaming
 
-
     def getPeer(self):
         return StorageTransportAddress(self._attachment, False)
-
 
     def getHost(self):
         return StorageTransportAddress(self._attachment, True)
 
-
     def writeSequence(self, seq):
         return self.write(''.join(seq))
 
-
     def stopProducing(self):
         return self.loseConnection()
-
 
 
 class AttachmentRetrievalTransport(FileSender, object):
@@ -577,42 +557,39 @@ class AttachmentRetrievalTransport(FileSender, object):
         self.filePath = filePath
         self.clock = reactor
 
-
     def start(self, protocol):
         this = self
+
         class Consumer(object):
             implements(IConsumer)
+
             def registerProducer(self, producer, streaming):
                 protocol.makeConnection(producer)
                 this._maybeLoopDelivery()
+
             def write(self, data):
                 protocol.dataReceived(data)
+
             def unregisterProducer(self):
                 this._done(protocol)
         self.beginFileTransfer(self.filePath.open(), Consumer())
-
 
     def _done(self, protocol):
         if self._deliveryLoop:
             self._deliveryLoop.stop()
         protocol.connectionLost(Failure(ConnectionLost()))
 
-
     def write(self, data):
         raise NotImplemented("This is a read-only transport.")
-
 
     def writeSequence(self, datas):
         self.write("".join(datas))
 
-
     def loseConnection(self):
         pass
 
-
     def getPeer(self):
         return self
-
 
     def getHost(self):
         return self
@@ -636,7 +613,6 @@ class AttachmentRetrievalTransport(FileSender, object):
                 super(AttachmentRetrievalTransport, self).resumeProducing()
             self._deliveryLoop = LoopingCall(deliverNextChunk)
             self._deliveryLoop.start(0.01, True)
-
 
 
 def fixOneCalendarObject(component):
@@ -664,7 +640,6 @@ def fixOneCalendarObject(component):
         count, _ignore_fixsubc = fixOneCalendarObject(subc)
         fixes += count
     return fixes, component
-
 
 
 @inlineCallbacks

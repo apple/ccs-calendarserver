@@ -15,14 +15,12 @@
 ##
 
 
-
 from twext.enterprise.jobs.jobitem import JobItem
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
 from txdav.common.datastore.test.util import CommonCommonTests
 from txdav.common.datastore.work.load_work import TestWork
-
 
 
 class LoadWorkTests(CommonCommonTests, TestCase):
@@ -34,7 +32,6 @@ class LoadWorkTests(CommonCommonTests, TestCase):
     def setUp(self):
         yield super(LoadWorkTests, self).setUp()
         yield self.buildStoreAndDirectory()
-
 
     @inlineCallbacks
     def test_basicWork(self):

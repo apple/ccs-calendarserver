@@ -20,23 +20,21 @@ from twisted.trial.unittest import TestCase
 
 from contrib.performance.loadtest.amphub import AMPHub
 
+
 class StubProtocol(object):
 
     def __init__(self, history):
         self.history = history
-
 
     def callRemote(self, *args, **kwds):
         self.history.append((args, kwds))
         return succeed(None)
 
 
-
 class AMPHubTestCase(TestCase):
 
     def callback(self, id, dataChangedTimestamp, priority=5):
         self.callbackHistory.append(id)
-
 
     @inlineCallbacks
     def test_amphub(self):

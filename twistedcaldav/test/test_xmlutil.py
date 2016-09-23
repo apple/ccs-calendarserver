@@ -19,6 +19,7 @@ from cStringIO import StringIO
 from twistedcaldav.xmlutil import readXML, writeXML, addSubElement, \
     changeSubElementText, createElement, elementToXML, readXMLString
 
+
 class XMLUtil(twistedcaldav.test.util.TestCase):
     """
     XML Util tests
@@ -89,14 +90,12 @@ class XMLUtil(twistedcaldav.test.util.TestCase):
             newdata = f.read()
         self.assertEqual(newdata, data)
 
-
     def test_readXML_noverify(self):
 
         io = StringIO(XMLUtil.data1)
         etree, root = readXML(io)
         self.assertEqual(etree.getroot(), root)
         self.assertEqual(root.tag, "test")
-
 
     def test_readXML_verify_ok(self):
 
@@ -105,25 +104,21 @@ class XMLUtil(twistedcaldav.test.util.TestCase):
         self.assertEqual(etree.getroot(), root)
         self.assertEqual(root.tag, "test")
 
-
     def test_readXML_verify_bad(self):
 
         io = StringIO(XMLUtil.data1)
         self.assertRaises(ValueError, readXML, io, "test1")
-
 
     def test_readXML_data_bad(self):
 
         io = StringIO(XMLUtil.data2)
         self.assertRaises(ValueError, readXML, io)
 
-
     def test_writeXML(self):
 
         io = StringIO(XMLUtil.data1)
         _ignore_etree, root = readXML(io)
         self._checkXML(root, XMLUtil.data3)
-
 
     def test_addElement(self):
 
@@ -132,7 +127,6 @@ class XMLUtil(twistedcaldav.test.util.TestCase):
         addSubElement(root, "added", "added text")
         self._checkXML(root, XMLUtil.data4)
 
-
     def test_changeElement_existing(self):
 
         io = StringIO(XMLUtil.data1)
@@ -140,14 +134,12 @@ class XMLUtil(twistedcaldav.test.util.TestCase):
         changeSubElementText(root, "help", "changed text")
         self._checkXML(root, XMLUtil.data5)
 
-
     def test_changeElement_new(self):
 
         io = StringIO(XMLUtil.data1)
         _ignore_etree, root = readXML(io)
         changeSubElementText(root, "new", "new text")
         self._checkXML(root, XMLUtil.data6)
-
 
     def test_emoji(self):
         """

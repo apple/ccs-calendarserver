@@ -30,12 +30,14 @@ from txweb2 import responsecode
 from txweb2.dav.test.util import serialize
 from txweb2.dav.test.test_copy import sumFile
 
+
 class MOVE(txweb2.dav.test.util.TestCase):
     """
     MOVE request
     """
     # FIXME:
     # Check that properties are being moved
+
     def test_MOVE_create(self):
         """
         MOVE to new resource.
@@ -62,7 +64,6 @@ class MOVE(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work(self, test))
 
-
     def test_MOVE_exists(self):
         """
         MOVE to existing resource.
@@ -76,7 +77,6 @@ class MOVE(txweb2.dav.test.util.TestCase):
                 pass
 
         return serialize(self.send, work(self, test, overwrite=False))
-
 
     def test_MOVE_overwrite(self):
         """
@@ -92,7 +92,6 @@ class MOVE(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work(self, test, overwrite=True))
 
-
     def test_MOVE_no_parent(self):
         """
         MOVE to resource with no parent.
@@ -106,7 +105,6 @@ class MOVE(txweb2.dav.test.util.TestCase):
                 pass
 
         return serialize(self.send, work(self, test, dst=os.path.join(self.docroot, "elvislives!")))
-
 
 
 def work(self, test, overwrite=None, dst=None):

@@ -35,7 +35,6 @@ from twisted.python.reflect import namedClass
 log = Logger()
 
 
-
 class PoddingConduit(
     UtilityConduitMixin,
     StoreAPIConduitMixin,
@@ -84,7 +83,6 @@ class PoddingConduit(
         self.store = store
         self.streamingActions = ("get-attachment-data",)
 
-
     @inlineCallbacks
     def validRequest(self, source_uid, destination_uid):
         """
@@ -127,12 +125,10 @@ class PoddingConduit(
 
         returnValue((source, destination,))
 
-
     def sendRequest(self, txn, recipient, data, stream=None, streamType=None):
         return self.sendRequestToServer(
             txn, recipient.server(), data, stream, streamType
         )
-
 
     @inlineCallbacks
     def sendRequestToServer(
@@ -158,7 +154,6 @@ class PoddingConduit(
         else:
             returnValue(response.get("value"))
 
-
     def isStreamAction(self, data):
         """
         Check to see if this is a request that will return a data stream rather
@@ -180,7 +175,6 @@ class PoddingConduit(
             return False
 
         return action in self.streamingActions
-
 
     @inlineCallbacks
     def processRequest(self, data):
@@ -245,7 +239,6 @@ class PoddingConduit(
             yield txn.commit()
 
         returnValue(result)
-
 
     @inlineCallbacks
     def processRequestStream(self, data, stream):

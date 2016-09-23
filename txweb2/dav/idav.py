@@ -30,6 +30,7 @@ __all__ = ["IDAVResource", "IDAVPrincipalResource", "IDAVPrincipalCollectionReso
 
 from txweb2.iweb import IResource
 
+
 class IDAVResource(IResource):
     """
     WebDAV resource.
@@ -257,7 +258,6 @@ class IDAVResource(IResource):
         """
 
 
-
 class IDAVPrincipalResource (IDAVResource):
     """
     WebDAV principal resource.  (RFC 3744, section 2)
@@ -307,7 +307,6 @@ class IDAVPrincipalResource (IDAVResource):
         directly a member.  (RFC 3744, section 4.4)
         @return: a deferred containing an iterable of group principal URLs.
         """
-
 
 
 class IDAVPrincipalCollectionResource(IDAVResource):

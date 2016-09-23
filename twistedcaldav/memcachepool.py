@@ -26,7 +26,6 @@ from twext.internet.adaptendpoint import connect
 from twisted.internet.endpoints import UNIXClientEndpoint
 
 
-
 class PooledMemCacheProtocol(MemCacheProtocol):
     """
     A MemCacheProtocol that will notify a connectionPool that it is ready
@@ -47,7 +46,6 @@ class PooledMemCacheProtocol(MemCacheProtocol):
             self.factory.deferred = None
 
 
-
 class MemCacheClientFactory(ReconnectingClientFactory):
     """
     A client factory for MemCache that reconnects and notifies a pool of it's
@@ -64,10 +62,8 @@ class MemCacheClientFactory(ReconnectingClientFactory):
     connectionPool = None
     _protocolInstance = None
 
-
     def __init__(self):
         self.deferred = Deferred()
-
 
     def clientConnectionLost(self, connector, reason):
         """
@@ -87,7 +83,6 @@ class MemCacheClientFactory(ReconnectingClientFactory):
             connector,
             reason)
 
-
     def clientConnectionFailed(self, connector, reason):
         """
         Notify the connectionPool that we're unable to connect
@@ -101,7 +96,6 @@ class MemCacheClientFactory(ReconnectingClientFactory):
             connector,
             reason)
 
-
     def buildProtocol(self, addr):
         """
         Attach the C{self.connectionPool} to the protocol so it can tell it,
@@ -113,7 +107,6 @@ class MemCacheClientFactory(ReconnectingClientFactory):
         self._protocolInstance = self.protocol()
         self._protocolInstance.factory = self
         return self._protocolInstance
-
 
 
 class MemCachePool(object):
@@ -172,7 +165,6 @@ class MemCachePool(object):
         self._pendingConnects = 0
         self._commands = []
 
-
     def _isIdle(self):
         return (
             len(self._busyClients) == 0 and
@@ -180,14 +172,12 @@ class MemCachePool(object):
             self._pendingConnects == 0
         )
 
-
     def _shutdownCallback(self):
         self.shutdown_requested = True
         if self._isIdle():
             return None
         self.shutdown_deferred = Deferred()
         return self.shutdown_deferred
-
 
     def _newClientConnection(self):
         """
@@ -217,7 +207,6 @@ class MemCachePool(object):
 
         d.addCallback(_connected)
         return d
-
 
     def _performRequestOnClient(self, client, command, *args, **kwargs):
         """
@@ -263,7 +252,6 @@ class MemCachePool(object):
 
         return d
 
-
     def performRequest(self, command, *args, **kwargs):
         """
         Select an available client and perform the given request on it.
@@ -301,7 +289,6 @@ class MemCachePool(object):
 
         return d
 
-
     def _logClientStats(self):
         self.log.debug(
             "Clients #free: {f}, #busy: {b}, #pending: {p}, #queued: {q}",
@@ -310,7 +297,6 @@ class MemCachePool(object):
             p=self._pendingConnects,
             q=len(self._commands),
         )
-
 
     def clientGone(self, client):
         """
@@ -327,7 +313,6 @@ class MemCachePool(object):
         self.log.debug("Removed client: {c!r}", c=client)
         self._logClientStats()
 
-
     def clientBusy(self, client):
         """
         Notify that the given client is being used to complete a request.
@@ -342,7 +327,6 @@ class MemCachePool(object):
 
         self.log.debug("Busied client: {c!r}", c=client)
         self._logClientStats()
-
 
     def clientFree(self, client):
         """
@@ -375,7 +359,6 @@ class MemCachePool(object):
         self.log.debug("Freed client: {c!r}", c=client)
         self._logClientStats()
 
-
     def suggestMaxClients(self, maxClients):
         """
         Suggest the maximum number of concurrently connected clients.
@@ -385,38 +368,29 @@ class MemCachePool(object):
         """
         self._maxClients = maxClients
 
-
     def get(self, *args, **kwargs):
         return self.performRequest('get', *args, **kwargs)
-
 
     def set(self, *args, **kwargs):
         return self.performRequest('set', *args, **kwargs)
 
-
     def checkAndSet(self, *args, **kwargs):
         return self.performRequest('checkAndSet', *args, **kwargs)
-
 
     def delete(self, *args, **kwargs):
         return self.performRequest('delete', *args, **kwargs)
 
-
     def add(self, *args, **kwargs):
         return self.performRequest('add', *args, **kwargs)
-
 
     def incr(self, *args, **kwargs):
         return self.performRequest('increment', *args, **kwargs)
 
-
     def decr(self, *args, **kwargs):
         return self.performRequest('decrement', *args, **kwargs)
 
-
     def flushAll(self, *args, **kwargs):
         return self.performRequest('flushAll', *args, **kwargs)
-
 
 
 class CachePoolUserMixIn(object):
@@ -435,10 +409,8 @@ class CachePoolUserMixIn(object):
         return self._cachePool
 
 
-
 _memCachePools = {}         # Maps a name to a pool object
 _memCachePoolHandler = {}   # Maps a handler id to a named pool
-
 
 
 def installPools(pools, maxClients=5, reactor=None):
@@ -460,7 +432,6 @@ def installPools(pools, maxClients=5, reactor=None):
             )
 
 
-
 def _installPool(
     name, handleTypes, serverEndpoint, maxClients=5, reactor=None
 ):
@@ -469,7 +440,6 @@ def _installPool(
 
     for handle in handleTypes:
         _memCachePoolHandler[handle] = pool
-
 
 
 def defaultCachePool(name):

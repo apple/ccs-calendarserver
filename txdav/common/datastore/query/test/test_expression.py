@@ -17,6 +17,7 @@
 from txdav.common.datastore.query import expression
 from twisted.trial.unittest import TestCase
 
+
 class Tests(TestCase):
 
     def test_andWith(self):
@@ -91,7 +92,6 @@ class Tests(TestCase):
 
         for expr1, expr2, result in tests:
             self.assertEqual(str(expr1.andWith(expr2)), result, msg="Failed on %s" % (result,))
-
 
     def test_orWith(self):
 

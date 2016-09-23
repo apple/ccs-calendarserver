@@ -92,7 +92,6 @@ class AugmentDB(object):
 
         self.cachedRecords = {}
 
-
     @inlineCallbacks
     def normalizeUUIDs(self):
         """
@@ -117,7 +116,6 @@ class AugmentDB(object):
         except IOError:
             # It's OK if we can't re-write the file.
             pass
-
 
     @inlineCallbacks
     def getAugmentRecord(self, uid, recordType):
@@ -168,7 +166,6 @@ class AugmentDB(object):
         result.clonedFromDefault = True
         returnValue(result)
 
-
     @inlineCallbacks
     def getAllUIDs(self):
         """
@@ -178,7 +175,6 @@ class AugmentDB(object):
         """
 
         raise NotImplementedError("Child class must define this.")
-
 
     def _lookupAugmentRecord(self, uid):
         """
@@ -191,7 +187,6 @@ class AugmentDB(object):
         """
 
         raise NotImplementedError("Child class must define this.")
-
 
     @inlineCallbacks
     def _cachedAugmentRecord(self, uid):
@@ -209,7 +204,6 @@ class AugmentDB(object):
             self.cachedRecords[uid] = result
         returnValue(self.cachedRecords[uid])
 
-
     def addAugmentRecords(self, records):
         """
         Add an AugmentRecord to the DB.
@@ -221,7 +215,6 @@ class AugmentDB(object):
         """
 
         raise NotImplementedError("Child class must define this.")
-
 
     def removeAugmentRecords(self, uids):
         """
@@ -235,7 +228,6 @@ class AugmentDB(object):
 
         raise NotImplementedError("Child class must define this.")
 
-
     def refresh(self):
         """
         Refresh any cached data.
@@ -246,7 +238,6 @@ class AugmentDB(object):
         self.cachedRecords.clear()
         return None
 
-
     def clean(self):
         """
         Remove all records.
@@ -255,7 +246,6 @@ class AugmentDB(object):
         """
 
         raise NotImplementedError("Child class must define this.")
-
 
 
 class AugmentXMLDB(AugmentDB):
@@ -284,7 +274,6 @@ class AugmentXMLDB(AugmentDB):
         self.lastCached = time.time()
         self.normalizeUUIDs()
 
-
     def getAllUIDs(self):
         """
         Get all AugmentRecord UIDs.
@@ -292,7 +281,6 @@ class AugmentXMLDB(AugmentDB):
         @return: L{Deferred}
         """
         return succeed(self.db.keys())
-
 
     def _lookupAugmentRecord(self, uid):
         """
@@ -309,7 +297,6 @@ class AugmentXMLDB(AugmentDB):
             self.refresh()
 
         return succeed(self.db.get(uid))
-
 
     def addAugmentRecords(self, records):
         """
@@ -342,7 +329,6 @@ class AugmentXMLDB(AugmentDB):
         self.lastCached = 0
 
         return succeed(None)
-
 
     def _doAddToFile(self, xmlfile, records):
 
@@ -382,7 +368,6 @@ class AugmentXMLDB(AugmentDB):
         # Modify xmlfile
         writeXML(xmlfile, augments_node)
 
-
     def _doModifyInFile(self, xmlfile, records):
 
         if not os.path.exists(xmlfile):
@@ -411,7 +396,6 @@ class AugmentXMLDB(AugmentDB):
         if changed:
             writeXML(xmlfile, augments_node)
 
-
     def removeAugmentRecords(self, uids):
         """
         Remove AugmentRecords with the specified UIDs.
@@ -435,7 +419,6 @@ class AugmentXMLDB(AugmentDB):
 
         return succeed(None)
 
-
     def _doRemoveFromFile(self, xmlfile, uids):
 
         try:
@@ -458,11 +441,9 @@ class AugmentXMLDB(AugmentDB):
         if changed:
             writeXML(xmlfile, augments_node)
 
-
     def _addRecordToXMLDB(self, record, parentNode):
         record_node = addSubElement(parentNode, xmlaugmentsparser.ELEMENT_RECORD)
         self._updateRecordInXMLDB(record, record_node)
-
 
     def _updateRecordInXMLDB(self, record, recordNode):
         del recordNode[:]
@@ -476,7 +457,6 @@ class AugmentXMLDB(AugmentDB):
             addSubElement(recordNode, xmlaugmentsparser.ELEMENT_AUTOSCHEDULE_MODE, record.autoScheduleMode)
         if record.autoAcceptGroup:
             addSubElement(recordNode, xmlaugmentsparser.ELEMENT_AUTOACCEPTGROUP, record.autoAcceptGroup)
-
 
     def refresh(self):
         """
@@ -494,14 +474,12 @@ class AugmentXMLDB(AugmentDB):
 
         return None
 
-
     def clean(self):
         """
         Remove all records.
         """
 
         return self.removeAugmentRecords(self.db.keys())
-
 
     def _shouldReparse(self, xmlFiles):
         """
@@ -516,7 +494,6 @@ class AugmentXMLDB(AugmentDB):
                 if (oldModTime != newModTime) or (oldSize != newSize):
                     return True
         return False
-
 
     def _parseXML(self):
         """

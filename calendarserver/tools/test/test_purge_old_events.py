@@ -36,7 +36,6 @@ from txdav.common.datastore.test.util import populateCalendarsFrom
 from txweb2.http_headers import MimeType
 
 
-
 now = DateTime.getToday().getYear()
 
 OLD_ICS = """BEGIN:VCALENDAR
@@ -376,39 +375,38 @@ class PurgeOldEventsTests(StoreTestCase):
     }
 
     requirements = {
-        "home1" : {
-            "calendar1" : {
-                "old.ics" : (OLD_ICS, metadata,),
-                "endless.ics" : (ENDLESS_ICS, metadata,),
-                "oldattachment1.ics" : (ATTACHMENT_ICS % {"year": now - 5, "uid": "1.1", "dropboxid": "1.1"}, metadata,),
-                "oldattachment2.ics" : (ATTACHMENT_ICS % {"year": now - 5, "uid": "1.2", "dropboxid": "1.2"}, metadata,),
-                "currentattachment3.ics" : (ATTACHMENT_ICS % {"year": now + 1, "uid": "1.3", "dropboxid": "1.3"}, metadata,),
-                "oldmattachment1.ics" : (MATTACHMENT_ICS % {"year": now - 5, "uid": "1.1m"}, metadata,),
-                "oldmattachment2.ics" : (MATTACHMENT_ICS % {"year": now - 5, "uid": "1.2m"}, metadata,),
-                "currentmattachment3.ics" : (MATTACHMENT_ICS % {"year": now + 1, "uid": "1.3m"}, metadata,),
+        "home1": {
+            "calendar1": {
+                "old.ics": (OLD_ICS, metadata,),
+                "endless.ics": (ENDLESS_ICS, metadata,),
+                "oldattachment1.ics": (ATTACHMENT_ICS % {"year": now - 5, "uid": "1.1", "dropboxid": "1.1"}, metadata,),
+                "oldattachment2.ics": (ATTACHMENT_ICS % {"year": now - 5, "uid": "1.2", "dropboxid": "1.2"}, metadata,),
+                "currentattachment3.ics": (ATTACHMENT_ICS % {"year": now + 1, "uid": "1.3", "dropboxid": "1.3"}, metadata,),
+                "oldmattachment1.ics": (MATTACHMENT_ICS % {"year": now - 5, "uid": "1.1m"}, metadata,),
+                "oldmattachment2.ics": (MATTACHMENT_ICS % {"year": now - 5, "uid": "1.2m"}, metadata,),
+                "currentmattachment3.ics": (MATTACHMENT_ICS % {"year": now + 1, "uid": "1.3m"}, metadata,),
             },
             "inbox": {},
         },
-        "home2" : {
-            "calendar2" : {
-                "straddling.ics" : (STRADDLING_ICS, metadata,),
-                "recent.ics" : (RECENT_ICS, metadata,),
-                "oldattachment1.ics" : (ATTACHMENT_ICS % {"year": now - 5, "uid": "2.1", "dropboxid": "2.1"}, metadata,),
-                "currentattachment2.ics" : (ATTACHMENT_ICS % {"year": now + 1, "uid": "2.2", "dropboxid": "2.1"}, metadata,),
-                "oldattachment3.ics" : (ATTACHMENT_ICS % {"year": now - 5, "uid": "2.3", "dropboxid": "2.2"}, metadata,),
-                "oldattachment4.ics" : (ATTACHMENT_ICS % {"year": now - 5, "uid": "2.4", "dropboxid": "2.2"}, metadata,),
-                "oldmattachment1.ics" : (MATTACHMENT_ICS % {"year": now - 5, "uid": "2.1"}, metadata,),
-                "currentmattachment2.ics" : (MATTACHMENT_ICS % {"year": now + 1, "uid": "2.2"}, metadata,),
-                "oldmattachment3.ics" : (MATTACHMENT_ICS % {"year": now - 5, "uid": "2.3"}, metadata,),
-                "oldmattachment4.ics" : (MATTACHMENT_ICS % {"year": now - 5, "uid": "2.4"}, metadata,),
+        "home2": {
+            "calendar2": {
+                "straddling.ics": (STRADDLING_ICS, metadata,),
+                "recent.ics": (RECENT_ICS, metadata,),
+                "oldattachment1.ics": (ATTACHMENT_ICS % {"year": now - 5, "uid": "2.1", "dropboxid": "2.1"}, metadata,),
+                "currentattachment2.ics": (ATTACHMENT_ICS % {"year": now + 1, "uid": "2.2", "dropboxid": "2.1"}, metadata,),
+                "oldattachment3.ics": (ATTACHMENT_ICS % {"year": now - 5, "uid": "2.3", "dropboxid": "2.2"}, metadata,),
+                "oldattachment4.ics": (ATTACHMENT_ICS % {"year": now - 5, "uid": "2.4", "dropboxid": "2.2"}, metadata,),
+                "oldmattachment1.ics": (MATTACHMENT_ICS % {"year": now - 5, "uid": "2.1"}, metadata,),
+                "currentmattachment2.ics": (MATTACHMENT_ICS % {"year": now + 1, "uid": "2.2"}, metadata,),
+                "oldmattachment3.ics": (MATTACHMENT_ICS % {"year": now - 5, "uid": "2.3"}, metadata,),
+                "oldmattachment4.ics": (MATTACHMENT_ICS % {"year": now - 5, "uid": "2.4"}, metadata,),
             },
-            "calendar3" : {
-                "repeating_awhile.ics" : (REPEATING_AWHILE_ICS, metadata,),
+            "calendar3": {
+                "repeating_awhile.ics": (REPEATING_AWHILE_ICS, metadata,),
             },
             "inbox": {},
         }
     }
-
 
     def configure(self):
         super(PurgeOldEventsTests, self).configure()
@@ -434,7 +432,6 @@ class PurgeOldEventsTests(StoreTestCase):
         #     )
         # )
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
@@ -447,7 +444,6 @@ class PurgeOldEventsTests(StoreTestCase):
         ).on(txn)
 
         (yield txn.commit())
-
 
     @inlineCallbacks
     def test_eventsOlderThan(self):
@@ -481,7 +477,6 @@ class PurgeOldEventsTests(StoreTestCase):
         results = (yield txn.eventsOlderThan(cutoff, batchSize=1))
         self.assertEquals(len(results), 1)
 
-
     @inlineCallbacks
     def test_removeOldEvents(self):
         cutoff = DateTime(now, 4, 1, 0, 0, 0)
@@ -504,7 +499,6 @@ class PurgeOldEventsTests(StoreTestCase):
         count = (yield txn.removeOldEvents(cutoff))
         self.assertEquals(count, 0)
 
-
     @inlineCallbacks
     def _addAttachment(self, home, calendar, event, name):
 
@@ -526,7 +520,6 @@ class PurgeOldEventsTests(StoreTestCase):
 
         returnValue(attachment)
 
-
     @inlineCallbacks
     def _orphanAttachment(self, home, calendar, event):
 
@@ -543,7 +536,6 @@ class PurgeOldEventsTests(StoreTestCase):
         ).on(txn)
 
         (yield txn.commit())
-
 
     @inlineCallbacks
     def _addManagedAttachment(self, home, calendar, event, name):
@@ -563,7 +555,6 @@ class PurgeOldEventsTests(StoreTestCase):
         (yield txn.commit())
 
         returnValue(attachment)
-
 
     @inlineCallbacks
     def test_removeOrphanedAttachments(self):
@@ -635,7 +626,6 @@ class PurgeOldEventsTests(StoreTestCase):
         self.assertFalse(os.path.exists(mattachmentPath1))
         self.assertTrue(os.path.exists(mattachmentPath2))
 
-
     @inlineCallbacks
     def test_purgeOldEvents(self):
 
@@ -669,7 +659,6 @@ class PurgeOldEventsTests(StoreTestCase):
             debug=True
         ))
         self.assertEquals(total, 0)
-
 
     @inlineCallbacks
     def test_purgeOldEvents_home_filtering(self):
@@ -718,7 +707,6 @@ class PurgeOldEventsTests(StoreTestCase):
         ))
         self.assertEquals(total, 8)
 
-
     @inlineCallbacks
     def test_purgeOldEvents_old_cutoff(self):
 
@@ -757,7 +745,6 @@ class PurgeOldEventsTests(StoreTestCase):
         ))
         self.assertEquals(total, 0)
 
-
     @inlineCallbacks
     def test_purgeUID(self):
         txn = self._sqlCalendarStore.newTransaction()
@@ -791,7 +778,7 @@ class PurgeOldEventsTests(StoreTestCase):
             if len(work) == 0:
                 break
             d = Deferred()
-            reactor.callLater(1, lambda : d.callback(None))
+            reactor.callLater(1, lambda: d.callback(None))
             yield d
 
         # 9 items deleted: 8 events and 1 vcard
@@ -803,7 +790,6 @@ class PurgeOldEventsTests(StoreTestCase):
         self.assertEquals(abHome, None)
         calHome = (yield txn.calendarHomeWithUID("home1"))
         self.assertEquals(calHome, None)
-
 
     @inlineCallbacks
     def test_purgeAttachmentsWithoutCutoffWithPurgeOld(self):
@@ -877,7 +863,6 @@ class PurgeOldEventsTests(StoreTestCase):
         total = (yield PurgeAttachmentsService.purgeAttachments(self._sqlCalendarStore, None, 0, 2, dryrun=False, verbose=False))
         self.assertEquals(total, 0)
 
-
     @inlineCallbacks
     def test_purgeAttachmentsWithoutCutoff(self):
         """
@@ -936,7 +921,6 @@ class PurgeOldEventsTests(StoreTestCase):
         # There should be no more left
         total = (yield PurgeAttachmentsService.purgeAttachments(self._sqlCalendarStore, None, 0, 2, dryrun=False, verbose=False))
         self.assertEquals(total, 0)
-
 
     @inlineCallbacks
     def test_purgeAttachmentsWithoutCutoffWithMatchingUUID(self):
@@ -997,7 +981,6 @@ class PurgeOldEventsTests(StoreTestCase):
         total = (yield PurgeAttachmentsService.purgeAttachments(self._sqlCalendarStore, "home1", 0, 2, dryrun=False, verbose=False))
         self.assertEquals(total, 0)
 
-
     @inlineCallbacks
     def test_purgeAttachmentsWithoutCutoffWithoutMatchingUUID(self):
         """
@@ -1054,7 +1037,6 @@ class PurgeOldEventsTests(StoreTestCase):
         # There should be no more left
         total = (yield PurgeAttachmentsService.purgeAttachments(self._sqlCalendarStore, "home2", 0, 2, dryrun=False, verbose=False))
         self.assertEquals(total, 0)
-
 
     @inlineCallbacks
     def test_purgeAttachmentsWithCutoffOld(self):
@@ -1115,7 +1097,6 @@ class PurgeOldEventsTests(StoreTestCase):
         total = (yield PurgeAttachmentsService.purgeAttachments(self._sqlCalendarStore, None, 14, 2, dryrun=False, verbose=False))
         self.assertEquals(total, 0)
 
-
     @inlineCallbacks
     def test_purgeAttachmentsWithCutoffOldWithMatchingUUID(self):
         """
@@ -1174,7 +1155,6 @@ class PurgeOldEventsTests(StoreTestCase):
         # There should be no more left
         total = (yield PurgeAttachmentsService.purgeAttachments(self._sqlCalendarStore, "home1", 14, 2, dryrun=False, verbose=False))
         self.assertEquals(total, 0)
-
 
     @inlineCallbacks
     def test_purgeAttachmentsWithCutoffOldWithoutMatchingUUID(self):

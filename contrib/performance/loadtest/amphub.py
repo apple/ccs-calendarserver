@@ -32,7 +32,6 @@ class AMPHub(object):
         self.protocols = []
         self.callbacks = {}
 
-
     @classmethod
     @inlineCallbacks
     def start(cls, hostsAndPorts):
@@ -50,7 +49,6 @@ class AMPHub(object):
             factory = AMPPushClientFactory(cls._hub._pushReceived)
             protocol = yield endpoint.connect(factory)
             cls._hub.protocols.append(protocol)
-
 
     @classmethod
     @inlineCallbacks
@@ -75,7 +73,6 @@ class AMPHub(object):
             hub.callbacks.setdefault(id, []).append(callback)
             for protocol in hub.protocols:
                 yield protocol.callRemote(SubscribeToID, token=str(uuid4()), id=id)
-
 
     def _pushReceived(self, id, dataChangedTimestamp, priority=5):
         """

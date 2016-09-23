@@ -40,14 +40,12 @@ from twext.internet.socketfile import MaxAcceptSocketFileServer
 log = Logger()
 
 
-
 class JustEnoughLikeAPort(object):
     """
     Fake out just enough of L{tcp.Port} to be acceptable to
     L{tcp.Server}...
     """
     _realPortNumber = 'inherited'
-
 
 
 class ReportingHTTPService(Service, object):
@@ -84,7 +82,6 @@ class ReportingHTTPService(Service, object):
         # actually doing startTLS ourselves.
         self.usingSocketFile = usingSocketFile
 
-
     def startService(self):
         """
         Start reading on the inherited port.
@@ -96,7 +93,6 @@ class ReportingHTTPService(Service, object):
         )
         inheritedPort.startReading()
         inheritedPort.reportStatus("0")
-
 
     def stopService(self):
         """
@@ -113,7 +109,6 @@ class ReportingHTTPService(Service, object):
         # Let any outstanding requests finish
         return self.reportingFactory.allConnectionsClosed()
 
-
     def createTransport(self, skt, peer, data, protocol):
         """
         Create a TCP transport, from a socket object passed by the parent.
@@ -125,13 +120,12 @@ class ReportingHTTPService(Service, object):
             if self.usingSocketFile:
                 # Mark the transport as "secure", enough for getHostInfo() to
                 # think so
-                transport.getPeerCertificate = lambda _ : None
+                transport.getPeerCertificate = lambda _: None
                 directlyProvides(transport, ISSLTransport)
             else:
                 transport.startTLS(self.contextFactory)
         transport.startReading()
         return transport
-
 
 
 class ReportingHTTPFactory(HTTPFactory):
@@ -156,7 +150,6 @@ class ReportingHTTPFactory(HTTPFactory):
         """
         self.inheritedPort.reportStatus(message)
 
-
     def addConnectedChannel(self, channel):
         """
         Add the connected channel, and report the current number of open
@@ -165,7 +158,6 @@ class ReportingHTTPFactory(HTTPFactory):
         HTTPFactory.addConnectedChannel(self, channel)
         self._report("+")
 
-
     def removeConnectedChannel(self, channel):
         """
         Remove the connected channel, and report the current number of open
@@ -173,7 +165,6 @@ class ReportingHTTPFactory(HTTPFactory):
         """
         HTTPFactory.removeConnectedChannel(self, channel)
         self._report("-")
-
 
 
 @implementer(IStatus)
@@ -235,10 +226,8 @@ class WorkerStatus(FancyStrMixin, object):
         self.starting = starting
         self.stopped = stopped
 
-
     def items(self):
         return dict([(attr, getattr(self, attr)) for attr in self.showAttributes])
-
 
     def effective(self):
         """
@@ -246,14 +235,12 @@ class WorkerStatus(FancyStrMixin, object):
         """
         return self.acknowledged + self.unacknowledged
 
-
     def active(self):
         """
         Is the subprocess associated with this socket available to dispatch to.
         i.e, this socket is neither stopped nor starting
         """
         return self.starting == 0 and self.stopped == 0
-
 
     def start(self):
         """
@@ -265,7 +252,6 @@ class WorkerStatus(FancyStrMixin, object):
             stopped=0,
         )
 
-
     def restarted(self):
         """
         The child process for this L{WorkerStatus} has indicated it is now available to accept
@@ -275,7 +261,6 @@ class WorkerStatus(FancyStrMixin, object):
             started=self.started + 1,
             starting=0,
         )
-
 
     def stop(self):
         """
@@ -290,7 +275,6 @@ class WorkerStatus(FancyStrMixin, object):
             stopped=1,
         )
 
-
     def adjust(self, **kwargs):
         """
         Update the L{WorkerStatus} by adding the supplied values to the specified attributes.
@@ -300,7 +284,6 @@ class WorkerStatus(FancyStrMixin, object):
             setattr(self, k, max(newval, 0))
         return self
 
-
     def reset(self, **kwargs):
         """
         Reset the L{WorkerStatus} by setting the supplied values in the specified attributes.
@@ -308,7 +291,6 @@ class WorkerStatus(FancyStrMixin, object):
         for k, v in kwargs.items():
             setattr(self, k, v)
         return self
-
 
 
 @implementer(IStatusWatcher)
@@ -336,14 +318,12 @@ class ConnectionLimiter(MultiService, object):
         self.maxRequests = maxRequests
         self.overloaded = False
 
-
     def startService(self):
         """
         Start up multiservice, then start up the dispatcher.
         """
         super(ConnectionLimiter, self).startService()
         self.dispatcher.startDispatching()
-
 
     def addPortService(self, description, port, interface, backlog,
                        serverServiceMaker=MaxAcceptTCPServer):
@@ -358,14 +338,12 @@ class ConnectionLimiter(MultiService, object):
             backlog=backlog
         ).setServiceParent(self)
 
-
     def addSocketFileService(self, description, address, backlog=None):
         lipf = LimitingInheritingProtocolFactory(self, description)
         self.factories.append(lipf)
         MaxAcceptSocketFileServer(
             lipf, address, backlog=backlog
         ).setServiceParent(self)
-
 
     # IStatusWatcher
 
@@ -374,7 +352,6 @@ class ConnectionLimiter(MultiService, object):
         The status of a new worker added to the pool.
         """
         return WorkerStatus()
-
 
     def statusFromMessage(self, previousStatus, message):
         """
@@ -400,7 +377,6 @@ class ConnectionLimiter(MultiService, object):
                 unclosed=1,
             )
 
-
     def closeCountFromStatus(self, status):
         """
         Determine the number of sockets to close from the current status.
@@ -408,13 +384,11 @@ class ConnectionLimiter(MultiService, object):
         toClose = status.unclosed
         return (toClose, status.adjust(unclosed=-toClose))
 
-
     def newConnectionStatus(self, previousStatus):
         """
         A connection was just sent to the process, but not yet acknowledged.
         """
         return previousStatus.adjust(unacknowledged=1)
-
 
     def statusesChanged(self, statuses):
         """
@@ -429,7 +403,7 @@ class ConnectionLimiter(MultiService, object):
         """
         current = sum(status.effective()
                       for status in self.dispatcher.statuses)
-        self._outstandingRequests = current # preserve for or= field in log
+        self._outstandingRequests = current  # preserve for or= field in log
         self._maxOutstandingRequests = max(self._maxOutstandingRequests, self._outstandingRequests)
         maximum = self.maxRequests
         overloaded = (current >= maximum)
@@ -441,13 +415,11 @@ class ConnectionLimiter(MultiService, object):
             else:
                 f.loadNominal()
 
-
-    @property # make read-only
+    @property  # make read-only
     def outstandingRequests(self):
         return self._outstandingRequests
 
-
-    @property # make read-only
+    @property  # make read-only
     def maxOutstandingRequests(self):
         """
         Reset the max value to the current outstanding value every time the max is read. It
@@ -456,7 +428,6 @@ class ConnectionLimiter(MultiService, object):
         temp = self._maxOutstandingRequests
         self._maxOutstandingRequests = self._outstandingRequests
         return temp
-
 
 
 class LimitingInheritingProtocolFactory(InheritingProtocolFactory):
@@ -486,7 +457,6 @@ class LimitingInheritingProtocolFactory(InheritingProtocolFactory):
         self.maxRequests = limiter.maxRequests
         self.stopping = False
 
-
     def stopFactory(self):
         """
         Mark this factory as being stopped to prevent attempts to start reading on its
@@ -495,13 +465,11 @@ class LimitingInheritingProtocolFactory(InheritingProtocolFactory):
         super(LimitingInheritingProtocolFactory, self).stopFactory()
         self.stopping = True
 
-
     def loadAboveMaximum(self):
         """
         The current server load has exceeded the maximum allowable.
         """
         self.myServer.myPort.stopReading()
-
 
     def loadNominal(self):
         """
@@ -510,7 +478,6 @@ class LimitingInheritingProtocolFactory(InheritingProtocolFactory):
         """
         if not self.stopping:
             self.myServer.myPort.startReading()
-
 
     @property
     def outstandingRequests(self):

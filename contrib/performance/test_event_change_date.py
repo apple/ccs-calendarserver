@@ -63,7 +63,9 @@ END:VEVENT
 END:VCALENDAR
 """
 
+
 class TimestampReplaceTests(TestCase):
+
     def test_replaceTimestamp(self):
         """
         replaceTimestamp adjusts the DTSTART and DTEND timestamp

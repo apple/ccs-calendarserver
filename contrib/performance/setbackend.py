@@ -23,6 +23,7 @@ benchmarking tools.
 import sys
 from xml.etree import ElementTree
 
+
 def main():
     conf = ElementTree.parse(file(sys.argv[1]))
     if sys.argv[2] == 'postgresql':
@@ -37,7 +38,6 @@ def main():
     # - and disable the response cache
     replace(conf.getiterator(), 'EnableResponseCache', 'false')
     conf.write(sys.stdout)
-
 
 
 def replace(elements, key, value):

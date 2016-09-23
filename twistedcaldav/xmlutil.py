@@ -25,13 +25,11 @@ except ImportError:
     from xml.parsers.expat import ExpatError as XMLParseError
 
 
-
 # Utilities for working with ElementTree
 
 def readXMLString(xmldata, expectedRootTag=None):
     io = StringIO.StringIO(xmldata)
     return readXML(io, expectedRootTag)
-
 
 
 def readXML(xmlfile, expectedRootTag=None):
@@ -60,10 +58,8 @@ def readXML(xmlfile, expectedRootTag=None):
     return etree, etree.getroot()
 
 
-
 def elementToXML(element):
     return XML.tostring(element, "utf-8")
-
 
 
 def writeXML(xmlfile, root):
@@ -96,14 +92,12 @@ def writeXML(xmlfile, root):
         f.write(data)
 
 
-
 def newElementTreeWithRoot(roottag):
 
     root = createElement(roottag)
     etree = XML.ElementTree(root)
 
     return etree, root
-
 
 
 def createElement(tag, text=None, **attrs):
@@ -113,13 +107,11 @@ def createElement(tag, text=None, **attrs):
     return child
 
 
-
 def addSubElement(parent, tag, text=None):
 
     child = XML.SubElement(parent, tag)
     child.text = text
     return child
-
 
 
 def changeSubElementText(parent, tag, text):

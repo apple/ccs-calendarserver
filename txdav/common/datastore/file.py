@@ -72,10 +72,8 @@ TOPPATHS = (
 UIDPATH = "__uids__"
 
 
-
 class _StubQueuer(object):
     pass
-
 
 
 class CommonDataStore(DataStore):
@@ -133,14 +131,11 @@ class CommonDataStore(DataStore):
         # FIXME: see '@ivar queuer' above.
         self.queuer = _StubQueuer()
 
-
     def directoryService(self):
         return self._directoryService
 
-
     def setDirectoryService(self, directoryService):
         self._directoryService = directoryService
-
 
     def callWithNewTransactions(self, callback):
         """
@@ -150,7 +145,6 @@ class CommonDataStore(DataStore):
         @param callback: callable taking a single argument, a transaction
         """
         self._newTransactionCallbacks.add(callback)
-
 
     def newTransaction(self, name='no name'):
         """
@@ -169,7 +163,6 @@ class CommonDataStore(DataStore):
         for callback in self._newTransactionCallbacks:
             callback(txn)
         return txn
-
 
     @inlineCallbacks
     def inTransaction(self, label, operation, transactionCreator=None):
@@ -205,7 +198,6 @@ class CommonDataStore(DataStore):
             yield txn.commit()
             returnValue(result)
 
-
     @inlineCallbacks
     def _withEachHomeDo(self, enumerator, action, batchSize):
         """
@@ -222,13 +214,11 @@ class CommonDataStore(DataStore):
             else:
                 yield txn.commit()
 
-
     def withEachCalendarHomeDo(self, action, batchSize=None):
         """
         Implementation of L{ICalendarStore.withEachCalendarHomeDo}.
         """
         return self._withEachHomeDo(self._eachCalendarHome, action, batchSize)
-
 
     def withEachAddressbookHomeDo(self, action, batchSize=None):
         """
@@ -237,7 +227,6 @@ class CommonDataStore(DataStore):
         return self._withEachHomeDo(self._eachAddressbookHome, action,
                                     batchSize)
 
-
     def setMigrating(self, state):
         """
         Set the "migrating" state
@@ -245,13 +234,11 @@ class CommonDataStore(DataStore):
         self._migrating = state
         self._enableNotifications = not state
 
-
     def setUpgrading(self, state):
         """
         Set the "upgrading" state
         """
         self._enableNotifications = not state
-
 
     def _homesOfType(self, storeType):
         """
@@ -278,14 +265,11 @@ class CommonDataStore(DataStore):
                         if home is not None:
                             yield (txn, home)
 
-
     def _eachCalendarHome(self):
         return self._homesOfType(ECALENDARTYPE)
 
-
     def _eachAddressbookHome(self):
         return self._homesOfType(EADDRESSBOOKTYPE)
-
 
 
 class CommonStoreTransaction(DataStoreTransaction):
@@ -333,14 +317,11 @@ class CommonStoreTransaction(DataStoreTransaction):
         CommonStoreTransaction._homeClass[ECALENDARTYPE] = CalendarHome
         CommonStoreTransaction._homeClass[EADDRESSBOOKTYPE] = AddressBookHome
 
-
     def calendarHomeWithUID(self, uid, status=None, create=False):
         return self.homeWithUID(ECALENDARTYPE, uid, status=status, create=create)
 
-
     def addressbookHomeWithUID(self, uid, status=None, create=False):
         return self.homeWithUID(EADDRESSBOOKTYPE, uid, status=status, create=create)
-
 
     def _determineMemo(self, storeType, uid, status=None, create=False):
         """
@@ -350,7 +331,6 @@ class CommonStoreTransaction(DataStoreTransaction):
             return self._calendarHomes
         else:
             return self._addressbookHomes
-
 
     def homes(self, storeType):
         """
@@ -363,7 +343,6 @@ class CommonStoreTransaction(DataStoreTransaction):
         # Return the memoized list directly
         returnValue([kv[1] for kv in sorted(self._determineMemo(storeType, None).items(), key=lambda x: x[0])])
 
-
     @memoizedKey("uid", _determineMemo, deferredResult=False)
     def homeWithUID(self, storeType, uid, status=None, create=False):
         if uid.startswith("."):
@@ -374,7 +353,6 @@ class CommonStoreTransaction(DataStoreTransaction):
 
         return self._homeClass[storeType].homeWithUID(self, uid, create, storeType == ECALENDARTYPE)
 
-
     @memoizedKey("uid", "_notificationHomes", deferredResult=False)
     def notificationsWithUID(self, uid, home=None, create=False):
 
@@ -382,73 +360,58 @@ class CommonStoreTransaction(DataStoreTransaction):
             home = self.homeWithUID(self._notificationHomeType, uid, create=True)
         return NotificationCollection.notificationsFromHome(self, home)
 
-
     # File-based storage of APN subscriptions not implementated.
     def addAPNSubscription(self, token, key, timestamp, subscriber, userAgent, ipAddr):
         return NotImplementedError
 
-
     def removeAPNSubscription(self, token, key):
         return NotImplementedError
-
 
     def purgeOldAPNSubscriptions(self, purgeSeconds):
         return NotImplementedError
 
-
     def apnSubscriptionsByToken(self, token):
         return NotImplementedError
-
 
     def apnSubscriptionsByKey(self, key):
         return NotImplementedError
 
-
     def apnSubscriptionsBySubscriber(self, guid):
         return NotImplementedError
-
 
     def imipCreateToken(self, organizer, attendee, icaluid, token=None):
         return NotImplementedError
 
-
     def imipLookupByToken(self, token):
         return NotImplementedError
-
 
     def imipGetToken(self, organizer, attendee, icaluid):
         return NotImplementedError
 
-
     def imipRemoveToken(self, token):
         return NotImplementedError
-
 
     def purgeOldIMIPTokens(self, olderThan):
         return NotImplementedError
 
-
     def isNotifiedAlready(self, obj):
         return obj in self._notifiedAlready
 
-
     def notificationAddedForObject(self, obj):
         self._notifiedAlready.add(obj)
-
 
 
 class StubResource(object):
     """
     Just enough resource to keep the shared sql DB classes going.
     """
+
     def __init__(self, commonHome):
         self._commonHome = commonHome
-
 
     @property
     def fp(self):
         return self._commonHome._path
-
 
 
 class SharedCollectionRecord(object):
@@ -459,7 +422,6 @@ class SharedCollectionRecord(object):
         self.hosturl = hosturl
         self.localname = localname
         self.summary = summary
-
 
 
 class SharedCollectionsDatabase(AbstractSQLDatabase):
@@ -478,16 +440,13 @@ class SharedCollectionsDatabase(AbstractSQLDatabase):
         db_filename = os.path.join(self.resource.fp.path, SharedCollectionsDatabase.db_basename)
         super(SharedCollectionsDatabase, self).__init__(db_filename, True, autocommit=True)
 
-
     def get_dbpath(self):
         return self.resource.fp.child(SharedCollectionsDatabase.db_basename).path
-
 
     def set_dbpath(self, newpath):
         pass
 
     dbpath = property(get_dbpath, set_dbpath)
-
 
     def create(self):
         """
@@ -495,18 +454,15 @@ class SharedCollectionsDatabase(AbstractSQLDatabase):
         """
         self._db()
 
-
     def allRecords(self):
 
         records = self._db_execute("select * from SHARES order by LOCALNAME")
         return [self._makeRecord(row) for row in (records if records is not None else ())]
 
-
     def recordForShareUID(self, shareUID):
 
         row = self._db_execute("select * from SHARES where SHAREUID = :1", shareUID)
         return self._makeRecord(row[0]) if row else None
-
 
     def addOrUpdateRecord(self, record):
 
@@ -516,26 +472,21 @@ class SharedCollectionsDatabase(AbstractSQLDatabase):
             """, record.shareuid, record.sharetype, record.hosturl, record.localname, record.summary,
         )
 
-
     def removeRecordForLocalName(self, localname):
 
         self._db_execute("delete from SHARES where LOCALNAME = :1", localname)
 
-
     def removeRecordForShareUID(self, shareUID):
 
         self._db_execute("delete from SHARES where SHAREUID = :1", shareUID)
-
 
     def remove(self):
 
         self._db_close()
         os.remove(self.dbpath)
 
-
     def directShareID(self, shareeHome, sharerCollection):
         return "Direct-%s-%s" % (shareeHome.resourceID(), sharerCollection.resourceID(),)
-
 
     def _db_version(self):
         """
@@ -543,13 +494,11 @@ class SharedCollectionsDatabase(AbstractSQLDatabase):
         """
         return SharedCollectionsDatabase.schema_version
 
-
     def _db_type(self):
         """
         @return: the collection type assigned to this index.
         """
         return SharedCollectionsDatabase.db_type
-
 
     def _db_init_data_tables(self, q):
         """
@@ -592,7 +541,6 @@ class SharedCollectionsDatabase(AbstractSQLDatabase):
             """
         )
 
-
     def _db_upgrade_data_tables(self, q, old_version):
         """
         Upgrade the data from an older version of the DB.
@@ -601,11 +549,9 @@ class SharedCollectionsDatabase(AbstractSQLDatabase):
         # Nothing to do as we have not changed the schema
         pass
 
-
     def _makeRecord(self, row):
 
         return SharedCollectionRecord(*[str(item) if isinstance(item, unicode) else item for item in row])
-
 
 
 class CommonHome(FileMetaDataMixin):
@@ -627,10 +573,8 @@ class CommonHome(FileMetaDataMixin):
         self._removedChildren = set()
         self._cachedChildren = {}
 
-
     def quotaAllowedBytes(self):
         return self._transaction.store().quota
-
 
     @classmethod
     def listHomes(cls, txn):
@@ -655,7 +599,6 @@ class CommonHome(FileMetaDataMixin):
                         results.append(uid)
 
         return results
-
 
     @classmethod
     def homeWithUID(cls, txn, uid, create=False, withNotifications=False):
@@ -691,11 +634,12 @@ class CommonHome(FileMetaDataMixin):
                 creating = True
                 homePath = childPath.temporarySibling()
                 createDirectory(homePath)
+
                 def do():
                     homePath.moveTo(childPath)
                     # do this _after_ all other file operations
                     home._path = childPath
-                    return lambda : None
+                    return lambda: None
                 txn.addOperation(do, "create home UID %r" % (uid,))
 
         elif not childPath.isdir():
@@ -713,33 +657,26 @@ class CommonHome(FileMetaDataMixin):
 
         return home
 
-
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._path)
-
 
     def uid(self):
         return self._uid
 
-
     def transaction(self):
         return self._transaction
-
 
     def directoryService(self):
         return self._transaction.store().directoryService()
 
-
     def directoryRecord(self):
         return self.directoryService().recordWithUID(self.uid().decode("utf-8"))
-
 
     def retrieveOldShares(self):
         """
         Retrieve the old Index object.
         """
         return self._shares
-
 
     def children(self):
         """
@@ -756,7 +693,6 @@ class CommonHome(FileMetaDataMixin):
     # use the "iterate over each child" method.
     loadChildren = children
 
-
     def listChildren(self):
         """
         Return a set of the names of the child resources.
@@ -771,7 +707,6 @@ class CommonHome(FileMetaDataMixin):
             name not in self._removedChildren
         ))
 
-
     def listSharedChildren(self):
         """
         Retrieve the names of the children in this home.
@@ -784,7 +719,6 @@ class CommonHome(FileMetaDataMixin):
             return succeed(self._sharedChildren.keys())
         else:
             return self._childClass.listObjects(self, owned=False)
-
 
     def childWithName(self, name):
         child = self._newChildren.get(name)
@@ -802,7 +736,6 @@ class CommonHome(FileMetaDataMixin):
         if child is not None:
             self._cachedChildren[name] = child
         return child
-
 
     @writeOperation
     def createChildWithName(self, name):
@@ -824,6 +757,7 @@ class CommonHome(FileMetaDataMixin):
 
         c = self._newChildren[name] = self._childClass(temporary.basename(), self, True, realName=name)
         c.retrieveOldIndex().create()
+
         def do():
             childPath = self._path.child(name)
             temporary = childPath.sibling(temporaryName)
@@ -846,7 +780,6 @@ class CommonHome(FileMetaDataMixin):
         self.notifyChanged()
         return c
 
-
     @writeOperation
     def removeChildWithName(self, name, useTrash=True):
         if name.startswith(".") or name in self._removedChildren:
@@ -864,10 +797,8 @@ class CommonHome(FileMetaDataMixin):
             else:
                 self._removedChildren.add(name)
 
-
     def getTrash(self, create=False):
         return succeed(None)
-
 
     @inlineCallbacks
     def syncToken(self):
@@ -883,13 +814,11 @@ class CommonHome(FileMetaDataMixin):
             self.properties()[PropertyName(*ResourceID.qname())] = ResourceID(HRef.fromString(urnuuid))
         returnValue("%s_%s" % (urnuuid[9:], maxrev))
 
-
     def resourceNamesSinceToken(self, token, depth):
         deleted = []
         changed = []
         invalid = []
         return succeed((changed, deleted, invalid))
-
 
     # @cached
     def properties(self):
@@ -897,11 +826,10 @@ class CommonHome(FileMetaDataMixin):
         # FIXME: needs to be cached
         # FIXME: transaction tests
         props = self._dataStore._propertyStoreClass(
-            self.uid(), lambda : self._path
+            self.uid(), lambda: self._path
         )
         self._transaction.addOperation(props.flush, "flush home properties")
         return props
-
 
     def objectResourcesWithUID(self, uid, ignore_children=()):
         """
@@ -917,7 +845,6 @@ class CommonHome(FileMetaDataMixin):
                 results.append(object)
         return results
 
-
     def objectResourceWithID(self, rid):
         """
         Return all child object resources with the specified resource-ID.
@@ -926,14 +853,12 @@ class CommonHome(FileMetaDataMixin):
         # File store does not have resource ids.
         raise NotImplementedError
 
-
     def quotaUsedBytes(self):
 
         try:
             return int(str(self.properties()[PropertyName.fromElement(TwistedQuotaUsedProperty)]))
         except KeyError:
             return 0
-
 
     def adjustQuotaUsedBytes(self, delta):
         """
@@ -948,20 +873,16 @@ class CommonHome(FileMetaDataMixin):
             new_used = 0
         self.properties()[PropertyName.fromElement(TwistedQuotaUsedProperty)] = TwistedQuotaUsedProperty(str(new_used))
 
-
     def addNotifier(self, factory_name, notifier):
         if self._notifiers is None:
             self._notifiers = {}
         self._notifiers[factory_name] = notifier
 
-
     def getNotifier(self, factory_name):
         return self._notifiers.get(factory_name)
 
-
     def notifierID(self):
         return (self._notifierPrefix, self.uid(),)
-
 
     @inlineCallbacks
     def notifyChanged(self):
@@ -980,7 +901,6 @@ class CommonHome(FileMetaDataMixin):
             if notifier:
                 yield notifier.notify(self._transaction)
             self._transaction.notificationAddedForObject(self)
-
 
 
 class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
@@ -1020,7 +940,7 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
         self._cachedObjectResources = {}
         self._removedObjectResources = set()
         self._index = None  # Derived classes need to set this
-        self._invites = None # Derived classes need to set this
+        self._invites = None  # Derived classes need to set this
         self._renamedName = realName
 
         if self._home._notifiers:
@@ -1028,25 +948,20 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
         else:
             self._notifiers = None
 
-
     @classmethod
     def objectWithName(cls, home, name, owned):
         return cls(name, home, owned) if home._path.child(name).isdir() else None
-
 
     @property
     def _path(self):
         return self._home._path.child(self._name)
 
-
     @property
     def _txn(self):
         return self._transaction
 
-
     def directoryService(self):
         return self._transaction.store().directoryService()
-
 
     def retrieveOldIndex(self):
         """
@@ -1054,23 +969,19 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
         """
         return self._index._oldIndex
 
-
     def retrieveOldInvites(self):
         """
         Retrieve the old Invites DB object.
         """
         return self._invites._oldInvites
 
-
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._path.path)
-
 
     def name(self):
         if self._renamedName is not None:
             return self._renamedName
         return self._path.basename()
-
 
     def shareMode(self):
         """
@@ -1078,13 +989,11 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
         """
         return _BIND_MODE_OWN
 
-
     def effectiveShareMode(self):
         """
         Stub implementation of L{ICalendar.effectiveShareMode}; always returns L{_BIND_MODE_OWN}.
         """
         return _BIND_MODE_OWN
-
 
     def owned(self):
         return self._owned
@@ -1097,16 +1006,16 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
         self._renamedName = name
         self._home._newChildren[name] = self
         self._home._removedChildren.add(oldName)
+
         def doIt():
             self._path.moveTo(self._path.sibling(name))
-            return lambda : None # FIXME: revert
+            return lambda: None  # FIXME: revert
         self._transaction.addOperation(doIt, "rename home child %r -> %r" %
                                        (oldName, name))
 
         self.retrieveOldIndex().bumpRevision()
 
         self.notifyChanged()
-
 
     @writeOperation
     def remove(self):
@@ -1129,13 +1038,14 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
 
             def cleanup():
                 try:
-                    self.retrieveOldIndex()._db_close() # Must close sqlite file before it is deleted
+                    self.retrieveOldIndex()._db_close()  # Must close sqlite file before it is deleted
                     trash.remove()
                     self.properties()._removeResource()
                 except Exception, e:
                     self.log.error("Unable to delete trashed child at {path}: {ex}", path=trash.fp, ex=e)
 
             self._transaction.addOperation(cleanup, "remove child backup %r" % (self._name,))
+
             def undo():
                 trash.moveTo(childPath)
 
@@ -1148,18 +1058,14 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
 
         self.notifyChanged()
 
-
     def ownerHome(self):
         return self._home
-
 
     def viewerHome(self):
         return self._home
 
-
     def setSharingUID(self, uid):
         self.properties()._setPerUserUID(uid)
-
 
     def objectResources(self):
         """
@@ -1167,7 +1073,6 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
         """
         return [self.objectResourceWithName(name)
                 for name in self.listObjectResources()]
-
 
     def objectResourcesWithNames(self, names):
         """
@@ -1179,7 +1084,6 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
             if obj is not None:
                 results.append(obj)
         return results
-
 
     def listObjectResources(self):
         """
@@ -1196,10 +1100,8 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
             ))
         )
 
-
     def countObjectResources(self):
         return len(self.listObjectResources())
-
 
     def objectResourceWithName(self, name):
         if name in self._removedObjectResources:
@@ -1217,14 +1119,12 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
         else:
             return None
 
-
     def objectResourceWithUID(self, uid):
         rname = self.retrieveOldIndex().resourceNameForUID(uid)
         if rname and rname not in self._removedObjectResources:
             return self.objectResourceWithName(rname)
 
         return None
-
 
     @writeOperation
     def createObjectResourceWithName(self, name, component, metadata=None):
@@ -1251,14 +1151,12 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
 
         return objectResource
 
-
     def removedObjectResource(self, child):
 
         self.retrieveOldIndex().deleteResource(child.name())
 
         self._removedObjectResources.add(child.name())
         self.notifyChanged()
-
 
     def syncToken(self):
 
@@ -1269,21 +1167,17 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
             self.properties()[PropertyName(*ResourceID.qname())] = ResourceID(HRef.fromString(urnuuid))
         return succeed("%s_%s" % (urnuuid[9:], self.retrieveOldIndex().lastRevision()))
 
-
     def objectResourcesSinceToken(self, token):
         raise NotImplementedError()
 
-
     def resourceNamesSinceToken(self, token):
         return succeed(self.retrieveOldIndex().whatchanged(token))
-
 
     def objectResourcesHaveProperties(self):
         """
         So filestore objects do need to support properties.
         """
         return True
-
 
     # FIXME: property writes should be a write operation
     @cached
@@ -1298,7 +1192,6 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
                                        "flush object resource properties")
         return props
 
-
     def initPropertyStore(self, props):
         """
         A hook for subclasses to override in order to set up their property
@@ -1308,24 +1201,19 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
         """
         pass
 
-
     def addNotifier(self, factory_name, notifier):
         if self._notifiers is None:
             self._notifiers = {}
         self._notifiers[factory_name] = notifier
 
-
     def getNotifier(self, factory_name):
         return self._notifiers.get(factory_name) if self._notifiers else None
-
 
     def notifierID(self):
         return (self.ownerHome()._notifierPrefix, "%s/%s" % (self.ownerHome().uid(), self.name(),),)
 
-
     def parentNotifierID(self):
         return self.ownerHome().notifierID()
-
 
     @inlineCallbacks
     def notifyChanged(self):
@@ -1345,7 +1233,6 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
                 yield notifier.notify(self._transaction)
             self._transaction.notificationAddedForObject(self)
 
-
     @inlineCallbacks
     def sharingInvites(self):
         """
@@ -1353,7 +1240,6 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
         """
         yield None
         returnValue([])
-
 
 
 class CommonObjectResource(FileMetaDataMixin, FancyEqMixin):
@@ -1375,42 +1261,35 @@ class CommonObjectResource(FileMetaDataMixin, FancyEqMixin):
         self._transaction = parent._transaction
         self._objectText = None
 
-
     @property
     def _path(self):
         return self._parentCollection._path.child(self._name)
 
-
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._path.path)
-
 
     @property
     def _txn(self):
         return self._transaction
 
-
     def transaction(self):
         return self._transaction
 
-
     def directoryService(self):
         return self._transaction.store().directoryService()
-
 
     @writeOperation
     def setComponent(self, component, inserting=False):
         raise NotImplementedError
 
-
     def component(self):
         raise NotImplementedError
-
 
     def remove(self):
 
         # FIXME: test for undo
         objectResourcePath = self._path
+
         def do():
             objectResourcePath.remove()
             return lambda: None
@@ -1423,10 +1302,8 @@ class CommonObjectResource(FileMetaDataMixin, FancyEqMixin):
     def _text(self):
         raise NotImplementedError
 
-
     def uid(self):
         raise NotImplementedError
-
 
     @cached
     def properties(self):
@@ -1434,13 +1311,12 @@ class CommonObjectResource(FileMetaDataMixin, FancyEqMixin):
         uid = home.uid()
         if self._parentCollection.objectResourcesHaveProperties():
             propStoreClass = home._dataStore._propertyStoreClass
-            props = propStoreClass(uid, lambda : self._path)
+            props = propStoreClass(uid, lambda: self._path)
         else:
             props = NonePropertyStore(uid)
         self.initPropertyStore(props)
         self._transaction.addOperation(props.flush, "object properties flush")
         return props
-
 
     def initPropertyStore(self, props):
         """
@@ -1452,26 +1328,23 @@ class CommonObjectResource(FileMetaDataMixin, FancyEqMixin):
         pass
 
 
-
 class CommonStubResource(object):
     """
     Just enough resource to keep the collection sql DB classes going.
     """
+
     def __init__(self, resource):
         self.resource = resource
         self._txn = self.resource._txn
         self.fp = self.resource._path
 
-
     def bumpSyncToken(self, reset=False):
         # FIXME: needs direct tests
         return self.resource._updateSyncToken(reset)
 
-
     def initSyncToken(self):
         # FIXME: needs direct tests
         self.bumpSyncToken(True)
-
 
 
 class NotificationCollection(CommonHomeChild):
@@ -1498,7 +1371,6 @@ class NotificationCollection(CommonHomeChild):
         self._invites = None
         self._objectResourceClass = NotificationObject
 
-
     @classmethod
     def notificationsFromHome(cls, txn, home):
 
@@ -1508,7 +1380,6 @@ class NotificationCollection(CommonHomeChild):
         else:
             notifications = cls(notificationCollectionName, home)
         return notifications
-
 
     @classmethod
     def _create(cls, txn, home, collectionName):
@@ -1547,7 +1418,6 @@ class NotificationCollection(CommonHomeChild):
         name = uid + ".xml"
         return self.notificationObjectWithName(name)
 
-
     def writeNotificationObject(self, uid, notificationtype, notificationdata):
         name = uid + ".xml"
         if name.startswith("."):
@@ -1562,7 +1432,6 @@ class NotificationCollection(CommonHomeChild):
 
         self.notifyChanged()
 
-
     @writeOperation
     def removeNotificationObjectWithName(self, name):
         if name.startswith("."):
@@ -1574,6 +1443,7 @@ class NotificationCollection(CommonHomeChild):
         if objectResourcePath.isfile():
             self._removedObjectResources.add(name)
             # FIXME: test for undo
+
             def do():
                 objectResourcePath.remove()
                 return lambda: None
@@ -1584,12 +1454,10 @@ class NotificationCollection(CommonHomeChild):
         else:
             raise NoSuchObjectResourceError(name)
 
-
     @writeOperation
     def removeNotificationObjectWithUID(self, uid):
         name = uid + ".xml"
         self.removeNotificationObjectWithName(name)
-
 
 
 class NotificationObject(CommonObjectResource):
@@ -1601,10 +1469,8 @@ class NotificationObject(CommonObjectResource):
         super(NotificationObject, self).__init__(name, notifications)
         self._uid = name[:-4]
 
-
     def notificationCollection(self):
         return self._parentCollection
-
 
     def created(self):
         if not self._path.exists():
@@ -1612,13 +1478,11 @@ class NotificationObject(CommonObjectResource):
             return int(reactor.seconds())
         return super(NotificationObject, self).created()
 
-
     def modified(self):
         if not self._path.exists():
             from twisted.internet import reactor
             return int(reactor.seconds())
         return super(NotificationObject, self).modified()
-
 
     @writeOperation
     def setData(self, uid, notificationtype, notificationdata, inserting=False):
@@ -1644,6 +1508,7 @@ class NotificationObject(CommonObjectResource):
                 fh.write(notificationtext)
             finally:
                 fh.close()
+
             def undo():
                 if backup:
                     backup.moveTo(self._path)
@@ -1690,15 +1555,12 @@ class NotificationObject(CommonObjectResource):
 
         return json.loads(text)
 
-
     def uid(self):
         return self._uid
-
 
     def notificationType(self):
         # NB This is the NotificationType property element
         return self.properties()[PropertyName.fromElement(NotificationType)]
-
 
     def initPropertyStore(self, props):
         # Setup peruser special properties
@@ -1712,12 +1574,12 @@ class NotificationObject(CommonObjectResource):
         )
 
 
-
 class NotificationIndex(object):
     #
     # OK, here's where we get ugly.
     # The index code needs to be rewritten also, but in the meantime...
     #
+
     def __init__(self, notificationCollection):
         self.notificationCollection = notificationCollection
         stubResource = CommonStubResource(notificationCollection)

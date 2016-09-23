@@ -39,9 +39,7 @@ except ImportError, e:
     importErrorMessage = str(e)
 
 
-
 class PropertyStoreTest(PropertyStoreTest):
-
 
     @inlineCallbacks
     def setUp(self):
@@ -54,7 +52,6 @@ class PropertyStoreTest(PropertyStoreTest):
         self.propertyStore2 = yield PropertyStore.load("user01", "user02", None, self._txn, 1)
         self.propertyStore3 = yield PropertyStore.load("user01", None, "user03", self._txn, 1)
         self.propertyStore4 = yield PropertyStore.load("user01", "user02", "user04", self._txn, 1)
-
 
     @inlineCallbacks
     def maybeCommitLast(self):
@@ -69,7 +66,6 @@ class PropertyStoreTest(PropertyStoreTest):
             self.propertyStore3 = \
             self.propertyStore4 = None
         returnValue(result)
-
 
     @inlineCallbacks
     def _changed(self, store):
@@ -102,7 +98,6 @@ class PropertyStoreTest(PropertyStoreTest):
         self.propertyStore4._shadowableKeys = store._shadowableKeys
         self.propertyStore4._proxyOverrideKeys = store._proxyOverrideKeys
         self.propertyStore4._globalKeys = store._globalKeys
-
 
     @inlineCallbacks
     def _abort(self, store):
@@ -137,7 +132,6 @@ class PropertyStoreTest(PropertyStoreTest):
         self.propertyStore4._proxyOverrideKeys = store._proxyOverrideKeys
         self.propertyStore4._globalKeys = store._globalKeys
 
-
     @inlineCallbacks
     def test_concurrentInsertion(self):
         """
@@ -149,6 +143,7 @@ class PropertyStoreTest(PropertyStoreTest):
         pval1 = propertyValue("alpha")
         pval2 = propertyValue("beta")
         concurrentTxn = self.store.newTransaction()
+
         @inlineCallbacks
         def maybeAbortIt():
             try:
@@ -161,6 +156,7 @@ class PropertyStoreTest(PropertyStoreTest):
         )
         concurrentPropertyStore[pname] = pval1
         race = []
+
         def tiebreaker(label):
             # Let's not get into the business of figuring out who the database
             # concurrency rules are supposed to pick; it might differ.  We just
@@ -180,7 +176,6 @@ class PropertyStoreTest(PropertyStoreTest):
         winner = {'a': pval1,
                   'b': pval2}[race[-1]]
         self.assertEquals(self.propertyStore[pname], winner)
-
 
     @inlineCallbacks
     def test_copy(self):
@@ -223,7 +218,6 @@ class PropertyStoreTest(PropertyStoreTest):
         store2_user2 = yield PropertyStore.load("user01", "user02", None, self._txn, 3)
         self.assertEqual(store1_user2.keys(), store2_user2.keys())
 
-
     @inlineCallbacks
     def test_insert_delete(self):
 
@@ -241,7 +235,6 @@ class PropertyStoreTest(PropertyStoreTest):
 
         yield store1_user1.__setitem__(pname, pvalue)
         self.assertEqual(store1_user1[pname], pvalue)
-
 
     @inlineCallbacks
     def test_cacher_failure(self):
@@ -299,7 +292,6 @@ class PropertyStoreTest(PropertyStoreTest):
 
         self.assertEqual(len(store1_user1._cached), 0)
         self.assertFalse("SQL.props:10/user01" in store1_user1._cacher._memcacheProtocol._cache)
-
 
     @inlineCallbacks
     def test_cacher_off(self):

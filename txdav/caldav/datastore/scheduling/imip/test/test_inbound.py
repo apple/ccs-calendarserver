@@ -36,6 +36,7 @@ from twext.enterprise.jobs.jobitem import JobItem
 
 import email
 
+
 class InboundTests(CommonCommonTests, unittest.TestCase):
 
     @inlineCallbacks
@@ -47,11 +48,11 @@ class InboundTests(CommonCommonTests, unittest.TestCase):
         self.retriever = MailRetriever(
             self.store, self.directory,
             ConfigDict({
-                "Type" : "pop",
-                "UseSSL" : False,
-                "Server" : "example.com",
-                "Port" : 123,
-                "Username" : "xyzzy",
+                "Type": "pop",
+                "UseSSL": False,
+                "Server": "example.com",
+                "Port": 123,
+                "Username": "xyzzy",
             })
         )
 
@@ -62,7 +63,6 @@ class InboundTests(CommonCommonTests, unittest.TestCase):
         module = getModule(__name__)
         self.dataPath = module.filePath.sibling("data")
 
-
     def dataFile(self, name):
         """
         Get the contents of a given data file from the 'data/mail' test
@@ -70,13 +70,12 @@ class InboundTests(CommonCommonTests, unittest.TestCase):
         """
         return self.dataPath.child(name).getContent()
 
-
     def test_checkDSNFailure(self):
 
         data = {
-            'good_reply' : (False, None, None),
-            'dsn_failure_no_original' : (True, 'failed', None),
-            'dsn_failure_no_ics' : (True, 'failed', None),
+            'good_reply': (False, None, None),
+            'dsn_failure_no_original': (True, 'failed', None),
+            'dsn_failure_no_ics': (True, 'failed', None),
             'dsn_failure_with_ics' : (True, 'failed', '''BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
@@ -122,7 +121,6 @@ END:VCALENDAR
         for filename, expected in data.iteritems():
             msg = email.message_from_string(self.dataFile(filename))
             self.assertEquals(self.receiver.checkDSN(msg), expected)
-
 
     @inlineCallbacks
     def test_processDSN(self):
@@ -188,7 +186,6 @@ END:VCALENDAR
 
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
 
-
     @inlineCallbacks
     def test_processReply(self):
         # Make sure an unknown token in an older email is deleted
@@ -216,7 +213,6 @@ END:VCALENDAR
 
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
 
-
     @inlineCallbacks
     def test_processReplyMissingOrganizer(self):
         msg = email.message_from_string(self.dataFile('reply_missing_organizer'))
@@ -236,7 +232,6 @@ END:VCALENDAR
 
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
 
-
     @inlineCallbacks
     def test_processReplyMissingAttendee(self):
         msg = email.message_from_string(self.dataFile('reply_missing_attendee'))
@@ -254,7 +249,6 @@ END:VCALENDAR
         self.assertEquals(result, MailReceiver.INJECTION_SUBMITTED)
 
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
-
 
     @inlineCallbacks
     def test_processReplyMissingAttachment(self):
@@ -277,7 +271,6 @@ END:VCALENDAR
         self.assertEquals(result, MailReceiver.REPLY_FORWARDED_TO_ORGANIZER)
 
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
-
 
     @inlineCallbacks
     def test_injectMessage(self):
@@ -310,7 +303,6 @@ END:VCALENDAR
             result.responses[0].reqstatus.toString()
         )
 
-
     @inlineCallbacks
     def test_injectMessageWithError(self):
 
@@ -342,7 +334,6 @@ END:VCALENDAR
             result.responses[0].reqstatus.toString()
         )
 
-
     @inlineCallbacks
     def test_work(self):
 
@@ -369,7 +360,6 @@ END:VCALENDAR
         )
         yield txn.commit()
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
-
 
     def test_shouldDeleteAllMail(self):
 
@@ -403,7 +393,6 @@ END:VCALENDAR
             "com.apple.calendarserver"
         ))
 
-
     @inlineCallbacks
     def test_deletion(self):
         """
@@ -426,9 +415,9 @@ END:VCALENDAR
         self.patch(proto, "fetchNextMessage", stubFetchNextMessage)
         self.patch(proto, "cbFlagDeleted", stubCbFlagDeleted)
         results = {
-            "ignored" : (
+            "ignored": (
                 {
-                    "RFC822" : "a message"
+                    "RFC822": "a message"
                 }
             )
         }
@@ -457,7 +446,6 @@ END:VCALENDAR
         yield proto.cbGotMessage(results, "xyzzy")
         self.assertEquals(self.flagDeletedResult, "xyzzy")
 
-
     @inlineCallbacks
     def test_missingIMAPMessages(self):
         """
@@ -465,6 +453,7 @@ END:VCALENDAR
         """
 
         class DummyResult(object):
+
             def __init__(self):
                 self._values = []
 
@@ -477,13 +466,12 @@ END:VCALENDAR
 
         imap4 = IMAP4DownloadProtocol()
         imap4.messageUIDs = []
-        imap4.fetchNextMessage = lambda : None
+        imap4.fetchNextMessage = lambda: None
 
         result = yield imap4.cbGotMessage(noResult, [])
         self.assertTrue(result is None)
         result = yield imap4.cbGotMessage(missingKey, [])
         self.assertTrue(result is None)
-
 
     def test_sanitizeCalendar(self):
         """
@@ -517,13 +505,11 @@ END:VCALENDAR
         self.assertFalse(calendar.masterComponent().hasProperty("STATUS"))
 
 
-
 class StubFactory(object):
 
     def __init__(self, actionTaken, deleteAllMail):
         self.actionTaken = actionTaken
         self.deleteAllMail = deleteAllMail
-
 
     def handleMessage(self, messageData):
         return succeed(self.actionTaken)

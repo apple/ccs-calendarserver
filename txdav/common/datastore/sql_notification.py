@@ -43,6 +43,8 @@ import json
 """
 Classes and methods that relate to the Notification collection in the SQL store.
 """
+
+
 class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
     log = Logger()
 
@@ -57,7 +59,6 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
     _homeSchema = schema.NOTIFICATION_HOME
 
     _externalClass = None
-
 
     @classmethod
     def makeClass(cls, transaction, homeData):
@@ -78,7 +79,6 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
             home = cls(transaction, homeData)
         return home.initFromStore()
 
-
     @classmethod
     def homeColumns(cls):
         """
@@ -93,7 +93,6 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
             cls._homeSchema.STATUS,
         )
 
-
     @classmethod
     def homeAttributes(cls):
         """
@@ -107,7 +106,6 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
             "_ownerUID",
             "_status",
         )
-
 
     def __init__(self, txn, homeData):
 
@@ -126,7 +124,6 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         # as well as the home it is in
         self._notifiers = dict([(factory_name, factory.newNotifier(self),) for factory_name, factory in txn._notifierFactories.items()])
 
-
     @inlineCallbacks
     def initFromStore(self):
         """
@@ -136,7 +133,6 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         yield self._loadPropertyStore()
         returnValue(self)
 
-
     @property
     def _home(self):
         """
@@ -145,16 +141,13 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         """
         return self
 
-
     @classmethod
     def notificationsWithUID(cls, txn, uid, status=None, create=False):
         return cls.notificationsWith(txn, None, uid, status=status, create=create)
 
-
     @classmethod
     def notificationsWithResourceID(cls, txn, rid):
         return cls.notificationsWith(txn, rid, None)
-
 
     @classmethod
     @inlineCallbacks
@@ -266,7 +259,6 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
                     yield homeObject.notifyChanged()
                 returnValue(homeObject)
 
-
     @inlineCallbacks
     def _loadPropertyStore(self):
         self._propertyStore = yield PropertyStore.load(
@@ -278,10 +270,8 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
             notifyCallback=self.notifyChanged
         )
 
-
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
-
 
     def id(self):
         """
@@ -292,7 +282,6 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         """
         return self._resourceID
 
-
     @classproperty
     def _dataVersionQuery(cls):
         nh = cls._homeSchema
@@ -301,7 +290,6 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
             Where=nh.RESOURCE_ID == Parameter("resourceID")
         )
 
-
     @inlineCallbacks
     def dataVersion(self):
         if self._dataVersion is None:
@@ -309,18 +297,14 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
                 self._txn, resourceID=self._resourceID))[0][0]
         returnValue(self._dataVersion)
 
-
     def name(self):
         return "notification"
-
 
     def uid(self):
         return self._ownerUID
 
-
     def status(self):
         return self._status
-
 
     @inlineCallbacks
     def setStatus(self, newStatus):
@@ -335,7 +319,6 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
             ).on(self._txn)
             self._status = newStatus
 
-
     def normal(self):
         """
         Is this an normal (internal) home.
@@ -343,7 +326,6 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         @return: a L{bool}.
         """
         return self._status == _HOME_STATUS_NORMAL
-
 
     def external(self):
         """
@@ -353,22 +335,17 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         """
         return self._status == _HOME_STATUS_EXTERNAL
 
-
     def owned(self):
         return True
-
 
     def ownerHome(self):
         return self._home
 
-
     def viewerHome(self):
         return self._home
 
-
     def notificationObjectRecords(self):
         return NotificationObjectRecord.querysimple(self._txn, notificationHomeResourceID=self.id())
-
 
     @inlineCallbacks
     def notificationObjects(self):
@@ -383,7 +360,6 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         Where=schema.NOTIFICATION.NOTIFICATION_HOME_RESOURCE_ID ==
         Parameter("resourceID"))
 
-
     @inlineCallbacks
     def listNotificationObjects(self):
         """
@@ -396,11 +372,9 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
             self._notificationNames = sorted([row[0] + ".xml" for row in rows])
         returnValue(self._notificationNames)
 
-
     # used by _SharedSyncLogic.resourceNamesSinceRevision()
     def listObjectResources(self):
         return self.listNotificationObjects()
-
 
     def _nameToUID(self, name):
         """
@@ -409,10 +383,8 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         """
         return name.rsplit(".", 1)[0]
 
-
     def notificationObjectWithName(self, name):
         return self.notificationObjectWithUID(self._nameToUID(name))
-
 
     @memoizedKey("uid", "_notifications")
     @inlineCallbacks
@@ -424,7 +396,6 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         no = NotificationObject(self, uid)
         no = (yield no.initFromStore())
         returnValue(no)
-
 
     @inlineCallbacks
     def writeNotificationObject(self, uid, notificationtype, notificationdata):
@@ -444,7 +415,6 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         yield self.notifyChanged()
         returnValue(notificationObject)
 
-
     def removeNotificationObjectWithName(self, name):
         if self._notificationNames is not None:
             self._notificationNames.remove(name)
@@ -453,9 +423,8 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
     _removeByUIDQuery = Delete(
         From=schema.NOTIFICATION,
         Where=(schema.NOTIFICATION.NOTIFICATION_UID == Parameter("uid")).And(
-            schema.NOTIFICATION.NOTIFICATION_HOME_RESOURCE_ID
-            == Parameter("resourceID")))
-
+            schema.NOTIFICATION.NOTIFICATION_HOME_RESOURCE_ID == Parameter("resourceID"))
+    )
 
     @inlineCallbacks
     def removeNotificationObjectWithUID(self, uid):
@@ -467,13 +436,12 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
     _initSyncTokenQuery = Insert(
         {
-            _revisionsSchema.HOME_RESOURCE_ID : Parameter("resourceID"),
-            _revisionsSchema.RESOURCE_NAME    : None,
-            _revisionsSchema.REVISION         : schema.REVISION_SEQ,
-            _revisionsSchema.DELETED          : False
+            _revisionsSchema.HOME_RESOURCE_ID: Parameter("resourceID"),
+            _revisionsSchema.RESOURCE_NAME: None,
+            _revisionsSchema.REVISION: schema.REVISION_SEQ,
+            _revisionsSchema.DELETED: False
         }, Return=_revisionsSchema.REVISION
     )
-
 
     @inlineCallbacks
     def _initSyncToken(self):
@@ -485,13 +453,11 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         Where=_revisionsSchema.HOME_RESOURCE_ID == Parameter("resourceID")
     )
 
-
     @inlineCallbacks
     def syncToken(self):
         if self._syncTokenRevision is None:
             self._syncTokenRevision = yield self.syncTokenRevision()
         returnValue("%s_%s" % (self._resourceID, self._syncTokenRevision))
-
 
     @inlineCallbacks
     def syncTokenRevision(self):
@@ -500,26 +466,20 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
             revision = int((yield self._txn.calendarserverValue("MIN-VALID-REVISION")))
         returnValue(revision)
 
-
     def properties(self):
         return self._propertyStore
-
 
     def addNotifier(self, factory_name, notifier):
         self._notifiers[factory_name] = notifier
 
-
     def getNotifier(self, factory_name):
         return self._notifiers.get(factory_name)
-
 
     def notifierID(self):
         return (self._txn._homeClass[self._txn._primaryHomeType]._notifierPrefix, "%s/notification" % (self.ownerHome().uid(),),)
 
-
     def parentNotifierID(self):
         return (self._txn._homeClass[self._txn._primaryHomeType]._notifierPrefix, "%s" % (self.ownerHome().uid(),),)
-
 
     @inlineCallbacks
     def notifyChanged(self, category=ChangeCategory.default):
@@ -545,7 +505,6 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
         returnValue(None)
 
-
     @classproperty
     def _completelyNewRevisionQuery(cls):
         rev = cls._revisionsSchema
@@ -556,13 +515,11 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
                        rev.DELETED: False},
                       Return=rev.REVISION)
 
-
     def _maybeNotify(self):
         """
         Emit a push notification after C{_changeRevision}.
         """
         return self.notifyChanged()
-
 
     @inlineCallbacks
     def remove(self):
@@ -591,14 +548,12 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
     purge = remove
 
 
-
 class NotificationObjectRecord(SerializableRecord, fromTable(schema.NOTIFICATION)):
     """
     @DynamicAttrs
     L{Record} for L{schema.NOTIFICATION}.
     """
     pass
-
 
 
 class NotificationObject(FancyEqMixin, object):
@@ -629,10 +584,8 @@ class NotificationObject(FancyEqMixin, object):
         self._notificationType = None
         self._notificationData = None
 
-
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
-
 
     @classproperty
     def _allColumnsByHomeIDQuery(cls):
@@ -646,7 +599,6 @@ class NotificationObject(FancyEqMixin, object):
             From=obj,
             Where=(obj.NOTIFICATION_HOME_RESOURCE_ID == Parameter("homeID"))
         )
-
 
     @classmethod
     @inlineCallbacks
@@ -702,7 +654,6 @@ class NotificationObject(FancyEqMixin, object):
 
         returnValue(results)
 
-
     @classproperty
     def _oneNotificationQuery(cls):
         no = cls._objectSchema
@@ -719,7 +670,6 @@ class NotificationObject(FancyEqMixin, object):
             Where=(no.NOTIFICATION_UID ==
                    Parameter("uid")).And(no.NOTIFICATION_HOME_RESOURCE_ID ==
                                          Parameter("homeID")))
-
 
     @inlineCallbacks
     def initFromStore(self):
@@ -752,16 +702,13 @@ class NotificationObject(FancyEqMixin, object):
         else:
             returnValue(None)
 
-
     def _loadPropertyStore(self, props=None, created=False):
         if props is None:
             props = NonePropertyStore(self._home.uid())
         self._propertyStore = props
 
-
     def properties(self):
         return self._propertyStore
-
 
     def id(self):
         """
@@ -772,23 +719,18 @@ class NotificationObject(FancyEqMixin, object):
         """
         return self._resourceID
 
-
     @property
     def _txn(self):
         return self._home._txn
 
-
     def notificationCollection(self):
         return self._home
-
 
     def uid(self):
         return self._uid
 
-
     def name(self):
         return self.uid() + ".xml"
-
 
     @classproperty
     def _newNotificationQuery(cls):
@@ -804,7 +746,6 @@ class NotificationObject(FancyEqMixin, object):
             Return=[no.RESOURCE_ID, no.CREATED, no.MODIFIED]
         )
 
-
     @classproperty
     def _updateNotificationQuery(cls):
         no = cls._objectSchema
@@ -818,7 +759,6 @@ class NotificationObject(FancyEqMixin, object):
                 no.NOTIFICATION_UID == Parameter("uid")),
             Return=no.MODIFIED
         )
-
 
     @inlineCallbacks
     def setData(self, uid, notificationtype, notificationdata, inserting=False):
@@ -855,7 +795,6 @@ class NotificationObject(FancyEqMixin, object):
         [_objectSchema.NOTIFICATION_DATA], From=_objectSchema,
         Where=_objectSchema.RESOURCE_ID == Parameter("resourceID"))
 
-
     @inlineCallbacks
     def notificationData(self):
         if self._notificationData is None:
@@ -872,29 +811,23 @@ class NotificationObject(FancyEqMixin, object):
                 self._notificationData = self._notificationData.encode("utf-8")
         returnValue(self._notificationData)
 
-
     def contentType(self):
         """
         The content type of NotificationObjects is text/xml.
         """
         return MimeType.fromString("text/xml")
 
-
     def md5(self):
         return self._md5
-
 
     def size(self):
         return self._size
 
-
     def notificationType(self):
         return self._notificationType
 
-
     def created(self):
         return datetimeMktime(self._created)
-
 
     def modified(self):
         return datetimeMktime(self._modified)

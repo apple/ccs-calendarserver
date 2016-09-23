@@ -20,10 +20,12 @@ from txweb2.test.test_server import SimpleRequest
 import twistedcaldav.test.util
 from twistedcaldav.config import config
 
+
 class OPTIONS (twistedcaldav.test.util.TestCase):
     """
     OPTIONS request
     """
+
     def test_dav_header_full_caldav(self):
         """
         DAV header advertises CalDAV
@@ -46,7 +48,6 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
 
         return self.send(request, do_test)
 
-
     def test_dav_header_implicit_caldav(self):
         """
         DAV header advertises CalDAV
@@ -68,7 +69,6 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
 
         return self.send(request, do_test)
 
-
     def test_allow_header_caldav(self):
         """
         Allow header advertises MKCALENDAR
@@ -84,7 +84,6 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
         request = SimpleRequest(self.site, "OPTIONS", "/")
 
         return self.send(request, do_test)
-
 
     def test_allow_header_acl(self):
         """
@@ -102,7 +101,6 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
 
         return self.send(request, do_test)
 
-
     def test_allow_header_deltav(self):
         """
         Allow header advertises REPORT
@@ -118,7 +116,6 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
         request = SimpleRequest(self.site, "OPTIONS", "/")
 
         return self.send(request, do_test)
-
 
     def test_dav_header_caldav_disabled(self):
         """
@@ -136,7 +133,6 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
         request = SimpleRequest(self.site, "OPTIONS", "/")
 
         return self.send(request, do_test)
-
 
     def test_dav_header_carddav_disabled(self):
         """

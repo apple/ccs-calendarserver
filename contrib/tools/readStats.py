@@ -31,6 +31,7 @@ import errno
 This tool reads data from the server's statistics socket and prints a summary.
 """
 
+
 def safeDivision(value, total, factor=1):
     return value * factor / total if total else 0
 
@@ -64,7 +65,6 @@ def readSock(sockname, useTCP):
     return data
 
 
-
 def printStats(stats, multimode, showMethods, topUsers, showAgents, dumpFile):
     if len(stats) == 1:
         if "Failed" in stats[0]:
@@ -80,7 +80,6 @@ def printStats(stats, multimode, showMethods, topUsers, showAgents, dumpFile):
         summary = printMultipleStats(stats, multimode, showMethods, topUsers, showAgents)
 
     return summary
-
 
 
 def printStat(stats, index, showMethods, topUsers, showAgents):
@@ -113,7 +112,6 @@ def printStat(stats, index, showMethods, topUsers, showAgents):
         printAgentCounts(stats[index])
 
     return summary
-
 
 
 def printMultipleStats(stats, multimode, showMethods, topUsers, showAgents):
@@ -153,7 +151,6 @@ def printMultipleStats(stats, multimode, showMethods, topUsers, showAgents):
     return summary
 
 
-
 def serverLabels(stats):
     servers = [stat["server"] for stat in stats]
     if isinstance(servers[0], tuple):
@@ -177,14 +174,12 @@ def serverLabels(stats):
     return [".".join(item) for item in servers]
 
 
-
 def printFailedStats(message):
 
     print("- " * 40)
     print(datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"))
     print(message)
     print("")
-
 
 
 def printRequestSummary(stats):
@@ -236,7 +231,6 @@ def printRequestSummary(stats):
         cpu=safeDivision(stat["cpu"], stat["requests"]),
         errors=stat["500"],
     )
-
 
 
 def printMultiRequestSummary(stats, cpus, memories, times, labels, index):
@@ -311,7 +305,6 @@ def printMultiRequestSummary(stats, cpus, memories, times, labels, index):
     )
 
 
-
 def printHistogramSummary(stat, index):
 
     print("%s average response histogram" % (index,))
@@ -351,15 +344,14 @@ def printHistogramSummary(stat, index):
     print(os.getvalue())
 
 
-
 def printMultiHistogramSummary(stats, index):
 
     # Totals first
     keys = ("<10ms", "10ms<->100ms", "100ms<->1s", "1s<->10s", "10s<->30s", "30s<->60s", ">60s", "Over 1s", "Over 10s",)
     totals = {
-        "T"        : dict([(k, 0) for k in keys]),
+        "T": dict([(k, 0) for k in keys]),
         "T-RESP-WR": dict([(k, 0) for k in keys]),
-        "requests" : 0,
+        "requests": 0,
     }
 
     for stat in stats:
@@ -369,7 +361,6 @@ def printMultiHistogramSummary(stats, index):
                 totals[i][k] += stat[index][i][k]
 
     printHistogramSummary(totals, index)
-
 
 
 def printMethodCounts(stat):
@@ -415,7 +406,6 @@ def printMethodCounts(stat):
     print(os.getvalue())
 
 
-
 def printMultiMethodCounts(stats, index):
 
     methods = collections.defaultdict(int)
@@ -428,7 +418,6 @@ def printMultiMethodCounts(stats, index):
                 method_times[method_time] += stat[index]["method-t"][method_time]
 
     printMethodCounts({"method": methods, "method-t": method_times})
-
 
 
 def printUserCounts(stat, topUsers):
@@ -458,7 +447,6 @@ def printUserCounts(stat, topUsers):
     print(os.getvalue())
 
 
-
 def printMultiUserCounts(stats, index, topUsers):
 
     uids = collections.defaultdict(int)
@@ -467,7 +455,6 @@ def printMultiUserCounts(stats, index, topUsers):
             uids[uid] += stat[index]["uid"][uid]
 
     printUserCounts({"uid": uids}, topUsers)
-
 
 
 def printAgentCounts(stat):
@@ -497,7 +484,6 @@ def printAgentCounts(stat):
     print(os.getvalue())
 
 
-
 def printMultiAgentCounts(stats, index):
 
     uas = collections.defaultdict(int)
@@ -506,7 +492,6 @@ def printMultiAgentCounts(stats, index):
             uas[ua] += stat[index]["user-agent"][ua]
 
     printAgentCounts({"user-agent": uas})
-
 
 
 def alert(summary, alerts):
@@ -532,7 +517,6 @@ def alert(summary, alerts):
             sys.stdout.flush()
             time.sleep(0.15)
         print("\n".join(alert))
-
 
 
 def usage(error_msg=None):

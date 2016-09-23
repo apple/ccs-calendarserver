@@ -15,7 +15,6 @@
 ##
 
 
-
 from twext.enterprise.dal.syntax import Select
 from twext.enterprise.jobs.jobitem import JobItem
 from twext.python.clsprop import classproperty
@@ -33,7 +32,6 @@ import datetime
 import time
 
 
-
 class RevisionCleanupTests(CommonCommonTests, TestCase):
     """
     Test store-based address book sharing.
@@ -48,7 +46,6 @@ class RevisionCleanupTests(CommonCommonTests, TestCase):
         self.patch(config.RevisionCleanup, "Enabled", True)
         self.patch(config.RevisionCleanup, "SyncTokenLifetimeDays", 0)
         self.patch(config.RevisionCleanup, "CleanupPeriodDays", -1)
-
 
     @inlineCallbacks
     def populate(self):
@@ -202,7 +199,7 @@ END:VCARD
 """
 
     @classproperty(cache=False)
-    def requirements(cls): #@NoSelf
+    def requirements(cls):  # @NoSelf
         return {
             "addressbook": {
                 "user01": {
@@ -232,7 +229,6 @@ END:VCARD
             }
         }
 
-
     @inlineCallbacks
     def _createCalendarShare(self):
         # Invite
@@ -251,7 +247,6 @@ END:VCARD
         yield self.commit()
 
         returnValue(sharedName)
-
 
     @inlineCallbacks
     def test_calendarObjectRevisions(self):
@@ -333,7 +328,6 @@ END:VCARD
         self.assertEqual(newtoken1, newtoken)
         yield self.commit()
 
-
     @inlineCallbacks
     def test_calendarObjectRevisions_Modified(self):
         """
@@ -404,7 +398,6 @@ END:VCARD
         self.assertEqual(names, ([], [], []))
         yield self.commit()
 
-
     @inlineCallbacks
     def test_notificationObjectRevisions(self):
         """
@@ -452,7 +445,6 @@ END:VCARD
         home = yield self.homeUnderTest(name="user01")
         yield self.failUnlessFailure(home.resourceNamesSinceToken(token, "1"), SyncTokenValidException)
         yield self.failUnlessFailure(home.resourceNamesSinceToken(token, "infinity"), SyncTokenValidException)
-
 
     @inlineCallbacks
     def test_addressbookObjectRevisions(self):
@@ -503,7 +495,6 @@ END:VCARD
         # old sync token fails
         addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
         yield self.failUnlessFailure(addressbook.resourceNamesSinceToken(token), SyncTokenValidException)
-
 
     @inlineCallbacks
     def test_addressbookMembersRevisions(self):
@@ -574,7 +565,7 @@ END:VCARD
             Where=aboMembers.GROUP_ID == group1Object._resourceID,
         ).on(self.transactionUnderTest())
         self.assertEqual(len(group1Rows), 2)  # 2 members x 1 revision each
-        self.assertTrue(max([row[3] for row in group1Rows]) < minValidRevision) # < min revision but still around
+        self.assertTrue(max([row[3] for row in group1Rows]) < minValidRevision)  # < min revision but still around
 
         group2Rows = yield Select(
             [aboMembers.GROUP_ID,

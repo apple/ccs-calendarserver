@@ -20,6 +20,7 @@ from caldavclientlibrary.protocol.webdav.definitions import davxml, statuscodes,
 from caldavclientlibrary.protocol.webdav.propfind import PropFind
 from contrib.performance.sqlusage.requests.httpTests import HTTPTestBase
 
+
 class PropfindTest(HTTPTestBase):
     """
     A propfind operation
@@ -28,7 +29,6 @@ class PropfindTest(HTTPTestBase):
     def __init__(self, label, sessions, logFilePath, logFilePrefix, depth=1):
         super(PropfindTest, self).__init__(label, sessions, logFilePath, logFilePrefix)
         self.depth = headers.Depth1 if depth == 1 else headers.Depth0
-
 
     def doRequest(self):
         """

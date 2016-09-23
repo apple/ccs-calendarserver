@@ -60,7 +60,6 @@ class FakeConduitRequest(ConduitRequest):
 
         cls.storeMap[server.details()] = store
 
-
     def __init__(
         self, server, data, stream=None, stream_type=None, writeStream=None
     ):
@@ -69,7 +68,6 @@ class FakeConduitRequest(ConduitRequest):
         self.stream = stream
         self.streamType = stream_type
         self.writeStream = writeStream
-
 
     @inlineCallbacks
     def _processRequest(self):
@@ -99,6 +97,7 @@ class FakeConduitRequest(ConduitRequest):
                 stream = ProducerStream()
 
                 class StreamProtocol(Protocol):
+
                     def connectionMade(self):
                         stream.registerProducer(self.transport, False)
 
@@ -141,7 +140,6 @@ class FakeConduitRequest(ConduitRequest):
         returnValue(response)
 
 
-
 class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
 
     numberOfStores = 2
@@ -162,7 +160,6 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
         self.theStores = [None] * self.numberOfStores
         self.theNotifiers = [None] * self.numberOfStores
         self.activeTransactions = [None] * self.numberOfStores
-
 
     @inlineCallbacks
     def setUp(self):
@@ -210,18 +207,15 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
                 serversDB.getServerById(chr(ord("A") + i)), self.theStores[i]
             )
 
-
     def configure(self):
         super(MultiStoreConduitTest, self).configure()
         self.config.Servers.Enabled = True
-
 
     def theStoreUnderTest(self, count):
         """
         Return a store for testing.
         """
         return self.theStores[count]
-
 
     def makeNewTransaction(self, count):
         assert self.activeTransactions[count] is None
@@ -238,12 +232,10 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
         self.activeTransactions[count] = txn
         return self.activeTransactions[count]
 
-
     def theTransactionUnderTest(self, count):
         if self.activeTransactions[count] is None:
             self.makeNewTransaction(count)
         return self.activeTransactions[count]
-
 
     @inlineCallbacks
     def commitTransaction(self, count):
@@ -251,13 +243,11 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
         yield self.activeTransactions[count].commit()
         self.activeTransactions[count] = None
 
-
     @inlineCallbacks
     def abortTransaction(self, count):
         assert self.activeTransactions[count] is not None
         yield self.activeTransactions[count].abort()
         self.activeTransactions[count] = None
-
 
     @inlineCallbacks
     def waitAllEmpty(self):
@@ -266,12 +256,10 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
                 self.theStoreUnderTest(i).newTransaction, reactor, 60.0
             )
 
-
     def makeConduit(self, store):
         conduit = PoddingConduit(store)
         conduit.conduitRequestClass = FakeConduitRequest
         return conduit
-
 
     @inlineCallbacks
     def createShare(
@@ -295,7 +283,6 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
         yield self.commitTransaction(pod)
 
         returnValue("shared-calendar")
-
 
     @inlineCallbacks
     def removeShare(

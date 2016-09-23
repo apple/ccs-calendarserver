@@ -52,13 +52,11 @@ from txdav.xml import element
 import copy
 
 
-
 class CreateStore(Command):
     """
     Create a store in a subprocess.
     """
     arguments = [('delegateTo', String())]
-
 
 
 class PickleConfig(Command):
@@ -67,7 +65,6 @@ class PickleConfig(Command):
     """
     arguments = [('delegateTo', String()),
                  ('config', Pickle())]
-
 
 
 class StoreCreator(AMP):
@@ -83,14 +80,12 @@ class StoreCreator(AMP):
         swapAMP(self, namedAny(delegateTo)(SQLStoreBuilder.childStore()))
         return {}
 
-
     @PickleConfig.responder
     def pickleConfig(self, config, delegateTo):
         # from twistedcaldav.config import config as globalConfig
         # globalConfig._data = config._data
         swapAMP(self, namedAny(delegateTo)(config))
         return {}
-
 
 
 class StubSpawner(StoreSpawnerService):
@@ -102,7 +97,6 @@ class StubSpawner(StoreSpawnerService):
         super(StubSpawner, self).__init__()
         self.config = config
 
-
     @inlineCallbacks
     def spawnWithStore(self, here, there):
         """
@@ -112,7 +106,6 @@ class StubSpawner(StoreSpawnerService):
         master = yield self.spawn(AMP(), StoreCreator)
         yield master.callRemote(CreateStore, delegateTo=qual(there))
         returnValue(swapAMP(master, here))
-
 
     @inlineCallbacks
     def spawnWithConfig(self, config, here, there):
@@ -126,7 +119,6 @@ class StubSpawner(StoreSpawnerService):
         yield master.callRemote(PickleConfig, config=subcfg,
                                 delegateTo=qual(there))
         returnValue(swapAMP(master, here))
-
 
 
 class HomeMigrationTests(CommonCommonTests, TestCase):
@@ -154,7 +146,6 @@ END:AVAILABLE
 END:VAVAILABILITY
 END:VCALENDAR
 """)
-
 
     @inlineCallbacks
     def setUp(self):
@@ -229,7 +220,6 @@ END:VCALENDAR
 
         yield txn.commit()
 
-
     def mergeRequirements(self, a, b):
         """
         Merge two requirements dictionaries together, modifying C{a} and
@@ -253,7 +243,6 @@ END:VCALENDAR
                 calendarExtras = homeExtras[calendarUID]
                 calreq.update(calendarExtras)
         return a
-
 
     @withSpecialValue(
         "extraRequirements",
@@ -287,7 +276,6 @@ END:VCALENDAR
             ).calendarWithName("calendar_1"))
             ).calendarObjectWithName("bogus.ics"))
         )
-
 
     @inlineCallbacks
     def test_upgradeCalendarHomes(self):
@@ -328,7 +316,6 @@ END:VCALENDAR
             self.assertEquals(object.getMetadata(), metadata)
             self.assertEquals(object.md5(), md5)
 
-
     @withSpecialValue(
         "extraRequirements",
         {
@@ -357,7 +344,6 @@ END:VCALENDAR
         self.assertTrue(self.filesPath.child("calendars").child(
             "__uids__").child("no").child("ne").child("nonexistent").exists())
 
-
     @inlineCallbacks
     def test_upgradeExistingHome(self):
         """
@@ -375,7 +361,6 @@ END:VCALENDAR
         self.assertNotIdentical(None, (yield home.calendarWithName("calendar")))
         # The migrated calendar isn't.
         self.assertIdentical(None, (yield home.calendarWithName("calendar_1")))
-
 
     @inlineCallbacks
     def test_upgradeAttachments(self):
@@ -399,6 +384,7 @@ END:VCALENDAR
 
         txn = self.fileStore.newTransaction()
         committed = []
+
         def maybeCommit():
             if not committed:
                 committed.append(True)
@@ -429,17 +415,19 @@ END:VCALENDAR
         outObject = yield getSampleObj()
         outAttachment = yield outObject.attachmentWithName(someAttachmentName)
         allDone = Deferred()
+
         class SimpleProto(Protocol):
             data = ''
+
             def dataReceived(self, data):
                 self.data += data
+
             def connectionLost(self, reason):
                 allDone.callback(self.data)
         self.assertEquals(outAttachment.contentType(), someAttachmentType)
         outAttachment.retrieve(SimpleProto())
         allData = yield allDone
         self.assertEquals(allData, someAttachmentData)
-
 
     @inlineCallbacks
     def test_upgradeAddressBookHomes(self):
@@ -469,7 +457,6 @@ END:VCALENDAR
         ):
             object = (yield adbk.addressbookObjectWithName(name))
             self.assertEquals(object.md5(), md5)
-
 
     @inlineCallbacks
     def test_upgradeProperties(self):
@@ -503,7 +490,6 @@ END:VCALENDAR
         # Default calendar
         self.assertTrue(home.isDefaultCalendar(cal))
         self.assertTrue(inbox.properties().get(PropertyName.fromElement(caldavxml.ScheduleDefaultCalendarURL)) is None)
-
 
     def test_fileStoreFromPath(self):
         """

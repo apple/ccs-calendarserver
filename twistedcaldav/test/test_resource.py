@@ -39,51 +39,45 @@ from txweb2.http import HTTPError
 from txweb2.test.test_server import SimpleRequest
 
 
-
 class StubProperty(object):
+
     def qname(self):
         return "StubQnamespace", "StubQname"
 
 
-
 class StubHome(object):
+
     def properties(self):
         return []
-
 
     def addNotifier(self, factory_name, notifier):
         pass
 
-
     def nodeName(self):
         return "xyzzy" if self.pushWorking else None
 
-
     def notifierID(self):
         return "xyzzy"
-
 
     def setPushWorking(self, status):
         self.pushWorking = status
 
 
-
 class StubPrincipal(object):
+
     def __init__(self, user):
         self.user = user
-
 
     def principalElement(self):
         return element.Principal(element.HRef.fromString(self.user))
 
 
-
 class CalDAVResourceTests(TestCase):
+
     def setUp(self):
         TestCase.setUp(self)
         self.resource = CalDAVResource()
         self.resource._dead_properties = InMemoryPropertyStore()
-
 
     def test_writeDeadPropertyWritesProperty(self):
         prop = StubProperty()
@@ -92,13 +86,11 @@ class CalDAVResourceTests(TestCase):
                           prop)
 
 
-
 class TransactionErrorTests(StoreTestCase):
 
     @inlineCallbacks
     def setUp(self):
         yield super(TransactionErrorTests, self).setUp()
-
 
     @inlineCallbacks
     def test_timeoutRetry(self):
@@ -109,6 +101,7 @@ class TransactionErrorTests(StoreTestCase):
 
         # Patch request handling to add a delay to trigger the txn time out
         original = CalendarCollectionResource.iCalendarRolledup
+
         @inlineCallbacks
         def _iCalendarRolledup(self, request):
             d = Deferred()
@@ -132,7 +125,6 @@ class TransactionErrorTests(StoreTestCase):
         else:
             self.fail("HTTPError not raised")
 
-
     @inlineCallbacks
     def test_conduitRetry(self):
         """
@@ -155,7 +147,6 @@ class TransactionErrorTests(StoreTestCase):
         self.assertTrue(response.headers.hasHeader("Retry-After"))
         self.assertApproximates(int(response.headers.getRawHeaders("Retry-After")[0]), config.TransactionHTTPRetrySeconds, 1)
 
-
     @inlineCallbacks
     def test_failedShareRetry(self):
         """
@@ -174,7 +165,6 @@ class TransactionErrorTests(StoreTestCase):
         response = yield self.send(request)
         self.assertEqual(response.code, responsecode.SERVICE_UNAVAILABLE)
         self.assertFalse(response.headers.hasHeader("Retry-After"))
-
 
     @inlineCallbacks
     def test_failedPodChildRetry(self):
@@ -203,7 +193,6 @@ class TransactionErrorTests(StoreTestCase):
             self.fail("HTTPError not raised")
 
 
-
 class CommonHomeResourceTests(TestCase):
 
     def test_commonHomeliveProperties(self):
@@ -211,30 +200,25 @@ class CommonHomeResourceTests(TestCase):
         self.assertTrue(('http://calendarserver.org/ns/', 'push-transports') in resource.liveProperties())
         self.assertTrue(('http://calendarserver.org/ns/', 'pushkey') in resource.liveProperties())
 
-
     def test_calendarHomeliveProperties(self):
         resource = CalendarHomeResource(None, None, None, StubHome())
         self.assertTrue(('http://calendarserver.org/ns/', 'push-transports') in resource.liveProperties())
         self.assertTrue(('http://calendarserver.org/ns/', 'pushkey') in resource.liveProperties())
-
 
     def test_addressBookHomeliveProperties(self):
         resource = AddressBookHomeResource(None, None, None, StubHome())
         self.assertTrue(('http://calendarserver.org/ns/', 'push-transports') in resource.liveProperties())
         self.assertTrue(('http://calendarserver.org/ns/', 'pushkey') in resource.liveProperties())
 
-
     def test_notificationCollectionLiveProperties(self):
         resource = NotificationCollectionResource()
         self.assertTrue(('http://calendarserver.org/ns/', 'getctag') in resource.liveProperties())
-
 
     def test_commonHomeResourceMergeSyncToken(self):
         resource = CommonHomeResource(None, None, None, StubHome())
         self.assertEquals(resource._mergeSyncTokens("1_2/A", "1_3/A"), "1_3/A")
         self.assertEquals(resource._mergeSyncTokens("1_2", "1_3"), "1_3")
         self.assertEquals(resource._mergeSyncTokens("1_4", "1_3"), "1_4")
-
 
 
 class OwnershipTests(TestCase):
@@ -255,7 +239,6 @@ class OwnershipTests(TestCase):
         rsrc.owner = lambda igreq: HRef("/somebody/")
         self.assertEquals((yield rsrc.isOwner(request)), False)
 
-
     @inlineCallbacks
     def test_isOwnerNo(self):
         """
@@ -269,7 +252,6 @@ class OwnershipTests(TestCase):
         rsrc.owner = lambda igreq: HRef("/no-i-am-not-the-owner/")
         self.assertEquals((yield rsrc.isOwner(request)), False)
 
-
     @inlineCallbacks
     def test_isOwnerYes(self):
         """
@@ -282,7 +264,6 @@ class OwnershipTests(TestCase):
         rsrc = CalDAVResource()
         rsrc.owner = lambda igreq: HRef("/yes-i-am-the-owner/")
         self.assertEquals((yield rsrc.isOwner(request)), True)
-
 
     @inlineCallbacks
     def test_isOwnerYes_noStoreObject(self):
@@ -303,7 +284,6 @@ class OwnershipTests(TestCase):
 
         self.assertEquals((yield rsrc.isOwner(request)), True)
 
-
     @inlineCallbacks
     def test_isOwnerAdmin(self):
         """
@@ -319,7 +299,6 @@ class OwnershipTests(TestCase):
         rsrc = CalDAVResource()
         rsrc.owner = lambda igreq: HRef("/some-other-user/")
         self.assertEquals((yield rsrc.isOwner(request)), True)
-
 
     @inlineCallbacks
     def test_isOwnerReadPrincipal(self):
@@ -338,15 +317,12 @@ class OwnershipTests(TestCase):
         self.assertEquals((yield rsrc.isOwner(request)), True)
 
 
-
 class DefaultAddressBook (StoreTestCase):
-
 
     @inlineCallbacks
     def setUp(self):
         yield StoreTestCase.setUp(self)
         self.authPrincipal = yield self.actualRoot.findPrincipalForAuthID("wsanchez")
-
 
     @inlineCallbacks
     def test_pick_default_addressbook(self):
@@ -373,7 +349,6 @@ class DefaultAddressBook (StoreTestCase):
             self.fail("carddavxml.DefaultAddressBookURL is not present")
         else:
             self.assertEqual(str(default.children[0]), "/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/addressbook/")
-
 
     @inlineCallbacks
     def test_fix_shared_default(self):

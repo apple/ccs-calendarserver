@@ -109,7 +109,7 @@ class PropertyStoreTests(TestCase):
         # platforms.
         tf.extractall(tmpdir)
 
-        props = PropertyStore("bob", lambda : FilePath(tmpdir).child('f'))
+        props = PropertyStore("bob", lambda: FilePath(tmpdir).child('f'))
 
         self.assertEqual(props[PropertyName.fromElement(HRef)],
                          HRef("http://sample.example.com/"))
@@ -117,7 +117,6 @@ class PropertyStoreTests(TestCase):
                          Depth("1"))
         self.assertEqual(props[PropertyName.fromElement(GETContentType)],
                          GETContentType("text/example"))
-
 
     def test_propertyFreeFile(self):
         """
@@ -127,5 +126,5 @@ class PropertyStoreTests(TestCase):
         """
         sample = FilePath(self.mktemp())
         sample.setContent("")
-        props = PropertyStore("nobody", lambda : sample)
+        props = PropertyStore("nobody", lambda: sample)
         self.assertEqual(props.attrs, {})

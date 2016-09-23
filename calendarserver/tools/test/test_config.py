@@ -28,12 +28,13 @@ import plistlib
 PREAMBLE = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 """
+
+
 class WritableConfigTestCase(TestCase):
 
     def setUp(self):
         self.configFile = self.mktemp()
         self.fp = FilePath(self.configFile)
-
 
     def test_readSuccessful(self):
         content = """<plist version="1.0">
@@ -49,13 +50,11 @@ class WritableConfigTestCase(TestCase):
         writable.read()
         self.assertEquals(writable.currentConfigSubset, {"string": "foo"})
 
-
     def test_readInvalidXML(self):
         self.fp.setContent("invalid")
         config = ConfigDict()
         writable = WritableConfig(config, self.configFile)
         self.assertRaises(ExpatError, writable.read)
-
 
     def test_updates(self):
         content = """<plist version="1.0">
@@ -72,7 +71,7 @@ class WritableConfigTestCase(TestCase):
         writable.read()
         writable.set({"key1": "after"})
         writable.set({"key2": 15})
-        writable.set({"key2": 20}) # override previous set
+        writable.set({"key2": 20})  # override previous set
         writable.set({"key3": ["a", "b", "c"]})
         self.assertEquals(writable.currentConfigSubset, {"key1": "after", "key2": 20, "key3": ["a", "b", "c"]})
         writable.save()
@@ -81,7 +80,6 @@ class WritableConfigTestCase(TestCase):
         writable2.read()
         self.assertEquals(writable2.currentConfigSubset, {"key1": "after", "key2": 20, "key3": ["a", "b", "c"]})
 
-
     def test_convertToValue(self):
         self.assertEquals(True, WritableConfig.convertToValue("True"))
         self.assertEquals(False, WritableConfig.convertToValue("False"))
@@ -89,7 +87,6 @@ class WritableConfigTestCase(TestCase):
         self.assertEquals(1.2, WritableConfig.convertToValue("1.2"))
         self.assertEquals("xyzzy", WritableConfig.convertToValue("xyzzy"))
         self.assertEquals("xy.zzy", WritableConfig.convertToValue("xy.zzy"))
-
 
     def test_processArgs(self):
         """
@@ -109,7 +106,6 @@ class WritableConfigTestCase(TestCase):
         writable2 = WritableConfig(config, self.configFile)
         writable2.read()
         self.assertEquals(writable2.currentConfigSubset, {'key1': u'\U0001f4a3'})
-
 
 
 class ConfigTestCase(RunCommandTestCase):
@@ -135,7 +131,6 @@ class ConfigTestCase(RunCommandTestCase):
         # Verify not all keys are present, such as umask which is not accessible
         self.assertFalse("umask" in results["result"])
 
-
     @inlineCallbacks
     def test_writeConfig(self):
         """
@@ -159,7 +154,6 @@ class ConfigTestCase(RunCommandTestCase):
         staticPlist = plistlib.readPlist(self.configFileName)
         self.assertTrue(staticPlist["EnableCalDAV"])
 
-
     @inlineCallbacks
     def test_error(self):
         """
@@ -169,7 +163,6 @@ class ConfigTestCase(RunCommandTestCase):
             command_bogusCommand,
             script="calendarserver_config")
         self.assertEquals(results["error"], "Unknown command 'bogus'")
-
 
     @inlineCallbacks
     def test_commandLineArgs(self):
@@ -218,7 +211,7 @@ class ConfigTestCase(RunCommandTestCase):
 
         self.assertEquals(
             results["result"]["LogLevels"],
-            {"testing": "debug", "testing2" : "warn"}
+            {"testing": "debug", "testing2": "warn"}
         )
 
         # Test that setting additional sub-keys retains previous sub-keys
@@ -236,7 +229,7 @@ class ConfigTestCase(RunCommandTestCase):
 
         self.assertEquals(
             results["result"]["LogLevels"],
-            {"testing": "debug", "testing2" : "warn", "testing3": "info", "testing4" : "warn"}
+            {"testing": "debug", "testing2": "warn", "testing3": "info", "testing4": "warn"}
         )
 
         # Test that an empty value deletes the key
@@ -253,17 +246,15 @@ class ConfigTestCase(RunCommandTestCase):
             script="calendarserver_config")
 
         self.assertEquals(
-            results["result"]["LogLevels"], # now an empty dict
+            results["result"]["LogLevels"],  # now an empty dict
             {}
         )
-
 
     @inlineCallbacks
     def test_loggingCategories(self):
         """
         Verify logging categories get mapped to the correct python module names
         """
-
 
         # Check existing values
 
@@ -331,7 +322,6 @@ class ConfigTestCase(RunCommandTestCase):
         self.assertEquals(
             results["result"]["LogLevels"], {}
         )
-
 
     @inlineCallbacks
     def test_accountingCategories(self):
@@ -415,7 +405,6 @@ class ConfigTestCase(RunCommandTestCase):
             }
         )
 
-
     def test_keyPath(self):
         d = ConfigDict()
         setKeyPath(d, "one", "A")
@@ -438,18 +427,17 @@ class ConfigTestCase(RunCommandTestCase):
         self.assertEquals(getKeyPath(d, "three.one.one"), "F")
         self.assertEquals(getKeyPath(d, "three.one.two"), "G")
 
-
     def test_flattenDictionary(self):
         dictionary = {
-            "one" : "A",
-            "two" : {
-                "one" : "D",
-                "two" : "E",
+            "one": "A",
+            "two": {
+                "one": "D",
+                "two": "E",
             },
-            "three" : {
-                "one" : {
-                    "one" : "F",
-                    "two" : "G",
+            "three": {
+                "one": {
+                    "one": "F",
+                    "two": "G",
                 },
             },
         }

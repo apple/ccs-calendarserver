@@ -52,7 +52,10 @@ log = Logger()
 # Monkey patch imap4.log so it doesn't emit useless logging,
 # specifically, "Unhandled unsolicited response" nonsense.
 #
+
+
 class IMAPLogger(LogPublisher):
+
     def msg(self, *message, **kwargs):
         if message and message[0].startswith("Unhandled unsolicited response:"):
             return
@@ -76,6 +79,7 @@ create table IMIP_POLLING_WORK (
 );
 """
 
+
 class IMIPReplyWork(WorkItem, fromTable(schema.IMIP_REPLY_WORK)):
 
     @inlineCallbacks
@@ -85,7 +89,6 @@ class IMIPReplyWork(WorkItem, fromTable(schema.IMIP_REPLY_WORK)):
             yield injectMessage(self.transaction, self.organizer, self.attendee, calendar)
         except:
             log.error("Unable to process reply")
-
 
 
 class IMIPPollingWork(RegeneratingWorkItem, fromTable(schema.IMIP_POLLING_WORK)):
@@ -105,14 +108,12 @@ class IMIPPollingWork(RegeneratingWorkItem, fromTable(schema.IMIP_POLLING_WORK))
         # Returning None will cause this work item to no longer be scheduled.
         return None
 
-
     @inlineCallbacks
     def doWork(self):
 
         mailRetriever = self.transaction._mailRetriever
         if mailRetriever is not None:
             yield mailRetriever.fetchMail()
-
 
 
 class MailRetriever(service.Service):
@@ -144,19 +145,16 @@ class MailRetriever(service.Service):
             self.reactor, settings.Server,
             settings.Port, contextFactory=contextFactory)
 
-
     def fetchMail(self):
         return self.point.connect(self.factory(
             self.settings, self.mailReceiver,
             self.deleteAllMail))
-
 
     @inlineCallbacks
     def scheduleNextPoll(self, seconds=None):
         if seconds is None:
             seconds = self.settings["PollingSeconds"]
         yield IMIPPollingWork.reschedule(self.store, seconds)
-
 
 
 def shouldDeleteAllMail(serverHostName, inboundServer, username):
@@ -181,7 +179,6 @@ def shouldDeleteAllMail(serverHostName, inboundServer, username):
     )
 
 
-
 @inlineCallbacks
 def scheduleNextMailPoll(store, seconds):
     txn = store.newTransaction(label="scheduleNextMailPoll")
@@ -189,7 +186,6 @@ def scheduleNextMailPoll(store, seconds):
     log.debug("Scheduling next mail poll: {time}", time=notBefore)
     yield txn.enqueue(IMIPPollingWork, notBefore=notBefore)
     yield txn.commit()
-
 
 
 def sanitizeCalendar(calendar):
@@ -217,7 +213,6 @@ def sanitizeCalendar(calendar):
             calendar.removeAllPropertiesWithName("STATUS")
 
 
-
 class MailReceiver(object):
 
     NO_TOKEN = 0
@@ -233,7 +228,6 @@ class MailReceiver(object):
     def __init__(self, store, directory):
         self.store = store
         self.directory = directory
-
 
     def checkDSN(self, message):
         # returns (isdsn, action, icalendar attachment)
@@ -274,7 +268,6 @@ class MailReceiver(object):
             # not a dsn
             return False, None, None
 
-
     def _extractToken(self, text):
         try:
             pre, _ignore_post = text.split('@')
@@ -282,7 +275,6 @@ class MailReceiver(object):
             return token
         except ValueError:
             return None
-
 
     @inlineCallbacks
     def processDSN(self, calBody, msgId):
@@ -331,7 +323,6 @@ class MailReceiver(object):
         )
         yield txn.commit()
         returnValue(self.INJECTION_SUBMITTED)
-
 
     @inlineCallbacks
     def processReply(self, msg):
@@ -474,7 +465,6 @@ class MailReceiver(object):
         yield txn.commit()
         returnValue(self.INJECTION_SUBMITTED)
 
-
     # returns a deferred
     def inbound(self, message):
         """
@@ -523,7 +513,6 @@ class MailReceiver(object):
         return succeed(self.UNKNOWN_FAILURE)
 
 
-
 @inlineCallbacks
 def injectMessage(txn, organizer, attendee, calendar):
 
@@ -536,7 +525,6 @@ def injectMessage(txn, organizer, attendee, calendar):
         raise
 
     returnValue(results)
-
 
 
 #
@@ -557,7 +545,6 @@ class POP3DownloadProtocol(pop3client.POP3Client):
         login.addCallback(self.cbLoggedIn)
         login.addErrback(self.cbLoginFailed)
 
-
     def cbLoginFailed(self, reason):
         self.log.error(
             "POP3 login failed for {user}",
@@ -565,11 +552,9 @@ class POP3DownloadProtocol(pop3client.POP3Client):
         )
         return self.quit()
 
-
     def cbLoggedIn(self, result):
         self.log.debug("POP loggedin")
         return self.listSize().addCallback(self.cbGotMessageSizes)
-
 
     def cbGotMessageSizes(self, sizes):
         self.log.debug("POP gotmessagesizes")
@@ -577,7 +562,6 @@ class POP3DownloadProtocol(pop3client.POP3Client):
         for i in range(len(sizes)):
             downloads.append(self.retrieve(i).addCallback(self.cbDownloaded, i))
         return defer.DeferredList(downloads).addCallback(self.cbFinished)
-
 
     @inlineCallbacks
     def cbDownloaded(self, lines, id):
@@ -594,11 +578,9 @@ class POP3DownloadProtocol(pop3client.POP3Client):
                 self.log.debug("POP deleting message {msgid}", msgid=id)
                 self.delete(id)
 
-
     def cbFinished(self, results):
         self.log.debug("POP finished")
         return self.quit()
-
 
 
 class POP3DownloadFactory(protocol.ClientFactory):
@@ -612,22 +594,18 @@ class POP3DownloadFactory(protocol.ClientFactory):
         self.deleteAllMail = deleteAllMail
         self.noisy = False
 
-
     def clientConnectionLost(self, connector, reason):
         self.connector = connector
         self.log.debug("POP factory connection lost")
-
 
     def clientConnectionFailed(self, connector, reason):
         self.connector = connector
         self.log.info("POP factory connection failed")
 
-
     def handleMessage(self, message):
         self.log.debug("POP factory handle message")
         # self.log.debug(message)
         return self.mailReceiver.inbound(message)
-
 
 
 #
@@ -638,11 +616,9 @@ class POP3DownloadFactory(protocol.ClientFactory):
 class IMAP4DownloadProtocol(imap4.IMAP4Client):
     log = Logger()
 
-
     def connectionLost(self, reason):
         if reason.type is TLSError:
             AlertPoster.postAlert("MailCertificateAlert", 7 * 24 * 60 * 60, [])
-
 
     def serverGreeting(self, capabilities):
         self.log.debug("IMAP servergreeting")
@@ -652,10 +628,8 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
             self.cbLoggedIn
         ).addErrback(self.ebAuthenticateFailed)
 
-
     def ebLogError(self, error):
         self.log.error("IMAP Error: {err}", err=error)
-
 
     def ebAuthenticateFailed(self, reason):
         self.log.debug(
@@ -668,21 +642,17 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
             self.cbLoggedIn
         ).addErrback(self.ebLoginFailed)
 
-
     def ebLoginFailed(self, reason):
         self.log.error("IMAP login failed for {name}", name=self.factory.settings["Username"])
         self.transport.loseConnection()
-
 
     def cbLoggedIn(self, result):
         self.log.debug("IMAP logged in")
         self.select("Inbox").addCallback(self.cbInboxSelected)
 
-
     def cbInboxSelected(self, result):
         self.log.debug("IMAP Inbox selected")
         self.search(imap4.Query(unseen=True)).addCallback(self.cbGotSearch)
-
 
     def cbGotSearch(self, results):
         if results:
@@ -693,7 +663,6 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
         else:
             self.cbClosed(None)
 
-
     def cbGotUIDs(self, results):
         self.messageUIDs = [result['UID'] for result in results.values()]
         self.messageCount = len(self.messageUIDs)
@@ -703,7 +672,6 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
         else:
             # No messages; close it out
             self.close().addCallback(self.cbClosed)
-
 
     def fetchNextMessage(self):
         # self.log.debug("IMAP in fetchnextmessage")
@@ -720,7 +688,6 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
         else:
             # We're done for this polling interval
             self.expunge()
-
 
     @inlineCallbacks
     def cbGotMessage(self, results, messageList):
@@ -752,49 +719,40 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
             else:
                 self.fetchNextMessage()
 
-
     def cbFlagUnseen(self, messageList):
         self.removeFlags(
             messageList, ("\\Seen",), uid=True
         ).addCallback(self.cbMessageUnseen, messageList)
 
-
     def cbMessageUnseen(self, results, messageList):
         self.log.debug("Removed \\Seen flag from message")
         self.fetchNextMessage()
-
 
     def cbFlagDeleted(self, messageList):
         self.addFlags(
             messageList, ("\\Deleted",), uid=True
         ).addCallback(self.cbMessageDeleted, messageList)
 
-
     def cbMessageDeleted(self, results, messageList):
         self.log.debug("Deleted message")
         self.fetchNextMessage()
-
 
     def cbClosed(self, results):
         self.log.debug("Mailbox closed")
         self.logout().addCallback(
             lambda _: self.transport.loseConnection())
 
-
     def rawDataReceived(self, data):
         # self.log.debug("RAW RECEIVED: {data}", data=data)
         imap4.IMAP4Client.rawDataReceived(self, data)
-
 
     def lineReceived(self, line):
         # self.log.debug("RECEIVED: {line}", line=line)
         imap4.IMAP4Client.lineReceived(self, line)
 
-
     def sendLine(self, line):
         # self.log.debug("SENDING: {line}", line=line)
         imap4.IMAP4Client.sendLine(self, line)
-
 
 
 class IMAP4DownloadFactory(protocol.ClientFactory):
@@ -810,7 +768,6 @@ class IMAP4DownloadFactory(protocol.ClientFactory):
         self.deleteAllMail = deleteAllMail
         self.noisy = False
 
-
     def buildProtocol(self, addr):
         p = protocol.ClientFactory.buildProtocol(self, addr)
         username = self.settings["Username"]
@@ -819,17 +776,14 @@ class IMAP4DownloadFactory(protocol.ClientFactory):
         p.registerAuthenticator(imap4.PLAINAuthenticator(username))
         return p
 
-
     def handleMessage(self, message):
         self.log.debug("IMAP factory handle message")
         # self.log.debug(message)
         return self.mailReceiver.inbound(message)
 
-
     def clientConnectionLost(self, connector, reason):
         self.connector = connector
         self.log.debug("IMAP factory connection lost")
-
 
     def clientConnectionFailed(self, connector, reason):
         self.connector = connector

@@ -42,7 +42,6 @@ class DirectoryPoddingConduitMixin(object):
         response = yield self.sendRequestToServer(txn, server, request)
         returnValue(set(response))
 
-
     @inlineCallbacks
     def recv_all_group_delegates(self, txn, request):
         """
@@ -55,7 +54,6 @@ class DirectoryPoddingConduitMixin(object):
         delegatedUIDs = yield txn.allGroupDelegates()
 
         returnValue(list(delegatedUIDs))
-
 
     @inlineCallbacks
     def send_set_delegates(self, txn, delegator, delegates, readWrite):
@@ -82,7 +80,6 @@ class DirectoryPoddingConduitMixin(object):
         }
         yield self.sendRequestToServer(txn, delegator.server(), request)
 
-
     @inlineCallbacks
     def recv_set_delegates(self, txn, request):
         """
@@ -104,7 +101,6 @@ class DirectoryPoddingConduitMixin(object):
             delegates.append(delegate)
 
         yield Delegates.setDelegates(txn, delegator, delegates, request["read-write"])
-
 
     @inlineCallbacks
     def send_get_delegates(self, txn, delegator, readWrite, expanded=False):
@@ -130,7 +126,6 @@ class DirectoryPoddingConduitMixin(object):
         response = yield self.sendRequestToServer(txn, delegator.server(), request)
         returnValue(set(response))
 
-
     @inlineCallbacks
     def recv_get_delegates(self, txn, request):
         """
@@ -147,7 +142,6 @@ class DirectoryPoddingConduitMixin(object):
         delegates = yield Delegates._delegatesOfUIDs(txn, delegator, request["read-write"], request["expanded"])
 
         returnValue(list(delegates))
-
 
     @inlineCallbacks
     def send_get_delegators(self, txn, server, delegate, readWrite):
@@ -174,7 +168,6 @@ class DirectoryPoddingConduitMixin(object):
         response = yield self.sendRequestToServer(txn, server, request)
         returnValue(set(response))
 
-
     @inlineCallbacks
     def recv_get_delegators(self, txn, request):
         """
@@ -191,7 +184,6 @@ class DirectoryPoddingConduitMixin(object):
         delegators = yield Delegates._delegatedToUIDs(txn, delegate, request["read-write"], onlyThisServer=True)
 
         returnValue(list(delegators))
-
 
     @inlineCallbacks
     def send_dump_individual_delegates(self, txn, delegator):
@@ -215,7 +207,6 @@ class DirectoryPoddingConduitMixin(object):
         response = yield self.sendRequestToServer(txn, delegator.server(), request)
         returnValue(response)
 
-
     @inlineCallbacks
     def recv_dump_individual_delegates(self, txn, request):
         """
@@ -232,7 +223,6 @@ class DirectoryPoddingConduitMixin(object):
         delegates = yield txn.dumpIndividualDelegatesLocal(delegator.uid)
 
         returnValue(self._to_serialize_list(delegates))
-
 
     @inlineCallbacks
     def send_dump_group_delegates(self, txn, delegator):
@@ -256,7 +246,6 @@ class DirectoryPoddingConduitMixin(object):
         response = yield self.sendRequestToServer(txn, delegator.server(), request)
         returnValue(response)
 
-
     @inlineCallbacks
     def recv_dump_group_delegates(self, txn, request):
         """
@@ -273,7 +262,6 @@ class DirectoryPoddingConduitMixin(object):
         results = yield txn.dumpGroupDelegatesLocal(delegator.uid)
 
         returnValue([[delegator_record.serialize(), group_record.serialize()] for delegator_record, group_record in results])
-
 
     @inlineCallbacks
     def send_dump_external_delegates(self, txn, delegator):
@@ -296,7 +284,6 @@ class DirectoryPoddingConduitMixin(object):
         }
         response = yield self.sendRequestToServer(txn, delegator.server(), request)
         returnValue(response)
-
 
     @inlineCallbacks
     def recv_dump_external_delegates(self, txn, request):

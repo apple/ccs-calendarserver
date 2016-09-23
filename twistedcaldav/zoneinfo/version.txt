@@ -1,1 +1,1 @@
-IANA Timezone Registry: 2016a
+IANA Timezone Registry: 2016f

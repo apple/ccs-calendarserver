@@ -26,6 +26,7 @@ Classes and methods that relate to directory objects in the SQL store. e.g.,
 delegates, groups etc
 """
 
+
 class GroupAttendeeRecord(SerializableRecord, fromTable(schema.GROUP_ATTENDEE)):
     """
     @DynamicAttrs
@@ -62,7 +63,6 @@ class GroupAttendeeRecord(SerializableRecord, fromTable(schema.GROUP_ATTENDEE)):
             results.append((groupAttendeeRecord, groupsRecord,))
 
         returnValue(results)
-
 
 
 class GroupShareeRecord(SerializableRecord, fromTable(schema.GROUP_SHAREE)):

@@ -52,7 +52,6 @@ class Error (WebDAVElement):
     allowed_children = {WebDAVElement: (0, None)}
 
 
-
 ##
 # Section 3
 ##
@@ -69,7 +68,6 @@ class Comment (WebDAVTextElement):
     hidden = True
 
 
-
 @registerElement
 @registerElementClass
 class CreatorDisplayName (WebDAVTextElement):
@@ -79,7 +77,6 @@ class CreatorDisplayName (WebDAVTextElement):
     """
     name = "creator-displayname"
     hidden = True
-
 
 
 @registerElement
@@ -99,7 +96,6 @@ class SupportedMethod (WebDAVElement):
     allowed_attributes = {"name": True}
 
 
-
 @registerElement
 @registerElementClass
 class SupportedMethodSet (WebDAVElement):
@@ -112,7 +108,6 @@ class SupportedMethodSet (WebDAVElement):
     hidden = True
 
     allowed_children = {(dav_namespace, "supported-method"): (0, None)}
-
 
 
 @registerElement
@@ -132,7 +127,6 @@ class SupportedLiveProperty (WebDAVElement):
     allowed_children = {(dav_namespace, "name"): (1, 1)}
 
 
-
 @registerElement
 @registerElementClass
 class SupportedLivePropertySet (WebDAVElement):
@@ -147,7 +141,6 @@ class SupportedLivePropertySet (WebDAVElement):
     allowed_children = {(dav_namespace, "supported-live-property"): (0, None)}
 
 
-
 @registerElement
 @registerElementClass
 class Report (WebDAVElement):
@@ -158,7 +151,6 @@ class Report (WebDAVElement):
     name = "report"
 
     allowed_children = {WebDAVElement: (0, None)}
-
 
 
 @registerElement
@@ -196,7 +188,6 @@ class SupportedReport (WebDAVElement):
     allowed_children = {(dav_namespace, "report"): (0, 1)}
 
 
-
 @registerElement
 @registerElementClass
 class SupportedReportSet (WebDAVElement):
@@ -211,7 +202,6 @@ class SupportedReportSet (WebDAVElement):
     allowed_children = {(dav_namespace, "supported-report"): (0, None)}
 
 
-
 @registerElement
 @registerElementClass
 class ExpandProperty (WebDAVElement):
@@ -223,7 +213,6 @@ class ExpandProperty (WebDAVElement):
     name = "expand-property"
 
     allowed_children = {(dav_namespace, "property"): (0, None)}
-
 
 
 @registerElement
@@ -240,6 +229,6 @@ class Property (WebDAVElement):
 
     allowed_children = {(dav_namespace, "property"): (0, None)}
     allowed_attributes = {
-        "name"      : True,
-        "namespace" : False,
+        "name": True,
+        "namespace": False,
     }

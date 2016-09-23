@@ -37,7 +37,6 @@ class FileNotFound(Exception):
     """
 
 
-
 def usage(e=None):
     if e:
         print(e)
@@ -52,7 +51,6 @@ def usage(e=None):
         sys.exit(64)
     else:
         sys.exit(0)
-
 
 
 def main():
@@ -82,13 +80,11 @@ def main():
             result = detectPhantomVolume()
             sys.exit(result)
 
-
     osBuild = getOSBuild()
     print("OS Build: {}".format(osBuild))
 
     serverBuild = getServerBuild()
     print("Server Build: {}".format(serverBuild))
-
 
     print()
 
@@ -142,7 +138,6 @@ def main():
     if postgresRunning:
         showPostgresContent()
 
-
     password = getPasswordFromKeychain("com.apple.calendarserver")
 
     connectToAgent(password)
@@ -155,6 +150,7 @@ def main():
 EXIT_CODE_OK = 0
 EXIT_CODE_SERVER_ROOT_MISSING = 1
 EXIT_CODE_PHANTOM_DATA_VOLUME = 2
+
 
 def detectPhantomVolume(serverRoot=None):
     """
@@ -178,7 +174,6 @@ def detectPhantomVolume(serverRoot=None):
     return EXIT_CODE_OK
 
 
-
 def showProcesses():
 
     print()
@@ -198,7 +193,6 @@ def showProcesses():
     for line in stdout.split("\n"):
         if "_calendar" in line or "CalendarServer" in line or "COMMAND" in line:
             print(line)
-
 
 
 def showServerctlStatus():
@@ -237,7 +231,6 @@ def showServerctlStatus():
         )
 
 
-
 def showDiskSpace(serverRoot):
 
     print()
@@ -270,7 +263,6 @@ def showDiskSpace(serverRoot):
     print(stdout)
 
 
-
 def showPostgresStatus(serverRoot):
 
     clusterPath = os.path.join(serverRoot, "Data", "Database.xpg", "cluster.pg")
@@ -296,7 +288,6 @@ def showPostgresStatus(serverRoot):
     return True
 
 
-
 def runSQLQuery(query):
 
     _ignore_code, stdout, stderr = runCommand(
@@ -311,7 +302,6 @@ def runSQLQuery(query):
         print(stdout)
     if stderr:
         print(stderr)
-
 
 
 def countFromSQLQuery(query):
@@ -332,7 +322,6 @@ def countFromSQLQuery(query):
     return count
 
 
-
 def listDatabases():
 
     _ignore_code, stdout, stderr = runCommand(
@@ -347,7 +336,6 @@ def listDatabases():
         print(stdout)
     if stderr:
         print(stderr)
-
 
 
 def showPostgresContent():
@@ -383,7 +371,6 @@ def showPostgresContent():
     runSQLQuery("select * from job;")
 
 
-
 def showConfigKeys():
 
     print()
@@ -415,7 +402,6 @@ def showConfigKeys():
     return keys
 
 
-
 def runCommand(commandPath, *args):
     """
     Run a command line tool and return the output
@@ -437,7 +423,6 @@ def runCommand(commandPath, *args):
     return child.returncode, output, error
 
 
-
 def getOSBuild():
     try:
         code, stdout, _ignore_stderr = runCommand("/usr/bin/sw_vers", "-buildVersion")
@@ -445,7 +430,6 @@ def getOSBuild():
             return stdout.strip()
     except:
         return "Unknown"
-
 
 
 def getServerBuild():
@@ -456,7 +440,6 @@ def getServerBuild():
     except:
         pass
     return "Unknown"
-
 
 
 def getServerRoot():
@@ -477,7 +460,6 @@ def getServerRoot():
         return "Unknown"
 
 
-
 def checkPlist(plistPath):
     if not os.path.exists(plistPath):
         raise FileNotFound
@@ -488,7 +470,6 @@ def checkPlist(plistPath):
         return False
 
     return True
-
 
 
 def showWebApps():
@@ -593,7 +574,6 @@ def connectToAgent(password):
         )
 
     return True
-
 
 
 def connectToCaldavd(keys):

@@ -34,7 +34,6 @@ from ..idirectory import (
 from ..xml import DirectoryService
 
 
-
 class ExtendedSchemaTest(unittest.TestCase):
     """
     Tests for calendar and contacts schema extensions.
@@ -78,7 +77,6 @@ class ExtendedSchemaTest(unittest.TestCase):
 
         return service.recordWithUID(uid)
 
-
     @inlineCallbacks
     def test_unicodeElements(self):
         for field, element in (
@@ -89,7 +87,6 @@ class ExtendedSchemaTest(unittest.TestCase):
                 elementName=element, elementValue=u"xyzzy"
             )
             self.assertEquals(record.fields[field], u"xyzzy")
-
 
     @inlineCallbacks
     def test_booleanElements(self):
@@ -102,7 +99,6 @@ class ExtendedSchemaTest(unittest.TestCase):
                 elementName=element, elementValue=u"<true />"
             )
             self.assertIdentical(record.fields[field], True, field)
-
 
     @inlineCallbacks
     def test_autoScheduleMode(self):
@@ -123,7 +119,6 @@ class ExtendedSchemaTest(unittest.TestCase):
                 elementValue=u"<{0} />".format(value),
             )
             self.assertIdentical(record.fields[field], mode)
-
 
     @inlineCallbacks
     def test_recordTypes(self):

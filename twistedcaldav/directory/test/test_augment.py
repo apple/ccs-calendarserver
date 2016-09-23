@@ -39,9 +39,9 @@ testRecords = (
     {"uid": "6A73326A-F781-47E7-A9F8-AF47364D4152", "enabledForCalendaring": True, "enabledForAddressBooks": True, "autoScheduleMode": "automatic"},
     {"uid": "C5BAADEE-6B35-4FD5-A98A-5DF6BBAAC47A", "enabledForCalendaring": True, "enabledForAddressBooks": True, "autoScheduleMode": "automatic"},
     {"uid": "8AB34DF9-0297-4BA3-AADB-DB557DDD21E7", "enabledForCalendaring": True, "enabledForAddressBooks": True, "autoScheduleMode": "accept-always"},
-    {"uid": "FC674703-8008-4A77-B80E-0DB55A9CE620", "enabledForLogin": False, }, # Explicitly false
-    {"uid": "B473DC32-1B0D-45EE-9BAC-DA878AE9CE74", "enabledForLogin": True, }, # Explicitly True
-    {"uid": "9F2B176D-B3F5-483A-AA63-0A1FC6E6D54B", "enabledForLogin": True, }, # Default is True
+    {"uid": "FC674703-8008-4A77-B80E-0DB55A9CE620", "enabledForLogin": False, },  # Explicitly false
+    {"uid": "B473DC32-1B0D-45EE-9BAC-DA878AE9CE74", "enabledForLogin": True, },  # Explicitly True
+    {"uid": "9F2B176D-B3F5-483A-AA63-0A1FC6E6D54B", "enabledForLogin": True, },  # Default is True
 )
 
 testRecordWildcardDefault = (
@@ -84,7 +84,6 @@ class AugmentTests(TestCase):
         for k, v in items.iteritems():
             self.assertEqual(getattr(record, k), v, "Failed record uid: %s, attribute: %s" % (items["uid"], k,))
 
-
     @inlineCallbacks
     def _checkRecordExists(self, db, uid, recordType="users"):
 
@@ -92,12 +91,10 @@ class AugmentTests(TestCase):
         self.assertTrue(record is not None, "Failed record uid: %s" % (uid,))
 
 
-
 class AugmentTestsMixin(object):
 
     def _db(self, dbpath=None):
         raise NotImplementedError
-
 
     @inlineCallbacks
     def test_read(self):
@@ -114,7 +111,6 @@ class AugmentTestsMixin(object):
         # Verify that a default record is returned, even if not specified
         # in the DB
         yield self._checkRecordExists(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
-
 
     @inlineCallbacks
     def test_read_default(self):
@@ -134,7 +130,6 @@ class AugmentTestsMixin(object):
         # Do a second time to test caching
         for item in testRecordWildcardDefault:
             yield self._checkRecord(db, item)
-
 
     @inlineCallbacks
     def test_read_typed_default(self):
@@ -159,7 +154,6 @@ class AugmentTestsMixin(object):
 
         for recordType, item in testRecordTypeDefault:
             yield self._checkRecord(db, item, recordType)
-
 
     @inlineCallbacks
     def test_add_modify(self):
@@ -200,7 +194,6 @@ class AugmentTestsMixin(object):
         yield self._checkRecord(newdb, testModifyRecords[0])
 
 
-
 class AugmentXMLTests(AugmentTests):
 
     @inlineCallbacks
@@ -215,7 +208,6 @@ class AugmentXMLTests(AugmentTests):
         # in the DB
         yield self._checkRecordExists(db, "D11F03A0-97EA-48AF-9A6C-FAC7F3975767")
 
-
     @inlineCallbacks
     def test_read_default(self):
 
@@ -226,7 +218,6 @@ class AugmentXMLTests(AugmentTests):
 
         for item in testRecordWildcardDefault:
             yield self._checkRecord(db, item)
-
 
     def test_parseErrors(self):
 
@@ -256,7 +247,6 @@ class AugmentXMLTests(AugmentTests):
     <foo/>
   </record>
 """), db)
-
 
     @inlineCallbacks
     def test_add_modify(self):
@@ -292,7 +282,6 @@ class AugmentXMLTests(AugmentTests):
             yield self._checkRecord(newdb, item)
         yield self._checkRecord(newdb, testModifyRecords[0])
 
-
     def test_shouldReparse(self):
         """
         Verify that a change to the file will get noticed
@@ -300,10 +289,9 @@ class AugmentXMLTests(AugmentTests):
         newxmlfile = FilePath(self.mktemp())
         FilePath(xmlFile).copyTo(newxmlfile)
         db = AugmentXMLDB((newxmlfile.path,))
-        self.assertFalse(db._shouldReparse([newxmlfile.path])) # No need to parse
-        newxmlfile.setContent("") # Change the file
-        self.assertTrue(db._shouldReparse([newxmlfile.path])) # Need to parse
-
+        self.assertFalse(db._shouldReparse([newxmlfile.path]))  # No need to parse
+        newxmlfile.setContent("")  # Change the file
+        self.assertTrue(db._shouldReparse([newxmlfile.path]))  # Need to parse
 
     def test_refresh(self):
         """
@@ -314,7 +302,6 @@ class AugmentXMLTests(AugmentTests):
         keys = dbxml.db.keys()
         dbxml.refresh()
         self.assertEquals(keys, dbxml.db.keys())
-
 
     def uidsFromFile(self, filename):
         """
@@ -327,7 +314,6 @@ class AugmentXMLTests(AugmentTests):
                 continue
             uid = record_node.find(xmlaugmentsparser.ELEMENT_UID).text
             yield uid
-
 
     def test_normalize(self):
         """

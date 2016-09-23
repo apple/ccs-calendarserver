@@ -60,7 +60,6 @@ def splitICalendarFile(inputFileName, outputDirectory):
             subcalendar_file.close()
 
 
-
 def usage(e=None):
     if e:
         print(e)
@@ -81,7 +80,6 @@ def usage(e=None):
         sys.exit(64)
     else:
         sys.exit(0)
-
 
 
 def main():

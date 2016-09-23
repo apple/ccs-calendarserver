@@ -28,6 +28,7 @@ from pycalendar.datetime import DateTime
 import os
 import sys
 
+
 def getComp(str):
     calendar = Component.fromString(str)
     comp = calendar.mainComponent()
@@ -54,12 +55,12 @@ data = (
 
 localeDir = os.path.join(os.path.dirname(__file__), "data", "locales")
 
+
 class LocalizationTests(TestCase):
 
     def setUp(self):
         super(LocalizationTests, self).setUp()
         TimezoneCache.create()
-
 
     def test_BasicStringLocalization(self):
 
@@ -73,7 +74,6 @@ class LocalizationTests(TestCase):
                 "a otay b"
             )
 
-
     def test_TimeFormattingAMPM(self):
 
         with translationTo('en', localeDir=localeDir) as t:
@@ -84,7 +84,6 @@ class LocalizationTests(TestCase):
             self.assertEquals(t.dtTime(DateTime(2000, 1, 1, 6, 5, 0)), "6:05 AM")
             self.assertEquals(t.dtTime(DateTime(2000, 1, 1, 16, 5, 0)), "4:05 PM")
 
-
     def test_TimeFormatting24Hour(self):
 
         with translationTo('pig', localeDir=localeDir) as t:
@@ -94,7 +93,6 @@ class LocalizationTests(TestCase):
             self.assertEquals(t.dtTime(DateTime(2000, 1, 1, 23, 59, 0)), "23:59")
             self.assertEquals(t.dtTime(DateTime(2000, 1, 1, 6, 5, 0)), "06:05")
             self.assertEquals(t.dtTime(DateTime(2000, 1, 1, 16, 5, 0)), "16:05")
-
 
     def test_CalendarFormatting(self):
 
@@ -188,14 +186,12 @@ class LocalizationTests(TestCase):
 
             self.assertEquals(t.monthAbbreviation(1), "ANJAY")
 
-
     def test_getLanguage(self):
         """
         Test that getLanguage( ) examines config.
         """
 
-        self.assertEquals(getLanguage(ConfigDict({"Localization" : {"Language" : "xyzzy"}})), "xyzzy")
-
+        self.assertEquals(getLanguage(ConfigDict({"Localization": {"Language": "xyzzy"}})), "xyzzy")
 
     def test_remap(self):
         """
@@ -205,14 +201,12 @@ class LocalizationTests(TestCase):
         self.assertEquals(_remapLanguageCode("zh-Hans"), "zh_CN")
         self.assertEquals(_remapLanguageCode("zh-Hant"), "zh_TW")
 
-
     def test_foundationImport(self):
         """
         Make sure that on OS X the CoreFoundation imports work.
         """
         if sys.platform == "darwin":
             self.assertTrue(foundationImported)
-
 
     def test_processLocalizationFiles(self):
         """

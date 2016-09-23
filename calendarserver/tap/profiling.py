@@ -18,6 +18,7 @@ import time
 
 from twisted.application.app import CProfileRunner, AppProfiler
 
+
 class CProfileCPURunner(CProfileRunner):
     """
     Runner for the cProfile module which uses C{time.clock} to measure

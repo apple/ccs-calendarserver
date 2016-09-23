@@ -169,14 +169,14 @@ END:VCALENDAR
 """
 
 
-
 class AnyUser(object):
+
     def __getitem__(self, index):
         return _AnyRecord(index)
 
 
-
 class _AnyRecord(object):
+
     def __init__(self, index):
         self.uid = u"user%02d" % (index,)
         self.password = u"user%02d" % (index,)
@@ -185,11 +185,10 @@ class _AnyRecord(object):
         self.guid = u"user%02d" % (index,)
 
 
-
 class Deterministic(object):
+
     def __init__(self, value=None):
         self.value = value
-
 
     def gauss(self, mean, stddev):
         """
@@ -199,14 +198,11 @@ class Deterministic(object):
         """
         return mean + 1
 
-
     def choice(self, sequence):
         return sequence[0]
 
-
     def sample(self):
         return self.value
-
 
 
 class StubClient(BaseClient):
@@ -217,6 +213,7 @@ class StubClient(BaseClient):
         attendee changes due to a changed schedule tag.
     @ivar _pendingFailures: dict mapping URLs to failure objects
     """
+
     def __init__(self, number, serializePath):
         self.serializePath = serializePath
         os.mkdir(self.serializePath)
@@ -233,13 +230,11 @@ class StubClient(BaseClient):
         self.rescheduled = set()
         self.started = True
 
-
     def _failDeleteWithObject(self, href, failureObject):
         """
         Accessor for inserting intentional failures for deletes.
         """
         self._pendingFailures[href] = failureObject
-
 
     def serializeLocation(self):
         """
@@ -257,15 +252,12 @@ class StubClient(BaseClient):
 
         return path
 
-
     def addEvent(self, href, vevent, attachmentSize=0):
         self._events[href] = Event(self.serializePath, href, None, vevent)
         return succeed(None)
 
-
     def addInvite(self, href, vevent, attachmentSize=0, lookupPercentage=0):
         return self.addEvent(href, vevent, attachmentSize=attachmentSize)
-
 
     def deleteEvent(self, href,):
         del self._events[href]
@@ -277,17 +269,14 @@ class StubClient(BaseClient):
         else:
             return succeed(None)
 
-
     def updateEvent(self, href):
         self.rescheduled.remove(href)
         return succeed(None)
-
 
     def addEventAttendee(self, href, attendee):
         vevent = self._events[href].component
         vevent.mainComponent().addProperty(attendee)
         self._events[href].component = vevent
-
 
     def changeEventAttendee(self, href, old, new):
         if href in self.rescheduled:
@@ -307,7 +296,6 @@ class StubClient(BaseClient):
         self._events[href].component = vevent
         return succeed(None)
 
-
     def _makeSelfAttendee(self):
         attendee = Property(
             name=u'ATTENDEE',
@@ -320,7 +308,6 @@ class StubClient(BaseClient):
         )
         return attendee
 
-
     def _makeSelfOrganizer(self):
         organizer = Property(
             name=u'ORGANIZER',
@@ -332,11 +319,10 @@ class StubClient(BaseClient):
         return organizer
 
 
-
 class SequentialDistribution(object):
+
     def __init__(self, values):
         self.values = values
-
 
     def sample(self):
         return self.values.pop(0)
@@ -544,15 +530,14 @@ class SequentialDistribution(object):
 #         self.assertEqual(attendees[1].parameterValue('CN'), 'User 02')
 
 
-
 class InviterTests(TestCase):
     """
     Tests for loadtest.profiles.Inviter.
     """
+
     def setUp(self):
         self.sim = CalendarClientSimulator(
             AnyUser(), Populator(None), None, None, None, None, None, None)
-
 
     def _simpleAccount(self, userNumber, eventText):
         client = StubClient(userNumber, self.mktemp())
@@ -566,7 +551,6 @@ class InviterTests(TestCase):
 
         return vevent, event, calendar, client
 
-
     def test_enabled(self):
         userNumber = 13
         client = StubClient(userNumber, self.mktemp())
@@ -576,7 +560,6 @@ class InviterTests(TestCase):
 
         inviter = Inviter(None, self.sim, client, userNumber, **{"enabled": True})
         self.assertEqual(inviter.enabled, True)
-
 
     def test_doNotAddInviteToInbox(self):
         """
@@ -594,7 +577,6 @@ class InviterTests(TestCase):
 
         self.assertEquals(client._events, {})
 
-
     def test_doNotAddInviteToNoCalendars(self):
         """
         When there are no calendars and no events at all, the inviter
@@ -606,7 +588,6 @@ class InviterTests(TestCase):
         inviter._invite()
         self.assertEquals(client._events, {})
         self.assertEquals(client._calendars, {})
-
 
     def test_addInvite(self):
         """
@@ -631,7 +612,6 @@ class InviterTests(TestCase):
         for attendee in attendees:
             expected.remove(attendee.value())
         self.assertEqual(len(expected), 0)
-
 
     def test_doNotAddSelfToEvent(self):
         """
@@ -659,7 +639,6 @@ class InviterTests(TestCase):
         for attendee in attendees:
             expected.remove(attendee.value())
         self.assertEqual(len(expected), 0)
-
 
     def test_doNotAddExistingToEvent(self):
         """
@@ -693,7 +672,6 @@ class InviterTests(TestCase):
             expected.remove(attendee.value())
         self.assertEqual(len(expected), 0)
 
-
     def test_everybodyInvitedAlready(self):
         """
         If the first so-many randomly selected users we come across
@@ -715,15 +693,14 @@ class InviterTests(TestCase):
     test_everybodyInvitedAlready.todo = "Inviter logic has changed and it may add fewer-than-requested attendees"
 
 
-
 class AccepterTests(TestCase):
     """
     Tests for loadtest.profiles.Accepter.
     """
+
     def setUp(self):
         self.sim = CalendarClientSimulator(
             AnyUser(), Populator(None), None, None, None, None, None, None)
-
 
     def test_enabled(self):
         userNumber = 13
@@ -735,7 +712,6 @@ class AccepterTests(TestCase):
         accepter = Accepter(None, self.sim, client, userNumber, **{"enabled": True})
         self.assertEqual(accepter.enabled, True)
 
-
     def test_ignoreEventOnUnknownCalendar(self):
         """
         If an event on an unknown calendar changes, it is ignored.
@@ -744,7 +720,6 @@ class AccepterTests(TestCase):
         client = StubClient(userNumber, self.mktemp())
         accepter = Accepter(None, self.sim, client, userNumber)
         accepter.eventChanged('/some/calendar/1234.ics')
-
 
     def test_ignoreNonCalendar(self):
         """
@@ -759,7 +734,6 @@ class AccepterTests(TestCase):
         client._calendars[calendarURL] = calendar
         accepter = Accepter(None, self.sim, client, userNumber)
         accepter.eventChanged(calendarURL + '1234.ics')
-
 
     def test_ignoreAccepted(self):
         """
@@ -778,7 +752,6 @@ class AccepterTests(TestCase):
         client._events[event.url] = event
         accepter = Accepter(None, self.sim, client, userNumber)
         accepter.eventChanged(event.url)
-
 
     def test_ignoreAlreadyAccepting(self):
         """
@@ -809,7 +782,6 @@ class AccepterTests(TestCase):
         accepter.eventChanged(event.url)
         clock.advance(randomDelay)
 
-
     def test_inboxReply(self):
         """
         When an inbox item that contains a reply is seen by the client, it
@@ -831,7 +803,6 @@ class AccepterTests(TestCase):
         clock.advance(3)
         self.assertNotIn(inboxEvent.url, client._events)
         self.assertNotIn('4321.ics', inbox.events)
-
 
     def test_inboxReplyFailedDelete(self):
         """
@@ -861,7 +832,6 @@ class AccepterTests(TestCase):
         clock.advance(3)
         self.assertNotIn(inboxEvent.url, client._events)
         self.assertNotIn('4321.ics', inbox.events)
-
 
     def test_acceptInvitation(self):
         """
@@ -910,7 +880,6 @@ class AccepterTests(TestCase):
         self.assertNotIn(inboxEvent.url, client._events)
         self.assertNotIn('4321.ics', inbox.events)
 
-
     def test_reacceptInvitation(self):
         """
         If a client accepts an invitation on an event and then is
@@ -951,7 +920,6 @@ class AccepterTests(TestCase):
             attendees[1].parameterValue('PARTSTAT'), 'ACCEPTED')
         self.assertFalse(attendees[1].hasParameter('RSVP'))
 
-
     def test_changeEventAttendeePreconditionFailed(self):
         """
         If the attempt to accept an invitation fails because of an
@@ -981,16 +949,15 @@ class AccepterTests(TestCase):
         clock.advance(randomDelay)
 
 
-
 class EventerTests(TestCase):
     """
     Tests for loadtest.profiles.Eventer, a profile which adds new
     events on calendars.
     """
+
     def setUp(self):
         self.sim = CalendarClientSimulator(
             AnyUser(), Populator(None), None, None, None, None, None, None)
-
 
     def test_enabled(self):
         userNumber = 13
@@ -1001,7 +968,6 @@ class EventerTests(TestCase):
 
         eventer = Eventer(None, self.sim, client, None, **{"enabled": True})
         self.assertEqual(eventer.enabled, True)
-
 
     def test_doNotAddEventOnInbox(self):
         """
@@ -1017,7 +983,6 @@ class EventerTests(TestCase):
         eventer._addEvent()
 
         self.assertEquals(client._events, {})
-
 
     def test_addEvent(self):
         """
@@ -1037,7 +1002,6 @@ class EventerTests(TestCase):
         # XXX Vary the event period/interval and the uid
 
 
-
 class AttachmentDownloaderTests(TestCase):
     """
     Tests for L{AttachmentDownloader}.
@@ -1046,7 +1010,6 @@ class AttachmentDownloaderTests(TestCase):
     def setUp(self):
         self.sim = CalendarClientSimulator(
             AnyUser(), Populator(None), None, None, None, None, None, None)
-
 
     def test_normalize(self):
         client = StubClient(1, self.mktemp())
@@ -1058,11 +1021,11 @@ class AttachmentDownloaderTests(TestCase):
         )
 
 
-
 class OperationLoggerTests(TestCase):
     """
     Tests for L{OperationLogger}.
     """
+
     def test_noFailures(self):
         """
         If the median lag is below 1 second and the failure rate is below 1%,
@@ -1079,7 +1042,6 @@ class OperationLoggerTests(TestCase):
         )
         self.assertEqual([], logger.failures())
 
-
     def test_lagLimitExceeded(self):
         """
         If the median scheduling lag for any operation in the simulation
@@ -1095,7 +1057,6 @@ class OperationLoggerTests(TestCase):
         self.assertEqual(
             ["Median TESTING scheduling lag greater than 1000.0ms"],
             logger.failures())
-
 
     def test_failureLimitExceeded(self):
         """
@@ -1116,7 +1077,6 @@ class OperationLoggerTests(TestCase):
         self.assertEqual(
             ["Greater than 1% TESTING failed"],
             logger.failures())
-
 
     def test_failureNoPush(self):
         """
@@ -1175,7 +1135,6 @@ class OperationLoggerTests(TestCase):
         self.assertEqual(
             [],
             logger.failures())
-
 
 
 class AlarmAcknowledgerTests(TestCase):

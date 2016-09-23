@@ -24,6 +24,7 @@ from upload import UploadOptions, upload
 import sys
 import pickle
 
+
 class MassUploadOptions(UploadOptions):
     optParameters = [
         ("benchmarks", None, None, ""),
@@ -34,7 +35,6 @@ class MassUploadOptions(UploadOptions):
     def parseArgs(self, filename):
         self['filename'] = filename
         UploadOptions.parseArgs(self)
-
 
 
 def main():
@@ -52,7 +52,6 @@ def main():
         benchmarks = raw.keys()
     else:
         benchmarks = options['benchmarks'].split()
-
 
     def go():
         for benchmark in benchmarks:

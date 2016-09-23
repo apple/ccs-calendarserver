@@ -44,7 +44,6 @@ from twistedcaldav.timezones import hasTZ
 DEFAULT_TIMEZONE = "America/Los_Angeles"
 
 
-
 class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
 
     def defaultAccessControlList(self):
@@ -61,36 +60,28 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
             )
         )
 
-
     def etag(self):
         # Can't be calculated here
         return succeed(None)
-
 
     def contentLength(self):
         # Can't be calculated here
         return None
 
-
     def lastModified(self):
         return None
-
 
     def exists(self):
         return True
 
-
     def displayName(self):
         return "Web Calendar"
-
 
     def contentType(self):
         return MimeType.fromString("text/html; charset=utf-8")
 
-
     def contentEncoding(self):
         return None
-
 
     def createSimilarFile(self, path):
         return DAVFile(path, principalCollections=self.principalCollections())
@@ -140,7 +131,6 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
             setattr(self, cacheAttr, htmlContent)
 
         return getattr(self, cacheAttr)
-
 
     def render(self, request):
         if not self.fp.isdir():
@@ -196,7 +186,6 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
         return response
 
 
-
 try:
     from osx.utils import CFTimeZoneRef
 
@@ -209,7 +198,6 @@ try:
 except ImportError:
     def lookupSystemTimezone():
         return ""
-
 
 
 def getLocalTimezone():

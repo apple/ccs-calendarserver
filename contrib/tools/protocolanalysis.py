@@ -34,6 +34,7 @@ from calendarserver.logAnalysis import getAdjustedMethodName, METHOD_PUT_ICS, \
     METHOD_PROPFIND_CACHED_ADDRESSBOOK_HOME, METHOD_PROPFIND_PRINCIPALS, \
     METHOD_PROPFIND_CACHED_PRINCIPALS
 
+
 def safePercent(x, y, multiplier=100):
     return ((multiplier * x) / y) if y else 0
 
@@ -124,6 +125,7 @@ httpMethods = set((
 # 401s
 METHOD_401 = "Z 401s"
 
+
 class CalendarServerLogAnalyzer(object):
 
     """
@@ -155,7 +157,6 @@ class CalendarServerLogAnalyzer(object):
             self.referer = referer
             self.client = client
             self.extended = extended
-
 
     def __init__(
         self,
@@ -237,7 +238,6 @@ class CalendarServerLogAnalyzer(object):
 
         self.currentLine = None
         self.linesRead = collections.defaultdict(int)
-
 
     def analyzeLogFile(self, logFilePath):
         fpath = os.path.expanduser(logFilePath)
@@ -495,7 +495,6 @@ class CalendarServerLogAnalyzer(object):
         for client, data in self.clientByMethodCount.iteritems():
             self.clientIDByMethodCount[self.clientIDMap[client]] = data
 
-
     def parseLine(self, line):
 
         startPos = line.find("- ")
@@ -563,7 +562,6 @@ class CalendarServerLogAnalyzer(object):
 
         self.currentLine = CalendarServerLogAnalyzer.LogLine(ipaddr, userid, logDateTime, logTime, method, uri, status, reqbytes, referrer, client, extended)
 
-
     def getClientAdjustedName(self):
 
         versionClients = (
@@ -612,10 +610,8 @@ class CalendarServerLogAnalyzer(object):
 
         return self.currentLine.client[:20]
 
-
     def getAdjustedMethodName(self):
         return getAdjustedMethodName(self.currentLine.extended, self.currentLine.method, self.currentLine.uri)
-
 
     def getCountBucket(self, count, buckets):
 
@@ -675,7 +671,6 @@ class CalendarServerLogAnalyzer(object):
         self.userCounts["%s:%s" % (self.currentLine.userid, self.getClientAdjustedName(),)] += 1
         self.userResponseTimes["%s:%s" % (self.currentLine.userid, self.getClientAdjustedName(),)] += responseTime
 
-
     def summarizeUserInteraction(self, adjustedMethod):
         summary = {}
         otherData = self.otherUserCalendarRequests.get(adjustedMethod, {})
@@ -683,7 +678,6 @@ class CalendarServerLogAnalyzer(object):
             bucket = self.getCountBucket(len(others), userInteractionCountBuckets)
             summary[bucket] = summary.get(bucket, 0) + 1
         return summary
-
 
     def userInteractionAnalysis(self, adjustedMethod):
         """
@@ -697,7 +691,6 @@ class CalendarServerLogAnalyzer(object):
         if segments[:3] == ['', 'calendars', '__uids__']:
             if segments[3:] != [self.currentLine.userid, '']:
                 others.add(segments[3])
-
 
     def printAll(self, doTabs, summary):
 
@@ -787,7 +780,6 @@ class CalendarServerLogAnalyzer(object):
             print("Sim values")
             self.printSimStats(doTabs)
 
-
     def printInfo(self, doTabs):
 
         table = tables.Table()
@@ -804,7 +796,6 @@ class CalendarServerLogAnalyzer(object):
         table.printTabDelimitedData() if doTabs else table.printTable()
         print("")
 
-
     def getHourFromIndex(self, index):
 
         if index >= self.maxIndex:
@@ -817,7 +808,6 @@ class CalendarServerLogAnalyzer(object):
 
         # Clip to select hour range
         return "%02d:%02d (%02d:%02d)" % (localhour, minute, utchour, minute,)
-
 
     def printHourlyTotals(self, doTabs, summary):
 
@@ -882,7 +872,6 @@ class CalendarServerLogAnalyzer(object):
         table.printTabDelimitedData() if doTabs else table.printTable()
         print("")
 
-
     def printClientTotals(self, doTabs):
 
         table = tables.Table()
@@ -918,7 +907,6 @@ class CalendarServerLogAnalyzer(object):
 
         table.printTabDelimitedData() if doTabs else table.printTable()
         print("")
-
 
     def printHourlyByXXXDetails(self, hourlyByXXX, doTabs, showTotals=True, showAverages=False, showFloatPercent=False):
 
@@ -1010,7 +998,6 @@ class CalendarServerLogAnalyzer(object):
         table.printTabDelimitedData() if doTabs else table.printTable()
         print("")
 
-
     def printHourlyCacheDetails(self, doTabs):
 
         totals = [0, ] * 7
@@ -1101,7 +1088,6 @@ class CalendarServerLogAnalyzer(object):
         table.printTabDelimitedData() if doTabs else table.printTable()
         print("")
 
-
     def printQueueDepthResponseTime(self, doTabs):
 
         table = tables.Table()
@@ -1122,7 +1108,6 @@ class CalendarServerLogAnalyzer(object):
 
         table.printTabDelimitedData() if doTabs else table.printTable()
         print("")
-
 
     def printXXXMethodDetails(self, data, doTabs, verticalTotals=True):
 
@@ -1160,7 +1145,6 @@ class CalendarServerLogAnalyzer(object):
         table.printTabDelimitedData() if doTabs else table.printTable()
         print("")
 
-
     def printInstanceCount(self, doTabs):
 
         total = sum(self.instanceCount.values())
@@ -1190,7 +1174,6 @@ class CalendarServerLogAnalyzer(object):
         table.printTabDelimitedData() if doTabs else table.printTable()
         print("")
 
-
     def printURICounts(self, doTabs):
 
         total = sum(self.requestURI.values())
@@ -1213,7 +1196,6 @@ class CalendarServerLogAnalyzer(object):
 
         table.printTabDelimitedData() if doTabs else table.printTable()
         print("")
-
 
     def printUserWeights(self, doTabs):
 
@@ -1238,7 +1220,6 @@ class CalendarServerLogAnalyzer(object):
         table.printTabDelimitedData() if doTabs else table.printTable()
         print("")
 
-
     def printResponseCounts(self, doTabs):
 
         table = tables.Table()
@@ -1260,7 +1241,6 @@ class CalendarServerLogAnalyzer(object):
 
         table.printTabDelimitedData() if doTabs else table.printTable()
         print("")
-
 
     def printUserResponseTimes(self, doTabs):
 
@@ -1290,7 +1270,6 @@ class CalendarServerLogAnalyzer(object):
         table.printTabDelimitedData() if doTabs else table.printTable()
         print("")
 
-
     def printUserInteractionCounts(self, doTabs):
         table = tables.Table()
         table.setDefaultColumnFormats((
@@ -1306,7 +1285,6 @@ class CalendarServerLogAnalyzer(object):
             table.addRow((k[4:], v, safePercent(float(v), total)))
         table.printTabDelimitedData() if doTabs else table.printTable()
         print("")
-
 
     def printSimStats(self, doTabs):
         users = len(self.userCounts.keys())
@@ -1337,7 +1315,6 @@ class CalendarServerLogAnalyzer(object):
         ))
         table.printTabDelimitedData() if doTabs else table.printTable()
         print("")
-
 
 
 class TablePrinter(object):
@@ -1399,13 +1376,11 @@ class TablePrinter(object):
         print("")
 
 
-
 class Differ(TablePrinter):
 
     def __init__(self, analyzers):
 
         self.analyzers = analyzers
-
 
     def printAll(self, doTabs, summary):
 
@@ -1431,7 +1406,6 @@ class Differ(TablePrinter):
             print("Average Response Count Differences")
             self.printResponseCountDetails(doTabs)
 
-
     def printInfo(self, doTabs):
 
         table = tables.Table()
@@ -1444,7 +1418,6 @@ class Differ(TablePrinter):
 
         table.printTabDelimitedData() if doTabs else table.printTable()
         print("")
-
 
     def printLoadAnalysisDetails(self, doTabs):
 
@@ -1478,7 +1451,6 @@ class Differ(TablePrinter):
         byCategory[title]["#2 Av. Response Time (ms)"] = "%+.1f (%+.1f%%)" % (lastData[1] - firstData[1], safePercent(lastData[1] - firstData[1], firstData[1], 100.0),)
 
         self.printDictDictTable(byCategory, doTabs)
-
 
     def printHourlyTotals(self, doTabs):
 
@@ -1602,7 +1574,6 @@ class Differ(TablePrinter):
         table.printTabDelimitedData() if doTabs else table.printTable()
         print("")
 
-
     def printClientTotals(self, doTabs):
 
         table = tables.Table()
@@ -1685,7 +1656,6 @@ class Differ(TablePrinter):
         table.printTabDelimitedData() if doTabs else table.printTable()
         print("")
 
-
     def printMethodCountDetails(self, doTabs):
 
         # First gather all the data
@@ -1711,7 +1681,6 @@ class Differ(TablePrinter):
                 byMethod[title][method] = "%+d (%+.1f%%)" % (lastValue - firstValue, lastPercent - firstPercent,)
 
         self.printDictDictTable(byMethod, doTabs)
-
 
     def printMethodTimingDetails(self, timingType, doTabs):
 
@@ -1749,7 +1718,6 @@ class Differ(TablePrinter):
 
         self.printDictDictTable(byMethod, doTabs)
 
-
     def printResponseCountDetails(self, doTabs):
 
         # First gather all the data
@@ -1773,7 +1741,6 @@ class Differ(TablePrinter):
                 byMethod[title][method] = "%+d (%+.1f%%)" % (lastValue - firstValue, safePercent(lastValue - firstValue, firstValue, 100.0),)
 
         self.printDictDictTable(byMethod, doTabs)
-
 
 
 def usage(error_msg=None):

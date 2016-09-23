@@ -36,7 +36,6 @@ from pycalendar.duration import Duration
 from pycalendar.value import Value
 
 
-
 class iCalendar (twistedcaldav.test.util.TestCase):
     """
     iCalendar support tests
@@ -60,7 +59,6 @@ class iCalendar (twistedcaldav.test.util.TestCase):
             else:
                 SkipTest("test unimplemented")
 
-
     def test_newCalendar(self):
         """
         L{Component.newCalendar} creates a new VCALENDAR L{Component} with
@@ -72,7 +70,6 @@ class iCalendar (twistedcaldav.test.util.TestCase):
         self.assertEqual(version.value(), "2.0")
         self.assertEqual(prodid.value(), iCalendarProductID)
         self.assertEqual(list(calendar.subcomponents()), [])
-
 
     def test_component_equality(self):
         # for filename in (
@@ -260,7 +257,6 @@ END:VCALENDAR
                 calendar1, calendar2, "%s" % (description,)
             )
 
-
     def test_component_validate(self):
         """
         CalDAV resource validation.
@@ -286,7 +282,6 @@ END:VCALENDAR
                 calendar.validCalendarForCalDAV(methodAllowed=False)
             except ValueError:
                 self.fail("Resource iCalendar %s didn't validate for CalDAV" % (filename,))
-
 
     def test_component_validate_and_fix(self):
         """
@@ -566,7 +561,6 @@ END:VCALENDAR
         # Now it should pass without fixing
         calendar.validCalendarData(doFix=False, validateRecurrences=True)
 
-
     def test_component_timeranges(self):
         """
         Component time range query.
@@ -584,7 +578,7 @@ END:VCALENDAR
             start = instance.start
             end = instance.end
             self.assertEqual(start, DateTime(year, 7, 4))
-            self.assertEqual(end  , DateTime(year, 7, 5))
+            self.assertEqual(end, DateTime(year, 7, 5))
             if year == 2050:
                 break
             year += 1
@@ -611,7 +605,7 @@ END:VCALENDAR
             end = instance.end
             if year in results:
                 self.assertEqual(start, DateTime(year, results[year][0], results[year][1]))
-                self.assertEqual(end  , DateTime(year, results[year][0], results[year][2]))
+                self.assertEqual(end, DateTime(year, results[year][0], results[year][2]))
             if year == 2050:
                 break
             year += 1
@@ -638,13 +632,12 @@ END:VCALENDAR
             end = instance.end
             if year in results:
                 self.assertEqual(start, DateTime(year, results[year][0], results[year][1]))
-                self.assertEqual(end  , DateTime(year, results[year][0], results[year][2]))
+                self.assertEqual(end, DateTime(year, results[year][0], results[year][2]))
             if year == 2050:
                 break
             year += 1
 
         self.assertEqual(year, 2050)
-
 
     def test_component_timerange(self):
         """
@@ -660,7 +653,6 @@ END:VCALENDAR
             self.assertEqual(start, DateTime(2004, 11, 25))
             self.assertEqual(end, DateTime(2004, 11, 27))
             break
-
 
     def test_component_timezone_validate(self):
         """
@@ -681,13 +673,11 @@ END:VCALENDAR
         calendar = Component.fromString(data)
         self.failUnlessRaises(TimezoneException, calendar.validCalendarForCalDAV, False)
 
-
     def test_parse_date(self):
         """
         parse_date()
         """
         self.assertEqual(DateTime.parseText("19970714"), DateTime(1997, 7, 14))
-
 
     def test_parse_datetime(self):
         """
@@ -699,7 +689,6 @@ END:VCALENDAR
 
         dt = DateTime.parseText("19980119T070000Z")
         self.assertEqual(dt, DateTime(1998, 1, 19, 7, 0, 0, tzid=Timezone.UTCTimezone))
-
 
     def test_parse_date_or_datetime(self):
         """
@@ -714,7 +703,6 @@ END:VCALENDAR
         dt = DateTime.parseText("19980119T070000Z")
         self.assertEqual(dt, DateTime(1998, 1, 19, 7, 0, 0, tzid=Timezone.UTCTimezone))
 
-
     def test_parse_duration(self):
         """
         parse_duration()
@@ -724,7 +712,6 @@ END:VCALENDAR
         self.assertEqual(Duration.parseText("-P15DT5H0M20S"), Duration(days=15 * -1, hours=5 * -1, minutes=0, seconds=20 * -1))
 
         self.assertEqual(Duration.parseText("P7W"), Duration(weeks=7))
-
 
     def test_correct_attendee_properties(self):
 
@@ -744,7 +731,6 @@ END:VCALENDAR
         component = Component.fromString(data)
         self.assertEqual([p.value() for p in component.getAttendeeProperties(("mailto:user2@example.com",))], ["mailto:user2@example.com", ])
 
-
     def test_empty_attendee_properties(self):
 
         data = """BEGIN:VCALENDAR
@@ -762,7 +748,6 @@ END:VCALENDAR
 
         component = Component.fromString(data)
         self.assertEqual(component.getAttendeeProperties(("user3@example.com",)), [])
-
 
     def test_organizers_by_instance(self):
 
@@ -896,7 +881,6 @@ END:VCALENDAR
             component = Component.fromString(caldata)
             self.assertEqual(component.getOrganizersByInstance(), result)
 
-
     def test_attendees_by_instance(self):
 
         data = (
@@ -1028,7 +1012,6 @@ END:VCALENDAR
         for caldata, checkScheduleAgent, result in data:
             component = Component.fromString(caldata)
             self.assertEqual(component.getAttendeesByInstance(onlyScheduleAgentServer=checkScheduleAgent), result)
-
 
     def test_set_parameter_value(self):
         data = (
@@ -1179,7 +1162,6 @@ END:VCALENDAR
             component.setParameterToValueForPropertyWithValue(*args)
             self.assertEqual(result, str(component).replace("\r", ""))
 
-
     def test_parameter_multi_values(self):
         caldata = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1255,7 +1237,6 @@ END:VCALENDAR
         self.assertEqual(members, ["urn:uuid:group01"])
         self.assertEqual(normalize_iCalStr(str(component)), normalize_iCalStr(caldata3))
 
-
     def test_add_property_with_valuetype(self):
         data = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1283,7 +1264,6 @@ END:VCALENDAR
         vevent = component.mainComponent()
         vevent.addProperty(Property("ATTACH", "foobar", valuetype=Value.VALUETYPE_BINARY))
         self.assertEqual(str(component), result)
-
 
     def test_add_property(self):
         data = (
@@ -1356,7 +1336,6 @@ END:VCALENDAR
             component = Component.fromString(original)
             component.addPropertyToAllComponents(Property("REQUEST-STATUS", ["2.0", "Success"]))
             self.assertEqual(result, str(component).replace("\r", ""))
-
 
     def test_attendees_views(self):
 
@@ -1842,7 +1821,6 @@ END:VCALENDAR
             component.attendeesView(attendees, onlyScheduleAgentServer=checkScheduleAgent)
             self.assertEqual(filtered, str(component).replace("\r", ""), "Failed: %s" % (description,))
 
-
     def test_all_but_one_attendee(self):
 
         data = (
@@ -1994,7 +1972,6 @@ END:VCALENDAR
             component.removeAllButOneAttendee(attendee)
             self.assertEqual(result, str(component).replace("\r", ""))
 
-
     def test_filter_properties_keep(self):
 
         data = (
@@ -2091,7 +2068,6 @@ END:VCALENDAR
             component = Component.fromString(original)
             component.filterProperties(keep=keep_properties)
             self.assertEqual(result, str(component).replace("\r", ""))
-
 
     def test_filter_properties_remove(self):
 
@@ -2190,7 +2166,6 @@ END:VCALENDAR
             component = Component.fromString(original)
             component.filterProperties(remove=remove_properties)
             self.assertEqual(result, str(component).replace("\r", ""))
-
 
     def test_remove_alarms(self):
 
@@ -2360,7 +2335,6 @@ END:VCALENDAR
             component = Component.fromString(original)
             component.removeAlarms()
             self.assertEqual(result, str(component).replace("\r", ""))
-
 
     def test_expand_instances(self):
 
@@ -2601,7 +2575,6 @@ END:VCALENDAR
                 for start, end in periods:
                     self.assertEqual(start.isDateOnly(), results[0][0].isDateOnly(), "%s: %s wrong date/time start state" % (description, start,))
                     self.assertEqual(end.isDateOnly(), results[0][1].isDateOnly(), "%s: %s wrong date/time end state" % (description, end,))
-
 
     def test_expand_instances_for_expand(self):
 
@@ -2944,7 +2917,6 @@ END:VCALENDAR
                 for start, end in periods:
                     self.assertEqual(start.isDateOnly(), results[0][0].isDateOnly(), "%s: %s wrong date/time start state" % (description, start,))
                     self.assertEqual(end.isDateOnly(), results[0][1].isDateOnly(), "%s: %s wrong date/time end state" % (description, end,))
-
 
     def test_expand_instances_lowerlimit(self):
 
@@ -3301,7 +3273,6 @@ END:VCALENDAR
                 self.assertEqual(end.isDateOnly(), results[0][1].isDateOnly(), "%s: %s wrong date/time end state" % (description, end,))
             self.assertEqual(instances.lowerLimit, limited)
 
-
     def test_has_property_in_any_component(self):
 
         data = (
@@ -3486,7 +3457,6 @@ END:VCALENDAR
         for description, caldata, propnames, result in data:
             component = Component.fromString(caldata)
             self.assertTrue(component.hasPropertyInAnyComponent(propnames) == result, "Property name match incorrect: %s" % (description,))
-
 
     def test_transfer_properties(self):
 
@@ -3757,7 +3727,6 @@ END:VCALENDAR
             component_to.transferProperties(component_from, propnames)
             self.assertEqual(str(component_to), str(component_result), "%s: mismatch" % (description,))
 
-
     def test_normalize_all(self):
 
         data = (
@@ -3936,7 +3905,6 @@ END:VCALENDAR
             diff = "\n".join(unified_diff(ical1.split("\n"), ical2.split("\n")))
             self.assertEqual(str(ical1), str(ical2), "Failed comparison: %s\n%s" % (title, diff,))
 
-
     def test_normalize_attachments(self):
 
         data = (
@@ -4052,7 +4020,6 @@ END:VCALENDAR
             diff = "\n".join(unified_diff(ical1.split("\n"), ical2.split("\n")))
             self.assertEqual(str(ical1), str(ical2), "Failed comparison: %s\n%s" % (title, diff,))
 
-
     def test_recurring_unbounded(self):
 
         data = (
@@ -4125,7 +4092,6 @@ END:VCALENDAR
             ical = Component.fromString(calendar)
             result = ical.isRecurringUnbounded()
             self.assertEqual(result, expected, "Failed recurring unbounded test: %s" % (title,))
-
 
     def test_derive_instance(self):
 
@@ -4454,7 +4420,6 @@ END:VCALENDAR
             derived = str(derived).replace("\r", "") if derived else None
             self.assertEqual(derived, result, "Failed derive instance test: %s" % (title,))
 
-
     def test_derive_instance_multiple(self):
 
         data = (
@@ -4674,7 +4639,6 @@ END:VEVENT
                 derived = str(derived).replace("\r", "") if derived else None
                 self.assertEqual(derived, result, "Failed derive instance test: %s" % (title,))
 
-
     def test_derive_instance_with_cancel(self):
         """
         Test that derivation of cancelled instances works and only results in one STATUS property present.
@@ -4742,7 +4706,6 @@ END:VEVENT
             derived = str(derived).replace("\r", "") if derived else None
             self.assertEqual(derived, result, "Failed derive instance test: %s" % (title,))
 
-
     def test_derive_instance_cache(self):
         """
         Test that derivation of instances only triggers an instance cache re-expansion when it
@@ -4780,7 +4743,6 @@ END:VCALENDAR
         # Check one day ahead again - no re-cache
         ical.deriveInstance(DateTime(2011, 1, 2, 8, 0, 0, tzid=Timezone.UTCTimezone))
         self.assertEqual(ical.cachedInstances.limit, oldLimit)
-
 
     def test_derive_instance_with_master_passed_in(self):
         """
@@ -4833,7 +4795,6 @@ END:VEVENT
         self.assertEqual(result, None)
 
         self.assertEqual(str(ical), event)
-
 
     def test_truncate_recurrence(self):
 
@@ -4990,7 +4951,6 @@ END:VCALENDAR
                     self.assertEqual(str(ical1), str(ical2), "Failed comparison: %s\n%s" % (title, diff,))
             elif changed:
                 self.fail("Truncation happened when not expected: %s" % (title,))
-
 
     def test_valid_recurrence(self):
 
@@ -5265,7 +5225,6 @@ END:VCALENDAR
             actual_results = ical.validInstances(rids)
             self.assertEqual(actual_results, expected_results, "Failed comparison: %s %s" % (title, actual_results,))
 
-
     def test_valid_recurrence_ids(self):
 
         data = (
@@ -5478,7 +5437,6 @@ END:VCALENDAR
             self.assertEqual(len(fixed), result_fixed, "Failed fixed comparison: %s %s" % (title, fixed,))
             self.assertEqual(len(unfixed), result_unfixed, "Failed unfixed: %s %s" % (title, unfixed,))
 
-
     def test_fix_invalid_recurrence_id(self):
 
         data = (
@@ -5580,7 +5538,6 @@ END:VCALENDAR
                 self.assertEqual(end.isDateOnly(), results[0][1].isDateOnly(), "%s: %s wrong date/time end state" % (description, end,))
             self.assertEqual(str(component), fixed.replace("\n", "\r\n"))
 
-
     def test_mismatched_until(self):
         invalid = (
             """BEGIN:VCALENDAR
@@ -5678,7 +5635,6 @@ END:VCALENDAR
             except:
                 self.fail("Valid calendar should validate")
 
-
     def test_add_exdate(self):
         data = ((
             """BEGIN:VCALENDAR
@@ -5762,7 +5718,6 @@ END:VCALENDAR
             result = Component.fromString(data[2])
             calendar.masterComponent().addExdate(exdate)
             self.assertEqual(normalize_iCalStr(calendar), normalize_iCalStr(result), "Failed exdate add: {}".format(exdate))
-
 
     def test_remove_exdate(self):
         data = (
@@ -6166,7 +6121,6 @@ END:VCALENDAR
                 cal.masterComponent().removeExdate(exdate)
                 self.assertEqual(normalize_iCalStr(cal), normalize_iCalStr(result), "Failed exdate remove: {} {}".format(title, exdate))
 
-
     def test_allperuseruids(self):
         data = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -6207,7 +6161,6 @@ END:VCALENDAR
             "user01",
             "user02",
         )))
-
 
     def test_perUserData(self):
         data = (
@@ -6736,7 +6689,6 @@ END:VCALENDAR
             for rid, result in results:
                 self.assertEqual(calendar.perUserData(rid), result, "Failed comparison: %s %s" % (title, rid,))
 
-
     def test_needsiTIPSequenceChange(self):
 
         data = (
@@ -7013,7 +6965,6 @@ END:VCALENDAR
             ical_old = Component.fromString(old_txt)
             ical_new = Component.fromString(new_txt)
             self.assertEqual(ical_new.needsiTIPSequenceChange(ical_old), result, "Failed: %s" % (title,))
-
 
     def test_bumpiTIPInfo(self):
 
@@ -7478,7 +7429,6 @@ END:VCALENDAR
             diff = "\n".join(unified_diff(ical1, ical2))
             self.assertEqual(len(dtstamps1 & dtstamps2), 0, "Failed comparison: %s\n%s" % (title, diff,))
 
-
     def test_sequenceInSync(self):
         """
         Test Component.sequenceInSync to make sure it bumps SEQUENCE when needed.
@@ -7734,7 +7684,6 @@ END:VCALENDAR
 
             diff = "\n".join(unified_diff(ical1, ical2))
             self.assertEqual("\n".join(ical1), "\n".join(ical2), "Failed comparison: %s\n%s" % (title, diff,))
-
 
     def test_hasInstancesAfter(self):
         data = (
@@ -8120,7 +8069,6 @@ END:VCALENDAR
             ical = Component.fromString(body)
             self.assertEquals(expected, ical.hasInstancesAfter(cutoff))
 
-
     @inlineCallbacks
     def test_normalizeCalendarUserAddressesFromCanonical(self):
         """
@@ -8144,29 +8092,28 @@ END:VCALENDAR
 
         component = Component.fromString(data)
 
-
         def lookupFunction(cuaddr, ignored1, ignored2):
             return succeed(
                 {
-                    "urn:uuid:foo" : (
+                    "urn:uuid:foo": (
                         "Foo",
                         "foo",
                         "INDIVIDUAL",
                         ("urn:x-uid:foo", "urn:uuid:foo", "http://example.com/foo", "/foo")
                     ),
-                    "urn:uuid:bar" : (
+                    "urn:uuid:bar": (
                         "Bar",
                         "bar",
                         "INDIVIDUAL",
                         ("urn:x-uid:bar", "urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
                     ),
-                    "urn:uuid:baz" : (
+                    "urn:uuid:baz": (
                         "Baz",
                         "baz",
                         "INDIVIDUAL",
                         ("urn:x-uid:baz", "urn:uuid:baz", "http://example.com/baz")
                     ),
-                    "urn:x-uid:buz" : (
+                    "urn:x-uid:buz": (
                         "Buz",
                         "buz",
                         "INDIVIDUAL",
@@ -8189,7 +8136,6 @@ END:VCALENDAR
         self.assertEquals(
             "http://example.com/buz",
             component.getAttendeeProperty(("http://example.com/buz",)).value())
-
 
     @inlineCallbacks
     def test_normalizeCalendarUserAddressesFromCanonical_URN_UUID(self):
@@ -8214,29 +8160,28 @@ END:VCALENDAR
 
         component = Component.fromString(data)
 
-
         def lookupFunction(cuaddr, ignored1, ignored2):
             return succeed(
                 {
-                    "urn:x-uid:foo" : (
+                    "urn:x-uid:foo": (
                         "Foo",
                         "foo",
                         "INDIVIDUAL",
                         ("urn:x-uid:foo", "urn:uuid:foo", "http://example.com/foo", "/foo")
                     ),
-                    "urn:x-uid:bar" : (
+                    "urn:x-uid:bar": (
                         "Bar",
                         "bar",
                         "INDIVIDUAL",
                         ("urn:x-uid:bar", "urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
                     ),
-                    "urn:x-uid:baz" : (
+                    "urn:x-uid:baz": (
                         "Baz",
                         "baz",
                         "INDIVIDUAL",
                         ("urn:x-uid:baz", "urn:uuid:baz", "http://example.com/baz")
                     ),
-                    "urn:x-uid:buz" : (
+                    "urn:x-uid:buz": (
                         "Buz",
                         "buz",
                         "INDIVIDUAL",
@@ -8259,7 +8204,6 @@ END:VCALENDAR
         self.assertEquals(
             "urn:uuid:buz",
             component.getAttendeeProperty(("urn:uuid:buz",)).value())
-
 
     @inlineCallbacks
     def test_normalizeCalendarUserAddressesAndLocationChange(self):
@@ -8285,23 +8229,22 @@ END:VCALENDAR
 
         component = Component.fromString(data)
 
-
         def lookupFunction(cuaddr, ignored1, ignored2):
             return succeed(
                 {
-                    "/principals/users/foo" : (
+                    "/principals/users/foo": (
                         "Foo",
                         "foo",
                         "INDIVIDUAL",
                         ("urn:x-uid:foo", "urn:uuid:foo",)
                     ),
-                    "http://example.com/principals/users/bar" : (
+                    "http://example.com/principals/users/bar": (
                         "Bar",
                         "bar",
                         "INDIVIDUAL",
                         ("urn:x-uid:bar", "urn:uuid:bar",)
                     ),
-                    "http://example.com/principals/locations/buzz" : (
+                    "http://example.com/principals/locations/buzz": (
                         "{Restricted} Buzz",
                         "buzz",
                         "ROOM",
@@ -8315,7 +8258,6 @@ END:VCALENDAR
         prop = component.getAttendeeProperty(("urn:x-uid:buzz",))
         self.assertEquals("urn:x-uid:buzz", prop.value())
         self.assertEquals(prop.parameterValue("CN"), "{Restricted} Buzz")
-
 
     @inlineCallbacks
     def test_normalizeCalendarUserAddressesAndLocationNoChange(self):
@@ -8341,23 +8283,22 @@ END:VCALENDAR
 
         component = Component.fromString(data)
 
-
         def lookupFunction(cuaddr, ignored1, ignored2):
             return succeed(
                 {
-                    "/principals/users/foo" : (
+                    "/principals/users/foo": (
                         "Foo",
                         "foo",
                         "INDIVIDUAL",
                         ("urn:x-uid:foo", "urn:uuid:foo",)
                     ),
-                    "http://example.com/principals/users/bar" : (
+                    "http://example.com/principals/users/bar": (
                         "Bar",
                         "bar",
                         "INDIVIDUAL",
                         ("urn:x-uid:bar", "urn:uuid:bar",)
                     ),
-                    "http://example.com/principals/locations/buzz" : (
+                    "http://example.com/principals/locations/buzz": (
                         "{Restricted} Buzz",
                         "buzz",
                         "INDIVIDUAL",
@@ -8374,7 +8315,6 @@ END:VCALENDAR
         prop = component.getAttendeeProperty(("urn:x-uid:buzz",))
         self.assertEquals("urn:x-uid:buzz", prop.value())
         self.assertEquals(prop.parameterValue("CN"), "{Restricted} Buzz")
-
 
     @inlineCallbacks
     def test_normalizeCalendarUserAddressesAndLocationNoChangeOtherCUType(self):
@@ -8400,23 +8340,22 @@ END:VCALENDAR
 
         component = Component.fromString(data)
 
-
         def lookupFunction(cuaddr, ignored1, ignored2):
             return succeed(
                 {
-                    "/principals/users/foo" : (
+                    "/principals/users/foo": (
                         "Foo",
                         "foo",
                         "INDIVIDUAL",
                         ("urn:x-uid:foo", "urn:uuid:foo",)
                     ),
-                    "http://example.com/principals/users/bar" : (
+                    "http://example.com/principals/users/bar": (
                         "Bar",
                         "bar",
                         "INDIVIDUAL",
                         ("urn:x-uid:bar", "urn:uuid:bar",)
                     ),
-                    "http://example.com/principals/locations/buzz" : (
+                    "http://example.com/principals/locations/buzz": (
                         "{Restricted} Buzz",
                         "buzz",
                         "INDIVIDUAL",
@@ -8433,7 +8372,6 @@ END:VCALENDAR
         prop = component.getAttendeeProperty(("urn:x-uid:buzz",))
         self.assertEquals("urn:x-uid:buzz", prop.value())
         self.assertEquals(prop.parameterValue("CN"), "{Restricted} Buzz")
-
 
     def test_normalizeCalendarUserAddressesWithFakeEmail(self):
         """
@@ -8474,22 +8412,21 @@ END:VCALENDAR
 
         component = Component.fromString(data)
 
-
         def lookupFunction(cuaddr, ignored1, ignored2):
             return succeed({
-                "/principals/users/foo" : (
+                "/principals/users/foo": (
                     "Foo",
                     "foo",
                     "INDIVIDUAL",
                     ("urn:x-uid:foo", "mailto:foo@example.com")
                 ),
-                "mailto:fake1@do_not_reply" : (
+                "mailto:fake1@do_not_reply": (
                     "Fake 1",
                     "fake1",
                     "ROOM",
                     ("urn:x-uid:fake1", "mailto:fake1@do_not_reply")
                 ),
-                "mailto:fake2@do_not_reply" : (
+                "mailto:fake2@do_not_reply": (
                     "Fake 2",
                     "fake2",
                     "ROOM",
@@ -8500,7 +8437,6 @@ END:VCALENDAR
         component.normalizeCalendarUserAddresses(lookupFunction, None, toURN_UUID=True)
 
         self.assertEqual(normalize_iCalStr(component), normalize_iCalStr(result))
-
 
     def test_serializationCaching(self):
 
@@ -8514,54 +8450,54 @@ END:VCALENDAR
 
         component = Component.fromString(data)
 
-        str(component) # to serialize and cache
+        str(component)  # to serialize and cache
         self.assertNotEquals(component._cachedCopy, None)
         component._markAsDirty()
-        self.assertEquals(component._cachedCopy, None) # cache is invalidated
+        self.assertEquals(component._cachedCopy, None)  # cache is invalidated
 
-        str(component) # to serialize and cache
+        str(component)  # to serialize and cache
         self.assertNotEquals(component._cachedCopy, None)
         prop = Property("PRODID", "FOO")
         component.addProperty(prop)
         self.assertEquals(prop._parent, component)
-        self.assertEquals(component._cachedCopy, None) # cache is invalidated
+        self.assertEquals(component._cachedCopy, None)  # cache is invalidated
 
-        str(component) # to serialize and cache
+        str(component)  # to serialize and cache
         self.assertNotEquals(component._cachedCopy, None)
         retrieved = component.getProperty("PRODID")
         self.assertEquals(retrieved._parent, component)
 
-        str(component) # to serialize and cache
+        str(component)  # to serialize and cache
         component.removeProperty(prop)
         self.assertEquals(prop._parent, None)
-        self.assertEquals(component._cachedCopy, None) # cache is invalidated
+        self.assertEquals(component._cachedCopy, None)  # cache is invalidated
 
-        str(component) # to serialize and cache
+        str(component)  # to serialize and cache
         prop2 = Property("PRODID", "BAR")
         component.replaceProperty(prop2)
         self.assertEquals(prop2._parent, component)
-        self.assertEquals(component._cachedCopy, None) # cache is invalidated
+        self.assertEquals(component._cachedCopy, None)  # cache is invalidated
 
-        str(component) # to serialize and cache
+        str(component)  # to serialize and cache
         prop2.setValue("BAZ")
-        self.assertEquals(component._cachedCopy, None) # cache is invalidated
+        self.assertEquals(component._cachedCopy, None)  # cache is invalidated
 
-        str(component) # to serialize and cache
+        str(component)  # to serialize and cache
         prop2.setParameter("XYZZY", "PLUGH")
-        self.assertEquals(component._cachedCopy, None) # cache is invalidated
+        self.assertEquals(component._cachedCopy, None)  # cache is invalidated
 
-        str(component) # to serialize and cache
+        str(component)  # to serialize and cache
         prop2.removeParameter("XYZZY")
-        self.assertEquals(component._cachedCopy, None) # cache is invalidated
+        self.assertEquals(component._cachedCopy, None)  # cache is invalidated
 
-        str(component) # to serialize and cache
+        str(component)  # to serialize and cache
         prop2.removeAllParameters()
-        self.assertEquals(component._cachedCopy, None) # cache is invalidated
+        self.assertEquals(component._cachedCopy, None)  # cache is invalidated
 
         prop2.setParameter("XYZZY", ["PLUGH", "PLUGH2"])
-        str(component) # to serialize and cache
+        str(component)  # to serialize and cache
         prop2.removeParameterValue("XYZZY", "PLUGH2")
-        self.assertEquals(component._cachedCopy, None) # cache is invalidated
+        self.assertEquals(component._cachedCopy, None)  # cache is invalidated
 
         compData = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -8575,17 +8511,16 @@ SUMMARY:Valentine's Day
 END:VEVENT
 END:VCALENDAR
 """
-        str(component) # to serialize and cache
+        str(component)  # to serialize and cache
         [subComponent] = Component.fromString(compData).subcomponents()
         component.addComponent(subComponent)
         self.assertEquals(subComponent._parent, component)
-        self.assertEquals(component._cachedCopy, None) # cache is invalidated
+        self.assertEquals(component._cachedCopy, None)  # cache is invalidated
 
-        str(component) # to serialize and cache
+        str(component)  # to serialize and cache
         component.removeComponent(subComponent)
         self.assertEquals(subComponent._parent, None)
-        self.assertEquals(component._cachedCopy, None) # cache is invalidated
-
+        self.assertEquals(component._cachedCopy, None)  # cache is invalidated
 
     def test_hasDuplicateAlarms(self):
         """
@@ -8813,7 +8748,6 @@ END:VCALENDAR
             component = Component.fromString(txt)
             self.assertEqual(component.hasDuplicateAlarms(doFix=False), result)
             self.assertEqual(str(component), txt.replace("\n", "\r\n"))
-
 
     def test_hasDuplicateAlarms_withFix(self):
         """
@@ -9198,7 +9132,6 @@ END:VCALENDAR
             self.assertEqual(str(component), result.replace("\n", "\r\n"))
             self.assertEqual(changed, result_changed)
 
-
     @inlineCallbacks
     def test_normalizeCUAddressFromCanonical(self):
         """
@@ -9220,49 +9153,49 @@ END:VCALENDAR
         def lookupFunction(cuaddr, ignored1, ignored2):
             return succeed(
                 {
-                    "urn:uuid:foo" : (
+                    "urn:uuid:foo": (
                         "Foo",
                         "foo",
                         "INDIVIDUAL",
                         ("urn:x-uid:foo", "urn:uuid:foo", "http://example.com/foo", "/foo")
                     ),
-                    "urn:uuid:bar" : (
+                    "urn:uuid:bar": (
                         "Bar",
                         "bar",
                         "INDIVIDUAL",
                         ("urn:x-uid:bar", "urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
                     ),
-                    "urn:uuid:baz" : (
+                    "urn:uuid:baz": (
                         "Baz",
                         "baz",
                         "INDIVIDUAL",
                         ("urn:x-uid:baz", "urn:uuid:baz", "http://example.com/baz")
                     ),
-                    "urn:uuid:buz" : (
+                    "urn:uuid:buz": (
                         "Buz",
                         "buz",
                         "INDIVIDUAL",
                         ("urn:x-uid:buz", "urn:uuid:buz",)
                     ),
-                    "urn:x-uid:foo" : (
+                    "urn:x-uid:foo": (
                         "Foo",
                         "foo",
                         "INDIVIDUAL",
                         ("urn:x-uid:foo", "urn:uuid:foo", "http://example.com/foo", "/foo")
                     ),
-                    "urn:x-uid:bar" : (
+                    "urn:x-uid:bar": (
                         "Bar",
                         "bar",
                         "INDIVIDUAL",
                         ("urn:x-uid:bar", "urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
                     ),
-                    "urn:x-uid:baz" : (
+                    "urn:x-uid:baz": (
                         "Baz",
                         "baz",
                         "INDIVIDUAL",
                         ("urn:x-uid:baz", "urn:uuid:baz", "http://example.com/baz")
                     ),
-                    "urn:x-uid:buz" : (
+                    "urn:x-uid:buz": (
                         "Buz",
                         "buz",
                         "INDIVIDUAL",
@@ -9274,7 +9207,6 @@ END:VCALENDAR
         for cuaddr, result in data:
             new_cuaddr = yield normalizeCUAddress(cuaddr, lookupFunction, None, toCanonical=False)
             self.assertEquals(new_cuaddr, result)
-
 
     @inlineCallbacks
     def test_normalizeCUAddressToCanonical(self):
@@ -9288,17 +9220,16 @@ END:VCALENDAR
             ("http://example.com/principals/users/buz", "urn:x-uid:buz",),
         )
 
-
         def lookupFunction(cuaddr, ignored1, ignored2):
             return succeed(
                 {
-                    "/principals/users/foo" : (
+                    "/principals/users/foo": (
                         "Foo",
                         "foo",
                         "INDIVIDUAL",
                         ("urn:x-uid:foo", "urn:uuid:foo",)
                     ),
-                    "http://example.com/principals/users/buz" : (
+                    "http://example.com/principals/users/buz": (
                         "Buz",
                         "buz",
                         "INDIVIDUAL",
@@ -9310,7 +9241,6 @@ END:VCALENDAR
         for cuaddr, result in data:
             new_cuaddr = yield normalizeCUAddress(cuaddr, lookupFunction, None, toCanonical=True)
             self.assertEquals(new_cuaddr, result)
-
 
     @inlineCallbacks
     def test_normalizeCUAddressFromCanonical_URN_UUID(self):
@@ -9332,49 +9262,49 @@ END:VCALENDAR
         def lookupFunction(cuaddr, ignored1, ignored2):
             return succeed(
                 {
-                    "urn:uuid:foo" : (
+                    "urn:uuid:foo": (
                         "Foo",
                         "foo",
                         "INDIVIDUAL",
                         ("urn:x-uid:foo", "urn:uuid:foo", "http://example.com/foo", "/foo")
                     ),
-                    "urn:uuid:bar" : (
+                    "urn:uuid:bar": (
                         "Bar",
                         "bar",
                         "INDIVIDUAL",
                         ("urn:x-uid:bar", "urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
                     ),
-                    "urn:uuid:baz" : (
+                    "urn:uuid:baz": (
                         "Baz",
                         "baz",
                         "INDIVIDUAL",
                         ("urn:x-uid:baz", "urn:uuid:baz", "http://example.com/baz")
                     ),
-                    "urn:uuid:buz" : (
+                    "urn:uuid:buz": (
                         "Buz",
                         "buz",
                         "INDIVIDUAL",
                         ("urn:x-uid:buz", "urn:uuid:buz",)
                     ),
-                    "urn:x-uid:foo" : (
+                    "urn:x-uid:foo": (
                         "Foo",
                         "foo",
                         "INDIVIDUAL",
                         ("urn:x-uid:foo", "urn:uuid:foo", "http://example.com/foo", "/foo")
                     ),
-                    "urn:x-uid:bar" : (
+                    "urn:x-uid:bar": (
                         "Bar",
                         "bar",
                         "INDIVIDUAL",
                         ("urn:x-uid:bar", "urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
                     ),
-                    "urn:x-uid:baz" : (
+                    "urn:x-uid:baz": (
                         "Baz",
                         "baz",
                         "INDIVIDUAL",
                         ("urn:x-uid:baz", "urn:uuid:baz", "http://example.com/baz")
                     ),
-                    "urn:x-uid:buz" : (
+                    "urn:x-uid:buz": (
                         "Buz",
                         "buz",
                         "INDIVIDUAL",
@@ -9386,7 +9316,6 @@ END:VCALENDAR
         for cuaddr, result in data:
             new_cuaddr = yield normalizeCUAddress(cuaddr, lookupFunction, None, toCanonical=False, toURN_UUID=True)
             self.assertEquals(new_cuaddr, result)
-
 
     def test_hasPropertyWithParameterMatch(self):
 
@@ -9665,7 +9594,6 @@ END:VCALENDAR
             ical = Component.fromString(calendar)
             has_property = ical.hasPropertyWithParameterMatch(property, param_name, param_value, param_default)
             self.assertEqual(has_property, result, "Failed has property: %s" % (title,))
-
 
     def test_replaceAllPropertiesWithParameterMatch(self):
 
@@ -9950,7 +9878,6 @@ END:VCALENDAR
             ical.replaceAllPropertiesWithParameterMatch(property, param_name, param_value, param_default)
             self.assertEqual(str(ical), result.replace("\n", "\r\n"), "Failed replace property: %s" % (title,))
 
-
     def test_removeAllPropertiesWithParameterMatch(self):
 
         data = (
@@ -10222,7 +10149,6 @@ END:VCALENDAR
             ical.removeAllPropertiesWithParameterMatch(property, param_name, param_value, param_default)
             self.assertEqual(str(ical), result.replace("\n", "\r\n"), "Failed remove property: %s" % (title,))
 
-
     def test_newUID(self):
 
         data = """BEGIN:VCALENDAR
@@ -10405,7 +10331,6 @@ END:VCALENDAR
         self.assertNotEqual(ical.resourceUID(), "12345-67890-1")
         self.assertEqual(ical.resourceUID(), newUID)
         self.assertEqual(str(ical).replace(newUID, "*"), result.replace("\n", "\r\n"), "Failed newUID")
-
 
     def test_onlyFuturePastInstances(self):
 
@@ -11040,7 +10965,6 @@ END:VCALENDAR
             ical2.onlyPastInstances(rid)
             self.assertEqual(str(ical2), split_past.replace("\n", "\r\n"), "Failed past: %s" % (title,))
 
-
     def test_hasDuplicatePrivateComments(self):
         """
         Test that L{Component.hasDuplicatePrivateComments} correctly detects, but does not fix, duplicate private comments.
@@ -11191,7 +11115,6 @@ END:VCALENDAR
             component = Component.fromString(txt)
             self.assertEqual(component.hasDuplicatePrivateComments(doFix=False), result, msg=title)
             self.assertEqual(normalize_iCalStr(component), normalize_iCalStr(txt), msg=title)
-
 
     def test_hasDuplicatePrivateComments_withFix(self):
         """
@@ -11359,7 +11282,6 @@ END:VCALENDAR
             self.assertEqual(sorted(normalize_iCalStr(component).splitlines()), sorted(normalize_iCalStr(result).splitlines()), msg=title)
             self.assertEqual(changed, result_changed, msg=title)
 
-
     def test_cleanOrganizerScheduleAgent(self):
         """
         Test that L{Component.cleanOrganizerScheduleAgent} correctly removes components.
@@ -11518,7 +11440,6 @@ END:VCALENDAR
             changed = component.cleanOrganizerScheduleAgent()
             self.assertEqual(sorted(normalize_iCalStr(component).splitlines()), sorted(normalize_iCalStr(result).splitlines()), msg=title)
             self.assertEqual(changed, result_changed, msg=title)
-
 
     def test_adjustedTransp(self):
         """
@@ -11696,7 +11617,6 @@ END:VCALENDAR
             component = Component.fromString(txt).mainComponent()
             transp = component.adjustedTransp()
             self.assertEqual(transp, result, msg=title)
-
 
     def test_reconcileGroupAttendees(self):
         """
@@ -12164,7 +12084,6 @@ END:VCALENDAR
             self.assertEqual(result, changed, msg="{}: {}".format(title, "Result mismatch"))
             self.assertEqual(normalize_iCalStr(cal), normalize_iCalStr(txt_result), msg="{}:{}".format(title, diff_iCalStrs(cal, txt_result)))
 
-
     def test_brokenGEO(self):
         """
         Make sure a broken GEO property can be parsed.
@@ -12188,9 +12107,7 @@ END:VCALENDAR
         self.assertTrue(cal is not None)
         self.assertTrue(cal.mainComponent().hasProperty("GEO"))
 
-
     def test_missingCommentDatestamp(self):
-
         """
         Verify attendee comments missing date stamps are repaired
         """

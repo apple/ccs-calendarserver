@@ -46,6 +46,7 @@ This is a direct copy of the twisted implementation of PROPFIND except that it u
 findChildrenFaster method to optimize child privilege checking.
 """
 
+
 @inlineCallbacks
 def http_PROPFIND(self, request):
     """
@@ -167,8 +168,8 @@ def http_PROPFIND(self, request):
                 }
             else:
                 properties_by_status = {
-                    responsecode.OK        : [],
-                    responsecode.NOT_FOUND : [],
+                    responsecode.OK: [],
+                    responsecode.NOT_FOUND: [],
                 }
 
                 if search_properties == "all":
@@ -238,7 +239,6 @@ def http_PROPFIND(self, request):
     # Return response
     #
     returnValue(MultiStatusResponse(xml_responses))
-
 
 
 ##

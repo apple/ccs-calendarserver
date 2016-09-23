@@ -67,7 +67,6 @@ def addEventsDir(testCase, eventsDir, uri):
     returnValue(count)
 
 
-
 class CalendarQuery (StoreTestCase):
     """
     calendar-query REPORT
@@ -89,7 +88,6 @@ class CalendarQuery (StoreTestCase):
                     component = Component.fromString(fin.read())
                 yield calendar._createCalendarObjectWithNameInternal(f, component, internal_state=ComponentUpdateState.RAW)
         yield self.commit()
-
 
     def test_calendar_query_time_range(self):
         """
@@ -175,7 +173,6 @@ class CalendarQuery (StoreTestCase):
 
         return self.calendar_query(query, got_xml)
 
-
     def test_calendar_query_timezone(self):
         """
         Partial retrieval of events by time range.
@@ -217,7 +214,6 @@ class CalendarQuery (StoreTestCase):
 
         return self.calendar_query(query, got_xml)
 
-
     def test_calendar_query_timezone_id(self):
         """
         Partial retrieval of events by time range.
@@ -258,7 +254,6 @@ class CalendarQuery (StoreTestCase):
 
         return self.calendar_query(query, got_xml)
 
-
     @inlineCallbacks
     def test_calendar_query_bogus_timezone_id(self):
         """
@@ -294,7 +289,6 @@ class CalendarQuery (StoreTestCase):
 
         result = yield self.calendar_query(query, got_xml=None, expected_code=responsecode.FORBIDDEN)
         self.assertTrue("valid-timezone" in result)
-
 
     @inlineCallbacks
     def test_calendar_query_wrong_timezone_elements(self):
@@ -336,14 +330,12 @@ class CalendarQuery (StoreTestCase):
         result = yield self.calendar_query(query, got_xml=None, expected_code=responsecode.BAD_REQUEST)
         self.assertTrue("Only one of" in result)
 
-
     def test_calendar_query_partial_recurring(self):
         """
         Partial retrieval of recurring events.
         (CalDAV-access-09, section 7.6.2)
         """
         raise SkipTest("test unimplemented")
-
 
     def test_calendar_query_expanded_recurring(self):
         """
@@ -352,7 +344,6 @@ class CalendarQuery (StoreTestCase):
         """
         raise SkipTest("test unimplemented")
 
-
     def test_calendar_query_partial_freebusy(self):
         """
         Partial retrieval of stored free busy components.
@@ -360,14 +351,12 @@ class CalendarQuery (StoreTestCase):
         """
         raise SkipTest("test unimplemented")
 
-
     def test_calendar_query_todo_alarm(self):
         """
         Retrieval of to-dos by alarm time range.
         (CalDAV-access-09, section 7.6.5)
         """
         raise SkipTest("test unimplemented")
-
 
     def test_calendar_query_by_uid(self):
         """
@@ -384,7 +373,6 @@ class CalendarQuery (StoreTestCase):
             [uid]
         )
 
-
     def test_calendar_query_partstat(self):
         """
         Retrieval of events by participation status.
@@ -392,17 +380,15 @@ class CalendarQuery (StoreTestCase):
         """
         raise SkipTest("test unimplemented")
 
-
     def test_calendar_query_all_events(self):
         """
         All events.
         (CalDAV-access-09, section 7.6.8)
         """
         uids = [r[0] for r in (os.path.splitext(f) for f in
-                os.listdir(self.holidays_dir)) if r[1] == ".ics"]
+                               os.listdir(self.holidays_dir)) if r[1] == ".ics"]
 
         return self.simple_event_query(None, uids)
-
 
     def test_calendar_query_limited_with_data(self):
         """
@@ -424,7 +410,6 @@ class CalendarQuery (StoreTestCase):
         d.addCallbacks(_restoreValueOK, _restoreValueError)
         return d
 
-
     def test_calendar_query_limited_without_data(self):
         """
         All events.
@@ -441,7 +426,6 @@ class CalendarQuery (StoreTestCase):
         d = self.simple_event_query(None, uids, withData=False)
         d.addErrback(_restoreValueError)
         return d
-
 
     def simple_event_query(self, event_filter, uids, withData=True):
         props = (
@@ -503,7 +487,6 @@ class CalendarQuery (StoreTestCase):
                         self.assertEqual(result_calendar, original_calendar)
 
         return self.calendar_query(query, got_xml)
-
 
     @inlineCallbacks
     def calendar_query(self, query, got_xml, expected_code=responsecode.MULTI_STATUS):

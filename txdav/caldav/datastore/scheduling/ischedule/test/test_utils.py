@@ -23,15 +23,14 @@ from twisted.trial import unittest
 from twistedcaldav.stdconfig import config
 from txdav.caldav.datastore.scheduling.ischedule import utils
 
-class LookupService (unittest.TestCase):
 
+class LookupService (unittest.TestCase):
 
     def setUp(self):
         """
         Replace the resolver with a FakeResolver
         """
         client.theResolver = FakeResolver()
-
 
     def tearDown(self):
         """
@@ -40,7 +39,6 @@ class LookupService (unittest.TestCase):
         """
         client.theResolver = None
         utils.DebugResolver = None
-
 
     def test_initResolver(self):
         """
@@ -63,7 +61,6 @@ class LookupService (unittest.TestCase):
             utils._initResolver()
             self.assertNotEqual(utils.DebugResolver, None)
             self.assertTrue(isinstance(utils.DebugResolver, BindAuthority))
-
 
     @inlineCallbacks
     def test_lookupServerViaSRV(self):
@@ -95,7 +92,6 @@ class LookupService (unittest.TestCase):
                     host, port = result
                 self.assertEqual(host, result_host)
                 self.assertEqual(port, result_port)
-
 
     @inlineCallbacks
     def test_lookupDataViaTXT(self):

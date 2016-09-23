@@ -124,7 +124,6 @@ class translationTo(object):
                 localedir=localeDir, languages=[lang, 'en'], fallback=True)
             self.translations[key] = self.translation
 
-
     def __enter__(self):
         # Get the caller's globals so we can rebind their '_' to our translator
         caller_globals = inspect.stack()[1][0].f_globals
@@ -139,7 +138,6 @@ class translationTo(object):
         # What we return here is accessible to the caller via the 'as' clause
         return self
 
-
     def __exit__(self, type, value, traceback):
         # Restore '_' if it previously had a value
         if hasattr(self, 'prev'):
@@ -148,15 +146,12 @@ class translationTo(object):
         # Don't swallow exceptions
         return False
 
-
     def monthAbbreviation(self, monthNumber):
         return self.translation.ugettext(monthsAbbrev[monthNumber])
-
 
     def date(self, component):
         dtStart = component.propertyValue("DTSTART")
         return self.dtDate(dtStart)
-
 
     def time(self, component):
         """
@@ -208,15 +203,14 @@ class translationTo(object):
         return (
             _("%(startTime)s to %(endTime)s")
             % {
-                'startTime' : self.dtTime(
+                'startTime': self.dtTime(
                     dtStart,
                     includeTimezone=(tzStart != tzEnd)
                 ),
-                'endTime' : self.dtTime(dtEnd),
+                'endTime': self.dtTime(dtEnd),
             },
             self.dtDuration(duration)
         )
-
 
     def dtDate(self, val):
         # Bind to '_' so pygettext.py will pick this up for translation
@@ -225,13 +219,12 @@ class translationTo(object):
         return (
             _("%(dayName)s, %(monthName)s %(dayNumber)d, %(yearNumber)d")
             % {
-                'dayName'    : _(daysFull[(val.getDayOfWeek() + 6) % 7]),
-                'monthName'  : _(monthsFull[val.getMonth()]),
-                'dayNumber'  : val.getDay(),
-                'yearNumber' : val.getYear(),
+                'dayName': _(daysFull[(val.getDayOfWeek() + 6) % 7]),
+                'monthName': _(monthsFull[val.getMonth()]),
+                'dayNumber': val.getDay(),
+                'yearNumber': val.getYear(),
             }
         )
-
 
     def dtTime(self, val, includeTimezone=True):
         if val.isDateOnly():
@@ -248,10 +241,10 @@ class translationTo(object):
         result = (
             _("%(hour12Number)d:%(minuteNumber)02d %(ampm)s")
             % {
-                'hour24Number' : val.getHours(), # 0-23
-                'hour12Number' : hour12, # 1-12
-                'minuteNumber' : val.getMinutes(), # 0-59
-                'ampm'         : ampm,
+                'hour24Number': val.getHours(),  # 0-23
+                'hour12Number': hour12,  # 1-12
+                'minuteNumber': val.getMinutes(),  # 0-59
+                'ampm': ampm,
             }
         )
 
@@ -259,7 +252,6 @@ class translationTo(object):
             result += " %s" % (val.timeZoneDescriptor(),)
 
         return result
-
 
     def dtDuration(self, val):
 
@@ -275,7 +267,7 @@ class translationTo(object):
         elif days > 1:
             parts.append(
                 _("%(dayCount)d days") %
-                {'dayCount' : days}
+                {'dayCount': days}
             )
 
         hours = divmod(total / 3600, 24)[1]
@@ -287,7 +279,7 @@ class translationTo(object):
         elif hours > 1:
             parts.append(
                 _("%(hourCount)d hours") %
-                {'hourCount' : hours}
+                {'hourCount': hours}
             )
 
         if minutes == 1:
@@ -295,7 +287,7 @@ class translationTo(object):
         elif minutes > 1:
             parts.append(
                 _("%(minuteCount)d minutes") %
-                {'minuteCount' : minutes}
+                {'minuteCount': minutes}
             )
 
         if seconds == 1:
@@ -303,7 +295,7 @@ class translationTo(object):
         elif seconds > 1:
             parts.append(
                 _("%(secondCount)d seconds") %
-                {'secondCount' : seconds}
+                {'secondCount': seconds}
             )
 
         return " ".join(parts)
@@ -367,7 +359,6 @@ monthsAbbrev = [
 ]
 
 
-
 ##
 # String file conversion routines
 ##
@@ -426,10 +417,8 @@ def processLocalizationFiles(settings):
                         log.info("{m} is up to date", m=moFile)
 
 
-
 class ParseError(Exception):
     pass
-
 
 
 def convertStringsFile(src, dest):
@@ -475,7 +464,7 @@ def convertStringsFile(src, dest):
                 len(transStr)
             )
         )
-        keys += origStr + '\0' # <NUL> terminated
+        keys += origStr + '\0'  # <NUL> terminated
         values += transStr + '\0'
 
     # The header is 28 bytes, each descriptor is 8 bytes, with two descriptors
@@ -497,7 +486,7 @@ def convertStringsFile(src, dest):
         0,                     # file format revision
         len(originals),        # number of strings
         28,                    # offset of table with original strings
-        28 + len(originals) * 8, # offset of table with translation strings
+        28 + len(originals) * 8,  # offset of table with translation strings
         0,                     # size of hashing table
         0                      # offset of hashing table
     )
@@ -508,7 +497,6 @@ def convertStringsFile(src, dest):
 
     with open(dest, "wb") as outFile:
         outFile.write(result)
-
 
 
 def _remapLanguageCode(code):
@@ -522,7 +510,6 @@ def _remapLanguageCode(code):
         code = "zh_TW"
 
     return code
-
 
 
 def getLanguage(config):

@@ -31,20 +31,16 @@ class StubProperty(object):
         return "StubQnamespace", "StubQname"
 
 
-
 class StubHome(object):
 
     def properties(self):
         return []
 
-
     def calendarWithName(self, name):
         return succeed(None)
 
-
     def addNotifier(self, factory_name, notifier):
         pass
-
 
 
 class StubCalendarHomeResource(CalendarHomeResource):
@@ -53,16 +49,13 @@ class StubCalendarHomeResource(CalendarHomeResource):
         return None
 
 
-
 class StubShare(object):
 
     def __init__(self, link):
         self.hosturl = link
 
-
     def url(self):
         return self.hosturl
-
 
 
 class LinkResourceTests(TestCase):
@@ -78,7 +71,6 @@ class LinkResourceTests(TestCase):
         linked_to, _ignore = (yield resource.locateChild(request, ["link", ]))
         self.assertTrue(linked_to is resource.getChild("outbox"))
 
-
     @inlineCallbacks
     def test_badLink(self):
         resource = CalendarHomeResource(self.site.resource, "home", object(), StubHome())
@@ -93,7 +85,6 @@ class LinkResourceTests(TestCase):
             self.assertEqual(e.response.code, responsecode.NOT_FOUND)
         else:
             self.fail("HTTPError exception not raised")
-
 
     @inlineCallbacks
     def test_recursiveLink(self):

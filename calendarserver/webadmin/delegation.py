@@ -59,6 +59,7 @@ allowedAutoScheduleModes = {
     "automatic": AutoScheduleMode.acceptIfFreeDeclineIfBusy,
 }
 
+
 class WebAdminPage(Element):
     """
     Web administration renderer for HTML.
@@ -74,7 +75,6 @@ class WebAdminPage(Element):
         super(WebAdminPage, self).__init__()
         self.resource = resource
 
-
     @renderer
     def main(self, request, tag):
         """
@@ -82,7 +82,6 @@ class WebAdminPage(Element):
         """
         searchTerm = request.args.get('resourceSearch', [''])[0]
         return tag.fillSlots(resourceSearch=searchTerm)
-
 
     @renderer
     @inlineCallbacks
@@ -97,7 +96,6 @@ class WebAdminPage(Element):
             returnValue(tag)
         else:
             returnValue('')
-
 
     @renderer
     @inlineCallbacks
@@ -134,7 +132,6 @@ class WebAdminPage(Element):
         self._searchResults = results
         returnValue(results)
 
-
     @renderer
     def searchResults(self, request, tag):
         """
@@ -142,7 +139,6 @@ class WebAdminPage(Element):
         """
         d = self.performSearch(request)
         return d.addCallback(searchToSlots, tag)
-
 
     @renderer
     @inlineCallbacks
@@ -167,7 +163,6 @@ class WebAdminPage(Element):
             returnValue("")
 
 
-
 def searchToSlots(results, tag):
     """
     Convert the result of doing a search to an iterable of tags.
@@ -189,17 +184,16 @@ def searchToSlots(results, tag):
             shortName=shortName,
             name=record.fullNames[0],
             typeStr={
-                RecordType.user        : "User",
-                RecordType.group       : "Group",
-                CalRecordType.location : "Location",
-                CalRecordType.resource : "Resource",
-                CalRecordType.address  : "Address",
+                RecordType.user: "User",
+                RecordType.group: "Group",
+                CalRecordType.location: "Location",
+                CalRecordType.resource: "Resource",
+                CalRecordType.address: "Address",
             }.get(record.recordType),
             shortNames=str(", ".join(shortNames)),
             emails=str(", ".join(emailAddresses)),
             uid=str(record.uid),
         )
-
 
 
 class stan(object):
@@ -212,15 +206,12 @@ class stan(object):
     def __init__(self, tag):
         self.tag = tag
 
-
     def load(self):
         return self.tag
 
 
-
 def recordTitle(record):
     return u"{} ({} {})".format(record.fullNames[0], record.recordType.description, record.uid)
-
 
 
 class DetailsElement(Element):
@@ -251,7 +242,6 @@ class DetailsElement(Element):
 
         super(DetailsElement, self).__init__(loader=stan(tag))
 
-
     @renderer
     def propertyParseError(self, request, tag):
         """
@@ -262,7 +252,6 @@ class DetailsElement(Element):
             return ""
         else:
             return tag.fillSlots(davPropertyName=self.error)
-
 
     @renderer
     @inlineCallbacks
@@ -285,7 +274,6 @@ class DetailsElement(Element):
         else:
             returnValue("")
 
-
     @renderer
     def autoSchedule(self, request, tag):
         """
@@ -300,7 +288,6 @@ class DetailsElement(Element):
             return tag
         return ""
 
-
     @renderer
     def isAutoSchedule(self, request, tag):
         """
@@ -310,7 +297,6 @@ class DetailsElement(Element):
         if self.record.autoScheduleMode is not AutoScheduleMode.none:
             tag(selected='selected')
         return tag
-
 
     @renderer
     def isntAutoSchedule(self, request, tag):
@@ -322,7 +308,6 @@ class DetailsElement(Element):
             tag(selected='selected')
         return tag
 
-
     @renderer
     def autoScheduleModeNone(self, request, tag):
         """
@@ -332,7 +317,6 @@ class DetailsElement(Element):
         if self.record.autoScheduleMode is AutoScheduleMode.none:
             tag(selected='selected')
         return tag
-
 
     @renderer
     def autoScheduleModeAcceptAlways(self, request, tag):
@@ -344,7 +328,6 @@ class DetailsElement(Element):
             tag(selected='selected')
         return tag
 
-
     @renderer
     def autoScheduleModeDeclineAlways(self, request, tag):
         """
@@ -354,7 +337,6 @@ class DetailsElement(Element):
         if self.record.autoScheduleMode is AutoScheduleMode.decline:
             tag(selected='selected')
         return tag
-
 
     @renderer
     def autoScheduleModeAcceptIfFree(self, request, tag):
@@ -366,7 +348,6 @@ class DetailsElement(Element):
             tag(selected='selected')
         return tag
 
-
     @renderer
     def autoScheduleModeDeclineIfBusy(self, request, tag):
         """
@@ -376,7 +357,6 @@ class DetailsElement(Element):
         if self.record.autoScheduleMode is AutoScheduleMode.declineIfBusy:
             tag(selected='selected')
         return tag
-
 
     @renderer
     def autoScheduleModeAutomatic(self, request, tag):
@@ -421,6 +401,7 @@ class DetailsElement(Element):
                 # FIXME: 'else' case needs to be handled by separate renderer
                 readProxies = []
                 writeProxies = []
+
                 def getres(ref):
                     return self.adminResource.getResourceById(request,
                                                               str(proxyHRef))
@@ -440,7 +421,6 @@ class DetailsElement(Element):
             self._matrix = []
         returnValue(self._matrix)
 
-
     @renderer
     @inlineCallbacks
     def noProxies(self, request, tag):
@@ -452,7 +432,6 @@ class DetailsElement(Element):
             returnValue("")
         returnValue(tag)
 
-
     @renderer
     @inlineCallbacks
     def hasProxies(self, request, tag):
@@ -463,7 +442,6 @@ class DetailsElement(Element):
         if mtx:
             returnValue(tag)
         returnValue("")
-
 
     @renderer
     @inlineCallbacks
@@ -480,7 +458,6 @@ class DetailsElement(Element):
         else:
             returnValue(tag)
 
-
     @renderer
     @inlineCallbacks
     def hasProxyResults(self, request, tag):
@@ -493,7 +470,6 @@ class DetailsElement(Element):
             returnValue(tag)
         else:
             returnValue("")
-
 
     @renderer
     @inlineCallbacks
@@ -523,7 +499,6 @@ class DetailsElement(Element):
         else:
             return succeed([])
 
-
     @renderer
     def proxySearchRows(self, request, tag):
         """
@@ -531,7 +506,6 @@ class DetailsElement(Element):
         """
         d = self.performProxySearch()
         return d.addCallback(searchToSlots, tag)
-
 
 
 class ProxyRow(Element):
@@ -542,7 +516,6 @@ class ProxyRow(Element):
         self.readProxy = readProxy
         self.writeProxy = writeProxy
 
-
     def proxies(self, proxyResource, tag):
         if proxyResource is None:
             return ''
@@ -551,33 +524,27 @@ class ProxyRow(Element):
                              fullName=proxyResource.record.fullNames[0],
                              uid=proxyResource.record.uid)
 
-
     def noProxies(self, proxyResource, tag):
         if proxyResource is None:
             return tag
         else:
             return ""
 
-
     @renderer
     def readOnlyProxies(self, request, tag):
         return self.proxies(self.readProxy, tag)
-
 
     @renderer
     def noReadOnlyProxies(self, request, tag):
         return self.noProxies(self.readProxy, tag)
 
-
     @renderer
     def readWriteProxies(self, request, tag):
         return self.proxies(self.writeProxy, tag)
 
-
     @renderer
     def noReadWriteProxies(self, request, tag):
         return self.noProxies(self.writeProxy, tag)
-
 
 
 class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
@@ -594,45 +561,35 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
             principalCollections=principalCollections
         )
 
-
     # Only allow administrators to access
     def defaultAccessControlList(self):
         return davxml.ACL(*config.AdminACEs)
-
 
     def etag(self):
         # Can't be calculated here
         return succeed(None)
 
-
     def contentLength(self):
         # Can't be calculated here
         return None
 
-
     def lastModified(self):
         return None
-
 
     def exists(self):
         return True
 
-
     def displayName(self):
         return "Web Admin"
-
 
     def contentType(self):
         return MimeType.fromString("text/html; charset=utf-8")
 
-
     def contentEncoding(self):
         return None
 
-
     def createSimilarFile(self, path):
         return DAVFile(path, principalCollections=self.principalCollections())
-
 
     @inlineCallbacks
     def resourceActions(self, request, record):
@@ -679,7 +636,6 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         if makeWriteProxies:
             yield action_addProxy(self.store, record, "write", *makeWriteProxies)
 
-
     @inlineCallbacks
     def render(self, request):
         """
@@ -701,13 +657,11 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
                 response.headers.setHeader(header, value)
         returnValue(response)
 
-
     def getResourceById(self, request, resourceId):
         if resourceId.startswith("/"):
             return request.locateResource(resourceId)
         else:
             return principalForPrincipalID(resourceId, directory=self.directory)
-
 
     @inlineCallbacks
     def search(self, searchStr):
