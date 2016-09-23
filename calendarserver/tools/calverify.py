@@ -3008,7 +3008,10 @@ class UpgradeDataService(CalVerifyService):
                 calendarObj = yield CalendarStoreFeatures(self.txn._store).calendarObjectWithID(self.txn, resid)
                 if calendarObj._dataversion < calendarObj._currentDataVersion:
                     upgradelen += 1
-                yield calendarObj.component(doUpdate=True)
+                    text = yield calendarObj._text()
+                    component = Component.fromString(text)
+                    yield calendarObj.upgradeData(component, True)
+
                 result = True
             except Exception, e:
                 result = False
