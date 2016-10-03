@@ -44,33 +44,37 @@ Calendar supports two options for push notifications: `Apple Push Notification S
 Troubleshooting
 -----------------
 
-Additional debug logging is available by setting some preference keys in the com.apple.CalendarAgent domain. The logs are sent to the standard system logging facility, `ASL <https://developer.apple.com/library/mac/#documentation/Darwin/Reference/ManPages/man3/asl.3.html>`_, and may be viewed with the Console utility, or the "syslog" command line tool. The "Sender" for these log messages is either CalendarAgent or Calendar.
+Additional debug logging is available by setting the CalLogSimpleConfiguration NSUserDefaults key in the global domain. This key supports an array of values that specify different kinds of calendar logging to collect. Starting in macOS 10.12, logs are collected and managed with the `Unified Logging System <https://developer.apple.com/reference/os/1891852-logging>`_. Prior to macOS 10.12, logs are managed by `ASL <https://developer.apple.com/library/mac/#documentation/Darwin/Reference/ManPages/man3/asl.3.html>`_. In either case, these logs may be viewed with the Console utility, or the "log" command line tool (or "syslog" in <= 10.11).
 
-To enable complete protocol logging, open Terminal and run the following two commands:
+To enable complete protocol logging, open Terminal and run the command:
 
 ::
 
   defaults write -g CalLogSimpleConfiguration -array com.apple.calendar.store.log.caldav.http
-  notifyutil -p com.apple.calendar.foundation.notification.logConfigUpdated
 
-The second command (notifyutil) makes CalendarAgent re-read the preferences, because normally they are only read at startup (and CalendarAgenet is a persistent process that does not exit often).
-
-The debug logging domains are specified using a reverse-dns style hierarchy, so to enable all Calendar logging (includes logging of account discovery), use the commands:
+To activate the logging configuration change, quit and relaunch Calendar. For versions of OS X older than 10.12, instead of quitting and relaunching, run this command:
 
 ::
 
-  defaults write -g CalLogSimpleConfiguration -array com.apple.calendar
   notifyutil -p com.apple.calendar.foundation.notification.logConfigUpdated
 
-To disable Calendar debug logging, run the commands:
+The debug logging domains are specified using a reverse-dns style hierarchy, so to enable all Calendar logging (includes logging of account discovery), use the value 'com.apple.calendar'
+
+To disable Calendar debug logging, run the command:
 
 ::
 
   defaults delete -g CalLogSimpleConfiguration
-  notifyutil -p com.apple.calendar.foundation.notification.logConfigUpdated
 
+... then either restart Calendar (macOS 10.12 or newer), or run the notifyutil command again.
 
-To select all Calendar and CalendarAgent logs from ASL, use Console to select these two Senders from the utility box in the left of the Console window, or use the following syslog command:
+To view calendar debug logs collected in macOS 10.12 or newer, run the command:
+
+::
+
+  log show --predicate 'eventMessage contains "com.apple.calendar.store.log.caldav.http"'
+
+For OS X 10.11 or older, use the command:
 
 ::
 
