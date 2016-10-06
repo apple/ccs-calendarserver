@@ -96,6 +96,20 @@ def _doRefresh(tzpath, xmlfile, tzdb, tzvers):
     except IOError:
         pass
 
+    # Work around change to MAKEFILE by trying to extract the version from the NEWS file
+    if tzvers == "unknown":
+        tzvers = None
+        try:
+            with open(os.path.join(zonedir, "NEWS")) as f:
+                makefile = f.read()
+            lines = makefile.splitlines()
+            for line in lines:
+                if line.startswith("Release "):
+                    tzvers = line.split()[1]
+                    break
+        except IOError:
+            pass
+
     if not tzvers:
         tzvers = DateTime.getToday().getText()
     print("Converting data (version: {}) at: {}".format(tzvers, zonedir,))
