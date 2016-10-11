@@ -34,6 +34,12 @@ Next, check out the source code from the GIT repository. To check out the latest
 
 Note: if you have two-factor authentication activated on GitHub, you'll need to use a personal access token instead of your password.  You can generate personal access tokens at https://github.com/settings/tokens
 
+`Pip <https://pip.pypa.io/en/stable/installing/>`_ is used to retrieve the python dependencies and stage them for use by virtualenv, however if your system does not have pip (and virtualenv), install it by running:
+
+    python -m ensurepip
+
+If this yields a permission denied error, you are likely using a system-wide installation of Python, so either retry with a user installation of Python or prefix the command with 'sudo'.
+
 The server requires various external libraries in order to operate. The bin/develop script in the sources will retrieve these dependencies and install them to the .develop directory. Note that this behavior is currently also a side-effect of bin/run, but that is likely to change in the future::
 
     cd ccs-calendarserver
@@ -52,8 +58,6 @@ The server requires various external libraries in order to operate. The bin/deve
 
     ____________________________________________________________
     ...
-
-Pip is used to retrieve the python dependencies and stage them for use by virtualenv, however if your system does not have pip (and virtualenv), you can use bin/install_pip (or your installation / upgrade method of choice).
 
 Before you can run the server, you need to set up a configuration file for development. There is a provided test configuration that you can use to start with, conf/caldavd-test.plist, which can be copied to conf/caldavd-dev.plist (the default config file used by the bin/run script). If conf/caldavd-dev.plist is not present when the server starts, you will be prompted to create a new one from conf/caldavd-test.plist.
 
