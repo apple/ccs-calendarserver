@@ -29,6 +29,10 @@ src="$(cd "${wd}/.." && pwd)";
 
 unset CALENDARSERVER_BUILD_DEPS;
 
+# Only do the 'codesign fix' for Server.app builds
+CODESIGN_FIX=1
+export CODESIGN_FIX
+
 project="CalendarServer";
 uri="https://github.com/apple/ccs-calendarserver.git";
 

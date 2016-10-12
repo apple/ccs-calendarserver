@@ -661,8 +661,12 @@ py_dependencies () {
       "${py_virtualenv}";
     case "$(uname -s)" in
       Darwin)
-        echo "macOS virtualenv codesign fix."
-        cp "/usr/bin/python" "${py_bindir}/python";
+        if [ ! -z ${CODESIGN_FIX-} ]; then
+            echo "macOS virtualenv codesign fix.";
+            cp "/usr/bin/python" "${py_bindir}/python";
+        else
+            echo "Skipping macOS virtualenv codesign fix";
+        fi
         ;;
     esac;
   fi;
