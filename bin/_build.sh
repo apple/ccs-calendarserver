@@ -80,6 +80,49 @@ find_header () {
 };
 
 
+has_valid_code_signature () {
+  local p="$1"; shift;
+  if [ -f ${p} ] && [ -x ${p} ]; then
+    if /usr/bin/codesign -v ${p} > /dev/null 2>&1; then
+      return 0;
+    else
+      return 1;
+    fi;
+  fi;
+};
+
+
+ad_hoc_sign_if_code_signature_is_invalid () {
+  local p="$1"; shift;
+  if [ -f ${p} ] && [ -x ${p} ]; then
+    if has_valid_code_signature ${p}; then
+      # If there is a valid code signature, we're done.
+      echo "${p} has a valid code signature.";
+      return 0;
+    else
+      # If codesign exits non-zero, that could mean either 'no signature' or
+      # 'invalid signature'. We need to determine which one.
+      # An unsigned binary has no LC_CODE_SIGNATURE load command.
+      if /usr/bin/otool -l ${p} | /usr/bin/grep LC_CODE_SIGNATURE > /dev/null 2>&1; then
+        # Has LC_CODE_SIGNATURE, but signature isn't valid. Ad-hoc sign it.
+        echo "${p} has an invalid code signature, attempting to repair..."
+        /usr/bin/codesign -f -s - ${p};
+        # Validate the ad-hoc signature
+        if has_valid_code_signature ${p}; then
+          echo "Invalid code signature replaced via ad-hoc signing.";
+          return 0;
+        fi;
+      else
+        # No code signature.
+        echo "${p} is not code signed. This is OK.";
+        return 0;
+      fi;
+    fi;
+  fi;
+  return 1;
+};
+
+
 # Initialize all the global state required to use this library.
 init_build () {
   cd "${wd}";
@@ -160,24 +203,23 @@ init_build () {
   fi;
 
   default_requirements="${wd}/requirements-default.txt";
-  use_openssl="true"
-  if [ -z "${USE_OPENSSL-}" ]; then
-    case "$(uname -s)" in
-      Darwin)
+  use_openssl="true";
+
+  # Use SecureTransport instead of OpenSSL if possible, unless told otherwise
+  if [ -z "${USE_OPENSSL-}" ]; then 
+    if [ $(uname -s) = "Darwin" ]; then
+      # SecureTransport requires >= 10.11 (Darwin >= 15).
+      REV=$(uname -r)
+      if (( ${REV%%.*} >= 15 )); then
         default_requirements="${wd}/requirements-osx.txt";
-        use_openssl="false"
-        ;;
-    esac;
-  else
-    case "$(uname -s)" in
-      Darwin)
+        use_openssl="false";
+      else
         # Needed to build OpenSSL 64-bit on OS X
-        export KERNEL_BITS=64
-        ;;
-    esac
+        export KERNEL_BITS=64;
+      fi;
+    fi;
   fi;  
   conditional_set requirements "${default_requirements}"
-  
 }
 
 
@@ -659,16 +701,19 @@ py_dependencies () {
       --no-setuptools                    \
       ${virtualenv_opts}                 \
       "${py_virtualenv}";
-    case "$(uname -s)" in
-      Darwin)
-        if [ ! -z ${CODESIGN_FIX-} ]; then
-            echo "macOS virtualenv codesign fix.";
-            cp "/usr/bin/python" "${py_bindir}/python";
-        else
-            echo "Skipping macOS virtualenv codesign fix";
-        fi
-        ;;
-    esac;
+    if [ "${use_openssl}" = "false" ]; then
+      # Interacting with keychain requires either a valid code signature, or no
+      # code signature. An *invalid* code signature won't work.
+      if ! ad_hoc_sign_if_code_signature_is_invalid ${python}; then
+        cat << EOF
+SecureTransport support is enabled, but we are unable to validate or fix the
+code signature for ${python}. Keychain interactions used with SecureTransport
+require either no code signature, or a valid code signature. To switch to
+OpenSSL, delete the .develop directory, export USE_OPENSSL=1, then run
+./bin/develop again.
+EOF
+      fi;
+    fi;
   fi;
 
   cd "${wd}";
