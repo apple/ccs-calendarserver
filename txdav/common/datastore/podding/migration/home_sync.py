@@ -116,7 +116,7 @@ class CrossPodHomeSync(object):
         return "Cross-pod Migration Sync for {}: {}".format(self.diruid, detail)
 
     def accounting(self, logstr):
-        emitAccounting(ACCOUNTING_TYPE, self.record, "{} {}\n".format(datetime.datetime.now().isoformat(), logstr), filename=ACCOUNTING_LOG)
+        emitAccounting(ACCOUNTING_TYPE, self.record if self.record is None else self.diruid, "{} {}\n".format(datetime.datetime.now().isoformat(), logstr), filename=ACCOUNTING_LOG)
         if self.uselog is not None:
             self.uselog.write("CrossPodHomeSync: {}\n".format(logstr))
 
