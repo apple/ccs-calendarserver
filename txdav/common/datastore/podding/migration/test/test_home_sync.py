@@ -132,6 +132,23 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n").format(**nowYear)
 
+    inboxdata1 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:uid1-inbox
+DTSTART:{now:04d}0102T140000Z
+DURATION:PT1H
+CREATED:20060102T190000Z
+DTSTAMP:20051222T210507Z
+RRULE:FREQ=WEEKLY
+SUMMARY:instance
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n").format(**nowYear)
+
     @inlineCallbacks
     def test_remote_home(self):
         """
@@ -387,8 +404,11 @@ END:VCALENDAR
         o1 = yield calendar0.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         o2 = yield calendar0.createCalendarObjectWithName("2.ics", Component.fromString(self.caldata2))
         o3 = yield calendar0.createCalendarObjectWithName("3.ics", Component.fromString(self.caldata3))
+        inbox0 = yield home0.childWithName("inbox")
+        inbox_o1 = yield inbox0.createCalendarObjectWithName("inbox1.ics", Component.fromString(self.inboxdata1))
         remote_id = calendar0.id()
-        mapping0 = dict([(o.name(), o.id()) for o in (o1, o2, o3)])
+        inbox_remote_id = inbox0.id()
+        mapping0 = dict([(o.name(), o.id()) for o in (o1, o2, o3, inbox_o1)])
         yield self.commitTransaction(0)
 
         syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
@@ -412,6 +432,17 @@ END:VCALENDAR
         self.assertEqual(len(local_sync_state), 1)
         self.assertEqual(local_sync_state[remote_id].lastSyncToken, remote_sync_state[remote_id].lastSyncToken)
 
+        # Trigger sync of the one inbox
+        inbox_local_sync_state = {}
+        inbox_remote_sync_state = yield syncer.getCalendarSyncList()
+        yield syncer.syncCalendar(
+            inbox_remote_id,
+            inbox_local_sync_state,
+            inbox_remote_sync_state,
+        )
+        self.assertEqual(len(inbox_local_sync_state), 1)
+        self.assertEqual(inbox_local_sync_state[inbox_remote_id].lastSyncToken, inbox_remote_sync_state[inbox_remote_id].lastSyncToken)
+
         @inlineCallbacks
         def _checkCalendarObjectMigrationState(home, mapping1):
             com = schema.CALENDAR_OBJECT_MIGRATION
@@ -423,13 +454,18 @@ END:VCALENDAR
             expected_mappings = dict([(mapping0[name], mapping1[name]) for name in mapping0.keys()])
             self.assertEqual(dict(mappings), expected_mappings)
 
-        # Local calendar exists
+        # Local calendar/inbox exists
         home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name="user01", status=_HOME_STATUS_MIGRATING)
         calendar1 = yield home1.childWithName("calendar")
         self.assertTrue(calendar1 is not None)
         children = yield calendar1.objectResources()
         self.assertEqual(set([child.name() for child in children]), set(("1.ics", "2.ics", "3.ics",)))
         mapping1 = dict([(o.name(), o.id()) for o in children])
+        inbox1 = yield home1.childWithName("inbox")
+        self.assertTrue(inbox1 is not None)
+        children = yield inbox1.objectResources()
+        self.assertEqual(set([child.name() for child in children]), set(("inbox1.ics",)))
+        mapping1.update(dict([(o.name(), o.id()) for o in children]))
         yield _checkCalendarObjectMigrationState(home1, mapping1)
         yield self.commitTransaction(1)
 
@@ -473,6 +509,10 @@ END:VCALENDAR
         children = yield calendar1.objectResources()
         self.assertEqual(set([child.name() for child in children]), set(("1.ics", "3.ics",)))
         mapping1 = dict([(o.name(), o.id()) for o in children])
+        inbox1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="user01", status=_HOME_STATUS_MIGRATING, name="inbox")
+        children = yield inbox1.objectResources()
+        self.assertEqual(set([child.name() for child in children]), set(("inbox1.ics",)))
+        mapping1.update(dict([(o.name(), o.id()) for o in children]))
         yield _checkCalendarObjectMigrationState(home1, mapping1)
         yield self.commitTransaction(1)
 
@@ -493,6 +533,10 @@ END:VCALENDAR
         children = yield calendar1.objectResources()
         self.assertEqual(set([child.name() for child in children]), set(("1.ics", "3.ics", "4.ics")))
         mapping1 = dict([(o.name(), o.id()) for o in children])
+        inbox1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="user01", status=_HOME_STATUS_MIGRATING, name="inbox")
+        children = yield inbox1.objectResources()
+        self.assertEqual(set([child.name() for child in children]), set(("inbox1.ics",)))
+        mapping1.update(dict([(o.name(), o.id()) for o in children]))
         yield _checkCalendarObjectMigrationState(home1, mapping1)
         yield self.commitTransaction(1)
 
