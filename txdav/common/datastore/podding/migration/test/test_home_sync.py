@@ -968,8 +968,22 @@ END:VCALENDAR
                 self.fail("Notification uid {} not found".format(result.uid()))
         yield self.commitTransaction(1)
 
-    @inlineCallbacks
     def test_disable_remote_home(self):
+        """
+        Test that L{disableRemoteHome} changes the remote status and prevents a normal state
+        home from being created. Assume remote notification collection exists.
+        """
+        return self._do_disable_remote_home(notification_exists=True)
+
+    def test_disable_remote_home_no_notifications(self):
+        """
+        Test that L{disableRemoteHome} changes the remote status and prevents a normal state
+        home from being created. Assume remote notification collection does not exist.
+        """
+        return self._do_disable_remote_home(notification_exists=False)
+
+    @inlineCallbacks
+    def _do_disable_remote_home(self, notification_exists=True):
         """
         Test that L{disableRemoteHome} changes the remote status and prevents a normal state
         home from being created.
@@ -1019,7 +1033,8 @@ END:VCALENDAR
         )
 
         # Notifications
-        yield self.theTransactionUnderTest(0).notificationsWithUID("user01", create=True)
+        if notification_exists:
+            yield self.theTransactionUnderTest(0).notificationsWithUID("user01", create=True)
 
         yield self.commitTransaction(0)
 
