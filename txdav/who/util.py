@@ -158,6 +158,9 @@ def buildDirectory(
                     CalFieldName.autoScheduleMode: mapping.autoScheduleMode,
                     CalFieldName.autoAcceptGroup: mapping.autoAcceptGroup,
                     CalFieldName.serviceNodeUID: mapping.serviceNodeUID,
+                    CalFieldName.associatedAddress: mapping.associatedAddress,
+                    CalFieldName.geographicLocation: mapping.geographicLocation,
+                    CalFieldName.streetAddress: mapping.streetAddress,
                 }),
                 recordTypeSchemas=MappingProxyType({
                     RecordType.user: RecordTypeSchema(

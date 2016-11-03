@@ -92,6 +92,9 @@ DEFAULT_SERVICE_PARAMS = {
             "readWriteProxy": ["icsContact"],
             "readOnlyProxy": ["icsSecondaryOwners"],
             "serviceNodeUID": [],
+            "associatedAddress": [],
+            "geographicLocation": [],
+            "streetAddress": [],
         },
         "extraFilters": {
             "users": "",
