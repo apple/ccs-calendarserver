@@ -97,9 +97,11 @@ class ScheduleViaCalDAV(DeliveryService):
         # Freebusy needs to be optimized by doing multiple attendee in parallel if possible
         if self.freebusy:
             # Look for special delegate extended free-busy request
-            event_details = [] if self.scheduler.calendar.getExtendedFreeBusy() else None
+            use_extended_free_busy = self.scheduler.calendar.getExtendedFreeBusy() is not None
 
             for recipient in self.recipients:
+                event_details = [] if use_extended_free_busy else None
+
                 # Check access controls - we do not do this right now. But if we ever implement access controls to
                 # determine which users can schedule with other users, here is where we would do that test.
                 yield self.generateFreeBusyResponse(recipient, self.responses, organizerProp, uid, event_details)
