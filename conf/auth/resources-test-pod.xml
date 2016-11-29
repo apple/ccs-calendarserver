@@ -18,4 +18,35 @@ limitations under the License.
 
 <!DOCTYPE accounts SYSTEM "accounts.dtd">
 
-<directory realm="Test Realm" />
+<directory realm="Test Realm">
+<record type="location">
+    <uid>30000000-0000-0000-0000-000000000001</uid>
+    <guid>30000000-0000-0000-0000-000000000001</guid>
+    <short-name>location01</short-name>
+    <full-name>Location 01</full-name>
+</record>
+<record type="location">
+    <uid>30000000-0000-0000-0000-000000000002</uid>
+    <guid>30000000-0000-0000-0000-000000000002</guid>
+    <short-name>location02</short-name>
+    <full-name>Location 02</full-name>
+</record>
+<record type="location">
+    <uid>30000000-0000-0000-0000-000000000003</uid>
+    <guid>30000000-0000-0000-0000-000000000003</guid>
+    <short-name>location03</short-name>
+    <full-name>Location 03</full-name>
+</record>
+<record type="location">
+    <uid>30000000-0000-0000-0000-000000000004</uid>
+    <guid>30000000-0000-0000-0000-000000000004</guid>
+    <short-name>location04</short-name>
+    <full-name>Location 04</full-name>
+</record>
+<record type="location">
+    <uid>30000000-0000-0000-0000-000000000005</uid>
+    <guid>30000000-0000-0000-0000-000000000005</guid>
+    <short-name>location05</short-name>
+    <full-name>Location 05</full-name>
+</record>
+</directory>
