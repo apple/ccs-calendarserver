@@ -4,5 +4,5 @@ docutils
 mockldap
 q
 tl.eggdeps
---editable git+https://github.com/apple/ccs-caldavclientlibrary.git@9d1ee6f38f7ca49a106d42d27147c93925108d2e#egg=CalDAVClientLibrary
---editable git+https://github.com/apple/ccs-caldavtester.git@3cd2e756690dc863df065b52f7fc35379c900d90#egg=CalDAVTester
+--editable git+https://github.com/apple/ccs-caldavclientlibrary.git@697fecbe05c0715f14a2393f51c2bb8800333424#egg=CalDAVClientLibrary
+--editable git+https://github.com/apple/ccs-caldavtester.git@56cf45bd2411bc4d1e9cdeb8a80350c2a481704e#egg=CalDAVTester
