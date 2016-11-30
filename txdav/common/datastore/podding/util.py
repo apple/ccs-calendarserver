@@ -19,7 +19,8 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.common.datastore.podding.base import FailedCrossPodRequestError
 from txdav.common.datastore.sql_notification import NotificationCollection, \
     NotificationObject
-from txdav.common.icommondatastore import NonExistentExternalShare
+from txdav.common.icommondatastore import NonExistentExternalShare,\
+    ECALENDARTYPE, EADDRESSBOOKTYPE
 
 
 class UtilityConduitMixin(object):
@@ -153,7 +154,17 @@ class UtilityConduitMixin(object):
         if "notificationUID" in request:
             notification = yield txn.notificationsWithUID(request["notificationUID"])
             if notification is None:
-                raise FailedCrossPodRequestError("Invalid notification UID specified")
+                # See if a home exists (even a disabled one) - if so create the notification home
+                txn._allowDisabled = True
+                for storeType in (ECALENDARTYPE, EADDRESSBOOKTYPE):
+                    home = yield txn.homeWithUID(storeType, request["notificationUID"])
+                    if home is not None:
+                        notification = yield txn.notificationsWithUID(request["notificationUID"], create=True)
+                        break
+                else:
+                    # If no home at all - it is an error
+                    raise FailedCrossPodRequestError("Invalid notification UID specified")
+
             notification._internalRequest = False
             returnObject = notification
             if request.get("classMethod", False):

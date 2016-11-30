@@ -3029,8 +3029,9 @@ class UpgradeDataService(CalVerifyService):
                                 if cuaddr.startswith(UpgradeDataService.OLD_CUADDR_PREFIX):
                                     prop.setValue(cuaddr.replace(UpgradeDataService.OLD_CUADDR_PREFIX, UpgradeDataService.NEW_CUADDR_PREFIX))
 
-                        # Do the update right now
+                        # Do the update right now (also suppress instance indexing)
                         calendarObj._dataversion = calendarObj._currentDataVersion
+                        component.noInstanceIndexing = True
                         yield calendarObj.updateDatabase(component)
                     else:
                         # Read component and force and update if needed

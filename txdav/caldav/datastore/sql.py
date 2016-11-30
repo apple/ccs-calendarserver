@@ -593,6 +593,9 @@ class CalendarHome(CommonHome):
             Where=chm.RESOURCE_ID == self._resourceID
         ).on(self._txn)
 
+        # Since database entry may have changed we need to invalidate any cached query
+        yield self.invalidateQueryCache()
+
     @inlineCallbacks
     def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, mode):
         """
@@ -1323,6 +1326,9 @@ class Calendar(CommonHomeChild):
             values,
             Where=(cb.CALENDAR_HOME_RESOURCE_ID == self.viewerHome()._resourceID).And(cb.CALENDAR_RESOURCE_ID == self._resourceID)
         ).on(self._txn)
+
+        # Since database entry may have changed we need to invalidate any cached queries
+        yield self.invalidateQueryCache()
 
     ownerCalendarHome = CommonHomeChild.ownerHome
     viewerCalendarHome = CommonHomeChild.viewerHome

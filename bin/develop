@@ -39,8 +39,9 @@ find .develop/virtualenv/bin -type f -name "calendarserver_*" | {
     target="${wd}/bin/$(basename ${source})";
 
     rm -f "${target}";
-    if [[ "calendarserver_dashboard calendarserver_dashcollect calendarserver_dashview" =~ "$(basename ${target})" ]]; then
-      cat << __END__ > "${target}"
+    case "$(basename ${target})" in
+        calendarserver_dashboard|calendarserver_dashcollect|calendarserver_dashview)
+            cat << __END__ > "${target}"
 #!/bin/sh
 
 export PATH="${PATH:-}";
@@ -49,8 +50,9 @@ export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}";
 
 exec "\$(dirname \$0)/../${source}" "\$@";
 __END__
-    else
-      cat << __END__ > "${target}"
+;;
+        *)
+            cat << __END__ > "${target}"
 #!/bin/sh
 
 export PATH="${PATH:-}";
@@ -59,7 +61,8 @@ export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}";
 
 exec "\$(dirname \$0)/../${source}" --config "${wd}/conf/caldavd-dev.plist" "\$@";
 __END__
-    fi;
+    ;;
+    esac
     chmod +x "${target}";
 
   done;

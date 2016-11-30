@@ -26,6 +26,7 @@ import os
 import sys
 
 from twisted.internet.defer import inlineCallbacks
+from twisted.python.failure import Failure
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
 
@@ -170,6 +171,7 @@ class PodMigrationService(WorkerService, object):
         except ConfigError:
             pass
         except:
+            self.output.write(str(Failure()))
             log.failure("doWork()")
 
     @inlineCallbacks

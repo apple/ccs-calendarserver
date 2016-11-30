@@ -38,6 +38,8 @@ Africa/Porto-Novo	Africa/Lagos
 Africa/Sao_Tome	Africa/Abidjan
 Africa/Timbuktu	Africa/Abidjan
 Alaskan Standard Time	America/Anchorage
+Aleutian Standard Time	America/Adak
+Altai Standard Time	Asia/Barnaul
 America/Anguilla	America/Port_of_Spain
 America/Antigua	America/Port_of_Spain
 America/Argentina/ComodRivadavia	America/Argentina/Catamarca
@@ -96,16 +98,19 @@ Asia/Kuwait	Asia/Riyadh
 Asia/Macao	Asia/Macau
 Asia/Muscat	Asia/Dubai
 Asia/Phnom_Penh	Asia/Bangkok
+Asia/Rangoon	Asia/Yangon
 Asia/Saigon	Asia/Ho_Chi_Minh
 Asia/Tel_Aviv	Asia/Jerusalem
 Asia/Thimbu	Asia/Thimphu
 Asia/Ujung_Pandang	Asia/Makassar
 Asia/Ulan_Bator	Asia/Ulaanbaatar
 Asia/Vientiane	Asia/Bangkok
+Astrakhan Standard Time	Europe/Astrakhan
 Atlantic Standard Time	America/Halifax
 Atlantic/Faeroe	Atlantic/Faroe
 Atlantic/Jan_Mayen	Europe/Oslo
 Atlantic/St_Helena	Africa/Abidjan
+Aus Central W. Standard Time	Australia/Eucla
 Australia/ACT	Australia/Sydney
 Australia/Canberra	Australia/Sydney
 Australia/LHI	Australia/Lord_Howe
@@ -122,6 +127,7 @@ Azores Standard Time	Atlantic/Azores
 Bahia Standard Time	America/Bahia
 Bangladesh Standard Time	Asia/Dhaka
 Belarus Standard Time	Europe/Minsk
+Bougainville Standard Time	Pacific/Bougainville
 Brazil/Acre	America/Rio_Branco
 Brazil/DeNoronha	America/Noronha
 Brazil/East	America/Sao_Paulo
@@ -147,15 +153,18 @@ Central European Standard Time	Europe/Warsaw
 Central Pacific Standard Time	Pacific/Guadalcanal
 Central Standard Time	America/Chicago
 Central Standard Time (Mexico)	America/Mexico_City
+Chatham Islands Standard Time	Pacific/Chatham
 Chile/Continental	America/Santiago
 Chile/EasterIsland	Pacific/Easter
 China Standard Time	Asia/Shanghai
 Cuba	America/Havana
+Cuba Standard Time	America/Havana
 Dateline Standard Time	Etc/GMT+12
 E. Africa Standard Time	Africa/Nairobi
 E. Australia Standard Time	Australia/Brisbane
 E. Europe Standard Time	Europe/Chisinau
 E. South America Standard Time	America/Sao_Paulo
+Easter Island Standard Time	Pacific/Easter
 Eastern Standard Time	America/New_York
 Eastern Standard Time (Mexico)	America/Cancun
 Egypt	Africa/Cairo
@@ -227,6 +236,7 @@ Georgian Standard Time	Asia/Tbilisi
 Greenland Standard Time	America/Godthab
 Greenwich	Etc/GMT
 Greenwich Standard Time	Atlantic/Reykjavik
+Haiti Standard Time	America/Port-au-Prince
 Hawaiian Standard Time	Pacific/Honolulu
 Hongkong	Asia/Hong_Kong
 Iceland	Atlantic/Reykjavik
@@ -247,7 +257,9 @@ Kwajalein	Pacific/Kwajalein
 Libya	Africa/Tripoli
 Libya Standard Time	Africa/Tripoli
 Line Islands Standard Time	Pacific/Kiritimati
+Lord Howe Standard Time	Australia/Lord_Howe
 Magadan Standard Time	Asia/Magadan
+Marquesas Standard Time	Pacific/Marquesas
 Mauritius Standard Time	Indian/Mauritius
 Mexico/BajaNorte	America/Tijuana
 Mexico/BajaSur	America/Mazatlan
@@ -266,12 +278,14 @@ Navajo	America/Denver
 Nepal Standard Time	Asia/Katmandu
 New Zealand Standard Time	Pacific/Auckland
 Newfoundland Standard Time	America/St_Johns
+Norfolk Standard Time	Pacific/Norfolk
 North Asia East Standard Time	Asia/Irkutsk
 North Asia Standard Time	Asia/Krasnoyarsk
 North Korea Standard Time	Asia/Pyongyang
 PRC	Asia/Shanghai
 Pacific SA Standard Time	America/Santiago
 Pacific Standard Time	America/Los_Angeles
+Pacific Standard Time (Mexico)	America/Tijuana
 Pacific/Johnston	Pacific/Honolulu
 Pacific/Midway	Pacific/Pago_Pago
 Pacific/Ponape	Pacific/Pohnpei
@@ -294,6 +308,8 @@ SA Eastern Standard Time	America/Cayenne
 SA Pacific Standard Time	America/Bogota
 SA Western Standard Time	America/La_Paz
 SE Asia Standard Time	Asia/Bangkok
+Saint Pierre Standard Time	America/Miquelon
+Sakhalin Standard Time	Asia/Sakhalin
 Samoa Standard Time	Pacific/Apia
 Singapore	Asia/Singapore
 Singapore Standard Time	Asia/Singapore
@@ -302,10 +318,14 @@ Sri Lanka Standard Time	Asia/Colombo
 Syria Standard Time	Asia/Damascus
 Taipei Standard Time	Asia/Taipei
 Tasmania Standard Time	Australia/Hobart
+Tocantins Standard Time	America/Araguaina
 Tokyo Standard Time	Asia/Tokyo
+Tomsk Standard Time	Asia/Tomsk
 Tonga Standard Time	Pacific/Tongatapu
+Transbaikal Standard Time	Asia/Chita
 Turkey	Europe/Istanbul
 Turkey Standard Time	Europe/Istanbul
+Turks And Caicos Standard Time	America/Grand_Turk
 UCT	Etc/UCT
 US Eastern Standard Time	America/Indianapolis
 US Mountain Standard Time	America/Phoenix
@@ -324,6 +344,8 @@ US/Samoa	Pacific/Pago_Pago
 UTC	Etc/UTC
 UTC+12	Etc/GMT-12
 UTC-02	Etc/GMT+2
+UTC-08	Etc/GMT+8
+UTC-09	Etc/GMT+9
 UTC-11	Etc/GMT+11
 Ulaanbaatar Standard Time	Asia/Ulaanbaatar
 Universal	Etc/UTC
@@ -333,7 +355,9 @@ W-SU	Europe/Moscow
 W. Australia Standard Time	Australia/Perth
 W. Central Africa Standard Time	Africa/Lagos
 W. Europe Standard Time	Europe/Berlin
+W. Mongolia Standard Time	Asia/Hovd
 West Asia Standard Time	Asia/Tashkent
+West Bank Standard Time	Asia/Hebron
 West Pacific Standard Time	Pacific/Port_Moresby
 Yakutsk Standard Time	Asia/Yakutsk
 Zulu	Etc/UTC
