@@ -161,7 +161,7 @@ class BaseCommonAccessLoggingObserver(object):
         logtime = time.localtime(when)
         Y, M, D, h, m, s = logtime[:6]
 
-        if not time.daylight:
+        if logtime.tm_isdst == 0:
             tz = self.tzForLog
             if tz is None:
                 tz = self.computeTimezoneForLog(time.timezone)
