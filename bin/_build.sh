@@ -751,7 +751,7 @@ EOF
 
   ruler "Patching Python requirements";
   echo "";
-  twisted_version=$("${python}" -c 'from twisted._version import version; print version.base()');
+  twisted_version=$("${python}" -c 'from twisted import version; print version.base()');
   if [ ! -e "${py_virtualenv}/lib/python2.7/site-packages/twisted/.patch_applied.${twisted_version}" ]; then
     apply_patches "Twisted" "${py_virtualenv}/lib/python2.7/site-packages"
     find "${py_virtualenv}/lib/python2.7/site-packages/twisted" -type f -name '.patch_applied*' -print0 | xargs -0 rm -f;

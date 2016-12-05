@@ -2,4 +2,4 @@
 # Dependencies which we're going to patch, and therefore want to ignore already-installed copies
 ##
 
-Twisted==16.3.0
+Twisted==16.6.0
