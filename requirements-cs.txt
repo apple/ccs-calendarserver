@@ -4,16 +4,16 @@
 
 --editable .  # calendarserver
 
-    zope.interface==4.1.3
-	    setuptools==18.5
+    zope.interface==4.3.2
+	    setuptools==30.2.0
 
     --editable git+https://github.com/apple/ccs-twistedextensions.git#egg=twextpy
-        cffi==1.7.0
-            pycparser==2.14
+        cffi==1.9.1
+            pycparser==2.17
         #twisted
 
         # [LDAP] extra
-            python-ldap==2.4.25
+            python-ldap==2.4.28
                 #setuptools
 
         # [DAL] extra
@@ -31,10 +31,10 @@
     --editable git+https://github.com/apple/ccs-pykerberos.git#egg=kerberos
 
     --editable git+https://github.com/apple/ccs-pycalendar.git#egg=pycalendar
-    python-dateutil==2.5.3
-    pytz==2016.4
+    python-dateutil==2.6.0
+    pytz==2016.7
 
-    psutil==4.3.0
+    psutil==5.0.0
     setproctitle==1.1.10
     # xattr==0.7.5  # Only needed for upgrades from ancient versions.  Added in _cache_deps.
         #cffi

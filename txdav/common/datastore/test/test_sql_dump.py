@@ -95,14 +95,14 @@ class SQLDump(TestCase):
     def test_pkey_column(self):
 
         schema = """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer primary key,
     ID2 integer not null
 );
 """
 
         schema_bad = """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer primary key,
     ID2 integer
 );
@@ -114,7 +114,7 @@ CREATE TABLE FOO (
     def test_pkey_table(self):
 
         schema = """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer not null,
     ID2 integer not null,
 
@@ -123,7 +123,7 @@ CREATE TABLE FOO (
 """
 
         schema_bad = """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer,
     ID2 integer,
 
@@ -137,7 +137,7 @@ CREATE TABLE FOO (
     def test_multiple_pkey_table(self):
 
         schema = """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer not null,
     ID2 integer not null,
     ID3 integer not null,
@@ -147,7 +147,7 @@ CREATE TABLE FOO (
 """
 
         schema_bad = """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer,
     ID2 integer,
     ID3 integer,
@@ -162,14 +162,14 @@ CREATE TABLE FOO (
     def test_unique_column(self):
 
         schema = """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer unique,
     ID2 integer not null
 );
 """
 
         schema_bad = """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer unique,
     ID2 integer
 );
@@ -181,7 +181,7 @@ CREATE TABLE FOO (
     def test_unique_table(self):
 
         schema = """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer,
     ID2 integer not null,
 
@@ -190,7 +190,7 @@ CREATE TABLE FOO (
 """
 
         schema_bad = """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer,
     ID2 integer,
 
@@ -204,7 +204,7 @@ CREATE TABLE FOO (
     def test_multiple_unique_table(self):
 
         schema = """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer,
     ID2 integer,
     ID3 integer not null,
@@ -214,7 +214,7 @@ CREATE TABLE FOO (
 """
 
         schema_bad = """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer,
     ID2 integer,
     ID3 integer,
@@ -229,19 +229,19 @@ CREATE TABLE FOO (
     def test_timestamp_table(self):
 
         schema = """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer primary key,
     ID2 timestamp default timezone('UTC', CURRENT_TIMESTAMP)
 );
 """ if DB_TYPE[0] == POSTGRES_DIALECT else """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer primary key,
     ID2 timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 """
 
         schema_bad = """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer primary key default 0,
     ID2 timestamp
 );
@@ -253,43 +253,43 @@ CREATE TABLE FOO (
     def test_references_table(self):
 
         schema = """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer primary key,
     ID2 text default null
 );
-CREATE TABLE BAR (
-    ID1 integer references FOO on delete cascade,
+create table bar (
+    ID1 integer references foo on delete cascade,
     ID2 integer
 );
-CREATE TABLE BAZ (
-    ID1 integer references FOO,
+create table baz (
+    ID1 integer references foo,
     ID2 integer
 );
 """ if DB_TYPE[0] == POSTGRES_DIALECT else """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer primary key,
     ID2 nclob default null
 );
-CREATE TABLE BAR (
-    ID1 integer references FOO on delete cascade,
+create table bar (
+    ID1 integer references foo on delete cascade,
     ID2 integer
 );
-CREATE TABLE BAZ (
-    ID1 integer references FOO,
+create table baz (
+    ID1 integer references foo,
     ID2 integer
 );
 """
         schema_bad = """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer primary key default 0,
     ID2 timestamp
 );
-CREATE TABLE BAR (
-    ID1 integer references FOO,
+create table bar (
+    ID1 integer references foo,
     ID2 integer
 );
-CREATE TABLE BAZ (
-    ID1 integer references FOO on delete cascade,
+create table baz (
+    ID1 integer references foo on delete cascade,
     ID2 integer
 );
 """
@@ -300,24 +300,24 @@ CREATE TABLE BAZ (
     def test_index_table(self):
 
         schema = """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer not null,
     ID2 integer not null,
 
     primary key (ID1)
 );
 
-create index FOOINDEX on FOO (ID1, ID2);
+create index fooindex on foo (ID1, ID2);
 """
 
         schema_bad = """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer,
     ID2 integer,
 
     primary key (ID1)
 );
-create index FOOINDEX on FOO (ID2, ID1);
+create index fooindex on foo (ID2, ID1);
 """
 
         yield self._schemaCheck(schema, schema_bad)
@@ -326,24 +326,24 @@ create index FOOINDEX on FOO (ID2, ID1);
     def test_unique_index_table(self):
 
         schema = """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer not null,
     ID2 integer not null,
 
     primary key (ID1)
 );
 
-create unique index FOOINDEX on FOO(ID1, ID2);
+create unique index fooindex on foo(ID1, ID2);
 """
 
         schema_bad = """
-CREATE TABLE FOO (
+create table foo (
     ID1 integer,
     ID2 integer,
 
     primary key (ID1)
 );
-create index FOOINDEX on FOO(ID1, ID2);
+create index fooindex on foo(ID1, ID2);
 """
 
         yield self._schemaCheck(schema, schema_bad)

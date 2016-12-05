@@ -3,6 +3,6 @@ pyflakes
 docutils
 mockldap
 q
-tl.eggdeps
+# tl.eggdeps
 --editable git+https://github.com/apple/ccs-caldavclientlibrary.git#egg=CalDAVClientLibrary
 --editable git+https://github.com/apple/ccs-caldavtester.git#egg=CalDAVTester

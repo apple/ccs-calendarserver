@@ -131,7 +131,7 @@ class SQLDuration(_Statistic):
         # Replace any literal values with placeholders
         qmark = sqlparse.sql.Token('Operator', '?')
         self._substitute(statement, qmark)
-        return sqlparse.format(statement.to_unicode().encode('ascii'))
+        return sqlparse.format(unicode(statement).encode('ascii'))
 
     def squash(self, samples, mode="duration"):
         """
