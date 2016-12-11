@@ -99,13 +99,15 @@ class DirectoryMemcacher(object):
         @rtype: L{memcacheclient.Client}
         """
         if refresh or not hasattr(self, "memcacheClient"):
-            self.memcacheClient = ClientFactory.getClient([
-                "unix:{}".format(config.Memcached.Pools.Default.MemcacheSocket)
-                #                 '%s:%s' % (
-                #                     config.Memcached.Pools.Default.BindAddress,
-                #                     config.Memcached.Pools.Default.Port
-                #                 )
-            ], debug=0, pickleProtocol=2)
+
+            if config.Memcached.Pools.Default.MemcacheSocket:
+                client_addr = "unix:{}".format(config.Memcached.Pools.Default.MemcacheSocket)
+            else:
+                client_addr = "{}:{}".format(
+                    config.Memcached.Pools.Default.BindAddress,
+                    config.Memcached.Pools.Default.Port,
+                )
+            self.memcacheClient = ClientFactory.getClient([client_addr], debug=0, pickleProtocol=2)
         return self.memcacheClient
 
     def pickleRecord(self, record):
