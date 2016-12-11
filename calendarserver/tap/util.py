@@ -228,6 +228,18 @@ def storeFromConfigWithoutDPS(config, txnFactory):
     return store
 
 
+def storeFromConfigWithoutDPSWithCaching(config, txnFactory):
+    store = storeFromConfig(config, txnFactory, None)
+    directory = directoryFromConfig(config, store)
+    if config.DirectoryProxy.InProcessCachingSeconds:
+        directory = CachingDirectoryService(
+            directory,
+            expireSeconds=config.DirectoryProxy.InProcessCachingSeconds
+        )
+    store.setDirectoryService(directory)
+    return store
+
+
 def storeFromConfigWithDPSClient(config, txnFactory):
     store = storeFromConfig(config, txnFactory, None)
     directory = DirectoryProxyClientService(config.DirectoryRealmName)
