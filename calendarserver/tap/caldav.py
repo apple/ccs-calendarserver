@@ -119,7 +119,6 @@ from calendarserver.tap.util import (
     pgServiceFromConfig, getDBPool, MemoryLimitService,
     storeFromConfig, getSSLPassphrase, preFlightChecks,
     storeFromConfigWithDPSClient, storeFromConfigWithoutDPS,
-    storeFromConfigWithoutDPSWithCaching,
     serverRootLocation, AlertPoster
 )
 try:
@@ -869,7 +868,7 @@ class CalDAVServiceMaker (object):
         CalDAV and CardDAV requests.
         """
         pool, txnFactory = getDBPool(config)
-        store = storeFromConfigWithoutDPSWithCaching(config, txnFactory)
+        store = storeFromConfigWithoutDPS(config, txnFactory)
         directory = store.directoryService()
         logObserver = AMPCommonAccessLoggingObserver()
         result = self.requestProcessingService(options, store, logObserver)
