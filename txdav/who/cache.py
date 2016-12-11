@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+import uuid
 
 """
 Caching Directory Service
@@ -23,30 +24,36 @@ __all__ = [
     "CachingDirectoryService",
 ]
 
+import base64
 import time
 
 from zope.interface import implementer
 
+from twistedcaldav.memcacheclient import ClientFactory, MemcacheError
+from twistedcaldav.config import config
+
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.python.log import Logger
-from twext.who.directory import DirectoryService as BaseDirectoryService
+from twext.who.directory import DirectoryService as BaseDirectoryService,\
+    DirectoryRecord
 from twext.who.idirectory import (
-    IDirectoryService, FieldName as BaseFieldName
-)
+    IDirectoryService,
+    FieldName as BaseFieldName,
+    RecordType as BaseRecordType,
+    DirectoryServiceError,)
 from twext.who.util import ConstantsContainer
 
 from txdav.common.idirectoryservice import IStoreDirectoryService
+from txdav.dps.client import DirectoryService as DPSClientDirectoryService
 from txdav.who.directory import (
     CalendarDirectoryServiceMixin,
 )
-from txdav.who.idirectory import (
-    FieldName
-)
-from twisted.python.constants import Values, ValueConstant
+from txdav.who.idirectory import FieldName, RecordType
+from twisted.python.constants import Values, ValueConstant, NamedConstant, Names
 
 # After this many lookup calls, we scan the cache for expired records
 # to purge
-SCAN_AFTER_LOOKUP_COUNT = 100
+SCAN_AFTER_LOOKUP_COUNT = 1000000
 
 log = Logger()
 
@@ -59,6 +66,192 @@ class IndexType(Values):
     guid = ValueConstant("guid")
     shortName = ValueConstant("shortName")
     emailAddress = ValueConstant("emailAddress")
+
+
+class DirectoryMemcacheError(DirectoryServiceError):
+    """
+    Error communicating with memcached.
+    """
+
+
+class DirectoryMemcacher(object):
+    """
+    Provide a cache of directory records in memcached so that worker processes
+    and the DPS processes across multiple app servers can share a cache and thus
+    reduce load on the directory server.
+    """
+
+    KEY_VERSION = 1
+
+    def __init__(self, cacheTimeout, recordService, realmName):
+        self._cacheTimeout = cacheTimeout
+        self._recordService = recordService
+        self._realmName = realmName
+
+    def _getMemcacheClient(self, refresh=False):
+        """
+        Get the memcache client instance to use for caching.
+
+        @param refresh: whether or not to create a new memcache client
+        @type refresh: L{bool}
+
+        @return: the client to use
+        @rtype: L{memcacheclient.Client}
+        """
+        if refresh or not hasattr(self, "memcacheClient"):
+            self.memcacheClient = ClientFactory.getClient([
+                "unix:{}".format(config.Memcached.Pools.Default.MemcacheSocket)
+                #                 '%s:%s' % (
+                #                     config.Memcached.Pools.Default.BindAddress,
+                #                     config.Memcached.Pools.Default.Port
+                #                 )
+            ], debug=0, pickleProtocol=2)
+        return self.memcacheClient
+
+    def pickleRecord(self, record):
+        fields = {}
+        for field, value in record.fields.iteritems():
+
+            # FIXME: need to sort out dealing with enormous groups; we
+            # can ignore these when sending AMP responses because the
+            # client will always fetch members via a members( ) AMP
+            # command.
+            if field.name in (u"memberDNs", u"memberUIDs"):
+                continue
+
+            valueType = record.service.fieldName.valueType(field)
+            if valueType in (unicode, bool):
+                fields[field.name] = value
+            elif valueType is uuid.UUID:
+                fields[field.name] = str(value)
+            elif issubclass(valueType, (Names, NamedConstant)):
+                fields[field.name] = value.name if value else None
+        return (record.__class__, fields)
+
+    def unpickleRecord(self, data):
+        # If the wrapped directory service is the DPS client service, we need to unpickle
+        # the record type as a DPS client record
+        record_class, record_fields = data
+        if isinstance(self._recordService, DPSClientDirectoryService):
+            return self._recordService._dictToRecord(record_fields)
+        else:
+            # Manually unpickle the fields and use the wrapped directory service record type
+            fields = {}
+            for fieldName, value in record_fields.iteritems():
+                try:
+                    field = self._recordService.fieldName.lookupByName(fieldName)
+                except ValueError:
+                    # unknown field
+                    pass
+                else:
+                    valueType = self._recordService.fieldName.valueType(field)
+                    if valueType in (unicode, bool):
+                        fields[field] = value
+                    elif valueType is uuid.UUID:
+                        fields[field] = uuid.UUID(value)
+                    elif issubclass(valueType, Names):
+                        if value is not None:
+                            fields[field] = field.valueType.lookupByName(value)
+                        else:
+                            fields[field] = None
+                    elif issubclass(valueType, NamedConstant):
+                        if fieldName == "recordType":  # Is there a better way?
+                            try:
+                                fields[field] = BaseRecordType.lookupByName(value)
+                            except ValueError:
+                                try:
+                                    fields[field] = RecordType.lookupByName(value)
+                                except ValueError:
+                                    log.error("Failed to lookup record type: {}".format(value))
+                                    raise DirectoryMemcacheError
+
+            return record_class(self._recordService, fields)
+
+    def memcacheSet(self, key, record):
+        """
+        Store a record in memcache.
+
+        @param key: memcache key to use
+        @type key: L{str}
+        @param record: record to store
+        @type record: L{DirectoryRecord}
+
+        @raise: L{DirectoryMemcacheError} if failure to store in memcache
+        """
+
+        key = base64.b64encode(key)
+        if not self._getMemcacheClient().set(key, self.pickleRecord(record), time=self._cacheTimeout):
+            log.error("Could not write to memcache, retrying")
+            if not self._getMemcacheClient(refresh=True).set(
+                key, self.pickleRecord(record),
+                time=self._cacheTimeout
+            ):
+                log.error("Could not write to memcache again, giving up")
+                del self.memcacheClient
+                raise DirectoryMemcacheError("Failed to write to memcache")
+
+    def memcacheGet(self, key):
+        """
+        Try to get a record from memcache.
+
+        @param key: the memcache key to use
+        @type key: L{str}
+
+        @return: any directory record found or L{None}
+        @rtype: L{DirectoryRecord} or L{None}
+
+        @raise: L{DirectoryMemcacheError} if failure to read from memcache
+        """
+
+        key = base64.b64encode(key)
+        try:
+            pickled_item = self._getMemcacheClient().get(key)
+            if pickled_item is not None:
+                record = self.unpickleRecord(pickled_item)
+            else:
+                record = None
+        except MemcacheError:
+            log.error("Could not read from memcache, retrying")
+            try:
+                record = self._getMemcacheClient(refresh=True).get(key)
+                if record is not None and isinstance(record, DirectoryRecord):
+                    # Need to restore a valid service in the record
+                    record.service = self._recordService
+            except MemcacheError:
+                log.error("Could not read from memcache again, giving up")
+                del self.memcacheClient
+                raise DirectoryMemcacheError("Failed to read from memcache")
+        return record
+
+    def generateMemcacheKey(self, indexType, indexKey):
+        """
+        Return a key that can be used to store/retrieve a record in memcache.
+        if short-name is the indexType the recordType be encoded into the key.
+
+        @param indexType: one of the IndexType values
+        @type indexType: L{str}
+        @param indexKey: the value being indexed
+        @type indexKey: L{str}
+
+        @return: a memcache key comprised of the passed-in values and the directory
+            service's realm
+        @rtype: L{str}
+        """
+        if isinstance(indexKey, tuple):
+            return "dir|v%d|%s|%s|%s|%s" % (
+                DirectoryMemcacher.KEY_VERSION,
+                self._realmName,
+                indexType.value,
+                indexKey[0],
+                indexKey[1],
+            )
+        else:
+            return "dir|v%d|%s|%s|%s" % (
+                DirectoryMemcacher.KEY_VERSION,
+                self._realmName,
+                indexType.value,
+                indexKey,
+            )
 
 
 @implementer(IDirectoryService, IStoreDirectoryService)
@@ -126,6 +319,15 @@ class CachingDirectoryService(
         self._requestCount = 0
         self._lookupsUntilScan = SCAN_AFTER_LOOKUP_COUNT
 
+        if config.Memcached.Pools.Default.ClientEnabled and isinstance(self._directory, DPSClientDirectoryService):
+            self._memcacher = DirectoryMemcacher(
+                self._expireSeconds,
+                self._directory,
+                self._directory.realmName,
+            )
+        else:
+            self._memcacher = None
+
     def setTestTime(self, timestamp):
         """
         Only used for unit tests to override the notion of "now"
@@ -135,7 +337,7 @@ class CachingDirectoryService(
         """
         self._test_time = timestamp
 
-    def cacheRecord(self, record, indexTypes):
+    def cacheRecord(self, record, indexTypes, addToMemcache=True):
         """
         Store a record in the cache, within the specified indexes
 
@@ -148,12 +350,15 @@ class CachingDirectoryService(
         else:
             timestamp = time.time()
 
+        cached = []
         if IndexType.uid in indexTypes:
             self._cache[IndexType.uid][record.uid] = (timestamp, record)
+            cached.append((IndexType.uid, record.uid,))
 
         if IndexType.guid in indexTypes:
             try:
                 self._cache[IndexType.guid][record.guid] = (timestamp, record)
+                cached.append((IndexType.guid, record.guid,))
             except AttributeError:
                 pass
         if IndexType.shortName in indexTypes:
@@ -161,14 +366,26 @@ class CachingDirectoryService(
                 typeName = record.recordType.name
                 for name in record.shortNames:
                     self._cache[IndexType.shortName][(typeName, name)] = (timestamp, record)
+                    cached.append((IndexType.shortName, (typeName, name),))
             except AttributeError:
                 pass
         if IndexType.emailAddress in indexTypes:
             try:
                 for emailAddress in record.emailAddresses:
                     self._cache[IndexType.emailAddress][emailAddress] = (timestamp, record)
+                    cached.append((IndexType.emailAddress, emailAddress,))
             except AttributeError:
                 pass
+
+        if addToMemcache and self._memcacher is not None:
+            for indexType, key in cached:
+                memcachekey = self._memcacher.generateMemcacheKey(indexType, key)
+                log.debug("Memcache: storing %s" % (memcachekey,))
+                try:
+                    self._memcacher.memcacheSet(memcachekey, record)
+                except DirectoryMemcacheError:
+                    log.error("Memcache: failed to store %s" % (memcachekey,))
+                    pass
 
     def purgeRecord(self, record):
         """
@@ -266,12 +483,35 @@ class CachingDirectoryService(
             self._hitCount += 1
             self._addTiming("{}-hit".format(name), 0)
             return record
-        else:
-            log.debug(
-                "Directory cache miss: {index} {key}",
-                index=indexType.value,
-                key=key
-            )
+
+        # Check memcache
+        if self._memcacher is not None:
+
+            # The only time the recordType arg matters is when indexType is
+            # short-name, and in that case recordTypes will contain exactly
+            # one recordType, so using recordTypes[0] here is always safe:
+            memcachekey = self._memcacher.generateMemcacheKey(indexType, key)
+
+            log.debug("Memcache: checking %s" % (memcachekey,))
+
+            try:
+                record = self._memcacher.memcacheGet(memcachekey)
+            except DirectoryMemcacheError:
+                log.error("Memcache: failed to get %s" % (memcachekey,))
+                record = None
+
+            if record is None:
+                log.debug("Memcache: miss %s" % (memcachekey,))
+            else:
+                log.debug("Memcache: hit %s" % (memcachekey,))
+                self.cacheRecord(record, (IndexType.uid, IndexType.guid, IndexType.shortName,), addToMemcache=False)
+                return record
+
+        log.debug(
+            "Directory cache miss: {index} {key}",
+            index=indexType.value,
+            key=key
+        )
 
         self._addTiming("{}-miss".format(name), 0)
         return None
