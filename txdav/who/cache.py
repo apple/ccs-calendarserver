@@ -255,6 +255,13 @@ class DirectoryMemcacher(object):
                 indexKey,
             )
 
+    def flush(self):
+        """
+        Flush all records from memcache. Note this is only for testing and must not be
+        called in a production setup because it flushes everything from memcache
+        """
+        self._getMemcacheClient().flush_all()
+
 
 @implementer(IDirectoryService, IStoreDirectoryService)
 class CachingDirectoryService(
@@ -698,6 +705,8 @@ class CachingDirectoryService(
 
     @inlineCallbacks
     def flush(self):
+        if self._memcacher is not None:
+            self._memcacher.flush()
         self.resetCache()
         yield self._directory.flush()
 
