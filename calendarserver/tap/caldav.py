@@ -520,31 +520,32 @@ class SlaveSpawnerService(Service):
 
     def startService(self):
 
-        # Bypass DPS for now:
+        if config.DirectoryProxy.Enabled:
+            # Add the directory proxy sidecar first so it at least get spawned
+            # prior to the caldavd worker processes:
+            log.info("Adding directory proxy service")
 
-        # # Add the directory proxy sidecar first so it at least get spawned
-        # # prior to the caldavd worker processes:
-        # log.info("Adding directory proxy service")
-
-        # dpsArgv = [
-        #     sys.executable,
-        #     sys.argv[0],
-        # ]
-        # if config.UserName:
-        #     dpsArgv.extend(("-u", config.UserName))
-        # if config.GroupName:
-        #     dpsArgv.extend(("-g", config.GroupName))
-        # dpsArgv.extend((
-        #     "--reactor={}".format(config.Twisted.reactor),
-        #     "-n", "caldav_directoryproxy",
-        #     "-f", self.configPath,
-        #     "-o", "ProcessType=DPS",
-        #     "-o", "ErrorLogFile=None",
-        #     "-o", "ErrorLogEnabled=False",
-        # ))
-        # self.monitor.addProcess(
-        #     "directoryproxy", dpsArgv, env=PARENT_ENVIRONMENT
-        # )
+            dpsArgv = [
+                sys.executable,
+                sys.argv[0],
+            ]
+            if config.UserName:
+                dpsArgv.extend(("-u", config.UserName))
+            if config.GroupName:
+                dpsArgv.extend(("-g", config.GroupName))
+            dpsArgv.extend((
+                "--reactor={}".format(config.Twisted.reactor),
+                "-n", "caldav_directoryproxy",
+                "-f", self.configPath,
+                "-o", "ProcessType=DPS",
+                "-o", "ErrorLogFile=None",
+                "-o", "ErrorLogEnabled=False",
+            ))
+            self.monitor.addProcess(
+                "directoryproxy", dpsArgv, env=PARENT_ENVIRONMENT
+            )
+        else:
+            log.info("Directory proxy service is not enabled")
 
         for slaveNumber in xrange(0, config.MultiProcess.ProcessCount):
             if config.UseMetaFD:
@@ -868,7 +869,10 @@ class CalDAVServiceMaker (object):
         CalDAV and CardDAV requests.
         """
         pool, txnFactory = getDBPool(config)
-        store = storeFromConfigWithoutDPS(config, txnFactory)
+        if config.DirectoryProxy.Enabled:
+            store = storeFromConfigWithDPSClient(config, txnFactory)
+        else:
+            store = storeFromConfigWithoutDPS(config, txnFactory)
         directory = store.directoryService()
         logObserver = AMPCommonAccessLoggingObserver()
         result = self.requestProcessingService(options, store, logObserver)

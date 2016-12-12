@@ -321,7 +321,11 @@ class CachingDirectoryService(
         self._requestCount = 0
         self._lookupsUntilScan = SCAN_AFTER_LOOKUP_COUNT
 
-        if config.Memcached.Pools.Default.ClientEnabled and isinstance(self._directory, DPSClientDirectoryService):
+        # If DPS is in use we restrict the cache to the DPSClients only, otherwise we can
+        # cache in each worker process
+        if config.Memcached.Pools.Default.ClientEnabled and (
+            not config.DirectoryProxy.Enabled or isinstance(self._directory, DPSClientDirectoryService)
+        ):
             self._memcacher = DirectoryMemcacher(
                 self._expireSeconds,
                 self._directory,
