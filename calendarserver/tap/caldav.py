@@ -880,7 +880,8 @@ class CalDAVServiceMaker (object):
 
         # SIGUSR1 causes in-process directory cache reset
         def flushDirectoryCache(signalNum, ignored):
-            directory.flush()
+            if config.EnableControlAPI:
+                directory.flush()
         signal.signal(signal.SIGUSR1, flushDirectoryCache)
 
         if pool is not None:
@@ -1774,7 +1775,8 @@ class CalDAVServiceMaker (object):
 
         # Allow cache flushing
         def forwardSignalToWorkers(signalNum, ignored):
-            monitor.signalAll(signalNum, startswithname="caldav")
+            if config.EnableControlAPI:
+                monitor.signalAll(signalNum, startswithname="caldav")
         signal.signal(signal.SIGUSR1, forwardSignalToWorkers)
 
         if config.MemoryLimiter.Enabled:
