@@ -72,7 +72,8 @@ def directoryFromConfig(config, store):
         serversDB=serversDB,
         cachingSeconds=config.DirectoryCaching.CachingSeconds,
         filterStartsWith=config.DirectoryFilterStartsWith,
-        lookupsBetweenPurges=config.DirectoryCaching.LookupsBetweenPurges
+        lookupsBetweenPurges=config.DirectoryCaching.LookupsBetweenPurges,
+        negativeCaching=config.DirectoryCaching.NegativeCachingEnabled
     )
 
 

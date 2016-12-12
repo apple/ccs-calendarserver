@@ -172,7 +172,7 @@ class DirectoryMemcacher(object):
 
     def memcacheSet(self, key, value):
         """
-        Store a record in memcache.
+        Store a value in memcache.
 
         @param key: memcache key to use
         @type key: L{str}
