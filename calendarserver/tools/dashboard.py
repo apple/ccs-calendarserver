@@ -248,8 +248,8 @@ class Dashboard(object):
                     self.windows
                 ):
                     window.update()
-        except Exception:
-            # print(str(e))
+        except Exception as e:
+            logging.debug(str(e))
             pass
         if not self.usesCurses:
             print("-------------")
@@ -1140,7 +1140,7 @@ class DirectoryStatsWindow(BaseWindow):
                 methodName,
                 count,
                 timeSpent,
-                (1000.0 * timeSpent) / count,
+                safeDivision(timeSpent, count, 1000.0),
             )
             self.tableRow(s, pt)
 

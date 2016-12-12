@@ -1422,7 +1422,7 @@ class DirectoryStatsWindow(BaseWindow):
                 methodName,
                 count,
                 timeSpent,
-                (1000.0 * timeSpent) / count,
+                safeDivision(timeSpent, count, 1000.0),
             )
             self.tableRow(s, pt)
 
