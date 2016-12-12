@@ -901,8 +901,13 @@ DEFAULT_CONFIG = {
     "DirectoryProxy": {
         "Enabled": True,
         "SocketPath": "directory-proxy.sock",
-        "InProcessCachingSeconds": 60,
         "InSidecarCachingSeconds": 120,
+    },
+
+    "DirectoryCaching": {
+        "CachingSeconds": 60,               # How long to cache in worker and in memcached
+        "NegativeCachingEnabled": True,
+        "LookupsBetweenPurges": 10000       # 0 = purging turned off
     },
 
     #

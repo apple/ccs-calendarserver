@@ -21,7 +21,7 @@ Caching service tests
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.test.util import StoreTestCase
 from txdav.who.cache import (
-    CachingDirectoryService, IndexType, SCAN_AFTER_LOOKUP_COUNT
+    CachingDirectoryService, IndexType
 )
 from twext.who.idirectory import (
     RecordType
@@ -32,6 +32,8 @@ from txdav.who.idirectory import (
 import uuid
 
 
+LOOKUPS_BETWEEN_PURGES=20
+
 class CacheTest(StoreTestCase):
 
     @inlineCallbacks
@@ -40,7 +42,8 @@ class CacheTest(StoreTestCase):
 
         self.cachingDirectory = CachingDirectoryService(
             self.directory,
-            expireSeconds=10
+            expireSeconds=10,
+            lookupsBetweenPurges=LOOKUPS_BETWEEN_PURGES
         )
         self.storeUnderTest().setDirectoryService(self.cachingDirectory)
 
@@ -244,10 +247,10 @@ class CacheTest(StoreTestCase):
 
         self.assertTrue(u"cache-uid-1" in dir._cache[IndexType.uid])
 
-        # After SCAN_AFTER_LOOKUP_COUNT requests, however, that expired entry
+        # After LOOKUPS_BETWEEN_PURGES requests, however, that expired entry
         # will be removed
 
-        for _ignore_i in xrange(SCAN_AFTER_LOOKUP_COUNT):
+        for _ignore_i in xrange(LOOKUPS_BETWEEN_PURGES):
             yield dir.recordWithUID(u"cache-uid-2")
 
         # cache-uid-1 no longer in cache

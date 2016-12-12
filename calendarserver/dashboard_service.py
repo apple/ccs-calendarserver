@@ -206,8 +206,9 @@ class DashboardServer(Factory):
 
     def makeDirectoryProxyClient(self):
         self.directory = DirectoryProxyClientService(config.DirectoryRealmName)
-        if config.DirectoryProxy.InProcessCachingSeconds:
+        if config.DirectoryCaching.CachingSeconds:
             self.directory = CachingDirectoryService(
                 self.directory,
-                expireSeconds=config.DirectoryProxy.InProcessCachingSeconds
+                expireSeconds=config.DirectoryCaching.CachingSeconds,
+                lookupsBetweenPurges=config.DirectoryCaching.LookupsBetweenPurges
             )
