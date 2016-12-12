@@ -113,14 +113,6 @@ class DirectoryMemcacher(object):
     def pickleRecord(self, record):
         fields = {}
         for field, value in record.fields.iteritems():
-
-            # FIXME: need to sort out dealing with enormous groups; we
-            # can ignore these when sending AMP responses because the
-            # client will always fetch members via a members( ) AMP
-            # command.
-            if field.name in (u"memberDNs", u"memberUIDs"):
-                continue
-
             valueType = record.service.fieldName.valueType(field)
             if valueType in (unicode, bool):
                 fields[field.name] = value
