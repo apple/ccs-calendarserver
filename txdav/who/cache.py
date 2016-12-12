@@ -318,6 +318,8 @@ class CachingDirectoryService(
         """
         Clear the cache
         """
+
+        log.debug("Resetting cache")
         self._cache = {
             IndexType.uid: {},
             IndexType.guid: {},

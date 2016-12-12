@@ -26,6 +26,7 @@ import sys
 from collections import OrderedDict
 from os import getuid, getgid, geteuid, umask, remove, environ, stat, chown, W_OK
 from os.path import exists, basename
+import signal
 import socket
 from stat import S_ISSOCK
 import time
@@ -877,6 +878,11 @@ class CalDAVServiceMaker (object):
         logObserver = AMPCommonAccessLoggingObserver()
         result = self.requestProcessingService(options, store, logObserver)
 
+        # SIGUSR1 causes in-process directory cache reset
+        def flushDirectoryCache(signalNum, ignored):
+            directory.flush()
+        signal.signal(signal.SIGUSR1, flushDirectoryCache)
+
         if pool is not None:
             pool.setName("db")
             pool.setServiceParent(result)
@@ -1670,6 +1676,8 @@ class CalDAVServiceMaker (object):
             store = storeFromConfig(config, None, None)
             return createMainService(None, store, logObserver, None)
 
+
+
     def makeService_Combined(self, options):
         """
         Create a master service to coordinate a multi-process configuration,
@@ -1763,6 +1771,11 @@ class CalDAVServiceMaker (object):
         s.processMonitor = monitor
         monitor.setName("pm")
         monitor.setServiceParent(s)
+
+        # Allow cache flushing
+        def forwardSignalToWorkers(signalNum, ignored):
+            monitor.signalAll(signalNum, startswithname="caldav")
+        signal.signal(signal.SIGUSR1, forwardSignalToWorkers)
 
         if config.MemoryLimiter.Enabled:
             memoryLimiter = MemoryLimitService(
