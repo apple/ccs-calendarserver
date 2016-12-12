@@ -228,10 +228,12 @@ def storeFromConfigWithDPSClient(config, txnFactory):
     directory = DirectoryProxyClientService(config.DirectoryRealmName)
     if config.Servers.Enabled:
         directory.setServersDB(buildServersDB(config.Servers.MaxClients))
-    if config.DirectoryProxy.InProcessCachingSeconds:
+    if config.DirectoryCaching.CachingSeconds:
         directory = CachingDirectoryService(
             directory,
-            expireSeconds=config.DirectoryProxy.InProcessCachingSeconds
+            expireSeconds=config.DirectoryCaching.CachingSeconds,
+            lookupsBetweenPurges=config.DirectoryCaching.LookupsBetweenPurges,
+            negativeCaching=config.DirectoryCaching.NegativeCachingEnabled,
         )
     store.setDirectoryService(directory)
     return store

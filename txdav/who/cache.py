@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-import uuid
 
 """
 Caching Directory Service
@@ -26,6 +25,7 @@ __all__ = [
 
 import base64
 import time
+import uuid
 
 from zope.interface import implementer
 
@@ -49,10 +49,6 @@ from txdav.who.directory import (
 )
 from txdav.who.idirectory import FieldName, RecordType
 from twisted.python.constants import Values, ValueConstant, NamedConstant, Names
-
-# After this many lookup calls, we scan the cache for expired records
-# to purge
-SCAN_AFTER_LOOKUP_COUNT = 100
 
 log = Logger()
 
@@ -293,7 +289,7 @@ class CachingDirectoryService(
         FieldName,
     ))
 
-    def __init__(self, directory, expireSeconds=30, negativeCaching=True):
+    def __init__(self, directory, expireSeconds=30, lookupsBetweenPurges=0, negativeCaching=True):
         BaseDirectoryService.__init__(self, directory.realmName)
         self._directory = directory
 
@@ -313,7 +309,15 @@ class CachingDirectoryService(
         directory.recordsWithEmailAddress = self.recordsWithEmailAddress
 
         self._expireSeconds = expireSeconds
+
+        if lookupsBetweenPurges == 0:
+            self._purgingEnabled = False
+        else:
+            self._purgingEnabled = True
+            self._lookupsBetweenPurges = lookupsBetweenPurges
+
         self.negativeCaching = negativeCaching
+
         self.resetCache()
 
     def setTimingMethod(self, f):
@@ -349,7 +353,8 @@ class CachingDirectoryService(
         }
         self._hitCount = 0
         self._requestCount = 0
-        self._lookupsUntilScan = SCAN_AFTER_LOOKUP_COUNT
+        if self._purgingEnabled:
+            self._lookupsUntilScan = self._lookupsBetweenPurges
 
         # If DPS is in use we restrict the cache to the DPSClients only, otherwise we can
         # cache in each worker process
@@ -506,7 +511,7 @@ class CachingDirectoryService(
     def lookupRecord(self, indexType, key, name):
         """
         Looks for a record in the specified index, under the specified key.
-        After every SCAN_AFTER_LOOKUP_COUNT lookups are done,
+        After every config.DirectoryCaching.LookupsBetweenPurges lookups are done,
         purgeExpiredRecords() is called.
 
         @param index: an index type
@@ -520,11 +525,12 @@ class CachingDirectoryService(
         @rtype: L{tuple}
         """
 
-        if self._lookupsUntilScan == 0:
-            self._lookupsUntilScan = SCAN_AFTER_LOOKUP_COUNT
-            self.purgeExpiredRecords()
-        else:
-            self._lookupsUntilScan -= 1
+        if self._purgingEnabled:
+            if self._lookupsUntilScan == 0:
+                self._lookupsUntilScan = self._lookupsBetweenPurges
+                self.purgeExpiredRecords()
+            else:
+                self._lookupsUntilScan -= 1
 
         if hasattr(self, "_test_time"):
             now = self._test_time

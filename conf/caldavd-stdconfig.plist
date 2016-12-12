@@ -1769,14 +1769,28 @@
 
 	<key>DirectoryProxy</key>
 	<dict>
+		<key>Enabled</key>
+		<true/>
+
 		<key>SocketPath</key>
 		<string>directory-proxy.sock</string>
 
-		<key>InProcessCachingSeconds</key>
-		<integer>60</integer>
-
 		<key>InSidecarCachingSeconds</key>
 		<integer>120</integer>
+	</dict>
+
+	<key>DirectoryCaching</key>
+	<dict>
+		<!-- How long to cache in worker and in memcached -->
+		<key>CachingSeconds</key>
+		<integer>60</integer>
+
+		<key>NegativeCachingEnabled</key>
+		<true/>
+
+		<!-- 0 = purging turned off -->
+		<key>LookupsBetweenPurges</key>
+		<integer>10000</integer>
 	</dict>
 
 	<!-- Support multiple hosts within a domain -->
