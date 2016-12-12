@@ -532,6 +532,10 @@ class SlaveSpawnerService(Service):
             dpsArgv.extend(("-u", config.UserName))
         if config.GroupName:
             dpsArgv.extend(("-g", config.GroupName))
+        if config.Profiling.Enabled:
+            dpsArgv.append("--profile={}/{}.pstats".format(
+                    config.Profiling.BaseDirectory, "dps"))
+            dpsArgv.extend(("--savestats", "--profiler", "cprofile-cpu"))
         dpsArgv.extend((
             "--reactor={}".format(config.Twisted.reactor),
             "-n", "caldav_directoryproxy",
