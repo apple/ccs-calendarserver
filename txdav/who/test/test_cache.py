@@ -254,3 +254,42 @@ class CacheTest(StoreTestCase):
         self.assertFalse(u"cache-uid-1" in dir._cache[IndexType.uid])
         # cache-uid-2 still in cache
         self.assertTrue(u"cache-uid-2" in dir._cache[IndexType.uid])
+
+    @inlineCallbacks
+    def test_negativeCaching(self):
+        """
+        Verify records are purged from cache after a certain amount of requests
+        """
+
+        dir = self.cachingDirectory
+        dir.setTestTime(1.0)
+
+        # Negative caching on UID
+        self.assertEquals(dir._hitCount, 0)
+        self.assertEquals(dir._requestCount, 0)
+        record = yield dir.recordWithUID(u"negative-uid-1")
+        self.assertTrue(record is None)
+        self.assertEquals(dir._hitCount, 0)
+        self.assertEquals(dir._requestCount, 1)
+        self.assertEquals(len(dir._negativeCache[IndexType.uid]), 1)
+        self.assertEquals(len(dir._negativeCache[IndexType.guid]), 0)
+        self.assertEquals(len(dir._negativeCache[IndexType.shortName]), 0)
+
+        # Negative caching on same UID
+        record = yield dir.recordWithUID(u"negative-uid-1")
+        self.assertTrue(record is None)
+        self.assertEquals(dir._hitCount, 0)
+        self.assertEquals(dir._requestCount, 2)
+        self.assertEquals(len(dir._negativeCache[IndexType.uid]), 1)
+        self.assertEquals(len(dir._negativeCache[IndexType.guid]), 0)
+        self.assertEquals(len(dir._negativeCache[IndexType.shortName]), 0)
+
+        # 60 seconds later, the negative entry has expired
+        dir.setTestTime(60.0)
+        record = yield dir.recordWithUID(u"negative-uid-1")
+        self.assertTrue(record is None)
+        self.assertEquals(dir._hitCount, 0)
+        self.assertEquals(dir._requestCount, 3)
+        self.assertEquals(len(dir._negativeCache[IndexType.uid]), 1)
+        self.assertEquals(len(dir._negativeCache[IndexType.guid]), 0)
+        self.assertEquals(len(dir._negativeCache[IndexType.shortName]), 0)
