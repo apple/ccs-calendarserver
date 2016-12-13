@@ -195,10 +195,20 @@
 
     <key>DirectoryProxy</key>
     <dict>
-      <key>InProcessCachingSeconds</key>
-      <integer>10</integer>
+	    <key>Enabled</key>
+	    <true/>
       <key>InSidecarCachingSeconds</key>
       <integer>30</integer>
+    </dict>
+
+    <key>DirectoryCaching</key>
+    <dict>
+      <key>CachingSeconds</key>
+      <integer>10</integer>
+      <key>NegativeCachingEnabled</key>
+      <true/>
+      <key>LookupsBetweenPurges</key>
+      <integer>100</integer>
     </dict>
 
     <!--

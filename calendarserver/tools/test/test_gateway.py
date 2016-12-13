@@ -389,6 +389,10 @@ class GatewayTestCase(RunCommandTestCase):
     def test_setResourceAttributes(self):
 
         yield self.runCommand(command_createResource)
+
+        # Tell the resources services to flush its cache and re-read XML
+        self._flush()
+
         record = yield self.directory.recordWithUID("AF575A61-CFA6-49E1-A0F6-B5662C9D9801")
         self.assertEquals(record.displayName, "Laptop 1")
 

@@ -70,14 +70,17 @@ def directoryFromConfig(config, store):
         config.AugmentService,
         config.Authentication.Wiki,
         serversDB=serversDB,
-        cachingSeconds=config.DirectoryProxy.InSidecarCachingSeconds,
-        filterStartsWith=config.DirectoryFilterStartsWith
+        cachingSeconds=config.DirectoryCaching.CachingSeconds,
+        filterStartsWith=config.DirectoryFilterStartsWith,
+        lookupsBetweenPurges=config.DirectoryCaching.LookupsBetweenPurges,
+        negativeCaching=config.DirectoryCaching.NegativeCachingEnabled
     )
 
 
 def buildDirectory(
     store, dataRoot, servicesInfo, augmentServiceInfo, wikiServiceInfo,
-    serversDB=None, cachingSeconds=0, filterStartsWith=False
+    serversDB=None, cachingSeconds=0, filterStartsWith=False,
+    lookupsBetweenPurges=0, negativeCaching=True,
 ):
     """
     Return a directory without using a config object; suitable for tests
@@ -238,7 +241,9 @@ def buildDirectory(
         if cachingSeconds:
             directory = CachingDirectoryService(
                 directory,
-                expireSeconds=cachingSeconds
+                expireSeconds=cachingSeconds,
+                lookupsBetweenPurges=lookupsBetweenPurges,
+                negativeCaching=negativeCaching,
             )
             cachingServices.append(directory)
 

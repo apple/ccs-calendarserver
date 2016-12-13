@@ -58,6 +58,8 @@ from txweb2.http import Response
 from txweb2.http_headers import MimeType
 
 import json
+import os
+import signal
 import time
 
 log = Logger()
@@ -314,8 +316,8 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
     @inlineCallbacks
     def action_refreshgroups(self, j):
         txn = self._store.newTransaction(label="ControlAPIResource.action_refreshgroups")
-        yield txn.directoryService().flush()
-        work = yield GroupCacherPollingWork.reschedule(txn, 0, force=True)
+        os.kill(os.getppid(), signal.SIGUSR1)
+        work = yield GroupCacherPollingWork.reschedule(txn, 2, force=True)
         jobID = work.jobID
         yield txn.commit()
 

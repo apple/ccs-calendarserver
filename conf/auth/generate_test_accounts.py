@@ -824,7 +824,7 @@ out.close()
 out = file("resources-test.xml", "w")
 out.write(prefix)
 out.write('<!DOCTYPE accounts SYSTEM "accounts.dtd">\n\n')
-out.write('<directory realm="Test Realm">\n')
+out.write('<directory realm="Test Realm Resources">\n')
 
 out.write("""<record type="location">
   <uid>pretend</uid>
@@ -887,7 +887,7 @@ out.close()
 out = file("resources-test-pod.xml", "w")
 out.write(prefix)
 out.write('<!DOCTYPE accounts SYSTEM "accounts.dtd">\n\n')
-out.write('<directory realm="Test Realm" />\n')
+out.write('<directory realm="Test Realm Resources" />\n')
 out.close()
 
 # resources-test-s2s.xml
@@ -895,7 +895,7 @@ out.close()
 out = file("resources-test-s2s.xml", "w")
 out.write(prefix)
 out.write('<!DOCTYPE accounts SYSTEM "accounts.dtd">\n\n')
-out.write('<directory realm="Test Realm 2" />\n')
+out.write('<directory realm="Test Realm Resources 2" />\n')
 out.close()
 
 

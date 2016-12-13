@@ -26,6 +26,7 @@ import sys
 from collections import OrderedDict
 from os import getuid, getgid, geteuid, umask, remove, environ, stat, chown, W_OK
 from os.path import exists, basename
+import signal
 import socket
 from stat import S_ISSOCK
 import time
@@ -520,33 +521,36 @@ class SlaveSpawnerService(Service):
 
     def startService(self):
 
-        # Add the directory proxy sidecar first so it at least get spawned
-        # prior to the caldavd worker processes:
-        log.info("Adding directory proxy service")
+        if config.DirectoryProxy.Enabled:
+            # Add the directory proxy sidecar first so it at least get spawned
+            # prior to the caldavd worker processes:
+            log.info("Adding directory proxy service")
 
-        dpsArgv = [
-            sys.executable,
-            sys.argv[0],
-        ]
-        if config.UserName:
-            dpsArgv.extend(("-u", config.UserName))
-        if config.GroupName:
-            dpsArgv.extend(("-g", config.GroupName))
-        if config.Profiling.Enabled:
-            dpsArgv.append("--profile={}/{}.pstats".format(
+            dpsArgv = [
+                sys.executable,
+                sys.argv[0],
+            ]
+            if config.UserName:
+                dpsArgv.extend(("-u", config.UserName))
+            if config.GroupName:
+                dpsArgv.extend(("-g", config.GroupName))
+            if config.Profiling.Enabled:
+                dpsArgv.append("--profile={}/{}.pstats".format(
                     config.Profiling.BaseDirectory, "dps"))
-            dpsArgv.extend(("--savestats", "--profiler", "cprofile-cpu"))
-        dpsArgv.extend((
-            "--reactor={}".format(config.Twisted.reactor),
-            "-n", "caldav_directoryproxy",
-            "-f", self.configPath,
-            "-o", "ProcessType=DPS",
-            "-o", "ErrorLogFile=None",
-            "-o", "ErrorLogEnabled=False",
-        ))
-        self.monitor.addProcess(
-            "directoryproxy", dpsArgv, env=PARENT_ENVIRONMENT
-        )
+                dpsArgv.extend(("--savestats", "--profiler", "cprofile-cpu"))
+            dpsArgv.extend((
+                "--reactor={}".format(config.Twisted.reactor),
+                "-n", "caldav_directoryproxy",
+                "-f", self.configPath,
+                "-o", "ProcessType=DPS",
+                "-o", "ErrorLogFile=None",
+                "-o", "ErrorLogEnabled=False",
+            ))
+            self.monitor.addProcess(
+                "directoryproxy", dpsArgv, env=PARENT_ENVIRONMENT
+            )
+        else:
+            log.info("Directory proxy service is not enabled")
 
         for slaveNumber in xrange(0, config.MultiProcess.ProcessCount):
             if config.UseMetaFD:
@@ -870,10 +874,19 @@ class CalDAVServiceMaker (object):
         CalDAV and CardDAV requests.
         """
         pool, txnFactory = getDBPool(config)
-        store = storeFromConfigWithDPSClient(config, txnFactory)
+        if config.DirectoryProxy.Enabled:
+            store = storeFromConfigWithDPSClient(config, txnFactory)
+        else:
+            store = storeFromConfigWithoutDPS(config, txnFactory)
         directory = store.directoryService()
         logObserver = AMPCommonAccessLoggingObserver()
         result = self.requestProcessingService(options, store, logObserver)
+
+        # SIGUSR1 causes in-process directory cache reset
+        def flushDirectoryCache(signalNum, ignored):
+            if config.EnableControlAPI:
+                directory.flush()
+        signal.signal(signal.SIGUSR1, flushDirectoryCache)
 
         if pool is not None:
             pool.setName("db")
@@ -1761,6 +1774,12 @@ class CalDAVServiceMaker (object):
         s.processMonitor = monitor
         monitor.setName("pm")
         monitor.setServiceParent(s)
+
+        # Allow cache flushing
+        def forwardSignalToWorkers(signalNum, ignored):
+            if config.EnableControlAPI:
+                monitor.signalAll(signalNum, startswithname="caldav")
+        signal.signal(signal.SIGUSR1, forwardSignalToWorkers)
 
         if config.MemoryLimiter.Enabled:
             memoryLimiter = MemoryLimitService(

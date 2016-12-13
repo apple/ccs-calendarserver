@@ -106,9 +106,14 @@ class UtilTest(TestCase):
                     "Enabled": False,
                 },
                 "DirectoryProxy": {
+                    "Enabled": False,
                     "SocketPath": "directory-proxy.sock",
-                    "InProcessCachingSeconds": 60,
                     "InSidecarCachingSeconds": 120,
+                },
+                "DirectoryCaching": {
+                    "CachingSeconds": 60,
+                    "NegativeCachingEnabled": True,
+                    "LookupsBetweenPurges": 0,
                 },
                 "DirectoryFilterStartsWith": False,
             }
