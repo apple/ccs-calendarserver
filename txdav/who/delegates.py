@@ -60,12 +60,12 @@ class RecordType(Names):
 class DirectoryRecord(BaseDirectoryRecord):
 
     @inlineCallbacks
-    def members(self, expanded=False):
+    def _membersUIDs(self, expanded=False):
         """
-        If this is a readDelegateGroup or writeDelegateGroup, the members
-        will consist of the records who are delegates *of* this record.
+        If this is a readDelegateGroup or writeDelegateGroup, the result
+        will consist of the UIDs who are delegates *of* this record.
         If this is a readDelegatorGroup or writeDelegatorGroup,
-        the members will consist of the records who have delegated *to*
+        the results will consist of the UIDs who have delegated *to*
         this record.
         """
         parentUID, _ignore_proxyType = self.uid.split(u"#")
@@ -87,6 +87,20 @@ class DirectoryRecord(BaseDirectoryRecord):
         delegateUIDs = yield self.service._store.inTransaction(
             "DirectoryRecord.members", _members
         )
+
+        returnValue(delegateUIDs)
+
+    @inlineCallbacks
+    def members(self, expanded=False):
+        """
+        If this is a readDelegateGroup or writeDelegateGroup, the members
+        will consist of the records who are delegates *of* this record.
+        If this is a readDelegatorGroup or writeDelegatorGroup,
+        the members will consist of the records who have delegated *to*
+        this record.
+        """
+        parentUID, _ignore_proxyType = self.uid.split(u"#")
+        delegateUIDs = yield self._membersUIDs(expanded=expanded)
 
         records = []
         for uid in delegateUIDs:
@@ -132,6 +146,20 @@ class DirectoryRecord(BaseDirectoryRecord):
         yield self.service._store.inTransaction(
             "DirectoryRecord.setMembers", _setMembers
         )
+
+    @inlineCallbacks
+    def containsUID(self, uid):
+        """
+        Is the supplied UID an expanded member of this proxy group.
+
+        @param uid: UID to test
+        @type uid: L{str}
+
+        @return: result
+        @rtype: L{bool}
+        """
+        delegateUIDs = yield self._membersUIDs(expanded=True)
+        returnValue(uid in delegateUIDs)
 
 
 def recordTypeToProxyType(recordType):

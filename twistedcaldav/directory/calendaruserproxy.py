@@ -441,6 +441,7 @@ class CalendarUserProxyPrincipalResource (
         # Unlikely to ever want to put a subprincipal into a group
         return succeed([])
 
+    @inlineCallbacks
     def containsPrincipal(self, principal):
         """
         Optimize this to ignore the owner principal when doing this test. This is a common occurrence as the owner
@@ -454,8 +455,18 @@ class CalendarUserProxyPrincipalResource (
         """
 
         if principal == self.parent:
-            return succeed(False)
-        return super(CalendarUserProxyPrincipalResource, self).containsPrincipal(principal)
+            returnValue(False)
+
+        # Find our pseudo-record
+        record = yield self.parent.record.service.recordWithShortName(
+            self._recordTypeFromProxyType(),
+            self.parent.principalUID()
+        )
+        if record is not None:
+            result = yield record.containsUID(principal.principalUID())
+        else:
+            result = yield super(CalendarUserProxyPrincipalResource, self).containsPrincipal(principal)
+        returnValue(result)
 
 
 class ProxyDB(AbstractADBAPIDatabase):
