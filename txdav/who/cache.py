@@ -552,16 +552,19 @@ class CachingDirectoryService(
                 # This record has expired
                 self.purgeRecord(record)
                 self._addTiming("{}-expired".format(name), 0)
-                return (None, True,)
 
-            log.debug(
-                "Directory cache hit: {index} {key}",
-                index=indexType.value,
-                key=key
-            )
-            self._hitCount += 1
-            self._addTiming("{}-hit".format(name), 0)
-            return (record, False,)
+                # Fall through when the in-memory cache expires so that we check memcache
+                # for a valid record BEFORE we try an ldap query and recache
+
+            else:
+                log.debug(
+                    "Directory cache hit: {index} {key}",
+                    index=indexType.value,
+                    key=key
+                )
+                self._hitCount += 1
+                self._addTiming("{}-hit".format(name), 0)
+                return (record, False,)
 
         # Check negative cache (take cache entry timeout into account)
         if self.negativeCaching:
