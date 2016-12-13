@@ -188,7 +188,7 @@ class DashboardProtocol (LineReceiver):
         @rtype: L{str}
         """
         try:
-            return self.factory.directory.stats()
+            return self.factory.directory.stats() if self.factory.directory is not None else succeed({})
         except (AttributeError, ConnectError):
             return succeed({})
 
@@ -205,11 +205,12 @@ class DashboardServer(Factory):
         self.directory = None
 
     def makeDirectoryProxyClient(self):
-        self.directory = DirectoryProxyClientService(config.DirectoryRealmName)
-        if config.DirectoryCaching.CachingSeconds:
-            self.directory = CachingDirectoryService(
-                self.directory,
-                expireSeconds=config.DirectoryCaching.CachingSeconds,
-                lookupsBetweenPurges=config.DirectoryCaching.LookupsBetweenPurges,
-                negativeCaching=config.DirectoryCaching.NegativeCachingEnabled,
-            )
+        if config.DirectoryProxy.Enabled:
+            self.directory = DirectoryProxyClientService(config.DirectoryRealmName)
+            if config.DirectoryCaching.CachingSeconds:
+                self.directory = CachingDirectoryService(
+                    self.directory,
+                    expireSeconds=config.DirectoryCaching.CachingSeconds,
+                    lookupsBetweenPurges=config.DirectoryCaching.LookupsBetweenPurges,
+                    negativeCaching=config.DirectoryCaching.NegativeCachingEnabled,
+                )
