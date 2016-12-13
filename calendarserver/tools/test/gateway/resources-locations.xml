@@ -18,7 +18,7 @@ limitations under the License.
 
 <!DOCTYPE accounts SYSTEM "accounts.dtd">
 
-<directory realm="Test Realm">
+<directory realm="Test Realm Resources">
   <record type="location">
     <short-name>location01</short-name>
     <uid>location01</uid>
