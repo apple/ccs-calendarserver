@@ -19,7 +19,11 @@ Caching service tests
 """
 
 from twisted.internet.defer import inlineCallbacks
+
+from twistedcaldav.config import config
 from twistedcaldav.test.util import StoreTestCase
+
+from txdav.dps.client import DirectoryService as DPSClientDirectoryService
 from txdav.who.cache import (
     CachingDirectoryService, IndexType
 )
@@ -29,6 +33,7 @@ from twext.who.idirectory import (
 from txdav.who.idirectory import (
     RecordType as CalRecordType
 )
+
 import uuid
 
 
@@ -339,3 +344,26 @@ class CacheTest(StoreTestCase):
         self.assertEquals(len(dir._negativeCache[IndexType.uid]), 1)
         self.assertEquals(len(dir._negativeCache[IndexType.guid]), 0)
         self.assertEquals(len(dir._negativeCache[IndexType.shortName]), 0)
+
+    def test_differentCacheKeys(self):
+        """
+        Verify records are purged from cache after a certain amount of requests
+        """
+        dir = CachingDirectoryService(
+            DPSClientDirectoryService(None),
+            expireSeconds=10,
+            lookupsBetweenPurges=LOOKUPS_BETWEEN_PURGES,
+            negativeCaching=True,
+        )
+
+        self.patch(config.Memcached.Pools.Default, "ClientEnabled", True)
+
+        self.patch(config.DirectoryProxy, "Enabled", True)
+        dir.resetCache()
+        key1 = dir._memcacher.generateMemcacheKey(IndexType.uid, "abc")
+
+        self.patch(config.DirectoryProxy, "Enabled", False)
+        dir.resetCache()
+        key2 = dir._memcacher.generateMemcacheKey(IndexType.uid, "abc")
+
+        self.assertNotEqual(key1, key2)

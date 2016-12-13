@@ -78,10 +78,11 @@ class DirectoryMemcacher(object):
 
     KEY_VERSION = 1
 
-    def __init__(self, cacheTimeout, recordService, realmName):
+    def __init__(self, cacheTimeout, recordService, realmName, keyModifier):
         self._cacheTimeout = cacheTimeout
         self._recordService = recordService
         self._realmName = realmName
+        self._keyVersion = "%d%s" % (DirectoryMemcacher.KEY_VERSION, keyModifier,)
 
     def _getMemcacheClient(self, refresh=False):
         """
@@ -250,16 +251,16 @@ class DirectoryMemcacher(object):
         @rtype: L{str}
         """
         if isinstance(indexKey, tuple):
-            return "dir|v%d|%s|%s|%s|%s" % (
-                DirectoryMemcacher.KEY_VERSION,
+            return "dir|v%s|%s|%s|%s|%s" % (
+                self._keyVersion,
                 self._realmName,
                 indexType.value,
                 indexKey[0],
                 indexKey[1],
             )
         else:
-            return "dir|v%d|%s|%s|%s" % (
-                DirectoryMemcacher.KEY_VERSION,
+            return "dir|v%s|%s|%s|%s" % (
+                self._keyVersion,
                 self._realmName,
                 indexType.value,
                 indexKey,
@@ -365,6 +366,7 @@ class CachingDirectoryService(
                 self._expireSeconds,
                 self._directory,
                 self._directory.realmName,
+                "a" if config.DirectoryProxy.Enabled else "b"
             )
         else:
             self._memcacher = None
