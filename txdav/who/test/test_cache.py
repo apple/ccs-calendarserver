@@ -298,3 +298,44 @@ class CacheTest(StoreTestCase):
         self.assertEquals(len(dir._negativeCache[IndexType.uid]), 1)
         self.assertEquals(len(dir._negativeCache[IndexType.guid]), 0)
         self.assertEquals(len(dir._negativeCache[IndexType.shortName]), 0)
+
+    @inlineCallbacks
+    def test_negativeCaching_Disabled(self):
+        """
+        Verify records are purged from cache after a certain amount of requests
+        """
+
+        dir = self.cachingDirectory
+        dir.negativeCaching = False
+        dir.resetCache()
+        dir.setTestTime(1.0)
+
+        # Negative caching on UID
+        self.assertEquals(dir._hitCount, 0)
+        self.assertEquals(dir._requestCount, 0)
+        record = yield dir.recordWithUID(u"negative-uid-1")
+        self.assertTrue(record is None)
+        self.assertEquals(dir._hitCount, 0)
+        self.assertEquals(dir._requestCount, 1)
+        self.assertEquals(len(dir._negativeCache[IndexType.uid]), 1)
+        self.assertEquals(len(dir._negativeCache[IndexType.guid]), 0)
+        self.assertEquals(len(dir._negativeCache[IndexType.shortName]), 0)
+
+        # Negative caching on same UID
+        record = yield dir.recordWithUID(u"negative-uid-1")
+        self.assertTrue(record is None)
+        self.assertEquals(dir._hitCount, 0)
+        self.assertEquals(dir._requestCount, 2)
+        self.assertEquals(len(dir._negativeCache[IndexType.uid]), 1)
+        self.assertEquals(len(dir._negativeCache[IndexType.guid]), 0)
+        self.assertEquals(len(dir._negativeCache[IndexType.shortName]), 0)
+
+        # 60 seconds later, the negative entry has expired
+        dir.setTestTime(60.0)
+        record = yield dir.recordWithUID(u"negative-uid-1")
+        self.assertTrue(record is None)
+        self.assertEquals(dir._hitCount, 0)
+        self.assertEquals(dir._requestCount, 3)
+        self.assertEquals(len(dir._negativeCache[IndexType.uid]), 1)
+        self.assertEquals(len(dir._negativeCache[IndexType.guid]), 0)
+        self.assertEquals(len(dir._negativeCache[IndexType.shortName]), 0)
