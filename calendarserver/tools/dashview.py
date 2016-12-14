@@ -381,6 +381,9 @@ class Dashboard(object):
     def selectedServer(self):
         return self.serversForPod(self.selectedPod())[self.selected_server.x]
 
+    def selectedAggregateCount(self):
+        return self.client.currentServerCount.get(self.selectedPod(), 1) if self.aggregate else 1
+
 
 class BaseDashboardClient(object):
     """
@@ -390,6 +393,7 @@ class BaseDashboardClient(object):
     def __init__(self, dashboard):
         self.dashboard = dashboard
         self.currentData = {}
+        self.currentServerCount = {}
 
     def readData(self):
         """
@@ -404,6 +408,8 @@ class BaseDashboardClient(object):
 
         # Only read each item once
         self.currentData = self.readData()
+        for pod, servers in self.currentData["pods"].items():
+            self.currentServerCount[pod] = len(servers)
         if self.dashboard.aggregate:
             self.aggregateData()
 
@@ -443,6 +449,7 @@ class BaseDashboardClient(object):
         """
 
         results = OrderedDict()
+        results["aggregateCount"] = len(data)
 
         # Get all items available in all servers first
         items = defaultdict(list)
@@ -1123,18 +1130,21 @@ class HTTPSlotsWindow(BaseWindow):
                 ),
             )
 
+        active_count = sum(
+            [
+                record["unacknowledged"] + record["acknowledged"]
+                for record in records
+            ]
+        )
+        active_slots = len(records) * self.dashboard.selectedAggregateCount()
+
         s = " {:<12}{:>8}{:>16}".format(
-            "Total:",
-            sum(
-                [
-                    record["unacknowledged"] + record["acknowledged"]
-                    for record in records
-                ]
-            ),
+            "Total:", active_count,
             sum([record["total"] for record in records]),
         )
+        s += "    {:>3d}%".format(safeDivision(active_count, active_slots, 100))
         if data["overloaded"]:
-            s += "    OVERLOADED"
+            s += " OVERLOADED"
         self.tableFooter((s,), pt)
 
         self.window.refresh()
