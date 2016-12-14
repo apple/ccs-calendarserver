@@ -590,7 +590,8 @@ class Aggregator(object):
     def aggregator_stats(serversdata):
         results = OrderedDict()
         for stat in ("current", "1m", "5m", "1h"):
-            results[stat] = Aggregator.serverStat(map(itemgetter(stat), serversdata))
+            if stat in serversdata[0]:
+                results[stat] = Aggregator.serverStat(map(itemgetter(stat), serversdata))
 
         # NB ignore the "system" key as it is not used
 
@@ -602,19 +603,23 @@ class Aggregator(object):
 
         # Values that are summed
         for key in ("requests", "t", "t-resp-wr", "401", "500", "cpu", "slots", "max-slots",):
-            results[key] = sum(map(itemgetter(key), serversdata))
+            if key in serversdata[0]:
+                results[key] = sum(map(itemgetter(key), serversdata))
 
         # Averaged
         for key in ("cpu", "max-slots",):
-            results[key] = safeDivision(results[key], len(serversdata))
+            if key in results:
+                results[key] = safeDivision(results[key], len(serversdata))
 
         # Values that are maxed
         for key in ("T-MAX",):
-            results[key] = max(map(itemgetter(key), serversdata))
+            if key in serversdata[0]:
+                results[key] = max(map(itemgetter(key), serversdata))
 
         # Values that are summed dict values
         for key in ("method", "method-t", "uid", "user-agent", "T", "T-RESP-WR",):
-            results[key] = Aggregator.dictValueSums(map(itemgetter(key), serversdata))
+            if key in serversdata[0]:
+                results[key] = Aggregator.dictValueSums(map(itemgetter(key), serversdata))
 
         return results
 
