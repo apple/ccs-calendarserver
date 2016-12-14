@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+    Copyright (c) 2006-2016 Apple Inc. All rights reserved.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+  -->
+
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+
+    <!-- Import a parent config before this one -->
+    <key>ImportConfig</key>
+    <string>./conf/caldavd-test.plist</string>
+
+    <!-- Configuration root -->
+    <key>ConfigRoot</key>
+    <string>./conf</string>
+
+    <!-- XML File Directory Service -->
+    <key>DirectoryService</key>
+    <dict>
+      <key>type</key>
+      <string>xml</string>
+      
+      <key>params</key>
+      <dict>
+        <key>xmlFile</key>
+        <string>./conf/auth/accounts-test-large.xml</string>
+      </dict>
+    </dict>
+
+    <key>ProxyLoadFromFile</key>
+    <string>./conf/auth/proxies-test-large.xml</string>
+
+  </dict>
+</plist>
