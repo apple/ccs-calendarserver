@@ -576,7 +576,7 @@ class Aggregator(object):
     def aggregator_job_assignments(serversdata):
 
         results = OrderedDict()
-        results["workers"] = [[0, 0, 0]] * len(serversdata[0]["workers"])
+        results["workers"] = [[0, 0, 0]] * max(map(len, map(itemgetter("workers"), serversdata)))
         results["level"] = sum(map(itemgetter("level"), serversdata))
 
         for server_data in serversdata:
