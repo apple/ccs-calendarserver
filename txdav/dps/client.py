@@ -45,7 +45,7 @@ from txdav.dps.commands import (
     StatsCommand, ExternalDelegatesCommand, ExpandedMemberUIDsCommand,
     AddMembersCommand, RemoveMembersCommand,
     UpdateRecordsCommand, ExpandedMembersCommand, FlushCommand,
-    SetAutoScheduleModeCommand
+    SetAutoScheduleModeCommand, ContainsUIDsCommand
 )
 from txdav.who.delegates import RecordType as DelegatesRecordType
 from txdav.who.directory import (
@@ -547,6 +547,24 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
             )
         else:
             return succeed([])
+
+    def containsUID(self, uid):
+        """
+        Is the supplied UID an expanded member of this proxy group.
+
+        @param uid: UID to test
+        @type uid: L{str}
+
+        @return: result
+        @rtype: L{bool}
+        """
+        log.debug("DPS Client containsUID")
+        return self.service._call(
+            ContainsUIDsCommand,
+            lambda x: x['result'],
+            uid=self.uid.encode("utf-8"),
+            testUid=uid.encode("utf-8")
+        )
 
     def _convertAccess(self, results):
         access = results["access"].decode("utf-8")

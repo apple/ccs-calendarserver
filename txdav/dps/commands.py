@@ -198,6 +198,16 @@ class ExpandedMemberUIDsCommand(amp.Command):
     ]
 
 
+class ContainsUIDsCommand(amp.Command):
+    arguments = [
+        ('uid', amp.String()),
+        ('testUid', amp.String()),
+    ]
+    response = [
+        ('result', amp.Boolean()),
+    ]
+
+
 class VerifyPlaintextPasswordCommand(amp.Command):
     arguments = [
         ('uid', amp.String()),

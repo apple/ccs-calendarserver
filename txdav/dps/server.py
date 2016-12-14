@@ -44,7 +44,7 @@ from txdav.dps.commands import (
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand,
     WikiAccessForUIDCommand, ContinuationCommand,
     ExternalDelegatesCommand, StatsCommand, ExpandedMemberUIDsCommand,
-    AddMembersCommand, RemoveMembersCommand,
+    ContainsUIDsCommand, AddMembersCommand, RemoveMembersCommand,
     UpdateRecordsCommand, FlushCommand, SetAutoScheduleModeCommand,
     # RemoveRecordsCommand,
 )
@@ -494,6 +494,22 @@ class DirectoryProxyAMPProtocol(amp.AMP):
 
         response = {
             "success": success,
+        }
+        # log.debug("Responding with: {response}", response=response)
+        returnValue(response)
+
+    @ContainsUIDsCommand.responder
+    @inlineCallbacks
+    def containsUID(self, uid, testUid):
+        uid = uid.decode("utf-8")
+        testUid = testUid.decode("utf-8")
+        log.debug("ContainsUID: {u} {t}", u=uid, t=testUid)
+        record = (yield self._directory.recordWithUID(uid))
+        result = False
+        if record is not None:
+            result = yield record.containsUID(testUid)
+        response = {
+            "result": result,
         }
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
