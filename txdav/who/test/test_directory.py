@@ -1,3 +1,4 @@
+# coding=utf-8
 ##
 # Copyright (c) 2013-2016 Apple Inc. All rights reserved.
 #
@@ -199,6 +200,24 @@ class DirectoryTestCase(StoreTestCase):
         self.assertEquals(record, None)
 
     @inlineCallbacks
+    def test_recordWithCalendarUserAddress_Bad(self):
+        """
+        Make sure various bad CUA forms are treated as missing records.
+        """
+
+        # Invalid UID format
+        record = yield self.directory.recordWithCalendarUserAddress(
+            u"urn:x-uid:***"
+        )
+        self.assertEquals(record, None)
+
+        # Non-ascii UID format
+        record = yield self.directory.recordWithCalendarUserAddress(
+            u"urn:x-uid:åa"
+        )
+        self.assertEquals(record, None)
+
+    @inlineCallbacks
     def test_recordWithCalendarUserAddress_no_fake_email(self):
         """
         Make sure that recordWithCalendarUserAddress handles fake emails for
@@ -385,6 +404,10 @@ class DirectoryTestCaseFakeEmail(StoreTestCase):
         record = yield self.directory.recordWithCalendarUserAddress(u"mailto:{}@do_not_reply".format("resource02".encode("hex")))
         self.assertTrue(record is None)
 
+        # Make sure un-hex encoded variant works
+        record = yield self.directory.recordWithCalendarUserAddress(u"mailto:{}@do_not_reply".format("75EA36BE-F71B-40F9-81F9-CF59BF40CA8F"))
+        self.assertTrue(record is not None)
+
     @inlineCallbacks
     def test_calendarUserAddress_fake_email(self):
         """
@@ -400,3 +423,33 @@ class DirectoryTestCaseFakeEmail(StoreTestCase):
 
         self.assertIn(u"{}@do_not_reply".format("resource01".encode("hex")), record.emailAddresses)
         self.assertIn(u"mailto:{}@do_not_reply".format("resource01".encode("hex")), record.calendarUserAddresses)
+
+    @inlineCallbacks
+    def test_recordWithCalendarUserAddress_Bad(self):
+        """
+        Make sure various bad CUA forms are treated as missing records.
+        """
+
+        # Invalid fake email format - truncated base64
+        record = yield self.directory.recordWithCalendarUserAddress(
+            u"mailto:ZmF@do_not_reply"
+        )
+        self.assertEquals(record, None)
+
+        # Invalid fake email format - invalid characters
+        record = yield self.directory.recordWithCalendarUserAddress(
+            u"mailto:****@do_not_reply"
+        )
+        self.assertEquals(record, None)
+
+        # Non-ascii fake email format
+        record = yield self.directory.recordWithCalendarUserAddress(
+            u"mailto:åa@do_not_reply".encode("utf-8")
+        )
+        self.assertEquals(record, None)
+
+        # Non-ascii fake email format
+        record = yield self.directory.recordWithCalendarUserAddress(
+            u"mailto:åa@do_not_reply"
+        )
+        self.assertEquals(record, None)

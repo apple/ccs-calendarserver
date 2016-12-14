@@ -79,7 +79,14 @@ class CalendarDirectoryServiceMixin(object):
 
         if config.Scheduling.Options.FakeResourceLocationEmail:
             if address.startswith("mailto:") and address.endswith("@do_not_reply"):
-                address = "urn:x-uid:{}".format(address[7:-13].decode("hex"))
+                try:
+                    address = "urn:x-uid:{}".format(address[7:-13].decode("hex"))
+                except Exception:
+                    try:
+                        address = "urn:uuid:{}".format(address[7:-13])
+                    except Exception as e:
+                        log.error("Invalid @do_not_reply cu-address: '{address}' {exc}", address=address, exc=e)
+                        address = ""
 
         if address.startswith("urn:x-uid:"):
             uid = address[10:]
