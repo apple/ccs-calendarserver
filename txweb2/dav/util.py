@@ -122,7 +122,7 @@ def normalizeURL(url):
                 count += 1
             path = path[count - 1:]
 
-        return path.encode("utf-8")
+        return path.encode("utf-8") if isinstance(path, unicode) else path
 
     (scheme, host, path, query, fragment) = urlsplit(cleanup(url))
 

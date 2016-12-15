@@ -1,3 +1,4 @@
+# coding=utf-8
 ##
 # Copyright (c) 2005-2016 Apple Inc. All rights reserved.
 #
@@ -68,6 +69,7 @@ class Utilities(unittest.TestCase):
         self.assertEquals(util.joinURL("/foo/../", "/bar"), "/bar")
         self.assertEquals(util.joinURL("/foo", "/../"), "/")
         self.assertEquals(util.joinURL("/foo", "/./"), "/foo/")
+        self.assertEquals(util.joinURL("/foo", "båa"), "/foo/båa")
 
     def test_parentForURL(self):
         """
