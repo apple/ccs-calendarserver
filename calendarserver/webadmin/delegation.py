@@ -665,5 +665,6 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
 
     @inlineCallbacks
     def search(self, searchStr):
+        searchStr = unicode(searchStr, "utf-8") if isinstance(searchStr, str) else searchStr
         records = list((yield self.directory.recordsMatchingTokens(searchStr.strip().split())))
         returnValue(records)
