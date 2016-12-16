@@ -210,6 +210,11 @@ def _computeEnvVars(parent):
     for varname in optionalVars:
         if varname in parent:
             result[varname] = parent[varname]
+
+    # Worker's stdXXX are piped, which ends up setting their encoding to None;
+    # Have them inherit the master's encoding, even when being piped.
+    result["PYTHONIOENCODING"] = sys.stdout.encoding
+
     return result
 
 PARENT_ENVIRONMENT = _computeEnvVars(environ)
