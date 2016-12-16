@@ -474,6 +474,9 @@ def agoString(delta):
             else:
                 hoursAgo = minutesAgo / 60
                 agoString = "{} hour{} ago".format(hoursAgo, "s" if hoursAgo > 1 else "")
+    else:
+        agoString = "Just now"
+
     return agoString
 
 

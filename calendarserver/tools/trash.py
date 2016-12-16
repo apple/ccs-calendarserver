@@ -136,7 +136,7 @@ def listTrashedCollectionsForPrincipal(service, store, principalUID):
             for child in children:
                 component = yield child.component()
                 summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
-                print("            \"{}\"".format(summary.encode("utf-8")))
+                print("            \"{}\"".format(summary))
 
     yield store.inTransaction(label="List trashed collections", operation=doIt)
 
@@ -291,7 +291,7 @@ def restoreTrashedEvent(service, store, principalUID, resourceID):
 
         component = yield child.component()
         summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
-        print("Restoring \"{}\"".format(summary.encode("utf-8")))
+        print("Restoring \"{}\"".format(summary))
         yield child.fromTrash()
 
     yield store.inTransaction(label="Restore trashed event", operation=doIt)

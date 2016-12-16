@@ -235,9 +235,9 @@ class PrincipalCalendarsExportResource(SimpleResource):
                                 break
                             assert i < len(calendarComponents)
 
-                    text = component.getText().encode("utf-8")
+                    text = component.getText()
 
-                    zipFile.writestr(name.encode("utf-8"), text)
+                    zipFile.writestr(name, text)
 
             finally:
                 zipFile.close()
