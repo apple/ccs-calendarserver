@@ -13,8 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
 from __future__ import print_function
+from twext.enterprise.dal.syntax import Update
 from twext.enterprise.jobs.jobitem import JobItem
+from txdav.common.datastore.sql_tables import schema
 
 """
 Tests for calendarserver.tools.calverify
@@ -350,6 +353,42 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
 
+BAD14_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:BAD14
+DTEND:20100307T151500Z
+TRANSP:OPAQUE
+SUMMARY:Ancient event
+DTSTART:20100307T111500Z
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+GEO:40.1;40.1
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+CORRUPT14_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:BAD14
+DTEND:20100307T151500Z
+TRANSP:OPAQUE
+SUMMARY:Ancient event
+DTSTART:20100307T111500Z
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+GEO:40.1
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
 
 class CalVerifyDataTests(StoreTestCase):
     """
@@ -379,6 +418,7 @@ class CalVerifyDataTests(StoreTestCase):
                 "bad11.ics": (BAD11_ICS, metadata,),
                 "bad12.ics": (BAD12_ICS, metadata,),
                 "bad13.ics": (BAD13_ICS, metadata,),
+                "bad14.ics": (BAD14_ICS, metadata,),
             }
         },
     }
@@ -390,6 +430,16 @@ class CalVerifyDataTests(StoreTestCase):
 
         # Need to bypass normal validation inside the store
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
+
+        # Have to manually write these into the database
+        populateTxn = self.storeUnderTest().newTransaction()
+        co = schema.CALENDAR_OBJECT
+        yield Update(
+            {co.ICALENDAR_TEXT: CORRUPT14_ICS},
+            Where=co.RESOURCE_NAME == "bad14.ics",
+        ).on(populateTxn)
+        yield populateTxn.commit()
+
         self.notifierFactory.reset()
 
     def storeUnderTest(self):
@@ -438,6 +488,7 @@ class CalVerifyDataTests(StoreTestCase):
             ("home1", "BAD11",),
             ("home1", "BAD12",),
             ("home1", "BAD13",),
+            ("home1", "BAD14",),
         )))
 
         sync_token_new = (yield (yield self.calendarUnderTest()).syncToken())
@@ -483,6 +534,7 @@ class CalVerifyDataTests(StoreTestCase):
             ("home1", "BAD11",),
             ("home1", "BAD12",),
             ("home1", "BAD13",),
+            ("home1", "BAD14",),
         )))
 
         # Do scan
@@ -544,6 +596,7 @@ class CalVerifyDataTests(StoreTestCase):
             ("home1", "BAD6",),
             ("home1", "BAD10",),
             ("home1", "BAD12",),
+            ("home1", "BAD14",),
         )))
 
         sync_token_new = (yield (yield self.calendarUnderTest()).syncToken())
@@ -585,6 +638,7 @@ class CalVerifyDataTests(StoreTestCase):
             ("home1", "BAD6",),
             ("home1", "BAD10",),
             ("home1", "BAD12",),
+            ("home1", "BAD14",),
         )))
 
         # Do scan

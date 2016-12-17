@@ -55,7 +55,7 @@ from pycalendar.icalendar import definitions
 from pycalendar.icalendar.calendar import Calendar
 from pycalendar.period import Period
 from pycalendar.timezone import Timezone
-from twext.enterprise.dal.syntax import Select, Parameter, Count
+from twext.enterprise.dal.syntax import Select, Parameter, Count, Update
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import usage
@@ -677,6 +677,8 @@ class CalVerifyService(WorkerService, object):
 
     @inlineCallbacks
     def getCalendar(self, resid, doFix=False):
+        self.parseError = None
+        self.parseException = None
         co = schema.CALENDAR_OBJECT
         kwds = {"ResourceID": resid}
         rows = (yield Select(
@@ -688,11 +690,11 @@ class CalVerifyService(WorkerService, object):
         ).on(self.txn, **kwds))
         try:
             caldata = Calendar.parseText(rows[0][0]) if rows else None
-        except ErrorBase:
+        except ErrorBase as e:
             self.parseError = "Failed to parse"
+            self.parseException = str(e)
             returnValue(None)
 
-        self.parseError = None
         returnValue(caldata)
 
     @inlineCallbacks
@@ -1079,7 +1081,21 @@ class BadDataService(CalVerifyService):
         Check the calendar resource for valid iCalendar data.
         """
 
+        result = True
+        message = ""
+
         caldata = yield self.getCalendar(resid, self.fix)
+
+        # Look for possible GEO fix
+        if caldata is None and self.parseError and "GEO value incorrect" in self.parseException:
+            if self.fix:
+                caldata = yield self.fixInvalidGEOProperty(resid)
+                if caldata is not None:
+                    result = False
+                    message = "Fixed: Removed bad GEO"
+            else:
+                self.parseError += ": GEO"
+
         if caldata is None:
             if self.parseError:
                 returnValue((False, self.parseError))
@@ -1089,8 +1105,6 @@ class BadDataService(CalVerifyService):
         component = Component(None, pycalendar=caldata)
         if getattr(self.config, "MaxInstancesForRRULE", 0):
             component.truncateRecurrence(self.config.MaxInstancesForRRULE)
-        result = True
-        message = ""
         try:
             if self.options["ical"]:
                 component.validCalendarData(doFix=False, validateRecurrences=True)
@@ -1257,6 +1271,39 @@ class BadDataService(CalVerifyService):
             self.txn = self.store.newTransaction()
 
         returnValue((result, message,))
+
+    @inlineCallbacks
+    def fixInvalidGEOProperty(self, resid, doFix=False):
+        self.parseError = None
+        self.parseException = None
+        co = schema.CALENDAR_OBJECT
+        kwds = {"ResourceID": resid}
+        rows = (yield Select(
+            [co.ICALENDAR_TEXT],
+            From=co,
+            Where=(
+                co.RESOURCE_ID == Parameter("ResourceID")
+            ),
+        ).on(self.txn, **kwds))
+        caltextdata = rows[0][0] if rows else None
+        if caltextdata is None:
+            returnValue(None)
+        caltextdata = "\n".join(filter(lambda x: not (x.startswith("GEO:") and ";" not in x), caltextdata.splitlines()))
+
+        try:
+            caldata = Calendar.parseText(caltextdata)
+        except ErrorBase as e:
+            self.parseError = "Failed to parse"
+            self.parseException = str(e)
+            returnValue(None)
+
+        # We now know it is valid, so write it back
+        yield Update(
+            {co.ICALENDAR_TEXT: caltextdata},
+            Where=co.RESOURCE_ID == Parameter("ResourceID")
+        ).on(self.txn, **kwds)
+
+        returnValue(caldata)
 
 
 class SchedulingMismatchService(CalVerifyService):
