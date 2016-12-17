@@ -331,6 +331,13 @@ class iCalDiff(object):
         # All the components in oldcalendar must be in newcalendar unless they are CANCELLED
         for key in setold - setnew:
             _ignore_name, _ignore_uid, rid = key
+
+            # Some clients seem to remove the master component - this is not good. Rather than
+            # failing we will restore the original master - basically just ignore the master if
+            # it appears in this loop.
+            if rid is None:
+                continue
+
             component = mapold[key]
             if component.propertyValue("STATUS") != "CANCELLED":
                 # Attendee may decline by EXDATE'ing an instance - we need to handle that

@@ -2412,6 +2412,75 @@ END:VEVENT
 END:VCALENDAR
 """,)
             ),
+            (
+                "#1.7 Cancelled master removed by attendee",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+RRULE:COUNT=400;FREQ=DAILY
+STATUS:CANCELLED
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080604T120000Z
+DTEND:20080604T130000Z
+RECURRENCE-ID:20080604T120000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+STATUS:CANCELLED
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080604T120000Z
+DTEND:20080604T130000Z
+RECURRENCE-ID:20080604T120000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED:mailto:user2@example.com
+STATUS:CANCELLED
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user2@example.com",
+                (True, True, ("20080604T120000Z",), """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY;COUNT=400
+STATUS:CANCELLED
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080604T120000Z
+DTSTART:20080604T120000Z
+DTEND:20080604T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+STATUS:CANCELLED
+END:VEVENT
+END:VCALENDAR
+""",)
+            ),
         )
 
         for description, calendar1, calendar2, attendee, result in data:
@@ -2421,7 +2490,11 @@ END:VCALENDAR
                 diffResult[0],
                 diffResult[1],
                 tuple(sorted(diffResult[2])),
-                str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
+                re.sub(
+                    "X-CALENDARSERVER-DTSTAMP=[^Z]+",
+                    "X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXX",
+                    str(diffResult[3]).replace("\r", "").replace("\n ", "")
+                ) if diffResult[3] else None,
             )
             result = list(result)
             result[2] = tuple([(DateTime.parseText(dt) if dt else None) for dt in result[2]])
