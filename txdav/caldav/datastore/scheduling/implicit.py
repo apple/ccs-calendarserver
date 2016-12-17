@@ -368,6 +368,11 @@ class ImplicitScheduler(object):
 
         # Get some useful information from the calendar
         yield self.extractCalendarData()
+
+        # Double-check we still have an organizer as a delayed refresh might happen after the original event
+        # was changed and the organizer removed
+        if self.organizer is None:
+            returnValue(None)
         self.organizerAddress = (yield calendarUserFromCalendarUserAddress(self.organizer, self.txn))
 
         # Originator is the organizer in this case

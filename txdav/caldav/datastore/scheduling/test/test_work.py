@@ -88,15 +88,16 @@ class BaseWorkTests(CommonCommonTests, unittest.TestCase):
         yield self.commit()
 
     @inlineCallbacks
-    def _runOneJob(self):
+    def _runOneJob(self, work_type=None):
         """
         Run the first outstanding jobs.
         """
         # Run jobs
         jobs = yield JobItem.all(self.transactionUnderTest())
         for job in jobs:
-            yield job.run()
-            break
+            if work_type is None or job.workType == work_type:
+                yield job.run()
+                break
         yield self.commit()
 
     @inlineCallbacks
@@ -939,3 +940,66 @@ END:VCALENDAR
         yield self.setOrganizerEvent("user01", organizer3)
         attendee = yield self.getAttendeeEvent("user02")
         self.assertEqual(normalize_iCalStr(attendee), normalize_iCalStr(attendee3), msg=diff_iCalStrs(attendee3, attendee))
+
+    @inlineCallbacks
+    def test_refreshBeforeOrganizerRemoved(self):
+        """
+        Test that a refresh work runs even though the original event has had the Organizer removed.
+        """
+
+        organizer1 = Component.fromString("""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTAMP:20080601T130000Z
+DTSTART:20080601T130000Z
+DURATION:PT1H
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;PARTSTAT=NEEDS-ACTION:urn:x-uid:user02
+ATTENDEE;CN=User 03;EMAIL=user03@example.com;PARTSTAT=NEEDS-ACTION:urn:x-uid:user03
+END:VEVENT
+END:VCALENDAR
+""")
+
+        attendee1 = Component.fromString("""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTAMP:20080601T130000Z
+DTSTART:20080601T130000Z
+DURATION:PT1H
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;PARTSTAT=ACCEPTED;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=User 03;EMAIL=user03@example.com;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:urn:x-uid:user03
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR
+""")
+
+        organizer2 = Component.fromString("""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTAMP:20080601T130000Z
+DTSTART:20080601T130000Z
+DURATION:PT1H
+END:VEVENT
+END:VCALENDAR
+""")
+
+        yield self.createOrganizerEvent("user01", organizer1)
+        yield self.setAttendeeEvent("user02", attendee1, run_jobs=False)
+        yield self._runOneJob()
+        yield self.setOrganizerEvent("user01", organizer2, run_jobs=False)
+        yield self._runOneJob(work_type="SCHEDULE_ORGANIZER_WORK")
+
+        yield self._runAllJobs()
+
+        jobs = yield JobItem.all(self.transactionUnderTest())
+        self.assertEqual(len(jobs), 0)
+        yield self.commit()
