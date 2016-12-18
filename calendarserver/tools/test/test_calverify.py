@@ -469,6 +469,7 @@ class CalVerifyDataTests(StoreTestCase):
             "verbose": False,
             "uid": "",
             "uuid": "",
+            "path": "",
             "tzid": "",
         }
         output = StringIO()
@@ -511,6 +512,7 @@ class CalVerifyDataTests(StoreTestCase):
             "verbose": False,
             "uid": "",
             "uuid": "",
+            "path": "",
             "tzid": "",
         }
         output = StringIO()
@@ -582,6 +584,7 @@ class CalVerifyDataTests(StoreTestCase):
             "verbose": False,
             "uid": "",
             "uuid": "",
+            "path": "",
             "tzid": "",
         }
         output = StringIO()
@@ -620,6 +623,7 @@ class CalVerifyDataTests(StoreTestCase):
             "verbose": False,
             "uid": "",
             "uuid": "",
+            "path": "",
             "tzid": "",
         }
         output = StringIO()
