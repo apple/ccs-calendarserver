@@ -347,7 +347,7 @@ class Request(http.Request):
         return False
 
     def _fixupURLParts(self):
-        hostaddr, secure = self.chanRequest.getHostInfo()
+        _ignore_hostaddr, secure = self.chanRequest.getHostInfo()
         if not self.scheme:
             self.scheme = ('http', 'https')[secure]
 
@@ -366,8 +366,9 @@ class Request(http.Request):
                 # protocol version
                 if self.clientproto >= (1, 1):
                     raise http.HTTPError(responsecode.BAD_REQUEST)
-                self.host = hostaddr.host
-                self.port = hostaddr.port
+
+                # Always require host header even for HTTP/1.0
+                raise http.HTTPError(responsecode.BAD_REQUEST)
 
     def process(self):
         "Process a request."
@@ -409,6 +410,10 @@ class Request(http.Request):
         resource lookup procedure. "OPTIONS *" is handled here, for
         example. This would also be the place to do any CONNECT
         processing."""
+
+        # Always reject HTTP/1.0 - no clients should use it
+        if self.clientproto == (1, 0):
+            raise http.HTTPError(responsecode.BAD_REQUEST)
 
         if self.method == "OPTIONS" and self.uri == "*":
             response = http.Response(responsecode.OK)
