@@ -339,7 +339,7 @@ class MailReceiver(object):
                 returnValue(self.NO_TOKEN)
         else:
             log.error(
-                "Mail gateway couldn't parse To: address ({tp}) in "
+                "Mail gateway couldn't parse To: address ({to}) in "
                 "message {msgid}", to=msg['To'], msgid=msg['Message-ID']
             )
             returnValue(self.MALFORMED_TO_ADDRESS)
