@@ -12132,3 +12132,82 @@ END:VCALENDAR
         cal.repairMissingDatestampsFromComments()
         for prop in list(cal.mainComponent().properties("X-CALENDARSERVER-ATTENDEE-COMMENT")):
             self.assertTrue(prop.hasParameter("X-CALENDARSERVER-DTSTAMP"))
+
+    def test_maxAttachmentsPerInstance(self):
+        """
+        Verify maxAttachmentsPerInstance returns the right count.
+        """
+
+        data = (
+            (
+                "One component, no attachments",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                0,
+            ),
+            (
+                "One component, 3 attachments",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+SUMMARY:Test
+ATTACH;VALUE=URI:https://example.com/attachment1.pdf
+ATTACH;VALUE=URI:https://example.com/attachment2.pdf
+ATTACH;VALUE=URI:https://example.com/attachment3.pdf
+END:VEVENT
+END:VCALENDAR
+""",
+                3,
+            ),
+            (
+                "Multiple components, different number in each component",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+SUMMARY:Test
+ATTACH;VALUE=URI:https://example.com/attachment1.pdf
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T120000Z
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+SUMMARY:Test
+ATTACH;VALUE=URI:https://example.com/attachment1.pdf
+ATTACH;VALUE=URI:https://example.com/attachment2.pdf
+ATTACH;VALUE=URI:https://example.com/attachment3.pdf
+END:VEVENT
+END:VCALENDAR
+""",
+                3,
+            ),
+        )
+
+        for description, caldata, count in data:
+            cal = Component.fromString(caldata)
+            result = cal.maxAttachmentsPerInstance()
+            self.assertEqual(result, count, msg=description)

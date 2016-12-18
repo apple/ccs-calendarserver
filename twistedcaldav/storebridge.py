@@ -59,7 +59,7 @@ from txdav.caldav.icalendarstore import (
     InvalidPerUserDataMerge,
     AttendeeAllowedError, ResourceDeletedError, InvalidAttachmentOperation,
     ShareeAllowedError, DuplicatePrivateCommentsError, InvalidSplit,
-    AttachmentSizeTooLarge, UnknownTimezone, SetComponentOptions)
+    AttachmentSizeTooLarge, UnknownTimezone, SetComponentOptions, TooManyAttachments)
 from txdav.carddav.iaddressbookstore import (
     KindChangeNotAllowedError, GroupWithUnsharedAddressNotAllowedError
 )
@@ -2596,6 +2596,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         InvalidOverriddenInstanceError: (_CommonStoreExceptionHandler._storeExceptionError, (caldav_namespace, "valid-calendar-data"),),
         TooManyInstancesError: (_CommonStoreExceptionHandler._storeExceptionError, MaxInstances.fromString(str(config.MaxAllowedInstances)),),
         AttachmentStoreValidManagedID: (_CommonStoreExceptionHandler._storeExceptionError, (caldav_namespace, "valid-managed-id"),),
+        TooManyAttachments: (_CommonStoreExceptionHandler._storeExceptionError, (caldav_namespace, "max-attachments"),),
         ShareeAllowedError: (_CommonStoreExceptionHandler._storeExceptionError, (calendarserver_namespace, "sharee-privilege-needed",),),
         DuplicatePrivateCommentsError: (_CommonStoreExceptionHandler._storeExceptionError, (calendarserver_namespace, "no-duplicate-private-comments",),),
         LockTimeout: (_CommonStoreExceptionHandler._storeExceptionUnavailable, "Lock timed out.",),
@@ -3074,6 +3075,12 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             raise HTTPError(
                 ErrorResponse(FORBIDDEN,
                               (caldav_namespace, "max-attachment-size"))
+            )
+
+        except TooManyAttachments:
+            raise HTTPError(
+                ErrorResponse(FORBIDDEN,
+                              (caldav_namespace, "max-attachments"))
             )
 
         except QuotaExceeded:

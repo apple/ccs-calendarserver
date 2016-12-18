@@ -322,6 +322,7 @@ DEFAULT_CONFIG = {
     # Attachments
     "UserQuota": 104857600,  # User attachment quota (in bytes - default 100MB)
     "MaximumAttachmentSize": 10485760,  # Maximum size for a single attachment (in bytes - default 10MB)
+    "MaximumAttachmentsPerInstance": 5,  # Maximum number of attachments per instance
 
     # Resource data
     "MaxCollectionsPerHome": 50,  # Maximum number of calendars/address books allowed in a home

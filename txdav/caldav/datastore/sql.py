@@ -79,7 +79,7 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     InvalidDefaultCalendar, \
     InvalidAttachmentOperation, DuplicatePrivateCommentsError, \
     TimeRangeUpperLimit, TimeRangeLowerLimit, InvalidSplit, \
-    UnknownTimezone, SetComponentOptions
+    UnknownTimezone, SetComponentOptions, TooManyAttachments
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
 from txdav.common.datastore.sql_directory import GroupsRecord, \
@@ -4542,6 +4542,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         @type component: L{Component}
         """
 
+        # Check count limit
+        if component.maxAttachmentsPerInstance() > config.MaximumAttachmentsPerInstance:
+            raise TooManyAttachments
+
         # Retrieve all ATTACH properties with a MANAGED-ID in new data
         newattached = collections.defaultdict(list)
         newattachments = component.getAllPropertiesInAnyComponent("ATTACH", depth=1,)
@@ -4737,6 +4741,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # Check validity of request
         yield self._checkValidManagedAttachmentChange()
 
+        # Don't exceed the attachment count limit
+        calendar = (yield self.componentForUser())
+        if calendar.maxAttachmentsPerInstance() >= config.MaximumAttachmentsPerInstance:
+            raise TooManyAttachments
+
         # Protect against invalid file names
         if isinstance(filename, unicode):
             filename = filename.encode("utf-8")
@@ -4762,7 +4771,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # Now try and adjust the actual calendar data.
         # NB We need a copy of the original calendar data as implicit scheduling will need to compare that to
         # the original in order to detect changes that would case scheduling.
-        calendar = (yield self.componentForUser())
         calendar = calendar.duplicate()
 
         attach, location = (yield attachment.attachProperty())

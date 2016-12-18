@@ -773,6 +773,12 @@ class AttachmentSizeTooLarge(Exception):
     """
 
 
+class TooManyAttachments(Exception):
+    """
+    Cannot add an attachment because of attachment count limit.
+    """
+
+
 class AttachmentStoreValidManagedID(Exception):
     """
     Specified attachment managed-id is not valid.

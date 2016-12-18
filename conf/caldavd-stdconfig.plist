@@ -348,6 +348,10 @@
 	<key>MaximumAttachmentSize</key>
 	<integer>10485760</integer>
 
+	<!-- Maximum number of attachments per instance -->
+	<key>MaximumAttachmentsPerInstance</key>
+	<integer>5</integer>
+
 	<!-- Resource data -->
 	<!-- Maximum number of calendars/address books allowed in a home -->
 	<key>MaxCollectionsPerHome</key>

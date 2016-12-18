@@ -3654,10 +3654,21 @@ END:VCALENDAR
                 if not prop.hasParameter(DTSTAMP_PARAM):
                     prop.setParameter(DTSTAMP_PARAM, DateTime.getNowUTC().getText())
 
+    def maxAttachmentsPerInstance(self):
+        if self.name() == "VCALENDAR":
+            count = 0
+            for component in self.subcomponents():
+                if component.name() in ("VTIMEZONE",):
+                    continue
+                count = max(count, component.maxAttachmentsPerInstance())
+            return count
+        else:
+            return len(tuple(self.properties("ATTACH")))
 
 # #
 # Timezones
 # #
+
 
 def tzexpand(tzdata, start, end):
     """
