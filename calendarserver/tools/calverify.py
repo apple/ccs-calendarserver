@@ -15,8 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from __future__ import print_function
-import itertools
 
 
 """
@@ -41,11 +39,14 @@ multiple DBs for inconsistency would be good too.
 
 """
 
+from __future__ import print_function
+
+from uuid import uuid4
 import collections
+import itertools
 import sys
 import time
 import traceback
-from uuid import uuid4
 
 from calendarserver.tools import tables
 from calendarserver.tools.cmdline import utilityMain, WorkerService
@@ -73,9 +74,7 @@ from txdav.caldav.datastore.util import normalizationLookup
 from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.common.icommondatastore import InternalDataStoreError
-from txdav.who.idirectory import (
-    RecordType as CalRecordType, AutoScheduleMode
-)
+from txdav.who.idirectory import RecordType as CalRecordType, AutoScheduleMode
 
 
 log = Logger()
@@ -203,7 +202,7 @@ Component.validRecurrenceIDs = new_validRecurrenceIDs
 if not hasattr(Component, "maxAlarmCounts"):
     Component.hasDuplicateAlarms = new_hasDuplicateAlarms
 
-VERSION = "12"
+VERSION = "13"
 
 
 def printusage(e=None):
@@ -241,10 +240,12 @@ Modes of operation:
 --split             : split recurring event
 --upgrade           : upgrade iCalendar data.
 
---nuke PATH|RID     : remove specific calendar resources - can
+--nuke PATH|UID|RID : remove specific calendar resources - can
                       only be used by itself. PATH is the full
                       /calendars/__uids__/XXX/YYY/ZZZ.ics object
-                      resource path, RID is the SQL DB resource-id.
+                      resource path. UID is the iCalendar UID,
+                      prefixed with "uid:", of the resources to
+                      remove. RID is the SQL DB resource-id.
 
 Options for all modes:
 
@@ -257,6 +258,10 @@ Options for --ical / --upgrade:
 --uuid     : only scan specified calendar homes. Can be a partial GUID
              to scan all GUIDs with that as a prefix.
 --uid      : scan only calendar data with the specific iCalendar UID.
+--calendar : When scanning calendar homes, only scan calendars with the
+             specified calendar resource name.
+--path     : Scan the calendar home or calendar identified by the
+             specified URI
 
 Options for --mismatch:
 
@@ -313,6 +318,8 @@ v11: Allows manual splitting of recurring events.
 
 v12: Fix double-booking false positives caused by timezones-by-reference.
 
+v13: Add new options for --nuke and --ical. Add fix for invalid GEO.
+
 """ % (VERSION,)
 
 
@@ -353,6 +360,7 @@ class CalVerifyOptions(Options):
         ['config', 'f', DEFAULT_CONFIG_FILE, "Specify caldavd.plist configuration path."],
         ['uuid', 'u', "", "Only check this user."],
         ['uid', 'U', "", "Only this event UID."],
+        ['calendar', '', "", "Only this calendar resource name."],
         ['nuke', 'e', "", "Remove event given its path."],
         ['days', 'T', "365", "Number of days for scanning events into the future."],
         ['path', '', "", "Split event given its path."],
@@ -496,12 +504,16 @@ class CalVerifyService(WorkerService, object):
         returnValue(tuple(rows))
 
     @inlineCallbacks
-    def getAllResourceInfoWithUUID(self, uuid, inbox=False):
+    def getAllResourceInfoWithUUID(self, uuid, inbox=False, calendar=None):
         co = schema.CALENDAR_OBJECT
         cb = schema.CALENDAR_BIND
         ch = schema.CALENDAR_HOME
 
-        if inbox:
+        if calendar:
+            cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
+                cb.BIND_MODE == _BIND_MODE_OWN).And(
+                cb.CALENDAR_RESOURCE_NAME == calendar)
+        elif inbox:
             cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
                 cb.BIND_MODE == _BIND_MODE_OWN)
         else:
@@ -817,21 +829,27 @@ class NukeService(CalVerifyService):
                 self.output.write("\n")
                 self.output.write("Path does not exist. Nothing nuked.\n")
                 returnValue(None)
-            rid = int(rid)
+            rids = [(int(rid), homeName, calendarName,)]
+        elif nuke.startswith("uid:"):
+            uid = nuke[4:]
+            rows = yield self.getAllResourceInfoWithUID(uid, inbox=True)
+            rids = []
+            for owner, resid, _ignore_uid, calname, _ignore_md5, _ignore_organizer, _ignore_created, _ignore_modified in rows:
+                rids.append((resid, owner, calname,))
         else:
             try:
-                rid = int(nuke)
+                rids = [(int(nuke), "-", "-",)]
             except ValueError:
                 printusage("nuke argument must be a calendar object path or an SQL resource-id")
 
-        if self.options["fix"]:
-            result = yield self.removeEvent(rid)
-            if result:
-                self.output.write("\n")
-                self.output.write("Removed resource: %s.\n" % (rid,))
-        else:
-            self.output.write("\n")
-            self.output.write("Resource: %s.\n" % (rid,))
+        self.output.write("\nNumber of resources: %d\n\n" % (len(rids),))
+        for rid, owner, calname in rids:
+            if self.options["fix"]:
+                result = yield self.removeEvent(rid)
+                if result:
+                    self.output.write("Removed resource: %s. Owner: %s. Calendar: %s\n" % (rid, owner, calname))
+            else:
+                self.output.write("Resource: %s. Owner: %s. Calendar: %s\n" % (rid, owner, calname))
         yield self.txn.commit()
         self.txn = None
 
@@ -967,11 +985,21 @@ class BadDataService(CalVerifyService):
             t = time.time()
         descriptor = None
         if self.options["uuid"]:
-            rows = yield self.getAllResourceInfoWithUUID(self.options["uuid"], inbox=True)
+            rows = yield self.getAllResourceInfoWithUUID(self.options["uuid"], inbox=True, calendar=self.options["calendar"])
             descriptor = "getAllResourceInfoWithUUID"
         elif self.options["uid"]:
             rows = yield self.getAllResourceInfoWithUID(self.options["uid"], inbox=True)
             descriptor = "getAllResourceInfoWithUID"
+        elif self.options["path"]:
+            segments = self.options["path"].strip("/").split("/")
+            if len(segments) not in (4, 3) or segments[0] != "calendars" or segments[1] != "__uids__":
+                self.output.write("Invalid path for bad data scan\n")
+                returnValue(None)
+            else:
+                uuid = segments[2]
+                calendar = segments[3] if len(segments) == 4 else None
+            rows = yield self.getAllResourceInfoWithUUID(uuid, inbox=True, calendar=calendar)
+            descriptor = "getAllResourceInfoWithUUID"
         else:
             rows = yield self.getAllResourceInfo(inbox=True)
             descriptor = "getAllResourceInfo"
@@ -1022,15 +1050,18 @@ class BadDataService(CalVerifyService):
             if self.options["verbose"]:
                 if count == 1:
                     self.output.write("Bad".rjust(rjust) + "Current".rjust(rjust) + "Total".rjust(rjust) + "Complete".rjust(rjust) + "\n")
-                if divmod(count, 100)[1] == 0:
+                    last_output = time.time()
+                if divmod(count, 100)[1] == 0 or time.time() - last_output > 1:
                     self.output.write((
                         "\r" +
                         ("%s" % badlen).rjust(rjust) +
                         ("%s" % count).rjust(rjust) +
                         ("%s" % total).rjust(rjust) +
-                        ("%d%%" % safePercent(count, total)).rjust(rjust)
+                        ("%d%%" % safePercent(count, total)).rjust(rjust) +
+                        " " + calname + " " + str(resid)
                     ).ljust(80))
                     self.output.flush()
+                    last_output = time.time()
 
             # To avoid holding locks on all the rows scanned, commit every 100 resources
             if divmod(count, 100)[1] == 0:
