@@ -132,7 +132,7 @@ class ImplicitProcessor(object):
                     log.error("ImplicitProcessing - originator '{orig}' to recipient '{recip}' with UID: '{uid}' - could not fix", orig=self.originator.cuaddr, recip=self.recipient.cuaddr, uid=self.uid)
                     raise ImplicitProcessorException("5.1;Service unavailable")
         else:
-            log.error("METHOD:{metgod} not supported for implicit scheduling.", method=self.method)
+            log.error("METHOD:{method} not supported for implicit scheduling.", method=self.method)
             raise ImplicitProcessorException("3.14;Unsupported capability")
 
         returnValue(result)
