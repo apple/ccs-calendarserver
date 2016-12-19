@@ -4543,8 +4543,17 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
 
         # Check count limit
-        if component.maxAttachmentsPerInstance() > config.MaximumAttachmentsPerInstance:
-            raise TooManyAttachments
+        newCount = component.maxAttachmentsPerInstance()
+        if newCount > config.MaximumAttachmentsPerInstance:
+            if inserting:
+                # New resources never allowed to go over the limit
+                raise TooManyAttachments
+            else:
+                # Existing resources cannot have their count increased if already over the limit
+                oldcomponent = (yield self.component())
+                oldCount = oldcomponent.maxAttachmentsPerInstance()
+                if newCount > oldCount:
+                    raise TooManyAttachments
 
         # Retrieve all ATTACH properties with a MANAGED-ID in new data
         newattached = collections.defaultdict(list)

@@ -34,7 +34,7 @@ from txdav.caldav.datastore.sql_attachment import DropBoxAttachment, \
     ManagedAttachment
 from txdav.caldav.datastore.test.common import CaptureProtocol
 from txdav.caldav.icalendarstore import IAttachmentStorageTransport, IAttachment, \
-    QuotaExceeded, AttachmentSizeTooLarge
+    QuotaExceeded, AttachmentSizeTooLarge, TooManyAttachments
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.test.util import CommonCommonTests, \
     populateCalendarsFrom, deriveQuota, withSpecialQuota
@@ -2069,3 +2069,418 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
             for _ignore in range(2):
                 self.assertFalse(path.exists(), msg="Still exists: %s" % (path,))
                 path = path.parent()
+
+
+class AttachmentCountTests(AttachmentTests):
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(AttachmentCountTests, self).setUp()
+
+        # Need to tweak config and settings to setup dropbox to work
+        self.patch(config, "EnableDropBox", False)
+        self.patch(config, "EnableManagedAttachments", True)
+        self._sqlCalendarStore.enableManagedAttachments = True
+
+        # Make it look like we have migrated
+        if (yield self.transactionUnderTest().calendarserverValue("MANAGED-ATTACHMENTS", raiseIfMissing=False)) is None:
+            yield self.transactionUnderTest().setCalendarserverValue("MANAGED-ATTACHMENTS", "1")
+        yield self.commit()
+
+    @classproperty(cache=False)
+    def requirements(cls):  # @NoSelf
+        return {
+            "user01": {
+                "calendar": {
+                },
+            },
+        }
+
+    @inlineCallbacks
+    def test_newResource(self):
+        """
+        Make sure that a new resource cannot go over the attachment count limit
+        """
+        self.patch(config, "MaximumAttachmentsPerInstance", 5)
+
+        # No attachments
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTAMP:20100303T181220Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+"""
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        component = Component.fromString(data1)
+        cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
+        self.assertTrue(cobj is not None)
+        yield self.commit()
+
+        # Attachments below threshold
+        data2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-2
+DTSTAMP:20100303T181220Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+RRULE:FREQ=DAILY
+ATTACH;VALUE=URI:http://example.com/attachment1.pdf
+END:VEVENT
+END:VCALENDAR
+"""
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        component = Component.fromString(data2)
+        cobj = yield calendar.createCalendarObjectWithName("data2.ics", component)
+        self.assertTrue(cobj is not None)
+        yield self.commit()
+
+        # Attachments at threshold
+        data3 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-3
+DTSTAMP:20100303T181220Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+RRULE:FREQ=DAILY
+ATTACH;VALUE=URI:http://example.com/attachment1.pdf
+ATTACH;VALUE=URI:http://example.com/attachment2.pdf
+ATTACH;VALUE=URI:http://example.com/attachment3.pdf
+ATTACH;VALUE=URI:http://example.com/attachment4.pdf
+ATTACH;VALUE=URI:http://example.com/attachment5.pdf
+END:VEVENT
+END:VCALENDAR
+"""
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        component = Component.fromString(data3)
+        cobj = yield calendar.createCalendarObjectWithName("data3.ics", component)
+        self.assertTrue(cobj is not None)
+        yield self.commit()
+
+        # Attachments above threshold
+        data4 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-4
+DTSTAMP:20100303T181220Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+RRULE:FREQ=DAILY
+ATTACH;VALUE=URI:http://example.com/attachment1.pdf
+ATTACH;VALUE=URI:http://example.com/attachment2.pdf
+ATTACH;VALUE=URI:http://example.com/attachment3.pdf
+ATTACH;VALUE=URI:http://example.com/attachment4.pdf
+ATTACH;VALUE=URI:http://example.com/attachment5.pdf
+ATTACH;VALUE=URI:http://example.com/attachment6.pdf
+END:VEVENT
+END:VCALENDAR
+"""
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        component = Component.fromString(data4)
+        yield self.assertFailure(calendar.createCalendarObjectWithName("data4.ics", component), TooManyAttachments)
+        yield self.abort()
+
+    @inlineCallbacks
+    def test_existingResource(self):
+        """
+        Make sure that an existing resource, that starts out under the attachment count limit,
+        cannot then go over the attachment count limit
+        """
+        self.patch(config, "MaximumAttachmentsPerInstance", 5)
+
+        # No attachments
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTAMP:20100303T181220Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+"""
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        component = Component.fromString(data1)
+        cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
+        self.assertTrue(cobj is not None)
+        yield self.commit()
+
+        # Attachments below threshold
+        data2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTAMP:20100303T181220Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+RRULE:FREQ=DAILY
+ATTACH;VALUE=URI:http://example.com/attachment1.pdf
+END:VEVENT
+END:VCALENDAR
+"""
+        component = Component.fromString(data2)
+        cobj = yield self.calendarObjectUnderTest(
+            name="data1.ics",
+            calendar_name="calendar",
+            home="user01"
+        )
+        yield cobj.setComponent(component)
+        yield self.commit()
+
+        # Attachments at threshold
+        data3 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTAMP:20100303T181220Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+RRULE:FREQ=DAILY
+ATTACH;VALUE=URI:http://example.com/attachment1.pdf
+ATTACH;VALUE=URI:http://example.com/attachment2.pdf
+ATTACH;VALUE=URI:http://example.com/attachment3.pdf
+ATTACH;VALUE=URI:http://example.com/attachment4.pdf
+ATTACH;VALUE=URI:http://example.com/attachment5.pdf
+END:VEVENT
+END:VCALENDAR
+"""
+        component = Component.fromString(data3)
+        cobj = yield self.calendarObjectUnderTest(
+            name="data1.ics",
+            calendar_name="calendar",
+            home="user01"
+        )
+        yield cobj.setComponent(component)
+        yield self.commit()
+
+        # Attachments above threshold
+        data4 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTAMP:20100303T181220Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+RRULE:FREQ=DAILY
+ATTACH;VALUE=URI:http://example.com/attachment1.pdf
+ATTACH;VALUE=URI:http://example.com/attachment2.pdf
+ATTACH;VALUE=URI:http://example.com/attachment3.pdf
+ATTACH;VALUE=URI:http://example.com/attachment4.pdf
+ATTACH;VALUE=URI:http://example.com/attachment5.pdf
+ATTACH;VALUE=URI:http://example.com/attachment6.pdf
+END:VEVENT
+END:VCALENDAR
+"""
+        component = Component.fromString(data4)
+        cobj = yield self.calendarObjectUnderTest(
+            name="data1.ics",
+            calendar_name="calendar",
+            home="user01"
+        )
+        yield self.assertFailure(cobj.setComponent(component), TooManyAttachments)
+        yield self.abort()
+
+    @inlineCallbacks
+    def test_existingResourceOverLimit(self):
+        """
+        Make sure that an existing resource, that starts out over the attachment count limit,
+        can be updated so long as it does not add more attachments whilst over the limit.
+        """
+        self.patch(config, "MaximumAttachmentsPerInstance", 10)
+
+        # Create over the limit resource
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTAMP:20100303T181220Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+RRULE:FREQ=DAILY
+ATTACH;VALUE=URI:http://example.com/attachment1.pdf
+ATTACH;VALUE=URI:http://example.com/attachment2.pdf
+ATTACH;VALUE=URI:http://example.com/attachment3.pdf
+ATTACH;VALUE=URI:http://example.com/attachment4.pdf
+ATTACH;VALUE=URI:http://example.com/attachment5.pdf
+ATTACH;VALUE=URI:http://example.com/attachment6.pdf
+ATTACH;VALUE=URI:http://example.com/attachment7.pdf
+ATTACH;VALUE=URI:http://example.com/attachment8.pdf
+ATTACH;VALUE=URI:http://example.com/attachment9.pdf
+ATTACH;VALUE=URI:http://example.com/attachment10.pdf
+END:VEVENT
+END:VCALENDAR
+"""
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        component = Component.fromString(data1)
+        cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
+        self.assertTrue(cobj is not None)
+        yield self.commit()
+        self.patch(config, "MaximumAttachmentsPerInstance", 5)
+
+        # Update with same number over the limit
+        data2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTAMP:20100303T181220Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+RRULE:FREQ=DAILY
+SUMMARY:Update
+ATTACH;VALUE=URI:http://example.com/attachment1.pdf
+ATTACH;VALUE=URI:http://example.com/attachment2.pdf
+ATTACH;VALUE=URI:http://example.com/attachment3.pdf
+ATTACH;VALUE=URI:http://example.com/attachment4.pdf
+ATTACH;VALUE=URI:http://example.com/attachment5.pdf
+ATTACH;VALUE=URI:http://example.com/attachment6.pdf
+ATTACH;VALUE=URI:http://example.com/attachment7.pdf
+ATTACH;VALUE=URI:http://example.com/attachment8.pdf
+ATTACH;VALUE=URI:http://example.com/attachment9.pdf
+ATTACH;VALUE=URI:http://example.com/attachment10.pdf
+END:VEVENT
+END:VCALENDAR
+"""
+        component = Component.fromString(data2)
+        cobj = yield self.calendarObjectUnderTest(
+            name="data1.ics",
+            calendar_name="calendar",
+            home="user01"
+        )
+        yield cobj.setComponent(component)
+        yield self.commit()
+
+        # Update with more over the limit
+        data3 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTAMP:20100303T181220Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+RRULE:FREQ=DAILY
+SUMMARY:Update
+ATTACH;VALUE=URI:http://example.com/attachment1.pdf
+ATTACH;VALUE=URI:http://example.com/attachment2.pdf
+ATTACH;VALUE=URI:http://example.com/attachment3.pdf
+ATTACH;VALUE=URI:http://example.com/attachment4.pdf
+ATTACH;VALUE=URI:http://example.com/attachment5.pdf
+ATTACH;VALUE=URI:http://example.com/attachment6.pdf
+ATTACH;VALUE=URI:http://example.com/attachment7.pdf
+ATTACH;VALUE=URI:http://example.com/attachment8.pdf
+ATTACH;VALUE=URI:http://example.com/attachment9.pdf
+ATTACH;VALUE=URI:http://example.com/attachment10.pdf
+ATTACH;VALUE=URI:http://example.com/attachment11.pdf
+END:VEVENT
+END:VCALENDAR
+"""
+        component = Component.fromString(data3)
+        cobj = yield self.calendarObjectUnderTest(
+            name="data1.ics",
+            calendar_name="calendar",
+            home="user01"
+        )
+        yield self.assertFailure(cobj.setComponent(component), TooManyAttachments)
+        yield self.commit()
+
+        # Update with fewer number still over the limit
+        data4 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTAMP:20100303T181220Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+RRULE:FREQ=DAILY
+SUMMARY:Update
+ATTACH;VALUE=URI:http://example.com/attachment1.pdf
+ATTACH;VALUE=URI:http://example.com/attachment2.pdf
+ATTACH;VALUE=URI:http://example.com/attachment3.pdf
+ATTACH;VALUE=URI:http://example.com/attachment4.pdf
+ATTACH;VALUE=URI:http://example.com/attachment5.pdf
+ATTACH;VALUE=URI:http://example.com/attachment6.pdf
+ATTACH;VALUE=URI:http://example.com/attachment7.pdf
+END:VEVENT
+END:VCALENDAR
+"""
+        component = Component.fromString(data4)
+        cobj = yield self.calendarObjectUnderTest(
+            name="data1.ics",
+            calendar_name="calendar",
+            home="user01"
+        )
+        yield cobj.setComponent(component)
+        yield self.commit()
+
+        # Update with fewer number under the limit
+        data5 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTAMP:20100303T181220Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+RRULE:FREQ=DAILY
+SUMMARY:Update
+ATTACH;VALUE=URI:http://example.com/attachment1.pdf
+ATTACH;VALUE=URI:http://example.com/attachment2.pdf
+ATTACH;VALUE=URI:http://example.com/attachment3.pdf
+ATTACH;VALUE=URI:http://example.com/attachment4.pdf
+END:VEVENT
+END:VCALENDAR
+"""
+        component = Component.fromString(data5)
+        cobj = yield self.calendarObjectUnderTest(
+            name="data1.ics",
+            calendar_name="calendar",
+            home="user01"
+        )
+        yield cobj.setComponent(component)
+        yield self.commit()
+
+        # Attachments above threshold
+        data6 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTAMP:20100303T181220Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+RRULE:FREQ=DAILY
+ATTACH;VALUE=URI:http://example.com/attachment1.pdf
+ATTACH;VALUE=URI:http://example.com/attachment2.pdf
+ATTACH;VALUE=URI:http://example.com/attachment3.pdf
+ATTACH;VALUE=URI:http://example.com/attachment4.pdf
+ATTACH;VALUE=URI:http://example.com/attachment5.pdf
+ATTACH;VALUE=URI:http://example.com/attachment6.pdf
+END:VEVENT
+END:VCALENDAR
+"""
+        component = Component.fromString(data6)
+        cobj = yield self.calendarObjectUnderTest(
+            name="data1.ics",
+            calendar_name="calendar",
+            home="user01"
+        )
+        yield self.assertFailure(cobj.setComponent(component), TooManyAttachments)
+        yield self.abort()
