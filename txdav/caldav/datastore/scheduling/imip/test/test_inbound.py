@@ -510,6 +510,25 @@ END:VCALENDAR
         result = yield imap4.cbFlagDeleted(ms)
         self.assertTrue(result is None)
 
+    def test_IMAP4Logger_err(self):
+        """
+        Make sure L{IMAP4Logger.err} works when twisted.mail.imap4 calls log.err().
+        """
+
+        class DummyTransport(object):
+
+            def __init__(self):
+                self.called = False
+
+            def loseConnection(self):
+                self.called = True
+
+        imap4 = IMAP4DownloadProtocol()
+        imap4.transport = DummyTransport()
+        imap4.state = "FOOBAR"
+        imap4.dispatchCommand("A001", "OK")
+        self.assertTrue(imap4.transport.called)
+
     def test_sanitizeCalendar(self):
         """
         Verify certain inbound third party mistakes are corrected.

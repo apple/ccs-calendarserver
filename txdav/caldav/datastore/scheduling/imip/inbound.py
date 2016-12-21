@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twisted.python import failure
 
 """
 Inbound IMIP mail handling for Calendar Server
@@ -60,7 +61,36 @@ class IMAPLogger(LogPublisher):
         if message and message[0].startswith("Unhandled unsolicited response:"):
             return
 
-        super(IMAPLogger, self).msg(self, *message, **kwargs)
+        LogPublisher.msg(self, *message, **kwargs)
+
+    def err(self, _stuff=None, _why=None, **kw):
+        """
+        Write a failure to the log.
+
+        The C{_stuff} and C{_why} parameters use an underscore prefix to lessen
+        the chance of colliding with a keyword argument the application wishes
+        to pass.  It is intended that they be supplied with arguments passed
+        positionally, not by keyword.
+
+        @param _stuff: The failure to log.  If C{_stuff} is L{None} a new
+            L{Failure} will be created from the current exception state.  If
+            C{_stuff} is an C{Exception} instance it will be wrapped in a
+            L{Failure}.
+        @type _stuff: L{None}, C{Exception}, or L{Failure}.
+
+        @param _why: The source of this failure.  This will be logged along with
+            C{_stuff} and should describe the context in which the failure
+            occurred.
+        @type _why: C{str}
+        """
+        if _stuff is None:
+            _stuff = failure.Failure()
+        if isinstance(_stuff, failure.Failure):
+            self.msg(failure=_stuff, why=_why, isError=1, **kw)
+        elif isinstance(_stuff, Exception):
+            self.msg(failure=failure.Failure(_stuff), why=_why, isError=1, **kw)
+        else:
+            self.msg(repr(_stuff), why=_why, isError=1, **kw)
 
 imap4.log = IMAPLogger()
 
