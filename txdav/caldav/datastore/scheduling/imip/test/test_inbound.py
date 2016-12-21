@@ -35,6 +35,7 @@ from txdav.common.datastore.test.util import CommonCommonTests
 from twext.enterprise.jobs.jobitem import JobItem
 
 import email
+from twisted.mail.imap4 import MessageSet
 
 
 class InboundTests(CommonCommonTests, unittest.TestCase):
@@ -471,6 +472,42 @@ END:VCALENDAR
         result = yield imap4.cbGotMessage(noResult, [])
         self.assertTrue(result is None)
         result = yield imap4.cbGotMessage(missingKey, [])
+        self.assertTrue(result is None)
+
+    @inlineCallbacks
+    def test_Twisted_16_6_bug(self):
+        """
+        Make sure L{IMAP4DownloadProtocol.cbGotSearch} works.
+
+        There is a bug in Twisted 16.6 where the IMAP4Client._fetch method does not
+        accept a MessageSet argument - though it previously did.
+
+        We also need to double check that IMAP4Client._store works with a MessageSet.
+        """
+
+        imap4 = IMAP4DownloadProtocol()
+        imap4.sendCommand = lambda cmd: succeed(cmd)
+        imap4._cbFetch = lambda result, requestedParts, structured: {123: {"UID": "456"}}
+        imap4.cbGotMessage = lambda results, messageList: succeed(True)
+        result = yield imap4.cbGotSearch((123,))
+        self.assertTrue(result is None)
+
+        imap4 = IMAP4DownloadProtocol()
+        imap4.sendCommand = lambda cmd: succeed(cmd)
+        imap4._cbFetch = lambda result, requestedParts, structured: {"123": {"UID": "456"}}
+        imap4.cbMessageUnseen = lambda results, messageList: succeed(True)
+        ms = MessageSet()
+        ms.add(123)
+        result = yield imap4.cbFlagUnseen(ms)
+        self.assertTrue(result is None)
+
+        imap4 = IMAP4DownloadProtocol()
+        imap4.sendCommand = lambda cmd: succeed(cmd)
+        imap4._cbFetch = lambda result, requestedParts, structured: {"123": {"UID": "456"}}
+        imap4.cbMessageDeleted = lambda results, messageList: succeed(True)
+        ms = MessageSet()
+        ms.add(123)
+        result = yield imap4.cbFlagDeleted(ms)
         self.assertTrue(result is None)
 
     def test_sanitizeCalendar(self):

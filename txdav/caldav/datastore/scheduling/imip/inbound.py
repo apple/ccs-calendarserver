@@ -659,7 +659,7 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
             ms = imap4.MessageSet()
             for n in results:
                 ms.add(n)
-            self.fetchUID(ms).addCallback(self.cbGotUIDs)
+            self.fetchUID(str(ms)).addCallback(self.cbGotUIDs)
         else:
             self.cbClosed(None)
 
@@ -682,7 +682,7 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
                 "Downloading message {count} of {total} ({next})",
                 count=self.messageCount - len(self.messageUIDs), total=self.messageCount, next=nextUID
             )
-            self.fetchMessage(messageListToFetch, True).addCallback(
+            self.fetchMessage(str(messageListToFetch), True).addCallback(
                 self.cbGotMessage, messageListToFetch).addErrback(
                     self.ebLogError)
         else:
@@ -721,7 +721,7 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
 
     def cbFlagUnseen(self, messageList):
         self.removeFlags(
-            messageList, ("\\Seen",), uid=True
+            str(messageList), ("\\Seen",), uid=True
         ).addCallback(self.cbMessageUnseen, messageList)
 
     def cbMessageUnseen(self, results, messageList):
@@ -730,7 +730,7 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
 
     def cbFlagDeleted(self, messageList):
         self.addFlags(
-            messageList, ("\\Deleted",), uid=True
+            str(messageList), ("\\Deleted",), uid=True
         ).addCallback(self.cbMessageDeleted, messageList)
 
     def cbMessageDeleted(self, results, messageList):
