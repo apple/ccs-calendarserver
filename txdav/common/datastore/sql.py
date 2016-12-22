@@ -2919,7 +2919,7 @@ class CommonHome(SharingHomeMixIn):
             for child in children:
                 component = yield child.component()
                 summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
-                detail["children"].append(summary.encode("utf-8"))
+                detail["children"].append(summary)
             result["trashedcollections"].append(detail)
 
         untrashedCollections = yield self.children(onlyInTrash=False)
@@ -3601,7 +3601,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
                     if verbose:
                         component = yield child.component()
                         summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
-                        print("Recovering \"{}\"".format(summary.encode("utf-8")))
+                        print("Recovering \"{}\"".format(summary))
 
                     try:
                         yield child.fromTrash()

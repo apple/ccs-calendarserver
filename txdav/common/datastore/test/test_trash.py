@@ -21,7 +21,8 @@ from txdav.base.propertystore.base import PropertyName
 Trash-specific tests for L{txdav.common.datastore.sql}.
 """
 
-from calendarserver.tools.trash import emptyTrashForPrincipal
+from calendarserver.tools.trash import emptyTrashForPrincipal,\
+    restoreTrashedEvent, restoreTrashedCollection
 from pycalendar.datetime import DateTime
 from twext.enterprise.jobs.jobitem import JobItem
 from twisted.internet import reactor
@@ -2355,4 +2356,86 @@ END:VCALENDAR
         self.assertEquals(len(trashedCollections), 0)
         result = yield txn.execSQL("select * from calendar_object", [])
         self.assertEquals(len(result), 0)
+        yield txn.commit()
+
+    @inlineCallbacks
+    def test_recoverTrashNonAscii(self):
+
+        from twistedcaldav.stdconfig import config
+        self.patch(config, "EnableTrashCollection", True)
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:5CE3B280-DBC9-4E8E-B0B2-996754020E5F
+DTSTART;TZID=America/Los_Angeles:20141108T093000
+DTEND;TZID=America/Los_Angeles:20141108T103000
+CREATED:20141106T192546Z
+DTSTAMP:20141106T192546Z
+RRULE:FREQ=DAILY
+SEQUENCE:0
+SUMMARY:repeating évent
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+"""
+
+        txn = self.store.newTransaction()
+        calendar = yield self._collectionForUser(txn, "user01", "tést-calendar", create=True)
+        calendar.properties()[PropertyName.fromElement(element.DisplayName)] = element.DisplayName.fromString("tést-calendar-name")
+
+        yield calendar.createObjectResourceWithName(
+            "tést-resource.ics",
+            Component.allFromString(data1)
+        )
+        yield txn.commit()
+
+        txn = self.store.newTransaction()
+        resource = yield self._getResource(txn, "user01", "tést-calendar", "tést-resource.ics")
+        trashed_id = resource.id()
+        yield resource.remove()
+        names = yield self._getResourceNames(txn, "user01", "tést-calendar")
+        self.assertEquals(len(names), 0)
+        names = yield self._getTrashNames(txn, "user01")
+        self.assertEquals(len(names), 1)
+        yield txn.commit()
+
+        txn = self.store.newTransaction()
+        yield restoreTrashedEvent(None, self.store, "user01", trashed_id)
+        yield txn.commit()
+
+        txn = self.store.newTransaction()
+        names = yield self._getResourceNames(txn, "user01", "tést-calendar")
+        self.assertEquals(len(names), 1)
+        names = yield self._getTrashNames(txn, "user01")
+        self.assertEquals(len(names), 0)
+        yield txn.commit()
+
+        # This time remove the containing calendar
+        txn = self.store.newTransaction()
+        calendar = yield self._collectionForUser(txn, "user01", "tést-calendar")
+        trashed_id = calendar.id()
+        yield calendar.remove()
+        home = yield self._homeForUser(txn, "user01")
+        trashedCollections = yield home.children(onlyInTrash=True)
+        self.assertEquals(len(trashedCollections), 1)
+        yield txn.commit()
+
+        txn = self.store.newTransaction()
+        home = yield self._homeForUser(txn, "user01")
+        contents = yield home.getTrashContents()
+        self.assertEqual(len(contents["trashedcollections"]), 1)
+        yield txn.commit()
+
+        txn = self.store.newTransaction()
+        yield restoreTrashedCollection(None, self.store, "user01", trashed_id)
+        yield txn.commit()
+
+        txn = self.store.newTransaction()
+        home = yield self._homeForUser(txn, "user01")
+        trashedCollections = yield home.children(onlyInTrash=True)
+        self.assertEquals(len(trashedCollections), 0)
+        collections = yield home.children(onlyInTrash=False)
+        self.assertTrue(trashed_id in map(lambda x: x.id(), collections))
         yield txn.commit()
