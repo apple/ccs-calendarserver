@@ -122,6 +122,17 @@ install-python:: build
 	              --log=$(OBJROOT)/pip.log                                \
 	              cffi;
 
+	@# Install incremental now because twisted has it in its setup_requires
+	@echo "Installing incremental...";
+	$(_v) $(Environment)                                                  \
+	          "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install                \
+	              --disable-pip-version-check                             \
+	              --no-cache-dir                                          \
+	              --pre --no-index                                        \
+	              --find-links="file://$(Sources)/.develop/pip_downloads" \
+	              --log=$(OBJROOT)/pip.log                                \
+	              incremental;
+
 	@# Install Twisted with --ignore-installed so that we don't use the
 	@# system-provided Twisted.
 	@echo "Installing Twisted...";
@@ -165,6 +176,8 @@ install-python:: build
 	@echo "Putting comments into empty files...";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -name "*.py" -exec sh -c 'printf "# empty\n" > {}' ";";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -name "*.h" -exec sh -c 'printf "/* empty */\n" > {}' ";";
+	@echo "Remving executable flag from .c files...";
+	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -name "*.c" -print0 | xargs -0 $(CHMOD) -x;
 
 	@#
 	@# Undo virtualenv so we use the python-wrapper

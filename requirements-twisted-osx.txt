@@ -6,6 +6,8 @@ Twisted==16.6.0
     #zope.interface
     pycrypto==2.6.1
     incremental==16.10.1
+    constantly==15.1
+
 
     --editable git+https://github.com/apple/ccs-pyosxframeworks.git#egg=osxframeworks
         #cffi
