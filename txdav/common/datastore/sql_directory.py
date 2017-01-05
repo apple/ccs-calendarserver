@@ -774,7 +774,6 @@ class DelegatesAPIMixin(object):
         yield DelegateGroupsRecord.deletesimple(
             self,
             delegator=str(delegator),
-            isExternal=1,
         )
 
         # Remove from the external comparison table
