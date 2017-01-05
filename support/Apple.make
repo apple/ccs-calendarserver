@@ -71,7 +71,7 @@ install-python:: build
 	@#
 	@# We need the virtualenv + pip + setuptools toolchain.
 	@# Do a pip --user install of each saved .whl distribution we need
-	@# into out build directory and ensure that PYTHONPATH points to those. 
+	@# into out build directory and ensure that PYTHONPATH points to those.
 	@# This way, the host system we're building on doesn't need to have these
 	@# tools and we can ensure that we're using known versions.
 	@#
@@ -159,7 +159,7 @@ install-python:: build
 	              --pre --no-index                                        \
 	              --find-links="file://$(Sources)/.develop/pip_downloads" \
 	              --log=$(OBJROOT)/pip.log                                \
-	              CalendarServer[OpenDirectory,Postgres];
+	              CalendarServer[opendirectory,postgres];
 	@#
 	@# Make the virtualenv relocatable
 	@#

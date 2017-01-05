@@ -29,7 +29,7 @@ init_build;
 export PATH="/Applications/Server.app/Contents/ServerRoot/usr/bin:${PATH}";
 
 requirements="${wd}/requirements-osx.txt";
-extra_features="OpenDirectory,Postgres";
+extra_features="opendirectory,postgres";
 
 
 #
