@@ -469,7 +469,7 @@ class GroupCacherTest(StoreTestCase):
         yield txn.commit()
 
     @inlineCallbacks
-    def test_groupChangeCacheNotification(self):
+    def test_groupChangeCacheNotificationRefreshGroup(self):
         """
         Verify refreshGroup() triggers a cache notification for the group and all
         members that are added or removed
@@ -592,6 +592,39 @@ class GroupCacherTest(StoreTestCase):
             "__sagen1__",
             "__cdaboo1__",
         ]))
+        TestNotifier.changedTokens = []
+
+    @inlineCallbacks
+    def test_groupChangeCacheNotificationApplyExternalAssignments(self):
+        """
+        Verify applyExternalAssignments() triggers a cache notification for the
+        delegator and delegates
+        """
+
+        class TestNotifier(object):
+            changedTokens = []
+
+            def changed(self, token):
+                self.changedTokens.append(token)
+
+        self.groupCacher.cacheNotifier = TestNotifier()
+
+        yield self.groupCacher.applyExternalAssignments(self.transactionUnderTest(), "__dre1__", None, None)
+        yield self.commit()
+
+        self.assertEqual(
+            TestNotifier.changedTokens,
+            ["__dre1__"]
+        )
+        TestNotifier.changedTokens = []
+
+        yield self.groupCacher.applyExternalAssignments(self.transactionUnderTest(), "__dre1__", "__top_group_1__", "__sub_group_1__")
+        yield self.commit()
+
+        self.assertEqual(
+            TestNotifier.changedTokens,
+            ["__dre1__", "__top_group_1__", "__sub_group_1__"]
+        )
         TestNotifier.changedTokens = []
 
 

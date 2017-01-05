@@ -396,6 +396,14 @@ class GroupCacher(object):
             readDelegateUID, writeDelegateUID
         )
 
+        # Send cache change notifications
+        if self.cacheNotifier is not None:
+            self.cacheNotifier.changed(delegatorUID)
+            if readDelegateUID:
+                self.cacheNotifier.changed(readDelegateUID)
+            if writeDelegateUID:
+                self.cacheNotifier.changed(writeDelegateUID)
+
     @inlineCallbacks
     def refreshGroup(self, txn, groupUID):
         """
