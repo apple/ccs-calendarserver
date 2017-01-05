@@ -213,7 +213,7 @@ def _computeEnvVars(parent):
 
     # Worker's stdXXX are piped, which ends up setting their encoding to None;
     # Have them inherit the master's encoding, even when being piped.
-    result["PYTHONIOENCODING"] = sys.stdout.encoding
+    result["PYTHONIOENCODING"] = sys.stdout.encoding or "UTF-8"
 
     return result
 
