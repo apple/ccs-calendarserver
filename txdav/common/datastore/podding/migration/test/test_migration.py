@@ -424,7 +424,7 @@ END:VCALENDAR
         yield Delegates.addDelegate(txn, record01, group03, False)
 
         # Add external delegates
-        yield txn.assignExternalDelegates(u"user01", None, None, u"external1", u"external2")
+        yield txn.assignExternalDelegates(u"user02", None, None, u"external1", u"external2")
 
         yield self.commitTransaction(0)
 

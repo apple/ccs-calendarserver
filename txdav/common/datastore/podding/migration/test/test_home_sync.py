@@ -909,9 +909,6 @@ END:VCALENDAR
         yield Delegates.addDelegate(txn, record01, group01, True)
         yield Delegates.addDelegate(txn, record01, group02, False)
 
-        # Add external delegates
-        yield txn.assignExternalDelegates(u"user01", None, None, u"external1", u"external2")
-
         yield self.commitTransaction(0)
 
         # Initially no local delegates
@@ -952,6 +949,34 @@ END:VCALENDAR
                 DelegateGroupsRecord.make(delegator="user01", groupID=group_right.groupID, readWrite=0, isExternal=False),
             )),
         )
+
+        yield self.commitTransaction(1)
+
+    @inlineCallbacks
+    def test_delegate_reconcile_directory_based(self):
+        """
+        Test that L{delegateReconcile} copies over the full set of delegates and caches associated groups..
+        """
+
+        # Create remote home
+        yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        yield self.notificationCollectionUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        yield self.commitTransaction(0)
+
+        # Add external delegates
+        txn = self.theTransactionUnderTest(0)
+        yield txn.assignExternalDelegates(u"user01", None, None, u"external1", u"external2")
+
+        yield self.commitTransaction(0)
+
+        # Sync from remote side
+        syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
+        yield syncer.loadRecord()
+        yield syncer.disableRemoteHome()
+        yield syncer.delegateReconcile()
+
+        # Now have directory based delegates
+        txn = self.theTransactionUnderTest(1)
 
         externals = yield txn.dumpExternalDelegatesLocal(u"user01")
         self.assertEqual(
