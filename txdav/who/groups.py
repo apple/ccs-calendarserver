@@ -33,6 +33,7 @@ from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 import datetime
 import itertools
 import time
+from txdav.who.delegates import Delegates
 
 log = Logger()
 
@@ -403,6 +404,8 @@ class GroupCacher(object):
                 self.cacheNotifier.changed(readDelegateUID)
             if writeDelegateUID:
                 self.cacheNotifier.changed(writeDelegateUID)
+
+        Delegates.invalidateExternalAssignment(txn, delegatorUID, readDelegateUID, writeDelegateUID)
 
     @inlineCallbacks
     def refreshGroup(self, txn, groupUID):

@@ -637,4 +637,15 @@ class CachingDelegates(object):
                 delegators.update(result[1])
         returnValue(delegators)
 
+    @inlineCallbacks
+    def invalidateExternalAssignment(self, txn, delegatorUID, readDelegateUID, writeDelegateUID):
+
+        if readDelegateUID:
+            yield self._memcacher.deleteMember(delegatorUID, False)
+            yield self._memcacher.deleteMembership(readDelegateUID, False)
+
+        if writeDelegateUID:
+            yield self._memcacher.deleteMember(delegatorUID, True)
+            yield self._memcacher.deleteMembership(writeDelegateUID, True)
+
 Delegates = CachingDelegates()

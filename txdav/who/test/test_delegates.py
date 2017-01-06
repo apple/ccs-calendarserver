@@ -559,6 +559,42 @@ class DelegationCachingTest(StoreTestCase):
             yield self._memcacherAllMembershipResults(delegate2, [], [])
 
     @inlineCallbacks
+    def test_directoryBasedDelegationChanges(self):
+
+        groupCacher = GroupCacher(self.directory)
+
+        delegator = yield self.directory.recordWithUID(u"__wsanchez1__")
+        groupRecord1 = yield self.directory.recordWithUID(u"__top_group_1__")
+        group1 = yield self.transactionUnderTest().groupByUID("__top_group_1__")
+
+        # No delegates
+        delegates = yield Delegates.delegatesOf(self.transactionUnderTest(), delegator, False)
+        self.assertEquals(len(delegates), 0)
+
+        # No delegators to this group
+        delegators = yield self.transactionUnderTest().delegatorsToGroup(group1.groupID, False)
+        self.assertEquals(len(delegators), 0)
+
+        # delegators = yield Delegates.delegatedTo(self.transactionUnderTest(), groupRecord1, False)
+        # self.assertEquals(len(delegators), 0)
+
+        # Apply an external assignment
+        yield groupCacher.applyExternalAssignments(
+            self.transactionUnderTest(), delegator.uid, groupRecord1.uid, None
+        )
+
+        # Now there is a delegate
+        delegates = yield Delegates.delegatesOf(self.transactionUnderTest(), delegator, False)
+        self.assertEquals(len(delegates), 1)
+
+        # Now this group is delegated to
+        delegators = yield self.transactionUnderTest().delegatorsToGroup(group1.groupID, False)
+        self.assertEquals(len(delegators), 1)
+
+        # delegators = yield Delegates.delegatedTo(self.transactionUnderTest(), groupRecord1, False)
+        # self.assertEquals(len(delegators), 1)
+
+    @inlineCallbacks
     def test_setDelegation(self):
 
         delegator = yield self.directory.recordWithUID(u"__wsanchez1__")
