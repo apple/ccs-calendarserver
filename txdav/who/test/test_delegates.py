@@ -570,6 +570,7 @@ class DelegationCachingTest(StoreTestCase):
         group2 = yield self.transactionUnderTest().groupByUID("__sub_group_1__")
         groupRecord3 = yield self.directory.recordWithUID(u"left_coast")
         group3 = yield self.transactionUnderTest().groupByUID("left_coast")
+        delegate = yield self.directory.recordWithUID(u"__sagen1__")
 
         # No delegates
         delegates = yield Delegates.delegatesOf(self.transactionUnderTest(), delegator, False)
@@ -577,6 +578,10 @@ class DelegationCachingTest(StoreTestCase):
 
         # No delegators to this group
         delegators = yield self.transactionUnderTest().delegatorsToGroup(group1.groupID, False)
+        self.assertEquals(len(delegators), 0)
+
+        # User is not a delegate
+        delegators = yield Delegates.delegatedTo(self.transactionUnderTest(), delegate, True)
         self.assertEquals(len(delegators), 0)
 
         # Apply an external read-only assignment
@@ -611,6 +616,10 @@ class DelegationCachingTest(StoreTestCase):
         delegators = yield self.transactionUnderTest().delegatorsToGroup(group2.groupID, True)
         self.assertEquals(len(delegators), 1)
 
+        # User is now a delegate (cache must have been invalidated properly)
+        delegators = yield Delegates.delegatedTo(self.transactionUnderTest(), delegate, True)
+        self.assertEquals(len(delegators), 1)
+
         # Change read-write assignment
         yield groupCacher.applyExternalAssignments(
             self.transactionUnderTest(), delegator.uid, groupRecord1.uid, groupRecord3.uid
@@ -641,6 +650,10 @@ class DelegationCachingTest(StoreTestCase):
 
         # Now this group is not delegated to
         delegators = yield self.transactionUnderTest().delegatorsToGroup(group3.groupID, True)
+        self.assertEquals(len(delegators), 0)
+
+        # User is not a delegate anymore (cache must have been invalidated properly)
+        delegators = yield Delegates.delegatedTo(self.transactionUnderTest(), delegate, True)
         self.assertEquals(len(delegators), 0)
 
         # Remove external assignments altogether

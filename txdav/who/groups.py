@@ -411,7 +411,7 @@ class GroupCacher(object):
                 self.cacheNotifier.changed(writeDelegateUID)
 
         # Invalidate the relevant memcached entries
-        Delegates.invalidateExternalAssignment(delegatorUID, readDelegateUID, writeDelegateUID, previousReadDelegateUID, previousWriteDelegateUID)
+        yield Delegates.invalidateExternalAssignment(txn, delegatorUID, readDelegateUID, writeDelegateUID, previousReadDelegateUID, previousWriteDelegateUID)
 
     @inlineCallbacks
     def refreshGroup(self, txn, groupUID):
