@@ -409,6 +409,10 @@ class GroupCacher(object):
                 self.cacheNotifier.changed(readDelegateUID)
             if writeDelegateUID:
                 self.cacheNotifier.changed(writeDelegateUID)
+            if previousReadDelegateUID:
+                self.cacheNotifier.changed(previousReadDelegateUID)
+            if previousWriteDelegateUID:
+                self.cacheNotifier.changed(previousWriteDelegateUID)
 
         # Invalidate the relevant memcached entries
         yield Delegates.invalidateExternalAssignment(txn, delegatorUID, readDelegateUID, writeDelegateUID, previousReadDelegateUID, previousWriteDelegateUID)
