@@ -374,6 +374,11 @@ class GroupCacher(object):
             "External delegate assignments changed for {uid}",
             uid=delegatorUID
         )
+
+        # Retrieve the previous delegate assignments (if any) because we have
+        # to invalidate their cached entries after calling assignExternalDelegates()
+        (previousReadDelegateUID, previousWriteDelegateUID) = yield txn.externalDelegatesForDelegator(delegatorUID)
+
         readDelegateGroupID = writeDelegateGroupID = None
 
         if readDelegateUID:
@@ -405,7 +410,8 @@ class GroupCacher(object):
             if writeDelegateUID:
                 self.cacheNotifier.changed(writeDelegateUID)
 
-        Delegates.invalidateExternalAssignment(txn, delegatorUID, readDelegateUID, writeDelegateUID)
+        # Invalidate the relevant memcached entries
+        Delegates.invalidateExternalAssignment(delegatorUID, readDelegateUID, writeDelegateUID, previousReadDelegateUID, previousWriteDelegateUID)
 
     @inlineCallbacks
     def refreshGroup(self, txn, groupUID):
