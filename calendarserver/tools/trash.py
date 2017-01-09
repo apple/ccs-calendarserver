@@ -17,9 +17,8 @@
 ##
 from __future__ import print_function
 
-from argparse import ArgumentParser
+from argparse import ArgumentParser, RawTextHelpFormatter
 import datetime
-
 from calendarserver.tools.cmdline import utilityMain, WorkerService
 from calendarserver.tools.util import prettyRecord, displayNameForCollection, agoString, locationString
 from pycalendar.datetime import DateTime, Timezone
@@ -40,13 +39,25 @@ class TrashRestorationService(WorkerService):
 
 def main():
 
-    parser = ArgumentParser(description='Restore events from trash')
+    parser = ArgumentParser(
+        formatter_class=RawTextHelpFormatter,
+        description="List or restore deleted events / collections from trash",
+        epilog="""
+Examples:
+* List deleted collections (and their resource IDs) for a given user 
+by UID:
+    calendarserver_trash -p 10000000-0000-0000-0000-000000000001 -c
+* Restore a deleted collection by resource ID (use -c / -e to find resource ID)
+for the same user:
+    calendarserver_trash -p 10000000-0000-0000-0000-000000000001 -c -r <rid>
+        """)
     parser.add_argument('-f', '--config', dest='configFileName', metavar='CONFIGFILE', help='caldavd.plist configuration file path')
     parser.add_argument('-d', '--debug', action='store_true', help='show debug logging')
     parser.add_argument('-p', '--principal', dest='principal', help='the principal to use (uid)')
-    parser.add_argument('-e', '--events', action='store_true', help='list trashed events')
-    parser.add_argument('-c', '--collections', action='store_true', help='list trashed collections for principal (uid)')
-    parser.add_argument('-r', '--recover', dest='resourceID', type=int, help='recover trashed collection or event (by resource ID)')
+    parser.add_argument('-e', '--events', action='store_true', help='list or restore trashed events')
+    parser.add_argument('-c', '--collections', action='store_true', help='list or restore trashed collections for principal (uid)')
+    parser.add_argument('-r', '--recover', dest='resourceID', type=int,
+        help='recover trashed collection or event (by resource ID).\nWithout this option, items are listed but not recovered.')
     parser.add_argument('--empty', action='store_true', help='empty the principal\'s trash')
     parser.add_argument('--days', type=int, default=0, help='number of past days to retain')
 
