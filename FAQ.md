@@ -17,12 +17,9 @@ What is required to set up iMIP:
 Steps:
 
 1. Create an IMAP or POP account on your mail server solely for use by the calendar server (used to send a receive email)
-2. Create a user account on the calendar server (used to do authentication between calendar server and mail gateway process)
-3. Edit caldavd.plist:
+2. Edit caldavd.plist:
   * iMIP
     * Enabled = true
-    * Username = username for account you created in step 2
-    * Password = password for account you created in step 2
     * Sending
       * Server = your SMTP server name
       * Port = the port your SMTP server is listening on
@@ -44,8 +41,6 @@ Steps:
 ### Troubleshooting iMIP
 
 Mail gateway didn't find a token in message -- Calendar Server uses "plus addressing" to encode a token into the reply-to address for email invitations. That way, when a reply comes back, the token can be used to look up the appropriate organizer, attendee, and event to update. This special tokenized email address is not only in the reply-to field, but also substituted for the organizer's email address within the embedded icalendar body attached to the invitation. So iMIP-aware clients should direct the reply to the email address including the token. If that token is missing, the iMIP reply is not processed.
-
-iMIP injection principal not found: com.apple.calendarserver -- By default, Calendar Server assumes there is a user named com.apple.calendarserver on the system and it uses that account to authenticate requests between the calendar server processes and the mail gateway process. If you're not on an OS X server, you'll need to create a user account for this purpose, and put its username and password into the caldavd.plist as described in the steps above.
 
 ## Configuring for LDAP
 
