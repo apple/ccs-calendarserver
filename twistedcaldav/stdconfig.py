@@ -901,7 +901,7 @@ DEFAULT_CONFIG = {
     },
 
     "DirectoryProxy": {
-        "Enabled": True,
+        "Enabled": False,
         "SocketPath": "directory-proxy.sock",
         "InSidecarCachingSeconds": 120,
     },
