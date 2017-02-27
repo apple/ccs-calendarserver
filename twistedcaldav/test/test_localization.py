@@ -225,5 +225,5 @@ class LocalizationTests(TestCase):
             self.assertTrue(os.path.exists(os.path.join(tmpdir, "Testlang", "LC_MESSAGES", "calendarserver.mo")))
 
             with translationTo('Testlang', localeDir=tmpdir):
-                self.assertEquals(_("String1"), "string 1")
-                self.assertEquals(_("String2"), "string 2")
+                self.assertEquals(_("String1"), "string 1 \xc3\xa4")
+                self.assertEquals(_("String2"), "string 2 \xe2\x9d\xa4\xef\xb8\x8f")

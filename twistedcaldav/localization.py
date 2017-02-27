@@ -455,17 +455,19 @@ def convertStringsFile(src, dest):
     for original in originals:
         translation = strings[original]
 
-        origStr = original.encode("UTF-8")
-        transStr = translation.encode("UTF-8")
+        if isinstance(original, unicode):
+            original = original.encode("UTF-8")
+        if isinstance(translation, unicode):
+            translation = translation.encode("UTF-8")
 
         descriptors.append(
             (
-                len(keys), len(origStr), len(values),
-                len(transStr)
+                len(keys), len(original), len(values),
+                len(translation)
             )
         )
-        keys += origStr + '\0'  # <NUL> terminated
-        values += transStr + '\0'
+        keys += original + '\0'  # <NUL> terminated
+        values += translation + '\0'
 
     # The header is 28 bytes, each descriptor is 8 bytes, with two descriptors
     # per string (one pointing at original, one pointing at translation)
