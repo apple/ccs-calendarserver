@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore.test.test_sql -*-
 ##
-# Copyright (c) 2010-2016 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2017 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -470,7 +470,7 @@ open c1;fetch c1 into result;close c1;return result;end;"""
         realsql = dedent(
             '''
             ----
-            -- Copyright (c) 2011-2016 Apple Inc. All rights reserved.
+            -- Copyright (c) 2011-2017 Apple Inc. All rights reserved.
             --
             -- Licensed under the Apache License, Version 2.0 (the "License");
             -- you may not use this file except in compliance with the License.
