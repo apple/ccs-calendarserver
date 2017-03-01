@@ -178,7 +178,16 @@ install-python:: build
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -name "*.h" -exec sh -c 'printf "/* empty */\n" > {}' ";";
 	@echo "Remving executable flag from .c files...";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -name "*.c" -print0 | xargs -0 $(CHMOD) -x;
-
+	@#
+	@# Compile to .pyc files
+	@#
+	@echo "Compiling to .pyc files..."
+	$(_v) "$(DSTROOT)$(CS_VIRTUALENV)/bin/python" -m compileall "$(DSTROOT)$(CS_VIRTUALENV)/lib/python2.7/site-packages";
+	@#
+	@# Force Twisted to generate dropin.cache
+	@#
+	@echo "Generating Twisted dropin.cache..."
+	$(_v) "$(DSTROOT)$(CS_VIRTUALENV)/bin/python" -c "from twisted.plugin import IPlugin, getPlugins; list(getPlugins(IPlugin))";
 	@#
 	@# Undo virtualenv so we use the python-wrapper
 	@#
