@@ -658,7 +658,7 @@ def assertProvides(testCase, interface, provider):
 
 def buildTestDirectory(
     store, dataRoot, accounts=None, resources=None, augments=None,
-    proxies=None, serversDB=None, cacheSeconds=0,
+    proxies=None, serversDB=None, cacheSeconds=0, wikiEnabled=True
 ):
     """
     @param store: the store for the directory to use
@@ -740,7 +740,7 @@ def buildTestDirectory(
     )
     wikiServiceInfo = ConfigDict(
         {
-            "Enabled": True,
+            "Enabled": wikiEnabled,
             "EndpointDescriptor": "tcp:host=localhost:port=4444",
         }
     )
@@ -786,7 +786,8 @@ class CommonCommonTests(object):
             self.store, config.DataRoot,
             accounts=accounts, resources=resources,
             augments=augments, proxies=proxies,
-            serversDB=serversDB, cacheSeconds=cacheSeconds
+            serversDB=serversDB, cacheSeconds=cacheSeconds,
+            wikiEnabled=config.Authentication.Wiki.Enabled
         )
         if extraUids:
             for uid in extraUids:

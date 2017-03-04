@@ -214,6 +214,7 @@ install-commands::
 	          calendarserver_export                                                                                          \
 	          calendarserver_import                                                                                          \
 	          calendarserver_manage_principals                                                                               \
+	          calendarserver_migrate_wiki                                                                                    \
 	          calendarserver_purge_attachments                                                                               \
 	          calendarserver_purge_events                                                                                    \
 	          calendarserver_purge_principals                                                                                \
