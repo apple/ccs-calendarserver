@@ -22,6 +22,7 @@
 .Nd Calendar Server wiki migration utility
 .Sh SYNOPSIS
 .Nm
+.Op Fl -delegate Ar principal
 .Op Fl -config Ar file
 .Op Fl -help
 .Sh DESCRIPTION
@@ -40,6 +41,8 @@ Display usage information
 .It Fl f, -config Ar FILE
 Use the Calendar Server configuration specified in the given file.
 Defaults to /etc/caldavd/caldavd.plist.
+.It Fl d, -delegate Ar PRINCIPAL
+Grant delegate access to the principal for the migrated resources.
 .El
 .Sh FILES
 .Bl -tag -width flag

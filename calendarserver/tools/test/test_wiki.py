@@ -15,11 +15,12 @@
 ##
 
 
-from twisted.internet.defer import inlineCallbacks
 from calendarserver.tools.wiki import migrateWiki
+from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.test.util import StoreTestCase
-from txdav.who.wiki import DirectoryService as WikiDirectoryService
+from txdav.who.delegates import Delegates
 from txdav.who.idirectory import RecordType as CalRecordType
+from txdav.who.wiki import DirectoryService as WikiDirectoryService
 
 
 class MigrateWikiTest(StoreTestCase):
@@ -52,11 +53,17 @@ class MigrateWikiTest(StoreTestCase):
         self.store._directoryService = realDirectory
 
         # Migrate wiki principals to resources
-        yield migrateWiki(self.store)
+        yield migrateWiki(self.store, "users:admin")
 
+        txn = self.store.newTransaction()
         record = yield self.directory.recordWithUID(u"wiki-xyzzy")
         self.assertEquals(record.shortNames, [u"xyzzy"])
         self.assertEquals(record.recordType, CalRecordType.resource)
+        delegates = (yield Delegates.delegatesOf(txn, record, True))
+        self.assertEquals([u"admin"], [d.shortNames[0] for d in delegates])
         record = yield self.directory.recordWithUID(u"wiki-plugh")
         self.assertEquals(record.shortNames, [u"plugh"])
         self.assertEquals(record.recordType, CalRecordType.resource)
+        delegates = (yield Delegates.delegatesOf(txn, record, True))
+        self.assertEquals([u"admin"], [d.shortNames[0] for d in delegates])
+        yield txn.commit()

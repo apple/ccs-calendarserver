@@ -27,11 +27,13 @@ import os
 import sys
 
 from calendarserver.tools.cmdline import utilityMain, WorkerService
+from calendarserver.tools.util import recordForPrincipalID
 from twext.enterprise.dal.syntax import Select
 from twext.python.log import Logger
 from twext.who.directory import DirectoryRecord
 from twisted.internet.defer import inlineCallbacks
 from txdav.common.datastore.sql_tables import schema
+from txdav.who.delegates import Delegates
 from txdav.who.idirectory import RecordType as CalRecordType
 from txdav.who.wiki import DirectoryService as WikiDirectoryService
 
@@ -40,9 +42,11 @@ log = Logger()
 
 class WikiMigrationService(WorkerService):
 
+    principalID = None
+
     @inlineCallbacks
     def doWork(self):
-        yield migrateWiki(self.store)
+        yield migrateWiki(self.store, self.principalID)
 
 
 def usage():
@@ -53,6 +57,7 @@ def usage():
     print("  Migrates Wiki principals into Calendar Server resources")
     print("")
     print("options:")
+    print("  -d --delegate=principal: Specify delegate for the resources")
     print("  -h --help: print this help and exit")
     print("  -f --config <path>: Specify caldavd.plist configuration path")
     print("")
@@ -63,7 +68,8 @@ def usage():
 def main():
     try:
         (optargs, _ignore_args) = getopt(
-            sys.argv[1:], "hf:", [
+            sys.argv[1:], "d:hf:", [
+                "delegate=",
                 "help",
                 "config=",
             ],
@@ -75,9 +81,14 @@ def main():
     # Get configuration
     #
     configFileName = None
+    principalID = None
 
     for opt, arg in optargs:
-        if opt in ("-h", "--help"):
+
+        if opt in ("-d", "--delegate"):
+            principalID = arg
+
+        elif opt in ("-h", "--help"):
             usage()
 
         elif opt in ("-f", "--config"):
@@ -91,11 +102,13 @@ def main():
         # the synthesized ones.
         config.Authentication.Wiki.Enabled = False
 
+    WikiMigrationService.principalID = principalID
+
     utilityMain(configFileName, WikiMigrationService, patchConfig=_patchConfig)
 
 
 @inlineCallbacks
-def migrateWiki(store):
+def migrateWiki(store, principalID):
     """
     Iterate calendar homes looking for wiki principals; create resources
     for each.
@@ -105,6 +118,11 @@ def migrateWiki(store):
     recordType = CalRecordType.resource
     prefix = WikiDirectoryService.uidPrefix
     ch = schema.CALENDAR_HOME
+
+    if principalID is not None:
+        delegateRecord = yield recordForPrincipalID(directory, principalID)
+    else:
+        delegateRecord = None
 
     # Look up in the DB all the uids starting with the wiki prefix
     txn = store.newTransaction()
@@ -133,6 +151,14 @@ def migrateWiki(store):
             record = DirectoryRecord(directory, fields)
             yield record.service.updateRecords([record], create=True)
             print("Added '{}'".format(name))
+
+            # Refetch the record
+            yield directory.flush()
+            record = yield directory.recordWithUID(uid)
+            if delegateRecord is not None:
+                txn = store.newTransaction()
+                yield Delegates.addDelegate(txn, record, delegateRecord, True)
+                yield txn.commit()
 
 
 if __name__ == "__main__":
