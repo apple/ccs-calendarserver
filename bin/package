@@ -110,8 +110,10 @@ main () {
   py_virtualenv="${destination}/virtualenv";
       py_bindir="${py_virtualenv}/bin";
     py_ve_tools="${dev_home}/ve_tools";
-  virtualenv_opts="--always-copy";
-    
+# This results in permissions errors on macOS with SIP
+#  virtualenv_opts="--always-copy";
+  virtualenv_opts="";
+
 
   c_dependencies;
   py_dependencies;
