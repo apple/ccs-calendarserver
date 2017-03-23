@@ -438,6 +438,7 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
 
     def makeService(store):
         from twistedcaldav.config import config
+        config.TransactionTimeoutSeconds = 0
         return ExporterService(store, options, output, reactor, config)
 
     utilityMain(options["config"], makeService, reactor, verbose=options["debug"])
