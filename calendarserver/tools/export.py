@@ -50,6 +50,7 @@ from twistedcaldav import customxml
 from twistedcaldav.ical import Component, Property
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.datastore.scheduling.utils import normalizeCUAddr
 from txdav.common.datastore.sql_tables import schema
 from txdav.xml import element as davxml
 
@@ -106,6 +107,7 @@ class ExportOptions(Options):
         self.outputName = '-'
         self.outputDirectoryName = None
         self.exportAll = False
+        self.convertToMailto = False
 
     def opt_uid(self, uid):
         """
@@ -163,6 +165,12 @@ class ExportOptions(Options):
         Export calendars from every calendar home in the database.
         """
         self.exportAll = True
+
+    def opt_mailto(self):
+        """
+        When exporting, convert calendar user addresses to mailto: form where possible.
+        """
+        self.convertToMailto = True
 
     def openOutput(self):
         """
@@ -266,7 +274,7 @@ class DirectoryExporter(_ExporterBase):
 
 
 @inlineCallbacks
-def exportToFile(calendars, fileobj):
+def exportToFile(calendars, fileobj, convertToMailto=False):
     """
     Export some calendars to a file as their owner would see them.
 
@@ -291,13 +299,15 @@ def exportToFile(calendars, fileobj):
                 if sub.name() != 'VTIMEZONE':
                     # Omit all VTIMEZONE components here - we will include them later
                     # when we serialize the whole calendar.
+                    if convertToMailto:
+                        convertCUAsToMailto(sub)
                     comp.addComponent(sub)
 
     fileobj.write(comp.getTextWithTimezones(True))
 
 
 @inlineCallbacks
-def exportToDirectory(calendars, dirname):
+def exportToDirectory(calendars, dirname, convertToMailto=False):
     """
     Export some calendars to a file as their owner would see them.
 
@@ -335,11 +345,27 @@ def exportToDirectory(calendars, dirname):
                 if sub.name() != 'VTIMEZONE':
                     # Omit all VTIMEZONE components here - we will include them later
                     # when we serialize the whole calendar.
+                    if convertToMailto:
+                        convertCUAsToMailto(sub)
                     comp.addComponent(sub)
 
         filename = os.path.join(dirname, "{}_{}.ics".format(homeUID, calendar.name()))
         with open(filename, 'wb') as fileobj:
             fileobj.write(comp.getTextWithTimezones(True))
+
+
+def convertCUAsToMailto(comp):
+    """
+    Replace non-mailto: CUAs with mailto: CUAs where possible (i.e. there is an
+    EMAIL parameter value attached)
+    """
+    for attendeeProp in itertools.chain(comp.getAllAttendeeProperties(), [comp.getOrganizerProperty()]):
+        cuaddr = normalizeCUAddr(attendeeProp.value())
+        if not cuaddr.startswith("mailto:"):
+            emailAddress = attendeeProp.parameterValue("EMAIL", None)
+            if emailAddress:
+                attendeeProp.setValue("mailto:%s" % (emailAddress,))
+                attendeeProp.removeParameter("EMAIL")
 
 
 class ExporterService(WorkerService, object):
@@ -383,9 +409,9 @@ class ExporterService(WorkerService, object):
                 if os.path.exists(dirname):
                     shutil.rmtree(dirname)
                 os.mkdir(dirname)
-                yield exportToDirectory(allCalendars, dirname)
+                yield exportToDirectory(allCalendars, dirname, self.options.convertToMailto)
             else:
-                yield exportToFile(allCalendars, self.output)
+                yield exportToFile(allCalendars, self.output, self.options.convertToMailto)
                 self.output.close()
 
             yield txn.commit()

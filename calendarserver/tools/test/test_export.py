@@ -31,7 +31,9 @@ from twext.enterprise.ienterprise import AlreadyFinishedError
 
 from twistedcaldav.ical import Component
 from twistedcaldav.datafilters.test.test_peruserdata import dataForTwoUsers
+from twistedcaldav.datafilters.test.test_peruserdata import dataWithUIDs
 from twistedcaldav.datafilters.test.test_peruserdata import resultForUser2
+from twistedcaldav.datafilters.test.test_peruserdata import resultWithMailtos
 from twistedcaldav.test.util import StoreTestCase
 
 from calendarserver.tools import export
@@ -394,6 +396,30 @@ class IntegrationTests(StoreTestCase):
         )
         self.assertEquals(
             Component.fromString(resultForUser2),
+            Component.fromString(io.getvalue())
+        )
+
+    @inlineCallbacks
+    def test_mailto(self):
+        """
+        Verify the conversion of non-mailto: CUAs to mailto: CUAs
+        """
+        yield populateCalendarsFrom(
+            {
+                "user01": {
+                    "calendar1": {
+                        "peruser.ics": (dataWithUIDs, {}),
+                    }
+                }
+            }, self.store
+        )
+        io = StringIO()
+        yield exportToFile(
+            [(yield self.txn().calendarHomeWithUID("user01"))
+                .calendarWithName("calendar1")], io, convertToMailto=True
+        )
+        self.assertEquals(
+            Component.fromString(resultWithMailtos),
             Component.fromString(io.getvalue())
         )
 
