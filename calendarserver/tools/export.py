@@ -41,6 +41,7 @@ import shutil
 import sys
 
 from calendarserver.tools.cmdline import utilityMain, WorkerService
+from twext.enterprise.dal.syntax import Select
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python.text import wordWrap
@@ -49,6 +50,7 @@ from twistedcaldav import customxml
 from twistedcaldav.ical import Component, Property
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from txdav.base.propertystore.base import PropertyName
+from txdav.common.datastore.sql_tables import schema
 from txdav.xml import element as davxml
 
 
@@ -103,6 +105,7 @@ class ExportOptions(Options):
         self.exporters = []
         self.outputName = '-'
         self.outputDirectoryName = None
+        self.exportAll = False
 
     def opt_uid(self, uid):
         """
@@ -154,6 +157,12 @@ class ExportOptions(Options):
         self.opt_record("users:" + user)
 
     opt_u = opt_user
+
+    def opt_all(self):
+        """
+        Export calendars from every calendar home in the database.
+        """
+        self.exportAll = True
 
     def openOutput(self):
         """
@@ -352,6 +361,16 @@ class ExporterService(WorkerService, object):
         Do the export, stopping the reactor when done.
         """
         txn = self.store.newTransaction()
+        ch = schema.CALENDAR_HOME
+
+        if self.options.exportAll:
+            rows = (yield Select(
+                [ch.OWNER_UID, ],
+                From=ch,
+            ).on(txn))
+            for uid in [row[0] for row in rows]:
+                self.options.exporters.append(UIDExporter(uid))
+
         try:
 
             allCalendars = itertools.chain(

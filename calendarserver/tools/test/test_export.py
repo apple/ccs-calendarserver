@@ -117,6 +117,14 @@ class CommandLine(TestCase):
         self.assertIsInstance(exp, UIDExporter)
         self.assertEquals(exp.uid, "bob's your guid")
 
+    def test_all(self):
+        """
+        One '--all' option will set exportAll to True
+        """
+        eo = ExportOptions()
+        eo.parseOptions(["--all"])
+        self.assertTrue(eo.exportAll)
+
     def test_homeAndCollections(self):
         """
         The --collection option adds specific calendars to the last home that
@@ -421,4 +429,39 @@ class IntegrationTests(StoreTestCase):
         self.assertEquals(
             Component.fromString(resultForUser2),
             Component.fromString(output.getContent())
+        )
+
+    @inlineCallbacks
+    def test_exportAll(self):
+        """
+        Run the export with --all to get a directory of calendars from all
+        calendar homes in the database.
+        """
+        yield populateCalendarsFrom(
+            {
+                "user01": {
+                    "calendar1": {
+                        "valentines-day.ics": (valentines, {}),
+                        "new-years-day.ics": (newYears, {})
+                    }
+                },
+                "user02": {
+                    "calendar1": {
+                        "valentines-day.ics": (valentines, {})
+                    },
+                    "calendar2": {
+                        "new-years-day.ics": (newYears, {})
+                    }
+                }
+            }, self.store
+        )
+
+        outputDir = FilePath(self.mktemp())
+        outputDir.makedirs()
+        main(['calendarserver_export', '--directory',
+              outputDir.path, '--all'], reactor=self)
+        yield self.waitToStop
+        self.assertEquals(
+            set(["user01_calendar1.ics", "user02_calendar1.ics", "user02_calendar2.ics"]),
+            set([child.basename() for child in outputDir.children()])
         )
