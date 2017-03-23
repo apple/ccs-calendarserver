@@ -260,6 +260,9 @@ script_entry_points = {
     "migrate_resources":
     ("calendarserver.tools.resources", "main"),
 
+    "migrate_wiki":
+    ("calendarserver.tools.wiki", "main"),
+
     "monitor_amp_notifications":
     ("calendarserver.tools.ampnotifications", "main"),
 
