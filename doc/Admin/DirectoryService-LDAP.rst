@@ -9,14 +9,6 @@ locations, resources, and addresses. This service is implemented by
 
   .. _twext.who.ldap: https://github.com/apple/ccs-twistedextensions/tree/master/twext/who/ldap
 
-When using this service, a separate process called the Directory Proxy Service (DPS)
-is instantiated to handle interactions with the LDAP server. This process
-maintains an in-memory cache of directory services data. Worker processes
-communicate with the DPS over an AMP socket. Each worker process also maintains
-an in-memory cache of directory services data. Each cache TTL can be configured
-separately.
-
-
 
 Configuring the Calendar Server
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -137,6 +129,13 @@ Sample LDAP configuration:
      </dict>
    </dict>
 
+
+Caching
+~~~~~~~
+Each worker process maintains a configurable in-memory cache of directory
+services data - see the DirectoryCaching dict in `caldavd-stdconfig.plist`_.
+
+  .. _caldavd-stdconfig.plist: https://github.com/apple/ccs-calendarserver/blob/master/conf/caldavd-stdconfig.plist
 
 
 Configuring Principals
