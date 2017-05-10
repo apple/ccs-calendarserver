@@ -130,14 +130,6 @@ Sample LDAP configuration:
    </dict>
 
 
-Caching
-~~~~~~~
-Each worker process maintains a configurable in-memory cache of directory
-services data - see the DirectoryCaching dict in `caldavd-stdconfig.plist`_.
-
-  .. _caldavd-stdconfig.plist: https://github.com/apple/ccs-calendarserver/blob/master/conf/caldavd-stdconfig.plist
-
-
 Configuring Principals
 ~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -254,31 +246,35 @@ Related settings
 ~~~~~~~~~~~~~~~~~
 
 The following settings are available *outside* the LDAP directory service configuration (i.e.
-the DirectoryProxy dict is a top-level dict in caldavd.plist):
+the DirectoryCaching dict is a top-level dict in caldavd.plist):
 
 ::
 
-    <key>DirectoryProxy</key>
+    <key>DirectoryCaching</key>
     <dict>
-        <key>SocketPath</key>
-        <string>directory-proxy.sock</string>
-
-        <key>InProcessCachingSeconds</key>
-        <integer>60</integer>
-
-        <key>InSidecarCachingSeconds</key>
-        <integer>120</integer>
+      
+      <!-- How long to cache in worker and in memcached -->
+      <key>CachingSeconds</key>
+      <integer>60</integer>
+      <key>NegativeCachingEnabled</key>
+      <true/>
+      <!-- 0 = purging turned off -->
+      <key>LookupsBetweenPurges</key>
+      <integer>10000</integer>
+      
     </dict>
 
-``SocketPath``
+``CachingSeconds``
 
-  The unix domain socket used by AMP for communication between the DPS and workers
+  The TTL of directory services data in worker processes and memcached.
 
-``InProcessCachingSeconds``
-``InSidecarCachingSeconds``
+``NegativeCachingEnabled``
 
-  The TTL of directory services data in worker processes and the DPS, respectively.
+  Whether to cache negative responses (for example, that a requested account record does not exist)
 
+``LookupsBetweenPurges``
+
+  This is used to limit the frequency of explicitly purging things from the cache, as this isn't free.
 
 
 LDAP attribute indexing
