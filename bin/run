@@ -60,7 +60,7 @@ usage () {
     echo;
   fi;
 
-  echo "Usage: ${program} [-hvgsfnpdkrR] [-K key] [-iIb dst] [-t type] [-S statsdirectory] [-P plugin]";
+  echo "Usage: ${program} [-hvgsfnpdlkrR] [-K key] [-iIb dst] [-t type] [-S statsdirectory] [-P plugin]";
   echo "Options:";
   echo "  -h  Print this help and exit";
   echo "  -s  Run setup only; don't run server";
@@ -69,6 +69,7 @@ usage () {
   echo "  -p  Print PYTHONPATH value for server and exit";
   echo "  -e  Print =-separated environment variables required to run and exit";
   echo "  -d  Run caldavd as a daemon";
+  echo "  -l  Run caldavd in launchd mode: stay in foreground but enable error.log";
   echo "  -k  Stop caldavd";
   echo "  -r  Restart caldavd";
   echo "  -K  Print value of configuration key and exit";
@@ -89,7 +90,7 @@ usage () {
 parse_options () {
   OPTIND=1;
   print_path="false";
-  while getopts "ahsfnpedkrc:K:i:I:b:t:S:P:R:" option; do
+  while getopts "ahsfnpedlkrc:K:i:I:b:t:S:P:R:" option; do
     case "${option}" in
       '?') usage; ;;
       'h') usage -; exit 0; ;;
@@ -97,6 +98,7 @@ parse_options () {
       'k')         kill="true"; do_setup="false"; ;;
       'r')      restart="true"; do_setup="false"; ;;
       'd')    daemonize=""; ;;
+      'l')    daemonize="-X"; ;;
       'P')  plugin_name="${OPTARG}"; ;;
       'c')       config="${OPTARG}"; ;;
       'R')      reactor="-R ${OPTARG}"; ;;
@@ -168,7 +170,7 @@ run () {
           bin/python bin/keychain_unlock.py
           ;;
       esac;
-    fi;  
+    fi;
 
 
     echo "";

@@ -35,6 +35,7 @@ USERNAME = "caldav"
 DATABASENAME = "caldav"
 PGSOCKETDIR = "127.0.0.1"
 SCHEMADIR = "./txdav/common/datastore/sql_schema/"
+CONNECTIONURI = ""
 
 # Executables:
 PSQL = "../postgresql/_root/bin/psql"
@@ -42,11 +43,12 @@ PSQL = "../postgresql/_root/bin/psql"
 
 def usage(e=None):
     name = os.path.basename(sys.argv[0])
-    print("usage: %s [options] username" % (name,))
+    print("usage: %s [options]" % (name,))
     print("")
     print(" Check calendar server postgres database and schema")
     print("")
     print("options:")
+    print("  -c: connection URI [postgresql://user:password@hostname:port/dbname]")
     print("  -d: path to server's sql_schema directory [./txdav/common/datastore/sql_schema/]")
     print("  -k: postgres socket path (value for psql -h argument [127.0.0.1])")
     print("  -p: location of psql tool if not on PATH already [psql]")
@@ -78,6 +80,13 @@ def execSQL(title, stmt, verbose=False):
         "-t",
         "-c", stmt,
     ]
+    if CONNECTIONURI:
+        cmdArgs = [
+            PSQL,
+            "-t",
+            CONNECTIONURI,
+            "-c", stmt,
+        ]
     try:
         if verbose:
             print("\n{}".format(title))
@@ -259,7 +268,7 @@ def error(s):
 def main():
     try:
         (optargs, _ignore_args) = getopt(
-            sys.argv[1:], "d:hk:p:vx", [
+            sys.argv[1:], "c:d:hk:p:vx", [
                 "help",
                 "verbose",
             ],
@@ -269,11 +278,13 @@ def main():
 
     verbose = False
 
-    global SCHEMADIR, PGSOCKETDIR, PSQL
+    global SCHEMADIR, PGSOCKETDIR, PSQL, CONNECTIONURI
 
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
             usage()
+        elif opt in ("-c",):
+            CONNECTIONURI = arg
         elif opt in ("-d",):
             SCHEMADIR = arg
         elif opt in ("-k",):
@@ -292,6 +303,10 @@ def main():
         else:
             raise NotImplementedError(opt)
 
+    if not os.access(PSQL, os.X_OK):
+        sys.stderr.write("Executable copy of PSQL not found at {}. Exiting\n".format(PSQL))
+        sys.exit(0)
+        
     # Retrieve the db_version number of the installed schema
     try:
         db_version = getSchemaVersion(verbose=verbose)

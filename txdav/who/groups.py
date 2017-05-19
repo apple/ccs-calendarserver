@@ -33,6 +33,7 @@ from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 import datetime
 import itertools
 import time
+from txdav.who.delegates import Delegates
 
 log = Logger()
 
@@ -373,6 +374,11 @@ class GroupCacher(object):
             "External delegate assignments changed for {uid}",
             uid=delegatorUID
         )
+
+        # Retrieve the previous delegate assignments (if any) because we have
+        # to invalidate their cached entries after calling assignExternalDelegates()
+        (previousReadDelegateUID, previousWriteDelegateUID) = yield txn.externalDelegatesForDelegator(delegatorUID)
+
         readDelegateGroupID = writeDelegateGroupID = None
 
         if readDelegateUID:
@@ -403,6 +409,13 @@ class GroupCacher(object):
                 self.cacheNotifier.changed(readDelegateUID)
             if writeDelegateUID:
                 self.cacheNotifier.changed(writeDelegateUID)
+            if previousReadDelegateUID:
+                self.cacheNotifier.changed(previousReadDelegateUID)
+            if previousWriteDelegateUID:
+                self.cacheNotifier.changed(previousWriteDelegateUID)
+
+        # Invalidate the relevant memcached entries
+        yield Delegates.invalidateExternalAssignment(txn, delegatorUID, readDelegateUID, writeDelegateUID, previousReadDelegateUID, previousWriteDelegateUID)
 
     @inlineCallbacks
     def refreshGroup(self, txn, groupUID):

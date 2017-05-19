@@ -86,11 +86,12 @@ DEFAULT_SERVICE_PARAMS = {
             "fullNames": ["cn"],
             "emailAddresses": ["mail"],
             "memberDNs": ["uniqueMember"],
+            "readOnlyProxy": ["icsSecondaryOwners"],
+            "readWriteProxy": ["icsContact"],
+            "loginAllowed": [],
             "hasCalendars": [],
             "autoScheduleMode": [],
             "autoAcceptGroup": [],
-            "readWriteProxy": ["icsContact"],
-            "readOnlyProxy": ["icsSecondaryOwners"],
             "serviceNodeUID": [],
             "associatedAddress": [],
             "geographicLocation": [],
@@ -900,7 +901,7 @@ DEFAULT_CONFIG = {
     },
 
     "DirectoryProxy": {
-        "Enabled": True,
+        "Enabled": False,
         "SocketPath": "directory-proxy.sock",
         "InSidecarCachingSeconds": 120,
     },

@@ -758,6 +758,30 @@ class DelegatesAPIMixin(object):
         returnValue(delegates)
 
     @inlineCallbacks
+    def externalDelegatesForDelegator(self, delegatorUID):
+        """
+        Returns a tuple containing the UIDs of the current external read-only and
+        read-write delegates.
+
+        @param delegatorUID: UID of the delegator
+        @type delegatorUID: unicode
+
+        @returns: external delegate UIDs (or empty strings if unassigned)
+        @rtype: tuple of two unicodes
+        """
+        results = yield ExternalDelegateGroupsRecord.query(
+            self,
+            (ExternalDelegateGroupsRecord.delegator == delegatorUID)
+        )
+        if len(results) != 1:
+            returnValue((u"", u""))
+
+        returnValue((
+            results[0].groupUIDRead.decode("utf-8"),
+            results[0].groupUIDWrite.decode("utf-8")
+        ))
+
+    @inlineCallbacks
     def assignExternalDelegates(
         self, delegator, readDelegateGroupID, writeDelegateGroupID,
         readDelegateUID, writeDelegateUID

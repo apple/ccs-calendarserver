@@ -368,7 +368,7 @@ class CalendarDirectoryRecordMixin(object):
                     credentials.fields["uri"],
                     credentials.fields["nonce"],
                     credentials.fields.get("cnonce", ""),
-                    credentials.fields["algorithm"],
+                    credentials.fields.get("algorithm","md5"),
                     credentials.fields.get("nc", ""),
                     credentials.fields.get("qop", ""),
                     credentials.fields["response"],

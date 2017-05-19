@@ -295,6 +295,37 @@ class ManagePrincipalsTestCase(TestCase):
             self.fail("Expected command failure")
 
     @inlineCallbacks
+    def test_rename(self):
+        # Check original name
+        results = yield self.runCommand(
+            "--get-name", "locations:location01"
+        )
+        self.assertTrue(
+            'is Room 01' in results
+        )
+
+        # Change the name
+        results = yield self.runCommand(
+            "--set-name=ROOM 01", "locations:location01"
+        )
+        self.assertTrue(
+            "to ROOM 01 for" in results
+        )
+
+        # Verify it's changed
+        results = yield self.runCommand(
+            "--get-name", "locations:location01"
+        )
+        self.assertTrue(
+            'is ROOM 01' in results
+        )
+
+        # Set back to original name
+        results = yield self.runCommand(
+            "--set-name='Room 01'", "locations:location01"
+        )
+
+    @inlineCallbacks
     def test_groupChanges(self):
         results = yield self.runCommand(
             "--list-group-members", "groups:testgroup1"

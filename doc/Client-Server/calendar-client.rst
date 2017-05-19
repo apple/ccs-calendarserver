@@ -52,13 +52,13 @@ To enable complete protocol logging, open Terminal and run the command:
 
   defaults write -g CalLogSimpleConfiguration -array com.apple.calendar.store.log.caldav.http
 
+The debug logging domains are specified using a reverse-dns style hierarchy, so to enable all Calendar logging (includes logging of account discovery), use the value 'com.apple.calendar'.
+
 To activate the logging configuration change, quit and relaunch Calendar. For versions of OS X older than 10.12, instead of quitting and relaunching, run this command:
 
 ::
 
   notifyutil -p com.apple.calendar.foundation.notification.logConfigUpdated
-
-The debug logging domains are specified using a reverse-dns style hierarchy, so to enable all Calendar logging (includes logging of account discovery), use the value 'com.apple.calendar'
 
 To disable Calendar debug logging, run the command:
 

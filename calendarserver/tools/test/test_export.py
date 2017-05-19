@@ -31,7 +31,9 @@ from twext.enterprise.ienterprise import AlreadyFinishedError
 
 from twistedcaldav.ical import Component
 from twistedcaldav.datafilters.test.test_peruserdata import dataForTwoUsers
+from twistedcaldav.datafilters.test.test_peruserdata import dataWithUIDs
 from twistedcaldav.datafilters.test.test_peruserdata import resultForUser2
+from twistedcaldav.datafilters.test.test_peruserdata import resultWithMailtos
 from twistedcaldav.test.util import StoreTestCase
 
 from calendarserver.tools import export
@@ -41,9 +43,10 @@ from calendarserver.tools.export import DirectoryExporter, UIDExporter
 from twisted.python.filepath import FilePath
 from twisted.internet.defer import Deferred
 
-from txdav.common.datastore.test.util import populateCalendarsFrom
+from txdav.common.datastore.test.util import populateCalendarsFrom, populateAddressBooksFrom
 
 from calendarserver.tools.export import usage, exportToFile
+from txdav.carddav.datastore.test.common import adbk1Root
 
 
 def holiday(uid):
@@ -116,6 +119,23 @@ class CommandLine(TestCase):
         exp = eo.exporters[0]
         self.assertIsInstance(exp, UIDExporter)
         self.assertEquals(exp.uid, "bob's your guid")
+
+    def test_all(self):
+        """
+        One '--all' option will set exportAll to True
+        """
+        eo = ExportOptions()
+        eo.parseOptions(["--all"])
+        self.assertTrue(eo.exportAll)
+
+    def test_allContacts(self):
+        """
+        '--all --contacts' will set exportAllType to "VCARD"
+        """
+        eo = ExportOptions()
+        eo.parseOptions(["--all", "--contacts"])
+        self.assertTrue(eo.exportAll)
+        self.assertEquals(eo.exportAllType, "VCARD")
 
     def test_homeAndCollections(self):
         """
@@ -390,6 +410,30 @@ class IntegrationTests(StoreTestCase):
         )
 
     @inlineCallbacks
+    def test_mailto(self):
+        """
+        Verify the conversion of non-mailto: CUAs to mailto: CUAs
+        """
+        yield populateCalendarsFrom(
+            {
+                "user01": {
+                    "calendar1": {
+                        "peruser.ics": (dataWithUIDs, {}),
+                    }
+                }
+            }, self.store
+        )
+        io = StringIO()
+        yield exportToFile(
+            [(yield self.txn().calendarHomeWithUID("user01"))
+                .calendarWithName("calendar1")], io, convertToMailto=True
+        )
+        self.assertEquals(
+            Component.fromString(resultWithMailtos),
+            Component.fromString(io.getvalue())
+        )
+
+    @inlineCallbacks
     def test_full(self):
         """
         Running C{calendarserver_export} on the command line exports an ics
@@ -421,4 +465,159 @@ class IntegrationTests(StoreTestCase):
         self.assertEquals(
             Component.fromString(resultForUser2),
             Component.fromString(output.getContent())
+        )
+
+        @inlineCallbacks
+        def test_exportAll(self):
+            """
+            Run the export with --all to get a directory of calendars from all
+            calendar homes in the database.
+            """
+            yield populateCalendarsFrom(
+                {
+                    "user01": {
+                        "calendar1": {
+                            "valentines-day.ics": (valentines, {}),
+                            "new-years-day.ics": (newYears, {})
+                        }
+                    },
+                    "user02": {
+                        "calendar1": {
+                            "valentines-day.ics": (valentines, {})
+                        },
+                        "calendar2": {
+                            "new-years-day.ics": (newYears, {})
+                        }
+                    }
+                }, self.store
+            )
+
+            outputDir = FilePath(self.mktemp())
+            outputDir.makedirs()
+            main(['calendarserver_export', '--directory',
+                  outputDir.path, '--all'], reactor=self)
+            yield self.waitToStop
+            self.assertEquals(
+                set(["user01_calendar1.ics", "user02_calendar1.ics", "user02_calendar2.ics"]),
+                set([child.basename() for child in outputDir.children()])
+            )
+
+    @inlineCallbacks
+    def test_exportOneAddressbook(self):
+        """
+        Run the export with a single uid and --contacts
+        """
+        yield populateAddressBooksFrom(
+            {
+                "user01": {
+                    "addressbook": {
+                        "1.vcf": adbk1Root.child("1.vcf").getContent(),
+                        "2.vcf": adbk1Root.child("2.vcf").getContent(),
+                        "3.vcf": adbk1Root.child("3.vcf").getContent(),
+                    }
+                },
+                "user02": {
+                    "addressbook": {
+                        "1.vcf": adbk1Root.child("1.vcf").getContent(),
+                    },
+                }
+            }, self.store
+        )
+
+        outputDir = FilePath(self.mktemp())
+        outputDir.makedirs()
+        main(['calendarserver_export', '--directory',
+              outputDir.path, '--uid', 'user01', '--contacts'], reactor=self)
+        yield self.waitToStop
+        self.assertEquals(
+            set(["user01_addressbook.vcf"]),
+            set([child.basename() for child in outputDir.children()])
+        )
+
+    @inlineCallbacks
+    def test_exportMixAndMatch(self):
+        """
+        Run the export with some calendars and some addressbooks
+        """
+        yield populateAddressBooksFrom(
+            {
+                "user01": {
+                    "addressbook": {
+                        "1.vcf": adbk1Root.child("1.vcf").getContent(),
+                        "2.vcf": adbk1Root.child("2.vcf").getContent(),
+                        "3.vcf": adbk1Root.child("3.vcf").getContent(),
+                    }
+                },
+                "user02": {
+                    "addressbook": {
+                        "1.vcf": adbk1Root.child("1.vcf").getContent(),
+                    },
+                }
+            }, self.store
+        )
+        yield populateCalendarsFrom(
+            {
+                "user01": {
+                    "calendar1": {
+                        "valentines-day.ics": (valentines, {}),
+                        "new-years-day.ics": (newYears, {})
+                    }
+                },
+                "user02": {
+                    "calendar1": {
+                        "valentines-day.ics": (valentines, {})
+                    },
+                    "calendar2": {
+                        "new-years-day.ics": (newYears, {})
+                    }
+                }
+            }, self.store
+        )
+
+        outputDir = FilePath(self.mktemp())
+        outputDir.makedirs()
+        main([
+            'calendarserver_export', '--directory', outputDir.path,
+            '--uid', 'user01', '--contacts',
+            '--uid', 'user01', '--calendars',
+            '--uid', 'user02', '--collection=calendar1',
+            '--uid', 'user02', '--contacts',
+        ], reactor=self)
+        yield self.waitToStop
+        self.assertEquals(
+            set(["user01_addressbook.vcf", "user01_calendar1.ics", "user02_calendar1.ics", "user02_addressbook.vcf"]),
+            set([child.basename() for child in outputDir.children()])
+        )
+
+    @inlineCallbacks
+    def test_exportAllContacts(self):
+        """
+        Run the export with --all --contacts to get a directory of addressbooks from all
+        addressbook homes in the database.
+        """
+        yield populateAddressBooksFrom(
+            {
+                "user01": {
+                    "addressbook": {
+                        "1.vcf": adbk1Root.child("1.vcf").getContent(),
+                        "2.vcf": adbk1Root.child("2.vcf").getContent(),
+                        "3.vcf": adbk1Root.child("3.vcf").getContent(),
+                    }
+                },
+                "user02": {
+                    "addressbook": {
+                        "1.vcf": adbk1Root.child("1.vcf").getContent(),
+                    },
+                }
+            }, self.store
+        )
+
+        outputDir = FilePath(self.mktemp())
+        outputDir.makedirs()
+        main(['calendarserver_export', '--directory',
+              outputDir.path, '--all', '--contacts'], reactor=self)
+        yield self.waitToStop
+        self.assertEquals(
+            set(["user01_addressbook.vcf", "user02_addressbook.vcf"]),
+            set([child.basename() for child in outputDir.children()])
         )

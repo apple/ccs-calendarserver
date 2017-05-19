@@ -637,4 +637,37 @@ class CachingDelegates(object):
                 delegators.update(result[1])
         returnValue(delegators)
 
+    @inlineCallbacks
+    def invalidateExternalAssignment(self, txn, delegatorUID, readDelegateUID, writeDelegateUID, previousReadDelegateUID, previousWriteDelegateUID):
+        """
+        Invalidate the relevant memcache entries containing delegation info
+        """
+
+        yield self._memcacher.deleteMember(delegatorUID, False)
+        yield self._memcacher.deleteMember(delegatorUID, True)
+
+        if previousReadDelegateUID:
+            yield self.deleteMembershipForGroup(txn, previousReadDelegateUID, False)
+
+        if previousWriteDelegateUID:
+            yield self.deleteMembershipForGroup(txn, previousWriteDelegateUID, True)
+
+        if readDelegateUID:
+            yield self.deleteMembershipForGroup(txn, readDelegateUID, False)
+
+        if writeDelegateUID:
+            yield self.deleteMembershipForGroup(txn, writeDelegateUID, True)
+
+    @inlineCallbacks
+    def deleteMembershipForGroup(self, txn, groupUID, readWrite):
+        if groupUID:
+            log.debug("Invalidating memcached delegate membership for group {group}, r/w={readWrite}", group=groupUID, readWrite=readWrite)
+            yield self._memcacher.deleteMembership(groupUID, readWrite)
+            group = yield txn.groupByUID(groupUID, create=False)
+            if group is not None:
+                uids = yield txn.groupMemberUIDs(group.groupID)
+                for uid in uids:
+                    log.debug("Invalidating memcached delegate membership for user {user}, r/w={readWrite}", user=uid, readWrite=readWrite)
+                    yield self._memcacher.deleteMembership(uid, readWrite)
+
 Delegates = CachingDelegates()

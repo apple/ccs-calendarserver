@@ -9,14 +9,6 @@ locations, resources, and addresses. This service is implemented by
 
   .. _twext.who.ldap: https://github.com/apple/ccs-twistedextensions/tree/master/twext/who/ldap
 
-When using this service, a separate process called the Directory Proxy Service (DPS)
-is instantiated to handle interactions with the LDAP server. This process
-maintains an in-memory cache of directory services data. Worker processes
-communicate with the DPS over an AMP socket. Each worker process also maintains
-an in-memory cache of directory services data. Each cache TTL can be configured
-separately.
-
-
 
 Configuring the Calendar Server
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -138,7 +130,6 @@ Sample LDAP configuration:
    </dict>
 
 
-
 Configuring Principals
 ~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -255,31 +246,35 @@ Related settings
 ~~~~~~~~~~~~~~~~~
 
 The following settings are available *outside* the LDAP directory service configuration (i.e.
-the DirectoryProxy dict is a top-level dict in caldavd.plist):
+the DirectoryCaching dict is a top-level dict in caldavd.plist):
 
 ::
 
-    <key>DirectoryProxy</key>
+    <key>DirectoryCaching</key>
     <dict>
-        <key>SocketPath</key>
-        <string>directory-proxy.sock</string>
-
-        <key>InProcessCachingSeconds</key>
-        <integer>60</integer>
-
-        <key>InSidecarCachingSeconds</key>
-        <integer>120</integer>
+      
+      <!-- How long to cache in worker and in memcached -->
+      <key>CachingSeconds</key>
+      <integer>60</integer>
+      <key>NegativeCachingEnabled</key>
+      <true/>
+      <!-- 0 = purging turned off -->
+      <key>LookupsBetweenPurges</key>
+      <integer>10000</integer>
+      
     </dict>
 
-``SocketPath``
+``CachingSeconds``
 
-  The unix domain socket used by AMP for communication between the DPS and workers
+  The TTL of directory services data in worker processes and memcached.
 
-``InProcessCachingSeconds``
-``InSidecarCachingSeconds``
+``NegativeCachingEnabled``
 
-  The TTL of directory services data in worker processes and the DPS, respectively.
+  Whether to cache negative responses (for example, that a requested account record does not exist)
 
+``LookupsBetweenPurges``
+
+  This is used to limit the frequency of explicitly purging things from the cache, as this isn't free.
 
 
 LDAP attribute indexing

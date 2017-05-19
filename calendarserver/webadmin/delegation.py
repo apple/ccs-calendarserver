@@ -631,9 +631,11 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
             yield action_removeProxy(self.store, record, *removeProxies)
 
         if makeReadProxies:
+            yield action_removeProxy(self.store, record, *makeReadProxies)
             yield action_addProxy(self.store, record, "read", *makeReadProxies)
 
         if makeWriteProxies:
+            yield action_removeProxy(self.store, record, *makeWriteProxies)
             yield action_addProxy(self.store, record, "write", *makeWriteProxies)
 
     @inlineCallbacks

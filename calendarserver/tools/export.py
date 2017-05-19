@@ -41,6 +41,7 @@ import shutil
 import sys
 
 from calendarserver.tools.cmdline import utilityMain, WorkerService
+from twext.enterprise.dal.syntax import Select
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python.text import wordWrap
@@ -49,6 +50,9 @@ from twistedcaldav import customxml
 from twistedcaldav.ical import Component, Property
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.datastore.scheduling.utils import normalizeCUAddr
+from txdav.caldav.datastore.sql import Calendar
+from txdav.common.datastore.sql_tables import schema
 from txdav.xml import element as davxml
 
 
@@ -103,6 +107,9 @@ class ExportOptions(Options):
         self.exporters = []
         self.outputName = '-'
         self.outputDirectoryName = None
+        self.exportAll = False
+        self.exportAllType = "VEVENT"
+        self.convertToMailto = False
 
     def opt_uid(self, uid):
         """
@@ -133,7 +140,7 @@ class ExportOptions(Options):
 
     def opt_directory(self, dirname):
         """
-        Specify output directory path.
+        Specify output directory path (works with calendars and contacts).
         """
         self.outputDirectoryName = dirname
 
@@ -141,7 +148,7 @@ class ExportOptions(Options):
 
     def opt_output(self, filename):
         """
-        Specify output file path (default: '-', meaning stdout).
+        Specify output file path (default: '-', meaning stdout; only works with calendars).
         """
         self.outputName = filename
 
@@ -154,6 +161,36 @@ class ExportOptions(Options):
         self.opt_record("users:" + user)
 
     opt_u = opt_user
+
+    def opt_all(self):
+        """
+        Export calendars from every calendar home in the database.
+        """
+        self.exportAll = True
+
+    def opt_mailto(self):
+        """
+        When exporting, convert calendar user addresses to mailto: form where possible.
+        """
+        self.convertToMailto = True
+
+    def opt_calendars(self):
+        """
+        Export calendars (the default)
+        """
+        if len(self.exporters) > 0:
+            self.exporters[-1].exportType = "VEVENT"
+        else:
+            self.exportAllType = "VEVENT"
+
+    def opt_contacts(self):
+        """
+        Export VCARDs
+        """
+        if len(self.exporters) > 0:
+            self.exporters[-1].exportType = "VCARD"
+        else:
+            self.exportAllType = "VCARD"
 
     def openOutput(self):
         """
@@ -176,8 +213,9 @@ class _ExporterBase(object):
 
     """
 
-    def __init__(self):
+    def __init__(self, exportType="VEVENT"):
         self.collections = []
+        self.exportType = exportType
 
     def getHomeUID(self, exportService):
         """
@@ -186,20 +224,31 @@ class _ExporterBase(object):
         raise NotImplementedError()
 
     @inlineCallbacks
-    def listCalendars(self, txn, exportService):
+    def listCollections(self, txn, exportService):
         """
         Enumerate all calendars based on the directory record and/or calendars
         for this calendar home.
         """
         uid = yield self.getHomeUID(exportService)
-        home = yield txn.calendarHomeWithUID(uid, create=True)
+        if self.exportType == "VEVENT":
+            home = yield txn.calendarHomeWithUID(uid, create=True)
+        else:
+            home = yield txn.addressbookHomeWithUID(uid, create=True)
         result = []
         if self.collections:
             for collection in self.collections:
-                result.append((yield home.calendarWithName(collection)))
+                if self.exportType == "VEVENT":
+                    collection = yield home.calendarWithName(collection)
+                else:
+                    collection = yield home.addressbookWithName(collection)
+                result.append(collection)
         else:
-            for collection in (yield home.calendars()):
-                if collection.name() != 'inbox':
+            if self.exportType == "VEVENT":
+                for collection in (yield home.calendars()):
+                    if collection.name() != 'inbox':
+                        result.append(collection)
+            else:
+                for collection in (yield home.addressbooks()):
                     result.append(collection)
         returnValue(result)
 
@@ -214,8 +263,8 @@ class UIDExporter(_ExporterBase):
     @type uid: C{str}
     """
 
-    def __init__(self, uid):
-        super(UIDExporter, self).__init__()
+    def __init__(self, uid, exportType="VEVENT"):
+        super(UIDExporter, self).__init__(exportType=exportType)
         self.uid = uid
 
     def getHomeUID(self, exportService):
@@ -238,8 +287,8 @@ class DirectoryExporter(_ExporterBase):
     @type shortName: C{str}
     """
 
-    def __init__(self, recordType, shortName):
-        super(DirectoryExporter, self).__init__()
+    def __init__(self, recordType, shortName, exportType="VEVENT"):
+        super(DirectoryExporter, self).__init__(exportType=exportType)
         self.recordType = recordType
         self.shortName = shortName
 
@@ -257,7 +306,7 @@ class DirectoryExporter(_ExporterBase):
 
 
 @inlineCallbacks
-def exportToFile(calendars, fileobj):
+def exportToFile(calendars, fileobj, convertToMailto=False):
     """
     Export some calendars to a file as their owner would see them.
 
@@ -282,13 +331,15 @@ def exportToFile(calendars, fileobj):
                 if sub.name() != 'VTIMEZONE':
                     # Omit all VTIMEZONE components here - we will include them later
                     # when we serialize the whole calendar.
+                    if convertToMailto:
+                        convertCUAsToMailto(sub)
                     comp.addComponent(sub)
 
     fileobj.write(comp.getTextWithTimezones(True))
 
 
 @inlineCallbacks
-def exportToDirectory(calendars, dirname):
+def exportToDirectory(collections, dirname, convertToMailto=False):
     """
     Export some calendars to a file as their owner would see them.
 
@@ -296,41 +347,68 @@ def exportToDirectory(calendars, dirname):
         same).
 
     @param dirname: the path to a directory to store calendar files in; each
-        calendar being exported will have it's own .ics file
+        calendar being exported will have its own .ics file
 
     @return: a L{Deferred} which fires when the export is complete.  (Note that
         the file will not be closed.)
     @rtype: L{Deferred} that fires with C{None}
     """
 
-    for calendar in calendars:
-        homeUID = calendar.ownerCalendarHome().uid()
+    for collection in collections:
 
-        calendarProperties = calendar.properties()
-        comp = Component.newCalendar()
-        for element, propertyName in (
-            (davxml.DisplayName, "NAME"),
-            (customxml.CalendarColor, "COLOR"),
-        ):
+        if isinstance(collection, Calendar):
+            homeUID = collection.ownerCalendarHome().uid()
 
-            value = calendarProperties.get(PropertyName.fromElement(element), None)
-            if value:
-                comp.addProperty(Property(propertyName, str(value)))
+            calendarProperties = collection.properties()
+            comp = Component.newCalendar()
+            for element, propertyName in (
+                (davxml.DisplayName, "NAME"),
+                (customxml.CalendarColor, "COLOR"),
+            ):
 
-        source = "/calendars/__uids__/{}/{}/".format(homeUID, calendar.name())
-        comp.addProperty(Property("SOURCE", source))
+                value = calendarProperties.get(PropertyName.fromElement(element), None)
+                if value:
+                    comp.addProperty(Property(propertyName, str(value)))
 
-        for obj in (yield calendar.calendarObjects()):
-            evt = yield obj.filteredComponent(homeUID, True)
-            for sub in evt.subcomponents():
-                if sub.name() != 'VTIMEZONE':
-                    # Omit all VTIMEZONE components here - we will include them later
-                    # when we serialize the whole calendar.
-                    comp.addComponent(sub)
+            source = "/calendars/__uids__/{}/{}/".format(homeUID, collection.name())
+            comp.addProperty(Property("SOURCE", source))
 
-        filename = os.path.join(dirname, "{}_{}.ics".format(homeUID, calendar.name()))
-        with open(filename, 'wb') as fileobj:
-            fileobj.write(comp.getTextWithTimezones(True))
+            for obj in (yield collection.calendarObjects()):
+                evt = yield obj.filteredComponent(homeUID, True)
+                for sub in evt.subcomponents():
+                    if sub.name() != 'VTIMEZONE':
+                        # Omit all VTIMEZONE components here - we will include them later
+                        # when we serialize the whole calendar.
+                        if convertToMailto:
+                            convertCUAsToMailto(sub)
+                        comp.addComponent(sub)
+
+            filename = os.path.join(dirname, "{}_{}.ics".format(homeUID, collection.name()))
+            with open(filename, 'wb') as fileobj:
+                fileobj.write(comp.getTextWithTimezones(True))
+
+        else: # addressbook
+
+            homeUID = collection.ownerAddressBookHome().uid()
+            filename = os.path.join(dirname, "{}_{}.vcf".format(homeUID, collection.name()))
+            with open(filename, 'wb') as fileobj:
+                for obj in (yield collection.addressbookObjects()):
+                    vcard = yield obj.component()
+                    fileobj.write(vcard.getText())
+
+
+def convertCUAsToMailto(comp):
+    """
+    Replace non-mailto: CUAs with mailto: CUAs where possible (i.e. there is an
+    EMAIL parameter value attached)
+    """
+    for attendeeProp in itertools.chain(comp.getAllAttendeeProperties(), [comp.getOrganizerProperty()]):
+        cuaddr = normalizeCUAddr(attendeeProp.value())
+        if not cuaddr.startswith("mailto:"):
+            emailAddress = attendeeProp.parameterValue("EMAIL", None)
+            if emailAddress:
+                attendeeProp.setValue("mailto:%s" % (emailAddress,))
+                attendeeProp.removeParameter("EMAIL")
 
 
 class ExporterService(WorkerService, object):
@@ -352,10 +430,24 @@ class ExporterService(WorkerService, object):
         Do the export, stopping the reactor when done.
         """
         txn = self.store.newTransaction()
+
+        if self.options.exportAll:
+            if self.options.exportAllType == "VEVENT":
+                homeTable = schema.CALENDAR_HOME
+            else:
+                homeTable = schema.ADDRESSBOOK_HOME
+
+            rows = (yield Select(
+                [homeTable.OWNER_UID, ],
+                From=homeTable,
+            ).on(txn))
+            for uid in [row[0] for row in rows]:
+                self.options.exporters.append(UIDExporter(uid, exportType=self.options.exportAllType))
+
         try:
 
-            allCalendars = itertools.chain(
-                *[(yield exporter.listCalendars(txn, self)) for exporter in
+            allCollections = itertools.chain(
+                *[(yield exporter.listCollections(txn, self)) for exporter in
                   self.options.exporters]
             )
 
@@ -364,9 +456,9 @@ class ExporterService(WorkerService, object):
                 if os.path.exists(dirname):
                     shutil.rmtree(dirname)
                 os.mkdir(dirname)
-                yield exportToDirectory(allCalendars, dirname)
+                yield exportToDirectory(allCollections, dirname, self.options.convertToMailto)
             else:
-                yield exportToFile(allCalendars, self.output)
+                yield exportToFile(allCollections, self.output, self.options.convertToMailto)
                 self.output.close()
 
             yield txn.commit()
@@ -419,6 +511,7 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
 
     def makeService(store):
         from twistedcaldav.config import config
+        config.TransactionTimeoutSeconds = 0
         return ExporterService(store, options, output, reactor, config)
 
     utilityMain(options["config"], makeService, reactor, verbose=options["debug"])

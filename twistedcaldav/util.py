@@ -49,7 +49,10 @@ try:
 except ImportError:
     hasCtypes = False
 
-if sys.platform == "darwin" and hasCtypes:
+if (
+        sys.platform == "darwin" or
+        sys.platform.startswith("freebsd")
+) and hasCtypes:
     libc = cdll.LoadLibrary(find_library("libc"))
 
     def getNCPU():

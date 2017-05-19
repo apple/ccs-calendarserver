@@ -96,6 +96,8 @@ def usage(e=None):
     print("  --get-auto-accept-group: read auto-accept-group")
     print("  --add {locations|resources|addresses} full-name record-name UID: add a principal")
     print("  --remove: remove a principal")
+    print("  --set-name=name: set the name of a principal")
+    print("  --get-name: get the name of a principal")
     print("  --set-geo=url: set the geo: url for an address (e.g. geo:37.331741,-122.030333)")
     print("  --get-geo: get the geo: url for an address")
     print("  --set-street-address=streetaddress: set the street address string for an address")
@@ -174,6 +176,8 @@ def main():
                 "get-auto-accept-group",
 
                 # Principal details
+                "set-name=",
+                "get-name",
                 "set-geo=",
                 "get-geo",
                 "set-address=",
@@ -290,6 +294,12 @@ def main():
 
         elif opt in ("", "--get-auto-accept-group"):
             principalActions.append((action_getAutoAcceptGroup,))
+
+        elif opt in ("", "--set-name"):
+            principalActions.append((action_setValue, u"fullNames", [arg]))
+
+        elif opt in ("", "--get-name"):
+            principalActions.append((action_getValue, u"fullNames"))
 
         elif opt in ("", "--set-geo"):
             principalActions.append((action_setValue, u"geographicLocation", arg))
@@ -823,9 +833,12 @@ def action_getAutoAcceptGroup(store, record):
 
 @inlineCallbacks
 def action_setValue(store, record, name, value):
+    displayValue = value
+    if isinstance(value, list):
+        displayValue = u", ".join(value)
     print(
         "Setting {name} to {value} for {record}".format(
-            name=name, value=value, record=prettyRecord(record),
+            name=name, value=displayValue, record=prettyRecord(record),
         )
     )
     # Get original fields
@@ -841,6 +854,8 @@ def action_setValue(store, record, name, value):
 def action_getValue(store, record, name):
     try:
         value = record.fields[record.service.fieldName.lookupByName(name)]
+        if isinstance(value, list):
+            value = u", ".join(value)
         print(
             "{name} for {record} is {value}".format(
                 name=name, record=prettyRecord(record), value=value

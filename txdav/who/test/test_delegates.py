@@ -559,6 +559,121 @@ class DelegationCachingTest(StoreTestCase):
             yield self._memcacherAllMembershipResults(delegate2, [], [])
 
     @inlineCallbacks
+    def test_directoryBasedDelegationChanges(self):
+
+        groupCacher = GroupCacher(self.directory)
+
+        delegator = yield self.directory.recordWithUID(u"__wsanchez1__")
+        groupRecord1 = yield self.directory.recordWithUID(u"__top_group_1__")
+        group1 = yield self.transactionUnderTest().groupByUID("__top_group_1__")
+        groupRecord2 = yield self.directory.recordWithUID(u"__sub_group_1__")
+        group2 = yield self.transactionUnderTest().groupByUID("__sub_group_1__")
+        groupRecord3 = yield self.directory.recordWithUID(u"left_coast")
+        group3 = yield self.transactionUnderTest().groupByUID("left_coast")
+        delegate = yield self.directory.recordWithUID(u"__sagen1__")
+
+        # No delegates
+        delegates = yield Delegates.delegatesOf(self.transactionUnderTest(), delegator, False)
+        self.assertEquals(len(delegates), 0)
+
+        # No delegators to this group
+        delegators = yield self.transactionUnderTest().delegatorsToGroup(group1.groupID, False)
+        self.assertEquals(len(delegators), 0)
+
+        # User is not a delegate
+        delegators = yield Delegates.delegatedTo(self.transactionUnderTest(), delegate, True)
+        self.assertEquals(len(delegators), 0)
+
+        # Apply an external read-only assignment
+        yield groupCacher.applyExternalAssignments(
+            self.transactionUnderTest(), delegator.uid, groupRecord1.uid, None
+        )
+
+        # Now there is a read-only delegate
+        delegates = yield Delegates.delegatesOf(self.transactionUnderTest(), delegator, False)
+        self.assertEquals(len(delegates), 1)
+
+        # Now this group is read-only delegated to
+        delegators = yield self.transactionUnderTest().delegatorsToGroup(group1.groupID, False)
+        self.assertEquals(len(delegators), 1)
+
+        # Apply an external read-write assignment
+        yield groupCacher.applyExternalAssignments(
+            self.transactionUnderTest(), delegator.uid, groupRecord1.uid, groupRecord2.uid
+        )
+
+        # Now there are read-only and read-write delegates
+        delegates = yield Delegates.delegatesOf(self.transactionUnderTest(), delegator, False)
+        self.assertEquals(len(delegates), 1)
+        self.assertEquals(delegates[0].uid, "__top_group_1__")
+        delegates = yield Delegates.delegatesOf(self.transactionUnderTest(), delegator, True)
+        self.assertEquals(len(delegates), 1)
+        self.assertEquals(delegates[0].uid, "__sub_group_1__")
+
+        # Now both groups are delegated to
+        delegators = yield self.transactionUnderTest().delegatorsToGroup(group1.groupID, False)
+        self.assertEquals(len(delegators), 1)
+        delegators = yield self.transactionUnderTest().delegatorsToGroup(group2.groupID, True)
+        self.assertEquals(len(delegators), 1)
+
+        # User is now a delegate (cache must have been invalidated properly)
+        delegators = yield Delegates.delegatedTo(self.transactionUnderTest(), delegate, True)
+        self.assertEquals(len(delegators), 1)
+
+        # Change read-write assignment
+        yield groupCacher.applyExternalAssignments(
+            self.transactionUnderTest(), delegator.uid, groupRecord1.uid, groupRecord3.uid
+        )
+        # Now this group is not delegated to
+        delegators = yield self.transactionUnderTest().delegatorsToGroup(group2.groupID, True)
+        self.assertEquals(len(delegators), 0)
+
+        # ..but this group is delegated to
+        delegators = yield self.transactionUnderTest().delegatorsToGroup(group3.groupID, True)
+        self.assertEquals(len(delegators), 1)
+
+        # Remove external read-write assignment
+        yield groupCacher.applyExternalAssignments(
+            self.transactionUnderTest(), delegator.uid, groupRecord1.uid, None
+        )
+
+        # Now there is only a read-only delegate
+        delegates = yield Delegates.delegatesOf(self.transactionUnderTest(), delegator, False)
+        self.assertEquals(len(delegates), 1)
+        self.assertEquals(delegates[0].uid, "__top_group_1__")
+        delegates = yield Delegates.delegatesOf(self.transactionUnderTest(), delegator, True)
+        self.assertEquals(len(delegates), 0)
+
+        # Now this group is read-only delegated to
+        delegators = yield self.transactionUnderTest().delegatorsToGroup(group1.groupID, False)
+        self.assertEquals(len(delegators), 1)
+
+        # Now this group is not delegated to
+        delegators = yield self.transactionUnderTest().delegatorsToGroup(group3.groupID, True)
+        self.assertEquals(len(delegators), 0)
+
+        # User is not a delegate anymore (cache must have been invalidated properly)
+        delegators = yield Delegates.delegatedTo(self.transactionUnderTest(), delegate, True)
+        self.assertEquals(len(delegators), 0)
+
+        # Remove external assignments altogether
+        yield groupCacher.applyExternalAssignments(
+            self.transactionUnderTest(), delegator.uid, None, None
+        )
+
+        # Now there are no delegates
+        delegates = yield Delegates.delegatesOf(self.transactionUnderTest(), delegator, False)
+        self.assertEquals(len(delegates), 0)
+
+        # No groups are delegated to
+        delegators = yield self.transactionUnderTest().delegatorsToGroup(group1.groupID, False)
+        self.assertEquals(len(delegators), 0)
+        delegators = yield self.transactionUnderTest().delegatorsToGroup(group2.groupID, True)
+        self.assertEquals(len(delegators), 0)
+        delegators = yield self.transactionUnderTest().delegatorsToGroup(group3.groupID, True)
+        self.assertEquals(len(delegators), 0)
+
+    @inlineCallbacks
     def test_setDelegation(self):
 
         delegator = yield self.directory.recordWithUID(u"__wsanchez1__")

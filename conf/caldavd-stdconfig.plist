@@ -1774,7 +1774,7 @@
 	<key>DirectoryProxy</key>
 	<dict>
 		<key>Enabled</key>
-		<true/>
+		<false/>
 
 		<key>SocketPath</key>
 		<string>directory-proxy.sock</string>
