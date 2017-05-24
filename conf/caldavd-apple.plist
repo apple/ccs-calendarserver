@@ -255,6 +255,12 @@
     <key>DirectoryFilterStartsWith</key>
     <true/>
 
+    <key>DirectoryProxy</key>
+    <dict>
+      <key>Enabled</key>
+      <true/>
+    </dict>
+
     <!--
         Special principals
 
