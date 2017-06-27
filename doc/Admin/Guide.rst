@@ -5,7 +5,7 @@ Calendar and Contacts Server Administrator's Guide
 #. Install_
 
      #) Requirements_
-     #) Local or system installation
+     #) Installation_
 
 #. Configure
 
@@ -85,5 +85,9 @@ Ubuntu 13.10 server:
 
 Next, run ``bin/develop`` to get the remaining dependencies (note that for some releases on some distributions it may be necessary to run ``/bin/bash bin/develop`` to force the script to run under the bash shell)
 
-(to be continued...)
+Installation
+-----------------------------
 
+The ./bin/develop script is not intended for production use, but rather as a quick-and-dirty way to bootstrap the service for development or evaluation purposes. To perform an installation of the service and any required dependencies that aren't already provided at the system level, use the bin/package tool, which simply creates a directory at the specified location to contain all the software. 
+
+Note that this tool does not intend to integrate with 'standard' filesystem hierarchy conventions, for example by putting executable things in '/usr/bin', data in '/var', etc. Instead, everything installed by this tool goes under a single directory, and that directory probably shouldn't be "/", "/usr", or "/usr/local". Instead, pick something like "/usr/local/CalendarServer" or "/opt/var/CalendarServer" to make sure not to interfere with anything else. As an ease-of-use convenience, one of the items emitted by the ./bin/package script in the target directory is an "environment.sh" file. This should be sourced at shell startup, and augments PATH and other environment variables that allow you to use this software without having to type absolute paths all the time.
