@@ -79,8 +79,10 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         except InvalidSubscriptionValues:
             pass
 
-        token = "2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"
-        token2 = "3d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"
+        # Specifically not using 32-byte (64 hex char) in length tokens here, as
+        # device tokens are not fixed length:
+        token = "2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219dfaa"
+        token2 = "3d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219dfaa"
         key1 = "/CalDAV/calendars.example.com/user01/calendar/"
         timestamp1 = 1000
         uid = "D2256BCC-48E2-42D1-BD89-CBA1E4CCDFFB"
@@ -157,36 +159,37 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         # Verify data sent to APN
         providerConnector = service.providers["CalDAV"].testConnector
         rawData = providerConnector.transport.data
-        self.assertEquals(len(rawData), 199)
+        self.assertEquals(len(rawData), 200)
         data = struct.unpack("!BI", rawData[:5])
         self.assertEquals(data[0], 2)  # command
-        self.assertEquals(data[1], 194)  # frame length
+        self.assertEquals(data[1], 195)  # frame length
         # Item 1 (device token)
-        data = struct.unpack("!BH32s", rawData[5:40])
-        self.assertEquals(data[0], 1)
-        self.assertEquals(data[1], 32)
-        self.assertEquals(data[2].encode("hex"), token.replace(" ", ""))  # token
+        itemNum, tokenLength = struct.unpack("!BH", rawData[5:8])
+        self.assertEquals(itemNum, 1)
+        self.assertEquals(tokenLength, len(token) / 2)
+        data = struct.unpack("!%ds" % (tokenLength,), rawData[8:8 + tokenLength])
+        self.assertEquals(data[0].encode("hex"), token.replace(" ", ""))  # token
         # Item 2 (payload)
-        data = struct.unpack("!BH", rawData[40:43])
+        data = struct.unpack("!BH", rawData[41:44])
         self.assertEquals(data[0], 2)
         payloadLength = data[1]
         self.assertEquals(payloadLength, 138)
-        payload = struct.unpack("!%ds" % (payloadLength,), rawData[43:181])
+        payload = struct.unpack("!%ds" % (payloadLength,), rawData[44:182])
         payload = json.loads(payload[0])
         self.assertEquals(payload["key"], u"/CalDAV/calendars.example.com/user01/calendar/")
         self.assertEquals(payload["dataChangedTimestamp"], dataChangedTimestamp)
         self.assertTrue("pushRequestSubmittedTimestamp" in payload)
         # Item 3 (notification id)
-        data = struct.unpack("!BHI", rawData[181:188])
+        data = struct.unpack("!BHI", rawData[182:189])
         self.assertEquals(data[0], 3)
         self.assertEquals(data[1], 4)
         self.assertEquals(data[2], 2)
         # Item 4 (expiration)
-        data = struct.unpack("!BHI", rawData[188:195])
+        data = struct.unpack("!BHI", rawData[189:196])
         self.assertEquals(data[0], 4)
         self.assertEquals(data[1], 4)
         # Item 5 (priority)
-        data = struct.unpack("!BHB", rawData[195:199])
+        data = struct.unpack("!BHB", rawData[196:200])
         self.assertEquals(data[0], 5)
         self.assertEquals(data[1], 1)
         self.assertEquals(data[2], ApplePushPriority.high.value)
@@ -208,9 +211,9 @@ class ApplePushNotifierServiceTests(StoreTestCase):
             priority=PushPriority.low)
         yield txn.commit()
         clock.advance(1)  # so that first push is sent
-        self.assertEquals(len(providerConnector.transport.data), 199)
+        self.assertEquals(len(providerConnector.transport.data), 200)
         # Ensure that the priority is "low"
-        data = struct.unpack("!BHB", providerConnector.transport.data[195:199])
+        data = struct.unpack("!BHB", providerConnector.transport.data[196:200])
         self.assertEquals(data[0], 5)
         self.assertEquals(data[1], 1)
         self.assertEquals(data[2], ApplePushPriority.low.value)
@@ -218,7 +221,7 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         # Reset sent data
         providerConnector.transport.data = None
         clock.advance(3)  # so that second push is sent
-        self.assertEquals(len(providerConnector.transport.data), 199)
+        self.assertEquals(len(providerConnector.transport.data), 200)
 
         history = []
 
@@ -262,9 +265,10 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         feedbackConnector = service.feedbacks["CalDAV"].testConnector
         timestamp = 2000
         binaryToken = token.decode("hex")
+        tokenLength = len(binaryToken)
         feedbackData = struct.pack(
-            "!IH32s", timestamp, len(binaryToken),
-            binaryToken)
+            "!IH%ds" % (tokenLength,), timestamp, tokenLength, binaryToken
+        )
         yield feedbackConnector.receiveData(feedbackData)
 
         # Simulate feedback with multiple tokens, and dataReceived called
@@ -277,9 +281,9 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         timestamp = 2000
         binaryToken = token.decode("hex")
         feedbackData = struct.pack(
-            "!IH32sIH32s",
-            timestamp, len(binaryToken), binaryToken,
-            timestamp, len(binaryToken), binaryToken,
+            "!IH%dsIH%ds" % (tokenLength, tokenLength),
+            timestamp, tokenLength, binaryToken,
+            timestamp, tokenLength, binaryToken,
         )
         # Send 1st 10 bytes
         yield feedbackConnector.receiveData(feedbackData[:10], fn=feedbackTestFunction)
@@ -288,11 +292,6 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         self.assertEquals(history, [(timestamp, token), (timestamp, token)])
         # Buffer is empty
         self.assertEquals(len(feedbackConnector.service.protocol.buffer), 0)
-
-        # Sending 39 bytes
-        yield feedbackConnector.receiveData("!" * 39, fn=feedbackTestFunction)
-        # Buffer has 1 byte remaining
-        self.assertEquals(len(feedbackConnector.service.protocol.buffer), 1)
 
         # The second subscription should now be gone
         txn = self._sqlCalendarStore.newTransaction()
@@ -346,7 +345,7 @@ class ApplePushNotifierServiceTests(StoreTestCase):
 
     def test_validToken(self):
         self.assertTrue(validToken("2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"))
-        self.assertFalse(validToken("d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"))
+        self.assertTrue(validToken("d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219d"))
         self.assertFalse(validToken("foo"))
         self.assertFalse(validToken(""))
 
