@@ -141,10 +141,10 @@ def getAPNTopicFromX509(x509):
 
 def validToken(token):
     """
-    Return True if token is in hex and is 64 characters long, False
+    Return True if token is in hex and is not empty, False
     otherwise
     """
-    if len(token) != 64:
+    if not token:
         return False
 
     try:

@@ -357,6 +357,7 @@ class APNProviderProtocol(Protocol):
         except:
             self.log.error("Invalid APN token in database: {token}", token=token)
             return
+        tokenLength = len(binaryToken)
 
         identifier = self.history.add(token)
         apnsPriority = ApplePushPriority.lookupByValue(priority.value).value
@@ -378,7 +379,7 @@ class APNProviderProtocol(Protocol):
         Top level:  Command (1 byte), Frame length (4 bytes), Frame data (variable)
         Within Frame data:  Item ...
         Item: Item number (1 byte), Item data length (2 bytes), Item data (variable)
-        Item 1: Device token (32 bytes)
+        Item 1: Device token (variable length)
         Item 2: Payload (variable length) in JSON format, not null-terminated
         Item 3: Notification ID (4 bytes) an opaque value used for reporting errors
         Item 4: Expiration date (4 bytes) UNIX epoch in secondcs UTC
@@ -392,7 +393,7 @@ class APNProviderProtocol(Protocol):
             # Item 1 (Device token)
             1 +  # Item number                       # B
             2 +  # Item length                       # H
-            32 +  # device token                     # 32s
+            tokenLength +  # device token            # %d s
             # Item 2 (Payload)
             1 +  # Item number                       # B
             2 +  # Item length                       # H
@@ -413,13 +414,13 @@ class APNProviderProtocol(Protocol):
 
         self.transport.write(
             struct.pack(
-                "!BIBH32sBH%dsBHIBHIBHB" % (payloadLength,),
+                "!BIBH%dsBH%dsBHIBHIBHB" % (tokenLength, payloadLength,),
 
                 command,                         # Command
                 frameLength,                     # Frame length
 
                 1,                               # Item 1 (Device token)
-                32,                              # Token Length
+                tokenLength,                     # Token Length
                 binaryToken,                     # Token
 
                 2,                               # Item 2 (Payload)
@@ -659,7 +660,7 @@ class APNFeedbackProtocol(Protocol):
     """
     log = Logger()
 
-    MESSAGE_LENGTH = 38
+    PREFIX_LENGTH = 6
 
     def connectionMade(self):
         self.log.debug("FeedbackProtocol connectionMade")
@@ -668,8 +669,9 @@ class APNFeedbackProtocol(Protocol):
     @inlineCallbacks
     def dataReceived(self, data, fn=None):
         """
-        Buffer and divide up received data into feedback messages which are
-        always 38 bytes long
+        Buffer and divide up received data into feedback messages.  Once we've
+        received enough data and can read a device token, we call processFeedback( )
+        on it.
         """
 
         if fn is None:
@@ -678,21 +680,36 @@ class APNFeedbackProtocol(Protocol):
         self.log.debug("FeedbackProtocol dataReceived {len} bytes", len=len(data))
         self.buffer += data
 
-        while len(self.buffer) >= self.MESSAGE_LENGTH:
-            message = self.buffer[:self.MESSAGE_LENGTH]
-            self.buffer = self.buffer[self.MESSAGE_LENGTH:]
+        while len(self.buffer) >= self.PREFIX_LENGTH:
+            prefix = self.buffer[:self.PREFIX_LENGTH]
 
             try:
-                timestamp, _ignore_tokenLength, binaryToken = struct.unpack(
-                    "!IH32s",
-                    message)
-                token = binaryToken.encode("hex").lower()
-                yield fn(timestamp, token)
+                # Get the length of the token
+                timestamp, tokenLength = struct.unpack(
+                    "!IH",
+                    prefix)
+
+                messageLength = self.PREFIX_LENGTH + tokenLength
+
+                if len(self.buffer) >= messageLength:
+                    # Now we can get the token itself
+                    data = struct.unpack(
+                        "!%ds" % (tokenLength,),
+                        self.buffer[self.PREFIX_LENGTH:messageLength])
+                    token = data[0].encode("hex").lower()
+                    yield fn(timestamp, token)
+                    self.buffer = self.buffer[messageLength:]
+
+                else:
+                    # We had enough for the prefix, but not enough containing
+                    # the token itself
+                    return
+
             except Exception, e:
                 self.log.warn(
-                    "FeedbackProtocol could not process message: {code} ({ex})",
-                    code=message.encode("hex"), ex=e
+                    "FeedbackProtocol could not process message: ({ex})", ex=e
                 )
+                return
 
     @inlineCallbacks
     def processFeedback(self, timestamp, token):
