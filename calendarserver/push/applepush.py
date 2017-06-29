@@ -669,8 +669,9 @@ class APNFeedbackProtocol(Protocol):
     @inlineCallbacks
     def dataReceived(self, data, fn=None):
         """
-        Buffer and divide up received data into feedback messages which are
-        always 38 bytes long
+        Buffer and divide up received data into feedback messages.  Once we've
+        received enough data and can read a device token, we call processFeedback( )
+        on it.
         """
 
         if fn is None:
