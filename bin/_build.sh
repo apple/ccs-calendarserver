@@ -784,7 +784,7 @@ bootstrap_virtualenv () {
 
   for pkg in             \
       setuptools==18.5    \
-      pip==8.1.2          \
+      pip==9.0.1          \
       virtualenv==15.0.2  \
   ; do
       ruler "Installing ${pkg}";
