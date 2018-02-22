@@ -1,7 +1,7 @@
 -- -*- test-case-name: txdav.caldav.datastore.test.test_sql,txdav.carddav.datastore.test.test_sql -*-
 
 ----
--- Copyright (c) 2010-2017 Apple Inc. All rights reserved.
+-- Copyright (c) 2010-2018 Apple Inc. All rights reserved.
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -64,12 +64,12 @@ create index JOB_IS_ASSIGNED_OVERDUE_JOB_ID on
 -------------------
 
 create table CALENDAR_HOME (
-  RESOURCE_ID      bigint      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  OWNER_UID        varchar(255) not null,                		                -- implicit index
+  RESOURCE_ID      bigint       primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
+  OWNER_UID        varchar(255) not null,                                       -- implicit index
   STATUS           integer      default 0 not null,                             -- enum HOME_STATUS
   DATAVERSION      integer      default 0 not null,
 
-  unique (OWNER_UID, STATUS)	-- implicit index
+  unique (OWNER_UID, STATUS)    -- implicit index
 );
 
 -- Enumeration of statuses
@@ -132,7 +132,7 @@ create index CALENDAR_HOME_METADATA_DEFAULT_POLLS on
 create table CALENDAR_METADATA (
   RESOURCE_ID           bigint       primary key references CALENDAR on delete cascade, -- implicit index
   SUPPORTED_COMPONENTS  varchar(255) default null,
-  CHILD_TYPE            integer      default 0 not null,                             	-- enum CHILD_TYPE
+  CHILD_TYPE            integer      default 0 not null,                                -- enum CHILD_TYPE
   TRASHED               timestamp    default null,
   IS_IN_TRASH           boolean      default false not null, -- collection is in the trash
   CREATED               timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
@@ -156,10 +156,10 @@ insert into CHILD_TYPE values (2, 'trash');
 ------------------------
 
 create table CALENDAR_MIGRATION (
-  CALENDAR_HOME_RESOURCE_ID		bigint  references CALENDAR_HOME on delete cascade,
-  REMOTE_RESOURCE_ID			bigint not null,
-  LOCAL_RESOURCE_ID				bigint 	references CALENDAR on delete cascade,
-  LAST_SYNC_TOKEN				varchar(255),
+  CALENDAR_HOME_RESOURCE_ID    bigint         references CALENDAR_HOME on delete cascade,
+  REMOTE_RESOURCE_ID           bigint         not null,
+  LOCAL_RESOURCE_ID            bigint         references CALENDAR on delete cascade,
+  LAST_SYNC_TOKEN              varchar(255),
 
   primary key (CALENDAR_HOME_RESOURCE_ID, REMOTE_RESOURCE_ID) -- implicit index
 );
@@ -174,11 +174,11 @@ create index CALENDAR_MIGRATION_LOCAL_RESOURCE_ID on
 
 create table NOTIFICATION_HOME (
   RESOURCE_ID bigint       primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  OWNER_UID   varchar(255) not null,	                                   -- implicit index
+  OWNER_UID   varchar(255) not null,                                       -- implicit index
   STATUS      integer      default 0 not null,                             -- enum HOME_STATUS
   DATAVERSION integer      default 0 not null,
 
-  unique (OWNER_UID, STATUS)	-- implicit index
+  unique (OWNER_UID, STATUS) -- implicit index
 );
 
 create table NOTIFICATION (
@@ -210,7 +210,7 @@ create table CALENDAR_BIND (
   CALENDAR_RESOURCE_NAME    varchar(255) not null,
   BIND_MODE                 integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS               integer      not null, -- enum CALENDAR_BIND_STATUS
-  BIND_REVISION             integer      default 0 not null,
+  BIND_REVISION             bigint       default 0 not null,
   BIND_UID                  varchar(36)  default null,
   MESSAGE                   text,
   TRANSP                    integer      default 0 not null, -- enum CALENDAR_TRANSP
@@ -408,9 +408,9 @@ create table PERUSER (
 -------------------------------
 
 create table CALENDAR_OBJECT_MIGRATION (
-  CALENDAR_HOME_RESOURCE_ID		bigint  references CALENDAR_HOME on delete cascade,
-  REMOTE_RESOURCE_ID			bigint not null,
-  LOCAL_RESOURCE_ID				bigint 	references CALENDAR_OBJECT on delete cascade,
+  CALENDAR_HOME_RESOURCE_ID     bigint references CALENDAR_HOME on delete cascade,
+  REMOTE_RESOURCE_ID            bigint not null,
+  LOCAL_RESOURCE_ID             bigint references CALENDAR_OBJECT on delete cascade,
 
   primary key (CALENDAR_HOME_RESOURCE_ID, REMOTE_RESOURCE_ID) -- implicit index
 );
@@ -463,9 +463,9 @@ create index ATTACHMENT_CALENDAR_OBJECT_CALENDAR_OBJECT_RESOURCE_ID on
 -----------------------------------
 
 create table ATTACHMENT_MIGRATION (
-  CALENDAR_HOME_RESOURCE_ID		bigint  references CALENDAR_HOME on delete cascade,
-  REMOTE_RESOURCE_ID			bigint not null,
-  LOCAL_RESOURCE_ID				bigint 	references ATTACHMENT on delete cascade,
+  CALENDAR_HOME_RESOURCE_ID     bigint references CALENDAR_HOME on delete cascade,
+  REMOTE_RESOURCE_ID            bigint not null,
+  LOCAL_RESOURCE_ID             bigint references ATTACHMENT on delete cascade,
 
   primary key (CALENDAR_HOME_RESOURCE_ID, REMOTE_RESOURCE_ID) -- implicit index
 );
@@ -495,13 +495,13 @@ create table RESOURCE_PROPERTY (
 ----------------------
 
 create table ADDRESSBOOK_HOME (
-  RESOURCE_ID                   bigint          primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  ADDRESSBOOK_PROPERTY_STORE_ID bigint          default nextval('RESOURCE_ID_SEQ') not null,    -- implicit index
-  OWNER_UID                     varchar(255)    not null,
-  STATUS                        integer         default 0 not null,                             -- enum HOME_STATUS
-  DATAVERSION                   integer         default 0 not null,
+  RESOURCE_ID                   bigint         primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
+  ADDRESSBOOK_PROPERTY_STORE_ID bigint         default nextval('RESOURCE_ID_SEQ') not null,    -- implicit index
+  OWNER_UID                     varchar(255)   not null,
+  STATUS                        integer        default 0 not null,                             -- enum HOME_STATUS
+  DATAVERSION                   integer        default 0 not null,
 
-  unique (OWNER_UID, STATUS)	-- implicit index
+  unique (OWNER_UID, STATUS)    -- implicit index
 );
 
 
@@ -529,7 +529,7 @@ create table SHARED_ADDRESSBOOK_BIND (
   ADDRESSBOOK_RESOURCE_NAME             varchar(255)    not null,
   BIND_MODE                             integer         not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS                           integer         not null, -- enum CALENDAR_BIND_STATUS
-  BIND_REVISION                         integer         default 0 not null,
+  BIND_REVISION                         bigint          default 0 not null,
   BIND_UID                              varchar(36)     default null,
   MESSAGE                               text,                     -- FIXME: xml?
 
@@ -632,7 +632,7 @@ create table SHARED_GROUP_BIND (
   GROUP_ADDRESSBOOK_NAME            varchar(255) not null,
   BIND_MODE                         integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS                       integer      not null, -- enum CALENDAR_BIND_STATUS
-  BIND_REVISION                     integer      default 0 not null,
+  BIND_REVISION                     bigint       default 0 not null,
   BIND_UID                          varchar(36)  default null,
   MESSAGE                           text,                  -- FIXME: xml?
 
@@ -780,7 +780,7 @@ create sequence WORKITEM_SEQ;
 create table TEST_WORK (
   WORK_ID                       bigint       primary key default nextval('WORKITEM_SEQ'), -- implicit index
   JOB_ID                        bigint       references JOB not null,
-  DELAY 						integer
+  DELAY                         integer
 );
 
 create index TEST_WORK_JOB_ID on
@@ -898,7 +898,7 @@ create index GROUP_DELEGATE_CHANGES_WORK_DELEGATOR_UID on
 create table GROUPS (
   GROUP_ID                      bigint       primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
   NAME                          varchar(255) not null,
-  GROUP_UID                     varchar(255) not null unique,									-- implicit index
+  GROUP_UID                     varchar(255) not null unique,                                   -- implicit index
   MEMBERSHIP_HASH               varchar(255) not null,
   EXTANT                        integer default 1,
   CREATED                       timestamp default timezone('UTC', CURRENT_TIMESTAMP),
@@ -945,7 +945,7 @@ create index GROUP_ATTENDEE_RESOURCE_ID on
 create table GROUP_SHAREE_RECONCILE_WORK (
   WORK_ID                       bigint  primary key default nextval('WORKITEM_SEQ'), -- implicit index
   JOB_ID                        bigint  not null references JOB,
-  CALENDAR_ID                   bigint 	not null references CALENDAR on delete cascade,
+  CALENDAR_ID                   bigint  not null references CALENDAR on delete cascade,
   GROUP_ID                      bigint  not null references GROUPS on delete cascade
 );
 
@@ -958,9 +958,9 @@ create index GROUP_SHAREE_RECONCILE_WORK_GROUP_ID on
 
 
 create table GROUP_SHAREE (
-  GROUP_ID                      bigint  not null references GROUPS on delete cascade,
-  CALENDAR_ID      				bigint  not null references CALENDAR on delete cascade,
-  GROUP_BIND_MODE               integer not null, -- enum CALENDAR_BIND_MODE
+  GROUP_ID                      bigint       not null references GROUPS on delete cascade,
+  CALENDAR_ID                   bigint       not null references CALENDAR on delete cascade,
+  GROUP_BIND_MODE               integer      not null, -- enum CALENDAR_BIND_MODE
   MEMBERSHIP_HASH               varchar(255) not null,
 
   primary key (GROUP_ID, CALENDAR_ID)
@@ -1146,7 +1146,7 @@ create table SCHEDULE_ORGANIZER_WORK (
   WORK_ID                       bigint       primary key references SCHEDULE_WORK on delete cascade, -- implicit index
   SCHEDULE_ACTION               integer      not null, -- Enum SCHEDULE_ACTION
   HOME_RESOURCE_ID              bigint       not null references CALENDAR_HOME on delete cascade,
-  RESOURCE_ID                   bigint ,     -- this references a possibly non-existent CALENDAR_OBJECT
+  RESOURCE_ID                   bigint,      -- this references a possibly non-existent CALENDAR_OBJECT
   ICALENDAR_TEXT_OLD            text,
   ICALENDAR_TEXT_NEW            text,
   ATTENDEE_COUNT                integer,
@@ -1178,7 +1178,7 @@ create table SCHEDULE_ORGANIZER_SEND_WORK (
   WORK_ID                       bigint       primary key references SCHEDULE_WORK on delete cascade, -- implicit index
   SCHEDULE_ACTION               integer      not null, -- Enum SCHEDULE_ACTION
   HOME_RESOURCE_ID              bigint       not null references CALENDAR_HOME on delete cascade,
-  RESOURCE_ID                   bigint ,     -- this references a possibly non-existent CALENDAR_OBJECT
+  RESOURCE_ID                   bigint,      -- this references a possibly non-existent CALENDAR_OBJECT
   ATTENDEE                      varchar(255) not null,
   ITIP_MSG                      text,
   NO_REFRESH                    boolean
@@ -1196,7 +1196,7 @@ create index SCHEDULE_ORGANIZER_SEND_WORK_RESOURCE_ID on
 create table SCHEDULE_REPLY_WORK (
   WORK_ID                       bigint       primary key references SCHEDULE_WORK on delete cascade, -- implicit index
   HOME_RESOURCE_ID              bigint       not null references CALENDAR_HOME on delete cascade,
-  RESOURCE_ID                   bigint ,     -- this references a possibly non-existent CALENDAR_OBJECT
+  RESOURCE_ID                   bigint,      -- this references a possibly non-existent CALENDAR_OBJECT
   ITIP_MSG                      text
 );
 

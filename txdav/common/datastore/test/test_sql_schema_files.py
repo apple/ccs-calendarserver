@@ -15,7 +15,7 @@
 # #
 
 from twext.enterprise.dal.model import Constraint
-from twext.enterprise.dal.parseschema import schemaFromPath
+from twext.enterprise.dal.parseschema import schemaFromPath, schemaFromString
 from twisted.python.modules import getModule
 from twisted.trial.unittest import TestCase
 import re
@@ -101,7 +101,9 @@ class SQLSchemaFiles(TestCase):
 
         self.assertEqual(current_version, current_oracle_version)
 
-        schema_current = schemaFromPath(currentSchema)
+        # In Oracle, integers are equivalent to bigint, while in PostgreSQL they are not.
+        # For the purpose of this test, convert the PostgreSQL bigints to integers before the comparison.
+        schema_current = schemaFromString(currentSchema.getContent().replace("bigint", "integer"))
         schema_oracle = schemaFromPath(currentOracleSchema)
 
         # Remove any not null constraints in the postgres schema for text columns as in
