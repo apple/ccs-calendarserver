@@ -25,7 +25,7 @@ import os
 import subprocess
 import sys
 
-base_version = "9.2"
+base_version = "9.3"
 base_project = "ccs-calendarserver"
 
 
