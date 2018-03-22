@@ -71,6 +71,9 @@ limitations under the License.
   <key>PreventsSleep</key>
   <true/>
 
+  <key>ProcessType</key>
+  <string>Interactive</string>
+
   <key>StandardOutPath</key>
   <string>/Library/Server/Logs/caldavd.log</string>
 
