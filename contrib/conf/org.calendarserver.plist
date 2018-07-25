@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+Copyright (c) 2006-2017 Apple Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+ -->
+
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+
+  <key>Label</key>
+  <string>org.calendarserver</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/calendarserver/CalendarServer/bin/caldavd</string>
+    <string>-X</string>
+    <string>-R</string>
+    <string>kqueue</string>
+    <string>-f</string>
+    <string>/Users/calendarserver/CalendarServer/conf/calendarserver.plist</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PYTHON</key>
+    <string>/Users/calendarserver/CalendarServer/bin/python</string>
+    <key>PATH</key>
+    <string>/Users/calendarserver/CalendarServer/bin:/Users/calendarserver/CalendarServer/virtualenv/bin:/usr/bin:/usr/sbin:/bin:/sbin</string>
+  </dict>
+
+  <key>InitGroups</key>
+  <true/>
+
+  <key>AbandonProcessGroup</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>ThrottleInterval</key>
+  <integer>60</integer>
+
+  <key>HardResourceLimits</key>
+  <dict>
+    <key>NumberOfFiles</key>
+    <integer>12000</integer>
+  </dict>
+
+  <key>SoftResourceLimits</key>
+  <dict>
+    <key>NumberOfFiles</key>
+    <integer>12000</integer>
+  </dict>
+
+  <key>PreventsSleep</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/calendarserver/CalendarServer/logs/launchd.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/calendarserver/CalendarServer/logs/launchd.log</string>
+
+</dict>
+</plist>
