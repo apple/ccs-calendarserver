@@ -32,7 +32,7 @@ running this script, and may be found in a PDF document called
 "macOS Server - Service Migration Guide" (v1.2 as of this writing):
     https://developer.apple.com/support/macos-server/macOS-Server-Service-Migration-Guide.pdf
     https://web.archive.org/web/20180813185235/https://developer.apple.com/support/macos-server/macOS-Server-Service-Migration-Guide.pdf
-"
+"""
 
 def main():
 
