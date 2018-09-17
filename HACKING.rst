@@ -19,12 +19,12 @@ access" and a voice in the future of the project.
 The community exists mainly through mailing lists and a GitHub
 repository. To participate, go to:
 
-  https://trac.calendarserver.org/wiki/MailLists
+  https://www.calendarserver.org/MailingLists.html
 
 and join the appropriate mailing lists.  We also use IRC, as described
 here:
 
-  https://trac.calendarserver.org/wiki/IRC
+  https://www.calendarserver.org/IRC.html
 
 There are many ways to join the project.  One may write code, test the
 software and file bugs, write documentation, etc.
