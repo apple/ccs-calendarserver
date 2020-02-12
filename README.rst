@@ -1,4 +1,15 @@
 ==========================
+Notice of Archival
+==========================
+
+The developers of the Calendar and Contacts Server have each moved on to other projects over the past few years, and given
+the change in the Python language landscape, in addition to the care and feeding requried to maintain a secure set of
+dependecies, the time has come to officially archive the project.  Thank you to all the users and contributors; it was neat
+to hear about how this code was being deployed around the world, and we hope it remains useful for years to come.
+
+
+
+==========================
 Getting Started
 ==========================
 
